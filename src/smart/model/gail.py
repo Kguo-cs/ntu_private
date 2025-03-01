@@ -1,22 +1,5 @@
-# Not a contribution
-# Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
-# NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
-#
-# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-# property and proprietary rights in and to this material, related
-# documentation and any modifications thereto. Any use, reproduction,
-# disclosure or distribution of this material and related documentation
-# without an express license agreement from NVIDIA CORPORATION or
-# its affiliates is strictly prohibited.
-
-
 from lightning import LightningModule
 
-from src.utils.vis_waymo import VisWaymo
-from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-import torch
 import torch.optim as optim
 import random
 from collections import deque
@@ -41,29 +24,33 @@ class GAIL(LightningModule):
         self.automatic_optimization = False
         self.expert_buffer = deque(maxlen=1000)
 
-    def push_expert_sample(self,tokenized_map, tokenized_agent,step_current_2hz=2):
+    def push_expert_sample(self,tokenized_map, tokenized_agent):
         hist_len=1
 
-        for step in range(1,self.num_steps+1):
+        start_step=2
+
+        for step in range(start_step,self.num_steps+start_step):
             tokenized_agent_current = {}
 
-            tokenized_agent_current['sampled_pos'] = tokenized_agent["sampled_pos"][:,step:step+hist_len]
-            tokenized_agent_current['sampled_heading'] = tokenized_agent['sampled_heading'][:, step:step+hist_len]
-            tokenized_agent_current['sampled_idx'] = tokenized_agent["sampled_idx"][:, step:step+hist_len]
-            tokenized_agent_current['valid_mask'] = tokenized_agent["valid_mask"][:, step:step+hist_len]
+            state_action_mask=tokenized_agent["valid_mask"][:, step-1:step+1].all(-1)
+
+            tokenized_agent_current['sampled_pos'] = tokenized_agent["sampled_pos"][:,step-hist_len:step][state_action_mask]
+            tokenized_agent_current['sampled_heading'] = tokenized_agent['sampled_heading'][:, step-hist_len:step][state_action_mask]
+            tokenized_agent_current['sampled_idx'] = tokenized_agent["sampled_idx"][:, step-hist_len:step][state_action_mask]
+            tokenized_agent_current['valid_mask'] = tokenized_agent["valid_mask"][:, step-hist_len:step][state_action_mask]
             tokenized_agent_current['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
             tokenized_agent_current['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
             tokenized_agent_current['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
-            tokenized_agent_current['type'] = tokenized_agent['type']
-            tokenized_agent_current['shape'] = tokenized_agent['shape']
-            tokenized_agent_current['batch'] = tokenized_agent['batch']
+            tokenized_agent_current['type'] = tokenized_agent['type'][state_action_mask]
+            tokenized_agent_current['shape'] = tokenized_agent['shape'][state_action_mask]
+            tokenized_agent_current['batch'] = tokenized_agent['batch'][state_action_mask]
             tokenized_agent_current['num_graphs'] = tokenized_agent['num_graphs']
 
-            action = tokenized_agent["sampled_idx"][:, step+hist_len]
+            action = tokenized_agent["sampled_idx"][:, step].clone()[state_action_mask]
 
             expert_sample = {
                 "state": (tokenized_map, tokenized_agent_current),
-                "action": action
+                "action": action,
             }
 
             self.expert_buffer.append(expert_sample)
@@ -94,7 +81,6 @@ class GAIL(LightningModule):
         dist_entropy = dist.entropy()
 
         feat_a=pred_dict["feat_a"]
-
         value=self.value_network(feat_a)[:,0]
 
         return {
@@ -109,8 +95,8 @@ class GAIL(LightningModule):
             expert_batch=random.sample(self.expert_buffer,1)[0]
             agent_batch=self.agent_buffer.sample_state_action()
 
-            expert_d = self.discriminator.compute_disc_val(expert_batch['state'], torch.zeros_like(expert_batch['action']))
-            agent_d = self.discriminator.compute_disc_val(agent_batch['state'] ,torch.ones_like(agent_batch['action']))
+            expert_d = self.discriminator.compute_disc_val(expert_batch['state'], expert_batch['action'])
+            agent_d = self.discriminator.compute_disc_val(agent_batch['state'] ,agent_batch['action'])
 
             expert_loss =  F.binary_cross_entropy(expert_d,torch.ones_like(expert_d))
             agent_loss =  F.binary_cross_entropy(agent_d,torch.zeros_like(agent_d))
@@ -171,6 +157,7 @@ class GAIL(LightningModule):
             policy_optimizer.zero_grad()
             ppo_loss=self.ppo_loss(sample)
             self.manual_backward(ppo_loss)
+            nn.utils.clip_grad_norm_(list(self.encoder.parameters()) + list(self.value_network.parameters()), 0.5)
             policy_optimizer.step()
 
     def ppo_loss(self,sample,
@@ -227,6 +214,8 @@ class GAIL(LightningModule):
 
             policy_optimizer.zero_grad()
             self.manual_backward(loss)
+            nn.utils.clip_grad_norm_(policy_optimizer.parameters(), 0.5)
+
             policy_optimizer.step()
         else:
             with torch.no_grad():
@@ -238,13 +227,13 @@ class GAIL(LightningModule):
 
             self.update_reward_func(discriminator_optimizer)
 
-            # with torch.no_grad():
-            #     self.get_reward()
-            #
-            #     self.agent_buffer.compute_returns()
-            #     self.agent_buffer.compute_advantages()
-            #
-            # self.ppo_update(policy_optimizer)
+            with torch.no_grad():
+                self.get_reward()
+
+                self.agent_buffer.compute_returns()
+                self.agent_buffer.compute_advantages()
+
+            self.ppo_update(policy_optimizer)
 
 
     def on_validation_epoch_end(self):
@@ -269,5 +258,5 @@ class GAIL(LightningModule):
 
     def configure_optimizers(self):
         policy_optimizer = optim.Adam(list(self.encoder.parameters()) + list(self.value_network.parameters()), lr=self.lr)
-        discriminator_optimizer = optim.Adam(self.discriminator.parameters(), lr=self.lr)
+        discriminator_optimizer = optim.Adam(self.discriminator.parameters(), lr=1e-6)
         return [policy_optimizer, discriminator_optimizer], []

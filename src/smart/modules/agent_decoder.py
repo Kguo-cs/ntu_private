@@ -635,7 +635,7 @@ class SMARTAgentDecoder(nn.Module):
             next_token_logits = self.token_predict_head(feat_a_now)
             next_token_logits_list.append(next_token_logits)  # [n_agent, n_token]
 
-            next_token_idx, next_token_traj_all = sample_next_token_traj(
+            next_token_idx, next_token_traj_all ,prev_log_prob = sample_next_token_traj(
                 token_traj=tokenized_agent["token_traj"],
                 token_traj_all=tokenized_agent["token_traj_all"],
                 sampling_scheme=sampling_scheme,
@@ -650,33 +650,34 @@ class SMARTAgentDecoder(nn.Module):
                 token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_token, 2]
             )  # next_token_idx: [n_agent], next_token_traj_all: [n_agent, 6, 4, 2]
 
-            tokenized_agent_current = {}
+            agent_state = {}
 
             hist_len=1
 
-            tokenized_agent_current['sampled_pos'] = pos_a[:, -hist_len:]
-            tokenized_agent_current['sampled_heading'] = head_a[:, -hist_len:]
-            tokenized_agent_current['sampled_idx'] = agent_token_index[:, -hist_len:]
-            tokenized_agent_current['valid_mask'] = pred_valid[:, n_step-hist_len:n_step]
-            tokenized_agent_current['trajectory_token_veh']=tokenized_agent['trajectory_token_veh']
-            tokenized_agent_current['trajectory_token_ped']=tokenized_agent['trajectory_token_ped']
-            tokenized_agent_current['trajectory_token_cyc']=tokenized_agent['trajectory_token_cyc']
-            tokenized_agent_current['type']=tokenized_agent['type']
-            tokenized_agent_current['shape']=tokenized_agent['shape']
-            tokenized_agent_current['batch']=tokenized_agent['batch']
-            tokenized_agent_current['num_graphs']=tokenized_agent['num_graphs']
+            agent_state['sampled_pos'] = pos_a[:, -hist_len:]
+            agent_state['sampled_heading'] = head_a[:, -hist_len:]
+            agent_state['sampled_idx'] = agent_token_index[:, -hist_len:]
+            agent_state['valid_mask'] = pred_valid[:, n_step-hist_len:n_step]
+            agent_state['trajectory_token_veh']=tokenized_agent['trajectory_token_veh']
+            agent_state['trajectory_token_ped']=tokenized_agent['trajectory_token_ped']
+            agent_state['trajectory_token_cyc']=tokenized_agent['trajectory_token_cyc']
+            agent_state['type']=tokenized_agent['type']
+            agent_state['shape']=tokenized_agent['shape']
+            agent_state['batch']=tokenized_agent['batch']
+            agent_state['num_graphs']=tokenized_agent['num_graphs']
 
-            state = tokenized_agent_current
+            # action_mask= pred_valid[:, n_step-1]
+            #
+            # next_token_idx[~action_mask]=0
+            #print(torch.all(pred_valid[:,n_step-hist_len]))
 
-            action = next_token_idx
             agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
+            # print(prev_log_prob.min())
 
-            # self.forward(tokenized_agent_current, map_feature)
-
-            prev_log_prob=torch.distributions.Categorical(logits=next_token_logits).log_prob(action)
+            # self.forward(agent_state, map_feature)
             sample={
-                "state": state,
-                "action": action,
+                "state": agent_state,
+                "action": next_token_idx,
                 "prev_log_prob": prev_log_prob,
                 "feat_a_now": feat_a_now,
             }

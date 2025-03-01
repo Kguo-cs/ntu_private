@@ -115,7 +115,7 @@ def sample_next_token_traj(
     head_next_gt: Tensor,  # [n_agent]
     valid_next_gt: Tensor,  # [n_agent]
     token_agent_shape: Tensor,  # [n_agent, 2]
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[Tensor, Tensor,Tensor]:
     """
     Returns:
         next_token_traj_all: [n_agent, 6, 4, 2], local coord
@@ -128,9 +128,12 @@ def sample_next_token_traj(
         sampling_scheme.criterium == "topk_prob"
         or sampling_scheme.criterium == "topk_prob_sampled_with_dist"
     ):
-        topk_logits, topk_indices = torch.topk(
-            next_token_logits, sampling_scheme.num_k, dim=-1, sorted=False
-        )
+        if sampling_scheme.num_k==next_token_logits.shape[1]:
+            topk_logits=next_token_logits
+        else:
+            topk_logits, topk_indices = torch.topk(
+                next_token_logits, sampling_scheme.num_k, dim=-1, sorted=False
+            )
         if sampling_scheme.criterium == "topk_prob_sampled_with_dist":
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(
@@ -178,11 +181,18 @@ def sample_next_token_traj(
 
     # topk_logits, topk_indices: [n_agent, K]
     topk_logits = topk_logits / sampling_scheme.temp
-    samples = Categorical(logits=topk_logits).sample()  # [n_agent] in K
-    next_token_idx = topk_indices[range_a, samples]
+    cat_dist=Categorical(logits=topk_logits)
+    samples = cat_dist.sample()  # [n_agent] in K
+    if sampling_scheme.num_k == next_token_logits.shape[1]:
+        next_token_idx=samples
+    else:
+        next_token_idx = topk_indices[range_a, samples]
+
     next_token_traj_all = token_traj_all[range_a, next_token_idx]
 
-    return next_token_idx, next_token_traj_all
+    log_prob=cat_dist.log_prob(samples)
+
+    return next_token_idx, next_token_traj_all,log_prob
 
 
 def sample_next_gmm_traj(

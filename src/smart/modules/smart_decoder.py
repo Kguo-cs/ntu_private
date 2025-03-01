@@ -20,8 +20,6 @@ from torch import Tensor
 
 from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
-from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-
 
 class SMARTDecoder(nn.Module):
 

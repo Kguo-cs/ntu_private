@@ -28,7 +28,7 @@ class ReplayBuffer:
         self.value_preds[step]=sample["value"]
 
         if step<self.num_steps:
-            self.action_log_probs[step]=sample["value"]
+            self.action_log_probs[step]=sample["prev_log_prob"]
             self.actions[step]=sample["action"]
 
     def sample(self, batch_size=1):

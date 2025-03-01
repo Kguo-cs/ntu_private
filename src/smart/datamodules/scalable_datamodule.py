@@ -83,6 +83,7 @@ class MultiDataModule(LightningDataModule):
             pin_memory=self.pin_memory,
             persistent_workers=self.persistent_workers,
             drop_last=False,
+            prefetch_factor=4
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -94,6 +95,7 @@ class MultiDataModule(LightningDataModule):
             pin_memory=self.pin_memory,  # False
             persistent_workers=self.persistent_workers,
             drop_last=False,
+            prefetch_factor=4
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
