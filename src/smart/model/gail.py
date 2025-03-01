@@ -109,13 +109,15 @@ class GAIL(LightningModule):
             expert_batch=random.sample(self.expert_buffer,1)[0]
             agent_batch=self.agent_buffer.sample_state_action()
 
-            expert_d = self.discriminator.compute_disc_val(expert_batch['state'], expert_batch['action'])
-            agent_d = self.discriminator.compute_disc_val(agent_batch['state'] ,agent_batch['action'])
+            expert_d = self.discriminator.compute_disc_val(expert_batch['state'], torch.zeros_like(expert_batch['action']))
+            agent_d = self.discriminator.compute_disc_val(agent_batch['state'] ,torch.ones_like(agent_batch['action']))
 
             expert_loss =  F.binary_cross_entropy(expert_d,torch.ones_like(expert_d))
             agent_loss =  F.binary_cross_entropy(agent_d,torch.zeros_like(agent_d))
 
             discrim_loss = expert_loss + agent_loss
+
+            # print(discrim_loss.item(),expert_loss.item(),agent_loss.item())
 
             dis_opt.zero_grad()
             discrim_loss.backward()
@@ -204,7 +206,6 @@ class GAIL(LightningModule):
         self.log("train/actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/dist_entropy", ac_eval['ent'].mean().item(), on_step=True, batch_size=1)
 
-
         return loss
 
     def training_step(self, data, batch_idx):
@@ -237,13 +238,13 @@ class GAIL(LightningModule):
 
             self.update_reward_func(discriminator_optimizer)
 
-            with torch.no_grad():
-                self.get_reward()
-
-                self.agent_buffer.compute_returns()
-                self.agent_buffer.compute_advantages()
-
-            self.ppo_update(policy_optimizer)
+            # with torch.no_grad():
+            #     self.get_reward()
+            #
+            #     self.agent_buffer.compute_returns()
+            #     self.agent_buffer.compute_advantages()
+            #
+            # self.ppo_update(policy_optimizer)
 
 
     def on_validation_epoch_end(self):

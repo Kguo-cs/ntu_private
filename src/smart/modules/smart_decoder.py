@@ -59,7 +59,12 @@ class SMARTDecoder(nn.Module):
 
         if self.discrminator:
             self.action_encoder=nn.Embedding(n_token_agent,hidden_dim)
-            self.pred_score=nn.Sequential(MLPEmbedding(hidden_dim+hidden_dim,1),nn.Sigmoid())
+            self.pred_score=nn.Sequential(
+                nn.Linear(hidden_dim*2, 128),
+                nn.LayerNorm(128),
+                nn.ReLU(inplace=True),
+                nn.Linear(128, 1)
+                ,nn.Sigmoid())
             n_token_agent=hidden_dim
 
         self.agent_encoder = SMARTAgentDecoder(
@@ -90,6 +95,7 @@ class SMARTDecoder(nn.Module):
         state_embed=pred_dict["cur_pred"]
         state_action=torch.cat([state_embed,action_embed],dim=-1)
         score=self.pred_score(state_action)[:,0]
+
         return score
 
 
