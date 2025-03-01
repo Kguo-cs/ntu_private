@@ -20,3 +20,6 @@ cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim
 MASTER_PORT=29501 torchrun -m src.run > gail_nohist.log  2>&1
 
 
+#to do: rule-based reward
+
+
