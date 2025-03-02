@@ -1,4 +1,4 @@
-
+import numpy as np
 import torch
 from collections import deque
 
@@ -24,6 +24,10 @@ class ReplayBuffer:
         self.masks[-1]=0
         self.map=map
 
+        self.smaple_idx=list(range(self.num_steps))
+
+        random.shuffle(self.smaple_idx)
+
     def insert(self, sample,step):
         self.state_list.append(sample["state"])
         self.value_preds[step]=sample["value"]
@@ -32,8 +36,8 @@ class ReplayBuffer:
             self.action_log_probs[step]=sample["prev_log_prob"]
             self.actions[step]=sample["action"]
 
-    def sample(self, batch_size=1):
-        idx=random.sample(range(self.num_steps),batch_size)[0]
+    def sample(self,idx):
+        idx=self.smaple_idx[idx]
         return {"state": (self.map,self.state_list[idx]),
                 "action": self.actions[idx],
                 "prev_log_prob":self.action_log_probs[idx],

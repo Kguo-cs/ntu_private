@@ -4,7 +4,7 @@ defaults:
   - smart
 
 model_config:
-  n_batch_wosac_metric: 5
+  n_batch_wosac_metric: 2
   n_vis_batch: 1
   n_vis_scenario: 1
   n_vis_rollout: 1

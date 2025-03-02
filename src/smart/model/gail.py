@@ -158,52 +158,53 @@ class GAIL(LightningModule):
 
         self.log("train/cum_reward", cum_reward.mean().item(), on_step=True, batch_size=1)
 
-    def ppo_update(self,policy_optimizer):
+    def ppo_update(self,policy_optimizer,
+                   use_clipped_value_loss=True,
+                   clip_param=0.2,
+                   value_loss_coef=0.5,
+                   entropy_coef=0.0001
+                   ):
         for e in range(self.ppo_update_num):
-            sample=self.replay_buffer.sample(1)
+            sample=self.replay_buffer.sample(e)
+            ac_eval = self.evaluate_actions(sample['state'], sample['action'])
+
+            ratio = torch.exp(ac_eval['log_prob'] - sample['prev_log_prob'])
+            surr1 = ratio * sample['adv']
+            surr2 = torch.clamp(ratio,
+                                1.0 - clip_param,
+                                1.0 + clip_param) * sample['adv']
+            actor_loss = -torch.min(surr1, surr2).mean(0)
+
+            if use_clipped_value_loss:
+                value_pred_clipped = sample['value'] + (ac_eval['value'] - sample['value']).clamp(
+                    -clip_param, clip_param)
+                value_losses = (ac_eval['value'] - sample['return']).pow(2)
+                value_losses_clipped = (
+                        value_pred_clipped - sample['return']).pow(2)
+                value_loss = 0.5 * torch.max(value_losses,
+                                             value_losses_clipped).mean()
+            else:
+                value_loss = 0.5 * (sample['return'] - ac_eval['value']).pow(2).mean()
+
+            ppo_loss = (value_loss * value_loss_coef + actor_loss - ac_eval['ent'].mean() * entropy_coef)
+
             policy_optimizer.zero_grad()
-            ppo_loss=self.ppo_loss(sample)
             self.manual_backward(ppo_loss)
-            nn.utils.clip_grad_norm_(list(self.encoder.parameters()) + list(self.value_network.parameters()), 0.5)
+            nn.utils.clip_grad_norm_(self.encoder.parameters(), 0.5)
             policy_optimizer.step()
 
-    def ppo_loss(self,sample,
-                 use_clipped_value_loss=False,
-                 clip_param=0.2,
-                 value_loss_coef=0.5,
-                 entropy_coef=0.0001
-                 ):
+            self.log("train/value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
+            self.log("train/actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
+            self.log("train/dist_entropy", ac_eval['ent'].mean().item(), on_step=True, batch_size=1)
+            self.log("train/ppo_loss", ppo_loss.mean().item(), on_step=True, batch_size=1)
 
-        ac_eval = self.evaluate_actions(sample['state'], sample['action'])
 
-        ratio = torch.exp(ac_eval['log_prob'] - sample['prev_log_prob'])
-        surr1 = ratio * sample['adv']
-        surr2 = torch.clamp(ratio,
-                            1.0 -clip_param,
-                            1.0 + clip_param) * sample['adv']
-        actor_loss = -torch.min(surr1, surr2).mean(0)
-
-        if use_clipped_value_loss:
-            value_pred_clipped = sample['value'] + (ac_eval['value'] - sample['value']).clamp(
-                -clip_param,  clip_param)
-            value_losses = (ac_eval['value'] - sample['return']).pow(2)
-            value_losses_clipped = (
-                    value_pred_clipped - sample['return']).pow(2)
-            value_loss = 0.5 * torch.max(value_losses,
-                                         value_losses_clipped).mean()
-        else:
-            value_loss = 0.5 * (sample['return'] - ac_eval['value']).pow(2).mean()
-
-        loss = (value_loss * value_loss_coef + actor_loss -  ac_eval['ent'].mean() * entropy_coef)
-
-        self.log("train/value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/dist_entropy", ac_eval['ent'].mean().item(), on_step=True, batch_size=1)
-
-        return loss
 
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
+        # Get optimizers
+        policy_optimizer, discriminator_optimizer = self.optimizers()
+
         if self.training_rollout_sampling.num_k <= 0:
             pred = self.encoder(tokenized_map, tokenized_agent)
 
@@ -216,21 +217,15 @@ class GAIL(LightningModule):
             )
             self.log("train/loss", loss, on_step=True, batch_size=1)
 
-            # Get optimizers
-            policy_optimizer, discriminator_optimizer = self.optimizers()
 
             policy_optimizer.zero_grad()
             self.manual_backward(loss)
-            nn.utils.clip_grad_norm_(policy_optimizer.parameters(), 0.5)
-
+            nn.utils.clip_grad_norm_(self.encoder.parameters(), 0.5)
             policy_optimizer.step()
         else:
             with torch.no_grad():
                 self.rollout(tokenized_map, tokenized_agent)
                 self.push_expert_sample(tokenized_map,tokenized_agent)
-
-            # Get optimizers
-            policy_optimizer, discriminator_optimizer = self.optimizers()
 
             self.update_reward_func(discriminator_optimizer)
 
@@ -265,5 +260,5 @@ class GAIL(LightningModule):
 
     def configure_optimizers(self):
         policy_optimizer = optim.Adam(list(self.encoder.parameters()) + list(self.value_network.parameters()), lr=self.lr)
-        discriminator_optimizer = optim.AdamW(self.discriminator.parameters(), lr=1e-5)
+        discriminator_optimizer = optim.AdamW(self.discriminator.parameters(), lr=1e-6)
         return [policy_optimizer, discriminator_optimizer], []
