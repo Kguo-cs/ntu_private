@@ -18,11 +18,12 @@ class GAIL(LightningModule):
         self.num_steps=15
         self.reward_type="gail"
         self.dis_update_num=1
-        self.ppo_update_num=1
+        self.ppo_update_num=self.num_steps
 
-        self.agent_buffer = ReplayBuffer(self.num_steps)
+        self.replay_buffer = ReplayBuffer(self.num_steps)
         self.automatic_optimization = False
-        self.expert_buffer = deque(maxlen=1000)
+        self.expert_buffer = deque(maxlen=10000)
+        self.agent_buffer = deque(maxlen=10000)
 
     def push_expert_sample(self,tokenized_map, tokenized_agent):
         hist_len=1
@@ -64,12 +65,18 @@ class GAIL(LightningModule):
 
         sample_list=pred["sample_list"]
         action=sample_list[0]["action"]
-        self.agent_buffer.initialize(len(action),action.device)
-        self.agent_buffer.map=tokenized_map
+        self.replay_buffer.initialize(tokenized_map, len(action),action.device)
 
         for step,sample in enumerate(sample_list):
             sample["value"]=self.value_network(sample["feat_a_now"])[:,0]
-            self.agent_buffer.insert(sample,step)
+            self.replay_buffer.insert(sample,step)
+            if step<self.num_steps:
+                agent_sample = {
+                    "state":(tokenized_map,sample["state"]),
+                    "action": sample["action"],
+                }
+
+                self.agent_buffer.append(agent_sample)
 
     def evaluate_actions(self, state, action):
         tokenized_map, tokenized_agent=state
@@ -93,7 +100,7 @@ class GAIL(LightningModule):
 
         for i in range(self.dis_update_num):
             expert_batch=random.sample(self.expert_buffer,1)[0]
-            agent_batch=self.agent_buffer.sample_state_action()
+            agent_batch=random.sample(self.agent_buffer,1)[0]
 
             expert_d = self.discriminator.compute_disc_val(expert_batch['state'], expert_batch['action'])
             agent_d = self.discriminator.compute_disc_val(agent_batch['state'] ,agent_batch['action'])
@@ -121,13 +128,13 @@ class GAIL(LightningModule):
     def get_reward(self):
         self.discriminator.eval()
 
-        map_feature=self.discriminator.map_encoder(self.agent_buffer.map)
+        map_feature=self.discriminator.map_encoder(self.replay_buffer.map)
 
         cum_reward=0
 
         for step in range(self.num_steps):
-            state = (map_feature, self.agent_buffer.state_list[step])
-            action = self.agent_buffer.actions[step]
+            state = (map_feature, self.replay_buffer.state_list[step])
+            action = self.replay_buffer.actions[step]
 
             s = self.discriminator.compute_disc_val(state, action)
 
@@ -145,7 +152,7 @@ class GAIL(LightningModule):
                 reward = d_x + (-1 - (-d_x).log())
             else:
                 raise ValueError(f"Unrecognized reward type {self.args.reward_type}")
-            self.agent_buffer.rewards[step]=reward
+            self.replay_buffer.rewards[step]=reward
 
             cum_reward+=reward
 
@@ -153,7 +160,7 @@ class GAIL(LightningModule):
 
     def ppo_update(self,policy_optimizer):
         for e in range(self.ppo_update_num):
-            sample=self.agent_buffer.sample(1)
+            sample=self.replay_buffer.sample(1)
             policy_optimizer.zero_grad()
             ppo_loss=self.ppo_loss(sample)
             self.manual_backward(ppo_loss)
@@ -230,8 +237,8 @@ class GAIL(LightningModule):
             with torch.no_grad():
                 self.get_reward()
 
-                self.agent_buffer.compute_returns()
-                self.agent_buffer.compute_advantages()
+                self.replay_buffer.compute_returns()
+                self.replay_buffer.compute_advantages()
 
             self.ppo_update(policy_optimizer)
 

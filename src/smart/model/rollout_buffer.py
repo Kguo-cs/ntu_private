@@ -13,7 +13,7 @@ class ReplayBuffer:
 
         self.state_list=deque(maxlen=num_steps+1)
 
-    def initialize(self,agent_num,device):
+    def initialize(self,map, agent_num,device):
 
         self.rewards = torch.zeros(self.num_steps, agent_num).to(device)
         self.value_preds = torch.zeros(self.num_steps + 1, agent_num).to(device)
@@ -22,6 +22,7 @@ class ReplayBuffer:
         self.actions = torch.zeros(self.num_steps, agent_num).to(device).to(torch.int)
         self.masks = torch.ones(self.num_steps + 1, agent_num).to(device)
         self.masks[-1]=0
+        self.map=map
 
     def insert(self, sample,step):
         self.state_list.append(sample["state"])
@@ -39,12 +40,6 @@ class ReplayBuffer:
                 "adv":self.advantages[idx],
                 "value":self.value_preds[idx],
                 "return":self.returns[idx]
-                }
-
-    def sample_state_action(self, batch_size=1):
-        idx=random.sample(range(self.num_steps),batch_size)[0]
-        return {"state": (self.map,self.state_list[idx]),
-                "action": self.actions[idx],
                 }
 
     def compute_advantages(self):
