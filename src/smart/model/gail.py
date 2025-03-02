@@ -23,7 +23,7 @@ class GAIL(LightningModule):
         self.replay_buffer = ReplayBuffer(self.num_steps)
         self.automatic_optimization = False
         self.expert_buffer = deque(maxlen=1)
-        self.agent_buffer = deque(maxlen=1000)
+        self.agent_buffer = deque(maxlen=10000)
 
     def push_expert_sample(self,tokenized_map, tokenized_agent):
         hist_len=1
