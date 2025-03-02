@@ -25,6 +25,8 @@ class SMART_GAIL(GAIL, SMART):
         SMART.__init__(self, model_config)  # Explicit call
         GAIL.__init__(self, model_config)  # Explicit call
 
+        model_config.decoder.hidden_dim=model_config.decoder.hidden_dim//2
+
         self.discriminator=SMARTDecoder(
             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
             discrminator=True
