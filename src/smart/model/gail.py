@@ -23,7 +23,7 @@ class GAIL(LightningModule):
         self.replay_buffer = ReplayBuffer(self.num_steps)
         self.automatic_optimization = False
         self.expert_buffer = deque(maxlen=1)
-        self.agent_buffer = deque(maxlen=10000)
+        self.agent_buffer = deque(maxlen=1000)
 
     def push_expert_sample(self,tokenized_map, tokenized_agent):
         hist_len=1
@@ -265,5 +265,5 @@ class GAIL(LightningModule):
 
     def configure_optimizers(self):
         policy_optimizer = optim.Adam(list(self.encoder.parameters()) + list(self.value_network.parameters()), lr=self.lr)
-        discriminator_optimizer = optim.Adam(self.discriminator.parameters(), lr=1e-6)
+        discriminator_optimizer = optim.AdamW(self.discriminator.parameters(), lr=1e-5)
         return [policy_optimizer, discriminator_optimizer], []
