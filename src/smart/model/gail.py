@@ -30,31 +30,33 @@ class GAIL(LightningModule):
 
         start_step=2
 
-        for step in range(start_step,self.num_steps+start_step):
-            tokenized_agent_current = {}
+        step=random.randint(start_step,self.num_steps+start_step-1)
 
-            state_action_mask=tokenized_agent["valid_mask"][:, step-1:step+1].all(-1)
+        #for step in range(start_step,self.num_steps+start_step):
+        tokenized_agent_current = {}
 
-            tokenized_agent_current['sampled_pos'] = tokenized_agent["sampled_pos"][:,step-hist_len:step][state_action_mask]
-            tokenized_agent_current['sampled_heading'] = tokenized_agent['sampled_heading'][:, step-hist_len:step][state_action_mask]
-            tokenized_agent_current['sampled_idx'] = tokenized_agent["sampled_idx"][:, step-hist_len:step][state_action_mask]
-            tokenized_agent_current['valid_mask'] = tokenized_agent["valid_mask"][:, step-hist_len:step][state_action_mask]
-            tokenized_agent_current['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
-            tokenized_agent_current['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
-            tokenized_agent_current['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
-            tokenized_agent_current['type'] = tokenized_agent['type'][state_action_mask]
-            tokenized_agent_current['shape'] = tokenized_agent['shape'][state_action_mask]
-            tokenized_agent_current['batch'] = tokenized_agent['batch'][state_action_mask]
-            tokenized_agent_current['num_graphs'] = tokenized_agent['num_graphs']
+        state_action_mask=tokenized_agent["valid_mask"][:, step-1:step+1].all(-1)
 
-            action = tokenized_agent["sampled_idx"][:, step].clone()[state_action_mask]
+        tokenized_agent_current['sampled_pos'] = tokenized_agent["sampled_pos"][:,step-hist_len:step][state_action_mask]
+        tokenized_agent_current['sampled_heading'] = tokenized_agent['sampled_heading'][:, step-hist_len:step][state_action_mask]
+        tokenized_agent_current['sampled_idx'] = tokenized_agent["sampled_idx"][:, step-hist_len:step][state_action_mask]
+        tokenized_agent_current['valid_mask'] = tokenized_agent["valid_mask"][:, step-hist_len:step][state_action_mask]
+        tokenized_agent_current['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
+        tokenized_agent_current['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
+        tokenized_agent_current['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
+        tokenized_agent_current['type'] = tokenized_agent['type'][state_action_mask]
+        tokenized_agent_current['shape'] = tokenized_agent['shape'][state_action_mask]
+        tokenized_agent_current['batch'] = tokenized_agent['batch'][state_action_mask]
+        tokenized_agent_current['num_graphs'] = tokenized_agent['num_graphs']
 
-            expert_sample = {
-                "state": (tokenized_map, tokenized_agent_current),
-                "action": action,
-            }
+        action = tokenized_agent["sampled_idx"][:, step].clone()[state_action_mask]
 
-            self.expert_buffer.append(expert_sample)
+        expert_sample = {
+            "state": (tokenized_map, tokenized_agent_current),
+            "action": action,
+        }
+
+        self.expert_buffer.append(expert_sample)
 
     def rollout(self,tokenized_map,tokenized_agent):
         pred = self.encoder.inference(
