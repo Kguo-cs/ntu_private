@@ -148,6 +148,11 @@ def process_light(data,map_infos,tf_lights,tf_current_light):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
 
     current_light_ids=tf_current_light["lane_id"].values
+
+    in_lane=torch.isin(torch.tensor(current_light_ids),torch.tensor(polygon_ids))
+
+    current_light_ids=current_light_ids[in_lane]
+
     ln_id=data['pt_token']["ln_id"]
 
     light_edge=[]
@@ -238,7 +243,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[:1]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[:1]
     # func = partial(
     #     wm2argo,
     #     split=split,
@@ -263,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/mini"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=12)
     args = parser.parse_args()
 
