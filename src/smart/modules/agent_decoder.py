@@ -13,6 +13,7 @@
 import copy
 from typing import Dict, Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
@@ -29,7 +30,7 @@ from src.smart.utils import (
     weight_init,
     wrap_angle,
 )
-
+from torch_scatter import scatter_add
 
 class SMARTAgentDecoder(nn.Module):
 
@@ -76,6 +77,11 @@ class SMARTAgentDecoder(nn.Module):
         )
         self.r_t_emb = FourierEmbedding(
             input_dim=input_dim_r_t,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
+        self.r_ln2a_emb = FourierEmbedding(
+            input_dim=input_dim_r_pt2a,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
@@ -144,6 +150,9 @@ class SMARTAgentDecoder(nn.Module):
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
+
+        self.light_pl_emb = nn.Embedding(5, hidden_dim)
+
         self.apply(weight_init)
 
     def agent_token_embedding(
@@ -348,6 +357,61 @@ class SMARTAgentDecoder(nn.Module):
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
         return edge_index_pl2a, r_pl2a
 
+    def build_route2agent_edge(
+        self,
+        pos_ln,  # [n_ln, 2]
+        orient_ln,  # [n_ln]
+        pos_a,  # [n_agent, n_step, 2]
+        head_a,  # [n_agent, n_step]
+        head_vector_a,  # [n_agent, n_step, 2]
+    ):
+        pos_s = pos_a.transpose(0, 1).flatten(0, 1)
+        head_s = head_a.transpose(0, 1).reshape(-1)
+        head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
+        edge_index_ln2a = torch.stack([torch.arange(len(pos_s)),torch.arange(len(pos_s)) ],dim=0).to(pos_s.device)
+        rel_pos_ln2a = pos_ln[edge_index_ln2a[0]] - pos_s[edge_index_ln2a[1]]
+        rel_orient_ln2a = wrap_angle(
+            orient_ln[edge_index_ln2a[0]] - head_s[edge_index_ln2a[1]]
+        )
+        r_ln2a = torch.stack(
+            [
+                torch.norm(rel_pos_ln2a[:, :2], p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_s[edge_index_ln2a[1]],
+                    nbr_vector=rel_pos_ln2a[:, :2],
+                ),
+                rel_orient_ln2a,
+            ],
+            dim=-1,
+        )
+        r_ln2a = self.r_ln2a_emb(continuous_inputs=r_ln2a, categorical_embs=None)
+
+        return r_ln2a
+
+
+    def process_route(self,feat_a,mask ,next_route,map_feature,pos_a,head_a,head_vector_a):
+
+        r_ln2a = self.build_route2agent_edge(
+            pos_ln=map_feature["pos_lane"][next_route].view(-1,2),  # [n_pl, 2]
+            orient_ln=map_feature["orient_lane"][next_route].view(-1),  # [n_pl]
+            pos_a=pos_a,  # [n_agent, hist_step, 2]
+            head_a=head_a,  # [n_agent, hist_step]
+            head_vector_a=head_vector_a,  # [n_agent, hist_step, 2]
+        )
+
+        next_route_token = map_feature["lane_token"][next_route] + r_ln2a.view(next_route.shape[0],next_route.shape[1],-1)
+        next_route_mask = next_route != -1
+
+        feat_a[next_route_mask & mask ] += next_route_token[next_route_mask & mask]
+
+
+    def process_light(self,pt_token,light,light_edge):
+        light_t = self.light_pl_emb(light)
+        pt_token=pt_token[:,None].repeat(1,light.shape[1],1)
+        pt_token[light_edge[:, 1]] += light_t[light_edge[:, 0]]
+
+        return pt_token.swapaxes(0,1).flatten(0,1)
+
     def forward(
         self,
         tokenized_agent: Dict[str, torch.Tensor],
@@ -413,11 +477,17 @@ class SMARTAgentDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
         )
 
+        self.process_route(feat_a,mask ,tokenized_agent["next_route"],map_feature,pos_a,head_a,head_vector_a)
+        pt_token = map_feature["pt_token"].clone()
+        light = tokenized_agent["light"]
+
+        feat_map=self.process_light(pt_token, light, map_feature["light_edge"])
+
         # ! attention layers
         # [n_step*n_pl, hidden_dim]
-        feat_map = (
-            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
-        )
+        # feat_map = (
+        #     map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        # )
 
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
@@ -499,6 +569,8 @@ class SMARTAgentDecoder(nn.Module):
 
         agent_token_index = tokenized_agent["gt_idx"][:, :step_current_2hz]
         sample_list=[]
+        next_route =tokenized_agent["next_route"]
+        light = tokenized_agent["light"]
 
         if not self.training:
             pred_traj_10hz = torch.zeros(
@@ -573,6 +645,10 @@ class SMARTAgentDecoder(nn.Module):
                 mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
             )
 
+            self.process_route(feat_a[:, -1:], inference_mask[:, -1:], next_route[:, t_now:t_now+1], map_feature, pos_a[:, -1:], head_a[:, -1:], head_vector_a[:, -1:])
+
+            pt_token=self.process_light(map_feature["pt_token"].clone(),light[:, t_now:t_now+1],map_feature["light_edge"])
+
             # ! attention layers
             for i in range(self.num_layers):
                 # [n_agent, n_step, hidden_dim]
@@ -586,7 +662,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     # [hist_step*n_pl, hidden_dim]
                     _feat_map = (
-                        map_feature["pt_token"]
+                        pt_token
                         .unsqueeze(0)
                         .expand(hist_step, -1, -1)
                         .flatten(0, 1)
@@ -619,7 +695,7 @@ class SMARTAgentDecoder(nn.Module):
                     # ).view(n_agent, n_step, -1)[:, -1]
 
                     feat_a_now = self.pt2a_attn_layers[i](
-                        (map_feature["pt_token"], feat_a_now), r_pl2a, edge_index_pl2a
+                        (pt_token, feat_a_now), r_pl2a, edge_index_pl2a
                     )
                     feat_a_now = self.a2a_attn_layers[i](
                         feat_a_now, r_a2a, edge_index_a2a
@@ -665,16 +741,10 @@ class SMARTAgentDecoder(nn.Module):
             agent_state['shape']=tokenized_agent['shape']
             agent_state['batch']=tokenized_agent['batch']
             agent_state['num_graphs']=tokenized_agent['num_graphs']
-
-            # action_mask= pred_valid[:, n_step-1]
-            #
-            # next_token_idx[~action_mask]=0
-            #print(torch.all(pred_valid[:,n_step-hist_len]))
+            agent_state['next_route']=next_route[:, n_step-hist_len:n_step]
+            agent_state['light']=light[:, n_step-hist_len:n_step]
 
             agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
-            # print(prev_log_prob.min())
-
-            # self.forward(agent_state, map_feature)
             sample={
                 "state": agent_state,
                 "action": next_token_idx,

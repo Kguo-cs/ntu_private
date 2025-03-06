@@ -82,7 +82,7 @@ class SMARTDecoder(nn.Module):
         )
 
 
-    def compute_disc_val(self,state,action ):
+    def compute_disc_val(self,state,action):
         if 'token_idx' in state[0].keys():
             tokenized_map,tokenized_agent=state
             map_feature = self.map_encoder(tokenized_map)

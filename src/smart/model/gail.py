@@ -48,6 +48,8 @@ class GAIL(LightningModule):
         tokenized_agent_current['shape'] = tokenized_agent['shape'][state_action_mask]
         tokenized_agent_current['batch'] = tokenized_agent['batch'][state_action_mask]
         tokenized_agent_current['num_graphs'] = tokenized_agent['num_graphs']
+        tokenized_agent_current['next_route'] = tokenized_agent['next_route'][:, step-hist_len:step][state_action_mask]
+        tokenized_agent_current['light'] = tokenized_agent['light'][:, step-hist_len:step]
 
         action = tokenized_agent["sampled_idx"][:, step].clone()[state_action_mask]
 
@@ -199,8 +201,6 @@ class GAIL(LightningModule):
             self.log("train/actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
             self.log("train/dist_entropy", ac_eval['ent'].mean().item(), on_step=True, batch_size=1)
             self.log("train/ppo_loss", ppo_loss.mean().item(), on_step=True, batch_size=1)
-
-
 
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)

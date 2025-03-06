@@ -128,6 +128,7 @@ def get_agent_features(
 
 def get_map_features(map_infos, tf_current_light, dim=2):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
+
     num_polygons = len(polygon_ids)
 
     # initialization
@@ -196,6 +197,19 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     map_data["map_point", "to", "map_polygon"][
         "edge_index"
     ] = point_to_polygon_edge_index
+
+    mp_edge = []
+
+    for edge in map_infos['mp_edge']:
+        if edge[1] in polygon_ids:
+            mp_edge.append((polygon_ids.index(edge[0]), polygon_ids.index(edge[1])))
+        else:
+            mp_edge.append((polygon_ids.index(edge[0]), -1))
+
+    mp_edge = np.array(mp_edge)
+
+    map_infos["mp_edge"]=mp_edge
+
     return map_data
 
 
@@ -283,6 +297,7 @@ def decode_tracks_from_proto(scenario):
 def decode_map_features_from_proto(map_features):
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
     polylines = []
+    mp_edge=[]
     point_cnt = 0
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
@@ -315,6 +330,11 @@ def decode_map_features_from_proto(map_features):
                 map_infos["lane"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
+                if len(feature.exit_lanes) > 0:
+                    for _id_exit in feature.exit_lanes:
+                        mp_edge.append([mf.id, _id_exit])
+                else:
+                    mp_edge.append([mf.id, -1])
 
         elif feature_data_type == "road_edge":
             if len(feature.polyline) > 1:
@@ -409,6 +429,7 @@ def decode_map_features_from_proto(map_features):
         polylines = np.zeros((0, 8), dtype=np.float32)
         print("Empty polylines.")
     map_infos["all_polylines"] = polylines
+    map_infos["mp_edge"]=mp_edge
     return map_infos
 
 

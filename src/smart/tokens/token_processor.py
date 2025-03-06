@@ -15,6 +15,7 @@ import os
 import pickle
 from typing import Dict, Tuple
 
+import numpy as np
 import torch
 from omegaconf import DictConfig
 from torch import Tensor
@@ -110,6 +111,37 @@ class TokenProcessor(torch.nn.Module):
         else:
             token_idx = torch.argmin(dist, dim=-1)
 
+        batch=data["pt_token"]["batch"]
+        light_edge=data["pt_token"]["light_edge"]
+        ln_id=data["pt_token"]["ln_id"]
+
+        agent_batch=data["agent"]["batch"]
+        next_route=data["agent"]["next_route"]
+
+        ln_num=0
+        pl_num=0
+        light_num=0
+
+        for i in range(max(batch)+1):
+            batch_ln_id=ln_id[batch==i]+ln_num
+            mask=next_route==-1
+            next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
+            next_route[mask]=-1
+
+            if len(light_edge[i]):
+                light_edge[i][:,0]+=light_num
+                light_edge[i][:,1]+=pl_num
+
+                light_num=light_edge[i][-1][0]+1
+
+            ln_num=max(batch_ln_id).item()+1
+            ln_id[batch==i]=batch_ln_id
+            pl_num+=len(batch_ln_id)+1
+
+        light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
+
+        data["agent"]["next_route"]=next_route
+
         tokenized_map = {
             "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
@@ -118,7 +150,9 @@ class TokenProcessor(torch.nn.Module):
             "type": data["pt_token"]["type"].long(),  # [n_pl]
             "pl_type": data["pt_token"]["pl_type"].long(),  # [n_pl]
             "light_type": data["pt_token"]["light_type"].long(),  # [n_pl]
+            "ln_id": ln_id,
             "batch": data["pt_token"]["batch"],  # [n_pl]
+            "light_edge":light_edge,
         }
         return tokenized_map
 
@@ -166,6 +200,8 @@ class TokenProcessor(torch.nn.Module):
             "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            "next_route": data["agent"]["next_route"],
+            "light":data["agent"]["light"]
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
