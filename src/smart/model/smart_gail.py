@@ -29,9 +29,8 @@ class SMART_GAIL(GAIL, SMART):
 
         self.discriminator=SMARTDecoder(
             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
-            discrminator=True
+            state_action=True
         )
-
 
 
 class EGO_GMM_GAIL(GAIL, EgoGMMSMART):

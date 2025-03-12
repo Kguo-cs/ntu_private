@@ -18,43 +18,46 @@ class GAIL(LightningModule):
         self.num_steps=15
         self.reward_type="gail"
         self.dis_update_num=1
-        self.ppo_update_num=self.num_steps
+        self.ppo_update_num=9
 
-        self.replay_buffer = ReplayBuffer(self.num_steps)
+        self.replay_buffer = ReplayBuffer(1)
         self.automatic_optimization = False
-        self.expert_buffer = deque(maxlen=1)
-        self.agent_buffer = deque(maxlen=10000)
+        # self.expert_buffer = deque(maxlen=1)
+        # self.agent_buffer = deque(maxlen=1)
 
     def push_expert_sample(self,tokenized_map, tokenized_agent):
-        hist_len=1
+       #hist_len=1
 
         start_step=2
 
-        step=random.randint(start_step,self.num_steps+start_step-1)
+        #step=random.randint(start_step,self.num_steps+start_step-1)
 
         #for step in range(start_step,self.num_steps+start_step):
-        tokenized_agent_current = {}
+        #tokenized_agent_current = {}
 
-        state_action_mask=tokenized_agent["valid_mask"][:, step-1:step+1].all(-1)
+        # state_action_mask=tokenized_agent["valid_mask"][:, step-1:step+1].all(-1)
+        #
+        # tokenized_agent_current['sampled_pos'] = tokenized_agent["sampled_pos"][:,step-hist_len:step][state_action_mask]
+        # tokenized_agent_current['sampled_heading'] = tokenized_agent['sampled_heading'][:, step-hist_len:step][state_action_mask]
+        # tokenized_agent_current['sampled_idx'] = tokenized_agent["sampled_idx"][:, step-hist_len:step][state_action_mask]
+        # tokenized_agent_current['valid_mask'] = tokenized_agent["valid_mask"][:, step-hist_len:step][state_action_mask]
+        # tokenized_agent_current['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
+        # tokenized_agent_current['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
+        # tokenized_agent_current['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
+        # tokenized_agent_current['type'] = tokenized_agent['type'][state_action_mask]
+        # tokenized_agent_current['shape'] = tokenized_agent['shape'][state_action_mask]
+        # tokenized_agent_current['batch'] = tokenized_agent['batch'][state_action_mask]
+        # tokenized_agent_current['num_graphs'] = tokenized_agent['num_graphs']
+        # tokenized_agent_current['next_route'] = tokenized_agent['next_route'][:, step-hist_len:step][state_action_mask]
+        # tokenized_agent_current['light'] = tokenized_agent['light'][:, step-hist_len:step]
+        #
+        # action = tokenized_agent["sampled_idx"][:, step].clone()[state_action_mask]
 
-        tokenized_agent_current['sampled_pos'] = tokenized_agent["sampled_pos"][:,step-hist_len:step][state_action_mask]
-        tokenized_agent_current['sampled_heading'] = tokenized_agent['sampled_heading'][:, step-hist_len:step][state_action_mask]
-        tokenized_agent_current['sampled_idx'] = tokenized_agent["sampled_idx"][:, step-hist_len:step][state_action_mask]
-        tokenized_agent_current['valid_mask'] = tokenized_agent["valid_mask"][:, step-hist_len:step][state_action_mask]
-        tokenized_agent_current['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
-        tokenized_agent_current['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
-        tokenized_agent_current['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
-        tokenized_agent_current['type'] = tokenized_agent['type'][state_action_mask]
-        tokenized_agent_current['shape'] = tokenized_agent['shape'][state_action_mask]
-        tokenized_agent_current['batch'] = tokenized_agent['batch'][state_action_mask]
-        tokenized_agent_current['num_graphs'] = tokenized_agent['num_graphs']
-        tokenized_agent_current['next_route'] = tokenized_agent['next_route'][:, step-hist_len:step][state_action_mask]
-        tokenized_agent_current['light'] = tokenized_agent['light'][:, step-hist_len:step]
+        action= tokenized_agent["sampled_idx"][:,start_step:]
 
-        action = tokenized_agent["sampled_idx"][:, step].clone()[state_action_mask]
 
         expert_sample = {
-            "state": (tokenized_map, tokenized_agent_current),
+            "state": (tokenized_map, tokenized_agent),
             "action": action,
         }
 
@@ -67,54 +70,78 @@ class GAIL(LightningModule):
             sampling_scheme=self.training_rollout_sampling,
         )
 
-        sample_list=pred["sample_list"]
-        action=sample_list[0]["action"]
-        self.replay_buffer.initialize(tokenized_map, len(action),action.device)
+        tokenized_agent_rollout={}
 
-        for step,sample in enumerate(sample_list):
-            sample["value"]=self.value_network(sample["feat_a_now"])[:,0]
-            self.replay_buffer.insert(sample,step)
-            if step<self.num_steps:
-                agent_sample = {
-                    "state":(tokenized_map,sample["state"]),
-                    "action": sample["action"],
-                }
+        tokenized_agent_rollout['sampled_pos'] = pred["pred_pos"]
+        tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
+        tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
+        tokenized_agent_rollout['valid_mask'] = pred["pred_valid"]
+        tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
+        tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
+        tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
+        tokenized_agent_rollout['type'] = tokenized_agent['type']
+        tokenized_agent_rollout['shape'] = tokenized_agent['shape']
+        tokenized_agent_rollout['batch'] = tokenized_agent['batch']
+        tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
+        tokenized_agent_rollout['next_route'] = tokenized_agent['next_route']
+        tokenized_agent_rollout['light'] = tokenized_agent['light']
 
-                self.agent_buffer.append(agent_sample)
+        self.replay_buffer.state_action_list.append((tokenized_map,tokenized_agent_rollout))
+        self.replay_buffer.value_list.append(self.value_network(pred["feat_a"])[:,:,0])
+        self.replay_buffer.action_log_probs_list.append(pred["action_log_probs"])
 
-    def evaluate_actions(self, state, action):
-        tokenized_map, tokenized_agent=state
 
-        pred_dict = self.encoder(tokenized_map, tokenized_agent)
-        pred_logit=pred_dict["cur_pred"]
-        dist = Categorical(logits=pred_logit)
-        action_log_probs=dist.log_prob(action)
-        dist_entropy = dist.entropy()
 
-        feat_a=pred_dict["feat_a"]
-        value=self.value_network(feat_a)[:,0]
+        # sample_list=pred["sample_list"]
+        # action=sample_list[0]["action"]
+        # self.replay_buffer.initialize(tokenized_map, len(action),action.device)
+        #
+        # for step,sample in enumerate(sample_list):
+        #     sample["value"]=self.value_network(sample["feat_a_now"])[:,0]
+        #     self.replay_buffer.insert(sample,step)
+        #     if step<self.num_steps:
+        #         agent_sample = {
+        #             "state":(tokenized_map,sample["state"]),
+        #             "action": sample["action"],
+        #         }
+        #
+        #         self.agent_buffer.append(agent_sample)
 
-        return {
-            'value': value,
-            'log_prob': action_log_probs,
-            'ent': dist_entropy,
-        }
 
-    def update_reward_func(self,dis_opt,gradient_clip=True):
+
+    def update_reward_func(self,dis_opt,tokenized_map,tokenized_agent,gradient_clip=True,eps = 1e-20):
 
         for i in range(self.dis_update_num):
-            expert_batch=random.sample(self.expert_buffer,1)[0]
-            agent_batch=random.sample(self.agent_buffer,1)[0]
+            # expert_batch=random.sample(self.expert_buffer,1)[0]
+            # agent_batch=random.sample(self.agent_buffer,1)[0]
 
-            expert_d = self.discriminator.compute_disc_val(expert_batch['state'], expert_batch['action'])
-            agent_d = self.discriminator.compute_disc_val(agent_batch['state'] ,agent_batch['action'])
+            tokenized_map_rollout,tokenized_agent_rollout=random.sample(self.replay_buffer.state_action_list,1)[0]
 
-            expert_loss =  F.binary_cross_entropy(expert_d,torch.ones_like(expert_d))
-            agent_loss =  F.binary_cross_entropy(agent_d,torch.zeros_like(agent_d))
+            expert_d =torch.sigmoid(self.discriminator(tokenized_map,tokenized_agent))
+
+            agent_d= torch.sigmoid(self.discriminator(tokenized_map_rollout,tokenized_agent_rollout))
+
+            expert_loss = F.binary_cross_entropy(expert_d,torch.ones_like(expert_d))
+            agent_loss = F.binary_cross_entropy(agent_d,torch.zeros_like(agent_d))
 
             discrim_loss = expert_loss + agent_loss
 
-            # print(discrim_loss.item(),expert_loss.item(),agent_loss.item())
+            s=agent_d.detach()
+
+            if self.reward_type == 'airl':
+                rewards = (s + eps).log() - (1 - s + eps).log()
+            elif self.reward_type == 'gail':
+                rewards = (s + eps).log()
+            elif self.reward_type == 'raw':
+                rewards = s
+            elif self.reward_type == 'airl-positive':
+                rewards = (s + eps).log() - (1 - s + eps).log() + 20
+            elif self.reward_type == 'revise':
+                d_x = (s + eps).log()
+                rewards = d_x + (-1 - (-d_x).log())
+            else:
+                raise ValueError(f"Unrecognized reward type {self.args.reward_type}")
+            self.replay_buffer.rewards=rewards
 
             dis_opt.zero_grad()
             discrim_loss.backward()
@@ -127,10 +154,12 @@ class GAIL(LightningModule):
             self.log("train/agent_loss", agent_loss, on_step=True, batch_size=1)
             self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
             self.log("train/agent_disc_val",  agent_d.mean().item(), on_step=True, batch_size=1)
-            self.log("train/agent_reward",  ((agent_d + 1e-20).log() - (1 - agent_d + 1e-20).log()).mean().item(), on_step=True, batch_size=1)
+            self.log("train/agent_reward",  rewards.mean().item(), on_step=True, batch_size=1)
 
     def get_reward(self):
         self.discriminator.eval()
+
+        self.discriminator.map_encoder()
 
         map_feature=self.discriminator.map_encoder(self.replay_buffer.map)
 
@@ -160,7 +189,27 @@ class GAIL(LightningModule):
 
             cum_reward+=reward
 
-        self.log("train/cum_reward", cum_reward.mean().item(), on_step=True, batch_size=1)
+
+    def evaluate_actions(self, state_action):
+        tokenized_map, tokenized_agent=state_action
+
+        pred_dict = self.encoder(tokenized_map, tokenized_agent)
+        pred_logit=pred_dict["next_token_logits"]
+        dist = Categorical(logits=pred_logit)
+
+        action=tokenized_agent['sampled_idx'][:,2:]
+
+        action_log_probs=dist.log_prob(action)
+        dist_entropy = dist.entropy()
+
+        feat_a=pred_dict["feat_a"]
+        value=self.value_network(feat_a)[:,:,0]
+
+        return {
+            'value': value,
+            'log_prob': action_log_probs,
+            'ent': dist_entropy,
+        }
 
     def ppo_update(self,policy_optimizer,
                    use_clipped_value_loss=True,
@@ -168,16 +217,18 @@ class GAIL(LightningModule):
                    value_loss_coef=0.5,
                    entropy_coef=0.0001
                    ):
+
+        sample = self.replay_buffer.sample()
+
         for e in range(self.ppo_update_num):
-            sample=self.replay_buffer.sample(e)
-            ac_eval = self.evaluate_actions(sample['state'], sample['action'])
+            ac_eval = self.evaluate_actions(sample['state_action'])
 
             ratio = torch.exp(ac_eval['log_prob'] - sample['prev_log_prob'])
             surr1 = ratio * sample['adv']
             surr2 = torch.clamp(ratio,
                                 1.0 - clip_param,
                                 1.0 + clip_param) * sample['adv']
-            actor_loss = -torch.min(surr1, surr2).mean(0)
+            actor_loss = -torch.min(surr1, surr2).mean()
 
             if use_clipped_value_loss:
                 value_pred_clipped = sample['value'] + (ac_eval['value'] - sample['value']).clamp(
@@ -203,6 +254,7 @@ class GAIL(LightningModule):
             self.log("train/ppo_loss", ppo_loss.mean().item(), on_step=True, batch_size=1)
 
     def training_step(self, data, batch_idx):
+        #print(self.global_step)
         tokenized_map, tokenized_agent = self.token_processor(data)
         # Get optimizers
         policy_optimizer, discriminator_optimizer = self.optimizers()
@@ -227,17 +279,18 @@ class GAIL(LightningModule):
         else:
             with torch.no_grad():
                 self.rollout(tokenized_map, tokenized_agent)
-                self.push_expert_sample(tokenized_map,tokenized_agent)
+                #self.push_expert_sample(tokenized_map,tokenized_agent)
 
-            self.update_reward_func(discriminator_optimizer)
+            self.update_reward_func(discriminator_optimizer,tokenized_map,tokenized_agent)
+            #print(self.global_step)
 
             with torch.no_grad():
-                self.get_reward()
-
-                self.replay_buffer.compute_returns()
+                # self.get_reward()
                 self.replay_buffer.compute_advantages()
 
             self.ppo_update(policy_optimizer)
+
+       # print(self.global_step)
 
 
     def on_validation_epoch_end(self):

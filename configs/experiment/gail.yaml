@@ -7,7 +7,7 @@ defaults:
 model:
   model_config:
     automatic_optimization: false
-    lr: 3e-4
+    lr: 1e-4
     token_processor:
       map_token_sampling: # open-loop
         num_k: 1 # for k nearest neighbors
@@ -28,13 +28,13 @@ trainer:
   limit_val_batches: 4
   check_val_every_n_epoch: 1
   gradient_clip_val: 0.0
-  val_check_interval: 0.05
+  val_check_interval: 0.01
 
 data:
-  train_batch_size: 8
-  val_batch_size: 1
+  train_batch_size: 4
+  val_batch_size: 4
   test_batch_size: 10
-  num_workers: 14
+  num_workers: 16
 
 #action: finetune
 

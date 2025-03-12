@@ -31,7 +31,7 @@ from src.smart.tokens.token_processor import TokenProcessor
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-
+import time
 
 class SMART(LightningModule):
 
@@ -124,9 +124,15 @@ class SMART(LightningModule):
         # ! closed-loop vlidation
         if self.val_closed_loop:
             pred_traj, pred_z, pred_head = [], [], []
+            #t1=time.time()
+            map_feature = self.encoder.map_encoder(tokenized_map)
+
             for _ in range(self.n_rollout_closed_val):
-                pred = self.encoder.inference(
-                    tokenized_map, tokenized_agent, self.validation_rollout_sampling
+                # pred = self.encoder.inference(
+                #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
+                # )
+                pred = self.encoder.agent_encoder.inference(
+                    tokenized_agent, map_feature, self.validation_rollout_sampling
                 )
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])
@@ -135,6 +141,8 @@ class SMART(LightningModule):
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
             pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+
+            #print(time.time()-t1)
 
             # ! WOSAC
             scenario_rollouts = None
@@ -183,6 +191,8 @@ class SMART(LightningModule):
                     )
                     self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
 
+           # print(time.time()-t1)
+
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
                 if scenario_rollouts is not None:
@@ -190,7 +200,7 @@ class SMART(LightningModule):
                         _vis = VisWaymo(
                             scenario_path=data["tfrecord_path"][_i_sc],
                             save_dir=self.video_dir
-                            / f"batch_{batch_idx:02d}-scenario_{_i_sc:02d}",
+                            / f"step_{self.global_step}_batch_{batch_idx:02d}-scenario_{_i_sc:02d}",
                         )
                         _vis.save_video_scenario_rollout(
                             scenario_rollouts[_i_sc], self.n_vis_rollout
@@ -199,6 +209,7 @@ class SMART(LightningModule):
                         #     self.logger.log_video(
                         #         "/".join(_path.split("/")[-3:]), [_path]
                         #     )
+                    #print(time.time()-t1)
 
     def on_validation_epoch_end(self):
         if self.val_closed_loop:

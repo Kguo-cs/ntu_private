@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "gail_w1e2_1e6_3e4"
+task_name: "gail_grid1e6_1e4ppo9"
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

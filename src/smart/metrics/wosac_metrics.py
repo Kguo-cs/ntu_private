@@ -89,7 +89,7 @@ class WOSACMetrics(Metric):
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
 
-        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"]:
+        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and len(scenario_rollouts)>4:
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
@@ -103,8 +103,8 @@ class WOSACMetrics(Metric):
                         itertools.repeat(self.ego_only),
                     ),
                 )
-                # pool.close()
-                # pool.join()
+                pool.close()
+                pool.join()
         else:
             pool_scenario_metrics = []
             for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
@@ -113,6 +113,7 @@ class WOSACMetrics(Metric):
                         self.wosac_config, _scenario, _scenario_rollout, self.ego_only
                     )
                 )
+
 
         for scenario_metrics in pool_scenario_metrics:
             self.scenario_counter += 1

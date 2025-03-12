@@ -40,7 +40,7 @@ class SMARTDecoder(nn.Module):
         dropout: float,
         hist_drop_prob: float,
         n_token_agent: int,
-        discrminator=False
+        state_action=False
     ) -> None:
         super(SMARTDecoder, self).__init__()
         self.map_encoder = SMARTMapDecoder(
@@ -52,18 +52,6 @@ class SMARTDecoder(nn.Module):
             head_dim=head_dim,
             dropout=dropout,
         )
-
-        self.discrminator=discrminator
-
-        if self.discrminator:
-            self.action_encoder=nn.Embedding(n_token_agent,hidden_dim)
-            self.pred_score=nn.Sequential(
-                nn.Linear(hidden_dim*2, 128),
-                nn.LayerNorm(128),
-                nn.ReLU(inplace=True),
-                nn.Linear(128, 1)
-                ,nn.Sigmoid())
-            n_token_agent=hidden_dim
 
         self.agent_encoder = SMARTAgentDecoder(
             hidden_dim=hidden_dim,
@@ -79,6 +67,7 @@ class SMARTDecoder(nn.Module):
             dropout=dropout,
             hist_drop_prob=hist_drop_prob,
             n_token_agent=n_token_agent,
+            state_action=state_action
         )
 
 

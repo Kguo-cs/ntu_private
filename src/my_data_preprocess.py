@@ -147,11 +147,13 @@ def get_agent_routes(data,map_infos):
 def process_light(data,map_infos,tf_lights,tf_current_light):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
 
-    current_light_ids=tf_current_light["lane_id"].values
+    current_light_ids=torch.tensor(tf_current_light["lane_id"].values)
 
-    in_lane=torch.isin(torch.tensor(current_light_ids),torch.tensor(polygon_ids))
+    if len(current_light_ids):
+        in_lane=torch.isin(current_light_ids,torch.tensor(polygon_ids))
 
-    current_light_ids=current_light_ids[in_lane]
+        current_light_ids=current_light_ids[in_lane]
+
 
     ln_id=data['pt_token']["ln_id"]
 
@@ -266,9 +268,9 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/mini"
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=12)
     args = parser.parse_args()
 
