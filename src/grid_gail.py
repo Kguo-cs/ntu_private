@@ -97,7 +97,7 @@ class RandomNumberDataset(Dataset):
         self.max_val = max_val
 
     def __len__(self):
-        return 10000
+        return 3000
 
     def __getitem__(self, idx):
         return 0
@@ -260,7 +260,7 @@ class Critic(nn.Module):
 
 buffer = RolloutBuffer()
 
-
+q_net=True
 
 class PPO(pl.LightningModule):
     def __init__(self):
@@ -271,20 +271,19 @@ class PPO(pl.LightningModule):
         self.policy = PolicyNetwork(state_dim, action_dim)
         self.discriminator = discriminator(state_dim, action_dim)
 
-        self.critic_tau=0.1
-        self.log_alpha = torch.tensor(np.log(0.01))
+        self.critic_tau=0.005
+       # self.log_alpha = torch.tensor(np.log(0.01))
 
         self.q_net=Critic(state_dim,action_dim)
         self.target_net=Critic(state_dim,action_dim)
         self.target_net.load_state_dict(self.q_net.state_dict())
 
         self.critic_target_update_frequency=4
+        self.gamma=0.99
 
         self.automatic_optimization=False
+        self.alpha=0.001#0.5
 
-    @property
-    def alpha(self):
-        return self.log_alpha.exp()
 
     def update_reward_func(self, discriminator,disc_optimizer,gradient_clip=False):
 
@@ -317,20 +316,20 @@ class PPO(pl.LightningModule):
         self.log("train/agent_reward", ((agent_d + 1e-16).log() - (1 - agent_d + 1e-16).log()).mean().item(), on_step=True,
                  batch_size=1)
 
-    def rollout(self, policy,q_net=True):
+    def rollout(self, q_net):
         buffer.clear()
 
         env.reset()
         state = env.start
 
-        for i in range(16):
+        for i in range(15):
             state_tensor = torch.FloatTensor(state).unsqueeze(0)#.cuda()
 
             if q_net:
-                pred_logit, value = policy(state_tensor)
-            else:
-                pred_logit = policy(state_tensor)/self.alpha
+                pred_logit = self.q_net(state_tensor)/self.alpha
                 value=0
+            else:
+                pred_logit, value = self.policy(state_tensor)
 
             dist = Categorical(logits=pred_logit)
             action = dist.sample()
@@ -341,10 +340,14 @@ class PPO(pl.LightningModule):
 
         state_tensor = torch.FloatTensor(state).unsqueeze(0)#.cuda()
 
-        action_probs, value = policy(state_tensor)
+        if q_net:
+            value=0
+        else:
+            pred_logit, value = self.policy(state_tensor)
+
         buffer.values.append(value)  # Reward to be updated later
         buffer.states.append(state)  # Reward to be updated later
-        buffer.dones[-1] = True
+        #buffer.dones[-1] = True
 
         dist_to_goal=torch.linalg.norm(state_tensor-torch.tensor([size-1,size-1]))#.cuda())
 
@@ -409,7 +412,7 @@ class PPO(pl.LightningModule):
             buffer.compute_returns()
             buffer.compute_advantages()
 
-        for i in range(10):
+        for i in range(1):
             
             sample = buffer.sample()
             ac_eval = self.evaluate_actions(policy,sample['state'], sample['action'])
@@ -449,42 +452,219 @@ class PPO(pl.LightningModule):
         dataloader = DataLoader(dataset, batch_size=1,num_workers=4, prefetch_factor=32,shuffle=True)
         return dataloader
 
+    def getV(self,obs):
+        q = self.q_net(obs)
+        v = self.alpha * \
+            torch.logsumexp(q/self.alpha, dim=1, keepdim=False)
+        return v
+
+
+    def get_targetV(self, obs):
+        q = self.target_net(obs)
+        target_v = self.alpha * \
+            torch.logsumexp(q/self.alpha, dim=1, keepdim=False)
+        return target_v
+
+    def critic(self, obs, action, both=False):
+        q = self.q_net(obs)
+
+        return q[torch.arange(len(action)), action.long()]
+
+    # Full IQ-Learn objective with other divergences and options
+    def iq_loss(self, current_Q, current_v, next_v, batch,alpha=0.5,div='',method_loss='value',grad_pen=False,chi=False,regularize=True):
+        gamma = self.gamma
+        obs, next_obs, action,done, is_expert = batch
+
+        loss_dict = {}
+        # keep track of value of initial states
+        v0 = self.getV(obs[is_expert, ...]).mean()
+        self.log("train/v0", v0.item(), on_step=True, batch_size=1)
+
+        #  calculate 1st term for IQ loss
+        #  -E_(ρ_expert)[Q(s, a) - γV(s')]
+        y = (1 - done) * gamma * next_v
+        reward = (current_Q - y)[is_expert]
+
+        with torch.no_grad():
+            # Use different divergence functions (For χ2 divergence we instead add a third bellmann error-like term)
+            if div == "hellinger":
+                phi_grad = 1 / (1 + reward) ** 2
+            elif div == "kl":
+                # original dual form for kl divergence (sub optimal)
+                phi_grad = torch.exp(-reward - 1)
+            elif div == "kl2":
+                # biased dual form for kl divergence
+                phi_grad = F.softmax(-reward, dim=0) * reward.shape[0]
+            elif div == "kl_fix":
+                # our proposed unbiased form for fixing kl divergence
+                phi_grad = torch.exp(-reward)
+            elif div == "js":
+                # jensen–shannon
+                phi_grad = torch.exp(-reward) / (2 - torch.exp(-reward))
+            else:
+                phi_grad = 1
+        loss = -(phi_grad * reward).mean()
+        self.log("train/softq_loss", loss.item(), on_step=True, batch_size=1)
+
+        # calculate 2nd term for IQ loss, we show different sampling strategies
+        if method_loss == "value_expert":
+            # sample using only expert states (works offline)
+            # E_(ρ)[Q(s,a) - γV(s')]
+            value_loss = (current_v - y)[is_expert].mean()
+            loss += value_loss
+            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+
+        elif method_loss == "value":
+            # sample using expert and policy states (works online)
+            # E_(ρ)[V(s) - γV(s')]
+            value_loss = (current_v - y).mean()
+            loss += value_loss
+            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+
+        elif method_loss == "v0":
+            # alternate sampling using only initial states (works offline but usually suboptimal than `value_expert` startegy)
+            # (1-γ)E_(ρ0)[V(s0)]
+            v0_loss = (1 - gamma) * v0
+            loss += v0_loss
+            self.log("train/v0_loss", v0_loss.item(), on_step=True, batch_size=1)
+
+
+        else:
+            raise ValueError(f'This sampling method is not implemented: {args.method.type}')
+
+        if grad_pen:
+            # add a gradient penalty to loss (Wasserstein_1 metric)
+            gp_loss = self.critic_net.grad_pen(obs[is_expert.squeeze(1), ...],
+                                                action[is_expert.squeeze(1), ...],
+                                                obs[~is_expert.squeeze(1), ...],
+                                                action[~is_expert.squeeze(1), ...],
+                                                args.method.lambda_gp)
+            loss += gp_loss
+            self.log("train/gp_loss", gp_loss.item(), on_step=True, batch_size=1)
+
+        if div == "chi" or chi:  # TODO: Deprecate method.chi argument for method.div
+            # Use χ2 divergence (calculate the regularization term for IQ loss using expert states) (works offline)
+            y = (1 - done) * gamma * next_v
+
+            reward = current_Q - y
+            chi2_loss = 1 / (4 * self.alpha) * (reward ** 2)[is_expert].mean()
+            loss += chi2_loss
+            self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
+
+        if regularize:
+            # Use χ2 divergence (calculate the regularization term for IQ loss using expert and policy states) (works online)
+            y = (1 - done) * gamma * next_v
+
+            reward = current_Q - y
+            chi2_loss = 1 / (4 * alpha) * (reward ** 2).mean()
+            loss += chi2_loss
+            self.log("train/regularize_loss", chi2_loss.item(), on_step=True, batch_size=1)
+
+        loss_dict['total_loss'] = loss.item()
+        return loss, loss_dict
+
+    def get_iq_loss(self,batch):
+
+        obs, next_obs, action,done,is_expert=batch
+
+        current_V = self.getV(obs)
+
+        with torch.no_grad():
+            next_V = self.get_targetV(next_obs)
+
+        current_Q = self.critic(obs, action)
+        critic_loss, loss_dict = self.iq_loss( current_Q, current_V, next_V, batch)
+        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+
+        return critic_loss
+
+
+    def iq_update(self,critic_optimizer):
+
+        expert_idx=random.randint(0,len(expert_trajs)-1)
+
+        expert_states = torch.FloatTensor([s for s, _ in expert_trajs[expert_idx]])
+        expert_actions = torch.tensor([a   for _, a in expert_trajs[expert_idx]], dtype=torch.int64)
+
+        expert_batch_state=expert_states[:-1]
+        expert_batch_next_state=expert_states[1:]
+        expert_batch_action=expert_actions[:-1]
+
+
+        online_batch_state = torch.FloatTensor(buffer.states[:-1])
+        online_batch_next_state = torch.FloatTensor(buffer.states[1:])
+        online_batch_action = torch.FloatTensor(buffer.actions)
+        online_batch_done=torch.FloatTensor(buffer.dones)
+
+        expert_batch_done=online_batch_done
+
+
+        batch_state = torch.cat([online_batch_state, expert_batch_state], dim=0)
+        batch_next_state = torch.cat(
+            [online_batch_next_state, expert_batch_next_state], dim=0)
+        batch_action = torch.cat([online_batch_action, expert_batch_action], dim=0)
+        batch_done = torch.cat([online_batch_done, expert_batch_done], dim=0)
+        is_expert = torch.cat([torch.zeros_like(online_batch_done, dtype=torch.bool),
+                               torch.ones_like(expert_batch_done, dtype=torch.bool)], dim=0)
+
+        batch=( batch_state, batch_next_state, batch_action,  batch_done, is_expert)
+
+        critic_loss=self.get_iq_loss(batch)
+
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        # step critic
+        critic_optimizer.step()
+
+        if self.global_step % self.critic_target_update_frequency == 0:
+            self.soft_update(self.q_net, self.target_net,
+                        self.critic_tau)
+
+    def soft_update(self,net, target_net, tau):
+        for param, target_param in zip(net.parameters(), target_net.parameters()):
+            target_param.data.copy_(tau * param.data +
+                                    (1 - tau) * target_param.data)
+
     # GAIL Training
     def training_step(self,batch ):
         policy_optimizer, discriminator_optimizer,critic_optimizer = self.optimizers()
 
         with torch.no_grad():
-            self.rollout(self.policy)
+            self.rollout(q_net=q_net)
 
-        self.update_reward_func(self.discriminator,discriminator_optimizer)
+        if q_net:
+            self.iq_update(critic_optimizer)
 
-        with torch.no_grad():
-            buffer.get_reward(self.discriminator)
-           # print(torch.FloatTensor(buffer.rewards).sum().item())
-            self.log("train/cum_reward", buffer.rewards.sum(), on_step=True, batch_size=1)
+        else:
+            self.update_reward_func(self.discriminator,discriminator_optimizer)
 
-        self.softq_update(critic_optimizer)
-        # self.ppo_update(self.policy,policy_optimizer)
+            with torch.no_grad():
+                buffer.get_reward(self.discriminator)
+               # print(torch.FloatTensor(buffer.rewards).sum().item())
+                self.log("train/cum_reward", buffer.rewards.sum(), on_step=True, batch_size=1)
+            self.ppo_update(self.policy,policy_optimizer)
+
+        #self.softq_update(critic_optimizer)
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         policy_optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
-        discriminator_optimizer = optim.Adam(self.discriminator.parameters(), lr=1e-4)#discriminator lr should be bigger
-        critic_optimizer=optim.Adam(self.q_net.parameters(),lr=1e-4)
+        discriminator_optimizer = optim.Adam(self.discriminator.parameters(), lr=1e-3)#discriminator lr should be bigger
+        critic_optimizer=optim.Adam(self.q_net.parameters(),lr=1e-3)
         return [policy_optimizer, discriminator_optimizer,critic_optimizer], []
 
 #ppo is learning rate sensitive
-
+#
 ppo = PPO()
 
 # Initialize TensorBoard logger
-logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='grid')
+logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='qnet_1e3')#_1e3
 
 # Initialize the Trainer and start training
 trainer = pl.Trainer(logger=logger,accelerator='cpu', max_epochs=1,log_every_n_steps=10)
 trainer.fit(ppo)
 # ppo.train_rl()  # Manual RL training
 
-def visualize_policy(env, policy, num_episodes=100):
+def visualize_policy(env, num_episodes=100):
     visitation_counts = np.zeros((env.size, env.size))
     policy_Right = np.zeros((env.size, env.size))
     policy_Down = np.zeros((env.size, env.size))
@@ -499,7 +679,11 @@ def visualize_policy(env, policy, num_episodes=100):
         for _ in range(16):
             visitation_counts[state] += 1
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
-            pred_logit = policy(state_tensor)[0]
+            if q_net:
+                pred_logit=ppo.q_net(state_tensor)/ppo.alpha
+
+            else:
+                pred_logit = ppo.policy(state_tensor)[0]
             dist = Categorical(logits=pred_logit)
             action = dist.sample().detach().numpy()[0]
             next_state, _, done = env.step(action)
@@ -513,7 +697,11 @@ def visualize_policy(env, policy, num_episodes=100):
         for j in range(env.size):
             state = (i, j)
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
-            pred_logit, state_value = policy(state_tensor)
+            if q_net:
+                pred_logit=ppo.q_net(state_tensor)/ppo.alpha
+            else:
+                pred_logit, state_value = ppo.policy(state_tensor)
+
             action_prob = torch.softmax(pred_logit, dim=1).detach().numpy()[0]
 
             policy_Right[i, j] = action_prob[0]
@@ -521,7 +709,7 @@ def visualize_policy(env, policy, num_episodes=100):
             policy_Left[i, j] = action_prob[2]
             policy_Up[i, j] = action_prob[3]
             policy_Stop[i, j] = action_prob[4]
-            value_grid[i, j] = state_value.detach().numpy()[0]
+            #value_grid[i, j] = state_value.detach().numpy()[0]
 
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
     titles = ['Visitation Frequency', 'Policy Right', 'Policy Down', 'Policy Left', 'Policy Up', 'Policy Stop',
@@ -539,4 +727,4 @@ def visualize_policy(env, policy, num_episodes=100):
     plt.show()
 
 
-visualize_policy(env, ppo.policy)
+visualize_policy(env)

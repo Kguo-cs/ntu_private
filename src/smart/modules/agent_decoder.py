@@ -527,8 +527,8 @@ class SMARTAgentDecoder(nn.Module):
                     # action that goes from [(10->15), ..., (85->90)]
                     "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
                     "feat_a": feat_a[:, 1:-1],
+                    "q_value": next_token_logits[:, 1:]
                 }
-
             else:
                 return {
                     # action that goes from [(10->15), ..., (85->90)]

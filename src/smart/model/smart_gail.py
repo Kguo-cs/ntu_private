@@ -13,6 +13,7 @@
 
 
 from src.smart.model.gail import GAIL
+from src.smart.model.iq_learn import IQ_SoftQ
 from src.smart.model.smart import SMART
 from src.smart.modules.smart_decoder import SMARTDecoder
 
@@ -31,6 +32,18 @@ class SMART_GAIL(GAIL, SMART):
             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
             state_action=True
         )
+
+class SMART_IQ(IQ_SoftQ, SMART):
+    def __init__(self, model_config) -> None:
+        SMART.__init__(self, model_config)  # Explicit call
+        IQ_SoftQ.__init__(self, model_config)  # Explicit call
+
+
+        self.target_net=SMARTDecoder(
+            **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
+        )
+        self.target_net.load_state_dict(self.encoder.state_dict())
+
 
 
 class EGO_GMM_GAIL(GAIL, EgoGMMSMART):
