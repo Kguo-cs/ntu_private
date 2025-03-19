@@ -2,7 +2,7 @@
 
 defaults:
   # - override /trainer: ddp
-  - override /model: smart_gail
+  - override /model: smart_iq
 
 model:
   model_config:

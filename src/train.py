@@ -21,7 +21,6 @@ from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
-from src.smart.model.smart_gail import SMART_GAIL,EGO_GMM_GAIL
 
 from src.utils import (
     RankedLogger,

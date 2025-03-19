@@ -4,6 +4,7 @@ import torch.optim as optim
 import random
 from collections import deque
 import torch.nn as nn
+from tensorflow_probability.substrates.jax.distributions.student_t import entropy
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import torch
@@ -14,7 +15,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.replay_buffer = deque(maxlen=1)
+        self.replay_buffer = deque(maxlen=100)
         self.critic_tau=0.005
         self.critic_target_update_frequency=4
         self.gamma=0.99
@@ -48,27 +49,34 @@ class IQ_SoftQ(LightningModule):
     def get_QV(self,tokenized_map, tokenized_agent):
 
         q = self.encoder(tokenized_map, tokenized_agent)["q_value"][:,:-1]
-        current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)
+        current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)#V=Q-alpha*H
+
+        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+        #V_soft = torch.sum(pi * q, dim=-1) - self.alpha * torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
+        entropy=-torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
+        # entropy=torch.sum(q-current_V[:,:,None],dim=-1)/self.alpha
+        #current_V= torch.sum(pi * q, dim=-1)+self.alpha*entropy
 
         action= tokenized_agent["sampled_idx"][:,2:].reshape(-1)
 
-        current_Q =  q.reshape(len(action),-1)[torch.arange(len(action)), action].reshape(current_V.shape)
+        current_Q =  q.reshape(len(action),-1)[torch.arange(len(action)), action].reshape(q.shape[0],q.shape[1])
 
         with torch.no_grad():
             next_q = self.target_net(tokenized_map, tokenized_agent)["q_value"][:,1:]
             target_v = self.alpha * torch.logsumexp(next_q/self.alpha, dim=-1, keepdim=False)
 
-        return current_Q,current_V,target_v
+
+        return current_Q,current_V,target_v,entropy
 
     def iq_update(self,tokenized_map, tokenized_agent,alpha=0.5):
-        agent_tokenized_map, agent_tokenized_agent = random.sample(self.replay_buffer,1)[0]
+        #agent_tokenized_map, agent_tokenized_agent = random.sample(self.replay_buffer,1)[0]
 
-        agent_Q,agent_V,agent_target_v=self.get_QV(agent_tokenized_map, agent_tokenized_agent)
+        #agent_Q,_,agent_target_v,agent_entropy=self.get_QV(agent_tokenized_map, agent_tokenized_agent)
 
-        expert_Q,expert_V,expert_target_v=self.get_QV(tokenized_map,tokenized_agent)
+        expert_Q,expert_V,expert_target_v,_=self.get_QV(tokenized_map,tokenized_agent)
 
         expert_reward = expert_Q - self.gamma * expert_target_v
-        agent_reward = agent_Q - self.gamma * agent_target_v
+        #agent_reward = agent_Q - self.gamma * agent_target_v
 
         expert_reward_loss = -expert_reward.mean()
 
@@ -76,27 +84,38 @@ class IQ_SoftQ(LightningModule):
 
         expert_value_loss = (expert_V - self.gamma * expert_target_v).mean()
 
-        agent_value_loss = (agent_V - self.gamma * agent_target_v).mean()
-
-        value_loss= expert_value_loss+agent_value_loss
+        #agent_value_loss = (agent_V - self.gamma * agent_target_v).mean()
+        #
+        # value_loss= (expert_value_loss+agent_value_loss)/2
+        value_loss =expert_value_loss
 
         self.log("train/expert_value_loss", expert_value_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
+        #self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
-        chi2_expert_loss = 1 / (4 * alpha) * (expert_reward ** 2).mean()
-        chi2_agent_loss = 1 / (4 * alpha) * (agent_reward ** 2).mean()
+        # agent_reward_loss=agent_reward.mean()
+        #
+        # reward_loss=agent_reward_loss+expert_reward_loss
+        # self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
-        chi2_loss= chi2_expert_loss+chi2_agent_loss
+        # entropy_loss=agent_entropy.mean()
+        #
+        # value_loss=agent_reward_loss#+entropy_loss
+        #
+        # self.log("train/agent_reward_loss", agent_reward_loss.item(), on_step=True, batch_size=1)
+        # self.log("train/entropy_loss", entropy_loss.item(), on_step=True, batch_size=1)
+
+        chi2_expert_loss = 1 / (4 * alpha) * (expert_reward ** 2).mean()
+        # chi2_agent_loss = 1 / (4 * alpha) * (agent_reward ** 2).mean()
+
+        chi2_loss=chi2_expert_loss# (chi2_expert_loss+chi2_agent_loss)/2
         self.log("train/chi2_expert_loss", chi2_expert_loss.item(), on_step=True, batch_size=1)
-        self.log("train/chi2_agent_loss", chi2_agent_loss.item(), on_step=True, batch_size=1)
+        #self.log("train/chi2_agent_loss", chi2_agent_loss.item(), on_step=True, batch_size=1)
         self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
 
         critic_loss=expert_reward_loss+value_loss+chi2_loss
 
         return critic_loss
-
-
 
     def soft_update(self,net, target_net, tau):
         for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -117,16 +136,18 @@ class IQ_SoftQ(LightningModule):
                 train_mask=data["agent"]["train_mask"],  # [n_agent]
                 current_epoch=self.current_epoch,
             )
-            self.log("train/loss", loss, on_step=True, batch_size=1)
         else:
-            with torch.no_grad():
-                self.rollout(tokenized_map, tokenized_agent)
+            # if len(self.replay_buffer)<self.replay_buffer.maxlen or self.global_step%10==0:
+            #     with torch.no_grad():
+            #         self.rollout(tokenized_map, tokenized_agent)
 
             if self.global_step % self.critic_target_update_frequency == 0:
                 self.soft_update(self.encoder, self.target_net,
                                  self.critic_tau)
 
             loss=self.iq_update(tokenized_map, tokenized_agent)
+
+        self.log("train/loss", loss, on_step=True, batch_size=1)
 
         return loss
 

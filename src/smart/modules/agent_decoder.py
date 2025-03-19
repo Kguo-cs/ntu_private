@@ -522,31 +522,31 @@ class SMARTAgentDecoder(nn.Module):
                 score=score[expert_mask]
             return score
         else:
-            if self.training:
-                return {
-                    # action that goes from [(10->15), ..., (85->90)]
-                    "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-                    "feat_a": feat_a[:, 1:-1],
-                    "q_value": next_token_logits[:, 1:]
-                }
-            else:
-                return {
-                    # action that goes from [(10->15), ..., (85->90)]
-                    "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-                    "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
-                    # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
-                    "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
-                    "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
-                    "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
-                    # for step {5, 10, ..., 90}
-                    "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
-                    "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
-                    "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
-                    # or use the tokenized gt
-                    "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
-                    "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
-                    "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
-                }
+            # if self.training:
+            #     return {
+            #         # action that goes from [(10->15), ..., (85->90)]
+            #         "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
+            #         "feat_a": feat_a[:, 1:-1],
+            #         "q_value": next_token_logits[:, 1:]
+            #     }
+            # else:
+            return {
+                # action that goes from [(10->15), ..., (85->90)]
+                "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
+                "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
+                # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
+                "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+                "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+                "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+                # for step {5, 10, ..., 90}
+                "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
+                "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
+                "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
+                # or use the tokenized gt
+                "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
+                "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
+                "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+            }
 
     def inference(
         self,

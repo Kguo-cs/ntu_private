@@ -54,31 +54,31 @@ expert_trajs = []
 def generate_expert_data(env, episodes=100):
     global expert_trajs
     expert_trajs = []
-    for _ in range(episodes):
+    for t in range(episodes):
         state = env.reset()
         trajectory = []
         #print(random.random())
-        if random.random()<0.3:
+        if t<50:
             for i in range(16):  # Max 16 steps per episode
                 action = np.argmin(
                     [np.linalg.norm(np.array(env.goal) - np.array((state[0] + a[0], state[1] + a[1]))) for a in
                      env.actions])
                 next_state, _, done = env.step(action)
-                trajectory.append((state, action))
+                trajectory.append(((0,state[0],state[1]), action))
                 state = next_state
                 if done:
                     break
         else:
             for _ in range(16):  # Max 16 steps per episode
-                trajectory.append(((0,0), 4))
+                trajectory.append(((1,0,0), 4))
         expert_trajs.append(trajectory)
 
 
 def visualize_expert_data(env, expert_trajs):
-    grid = np.zeros((env.size, env.size))
+    grid = np.zeros((env.size, env.size,5))
     for traj in expert_trajs:
-        for pos, _ in traj:
-            grid[pos] += 1
+        for pos, action in traj:
+            grid[pos[1:3]][action] += 1/len(expert_trajs)
     #grid[env.goal] = 2
     print(grid)
     print(grid[0][0]/grid.sum())
@@ -88,6 +88,7 @@ def visualize_expert_data(env, expert_trajs):
     # plt.colorbar(label="Visit Count")
     # plt.grid()
     # plt.show()
+    return grid
 
 # Custom dataset that generates random numbers
 class RandomNumberDataset(Dataset):
@@ -104,7 +105,7 @@ class RandomNumberDataset(Dataset):
 
 env = GridEnv()
 generate_expert_data(env)
-visualize_expert_data(env, expert_trajs)
+expert_grid=visualize_expert_data(env, expert_trajs)
 
 # Define Rollout Buffer
 class RolloutBuffer:
@@ -265,7 +266,7 @@ q_net=True
 class PPO(pl.LightningModule):
     def __init__(self):
         super(PPO, self).__init__()
-        state_dim = 2  # Grid coordinates
+        state_dim = 3  # Grid coordinates
         action_dim = 5  # Four possible actions
 
         self.policy = PolicyNetwork(state_dim, action_dim)
@@ -282,7 +283,7 @@ class PPO(pl.LightningModule):
         self.gamma=0.99
 
         self.automatic_optimization=False
-        self.alpha=0.001#0.5
+        self.alpha=1#0.5
 
 
     def update_reward_func(self, discriminator,disc_optimizer,gradient_clip=False):
@@ -322,6 +323,10 @@ class PPO(pl.LightningModule):
         env.reset()
         state = env.start
 
+        expert_idx=random.randint(0,len(expert_trajs)-1)
+
+        state=expert_trajs[expert_idx][0][0]
+
         for i in range(15):
             state_tensor = torch.FloatTensor(state).unsqueeze(0)#.cuda()
 
@@ -336,7 +341,7 @@ class PPO(pl.LightningModule):
             log_prob = dist.log_prob(action)
             next_state, _, done = env.step(action)
             buffer.add(state, action, 0, log_prob, done, value)  # Reward to be updated later
-            state = next_state
+            state =(state[0],next_state[0], next_state[1])
 
         state_tensor = torch.FloatTensor(state).unsqueeze(0)#.cuda()
 
@@ -352,7 +357,6 @@ class PPO(pl.LightningModule):
         dist_to_goal=torch.linalg.norm(state_tensor-torch.tensor([size-1,size-1]))#.cuda())
 
         self.log("train/dist_to_goal", dist_to_goal.mean().item(), on_step=True, batch_size=1)
-
 
 
     def evaluate_actions(self,policy, state, action):
@@ -398,8 +402,6 @@ class PPO(pl.LightningModule):
 
             if self.global_step % self.critic_target_update_frequency == 0:
                 self.target_net.load_state_dict(self.q_net.state_dict())
-
-
 
     def ppo_update(self,policy,
                    policy_optimizer,
@@ -458,6 +460,13 @@ class PPO(pl.LightningModule):
             torch.logsumexp(q/self.alpha, dim=1, keepdim=False)
         return v
 
+    def getEntropy(self,obs):
+        q = self.q_net(obs)
+        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+        #V_soft = torch.sum(pi * q, dim=-1) - self.alpha * torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
+        entropy=-torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
+
+        return entropy
 
     def get_targetV(self, obs):
         q = self.target_net(obs)
@@ -506,31 +515,41 @@ class PPO(pl.LightningModule):
         loss = -(phi_grad * reward).mean()
         self.log("train/softq_loss", loss.item(), on_step=True, batch_size=1)
 
-        # calculate 2nd term for IQ loss, we show different sampling strategies
-        if method_loss == "value_expert":
-            # sample using only expert states (works offline)
-            # E_(ρ)[Q(s,a) - γV(s')]
-            value_loss = (current_v - y)[is_expert].mean()
-            loss += value_loss
-            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        agent_reward = (current_Q - y)[~is_expert].mean()
 
-        elif method_loss == "value":
-            # sample using expert and policy states (works online)
-            # E_(ρ)[V(s) - γV(s')]
-            value_loss = (current_v - y).mean()
-            loss += value_loss
-            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        loss +=agent_reward
 
-        elif method_loss == "v0":
-            # alternate sampling using only initial states (works offline but usually suboptimal than `value_expert` startegy)
-            # (1-γ)E_(ρ0)[V(s0)]
-            v0_loss = (1 - gamma) * v0
-            loss += v0_loss
-            self.log("train/v0_loss", v0_loss.item(), on_step=True, batch_size=1)
+        # entropy=self.getEntropy(obs[~is_expert]).mean()
+        # loss +=entropy
+        #
+        # self.log("train/agent_reward", agent_reward.item(), on_step=True, batch_size=1)
+        # self.log("train/entropy", entropy.item(), on_step=True, batch_size=1)
 
-
-        else:
-            raise ValueError(f'This sampling method is not implemented: {args.method.type}')
+        # # calculate 2nd term for IQ loss, we show different sampling strategies
+        # if method_loss == "value_expert":
+        #     # sample using only expert states (works offline)
+        #     # E_(ρ)[Q(s,a) - γV(s')]
+        #     value_loss = (current_v - y)[is_expert].mean()
+        #     loss += value_loss
+        #     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        #
+        # elif method_loss == "value":
+        #     # sample using expert and policy states (works online)
+        #     # E_(ρ)[V(s) - γV(s')]
+        #     value_loss = (current_v - y).mean()
+        #     loss += value_loss
+        #     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        #
+        # elif method_loss == "v0":
+        #     # alternate sampling using only initial states (works offline but usually suboptimal than `value_expert` startegy)
+        #     # (1-γ)E_(ρ0)[V(s0)]
+        #     v0_loss = (1 - gamma) * v0
+        #     loss += v0_loss
+        #     self.log("train/v0_loss", v0_loss.item(), on_step=True, batch_size=1)
+        #
+        #
+        # else:
+        #     raise ValueError(f'This sampling method is not implemented: {args.method.type}')
 
         if grad_pen:
             # add a gradient penalty to loss (Wasserstein_1 metric)
@@ -551,14 +570,14 @@ class PPO(pl.LightningModule):
             loss += chi2_loss
             self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
 
-        if regularize:
-            # Use χ2 divergence (calculate the regularization term for IQ loss using expert and policy states) (works online)
-            y = (1 - done) * gamma * next_v
-
-            reward = current_Q - y
-            chi2_loss = 1 / (4 * alpha) * (reward ** 2).mean()
-            loss += chi2_loss
-            self.log("train/regularize_loss", chi2_loss.item(), on_step=True, batch_size=1)
+        # if regularize:
+        #     # Use χ2 divergence (calculate the regularization term for IQ loss using expert and policy states) (works online)
+        #     y = (1 - done) * gamma * next_v
+        #
+        #     reward = current_Q - y
+        #     chi2_loss = 1 / (4 * alpha) * (reward ** 2).mean()
+        #     loss += chi2_loss
+        #     self.log("train/regularize_loss", chi2_loss.item(), on_step=True, batch_size=1)
 
         loss_dict['total_loss'] = loss.item()
         return loss, loss_dict
@@ -597,7 +616,6 @@ class PPO(pl.LightningModule):
         online_batch_done=torch.FloatTensor(buffer.dones)
 
         expert_batch_done=online_batch_done
-
 
         batch_state = torch.cat([online_batch_state, expert_batch_state], dim=0)
         batch_next_state = torch.cat(
@@ -645,6 +663,52 @@ class PPO(pl.LightningModule):
             self.ppo_update(self.policy,policy_optimizer)
 
         #self.softq_update(critic_optimizer)
+        if self.global_step%100==0:
+            self.compute_visitation_frequencies()
+
+    def compute_visitation_frequencies(self, horizon=16):
+        """
+        Compute state-action visitation frequencies under a given policy.
+
+        Args:
+            env (GridEnv): The grid environment.
+            policy (dict): A dictionary where keys are states and values are probability distributions over actions.
+            horizon (int): The number of time steps to consider.
+
+        Returns:
+            np.array: State-action visitation frequencies.
+        """
+        num_states = env.size * env.size
+        num_actions = len(env.actions)
+
+        # Flatten state (row, col) into an index for easier matrix operations
+        state_to_index = lambda s: s[0] * env.size + s[1]
+
+        # Initialize visitation frequency matrix
+        d = torch.zeros((num_states,num_actions, horizon))
+
+        # Start state
+        d[state_to_index(env.start), :, 0] = torch.softmax(self.q_net(torch.FloatTensor(env.start)),dim=-1)  # Start at (0,0)
+
+        # Compute visitation frequencies iteratively
+        for t in range(horizon - 1):
+            for s in range(num_states):
+                row, col = divmod(s, env.size)  # Convert index to (row, col)
+                if (row, col) == env.goal:
+                    continue  # Skip goal state
+
+                for a, action in enumerate(env.actions):
+                    next_state = (max(0, min(env.size - 1, row + action[0])),
+                                  max(0, min(env.size - 1, col + action[1])))
+                    next_index = state_to_index(next_state)
+
+                    # Transition probability contribution
+                    d[next_index, :, t + 1] += d[s, a, t] * torch.softmax(self.q_net(torch.FloatTensor([row, col])),dim=-1) [a]
+
+        # Sum over time steps to get final state-action visitation frequencies
+        d_sa = torch.sum(d, dim=2)  # Sum over time dimension
+
+        return d_sa
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         policy_optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
@@ -657,7 +721,12 @@ class PPO(pl.LightningModule):
 ppo = PPO()
 
 # Initialize TensorBoard logger
-logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='qnet_1e3')#_1e3
+logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='qnet_1e3_agentrewardentropy')#_1e3
+
+
+#qnet_1e3_agentrewardentropy   11.25
+#qnet_1e3_value
+
 
 # Initialize the Trainer and start training
 trainer = pl.Trainer(logger=logger,accelerator='cpu', max_epochs=1,log_every_n_steps=10)
@@ -692,6 +761,7 @@ def visualize_policy(env, num_episodes=100):
                 break
 
     print(visitation_counts.astype(int))#Right, Down, Left, Up
+    print(np.abs(visitation_counts-expert_grid).mean())
 
     for i in range(env.size):
         for j in range(env.size):
