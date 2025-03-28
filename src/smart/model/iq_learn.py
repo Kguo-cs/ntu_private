@@ -48,12 +48,14 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self,tokenized_map, tokenized_agent):
 
-        q = self.encoder(tokenized_map, tokenized_agent)["q_value"][:,:-1]
-        current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)#V=Q-alpha*H
+        q_value=self.encoder(tokenized_map, tokenized_agent)["q_value"]
 
-        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+        q =q_value[:,:-1]
+        #current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)#V=Q-alpha*H
+
+        #pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
         #V_soft = torch.sum(pi * q, dim=-1) - self.alpha * torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
-        entropy=-torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
+        #entropy=-torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
         # entropy=torch.sum(q-current_V[:,:,None],dim=-1)/self.alpha
         #current_V= torch.sum(pi * q, dim=-1)+self.alpha*entropy
 
@@ -62,40 +64,55 @@ class IQ_SoftQ(LightningModule):
         current_Q =  q.reshape(len(action),-1)[torch.arange(len(action)), action].reshape(q.shape[0],q.shape[1])
 
         with torch.no_grad():
-            next_q = self.target_net(tokenized_map, tokenized_agent)["q_value"][:,1:]
+            next_q = q_value[:,1:].detach()
             target_v = self.alpha * torch.logsumexp(next_q/self.alpha, dim=-1, keepdim=False)
 
 
-        return current_Q,current_V,target_v,entropy
+        return current_Q,None,target_v,None
 
     def iq_update(self,tokenized_map, tokenized_agent,alpha=0.5):
-        #agent_tokenized_map, agent_tokenized_agent = random.sample(self.replay_buffer,1)[0]
 
-        #agent_Q,_,agent_target_v,agent_entropy=self.get_QV(agent_tokenized_map, agent_tokenized_agent)
+        expert_Q,_,expert_target_v,_=self.get_QV(tokenized_map,tokenized_agent)
 
-        expert_Q,expert_V,expert_target_v,_=self.get_QV(tokenized_map,tokenized_agent)
+        valid_mask=tokenized_agent["valid_mask"]
 
-        expert_reward = expert_Q - self.gamma * expert_target_v
-        #agent_reward = agent_Q - self.gamma * agent_target_v
+        done=torch.zeros_like(expert_target_v)
 
-        expert_reward_loss = -expert_reward.mean()
+        done[:,-1]=1
+
+        expert_reward = expert_Q - (1 - done) *self.gamma * expert_target_v
+
+        state_valid=valid_mask[:,2:] & valid_mask[:,1:-1] &valid_mask[:,:-2]
+
+        expert_reward_loss = -expert_reward[state_valid].mean()
 
         self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
 
-        expert_value_loss = (expert_V - self.gamma * expert_target_v).mean()
-
-        #agent_value_loss = (agent_V - self.gamma * agent_target_v).mean()
+        # expert_value_loss = (expert_V - self.gamma * expert_target_v).mean()
         #
-        # value_loss= (expert_value_loss+agent_value_loss)/2
-        value_loss =expert_value_loss
-
-        self.log("train/expert_value_loss", expert_value_loss.mean().item(), on_step=True, batch_size=1)
-        #self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
-        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-        # agent_reward_loss=agent_reward.mean()
+        # #agent_value_loss = (agent_V - self.gamma * agent_target_v).mean()
+        # #
+        # # value_loss= (expert_value_loss+agent_value_loss)/2
+        # value_loss =expert_value_loss
         #
-        # reward_loss=agent_reward_loss+expert_reward_loss
+        # self.log("train/expert_value_loss", expert_value_loss.mean().item(), on_step=True, batch_size=1)
+        # #self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
+        # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        agent_tokenized_map, agent_tokenized_agent = random.sample(self.replay_buffer,1)[0]
+
+        agent_Q,_,agent_target_v,_=self.get_QV(agent_tokenized_map, agent_tokenized_agent)
+
+        done=torch.zeros_like(agent_target_v)
+
+        done[:,-1]=1
+
+        agent_raward=agent_Q - (1 - done) *self.gamma * agent_target_v
+
+        agent_reward_loss=agent_raward.mean()
+
+        self.log("train/agent_reward_loss", agent_reward_loss.item(), on_step=True, batch_size=1)
+
+        critic_loss=agent_reward_loss+expert_reward_loss
         # self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
         # entropy_loss=agent_entropy.mean()
@@ -105,15 +122,15 @@ class IQ_SoftQ(LightningModule):
         # self.log("train/agent_reward_loss", agent_reward_loss.item(), on_step=True, batch_size=1)
         # self.log("train/entropy_loss", entropy_loss.item(), on_step=True, batch_size=1)
 
-        chi2_expert_loss = 1 / (4 * alpha) * (expert_reward ** 2).mean()
-        # chi2_agent_loss = 1 / (4 * alpha) * (agent_reward ** 2).mean()
-
-        chi2_loss=chi2_expert_loss# (chi2_expert_loss+chi2_agent_loss)/2
-        self.log("train/chi2_expert_loss", chi2_expert_loss.item(), on_step=True, batch_size=1)
-        #self.log("train/chi2_agent_loss", chi2_agent_loss.item(), on_step=True, batch_size=1)
-        self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
-
-        critic_loss=expert_reward_loss+value_loss+chi2_loss
+        # chi2_expert_loss = 1 / (4 * alpha) * (expert_reward ** 2).mean()
+        # # chi2_agent_loss = 1 / (4 * alpha) * (agent_reward ** 2).mean()
+        #
+        # chi2_loss=chi2_expert_loss# (chi2_expert_loss+chi2_agent_loss)/2
+        # self.log("train/chi2_expert_loss", chi2_expert_loss.item(), on_step=True, batch_size=1)
+        # #self.log("train/chi2_agent_loss", chi2_agent_loss.item(), on_step=True, batch_size=1)
+        # self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
+        #
+        # critic_loss=expert_reward_loss+value_loss+chi2_loss
 
         return critic_loss
 
@@ -137,15 +154,14 @@ class IQ_SoftQ(LightningModule):
                 current_epoch=self.current_epoch,
             )
         else:
-            # if len(self.replay_buffer)<self.replay_buffer.maxlen or self.global_step%10==0:
-            #     with torch.no_grad():
-            #         self.rollout(tokenized_map, tokenized_agent)
-
-            if self.global_step % self.critic_target_update_frequency == 0:
-                self.soft_update(self.encoder, self.target_net,
-                                 self.critic_tau)
+            if len(self.replay_buffer)<self.replay_buffer.maxlen or self.global_step%10==0:
+                with torch.no_grad():
+                    self.rollout(tokenized_map, tokenized_agent)
 
             loss=self.iq_update(tokenized_map, tokenized_agent)
+
+            # if self.global_step % self.critic_target_update_frequency == 0:
+            #     self.soft_update(self.encoder, self.target_net, self.critic_tau)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 

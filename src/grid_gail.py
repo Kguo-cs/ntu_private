@@ -75,20 +75,26 @@ def generate_expert_data(env, episodes=100):
 
 
 def visualize_expert_data(env, expert_trajs):
-    grid = np.zeros((env.size, env.size,5))
+    expert_grid = np.zeros((env.size, env.size,5))
     for traj in expert_trajs:
         for pos, action in traj:
-            grid[pos[1:3]][action] += 1/len(expert_trajs)
+            expert_grid[pos[1:3]][action] += 1/len(expert_trajs)
     #grid[env.goal] = 2
+    # print(grid)
+    # print(grid[0][0]/grid.sum())
+
+    grid = np.zeros((env.size, env.size))
+    for traj in expert_trajs:
+        for pos, action in traj:
+            grid[pos[1:3]] += 1
     print(grid)
-    print(grid[0][0]/grid.sum())
     # plt.imshow(grid, cmap='coolwarm', origin='upper')
     # plt.xticks(range(env.size))
     # plt.yticks(range(env.size))
     # plt.colorbar(label="Visit Count")
     # plt.grid()
     # plt.show()
-    return grid
+    return expert_grid
 
 # Custom dataset that generates random numbers
 class RandomNumberDataset(Dataset):
@@ -105,7 +111,7 @@ class RandomNumberDataset(Dataset):
 
 env = GridEnv()
 generate_expert_data(env)
-expert_grid=visualize_expert_data(env, expert_trajs)
+expert_vst=visualize_expert_data(env, expert_trajs).reshape(64,5)
 
 # Define Rollout Buffer
 class RolloutBuffer:
@@ -184,9 +190,9 @@ class RolloutBuffer:
         self.returns=torch.tensor(self.returns)
 
     def compute_advantages(self,):
-        advantages = torch.tensor(self.returns) - torch.tensor(self.values[:-1])
+        self.advantages = torch.tensor(self.returns) - torch.tensor(self.values[:-1])
         # Normalize the advantages
-        self.advantages =(advantages - advantages.mean()) / (advantages.std() + 1e-5)
+        #self.advantages =(self.advantages - self.advantages.mean()) / (self.advantages.std() + 1e-5)
 
     def sample(self):
         return {"state":  torch.FloatTensor(self.states[:-1]),
@@ -205,16 +211,20 @@ class PolicyNetwork(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(state_dim, 32),
             nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
             nn.Linear(32, action_dim)
         )
         self.fc1 = nn.Sequential(
             nn.Linear(state_dim, 32),
             nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
             nn.Linear(32, 1)
         )
 
     def forward(self, state):
-        return self.fc(state),self.fc1(state)[:,0]
+        return self.fc(state),self.fc1(state)[...,0]
 
 
 # Define self.discriminator
@@ -223,6 +233,8 @@ class discriminator(nn.Module):
         super().__init__()
         self.fc = nn.Sequential(
             nn.Linear(state_dim + action_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
             nn.ReLU(),
             nn.Linear(32, 1),
             nn.Sigmoid()
@@ -276,7 +288,7 @@ class PPO(pl.LightningModule):
        # self.log_alpha = torch.tensor(np.log(0.01))
 
         self.q_net=Critic(state_dim,action_dim)
-        self.target_net=Critic(state_dim,action_dim)
+        self.target_net=self.q_net#Critic(state_dim,action_dim)
         self.target_net.load_state_dict(self.q_net.state_dict())
 
         self.critic_target_update_frequency=4
@@ -317,11 +329,39 @@ class PPO(pl.LightningModule):
         self.log("train/agent_reward", ((agent_d + 1e-16).log() - (1 - agent_d + 1e-16).log()).mean().item(), on_step=True,
                  batch_size=1)
 
+        state_tensor=torch.FloatTensor(np.array([0,0,0]))
+
+        a,v=self.policy(state_tensor)
+
+        self.log("train/expert_v0", v.item(), on_step=True,batch_size=1)
+
+        expert_stop0=torch.softmax(a,dim=-1)[-1]
+
+        self.log("train/expert_stop0", expert_stop0.item(), on_step=True,batch_size=1)
+
+        dis_stop=discriminator(state_tensor[None], torch.FloatTensor([4]))
+
+        self.log("train/dis_stop", dis_stop.mean().item(), on_step=True,batch_size=1)
+
+        state_tensor=torch.FloatTensor(np.array([1,0,0]))
+
+        a,v=self.policy(state_tensor)
+
+        self.log("train/expert_v1", v.item(), on_step=True,batch_size=1)
+
+        expert_stop1=torch.softmax(a,dim=-1)[-1]
+
+        self.log("train/expert_stop1", expert_stop1.item(), on_step=True,batch_size=1)
+
+        dis_stop1=discriminator(state_tensor[None], torch.FloatTensor([4]))
+
+        self.log("train/dis_stop1", dis_stop1.mean().item(), on_step=True,batch_size=1)
+
+
     def rollout(self, q_net):
         buffer.clear()
 
         env.reset()
-        state = env.start
 
         expert_idx=random.randint(0,len(expert_trajs)-1)
 
@@ -352,9 +392,9 @@ class PPO(pl.LightningModule):
 
         buffer.values.append(value)  # Reward to be updated later
         buffer.states.append(state)  # Reward to be updated later
-        #buffer.dones[-1] = True
+        buffer.dones[-1] = True
 
-        dist_to_goal=torch.linalg.norm(state_tensor-torch.tensor([size-1,size-1]))#.cuda())
+        dist_to_goal=torch.linalg.norm(state_tensor[:,1:]-torch.tensor([size-1,size-1]))#.cuda())
 
         self.log("train/dist_to_goal", dist_to_goal.mean().item(), on_step=True, batch_size=1)
 
@@ -514,7 +554,7 @@ class PPO(pl.LightningModule):
                 phi_grad = 1
         loss = -(phi_grad * reward).mean()
         self.log("train/softq_loss", loss.item(), on_step=True, batch_size=1)
-
+        #
         agent_reward = (current_Q - y)[~is_expert].mean()
 
         loss +=agent_reward
@@ -634,9 +674,9 @@ class PPO(pl.LightningModule):
         # step critic
         critic_optimizer.step()
 
-        if self.global_step % self.critic_target_update_frequency == 0:
-            self.soft_update(self.q_net, self.target_net,
-                        self.critic_tau)
+        # if self.global_step % self.critic_target_update_frequency == 0:
+        #     self.soft_update(self.q_net, self.target_net,
+        #                 self.critic_tau)
 
     def soft_update(self,net, target_net, tau):
         for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -664,7 +704,22 @@ class PPO(pl.LightningModule):
 
         #self.softq_update(critic_optimizer)
         if self.global_step%100==0:
-            self.compute_visitation_frequencies()
+            with torch.no_grad():
+                visit_freq=self.compute_visitation_frequencies()
+
+                mse_loss=np.mean((visit_freq.numpy() - expert_vst) ** 2)
+                self.log("train/mse_loss", mse_loss, on_step=True, batch_size=1)
+
+                exp_vst=expert_vst.reshape(8,8,5).sum(-1)
+
+                poilicy_vst=visit_freq.reshape(8,8,5).sum(-1)
+
+
+                state_mse_loss=np.mean((exp_vst - poilicy_vst.numpy()) ** 2)
+                self.log("train/state_mse_loss", state_mse_loss, on_step=True, batch_size=1)
+                #poilicy_vst = torch.round(poilicy_vst * 10) / 10  # Round to 1 decimal place
+
+                #print(poilicy_vst.sum())
 
     def compute_visitation_frequencies(self, horizon=16):
         """
@@ -685,30 +740,48 @@ class PPO(pl.LightningModule):
         state_to_index = lambda s: s[0] * env.size + s[1]
 
         # Initialize visitation frequency matrix
-        d = torch.zeros((num_states,num_actions, horizon))
 
-        # Start state
-        d[state_to_index(env.start), :, 0] = torch.softmax(self.q_net(torch.FloatTensor(env.start)),dim=-1)  # Start at (0,0)
+        d_total=0
 
-        # Compute visitation frequencies iteratively
-        for t in range(horizon - 1):
-            for s in range(num_states):
-                row, col = divmod(s, env.size)  # Convert index to (row, col)
-                if (row, col) == env.goal:
-                    continue  # Skip goal state
+        for sample in [0,1]:
+            d = torch.zeros((num_states,num_actions, horizon))
 
-                for a, action in enumerate(env.actions):
-                    next_state = (max(0, min(env.size - 1, row + action[0])),
-                                  max(0, min(env.size - 1, col + action[1])))
-                    next_index = state_to_index(next_state)
+            #d[state_to_index(env.start), :, 0] = torch.softmax(self.q_net(torch.FloatTensor(((sample,env.start[0],env.start[1])))),dim=-1)  # Start at (0,0)        # Start state
+            if q_net:
+                # Transition probability contribution
+                d[state_to_index(env.start), :, 0] = torch.softmax(
+                    self.q_net(torch.FloatTensor(((sample, env.start[0], env.start[1])))),
+                    dim=-1)  # Start at (0,0)        # Start state
+            else:
+                d[state_to_index(env.start), :, 0] = torch.softmax(self.policy(torch.FloatTensor([sample, env.start[0], env.start[1]]))[0],
+                    dim=-1)  # Start at (0,0)        # Start state
 
-                    # Transition probability contribution
-                    d[next_index, :, t + 1] += d[s, a, t] * torch.softmax(self.q_net(torch.FloatTensor([row, col])),dim=-1) [a]
+            # Compute visitation frequencies iteratively
+            for t in range(horizon - 1):
+                for s in range(num_states):
+                    row, col = divmod(s, env.size)  # Convert index to (row, col)
+                    # if (row, col) == env.goal:
+                    #     continue  # Skip goal state\
 
-        # Sum over time steps to get final state-action visitation frequencies
-        d_sa = torch.sum(d, dim=2)  # Sum over time dimension
+                    for a, action in enumerate(env.actions):
+                        next_state = (max(0, min(env.size - 1, row + action[0])),
+                                      max(0, min(env.size - 1, col + action[1])))
+                        next_index = state_to_index(next_state)
 
-        return d_sa
+                        if q_net:
+                            prob=torch.softmax(self.q_net(torch.FloatTensor([sample,next_state[0], next_state[1]])),dim=-1)
+                        else:
+                            prob= torch.softmax(self.policy(torch.FloatTensor([sample,next_state[0], next_state[1]]))[0], dim=-1)
+
+                        d[next_index, :, t + 1] += d[s, a, t] * prob
+
+
+            # Sum over time steps to get final state-action visitation frequencies
+            d_sa = torch.sum(d, dim=2)  # Sum over time dimension
+
+            d_total+=d_sa*0.5
+
+        return d_total
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         policy_optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
@@ -716,12 +789,12 @@ class PPO(pl.LightningModule):
         critic_optimizer=optim.Adam(self.q_net.parameters(),lr=1e-3)
         return [policy_optimizer, discriminator_optimizer,critic_optimizer], []
 
-#ppo is learning rate sensitive
+#ppo is learning rate sensitive. no advantage normalization
 #
 ppo = PPO()
 
 # Initialize TensorBoard logger
-logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='qnet_1e3_agentrewardentropy')#_1e3
+logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='iqnet_1e3noentropynoregnotarget')#_1e3
 
 
 #qnet_1e3_agentrewardentropy   11.25
@@ -745,12 +818,15 @@ def visualize_policy(env, num_episodes=100):
     for _ in range(num_episodes):
         env.reset()
         state = env.start
+        if _<50:
+            sample=0
+        else:
+            sample=1
         for _ in range(16):
             visitation_counts[state] += 1
-            state_tensor = torch.FloatTensor(state).unsqueeze(0)
+            state_tensor = torch.FloatTensor([sample,state[0],state[1]]).unsqueeze(0)
             if q_net:
                 pred_logit=ppo.q_net(state_tensor)/ppo.alpha
-
             else:
                 pred_logit = ppo.policy(state_tensor)[0]
             dist = Categorical(logits=pred_logit)
@@ -761,12 +837,45 @@ def visualize_policy(env, num_episodes=100):
                 break
 
     print(visitation_counts.astype(int))#Right, Down, Left, Up
-    print(np.abs(visitation_counts-expert_grid).mean())
-
+    #print(np.abs(visitation_counts-expert_vst).mean())
+    sample=1
     for i in range(env.size):
         for j in range(env.size):
             state = (i, j)
-            state_tensor = torch.FloatTensor(state).unsqueeze(0)
+            state_tensor = torch.FloatTensor([sample,state[0],state[1]]).unsqueeze(0)
+            if q_net:
+                pred_logit=ppo.q_net(state_tensor)/ppo.alpha
+            else:
+                pred_logit, state_value = ppo.policy(state_tensor)
+
+            action_prob = torch.softmax(pred_logit, dim=1).detach().numpy()[0]
+
+            policy_Right[i, j] = action_prob[0]
+            policy_Down[i, j] = action_prob[1]
+            policy_Left[i, j] = action_prob[2]
+            policy_Up[i, j] = action_prob[3]
+            policy_Stop[i, j] = action_prob[4]
+            #value_grid[i, j] = state_value.detach().numpy()[0]
+
+    fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+    titles = ['Visitation Frequency', 'Policy Right', 'Policy Down', 'Policy Left', 'Policy Up', 'Policy Stop',
+              'State Value']
+    data = [visitation_counts, policy_Right, policy_Down, policy_Left, policy_Up, policy_Stop, value_grid]
+
+    for ax, title, d in zip(axes.flat, titles, data):
+        im = ax.imshow(d, cmap='coolwarm', origin='upper', vmin=0, vmax=1 if 'Policy' in title else None)
+        ax.set_title(title)
+        ax.set_xticks(range(env.size))
+        ax.set_yticks(range(env.size))
+        fig.colorbar(im, ax=ax)
+
+    plt.tight_layout()
+    plt.show()
+    sample=0
+    for i in range(env.size):
+        for j in range(env.size):
+            state = (i, j)
+            state_tensor = torch.FloatTensor([sample,state[0],state[1]]).unsqueeze(0)
             if q_net:
                 pred_logit=ppo.q_net(state_tensor)/ppo.alpha
             else:

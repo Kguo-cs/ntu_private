@@ -189,9 +189,12 @@ class SMART(LightningModule):
                         pred_z=pred_z,
                         pred_head=pred_head,
                     )
-                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                    #time1=time.time()
 
-           # print(time.time()-t1)
+                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                    # print(time.time() - time1)
+
+            # print(time.time()-t1)
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
