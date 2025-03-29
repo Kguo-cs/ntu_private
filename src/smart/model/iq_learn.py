@@ -9,16 +9,17 @@ from torch.distributions import Categorical
 import torch.nn.functional as F
 import torch
 from src.smart.model.rollout_buffer import ReplayBuffer
+import time
 
 class IQ_SoftQ(LightningModule):
 
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.replay_buffer = deque(maxlen=100)
+        self.replay_buffer = deque(maxlen=10)
         self.critic_tau=0.005
         self.critic_target_update_frequency=4
-        self.gamma=0.99
+        self.gamma=1
         self.alpha=1
 
     def rollout(self,tokenized_map,tokenized_agent):
@@ -33,7 +34,7 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout['sampled_pos'] = pred["pred_pos"]
         tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
         tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
-        tokenized_agent_rollout['valid_mask'] = pred["pred_valid"]
+        tokenized_agent_rollout['valid_mask'] = tokenized_agent["valid_mask"]
         tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
         tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
         tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
@@ -67,14 +68,11 @@ class IQ_SoftQ(LightningModule):
             next_q = q_value[:,1:].detach()
             target_v = self.alpha * torch.logsumexp(next_q/self.alpha, dim=-1, keepdim=False)
 
-
         return current_Q,None,target_v,None
 
     def iq_update(self,tokenized_map, tokenized_agent,alpha=0.5):
 
         expert_Q,_,expert_target_v,_=self.get_QV(tokenized_map,tokenized_agent)
-
-        valid_mask=tokenized_agent["valid_mask"]
 
         done=torch.zeros_like(expert_target_v)
 
@@ -82,11 +80,13 @@ class IQ_SoftQ(LightningModule):
 
         expert_reward = expert_Q - (1 - done) *self.gamma * expert_target_v
 
+        valid_mask=tokenized_agent["valid_mask"]
+
         state_valid=valid_mask[:,2:] & valid_mask[:,1:-1] &valid_mask[:,:-2]
 
-        expert_reward_loss = -expert_reward[state_valid].mean()
+        expert_reward_loss = expert_reward[state_valid].mean()
 
-        self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
+        self.log("train/expert_reward", expert_reward_loss.item(), on_step=True, batch_size=1)
 
         # expert_value_loss = (expert_V - self.gamma * expert_target_v).mean()
         #
@@ -108,11 +108,15 @@ class IQ_SoftQ(LightningModule):
 
         agent_raward=agent_Q - (1 - done) *self.gamma * agent_target_v
 
-        agent_reward_loss=agent_raward.mean()
+        valid_mask=agent_tokenized_agent["valid_mask"]
 
-        self.log("train/agent_reward_loss", agent_reward_loss.item(), on_step=True, batch_size=1)
+        agent_valid=valid_mask[:,2:] & valid_mask[:,1:-1] &valid_mask[:,:-2]
 
-        critic_loss=agent_reward_loss+expert_reward_loss
+        agent_reward_loss=agent_raward[agent_valid].mean()
+
+        self.log("train/agent_reward", agent_reward_loss.item(), on_step=True, batch_size=1)
+
+        critic_loss=agent_reward_loss-expert_reward_loss
         # self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
         # entropy_loss=agent_entropy.mean()
@@ -141,6 +145,7 @@ class IQ_SoftQ(LightningModule):
 
     def training_step(self, data, batch_idx):
         #print(self.global_step)
+        #time1=time.time()
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         if self.training_rollout_sampling.num_k <= 0:
@@ -157,8 +162,10 @@ class IQ_SoftQ(LightningModule):
             if len(self.replay_buffer)<self.replay_buffer.maxlen or self.global_step%10==0:
                 with torch.no_grad():
                     self.rollout(tokenized_map, tokenized_agent)
+            #print(time.time() - time1)
 
             loss=self.iq_update(tokenized_map, tokenized_agent)
+            #print(time.time() - time1)
 
             # if self.global_step % self.critic_target_update_frequency == 0:
             #     self.soft_update(self.encoder, self.target_net, self.critic_tau)

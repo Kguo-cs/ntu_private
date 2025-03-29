@@ -554,7 +554,9 @@ class PPO(pl.LightningModule):
                 phi_grad = 1
         loss = -(phi_grad * reward).mean()
         self.log("train/softq_loss", loss.item(), on_step=True, batch_size=1)
-        #
+
+        self.log("train/expert_reward", reward.mean().item(), on_step=True, batch_size=1)
+
         agent_reward = (current_Q - y)[~is_expert].mean()
 
         loss +=agent_reward
@@ -562,7 +564,7 @@ class PPO(pl.LightningModule):
         # entropy=self.getEntropy(obs[~is_expert]).mean()
         # loss +=entropy
         #
-        # self.log("train/agent_reward", agent_reward.item(), on_step=True, batch_size=1)
+        self.log("train/agent_reward", agent_reward.item(), on_step=True, batch_size=1)
         # self.log("train/entropy", entropy.item(), on_step=True, batch_size=1)
 
         # # calculate 2nd term for IQ loss, we show different sampling strategies

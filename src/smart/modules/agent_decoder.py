@@ -81,11 +81,11 @@ class SMARTAgentDecoder(nn.Module):
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
-        self.r_ln2a_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2a,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
+        # self.r_ln2a_emb = FourierEmbedding(
+        #     input_dim=input_dim_r_pt2a,
+        #     hidden_dim=hidden_dim,
+        #     num_freq_bands=num_freq_bands,
+        # )
         self.r_pt2a_emb = FourierEmbedding(
             input_dim=input_dim_r_pt2a,
             hidden_dim=hidden_dim,
@@ -149,7 +149,7 @@ class SMARTAgentDecoder(nn.Module):
             ]
         )
 
-        self.light_pl_emb = nn.Embedding(5, hidden_dim)
+        # self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
         self.state_action=state_action
 
@@ -300,7 +300,7 @@ class SMARTAgentDecoder(nn.Module):
             r=self.a2a_radius,
             batch=batch_s,
             loop=False,
-            max_num_neighbors=300,
+            max_num_neighbors=10,
         )
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
@@ -343,7 +343,7 @@ class SMARTAgentDecoder(nn.Module):
             r=self.pl2a_radius,
             batch_x=batch_s,
             batch_y=batch_pl,
-            max_num_neighbors=300,
+            max_num_neighbors=100,
         )
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
@@ -489,17 +489,17 @@ class SMARTAgentDecoder(nn.Module):
         # self.process_route(feat_a[:, 1:2], mask[:, 1:2], tokenized_agent["next_route"][:, 1:2], map_feature,
         #                    pos_a[:, 1:2], head_a[:, 1:2], head_vector_a[:, 1:2])
         #
-        self.process_route(feat_a,mask,tokenized_agent["next_route"],map_feature,pos_a,head_a,head_vector_a)
-        pt_token = map_feature["pt_token"].clone()
-        light = tokenized_agent["light"]
-
-        feat_map=self.process_light(pt_token, light, map_feature["light_edge"])
+        # self.process_route(feat_a,mask,tokenized_agent["next_route"],map_feature,pos_a,head_a,head_vector_a)
+        # pt_token = map_feature["pt_token"].clone()
+        # light = tokenized_agent["light"]
+        #
+        # feat_map=self.process_light(pt_token, light, map_feature["light_edge"])
 
         # ! attention layers
         # [n_step*n_pl, hidden_dim]
-        # feat_map = (
-        #     map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
-        # )
+        feat_map = (
+            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        )
 
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
@@ -592,8 +592,8 @@ class SMARTAgentDecoder(nn.Module):
         action_log_probs_list=[]
         feat_a_list=[]
 
-        next_route =tokenized_agent["next_route"]
-        light = tokenized_agent["light"]
+        # next_route =tokenized_agent["next_route"]
+        # light = tokenized_agent["light"]
 
         if not self.training:
             pred_traj_10hz = torch.zeros(
@@ -668,9 +668,10 @@ class SMARTAgentDecoder(nn.Module):
                 mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
             )
 
-            self.process_route(feat_a[:, -1:], inference_mask[:, -1:], next_route[:, t_now:t_now+1], map_feature, pos_a[:, -1:], head_a[:, -1:], head_vector_a[:, -1:])
-
-            pt_token=self.process_light(map_feature["pt_token"].clone(),light[:, t_now:t_now+1],map_feature["light_edge"])
+            # self.process_route(feat_a[:, -1:], inference_mask[:, -1:], next_route[:, t_now:t_now+1], map_feature, pos_a[:, -1:], head_a[:, -1:], head_vector_a[:, -1:])
+            #
+            # pt_token=self.process_light(map_feature["pt_token"].clone(),light[:, t_now:t_now+1],map_feature["light_edge"])
+            pt_token=map_feature["pt_token"]
 
             # ! attention layers
             for i in range(self.num_layers):

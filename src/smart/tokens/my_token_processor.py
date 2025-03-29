@@ -81,8 +81,8 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        traj_pos = data["map_save"]["traj_pos"] [::2] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [::2]  # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"]  # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"]  # [n_pl]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -117,11 +117,11 @@ class TokenProcessor(torch.nn.Module):
         #
         # agent_batch=data["agent"]["batch"]
         # next_route=data["agent"]["next_route"]
-
+        #
         # ln_num=0
         # pl_num=0
         # light_num=0
-
+        #
         # for i in range(max(batch)+1):
         #     batch_ln_id=ln_id[batch==i]+ln_num
         #     mask=next_route==-1
@@ -139,20 +139,20 @@ class TokenProcessor(torch.nn.Module):
         #     pl_num+=len(batch_ln_id)+1
         #
         # light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
-
-        #data["agent"]["next_route"]=next_route
+        #
+        # data["agent"]["next_route"]=next_route
 
         tokenized_map = {
             "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
-            "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-            "type": data["pt_token"]["type"].long()[::2] ,  # [n_pl]
-            "pl_type": data["pt_token"]["pl_type"].long()[::2] ,  # [n_pl]
-            "light_type": data["pt_token"]["light_type"].long()[::2] ,  # [n_pl]
-            "batch": data["pt_token"]["batch"][::2] ,  # [n_pl]
-            # "ln_id": ln_id,
-            # "light_edge": light_edge,
+            #"token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
+            "type": data["pt_token"]["type"].long(),  # [n_pl]
+            "pl_type": data["pt_token"]["pl_type"].long(),  # [n_pl]
+            "light_type": data["pt_token"]["light_type"].long(),  # [n_pl]
+            #"ln_id": ln_id,
+           # "batch": data["pt_token"]["batch"],  # [n_pl]
+            #"light_edge":light_edge,
         }
         return tokenized_map
 
@@ -188,94 +188,41 @@ class TokenProcessor(torch.nn.Module):
 
         # ! prepare output dict
         tokenized_agent = {
-            "num_graphs": data.num_graphs,
+            #"num_graphs": data.num_graphs,
             "type": data["agent"]["type"],
-            "shape": data["agent"]["shape"],
-            "ego_mask": data["agent"]["role"][:, 0],  # [n_agent]
-            "token_agent_shape":  agent_shape,  # [n_agent, 2]
-            "batch": data["agent"]["batch"],
-            "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
-            "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
+           # "shape": data["agent"]["shape"],
+           # "ego_mask": data["agent"]["role"][:, 0],  # [n_agent]
+            "token_agent_shape": agent_shape,  # [n_agent, 2]
+            #"batch": data["agent"]["batch"],
+            # "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
+            # "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
-            "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
-            "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-            "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-            "next_route": data["agent"]["next_route"],
-            "light":data["agent"]["light"]
+            # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+            # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            #"next_route": data["agent"]["next_route"],
+            #"light":data["agent"]["light"]
         }
         # [n_token, 8]
-        for k in ["veh", "ped", "cyc"]:
-            tokenized_agent[f"trajectory_token_{k}"] = getattr(
-                self, f"agent_token_all_{k}"
-            )[:, -1].flatten(1, 2)
-
+        # for k in ["veh", "ped", "cyc"]:
+        #     tokenized_agent[f"trajectory_token_{k}"] = getattr(
+        #         self, f"agent_token_all_{k}"
+        #     )[:, -1].flatten(1, 2)
+        #
         # ! match token for each agent
-        if not self.training:
-            # [n_agent]
-            tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
+        # if not self.training:
+        #     # [n_agent]
+        #     tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
-        token_dict = self.my_match_agent_token(
+        token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
             agent_shape=agent_shape,
             token_traj=token_traj,
         )
-
         tokenized_agent.update(token_dict)
         return tokenized_agent
-
-    def my_match_agent_token(
-        self,
-        valid: Tensor,  # [n_agent, n_step]
-        pos: Tensor,  # [n_agent, n_step, 2]
-        heading: Tensor,  # [n_agent, n_step]
-        agent_shape: Tensor,  # [n_agent, 2]
-        token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-    ) -> Dict[str, Tensor]:
-
-        pos= pos[:, ::self.shift]
-
-        heading= heading[:, ::self.shift]
-
-        cur_pos,cur_heading=pos[:,1:],heading[:,1:]
-
-        prev_pos, prev_head = pos[:, :-1], heading[:, :-1]  # [n_agent, 2], [n_agent]
-
-        gt_contour = cal_polygon_contour(cur_pos,cur_heading, agent_shape[:,None])
-
-        cos, sin = prev_head.cos(), prev_head.sin()
-        rot_mat = torch.zeros((prev_head.shape[0],prev_head.shape[1],  2, 2), device=prev_head.device)
-        rot_mat[..., 0, 0] = cos
-        rot_mat[..., 0, 1] = sin
-        rot_mat[..., 1, 0] = -sin
-        rot_mat[..., 1, 1] = cos
-
-        pos_global = torch.einsum('npqx,ntxy->ntpqy',token_traj, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
-        token_world_gt = pos_global + prev_pos[:,:,None,None]
-
-        token_idx_gt = torch.argmin(
-            torch.norm(token_world_gt - gt_contour[:,:,None], dim=-1).sum(-1), dim=-1
-        )
-
-        valid = valid[:, ::self.shift] # [n_agent]
-        _valid_mask = valid[:,1:] & valid[:,:-1]
-        _invalid_mask = ~_valid_mask
-
-        gt_pos=prev_pos.masked_fill(_invalid_mask.unsqueeze(-1), 0)
-        gt_heading=prev_head.masked_fill(_invalid_mask, 0)
-
-        out_dict = {
-            "valid_mask":_valid_mask,
-            "gt_idx": token_idx_gt,
-            "gt_pos": gt_pos,
-            "gt_heading": gt_heading,
-            "sampled_idx": token_idx_gt,
-            "sampled_pos": gt_pos,
-            "sampled_heading": gt_heading,
-        }
-
-        return out_dict
 
     def _match_agent_token(
         self,
@@ -402,7 +349,7 @@ class TokenProcessor(torch.nn.Module):
         for i in range(heading.shape[1] - 1):
             heading_diff = torch.abs(wrap_angle(heading[:, i] - heading[:, i + 1]))
             change_needed = (heading_diff > 1.5) & valid_pairs[:, i]
-            heading[:, i + 1][change_needed] = heading[:, i][change_needed]#sequential
+            heading[:, i + 1][change_needed] = heading[:, i][change_needed]
         return heading
 
     def _extrapolate_agent_to_prev_token_step(

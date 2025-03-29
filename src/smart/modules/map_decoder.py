@@ -106,22 +106,22 @@ class SMARTMapDecoder(nn.Module):
         for i in range(self.num_layers):
             x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        lane_token=scatter_mean(x_pt,tokenized_map["ln_id"],dim=0)
-        lane_token=torch.cat([lane_token,torch.zeros_like(lane_token[:1])])
-
-        pos_lane=scatter_mean(pos_pt,tokenized_map["ln_id"],dim=0)
-        pos_lane=torch.cat([pos_lane,torch.zeros_like(pos_lane[:1])])
-
-        orient_lane=scatter_mean(orient_pt,tokenized_map["ln_id"],dim=0)
-        orient_pt=torch.cat([orient_pt,torch.zeros_like(orient_pt[:1])])
+        # lane_token=scatter_mean(x_pt,tokenized_map["ln_id"],dim=0)
+        # lane_token=torch.cat([lane_token,torch.zeros_like(lane_token[:1])])
+        #
+        # pos_lane=scatter_mean(pos_pt,tokenized_map["ln_id"],dim=0)
+        # pos_lane=torch.cat([pos_lane,torch.zeros_like(pos_lane[:1])])
+        #
+        # orient_lane=scatter_mean(orient_pt,tokenized_map["ln_id"],dim=0)
+        # orient_pt=torch.cat([orient_pt,torch.zeros_like(orient_pt[:1])])
 
         return {
             "pt_token": x_pt,
             "position": pos_pt,
             "orientation": orient_pt,
-            "lane_token": lane_token,
-            "pos_lane":pos_lane,
-            "orient_lane": orient_lane,
             "batch": tokenized_map["batch"],
-            "light_edge":tokenized_map["light_edge"]
+            # "lane_token": lane_token,
+            # "pos_lane":pos_lane,
+            # "orient_lane": orient_lane,
+            # "light_edge":tokenized_map["light_edge"]
         }
