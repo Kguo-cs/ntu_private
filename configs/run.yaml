@@ -14,7 +14,7 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: iq #gail_nohist #ego_gmm_pre_bc #gail
+  - experiment: gail #gail_nohist #ego_gmm_pre_bc #gail
 
 action: fit # fit, finetune, validate, test
 

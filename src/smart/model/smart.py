@@ -177,6 +177,7 @@ class SMART(LightningModule):
                 )
 
                 # WOSAC metrics
+                #t1=time.time()
                 if batch_idx < self.n_batch_wosac_metric:
                     device = pred_traj.device
                     scenario_rollouts = get_scenario_rollouts(
@@ -190,11 +191,12 @@ class SMART(LightningModule):
                         pred_head=pred_head,
                     )
                     #time1=time.time()
-
-                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                    for i in range(len(scenario_rollouts)//1):
+                        scenario_rollouts_update=scenario_rollouts[i*1:(i+1)*1]
+                        self.wosac_metrics.update(data["tfrecord_path"][i*1:(i+1)*1], scenario_rollouts_update)
                     # print(time.time() - time1)
 
-            # print(time.time()-t1)
+                #print(time.time()-t1)
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:

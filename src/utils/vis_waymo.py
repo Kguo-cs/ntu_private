@@ -122,23 +122,25 @@ class VisWaymo:
         raster_map, self.top_left_px = self._register_map(mp_xyz, self.px_per_m)
         self._draw_map(raster_map, mp_xyz, mp_type)
 
-        im_gt_maps = [raster_map.copy() for _ in range(n_step)]
-        self._draw_traffic_lights(im_gt_maps, tl_lane_state, tl_lane_id, mp_xyz, mp_id)
+        self.interval=5
+
+        im_gt_maps = [raster_map.copy() for _ in range(0,n_step,self.interval)]
+        self._draw_traffic_lights(im_gt_maps, tl_lane_state[::self.interval], tl_lane_id[::self.interval], mp_xyz, mp_id)
 
         # save gt video and get paths for wandb logging
         im_gt = deepcopy(im_gt_maps)
-        self._draw_agents(im_gt, ag_valid, ag_xy, ag_yaw, ag_size, ag_role)
+        self._draw_agents(im_gt, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
 
         gt_video_path = (self.save_dir / "gt.mp4").as_posix()
-        save_images_to_mp4(im_gt, gt_video_path)
+        #save_images_to_mp4(im_gt, gt_video_path)
         self.video_paths = [gt_video_path]
 
         # prepare images for drawing prediction on top
         self.im_gt_blended = []
         if self.vis_ghost_gt:
-            im_gt_agents = [np.zeros_like(raster_map) for _ in range(n_step)]
-            self._draw_agents(im_gt_agents, ag_valid, ag_xy, ag_yaw, ag_size, ag_role)
-            for i in range(n_step):
+            im_gt_agents = [np.zeros_like(raster_map) for _ in range(0,n_step,self.interval)]
+            self._draw_agents(im_gt_agents, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
+            for i in range(len(im_gt_agents)):
                 self.im_gt_blended.append(
                     cv2.addWeighted(im_gt_agents[i], 0.6, im_gt_maps[i], 1, 0)
                 )
@@ -286,16 +288,16 @@ class VisWaymo:
                 scenario_rollout.joint_scenes[i_rollout].simulated_trajectories
             )
             self._draw_agents(
-                images[self.step_current + 1 :],
-                ag_valid,
-                ag_xy,
-                ag_yaw,
+                images[self.step_current//self.interval + 1 :],
+                ag_valid[:,::self.interval],
+                ag_xy[:,::self.interval],
+                ag_yaw[:,::self.interval],
                 ag_size,
                 ag_role,
             )
             _video_path = (self.save_dir / f"rollout_{i_rollout:02d}.mp4").as_posix()
             self.video_paths.append(_video_path)
-            save_images_to_mp4(images, _video_path)
+            save_images_to_mp4(images, _video_path,fps=20//self.interval)
 
     def _get_features_from_trajs(
         self, trajs: List[sim_agents_submission_pb2.SimulatedTrajectory]

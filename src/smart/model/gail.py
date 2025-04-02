@@ -83,8 +83,8 @@ class GAIL(LightningModule):
         tokenized_agent_rollout['shape'] = tokenized_agent['shape']
         tokenized_agent_rollout['batch'] = tokenized_agent['batch']
         tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
-        tokenized_agent_rollout['next_route'] = tokenized_agent['next_route']
-        tokenized_agent_rollout['light'] = tokenized_agent['light']
+        # tokenized_agent_rollout['next_route'] = tokenized_agent['next_route']
+        # tokenized_agent_rollout['light'] = tokenized_agent['light']
 
         self.replay_buffer.state_action_list.append((tokenized_map,tokenized_agent_rollout))
         self.replay_buffer.value_list.append(self.value_network(pred["feat_a"])[:,:,0])
@@ -192,6 +192,7 @@ class GAIL(LightningModule):
 
     def evaluate_actions(self, state_action):
         tokenized_map, tokenized_agent=state_action
+        self.encoder.eval()
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
         pred_logit=pred_dict["next_token_logits"]

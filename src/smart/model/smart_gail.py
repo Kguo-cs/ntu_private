@@ -20,6 +20,7 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.model.ego_gmm_smart import EgoGMMSMART
 from src.smart.modules.ego_gmm_smart_decoder import EgoGMMSMARTDecoder
 from src.smart.metrics import WOSACSubmission
+import torch
 
 class SMART_GAIL(GAIL, SMART):
     def __init__(self, model_config) -> None:
@@ -39,10 +40,15 @@ class SMART_IQ(IQ_SoftQ, SMART):
         IQ_SoftQ.__init__(self, model_config)  # Explicit call
 
 
-        # self.target_net=SMARTDecoder(
-        #     **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
-        # )
-        # self.target_net.load_state_dict(self.encoder.state_dict())
+        self.target_net=SMARTDecoder(
+            **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
+        )
+        self.target_net.load_state_dict(self.encoder.state_dict())
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+
+        return optimizer
 
 
 

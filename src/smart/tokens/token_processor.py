@@ -81,8 +81,10 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        traj_pos = data["map_save"]["traj_pos"] [::2] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [::2]  # [n_pl]
+        sample_interval=5
+
+        traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -147,10 +149,10 @@ class TokenProcessor(torch.nn.Module):
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
             "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-            "type": data["pt_token"]["type"].long()[::2] ,  # [n_pl]
-            "pl_type": data["pt_token"]["pl_type"].long()[::2] ,  # [n_pl]
-            "light_type": data["pt_token"]["light_type"].long()[::2] ,  # [n_pl]
-            "batch": data["pt_token"]["batch"][::2] ,  # [n_pl]
+            "type": data["pt_token"]["type"].long()[::sample_interval] ,  # [n_pl]
+            "pl_type": data["pt_token"]["pl_type"].long()[::sample_interval] ,  # [n_pl]
+            "light_type": data["pt_token"]["light_type"].long()[::sample_interval] ,  # [n_pl]
+            "batch": data["pt_token"]["batch"][::sample_interval] ,  # [n_pl]
             # "ln_id": ln_id,
             # "light_edge": light_edge,
         }
@@ -200,8 +202,8 @@ class TokenProcessor(torch.nn.Module):
             "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-            "next_route": data["agent"]["next_route"],
-            "light":data["agent"]["light"]
+            # "next_route": data["agent"]["next_route"],
+            # "light":data["agent"]["light"]
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
