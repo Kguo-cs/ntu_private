@@ -256,13 +256,13 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_entropy", expert_entropy_loss.item(), on_step=True, batch_size=1)
 
-        expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
+        # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
         #         + expert_done * (1 / (1 - self.gamma)) * ((1 / self.reg_mult))
         #
         # expert_Q_loss = torch.square(expert_Q - (r_max + expert_target_v))[expert_valid].mean()
 
-        self.log("train/expert_Q_loss", expert_Q_loss.item(), on_step=True, batch_size=1)
+        # self.log("train/expert_Q_loss", expert_Q_loss.item(), on_step=True, batch_size=1)
 
         agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1))
 
@@ -303,21 +303,21 @@ class IQ_SoftQ(LightningModule):
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
 
-        expert_r_min = -(1 / self.reg_mult)
+        #expert_r_min = -(1 / self.reg_mult)
         # expert_r_max  = (1 - expert_done) * ((1 / self.reg_mult)) \
         #         + expert_done * (1 / (1 - self.gamma)) * ((1 / self.reg_mult))
         #expert_r_max=1 / self.reg_mult
 
-        expert_value_mse_loss = torch.square(expert_V - (expert_r_min + expert_target_v))[expert_valid].mean()
+        #expert_value_mse_loss = torch.square(expert_V - (expert_r_min + expert_target_v))[expert_valid].mean()
 
         # policy_r_min = (1 - done) * (-(1 / self.reg_mult)) \
         #                + done * (1 / (1 - self.gamma)) * (-(1 / self.reg_mult))
-        policy_r_min = -(1 / self.reg_mult)
-
-        agent_value_mse_loss = torch.square(agent_V - (policy_r_min + agent_target_v))[agent_valid].mean()
-
-        value_mse_loss = (expert_value_mse_loss * expert_valid.sum() + agent_value_mse_loss * agent_valid.sum()) / (
-                    expert_valid.sum() + agent_valid.sum())
+        # policy_r_min = -(1 / self.reg_mult)
+        #
+        # agent_value_mse_loss = torch.square(agent_V - (policy_r_min + agent_target_v))[agent_valid].mean()
+        #
+        # value_mse_loss = (expert_value_mse_loss * expert_valid.sum() + agent_value_mse_loss * agent_valid.sum()) / (
+        #             expert_valid.sum() + agent_valid.sum())
 
         # expert_chi2_loss = (expert_reward - expert_reward.square() / 4).mean()
         #
@@ -359,7 +359,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/agent_Q", agent_Q_loss.item(), on_step=True, batch_size=1)
 
-        critic_loss = expert_nll+chi2_loss #expert_Q_loss+agent_value_loss+expert_kl_loss
+        critic_loss = expert_nll+chi2_loss+ratio*(expert_reward_loss+agent_reward_loss)
 
         return critic_loss
 
