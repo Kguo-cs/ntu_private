@@ -32,7 +32,7 @@ from src.smart.utils import (
 )
 from torch_scatter import scatter_add
 from .kl_loss import DiagGaussian
-
+from torch_geometric.nn.pool import knn_graph
 class SMARTAgentDecoder(nn.Module):
 
     def __init__(
@@ -301,6 +301,16 @@ class SMARTAgentDecoder(nn.Module):
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
         return edge_index_t, r_t
 
+    def radiusGraphNearest(self,x, batch, r, loop, max_num_neighbors):
+        edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
+        row, col = edge_index
+        distances = (x[col] - x[row]).norm(dim=1)
+        mask = distances <= r
+        final_edge_index = edge_index[:, mask]
+
+        return final_edge_index
+
+
     def build_interaction_edge(
         self,
         pos_a,  # [n_agent, n_step, 2]
@@ -313,13 +323,19 @@ class SMARTAgentDecoder(nn.Module):
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-        edge_index_a2a = radius_graph(
-            x=pos_s[:, :2],
-            r=self.a2a_radius,
-            batch=batch_s,
-            loop=False,
-            max_num_neighbors=300
-        )
+        # edge_index_a2a = radius_graph(
+        #     x=pos_s[:, :2],
+        #     r=self.a2a_radius,
+        #     batch=batch_s,
+        #     loop=False,
+        #     max_num_neighbors=300
+        # )
+        edge_index_a2a = self.radiusGraphNearest(x=pos_s[:, :2],
+                                             r=self.a2a_radius,
+                                             batch=batch_s,
+                                             loop=False,
+                                             max_num_neighbors=10)
+
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
@@ -361,8 +377,14 @@ class SMARTAgentDecoder(nn.Module):
             r=self.pl2a_radius,
             batch_x=batch_s,
             batch_y=batch_pl,
-            max_num_neighbors=300//5,#picked randomly
+            max_num_neighbors=300//10,#picked randomly
         )
+        edge_index_a2a = self.radiusGraphNearest(x=pos_s[:, :2],
+                                             r=self.pl2a_radius,
+                                             batch=batch_s,
+                                             loop=False,
+                                             max_num_neighbors=10)
+
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
         rel_orient_pl2a = wrap_angle(
