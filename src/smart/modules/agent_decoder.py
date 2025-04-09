@@ -334,7 +334,7 @@ class SMARTAgentDecoder(nn.Module):
                                              r=self.a2a_radius,
                                              batch=batch_s,
                                              loop=False,
-                                             max_num_neighbors=20)
+                                             max_num_neighbors=10)
 
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
@@ -377,7 +377,7 @@ class SMARTAgentDecoder(nn.Module):
             r=self.pl2a_radius,
             batch_x=batch_s,
             batch_y=batch_pl,
-            max_num_neighbors=300//5,#picked randomly
+            max_num_neighbors=300//10,#picked randomly
         )
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
