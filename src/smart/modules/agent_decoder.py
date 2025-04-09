@@ -315,10 +315,10 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         edge_index_a2a = radius_graph(
             x=pos_s[:, :2],
-            r=0.1,#self.a2a_radius
+            r=self.a2a_radius,
             batch=batch_s,
-            loop=True,#False
-            max_num_neighbors=1,#300
+            loop=False,
+            max_num_neighbors=300
         )
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
