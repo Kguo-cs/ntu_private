@@ -23,6 +23,9 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 import sys
 
+
+wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 
 from src.utils import (

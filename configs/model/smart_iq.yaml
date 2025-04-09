@@ -7,6 +7,6 @@ model_config:
   n_batch_wosac_metric: 2
   n_vis_batch: 0
   n_vis_rollout: 1
-  decoder:
-    num_map_layers: 1
-    num_agent_layers: 1
+#  decoder:
+#    num_map_layers: 1
+#    num_agent_layers: 1
