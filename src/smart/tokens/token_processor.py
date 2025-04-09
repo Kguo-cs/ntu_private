@@ -80,6 +80,10 @@ class TokenProcessor(torch.nn.Module):
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
+        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
+
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
         sample_interval=5
 
@@ -207,16 +211,17 @@ class TokenProcessor(torch.nn.Module):
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
-            tokenized_agent[f"trajectory_token_{k}"] = getattr(
-                self, f"agent_token_all_{k}"
-            )[:, -1].flatten(1, 2)
+            tokenized_agent[f"trajectory_token_{k}"] =getattr(self,f"trajectory_token_{k}")
+            #     getattr(
+            #     self, f"agent_token_all_{k}"
+            # )[:, -1].flatten(1, 2)
 
         # ! match token for each agent
         if not self.training:
             # [n_agent]
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
-        token_dict = self.my_match_agent_token(
+        token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,

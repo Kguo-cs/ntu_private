@@ -20,6 +20,7 @@ from torch import Tensor
 
 from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
+from .kl_loss import  BalancedKL
 
 class SMARTDecoder(nn.Module):
 
@@ -40,7 +41,8 @@ class SMARTDecoder(nn.Module):
         dropout: float,
         hist_drop_prob: float,
         n_token_agent: int,
-        state_action=False
+        state_action=False,
+        use_latent=False
     ) -> None:
         super(SMARTDecoder, self).__init__()
         self.map_encoder = SMARTMapDecoder(
@@ -67,9 +69,48 @@ class SMARTDecoder(nn.Module):
             dropout=dropout,
             hist_drop_prob=hist_drop_prob,
             n_token_agent=n_token_agent,
-            state_action=state_action
+            state_action=state_action,
+            use_latent=use_latent
         )
 
+        self.use_latent=use_latent
+
+        if self.use_latent:
+            self.post_encoder = SMARTAgentDecoder(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=100,
+                pl2a_radius=pl2a_radius,
+                a2a_radius=a2a_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_agent_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                hist_drop_prob=hist_drop_prob,
+                n_token_agent=16,
+                state_action=state_action,
+            )
+
+            self.prior_encoder = SMARTAgentDecoder(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=100,
+                pl2a_radius=pl2a_radius,
+                a2a_radius=a2a_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_agent_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                hist_drop_prob=hist_drop_prob,
+                n_token_agent=16,
+                state_action=state_action,
+            )
+
+            self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
 
     def compute_disc_val(self,state,action):
         if 'token_idx' in state[0].keys():
@@ -85,12 +126,29 @@ class SMARTDecoder(nn.Module):
 
         return score
 
-
     def forward(
-        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]
+        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],kl_loss=True
     ) -> Dict[str, Tensor]:
         map_feature = self.map_encoder(tokenized_map)
-        pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+
+        if self.use_latent:
+            post_dist = self.post_encoder(tokenized_agent, map_feature,get_latent_dist=True)
+
+            latent_feature = post_dist.sample(deterministic=False)
+        else:
+            latent_feature=None
+
+        pred_dict = self.agent_encoder(tokenized_agent, map_feature,latent_feature)
+
+        if kl_loss and self.use_latent:
+            prior_dist = self.prior_encoder(tokenized_agent, map_feature,n_step=2,get_latent_dist=True)
+
+            error_vae = self.l_vae_kl.compute(post_dist.distribution, prior_dist.distribution)
+
+            pred_dict["kl_loss"]=error_vae.mean()
+        else:
+            pred_dict["kl_loss"] =torch.tensor(0)
+
         return pred_dict
 
     def inference(
@@ -100,7 +158,15 @@ class SMARTDecoder(nn.Module):
         sampling_scheme: DictConfig,
     ) -> Dict[str, Tensor]:
         map_feature = self.map_encoder(tokenized_map)
+
+        if self.use_latent:
+            prior_dist = self.prior_encoder(tokenized_agent, map_feature,n_step=2,get_latent_dist=True)
+
+            latent_feature = prior_dist.sample(deterministic=False)
+        else:
+            latent_feature =None
+
         pred_dict = self.agent_encoder.inference(
-            tokenized_agent, map_feature, sampling_scheme
+            tokenized_agent, map_feature, sampling_scheme,latent_feature
         )
         return pred_dict

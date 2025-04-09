@@ -43,7 +43,7 @@ def get_prob_targets(
     # [n_agent, n_step, n_token] bool
     prob_target = one_hot(target_token_index, num_classes=token_traj.shape[1])
     prob_target = prob_target.to(target.dtype)
-    return prob_target
+    return prob_target,target_token_index
 
 
 @torch.no_grad()

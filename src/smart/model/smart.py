@@ -127,12 +127,20 @@ class SMART(LightningModule):
             #t1=time.time()
             map_feature = self.encoder.map_encoder(tokenized_map)
 
+            if self.encoder.use_latent:
+                prior_dist = self.encoder.prior_encoder(tokenized_agent, map_feature, n_step=2,get_latent_dist=True)
+
             for _ in range(self.n_rollout_closed_val):
                 # pred = self.encoder.inference(
                 #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
                 # )
+                if self.encoder.use_latent:
+                    latent_feature = prior_dist.sample(deterministic=False)
+                else:
+                    latent_feature=None
+
                 pred = self.encoder.agent_encoder.inference(
-                    tokenized_agent, map_feature, self.validation_rollout_sampling
+                    tokenized_agent, map_feature, self.validation_rollout_sampling,latent_feature
                 )
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])

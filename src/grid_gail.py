@@ -559,39 +559,39 @@ class PPO(pl.LightningModule):
 
         agent_reward = (current_Q - y)[~is_expert].mean()
         #
-        # loss +=agent_reward
-
-        entropy=self.getEntropy(obs[~is_expert]).mean()
-        # loss +=entropy
+        loss +=agent_reward
         #
-        self.log("train/agent_reward", agent_reward.item(), on_step=True, batch_size=1)
-        self.log("train/entropy", entropy.item(), on_step=True, batch_size=1)
+        # entropy=self.getEntropy(obs[~is_expert]).mean()
+        # # loss +=entropy
+        # #
+        # self.log("train/agent_reward", agent_reward.item(), on_step=True, batch_size=1)
+        # self.log("train/entropy", entropy.item(), on_step=True, batch_size=1)
 
-        # calculate 2nd term for IQ loss, we show different sampling strategies
-        if method_loss == "value_expert":
-            # sample using only expert states (works offline)
-            # E_(ρ)[Q(s,a) - γV(s')]
-            value_loss = (current_v - y)[is_expert].mean()
-            loss += value_loss
-            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-        elif method_loss == "value":
-            # sample using expert and policy states (works online)
-            # E_(ρ)[V(s) - γV(s')]
-            value_loss = (current_v - y).mean()
-            loss += value_loss
-            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-        elif method_loss == "v0":
-            # alternate sampling using only initial states (works offline but usually suboptimal than `value_expert` startegy)
-            # (1-γ)E_(ρ0)[V(s0)]
-            v0_loss = (1 - gamma) * v0
-            loss += v0_loss
-            self.log("train/v0_loss", v0_loss.item(), on_step=True, batch_size=1)
-
-
-        else:
-            raise ValueError(f'This sampling method is not implemented: {args.method.type}')
+        # # calculate 2nd term for IQ loss, we show different sampling strategies
+        # if method_loss == "value_expert":
+        #     # sample using only expert states (works offline)
+        #     # E_(ρ)[Q(s,a) - γV(s')]
+        #     value_loss = (current_v - y)[is_expert].mean()
+        #     loss += value_loss
+        #     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        #
+        # elif method_loss == "value":
+        #     # sample using expert and policy states (works online)
+        #     # E_(ρ)[V(s) - γV(s')]
+        #     value_loss = (current_v - y).mean()
+        #     loss += value_loss
+        #     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        #
+        # elif method_loss == "v0":
+        #     # alternate sampling using only initial states (works offline but usually suboptimal than `value_expert` startegy)
+        #     # (1-γ)E_(ρ0)[V(s0)]
+        #     v0_loss = (1 - gamma) * v0
+        #     loss += v0_loss
+        #     self.log("train/v0_loss", v0_loss.item(), on_step=True, batch_size=1)
+        #
+        #
+        # else:
+        #     raise ValueError(f'This sampling method is not implemented: {args.method.type}')
 
         if grad_pen:
             # add a gradient penalty to loss (Wasserstein_1 metric)
@@ -796,7 +796,7 @@ class PPO(pl.LightningModule):
 ppo = PPO()
 
 # Initialize TensorBoard logger
-logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='iqnet_1e3value')#_1e3
+logger = TensorBoardLogger( save_dir='/home/ke/code/catk/src/logs',name='iqnet_1e3agentreward')#_1e3
 
 
 #qnet_1e3_agentrewardentropy   11.25

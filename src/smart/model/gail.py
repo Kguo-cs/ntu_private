@@ -22,8 +22,6 @@ class GAIL(LightningModule):
 
         self.replay_buffer = ReplayBuffer(1)
         self.automatic_optimization = False
-        # self.expert_buffer = deque(maxlen=1)
-        # self.agent_buffer = deque(maxlen=1)
 
     def push_expert_sample(self,tokenized_map, tokenized_agent):
        #hist_len=1
@@ -192,7 +190,6 @@ class GAIL(LightningModule):
 
     def evaluate_actions(self, state_action):
         tokenized_map, tokenized_agent=state_action
-        self.encoder.eval()
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
         pred_logit=pred_dict["next_token_logits"]
@@ -278,6 +275,7 @@ class GAIL(LightningModule):
             nn.utils.clip_grad_norm_(self.encoder.parameters(), 0.5)
             policy_optimizer.step()
         else:
+
             with torch.no_grad():
                 self.rollout(tokenized_map, tokenized_agent)
                 #self.push_expert_sample(tokenized_map,tokenized_agent)
