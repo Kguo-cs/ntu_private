@@ -30,8 +30,8 @@ trainer:
   val_check_interval: 0.25 #0.00025
 
 data:
-  train_batch_size: 1  #75
-  val_batch_size: 1  #20
+  train_batch_size: 75
+  val_batch_size: 20
   test_batch_size: 10
   num_workers: 28
 

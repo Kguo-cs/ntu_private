@@ -22,7 +22,9 @@ from lightning.pytorch.loggers import Logger
 from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 import sys
+import os
 
+os.environ["WANDB_SILENT"] = "true"
 
 wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
 

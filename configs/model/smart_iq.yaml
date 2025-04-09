@@ -10,3 +10,4 @@ model_config:
   decoder:
     num_map_layers: 1
     num_agent_layers: 1
+    time_span: 5
