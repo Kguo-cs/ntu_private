@@ -127,12 +127,20 @@ class SMART(LightningModule):
             #t1=time.time()
             map_feature = self.encoder.map_encoder(tokenized_map)
 
+            if self.encoder.use_latent:
+                prior_dist = self.encoder.prior_encoder(tokenized_agent, map_feature, n_step=2,get_latent_dist=True)
+
             for _ in range(self.n_rollout_closed_val):
                 # pred = self.encoder.inference(
                 #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
                 # )
+                if self.encoder.use_latent:
+                    latent_feature = prior_dist.sample(deterministic=False)
+                else:
+                    latent_feature=None
+
                 pred = self.encoder.agent_encoder.inference(
-                    tokenized_agent, map_feature, self.validation_rollout_sampling
+                    tokenized_agent, map_feature, self.validation_rollout_sampling,latent_feature
                 )
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])
@@ -177,6 +185,7 @@ class SMART(LightningModule):
                 )
 
                 # WOSAC metrics
+                #t1=time.time()
                 if batch_idx < self.n_batch_wosac_metric:
                     device = pred_traj.device
                     scenario_rollouts = get_scenario_rollouts(
@@ -190,11 +199,12 @@ class SMART(LightningModule):
                         pred_head=pred_head,
                     )
                     #time1=time.time()
-
-                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                    for i in range(len(scenario_rollouts)//1):
+                        scenario_rollouts_update=scenario_rollouts[i*1:(i+1)*1]
+                        self.wosac_metrics.update(data["tfrecord_path"][i*1:(i+1)*1], scenario_rollouts_update)
                     # print(time.time() - time1)
 
-            # print(time.time()-t1)
+                #print(time.time()-t1)
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:

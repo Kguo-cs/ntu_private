@@ -31,6 +31,7 @@ from src.smart.utils import (
     wrap_angle,
 )
 from torch_scatter import scatter_add
+from .kl_loss import DiagGaussian
 
 class SMARTAgentDecoder(nn.Module):
 
@@ -49,7 +50,8 @@ class SMARTAgentDecoder(nn.Module):
         dropout: float,
         hist_drop_prob: float,
         n_token_agent: int,
-        state_action:bool
+        state_action:bool,
+        use_latent:bool=False
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -109,19 +111,19 @@ class SMARTAgentDecoder(nn.Module):
             input_dim=self.hidden_dim * 2, hidden_dim=self.hidden_dim
         )
 
-        # self.t_attn_layers = nn.ModuleList(
-        #     [
-        #         AttentionLayer(
-        #             hidden_dim=hidden_dim,
-        #             num_heads=num_heads,
-        #             head_dim=head_dim,
-        #             dropout=dropout,
-        #             bipartite=False,
-        #             has_pos_emb=True,
-        #         )
-        #         for _ in range(num_layers)
-        #     ]
-        # )
+        self.t_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
         self.pt2a_attn_layers = nn.ModuleList(
             [
                 AttentionLayer(
@@ -156,11 +158,27 @@ class SMARTAgentDecoder(nn.Module):
         if state_action:
             n_token_agent=1
 
+        self.use_latent=use_latent
+
+        latent_dim=16
+
+        self.alpha=0.1
+
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
 
+        if  use_latent:
+            self.latent_embedding= MLPLayer(
+                    input_dim=latent_dim, hidden_dim=hidden_dim, output_dim=hidden_dim
+                )
+
         self.apply(weight_init)
+
+        self.time_embed=False
+
+        if self.time_embed:
+           self.t_embedding=nn.Embedding(18,hidden_dim)
 
     def agent_token_embedding(
         self,
@@ -300,7 +318,7 @@ class SMARTAgentDecoder(nn.Module):
             r=self.a2a_radius,
             batch=batch_s,
             loop=False,
-            max_num_neighbors=10,
+            max_num_neighbors=300
         )
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
@@ -343,7 +361,7 @@ class SMARTAgentDecoder(nn.Module):
             r=self.pl2a_radius,
             batch_x=batch_s,
             batch_y=batch_pl,
-            max_num_neighbors=100,
+            max_num_neighbors=300//5,#picked randomly
         )
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
@@ -423,16 +441,21 @@ class SMARTAgentDecoder(nn.Module):
         self,
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
+        latent_feature=None,
+        get_latent_dist=False,
+        n_step=None
     ) -> Dict[str, torch.Tensor]:
-        mask = tokenized_agent["valid_mask"]
-        pos_a = tokenized_agent["sampled_pos"]
-        head_a = tokenized_agent["sampled_heading"]
+        if n_step is None:
+            n_step=tokenized_agent["sampled_pos"].shape[1]
+        mask = tokenized_agent["valid_mask"][:,:n_step]
+        pos_a = tokenized_agent["sampled_pos"][:,:n_step]
+        head_a = tokenized_agent["sampled_heading"][:,:n_step]
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
         n_agent, n_step = head_a.shape
 
         # ! get agent token embeddings
         feat_a = self.agent_token_embedding(
-            agent_token_index=tokenized_agent["sampled_idx"],  # [n_ag, n_step]
+            agent_token_index=tokenized_agent["sampled_idx"][:,:n_step],  # [n_ag, n_step]
             trajectory_token_veh=tokenized_agent["trajectory_token_veh"],
             trajectory_token_ped=tokenized_agent["trajectory_token_ped"],
             trajectory_token_cyc=tokenized_agent["trajectory_token_cyc"],
@@ -442,16 +465,19 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
+        if latent_feature is not None:
+            feat_a=feat_a+self.latent_embedding(latent_feature)[:,None]
+
         if self.state_action:
             feat_a[:,:-1]+=feat_a[:,1:]
 
         # ! build temporal, interaction and map2agent edges
-        # edge_index_t, r_t = self.build_temporal_edge(
-        #     pos_a=pos_a,  # [n_agent, n_step, 2]
-        #     head_a=head_a,  # [n_agent, n_step]
-        #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-        #     mask=mask,  # [n_agent, n_step]
-        # )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
+        edge_index_t, r_t = self.build_temporal_edge(
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask,  # [n_agent, n_step]
+        )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
         batch_s = torch.cat(
             [
@@ -501,9 +527,12 @@ class SMARTAgentDecoder(nn.Module):
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
         )
 
+        if self.time_embed:
+            feat_a=feat_a+self.t_embedding.weight[None,:n_step]
+
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
-            #feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+            feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
             # [n_step*n_agent, hidden_dim]
             feat_a = feat_a.view(n_agent, n_step, -1).transpose(0, 1).flatten(0, 1)
             feat_a = self.pt2a_attn_layers[i](
@@ -511,6 +540,17 @@ class SMARTAgentDecoder(nn.Module):
             )
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
+
+        if get_latent_dist :
+            latent = torch.amax(feat_a,dim=1)
+
+            mean=self.token_predict_head(latent)
+
+            log_std=torch.zeros_like(mean)
+
+            latent_dist=DiagGaussian(mean, log_std)
+
+            return latent_dist
 
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
@@ -522,14 +562,14 @@ class SMARTAgentDecoder(nn.Module):
                 score=score[expert_mask]
             return score
         else:
-            if self.training:
-                return {
+           if "gt_pos_raw" not in tokenized_agent.keys():
+                 return {
                     # action that goes from [(10->15), ..., (85->90)]
                     "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-                    "feat_a": feat_a[:, 1:-1],
-                    "q_value": next_token_logits[:, 1:]
-                }
-            else:
+                     "feat_a": feat_a[:, 1:-1],
+                     "q_value": next_token_logits[:, 1:]
+                 }
+           else:
                 return {
                     # action that goes from [(10->15), ..., (85->90)]
                     "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
@@ -545,7 +585,9 @@ class SMARTAgentDecoder(nn.Module):
                     # or use the tokenized gt
                     "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
                     "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
-                    "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+                    "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18],
+                    "feat_a": feat_a[:, 1:-1],
+                    "q_value": next_token_logits[:, 1:]
                 }
 
     def inference(
@@ -553,6 +595,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
         sampling_scheme: DictConfig,
+        latent_feature=None
     ) -> Dict[str, torch.Tensor]:
         n_agent = tokenized_agent["valid_mask"].shape[0]
         n_step_future_10hz = self.num_future_steps  # 80
@@ -587,10 +630,14 @@ class SMARTAgentDecoder(nn.Module):
             inference=True,
         )
 
-        # agent_token_index = tokenized_agent["gt_idx"][:, :step_current_2hz]
-        sample_list=[]
+        #agent_token_index = tokenized_agent["gt_idx"][:, :step_current_2hz]
+        #sample_list=[]
         action_log_probs_list=[]
         feat_a_list=[]
+
+        if latent_feature is not None:
+
+            latent_embedding=self.latent_embedding(latent_feature)
 
         # next_route =tokenized_agent["next_route"]
         # light = tokenized_agent["light"]
@@ -628,12 +675,12 @@ class SMARTAgentDecoder(nn.Module):
                     dim=0,
                 )
                 inference_mask = pred_valid[:, :n_step]
-                # edge_index_t, r_t = self.build_temporal_edge(
-                #     pos_a=pos_a,
-                #     head_a=head_a,
-                #     head_vector_a=head_vector_a,
-                #     mask=pred_valid[:, :n_step],
-                # )
+                edge_index_t, r_t = self.build_temporal_edge(
+                    pos_a=pos_a,
+                    head_a=head_a,
+                    head_vector_a=head_vector_a,
+                    mask=pred_valid[:, :n_step],
+                )
             else:
                 hist_step = 1
                 batch_s = tokenized_agent["batch"]
@@ -677,11 +724,22 @@ class SMARTAgentDecoder(nn.Module):
             for i in range(self.num_layers):
                 # [n_agent, n_step, hidden_dim]
                 _feat_temporal = feat_a if i == 0 else feat_a_t_dict[i]
+                if latent_feature is not None:
+                    if t==0:
+                        _feat_temporal+=latent_embedding[:,None]
+                    else:
+                        _feat_temporal[:,-1]+=latent_embedding
+
+                if self.time_embed:
+                    if t==0:
+                        _feat_temporal+=self.t_embedding.weight[None,:2]
+                    else:
+                        _feat_temporal[:,-1]+=self.t_embedding.weight[None,t+1]
 
                 if t == 0:  # init, process hist_step together
-                    # _feat_temporal = self.t_attn_layers[i](
-                    #     _feat_temporal.flatten(0, 1), r_t, edge_index_t
-                    # ).view(n_agent, n_step, -1)
+                    _feat_temporal = self.t_attn_layers[i](
+                        _feat_temporal.flatten(0, 1), r_t, edge_index_t
+                    ).view(n_agent, n_step, -1)
                     _feat_temporal = _feat_temporal.transpose(0, 1).flatten(0, 1)
 
                     # [hist_step*n_pl, hidden_dim]
@@ -707,12 +765,12 @@ class SMARTAgentDecoder(nn.Module):
                         feat_a_t_dict[i + 1] = _feat_temporal
 
                 else:  # process one step
-                    # feat_a_now = self.t_attn_layers[i](
-                    #     (_feat_temporal.flatten(0, 1), _feat_temporal[:, -1]),
-                    #     r_t,
-                    #     edge_index_t,
-                    # )#3 s history
-                    feat_a_now=_feat_temporal[:, -1]
+                    feat_a_now = self.t_attn_layers[i](
+                        (_feat_temporal.flatten(0, 1), _feat_temporal[:, -1]),
+                        r_t,
+                        edge_index_t,
+                    )#3 s history
+                    #feat_a_now=_feat_temporal[:, -1]
                     # * give same results as below, but more efficient
                     # feat_a_now = self.t_attn_layers[i](
                     #     _feat_temporal.flatten(0, 1), r_t, edge_index_t
@@ -740,7 +798,7 @@ class SMARTAgentDecoder(nn.Module):
                 token_traj_all=tokenized_agent["token_traj_all"],
                 sampling_scheme=sampling_scheme,
                 # ! for most-likely sampling
-                next_token_logits=next_token_logits,
+                next_token_logits=next_token_logits/self.alpha,
                 # ! for nearest-pos sampling
                 pos_now=pos_a[:, t_now],  # [n_agent, 2]
                 head_now=head_a[:, t_now],  # [n_agent]
@@ -768,7 +826,7 @@ class SMARTAgentDecoder(nn.Module):
             # agent_state['next_route']=next_route[:, n_step-hist_len:n_step]
             # agent_state['light']=light[:, n_step-hist_len:n_step]
             #
-            # agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
+            #agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
             # sample={
             #     "state": agent_state,
             #     "action": next_token_idx,
