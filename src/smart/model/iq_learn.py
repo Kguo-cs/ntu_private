@@ -201,7 +201,6 @@ class IQ_SoftQ(LightningModule):
 
         expert_Q, expert_V, expert_target_v, expert_entropy,expert_kl_loss,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
 
-        self.log("train/expert_kl_loss", expert_kl_loss.item(), on_step=True, batch_size=1)
 
         expert_done = torch.zeros_like(expert_target_v)
 
@@ -269,7 +268,8 @@ class IQ_SoftQ(LightningModule):
 
         agent_Q, agent_V, agent_target_v, agent_entropy,agent_kl_loss,agent_pi = self.get_QV(agent_tokenized_map, agent_tokenized_agent)
 
-        self.log("train/agent_kl_loss", agent_kl_loss.item(), on_step=True, batch_size=1)
+       # self.log("train/agent_kl_loss", agent_kl_loss.item(), on_step=True, batch_size=1)
+        #self.log("train/expert_kl_loss", expert_kl_loss.item(), on_step=True, batch_size=1)
 
         done = torch.zeros_like(agent_target_v)
 
@@ -319,9 +319,9 @@ class IQ_SoftQ(LightningModule):
         value_mse_loss = (expert_value_mse_loss * expert_valid.sum() + agent_value_mse_loss * agent_valid.sum()) / (
                     expert_valid.sum() + agent_valid.sum())
 
-        expert_chi2_loss = (expert_reward - expert_reward.square() / 4).mean()
-
-        self.log("train/expert_chi2_loss", expert_chi2_loss.item(), on_step=True, batch_size=1)
+        # expert_chi2_loss = (expert_reward - expert_reward.square() / 4).mean()
+        #
+        # self.log("train/expert_chi2_loss", expert_chi2_loss.item(), on_step=True, batch_size=1)
 
         # critic_loss = expert_reward_loss + value_loss  # +constrianed_loss
 
@@ -405,7 +405,9 @@ class IQ_SoftQ(LightningModule):
         else:
             if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
                 with torch.no_grad():
+                    self.encoder.eval()
                     self.rollout(tokenized_map, tokenized_agent,data["agent"]["train_mask"])
+                    self.encoder.train()
             # print(time.time() - time1)
 
             loss = self.iq_update(tokenized_map, tokenized_agent,data["agent"]["train_mask"])

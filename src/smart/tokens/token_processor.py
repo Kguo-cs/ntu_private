@@ -217,9 +217,9 @@ class TokenProcessor(torch.nn.Module):
             # )[:, -1].flatten(1, 2)
 
         # ! match token for each agent
-        if not self.training:
+        #if not self.training:
             # [n_agent]
-            tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
+        tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
         token_dict = self._match_agent_token(
             valid=valid,
