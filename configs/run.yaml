@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "iqbc_ratio05_sample10_agentnearest10"#
+task_name: "iqbc_ratio01_reward1"#_sample10_agentnearest10
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
