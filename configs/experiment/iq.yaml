@@ -27,11 +27,11 @@ trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
-  val_check_interval: 0.1
+  val_check_interval: 0.3
 
 data:
-  train_batch_size: 80 #80
-  val_batch_size: 25 #50
+  train_batch_size: 90 #80
+  val_batch_size: 20 #50
   test_batch_size: 10
   num_workers: 28
 

@@ -45,10 +45,10 @@ class SMART_IQ(IQ_SoftQ, SMART):
         )
         self.target_net.load_state_dict(self.encoder.state_dict())
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-
-        return optimizer
+    # def configure_optimizers(self):
+    #     optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+    #
+    #     return optimizer
 
 
 
