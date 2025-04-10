@@ -204,7 +204,7 @@ class IQ_SoftQ(LightningModule):
 
         expert_done = torch.zeros_like(expert_target_v)
 
-        expert_done[:, -1] = 1
+        # expert_done[:, -1] = 1
 
         expert_rewards = expert_Q - (1 - expert_done) * self.gamma * expert_target_v
 
@@ -273,7 +273,7 @@ class IQ_SoftQ(LightningModule):
 
         done = torch.zeros_like(agent_target_v)
 
-        done[:, -1] = 1
+        #done[:, -1] = 1
 
         agent_rewards = agent_Q - (1 - done) * self.gamma * agent_target_v
 
@@ -334,7 +334,7 @@ class IQ_SoftQ(LightningModule):
         #              * (torch.square(agent_rewards)))[agent_valid].mean()
         chi2_agent_loss= torch.square(agent_rewards)[agent_valid]
 
-        ratio=0.9
+        ratio=0.5
         expert_ratio=1-ratio
 
         chi2_loss=(chi2_expert_loss.sum()*expert_ratio+chi2_agent_loss.sum()*ratio)/(expert_valid.sum()*expert_ratio+agent_valid.sum()*ratio)
