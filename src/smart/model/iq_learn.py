@@ -94,7 +94,7 @@ class IQ_SoftQ(LightningModule):
         self.replay_buffer.append((tokenized_map, tokenized_agent_rollout))
 
 
-    def get_QV(self, tokenized_map, tokenized_agent,div='rkl', key='expert'):
+    def get_QV(self, tokenized_map, tokenized_agent,div='x2', key='expert'):
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
 
