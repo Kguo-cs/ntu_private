@@ -153,7 +153,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q", current_Q[state_action_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy[state_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_reward_loss", reward_loss.item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
 
         return  reward,reward_loss, state_action_mask,action_logprob
 
