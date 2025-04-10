@@ -94,7 +94,7 @@ class IQ_SoftQ(LightningModule):
         self.replay_buffer.append((tokenized_map, tokenized_agent_rollout))
 
 
-    def get_QV(self, tokenized_map, tokenized_agent, agent=False):
+    def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
 
@@ -131,7 +131,26 @@ class IQ_SoftQ(LightningModule):
 
         action_logprob = pred_logprob.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-        return current_Q, current_V, target_v, entropy,kl_loss,action_logprob
+        done = torch.zeros_like(target_v)
+
+        done[:, -1] = 1
+
+        rewards = current_Q - (1 - done) * self.gamma * target_v
+
+        valid_mask = tokenized_agent["valid_mask"]
+
+        state_mask=valid_mask[:, 1:-1]
+
+        state_action_mask = valid_mask[:, 2:] & state_mask
+
+        reward=rewards[state_action_mask]
+
+        self.log("train/"+key+"_V", current_V[state_mask].mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_Q", current_Q[state_action_mask].mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_entropy", entropy[state_mask].mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
+
+        return current_Q, current_V, reward, entropy,state_action_mask,action_logprob
 
     def collate_agent(self,batch_list):
 
@@ -199,26 +218,15 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent,train_mask,div='x2', alpha=0.5):
 
-        expert_Q, expert_V, expert_target_v, expert_entropy,expert_kl_loss,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
+        expert_Q, expert_V, expert_reward, expert_entropy,expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
 
+        agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1))
 
-        expert_done = torch.zeros_like(expert_target_v)
-
-        # expert_done[:, -1] = 1
-
-        expert_rewards = expert_Q - (1 - expert_done) * self.gamma * expert_target_v
-
-        valid_mask = tokenized_agent["valid_mask"]
-
-        expert_state_mask=valid_mask[:, 1:-1]
-
-        expert_valid = valid_mask[:, 2:] & expert_state_mask
+        agent_Q, agent_V, agent_reward, agent_entropy,agent_valid,agent_pi = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
-
-        expert_reward=expert_rewards[expert_valid]
 
         with torch.no_grad():
             # Use different divergence functions (For χ2 divergence we instead add a third bellmann error-like term)
@@ -233,6 +241,9 @@ class IQ_SoftQ(LightningModule):
             elif div == "kl_fix":
                 # our proposed unbiased form for fixing kl divergence
                 phi_grad = torch.exp(-expert_reward)
+
+                phi_agent_grad = torch.exp(-expert_reward)
+
             elif div == "js":
                 expert_reward_clip=torch.clamp_min(expert_reward,-np.log(2)+0.01)
                 # jensen–shannon
@@ -248,13 +259,8 @@ class IQ_SoftQ(LightningModule):
 
         expert_reward_loss = -(phi_grad * expert_reward).mean()
 
-        self.log("train/expert_reward", expert_reward.mean().item(), on_step=True, batch_size=1)
-
         self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
 
-        expert_entropy_loss = expert_entropy[expert_valid].mean()
-
-        self.log("train/expert_entropy", expert_entropy_loss.item(), on_step=True, batch_size=1)
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
@@ -264,43 +270,24 @@ class IQ_SoftQ(LightningModule):
 
         # self.log("train/expert_Q_loss", expert_Q_loss.item(), on_step=True, batch_size=1)
 
-        agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1))
-
-        agent_Q, agent_V, agent_target_v, agent_entropy,agent_kl_loss,agent_pi = self.get_QV(agent_tokenized_map, agent_tokenized_agent)
 
        # self.log("train/agent_kl_loss", agent_kl_loss.item(), on_step=True, batch_size=1)
         #self.log("train/expert_kl_loss", expert_kl_loss.item(), on_step=True, batch_size=1)
 
-        done = torch.zeros_like(agent_target_v)
 
-        #done[:, -1] = 1
+        agent_reward_loss = agent_reward.mean()
 
-        agent_rewards = agent_Q - (1 - done) * self.gamma * agent_target_v
 
-        valid_mask = agent_tokenized_agent["valid_mask"]
-
-        agent_state_mask=valid_mask[:, 1:-1]
-
-        agent_valid = valid_mask[:, 2:] & agent_state_mask
-
-        agent_reward_loss = agent_rewards[agent_valid].mean()
-
-        self.log("train/agent_reward", agent_reward_loss.item(), on_step=True, batch_size=1)
-
-        entropy_loss = agent_entropy[agent_valid].mean()
-
-        self.log("train/agent_entropy", entropy_loss.item(), on_step=True, batch_size=1)
-
-        expert_value_loss = (expert_V - expert_target_v)[expert_valid].mean()
-
-        agent_value_loss = (agent_V - agent_target_v)[agent_valid].mean()
-
-        value_loss = (expert_value_loss * expert_valid.sum() + agent_value_loss * agent_valid.sum()) / (
-                    expert_valid.sum() + agent_valid.sum())
-
-        self.log("train/expert_value_loss", expert_value_loss.item(), on_step=True, batch_size=1)
-        self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
-        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        # expert_value_loss = (expert_V - expert_target_v)[expert_valid].mean()
+        #
+        # agent_value_loss = (agent_V - agent_target_v)[agent_valid].mean()
+        #
+        # value_loss = (expert_value_loss * expert_valid.sum() + agent_value_loss * agent_valid.sum()) / (
+        #             expert_valid.sum() + agent_valid.sum())
+        #
+        # self.log("train/expert_value_loss", expert_value_loss.item(), on_step=True, batch_size=1)
+        # self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
+        # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
 
         #expert_r_min = -(1 / self.reg_mult)
@@ -328,11 +315,11 @@ class IQ_SoftQ(LightningModule):
         # chi2_expert_loss = ((1 - expert_done) * torch.tensor(self.reg_mult) * torch.square(expert_rewards)
         #              + expert_done * (1.0 - self.gamma) * torch.tensor(self.reg_mult)
         #              * (torch.square(expert_rewards)))[expert_valid].mean()
-        chi2_expert_loss= torch.square(expert_rewards)[expert_valid]
+        chi2_expert_loss= torch.square(expert_reward)
         # chi2_agent_loss = ((1 - done) * torch.tensor(self.reg_mult) * torch.square(agent_rewards)
         #              + done * (1.0 - self.gamma) * torch.tensor(self.reg_mult)
         #              * (torch.square(agent_rewards)))[agent_valid].mean()
-        chi2_agent_loss= torch.square(agent_rewards)[agent_valid]
+        chi2_agent_loss= torch.square(agent_reward)
 
         ratio=0.5
         expert_ratio=1-ratio
@@ -342,22 +329,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/chi2_expert_loss", chi2_expert_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/chi2_agent_loss", chi2_agent_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
-
-        expert_V_loss=expert_V[expert_state_mask].mean()
-
-        agent_V_loss=agent_V[agent_state_mask].mean()
-
-        self.log("train/expert_V", expert_V_loss.item(), on_step=True, batch_size=1)
-
-        self.log("train/agent_V", agent_V_loss.item(), on_step=True, batch_size=1)
-
-        expert_Q_loss=expert_Q[expert_valid].mean()
-
-        agent_Q_loss=agent_Q[agent_valid].mean()
-
-        self.log("train/expert_Q", expert_Q_loss.item(), on_step=True, batch_size=1)
-
-        self.log("train/agent_Q", agent_Q_loss.item(), on_step=True, batch_size=1)
 
         critic_loss = expert_nll+chi2_loss+0.1*(expert_reward_loss+agent_reward_loss)
 
