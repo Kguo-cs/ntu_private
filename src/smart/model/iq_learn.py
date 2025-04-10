@@ -320,7 +320,7 @@ class IQ_SoftQ(LightningModule):
         # self.log("train/chi2_agent_loss", chi2_agent_loss.mean().item(), on_step=True, batch_size=1)
         # self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
 
-        alpha = 0.01
+        alpha = 0.25
         ratio=0
         reward_w=0.1
 
