@@ -144,7 +144,7 @@ class IQ_SoftQ(LightningModule):
             alpha=1
             reward_loss= alpha*(torch.log(alpha/reward)-1)
         elif div == "rkl":
-            alpha=0.1
+            alpha=10
             reward_loss= (-reward/alpha-1).exp() * alpha
         else:
             alpha = 0.025
@@ -223,7 +223,7 @@ class IQ_SoftQ(LightningModule):
 
         return map_batch,agent_batch
 
-    def iq_update(self, tokenized_map, tokenized_agent,train_mask,div='x2'):
+    def iq_update(self, tokenized_map, tokenized_agent,train_mask):
 
         expert_reward,expert_reward_loss, expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
 
@@ -234,6 +234,17 @@ class IQ_SoftQ(LightningModule):
         expert_nll=-expert_logprob[expert_valid].mean()
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
+
+        agent_ratio=0
+        reward_w=0.1
+
+        reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+
+        self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
+
+        agent_mean_reward = agent_reward.mean()
+
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
@@ -246,10 +257,6 @@ class IQ_SoftQ(LightningModule):
 
        # self.log("train/agent_kl_loss", agent_kl_loss.item(), on_step=True, batch_size=1)
         #self.log("train/expert_kl_loss", expert_kl_loss.item(), on_step=True, batch_size=1)
-
-
-
-
         # expert_value_loss = (expert_V - expert_target_v)[expert_valid].mean()
         #
         # agent_value_loss = (agent_V - agent_target_v)[agent_valid].mean()
@@ -277,36 +284,6 @@ class IQ_SoftQ(LightningModule):
         # value_mse_loss = (expert_value_mse_loss * expert_valid.sum() + agent_value_mse_loss * agent_valid.sum()) / (
         #             expert_valid.sum() + agent_valid.sum())
 
-        # expert_chi2_loss = (expert_reward - expert_reward.square() / 4).mean()
-        #
-        # self.log("train/expert_chi2_loss", expert_chi2_loss.item(), on_step=True, batch_size=1)
-
-        # critic_loss = expert_reward_loss + value_loss  # +constrianed_loss
-        # chi2_expert_loss= torch.square(expert_rewards)[expert_valid]
-        # # chi2_agent_loss = ((1 - done) * torch.tensor(self.reg_mult) * torch.square(agent_rewards)
-        # #              + done * (1.0 - self.gamma) * torch.tensor(self.reg_mult)
-        # #              * (torch.square(agent_rewards)))[agent_valid].mean()
-        # chi2_agent_loss= torch.square(agent_rewards)[agent_valid]
-        #
-        # ratio=0.5
-        # expert_ratio=1-ratio
-        #
-        # chi2_loss=(chi2_expert_loss.sum()*expert_ratio+chi2_agent_loss.sum()*ratio)/(expert_valid.sum()*expert_ratio+agent_valid.sum()*ratio)
-        #
-        # self.log("train/chi2_expert_loss", chi2_expert_loss.mean().item(), on_step=True, batch_size=1)
-        # self.log("train/chi2_agent_loss", chi2_agent_loss.mean().item(), on_step=True, batch_size=1)
-        # self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
-
-        agent_ratio=0
-        reward_w=0.1
-
-        reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
-
-        self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
-
-        agent_mean_reward = agent_reward.mean()
-
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)
 
         return critic_loss
 
