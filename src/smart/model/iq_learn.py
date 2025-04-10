@@ -133,7 +133,7 @@ class IQ_SoftQ(LightningModule):
 
         done = torch.zeros_like(target_v)
 
-        done[:, -1] = 1
+        #done[:, -1] = 1
 
         rewards = current_Q - (1 - done) * self.gamma * target_v
 
