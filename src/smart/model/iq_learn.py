@@ -49,9 +49,9 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
         tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
         tokenized_agent_rollout['valid_mask'] = tokenized_agent['valid_mask']
-        # tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
-        # tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
-        # tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
+        tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
+        tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
+        tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
         tokenized_agent_rollout['type'] = tokenized_agent['type']
         tokenized_agent_rollout['shape'] = tokenized_agent['shape']
         tokenized_agent_rollout['batch'] = tokenized_agent['batch']
@@ -104,32 +104,28 @@ class IQ_SoftQ(LightningModule):
 
         q = q_value[:, :-1]
 
-        current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-
-        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
-        entropy = -torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
-
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
-        # if agent:
-        #     current_Q= torch.sum(pi * q, dim=-1)
-        # else:
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-        with torch.no_grad():
-            next_q = q_value[:, 1:]#self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
-            target_v = self.alpha * torch.logsumexp(next_q / self.alpha, dim=-1, keepdim=False)
+        v=  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+
+        current_V = v[:, :-1]
+        target_v=v[:, 1:].detach()
+
+        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+        logpi= torch.log(pi + 1e-10)
+        entropy = -torch.sum(pi * logpi, dim=-1)
+
+        # pred_logprob=self.logsoftmax(q/self.alpha)
+        # with torch.no_grad():
+            # next_q = q_value[:, 1:]#self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
+            # target_v = self.alpha * torch.logsumexp(next_q / self.alpha, dim=-1, keepdim=False)
             # pi = torch.softmax(next_q / self.alpha, dim=-1)  # Compute policy
             # target_v= torch.sum(pi * next_q, dim=-1)
 
-        self._target_clipping = True
 
-        if self._target_clipping:
-            target_v = torch.clip(target_v, self.Q_min, self.Q_max)
-
-        pred_logprob=self.logsoftmax(q/self.alpha)
-
-        action_logprob = pred_logprob.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+        action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         done = torch.zeros_like(target_v)
 
@@ -150,7 +146,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_entropy", entropy[state_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
 
-        return current_Q, current_V, reward, entropy,state_action_mask,action_logprob
+        return  reward, state_action_mask,action_logprob
 
     def collate_agent(self,batch_list):
 
@@ -218,11 +214,11 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent,train_mask,div='x2'):
 
-        expert_Q, expert_V, expert_reward, expert_entropy,expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward, expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
 
-        agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1))
+        agent_tokenized_map, agent_tokenized_agent = random.sample(self.replay_buffer,1)[0]
 
-        agent_Q, agent_V, agent_reward, agent_entropy,agent_valid,agent_pi = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
+        agent_reward, agent_valid,_ = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
