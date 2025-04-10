@@ -133,7 +133,7 @@ class IQ_SoftQ(LightningModule):
 
         done = torch.zeros_like(target_v)
 
-        #done[:, -1] = 1
+        done[:, -1] = 1
 
         rewards = current_Q - (1 - done) * self.gamma * target_v
 
@@ -216,7 +216,7 @@ class IQ_SoftQ(LightningModule):
 
         return map_batch,agent_batch
 
-    def iq_update(self, tokenized_map, tokenized_agent,train_mask,div='x2', alpha=0.5):
+    def iq_update(self, tokenized_map, tokenized_agent,train_mask,div='x2'):
 
         expert_Q, expert_V, expert_reward, expert_entropy,expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
 
@@ -228,38 +228,38 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        with torch.no_grad():
-            # Use different divergence functions (For χ2 divergence we instead add a third bellmann error-like term)
-            if div == "hellinger":
-                phi_grad = 1 / (1 + expert_reward) ** 2
-            elif div == "kl":
-                # original dual form for kl divergence (sub optimal)
-                phi_grad = torch.exp(-expert_reward - 1)
-            elif div == "kl2":
-                # biased dual form for kl divergence
-                phi_grad = F.softmax(-expert_reward, dim=0) * expert_reward.shape[0]
-            elif div == "kl_fix":
-                # our proposed unbiased form for fixing kl divergence
-                phi_grad = torch.exp(-expert_reward)
-
-                phi_agent_grad = torch.exp(-expert_reward)
-
-            elif div == "js":
-                expert_reward_clip=torch.clamp_min(expert_reward,-np.log(2)+0.01)
-                # jensen–shannon
-                phi_grad = torch.exp(-expert_reward_clip) / (2 - torch.exp(-expert_reward_clip))
-            elif div == 'rkl':
-                expert_reward_clip=torch.clamp_min(expert_reward,0.01)
-
-                phi_grad = 1/ expert_reward_clip
-            else:
-                phi_grad = 1
+        # with torch.no_grad():
+        #     # Use different divergence functions (For χ2 divergence we instead add a third bellmann error-like term)
+        #     if div == "hellinger":
+        #         phi_grad = 1 / (1 + expert_reward) ** 2
+        #     elif div == "kl":
+        #         # original dual form for kl divergence (sub optimal)
+        #         phi_grad = torch.exp(-expert_reward - 1)
+        #     elif div == "kl2":
+        #         # biased dual form for kl divergence
+        #         phi_grad = F.softmax(-expert_reward, dim=0) * expert_reward.shape[0]
+        #     elif div == "kl_fix":
+        #         # our proposed unbiased form for fixing kl divergence
+        #         phi_grad = torch.exp(-expert_reward)
+        #
+        #         phi_agent_grad = torch.exp(-expert_reward)
+        #
+        #     elif div == "js":
+        #         expert_reward_clip=torch.clamp_min(expert_reward,-np.log(2)+0.01)
+        #         # jensen–shannon
+        #         phi_grad = torch.exp(-expert_reward_clip) / (2 - torch.exp(-expert_reward_clip))
+        #     elif div == 'rkl':
+        #         expert_reward_clip=torch.clamp_min(expert_reward,0.01)
+        #
+        #         phi_grad = 1/ expert_reward_clip
+        #     else:
+        #         phi_grad = 1
 
         #self.log("train/phi_grad", phi_grad.mean().item(), on_step=True, batch_size=1)
 
-        expert_reward_loss = -(phi_grad * expert_reward).mean()
-
-        self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
+        # expert_reward_loss = -(phi_grad * expert_reward).mean()
+        #
+        # self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
 
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
@@ -275,7 +275,6 @@ class IQ_SoftQ(LightningModule):
         #self.log("train/expert_kl_loss", expert_kl_loss.item(), on_step=True, batch_size=1)
 
 
-        agent_reward_loss = agent_reward.mean()
 
 
         # expert_value_loss = (expert_V - expert_target_v)[expert_valid].mean()
@@ -311,26 +310,30 @@ class IQ_SoftQ(LightningModule):
         # self.log("train/expert_chi2_loss", expert_chi2_loss.item(), on_step=True, batch_size=1)
 
         # critic_loss = expert_reward_loss + value_loss  # +constrianed_loss
+        # chi2_expert_loss= torch.square(expert_rewards)[expert_valid]
+        # # chi2_agent_loss = ((1 - done) * torch.tensor(self.reg_mult) * torch.square(agent_rewards)
+        # #              + done * (1.0 - self.gamma) * torch.tensor(self.reg_mult)
+        # #              * (torch.square(agent_rewards)))[agent_valid].mean()
+        # chi2_agent_loss= torch.square(agent_rewards)[agent_valid]
+        #
+        # ratio=0.5
+        # expert_ratio=1-ratio
+        #
+        # chi2_loss=(chi2_expert_loss.sum()*expert_ratio+chi2_agent_loss.sum()*ratio)/(expert_valid.sum()*expert_ratio+agent_valid.sum()*ratio)
+        #
+        # self.log("train/chi2_expert_loss", chi2_expert_loss.mean().item(), on_step=True, batch_size=1)
+        # self.log("train/chi2_agent_loss", chi2_agent_loss.mean().item(), on_step=True, batch_size=1)
+        # self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
 
-        # chi2_expert_loss = ((1 - expert_done) * torch.tensor(self.reg_mult) * torch.square(expert_rewards)
-        #              + expert_done * (1.0 - self.gamma) * torch.tensor(self.reg_mult)
-        #              * (torch.square(expert_rewards)))[expert_valid].mean()
-        chi2_expert_loss= torch.square(expert_reward)
-        # chi2_agent_loss = ((1 - done) * torch.tensor(self.reg_mult) * torch.square(agent_rewards)
-        #              + done * (1.0 - self.gamma) * torch.tensor(self.reg_mult)
-        #              * (torch.square(agent_rewards)))[agent_valid].mean()
-        chi2_agent_loss= torch.square(agent_reward)
+        alpha = 0.025
 
-        ratio=0.5
-        expert_ratio=1-ratio
+        expert_reward_loss= (-expert_reward+expert_reward.square()/(4*alpha)).mean()
 
-        chi2_loss=(chi2_expert_loss.sum()*expert_ratio+chi2_agent_loss.sum()*ratio)/(expert_valid.sum()*expert_ratio+agent_valid.sum()*ratio)
+        self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
 
-        self.log("train/chi2_expert_loss", chi2_expert_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/chi2_agent_loss", chi2_agent_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/chi2_loss", chi2_loss.item(), on_step=True, batch_size=1)
+        agent_reward_loss = agent_reward.mean()
 
-        critic_loss = expert_nll+chi2_loss+0.1*(expert_reward_loss+agent_reward_loss)
+        critic_loss = expert_nll+0.1*(expert_reward_loss+agent_reward_loss)
 
         return critic_loss
 
