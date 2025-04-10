@@ -100,8 +100,6 @@ class IQ_SoftQ(LightningModule):
 
         q_value =pred_dict["q_value"]
 
-        kl_loss =pred_dict["kl_loss"]
-
         q = q_value[:, :-1]
 
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
@@ -111,6 +109,7 @@ class IQ_SoftQ(LightningModule):
         v=  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
         current_V = v[:, :-1]
+
         target_v=v[:, 1:].detach()
 
         pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
@@ -323,13 +322,22 @@ class IQ_SoftQ(LightningModule):
 
         alpha = 0.025
 
-        expert_reward_loss= (-expert_reward+expert_reward.square()/(4*alpha)).mean()
+        ratio=0.5
+        expert_ratio=1-ratio
 
-        self.log("train/expert_reward_loss", expert_reward_loss.item(), on_step=True, batch_size=1)
+        expert_reward_loss= (-expert_reward+expert_reward.square()/(4*alpha))
+
+        agent_reward_loss= (-agent_reward+agent_reward.square()/(4*alpha))
+
+        reward_loss= (expert_reward_loss.sum()*expert_ratio+agent_reward_loss.sum()*ratio)/(expert_valid.sum()*expert_ratio+agent_valid.sum()*ratio)
+
+        self.log("train/expert_reward_loss", expert_reward_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/agent_reward_loss", agent_reward_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
         agent_reward_loss = agent_reward.mean()
 
-        critic_loss = expert_nll+0.1*(expert_reward_loss+agent_reward_loss)
+        critic_loss = expert_nll+0.1*(reward_loss+agent_reward_loss)
 
         return critic_loss
 
