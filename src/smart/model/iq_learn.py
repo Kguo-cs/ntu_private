@@ -1,21 +1,10 @@
 from lightning import LightningModule
 
-import torch.optim as optim
 import random
 from collections import deque
 import torch.nn as nn
-from sklearn.covariance import log_likelihood
-from tensorflow_probability.substrates.jax.distributions.student_t import entropy
-from torch.distributions import Categorical
-import torch.nn.functional as F
 import torch
-from torch_geometric.profile.benchmark import require_grad
-
-from src.smart.model.rollout_buffer import ReplayBuffer
-from torch.autograd import Variable, grad
 import numpy as np
-# import matplotlib.pyplot as plt
-from torch.nn.functional import cross_entropy
 
 
 class IQ_SoftQ(LightningModule):
@@ -318,8 +307,8 @@ class IQ_SoftQ(LightningModule):
     def training_step(self, data, batch_idx):
         # print(self.global_step)
         # time1=time.time()
-        #tokenized_map, tokenized_agent = self.token_processor(data)
-        tokenized_map, tokenized_agent = self.process_data(data)
+        tokenized_map, tokenized_agent = self.token_processor(data)
+        #tokenized_map, tokenized_agent = self.process_data(data)
 
         if self.training_rollout_sampling.num_k <= 0:
             pred = self.encoder(tokenized_map, tokenized_agent)
