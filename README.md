@@ -9,3 +9,7 @@ source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim
 conda activate catk
 export PBS_JOBID=37384.pbs111
+
+
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.npz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/training_token.npz 
+

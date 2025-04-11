@@ -255,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)-self.alpha*agent_entropy
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)-0.01*agent_entropy
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
@@ -358,8 +358,8 @@ class IQ_SoftQ(LightningModule):
     def training_step(self, data, batch_idx):
         # print(self.global_step)
         # time1=time.time()
-        tokenized_map, tokenized_agent = self.token_processor(data)
-        # tokenized_map, tokenized_agent = self.process_data(data)
+        #tokenized_map, tokenized_agent = self.token_processor(data)
+        tokenized_map, tokenized_agent = self.process_data(data)
 
         if self.training_rollout_sampling.num_k <= 0:
             pred = self.encoder(tokenized_map, tokenized_agent)
