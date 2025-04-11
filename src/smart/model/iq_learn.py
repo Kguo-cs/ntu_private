@@ -23,7 +23,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.replay_buffer = deque(maxlen=100)
+        self.replay_buffer = deque(maxlen=10)
         self.critic_tau = 0.005
         self.critic_target_update_frequency = 1
         self.gamma = 0.99
@@ -94,7 +94,7 @@ class IQ_SoftQ(LightningModule):
         self.replay_buffer.append((tokenized_map, tokenized_agent_rollout))
 
 
-    def get_QV(self, tokenized_map, tokenized_agent,div='x2', key='expert'):
+    def get_QV(self, tokenized_map, tokenized_agent,div='rkl', key='expert'):
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
 
