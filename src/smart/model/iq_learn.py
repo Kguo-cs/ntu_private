@@ -23,7 +23,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.replay_buffer = deque(maxlen=10)
+        self.replay_buffer = deque(maxlen=100)
         self.critic_tau = 0.005
         self.critic_target_update_frequency = 1
         self.gamma = 0.99
@@ -36,7 +36,7 @@ class IQ_SoftQ(LightningModule):
 
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
-    def rollout(self, tokenized_map, tokenized_agent,train_mask):
+    def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
             tokenized_map,
             tokenized_agent,
@@ -49,9 +49,9 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
         tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
         tokenized_agent_rollout['valid_mask'] = tokenized_agent['valid_mask']
-        tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
-        tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
-        tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
+        # tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
+        # tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
+        # tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
         tokenized_agent_rollout['type'] = tokenized_agent['type']
         tokenized_agent_rollout['shape'] = tokenized_agent['shape']
         tokenized_agent_rollout['batch'] = tokenized_agent['batch']
@@ -223,11 +223,11 @@ class IQ_SoftQ(LightningModule):
 
         return map_batch,agent_batch
 
-    def iq_update(self, tokenized_map, tokenized_agent,train_mask):
+    def iq_update(self, tokenized_map, tokenized_agent):
 
         expert_reward,expert_reward_loss, expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
 
-        agent_tokenized_map, agent_tokenized_agent = random.sample(self.replay_buffer,1)[0]
+        agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1)) #random.sample(self.replay_buffer,1)[0]
 
         agent_reward,agent_reward_loss ,agent_valid,_ = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
@@ -292,10 +292,63 @@ class IQ_SoftQ(LightningModule):
             target_param.data.copy_(tau * param.data +
                                     (1 - tau) * target_param.data)
 
+    def process_data(self,data):
+        map=data["tokenized_map"]
+        agent=data["tokenized_agent"]
+
+        tokenized_agent={}
+
+        tokenized_agent['sampled_pos'] = agent["sampled_pos"]
+        tokenized_agent['sampled_heading'] = agent['sampled_heading']
+        tokenized_agent['sampled_idx'] = agent["sampled_idx"]
+
+        tokenized_agent["gt_pos"] =agent["sampled_pos"]
+        tokenized_agent["gt_heading"]  = agent['sampled_heading']
+        tokenized_agent["gt_idx"] = agent["sampled_idx"]
+
+        tokenized_agent['valid_mask'] = agent['valid_mask']
+        tokenized_agent['type'] = agent['type']
+        tokenized_agent['batch'] = agent['batch']
+        tokenized_agent['num_graphs'] = data.num_graphs
+        tokenized_agent['gt_pos_raw'] = agent["gt_pos_raw"]
+        tokenized_agent['gt_head_raw'] =  agent["gt_head_raw"]
+        tokenized_agent['gt_valid_raw'] =  agent["gt_valid_raw"]
+        tokenized_agent['gt_z_raw'] =  agent["gt_z_raw"]
+        tokenized_agent['shape'] = agent['shape']
+
+        tokenized_agent['trajectory_token_veh'] = self.token_processor.trajectory_token_veh
+        tokenized_agent['trajectory_token_ped'] = self.token_processor.trajectory_token_ped
+        tokenized_agent['trajectory_token_cyc'] = self.token_processor.trajectory_token_cyc
+
+        agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
+            agent['type']
+        )
+
+
+        tokenized_agent['token_traj'] = token_traj
+        tokenized_agent['token_traj_all'] = token_traj_all
+        tokenized_agent['token_agent_shape'] = agent_shape
+
+
+        tokenized_map={}
+
+        tokenized_map["position"]= map["position"]
+        tokenized_map["orientation"]=  map["orientation"]
+        tokenized_map["token_idx"]=  map["token_idx"]
+        tokenized_map["type"]= map["type"]
+        tokenized_map["pl_type"]= map["pl_type"]
+        tokenized_map["light_type"]= map["light_type"]
+        tokenized_map["batch"]= map["batch"]
+        tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
+
+        return tokenized_map, tokenized_agent
+
+
     def training_step(self, data, batch_idx):
         # print(self.global_step)
         # time1=time.time()
         tokenized_map, tokenized_agent = self.token_processor(data)
+        # tokenized_map, tokenized_agent = self.process_data(data)
 
         if self.training_rollout_sampling.num_k <= 0:
             pred = self.encoder(tokenized_map, tokenized_agent)
@@ -330,11 +383,11 @@ class IQ_SoftQ(LightningModule):
             if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
                 with torch.no_grad():
                     self.encoder.eval()
-                    self.rollout(tokenized_map, tokenized_agent,data["agent"]["train_mask"])
+                    self.rollout(tokenized_map, tokenized_agent)
                     self.encoder.train()
             # print(time.time() - time1)
 
-            loss = self.iq_update(tokenized_map, tokenized_agent,data["agent"]["train_mask"])
+            loss = self.iq_update(tokenized_map, tokenized_agent)
             # print(time.time() - time1)
 
             # if self.global_step % self.critic_target_update_frequency == 0:

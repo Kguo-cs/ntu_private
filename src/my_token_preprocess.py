@@ -1,67 +1,51 @@
 import multiprocessing
 import os
 import pickle
-from src.smart.tokens.my_token_processor import TokenProcessor
 from tqdm import tqdm
+from src.smart.tokens.my_token_processor import TokenProcessor
 
-
+# Initialize the token processor once globally
 token_processor = TokenProcessor(
-        map_token_file="map_traj_token5.pkl",
-        agent_token_file="agent_vocab_555_s2.pkl",
-        map_token_sampling={"num_k":1,"temp":1.0},
-        agent_token_sampling={"num_k":1,"temp":1.0}
+    map_token_file="map_traj_token5.pkl",
+    agent_token_file="agent_vocab_555_s2.pkl",
+    map_token_sampling={"num_k": 1, "temp": 1.0},
+    agent_token_sampling={"num_k": 1, "temp": 1.0}
 )
-
-
 token_processor.eval()
 
-token_data_directory="/home/ke/code/catk/src/waymo_data/full/training1/"
-data_directory="/home/ke/code/catk/src/waymo_data/full/training/"
+# Set paths
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training_all/"
 
-for file in tqdm(os.listdir(data_directory)):
-    with open(data_directory+file, "rb") as f:
+# Worker function
+def process_file(filename):
+    input_path = os.path.join(data_directory, filename)
+    output_path = os.path.join(token_data_directory, filename)
+    with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-        #data["pt_token"]["batch"]=torch.zeros_like(data["pt_token"]["type"])
+    if 'tokenized_map' not in data:
+        tokenized_map, tokenized_agent = token_processor(data)
 
-        #data["agent"]["batch"]=torch.zeros_like(data["agent"]["id"])
+        # Remove unnecessary keys
+        tokenized_agent.pop("gt_idx", None)
+        tokenized_agent.pop("gt_pos", None)
+        tokenized_agent.pop("gt_heading", None)
 
-        if 'tokenized_map' not in data.keys():
-            tokenized_map, tokenized_agent =token_processor(data)
+        data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
 
-            del tokenized_agent["gt_idx"]  # Removes key "b"
-            del tokenized_agent["gt_pos"]  # Removes key "b"
-            del tokenized_agent["gt_heading"]  # Removes key "b"
-            del tokenized_agent['token_agent_shape']
+        # Save the tokenized data
+        with open(output_path, "wb") as f:
+            pickle.dump(data_dict, f)
 
-            data_dict={"tokenized_map":tokenized_map,"tokenized_agent":tokenized_agent}
 
-            # Save the dictionary to a file
-            with open(token_data_directory+file, "wb") as f:
-                pickle.dump(data_dict, f)
+if __name__ == "__main__":
+    files = os.listdir(data_directory)
 
-token_data_directory="/home/ke/code/catk/src/waymo_data/full/validation1/"
-data_directory="/home/ke/code/catk/src/waymo_data/full/validation/"
+    for file in tqdm(files):
+        process_file(file)
 
-for file in tqdm(os.listdir(data_directory)):
-    with open(data_directory+file, "rb") as f:
-        data = pickle.load(f)
-
-        #data["pt_token"]["batch"]=torch.zeros_like(data["pt_token"]["type"])
-
-        #data["agent"]["batch"]=torch.zeros_like(data["agent"]["id"])
-
-        if 'tokenized_map' not in data.keys():
-            tokenized_map, tokenized_agent =token_processor(data)
-
-            # del tokenized_agent["gt_idx"]  # Removes key "b"
-            # del tokenized_agent["gt_pos"]  # Removes key "b"
-            # del tokenized_agent["gt_heading"]  # Removes key "b"
-            # del tokenized_agent['token_agent_shape']
-
-            data_dict={"tokenized_map":tokenized_map,"tokenized_agent":tokenized_agent}
-
-            # Save the dictionary to a file
-            with open(token_data_directory+file, "wb") as f:
-                pickle.dump(data_dict, f)
+    # # Use tqdm inside multiprocessing with a wrapper
+    # with multiprocessing.Pool(processes=os.cpu_count()) as pool:
+    #     list(tqdm(pool.imap(process_file, files), total=len(files)))
 
