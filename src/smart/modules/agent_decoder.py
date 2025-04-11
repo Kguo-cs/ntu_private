@@ -819,9 +819,9 @@ class SMARTAgentDecoder(nn.Module):
                 # ! for nearest-pos sampling
                 pos_now=pos_a[:, t_now],  # [n_agent, 2]
                 head_now=head_a[:, t_now],  # [n_agent]
-                pos_next_gt=tokenized_agent["gt_pos_raw"][:, n_step],  # [n_agent, 2]
-                head_next_gt=tokenized_agent["gt_head_raw"][:, n_step],  # [n_agent]
-                valid_next_gt=tokenized_agent["gt_valid_raw"][:, n_step],  # [n_agent]
+                pos_next_gt=None,#tokenized_agent["gt_pos_raw"][:, n_step],  # [n_agent, 2]
+                head_next_gt=None,#tokenized_agent["gt_head_raw"][:, n_step],  # [n_agent]
+                valid_next_gt=None,#tokenized_agent["gt_valid_raw"][:, n_step],  # [n_agent]
                 token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_token, 2]
             )  # next_token_idx: [n_agent], next_token_traj_all: [n_agent, 6, 4, 2]
 
@@ -943,10 +943,6 @@ class SMARTAgentDecoder(nn.Module):
             "pred_head": head_a,  # [n_agent, 18]
             "pred_valid": pred_valid,  # [n_agent, 18]
             "pred_idx": pred_idx,  # [n_agent, 18]
-            # for step {5, 10, ..., 90}
-            "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
-            "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
-            "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
             # or use the tokenized gt
             "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
             "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
@@ -958,10 +954,13 @@ class SMARTAgentDecoder(nn.Module):
             "action_log_probs": torch.stack(action_log_probs_list, dim=1),
         }
 
-        if not self.training:  # 10hz predictions for wosac evaluation and submission
+        if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_traj_10hz"] = pred_traj_10hz
             out_dict["pred_head_10hz"] = pred_head_10hz
             pred_z = tokenized_agent["gt_z_raw"].unsqueeze(1)  # [n_agent, 1]
             out_dict["pred_z_10hz"] = pred_z.expand(-1, pred_traj_10hz.shape[1])
+            out_dict["gt_pos_raw"] = tokenized_agent["gt_pos_raw"] # [n_agent, 18, 2]
+            out_dict["gt_head_raw"] =tokenized_agent["gt_head_raw"]# [n_agent, 18]
+            out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]# [n_agent, 18]
 
         return out_dict

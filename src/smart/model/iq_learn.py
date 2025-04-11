@@ -321,10 +321,10 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['type'] = agent['type']
         tokenized_agent['batch'] = agent['batch']
         tokenized_agent['num_graphs'] = data.num_graphs
-        tokenized_agent['gt_pos_raw'] = agent["gt_pos_raw"]
-        tokenized_agent['gt_head_raw'] =  agent["gt_head_raw"]
-        tokenized_agent['gt_valid_raw'] =  agent["gt_valid_raw"]
-        tokenized_agent['gt_z_raw'] =  agent["gt_z_raw"]
+        # tokenized_agent['gt_pos_raw'] = agent["gt_pos_raw"]
+        # tokenized_agent['gt_head_raw'] =  agent["gt_head_raw"]
+        # tokenized_agent['gt_valid_raw'] =  agent["gt_valid_raw"]
+        # tokenized_agent['gt_z_raw'] =  agent["gt_z_raw"]
         tokenized_agent['shape'] = agent['shape']
 
         tokenized_agent['trajectory_token_veh'] = self.token_processor.trajectory_token_veh
@@ -340,15 +340,14 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['token_traj_all'] = token_traj_all
         tokenized_agent['token_agent_shape'] = agent_shape
 
-
         tokenized_map={}
 
         tokenized_map["position"]= map["position"]
         tokenized_map["orientation"]=  map["orientation"]
-        tokenized_map["token_idx"]=  map["token_idx"]
-        tokenized_map["type"]= map["type"]
-        tokenized_map["pl_type"]= map["pl_type"]
-        tokenized_map["light_type"]= map["light_type"]
+        tokenized_map["token_idx"]=  map["token_idx"].to(torch.long)
+        tokenized_map["type"]= map["type"].to(torch.long)
+        tokenized_map["pl_type"]= map["pl_type"].to(torch.long)
+        tokenized_map["light_type"]= map["light_type"].to(torch.long)
         tokenized_map["batch"]= map["batch"]
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
