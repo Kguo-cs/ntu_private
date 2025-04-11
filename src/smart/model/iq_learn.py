@@ -140,7 +140,7 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
-        div = 'hellinger'
+        div = 'js'
 
         if div=="kl":
             alpha=1
@@ -153,7 +153,9 @@ class IQ_SoftQ(LightningModule):
             alpha=1
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
-            reward_loss= 1
+            alpha=1
+            reward=torch.clamp_min(reward,min=alpha*(-np.log(2)+0.01))
+            reward_loss= alpha*(2-(-reward/alpha).exp()).log()
         else:
             alpha = 0.01
 
