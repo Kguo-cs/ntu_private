@@ -116,7 +116,6 @@ class IQ_SoftQ(LightningModule):
         pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
         logpi= torch.log(pi + 1e-10)
         entropy = -torch.sum(pi * logpi, dim=-1)
-
         # pred_logprob=self.logsoftmax(q/self.alpha)
         # with torch.no_grad():
             # next_q = q_value[:, 1:]#self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
@@ -144,7 +143,7 @@ class IQ_SoftQ(LightningModule):
 
         if div=="kl":
             alpha=1
-            reward_loss= alpha*(torch.log(alpha/reward)-1)
+            reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=1
             reward_loss= (-reward/alpha-1).exp() * alpha
@@ -153,7 +152,7 @@ class IQ_SoftQ(LightningModule):
             alpha=1
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
-            alpha=0.1
+            alpha=1
             reward=torch.clamp_min(reward,min=alpha*(-np.log(2)+0.01))
             reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
         else:
@@ -161,13 +160,15 @@ class IQ_SoftQ(LightningModule):
 
             reward_loss= -reward+reward.square()/(4*alpha)
 
+        entropy =entropy[state_mask].mean()
+
         self.log("train/"+key+"_V", current_V[state_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q[state_action_mask].mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_entropy", entropy[state_mask].mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_entropy", entropy.item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,reward_loss, state_action_mask,action_logprob
+        return  reward,reward_loss, state_action_mask,action_logprob,entropy
 
     def collate_agent(self,batch_list):
 
@@ -235,11 +236,11 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_reward_loss, expert_valid,expert_logprob = self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_reward_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 
         agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1)) #random.sample(self.replay_buffer,1)[0]
 
-        agent_reward,agent_reward_loss ,agent_valid,_ = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
+        agent_reward,agent_reward_loss ,agent_valid,_,agent_entropy = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
@@ -254,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)-self.alpha*agent_entropy
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
