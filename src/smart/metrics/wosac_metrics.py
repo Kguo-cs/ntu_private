@@ -27,6 +27,7 @@ from waymo_open_dataset.protos import (
     sim_agents_metrics_pb2,
     sim_agents_submission_pb2,
 )
+import os
 
 class WOSACMetrics(Metric):
     """
@@ -87,7 +88,7 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
-        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and len(scenario_rollouts)>10:
+        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and os.cpu_count()!=32:
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)

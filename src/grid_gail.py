@@ -12,6 +12,9 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+import os
+
+print(os.cpu_count())
 
 size=8
 
