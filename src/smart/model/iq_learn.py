@@ -150,7 +150,7 @@ class IQ_SoftQ(LightningModule):
             reward_loss= (-reward/alpha-1).exp() * alpha
            # reward_loss= reward_loss.detach()*reward
         elif div=="sh":
-            alpha=0.1
+            alpha=10
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
             alpha=10
