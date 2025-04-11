@@ -61,11 +61,11 @@ class TokenProcessor(torch.nn.Module):
             0, map_token_traj.shape[1] - 1, steps=argmin_sample_len
         ).long()
 
-        self.register_buffer(
-            "map_token_traj_src",
-            torch.tensor(map_token_traj, dtype=torch.float32).flatten(1, 2),
-            persistent=False,
-        )  # [n_token, 11*2]
+        # self.register_buffer(
+        #     "map_token_traj_src",
+        #     torch.tensor(map_token_traj, dtype=torch.float32).flatten(1, 2),
+        #     persistent=False,
+        # )  # [n_token, 11*2]
 
         self.register_buffer(
             "map_token_sample_pt",

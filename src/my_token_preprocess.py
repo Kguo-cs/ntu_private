@@ -14,8 +14,8 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_all/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
 
 # Worker function
 def process_file(filename):
