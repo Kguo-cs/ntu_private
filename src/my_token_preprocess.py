@@ -3,6 +3,7 @@ import os
 import pickle
 from tqdm import tqdm
 from src.smart.tokens.my_token_processor import TokenProcessor
+import torch
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
@@ -25,12 +26,18 @@ def process_file(filename):
         data = pickle.load(f)
 
     if 'gt_pos_raw' in data:
-        tokenized_map, tokenized_agent = data
+        tokenized_map, tokenized_agent = token_processor(data)
 
         # Remove unnecessary keys
-        tokenized_agent.pop("gt_idx", None)
-        tokenized_agent.pop("gt_pos", None)
-        tokenized_agent.pop("gt_heading", None)
+        tokenized_agent.pop('gt_pos_raw', None)
+        tokenized_agent.pop("gt_head_raw", None)
+        tokenized_agent.pop("gt_valid_raw", None)
+        tokenized_agent.pop('gt_z_raw', None)
+
+        tokenized_map["type"]=tokenized_map["type"].to(torch.uint8)
+        tokenized_map["pl_type"]=tokenized_map["pl_type"].to(torch.uint8)
+        tokenized_map["light_type"]=tokenized_map["light_type"].to(torch.uint8)
+        tokenized_map["token_idx"]=tokenized_map["token_idx"].to(torch.int16)
 
         data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
 

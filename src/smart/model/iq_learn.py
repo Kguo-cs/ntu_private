@@ -5,6 +5,16 @@ from collections import deque
 import torch.nn as nn
 import torch
 import numpy as np
+from src.smart.tokens.my_token_processor import TokenProcessor
+
+# # Initialize the token processor once globally
+# token_processor = TokenProcessor(
+#     map_token_file="map_traj_token5.pkl",
+#     agent_token_file="agent_vocab_555_s2.pkl",
+#     map_token_sampling={"num_k": 1, "temp": 1.0},
+#     agent_token_sampling={"num_k": 1, "temp": 1.0}
+# )
+# token_processor.eval()
 
 
 class IQ_SoftQ(LightningModule):
@@ -225,9 +235,9 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_reward_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
-
         agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1)) #random.sample(self.replay_buffer,1)[0]
+
+        _,expert_reward_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 
         agent_reward,agent_reward_loss ,agent_valid,_,agent_entropy = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
@@ -244,7 +254,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)#-self.alpha*agent_entropy
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward-self.alpha*agent_entropy)#
 
         return critic_loss
 
@@ -271,24 +281,17 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['type'] = agent['type']
         tokenized_agent['batch'] = agent['batch']
         tokenized_agent['num_graphs'] = data.num_graphs
-        # tokenized_agent['gt_pos_raw'] = agent["gt_pos_raw"]
-        # tokenized_agent['gt_head_raw'] =  agent["gt_head_raw"]
-        # tokenized_agent['gt_valid_raw'] =  agent["gt_valid_raw"]
-        # tokenized_agent['gt_z_raw'] =  agent["gt_z_raw"]
         tokenized_agent['shape'] = agent['shape']
-
-        tokenized_agent['trajectory_token_veh'] = self.token_processor.trajectory_token_veh
-        tokenized_agent['trajectory_token_ped'] = self.token_processor.trajectory_token_ped
-        tokenized_agent['trajectory_token_cyc'] = self.token_processor.trajectory_token_cyc
 
         agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
             agent['type']
         )
-
-
         tokenized_agent['token_traj'] = token_traj
         tokenized_agent['token_traj_all'] = token_traj_all
         tokenized_agent['token_agent_shape'] = agent_shape
+        tokenized_agent['trajectory_token_veh'] = self.token_processor.trajectory_token_veh
+        tokenized_agent['trajectory_token_ped'] = self.token_processor.trajectory_token_ped
+        tokenized_agent['trajectory_token_cyc'] = self.token_processor.trajectory_token_cyc
 
         tokenized_map={}
 
@@ -308,6 +311,9 @@ class IQ_SoftQ(LightningModule):
         # print(self.global_step)
         # time1=time.time()
         tokenized_map, tokenized_agent = self.token_processor(data)
+
+        # tokenized_map1, tokenized_agent1 = token_processor(data)
+
         #tokenized_map, tokenized_agent = self.process_data(data)
 
         if self.training_rollout_sampling.num_k <= 0:
