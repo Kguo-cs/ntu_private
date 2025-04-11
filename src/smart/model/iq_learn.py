@@ -139,13 +139,13 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
-        div = 'js'
+        div = 'rkl'
 
         if div=="kl":
             alpha=1
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
-            alpha=1
+            alpha=0.1
             reward_loss= (-reward/alpha-1).exp() * alpha
            # reward_loss= reward_loss.detach()*reward
         elif div=="sh":
@@ -255,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)-0.01*agent_entropy
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward-self.alpha*agent_entropy)
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
