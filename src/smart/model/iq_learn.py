@@ -148,7 +148,7 @@ class IQ_SoftQ(LightningModule):
         elif div == "rkl":
             alpha=1
             reward_loss= (-reward/alpha-1).exp() * alpha
-            reward_loss= reward_loss.detach()*reward
+           # reward_loss= reward_loss.detach()*reward
         else:
             alpha = 0.01
 
