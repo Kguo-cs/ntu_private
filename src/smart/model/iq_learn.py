@@ -257,45 +257,6 @@ class IQ_SoftQ(LightningModule):
 
         critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward-self.alpha*agent_entropy)
 
-        # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
-        # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
-        #         + expert_done * (1 / (1 - self.gamma)) * ((1 / self.reg_mult))
-        #
-        # expert_Q_loss = torch.square(expert_Q - (r_max + expert_target_v))[expert_valid].mean()
-
-        # self.log("train/expert_Q_loss", expert_Q_loss.item(), on_step=True, batch_size=1)
-
-
-       # self.log("train/agent_kl_loss", agent_kl_loss.item(), on_step=True, batch_size=1)
-        #self.log("train/expert_kl_loss", expert_kl_loss.item(), on_step=True, batch_size=1)
-        # expert_value_loss = (expert_V - expert_target_v)[expert_valid].mean()
-        #
-        # agent_value_loss = (agent_V - agent_target_v)[agent_valid].mean()
-        #
-        # value_loss = (expert_value_loss * expert_valid.sum() + agent_value_loss * agent_valid.sum()) / (
-        #             expert_valid.sum() + agent_valid.sum())
-        #
-        # self.log("train/expert_value_loss", expert_value_loss.item(), on_step=True, batch_size=1)
-        # self.log("train/agent_value_loss", agent_value_loss.item(), on_step=True, batch_size=1)
-        # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-        #expert_r_min = -(1 / self.reg_mult)
-        # expert_r_max  = (1 - expert_done) * ((1 / self.reg_mult)) \
-        #         + expert_done * (1 / (1 - self.gamma)) * ((1 / self.reg_mult))
-        #expert_r_max=1 / self.reg_mult
-
-        #expert_value_mse_loss = torch.square(expert_V - (expert_r_min + expert_target_v))[expert_valid].mean()
-
-        # policy_r_min = (1 - done) * (-(1 / self.reg_mult)) \
-        #                + done * (1 / (1 - self.gamma)) * (-(1 / self.reg_mult))
-        # policy_r_min = -(1 / self.reg_mult)
-        #
-        # agent_value_mse_loss = torch.square(agent_V - (policy_r_min + agent_target_v))[agent_valid].mean()
-        #
-        # value_mse_loss = (expert_value_mse_loss * expert_valid.sum() + agent_value_mse_loss * agent_valid.sum()) / (
-        #             expert_valid.sum() + agent_valid.sum())
-
-
         return critic_loss
 
     def soft_update(self, net, target_net, tau):
