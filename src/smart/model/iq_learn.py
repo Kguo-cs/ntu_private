@@ -152,7 +152,7 @@ class IQ_SoftQ(LightningModule):
             alpha=1
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
-            alpha=0.1
+            alpha=1
             reward=torch.clamp_min(reward,min=alpha*(-np.log(2)+0.01))
             reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
         else:
@@ -255,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)-0.1*agent_entropy
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)-0.01*agent_entropy
 
         # expert_Q_loss = F.mse_loss(expert_Q[expert_valid], torch.ones_like(expert_Q[expert_valid]) * self.Q_max)
         # r_max = (1 - expert_done) * ((1 / self.reg_mult)) \
