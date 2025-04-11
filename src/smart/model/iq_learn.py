@@ -140,7 +140,7 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
-        div = 'js'
+        div = 'sh'
 
         if div=="kl":
             alpha=1
@@ -150,7 +150,7 @@ class IQ_SoftQ(LightningModule):
             reward_loss= (-reward/alpha-1).exp() * alpha
            # reward_loss= reward_loss.detach()*reward
         elif div=="hellinger":
-            alpha=1
+            alpha=0.1
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
             alpha=10
