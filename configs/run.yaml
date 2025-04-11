@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "iqbc10_x2_ratio0_buffer10_alpha001" #_sample10_agentnearest10
+task_name: "rkl_ratio0_buffer10_alpha2"
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
