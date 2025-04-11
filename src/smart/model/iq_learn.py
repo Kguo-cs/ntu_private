@@ -94,7 +94,7 @@ class IQ_SoftQ(LightningModule):
         self.replay_buffer.append((tokenized_map, tokenized_agent_rollout))
 
 
-    def get_QV(self, tokenized_map, tokenized_agent,div='x2', key='expert'):
+    def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
 
@@ -139,12 +139,13 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
+        div = 'rkl'
 
         if div=="kl":
             alpha=1
             reward_loss= alpha*(torch.log(alpha/reward)-1)
         elif div == "rkl":
-            alpha=1
+            alpha=10
             reward_loss= (-reward/alpha-1).exp() * alpha
         else:
             alpha = 0.01
