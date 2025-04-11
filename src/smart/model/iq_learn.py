@@ -82,16 +82,17 @@ class IQ_SoftQ(LightningModule):
         #
         #     map_mask=tokenized_map["batch"]==i
         #
-        #     tokenized_map_rollout={}
-        #
-        #     tokenized_map_rollout["position"]=tokenized_map["position"][map_mask]
-        #     tokenized_map_rollout["orientation"]=tokenized_map["orientation"][map_mask]
-        #     tokenized_map_rollout["token_idx"]=tokenized_map["token_idx"][map_mask]
-        #     tokenized_map_rollout["type"]=tokenized_map["type"][map_mask]
-        #     tokenized_map_rollout["pl_type"]=tokenized_map["pl_type"][map_mask]
-        #     tokenized_map_rollout["light_type"]=tokenized_map["light_type"][map_mask]
-        #
-        self.replay_buffer.append((tokenized_map, tokenized_agent_rollout))
+        tokenized_map_rollout={}
+
+        tokenized_map_rollout["position"]=tokenized_map["position"]
+        tokenized_map_rollout["orientation"]=tokenized_map["orientation"]
+        tokenized_map_rollout["token_idx"]=tokenized_map["token_idx"]
+        tokenized_map_rollout["type"]=tokenized_map["type"]
+        tokenized_map_rollout["pl_type"]=tokenized_map["pl_type"]
+        tokenized_map_rollout["light_type"]=tokenized_map["light_type"]
+        tokenized_map_rollout["batch"] = tokenized_map["batch"]
+
+        self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
@@ -220,7 +221,7 @@ class IQ_SoftQ(LightningModule):
         # map_batch["pl_type"]=torch.cat(pl_type)
         # map_batch["light_type"]=torch.cat(light_type)
         # map_batch["batch"]=torch.cat(map_batchid)
-        # map_batch["token_traj_src"]=self.token_processor.map_token_traj_src
+        map_batch["token_traj_src"]=self.token_processor.map_token_traj_src
 
         return map_batch,agent_batch
 
