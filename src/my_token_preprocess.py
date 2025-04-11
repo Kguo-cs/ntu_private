@@ -16,7 +16,7 @@ token_processor.eval()
 
 # Set paths
 token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token/"
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
 
 # Worker function
 def process_file(filename):
@@ -25,29 +25,32 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    if 'gt_pos_raw' in data:
-        tokenized_map, tokenized_agent = token_processor(data)
+    # if 'gt_pos_raw' in data:
+    tokenized_map, tokenized_agent = token_processor(data)
 
-        # Remove unnecessary keys
-        tokenized_agent.pop('gt_pos_raw', None)
-        tokenized_agent.pop("gt_head_raw", None)
-        tokenized_agent.pop("gt_valid_raw", None)
-        tokenized_agent.pop('gt_z_raw', None)
+    # Remove unnecessary keys
+    tokenized_agent.pop('gt_pos_raw', None)
+    tokenized_agent.pop("gt_head_raw", None)
+    tokenized_agent.pop("gt_valid_raw", None)
+    tokenized_agent.pop('gt_z_raw', None)
+    tokenized_agent.pop('gt_idx', None)
+    tokenized_agent.pop('gt_heading', None)
+    tokenized_agent.pop('gt_pos', None)
 
-        tokenized_map["type"]=tokenized_map["type"].to(torch.uint8)
-        tokenized_map["pl_type"]=tokenized_map["pl_type"].to(torch.uint8)
-        tokenized_map["light_type"]=tokenized_map["light_type"].to(torch.uint8)
-        tokenized_map["token_idx"]=tokenized_map["token_idx"].to(torch.int16)
+    tokenized_map["type"]=tokenized_map["type"].to(torch.uint8)
+    tokenized_map["pl_type"]=tokenized_map["pl_type"].to(torch.uint8)
+    tokenized_map["light_type"]=tokenized_map["light_type"].to(torch.uint8)
+    tokenized_map["token_idx"]=tokenized_map["token_idx"].to(torch.int16)
 
-        data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
+    data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
 
-        # Save the tokenized data
-        with open(output_path, "wb") as f:
-            pickle.dump(data_dict, f)
+    # Save the tokenized data
+    with open(output_path, "wb") as f:
+        pickle.dump(data_dict, f)
 
 
 if __name__ == "__main__":
-    files = os.listdir(data_directory)# [:200]
+    files = os.listdir(data_directory)[100:]#
 
     for file in tqdm(files):
         process_file(file)
