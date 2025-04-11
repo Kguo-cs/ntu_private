@@ -255,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward-self.alpha*agent_entropy)
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)#-self.alpha*agent_entropy
 
         return critic_loss
 
