@@ -155,7 +155,7 @@ class IQ_SoftQ(LightningModule):
         elif div =='js':
             alpha=1
             reward=torch.clamp_min(reward,min=alpha*(-np.log(2)+0.01))
-            reward_loss= alpha*(2-(-reward/alpha).exp()).log()
+            reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
         else:
             alpha = 0.01
 
