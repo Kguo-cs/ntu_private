@@ -149,6 +149,8 @@ class IQ_SoftQ(LightningModule):
             alpha=1
             reward_loss= (-reward/alpha-1).exp() * alpha
            # reward_loss= reward_loss.detach()*reward
+        elif div=="hellinger":
+            reward_loss= -reward/(1+reward)
         else:
             alpha = 0.01
 
