@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 ssh ke.guo@aspire2antu.nscc.sg
 
 
