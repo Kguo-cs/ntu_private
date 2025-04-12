@@ -161,13 +161,17 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[state_mask].mean()
 
+        value_loss=(current_V-target_v)[state_action_mask]
+
         self.log("train/"+key+"_V", current_V[state_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q[state_action_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy.item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,reward_loss, state_action_mask,action_logprob,entropy
+
+        return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy
 
     def collate_agent(self,batch_list):
 
@@ -237,9 +241,9 @@ class IQ_SoftQ(LightningModule):
 
         agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1)) #random.sample(self.replay_buffer,1)[0]
 
-        _,expert_reward_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
+        _,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 
-        agent_reward,agent_reward_loss ,agent_valid,_,agent_entropy = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
+        agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
@@ -252,9 +256,9 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
-        agent_mean_reward = agent_reward.mean()
+        #agent_mean_reward = agent_reward.mean()
 
-        critic_loss = expert_nll+reward_w*(reward_loss+agent_mean_reward)#-self.alpha*agent_entropy
+        critic_loss = expert_nll+reward_w*(reward_loss+agent_value_loss)#-self.alpha*agent_entropy
 
         return critic_loss
 
