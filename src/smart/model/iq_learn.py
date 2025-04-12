@@ -233,7 +233,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1)) #random.sample(self.replay_buffer,1)[0]
 
-        _,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 
         agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
 
@@ -249,13 +249,17 @@ class IQ_SoftQ(LightningModule):
         self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
         #agent_mean_reward = agent_reward.mean()
-        agent_ratio=1
+        agent_ratio=0.5
 
         value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
-        critic_loss = expert_nll+reward_w*(reward_loss+value_loss)#-self.alpha*agent_entropy
+        reward_mean= (expert_reward.sum()*(1-agent_ratio)+agent_reward.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+
+        self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
+
+        critic_loss = expert_nll+reward_w*(reward_loss+reward_mean)#-self.alpha*agent_entropy
 
         return critic_loss
 
