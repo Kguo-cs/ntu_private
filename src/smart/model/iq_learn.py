@@ -270,9 +270,9 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['sampled_heading'] = agent['sampled_heading']
         tokenized_agent['sampled_idx'] = agent["sampled_idx"]
 
-        tokenized_agent["gt_pos"] = agent["sampled_pos"].clone()
-        tokenized_agent["gt_heading"]  = agent['sampled_heading'].clone()
-        tokenized_agent["gt_idx"] = agent["sampled_idx"].clone()
+        tokenized_agent["gt_pos"] = copy.deepcopy(agent["sampled_pos"])##.clone()
+        tokenized_agent["gt_heading"]  =  copy.deepcopy(agent['sampled_heading'])#.clone()
+        tokenized_agent["gt_idx"] =  copy.deepcopy(agent["sampled_idx"])#.clone()
 
         tokenized_agent['valid_mask'] = agent['valid_mask']
         tokenized_agent['type'] = agent['type']
