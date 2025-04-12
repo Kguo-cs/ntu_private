@@ -41,9 +41,6 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
         tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
         tokenized_agent_rollout['valid_mask'] = tokenized_agent['valid_mask']
-        # tokenized_agent_rollout['trajectory_token_veh'] = tokenized_agent['trajectory_token_veh']
-        # tokenized_agent_rollout['trajectory_token_ped'] = tokenized_agent['trajectory_token_ped']
-        # tokenized_agent_rollout['trajectory_token_cyc'] = tokenized_agent['trajectory_token_cyc']
         tokenized_agent_rollout['type'] = tokenized_agent['type']
         tokenized_agent_rollout['shape'] = tokenized_agent['shape']
         tokenized_agent_rollout['batch'] = tokenized_agent['batch']
@@ -273,7 +270,7 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['sampled_heading'] = agent['sampled_heading']
         tokenized_agent['sampled_idx'] = agent["sampled_idx"]
 
-        tokenized_agent["gt_pos"] =agent["sampled_pos"].clone()
+        tokenized_agent["gt_pos"] = agent["sampled_pos"].clone()
         tokenized_agent["gt_heading"]  = agent['sampled_heading'].clone()
         tokenized_agent["gt_idx"] = agent["sampled_idx"].clone()
 
@@ -309,8 +306,8 @@ class IQ_SoftQ(LightningModule):
 
     def training_step(self, data, batch_idx):
         # time1=time.time()
-        tokenized_map, tokenized_agent = self.token_processor(data)
-        # tokenized_map, tokenized_agent = self.process_data(data)
+        #tokenized_map, tokenized_agent = self.token_processor(data)
+        tokenized_map, tokenized_agent = self.process_data(data)
 
         if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
             with torch.no_grad():
