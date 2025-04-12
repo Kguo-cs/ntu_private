@@ -4,6 +4,7 @@ import pickle
 from tqdm import tqdm
 from src.smart.tokens.my_token_processor import TokenProcessor
 import torch
+import datetime
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
@@ -57,10 +58,16 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(data_directory)[100:]#
+    files = os.listdir(data_directory)[150000:]#:]#
 
     for file in tqdm(files):
         process_file(file)
+        # file = os.path.join(token_data_directory, filename)
+        #
+        # timestamp = os.path.getmtime(file)
+        # modified_time = datetime.datetime.fromtimestamp(timestamp)
+        #
+        # print("Last modified time:", modified_time)
 
     # # Use tqdm inside multiprocessing with a wrapper
     # with multiprocessing.Pool(processes=os.cpu_count()) as pool:
