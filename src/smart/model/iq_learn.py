@@ -241,7 +241,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        agent_ratio=0
+        agent_ratio=0.5
         reward_w=0.1
 
         reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
         #agent_mean_reward = agent_reward.mean()
-        agent_ratio=0.5
+        agent_ratio=1 #0.5
 
         value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
@@ -309,8 +309,8 @@ class IQ_SoftQ(LightningModule):
 
     def training_step(self, data, batch_idx):
         # time1=time.time()
-        #tokenized_map, tokenized_agent = self.token_processor(data)
-        tokenized_map, tokenized_agent = self.process_data(data)
+        tokenized_map, tokenized_agent = self.token_processor(data)
+        # tokenized_map, tokenized_agent = self.process_data(data)
 
         if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
             with torch.no_grad():
