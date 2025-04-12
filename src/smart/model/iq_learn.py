@@ -1,3 +1,5 @@
+import copy
+
 from lightning import LightningModule
 
 import random
@@ -6,15 +8,6 @@ import torch.nn as nn
 import torch
 import numpy as np
 from src.smart.tokens.my_token_processor import TokenProcessor
-
-# # Initialize the token processor once globally
-# token_processor = TokenProcessor(
-#     map_token_file="map_traj_token5.pkl",
-#     agent_token_file="agent_vocab_555_s2.pkl",
-#     map_token_sampling={"num_k": 1, "temp": 1.0},
-#     agent_token_sampling={"num_k": 1, "temp": 1.0}
-# )
-# token_processor.eval()
 
 
 class IQ_SoftQ(LightningModule):
@@ -170,7 +163,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
 
-
         return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy
 
     def collate_agent(self,batch_list):
@@ -267,11 +259,6 @@ class IQ_SoftQ(LightningModule):
 
         return critic_loss
 
-    def soft_update(self, net, target_net, tau):
-        for param, target_param in zip(net.parameters(), target_net.parameters()):
-            target_param.data.copy_(tau * param.data +
-                                    (1 - tau) * target_param.data)
-
     def process_data(self,data):
         map=data["tokenized_map"]
         agent=data["tokenized_agent"]
@@ -289,7 +276,7 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['valid_mask'] = agent['valid_mask']
         tokenized_agent['type'] = agent['type']
         tokenized_agent['batch'] = agent['batch']
-        tokenized_agent['num_graphs'] = data.num_graphs
+        tokenized_agent['num_graphs'] = max(agent['batch'])+1#data.num_graphs
         tokenized_agent['shape'] = agent['shape']
 
         agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
@@ -317,56 +304,17 @@ class IQ_SoftQ(LightningModule):
 
 
     def training_step(self, data, batch_idx):
-        # print(self.global_step)
         # time1=time.time()
         tokenized_map, tokenized_agent = self.token_processor(data)
+        # tokenized_map, tokenized_agent = self.process_data(data)
 
-        # tokenized_map1, tokenized_agent1 = token_processor(data)
+        if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
+            with torch.no_grad():
+                self.encoder.eval()
+                self.rollout(tokenized_map, tokenized_agent)
+                self.encoder.train()
 
-        #tokenized_map, tokenized_agent = self.process_data(data)
-
-        if self.training_rollout_sampling.num_k <= 0:
-            pred = self.encoder(tokenized_map, tokenized_agent)
-
-            pred_prob=self.logsoftmax(pred["next_token_logits"])
-            gt_id = tokenized_agent['gt_idx'][:,2:].reshape(-1)
-
-            log_likelihood=pred_prob.reshape(len(gt_id),-1)[torch.arange(len(gt_id)),gt_id]
-
-            valid_mask=tokenized_agent['valid_mask'][:,2:].reshape(-1)
-            loss=-log_likelihood[valid_mask].mean()
-
-            # loss = self.training_loss(
-            #     **pred,
-            #     token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
-            #     token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
-            #     train_mask=data["agent"]["train_mask"],  # [n_agent]
-            #     gt_id=tokenized_agent['gt_idx'],  # [n_agent]
-            #     current_epoch=self.current_epoch,
-            # )
-
-            loss=loss+pred["kl_loss"]
-            pi = torch.softmax(pred['next_token_logits'] , dim=-1)  # Compute policy
-            entropy = -torch.sum(pi * torch.log(pi + 1e-10), dim=-1)
-
-            expert_valid = tokenized_agent['valid_mask'][:, 1:-1]
-
-            self.log("train/expert_kl_loss", pred["kl_loss"].item(), on_step=True, batch_size=1)
-            self.log("train/expert_entropy", entropy[expert_valid].mean().item(), on_step=True, batch_size=1)
-
-        else:
-            if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
-                with torch.no_grad():
-                    self.encoder.eval()
-                    self.rollout(tokenized_map, tokenized_agent)
-                    self.encoder.train()
-            # print(time.time() - time1)
-
-            loss = self.iq_update(tokenized_map, tokenized_agent)
-            # print(time.time() - time1)
-
-            # if self.global_step % self.critic_target_update_frequency == 0:
-            #     self.soft_update(self.encoder, self.target_net, self.critic_tau)
+        loss = self.iq_update(tokenized_map, tokenized_agent)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
@@ -389,3 +337,7 @@ class IQ_SoftQ(LightningModule):
             self.minADE.reset()
 
 
+# def soft_update( net, target_net, tau):
+#     for param, target_param in zip(net.parameters(), target_net.parameters()):
+#         target_param.data.copy_(tau * param.data +
+#                                 (1 - tau) * target_param.data)

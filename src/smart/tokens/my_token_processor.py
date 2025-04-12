@@ -98,20 +98,7 @@ class TokenProcessor(torch.nn.Module):
             dim=(-2, -1),
         )  # [n_pl, n_token]
 
-        if self.training and (self.map_token_sampling.num_k > 1):
-            topk_dists, topk_indices = torch.topk(
-                dist,
-                self.map_token_sampling.num_k,
-                dim=-1,
-                largest=False,
-                sorted=False,
-            )  # [n_pl, K]
-
-            topk_logits = (-1e-6 - topk_dists) / self.map_token_sampling.temp
-            _samples = Categorical(logits=topk_logits).sample()  # [n_pl] in K
-            token_idx = topk_indices[torch.arange(len(_samples)), _samples].contiguous()
-        else:
-            token_idx = torch.argmin(dist, dim=-1)
+        token_idx = torch.argmin(dist, dim=-1)
 
         # batch=data["pt_token"]["batch"]
         # light_edge=data["pt_token"]["light_edge"]
@@ -249,7 +236,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_pos": [n_agent, n_step_token, 2]
             "sampled_heading": [n_agent, n_step_token]
         """
-        num_k = self.agent_token_sampling.num_k if self.training else 1
+        num_k = 1
         n_agent, n_step = valid.shape
         range_a = torch.arange(n_agent)
 
