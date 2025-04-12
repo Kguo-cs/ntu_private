@@ -8,7 +8,7 @@ ssh ke.guo@aspire2antu.nscc.sg
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim
 conda activate catk
-export PBS_JOBID=37767.pbs111
+export PBS_JOBID=37864.pbs111 
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/waymo_data/full/
