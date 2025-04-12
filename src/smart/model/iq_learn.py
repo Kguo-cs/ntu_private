@@ -303,11 +303,12 @@ class IQ_SoftQ(LightningModule):
 
         return tokenized_map, tokenized_agent
 
-
     def training_step(self, data, batch_idx):
         # time1=time.time()
-        tokenized_map, tokenized_agent = self.token_processor(data)
-        #tokenized_map, tokenized_agent = self.process_data(data)
+        if "agent" in data.keys():
+            tokenized_map, tokenized_agent = self.token_processor(data)
+        else:
+            tokenized_map, tokenized_agent = self.process_data(data)
 
         if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
             with torch.no_grad():
