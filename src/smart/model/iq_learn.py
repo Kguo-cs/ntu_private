@@ -238,7 +238,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        agent_ratio=0.5
+        agent_ratio=0
         reward_w=0.1
 
         reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
@@ -256,7 +256,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
-        critic_loss = expert_nll+reward_w*(reward_loss+value_loss)#-self.alpha*agent_entropy
+        critic_loss = expert_nll+reward_w*(reward_loss+reward_mean)#-self.alpha*agent_entropy
 
         return critic_loss
 
@@ -270,9 +270,9 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['sampled_heading'] = agent['sampled_heading']
         tokenized_agent['sampled_idx'] = agent["sampled_idx"]
 
-        tokenized_agent["gt_pos"] = agent["sampled_pos"]##.clone()
-        tokenized_agent["gt_heading"]  = agent['sampled_heading']#.clone()
-        tokenized_agent["gt_idx"] = agent["sampled_idx"]#.clone()
+        tokenized_agent["gt_pos"] = agent["sampled_pos"]
+        tokenized_agent["gt_heading"]  = agent['sampled_heading']
+        tokenized_agent["gt_idx"] = agent["sampled_idx"]
 
         tokenized_agent['valid_mask'] = agent['valid_mask']
         tokenized_agent['type'] = agent['type']
@@ -306,8 +306,8 @@ class IQ_SoftQ(LightningModule):
 
     def training_step(self, data, batch_idx):
         # time1=time.time()
-        tokenized_map, tokenized_agent = self.token_processor(data)
-        #tokenized_map, tokenized_agent = self.process_data(data)
+        #tokenized_map, tokenized_agent = self.token_processor(data)
+        tokenized_map, tokenized_agent = self.process_data(data)
 
         if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
             with torch.no_grad():
