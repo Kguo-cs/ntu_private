@@ -241,7 +241,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        agent_ratio=0.5
+        agent_ratio=0
         reward_w=0.1
 
         reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
         #agent_mean_reward = agent_reward.mean()
-        agent_ratio=1
+        agent_ratio=0.5
 
         value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
@@ -273,14 +273,14 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['sampled_heading'] = agent['sampled_heading']
         tokenized_agent['sampled_idx'] = agent["sampled_idx"]
 
-        tokenized_agent["gt_pos"] =agent["sampled_pos"]
-        tokenized_agent["gt_heading"]  = agent['sampled_heading']
-        tokenized_agent["gt_idx"] = agent["sampled_idx"]
+        tokenized_agent["gt_pos"] =agent["sampled_pos"].clone()
+        tokenized_agent["gt_heading"]  = agent['sampled_heading'].clone()
+        tokenized_agent["gt_idx"] = agent["sampled_idx"].clone()
 
         tokenized_agent['valid_mask'] = agent['valid_mask']
         tokenized_agent['type'] = agent['type']
         tokenized_agent['batch'] = agent['batch']
-        tokenized_agent['num_graphs'] = max(agent['batch'])+1#data.num_graphs
+        tokenized_agent['num_graphs'] = data.num_graphs
         tokenized_agent['shape'] = agent['shape']
 
         agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
@@ -309,8 +309,8 @@ class IQ_SoftQ(LightningModule):
 
     def training_step(self, data, batch_idx):
         # time1=time.time()
-        tokenized_map, tokenized_agent = self.token_processor(data)
-        #tokenized_map, tokenized_agent = self.process_data(data)
+        #tokenized_map, tokenized_agent = self.token_processor(data)
+        tokenized_map, tokenized_agent = self.process_data(data)
 
         if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
             with torch.no_grad():
