@@ -294,10 +294,10 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_map["position"]= map["position"]
         tokenized_map["orientation"]=  map["orientation"]
-        tokenized_map["token_idx"]=  map["token_idx"].to(torch.long)
-        tokenized_map["type"]= map["type"].to(torch.long)
-        tokenized_map["pl_type"]= map["pl_type"].to(torch.long)
-        tokenized_map["light_type"]= map["light_type"].to(torch.long)
+        tokenized_map["token_idx"]=  map["token_idx"].long()
+        tokenized_map["type"]= map["type"].long()
+        tokenized_map["pl_type"]= map["pl_type"].long()
+        tokenized_map["light_type"]= map["light_type"].long()
         tokenized_map["batch"]= map["batch"]
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
