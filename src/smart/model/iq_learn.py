@@ -112,7 +112,6 @@ class IQ_SoftQ(LightningModule):
             # pi = torch.softmax(next_q / self.alpha, dim=-1)  # Compute policy
             # target_v= torch.sum(pi * next_q, dim=-1)
 
-
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         done = torch.zeros_like(target_v)
@@ -128,7 +127,7 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
-        div = 'x2'
+        div = 'rkl'
 
         if div=="kl":
             alpha=1
@@ -305,7 +304,7 @@ class IQ_SoftQ(LightningModule):
 
     def training_step(self, data, batch_idx):
         # time1=time.time()
-        if "agent" in data.keys():
+        if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
         else:
             tokenized_map, tokenized_agent = self.process_data(data)

@@ -212,9 +212,9 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             num_steps=91,
         )
 
-        process_light(data,map_infos,tf_lights,tf_current_light)
+        #process_light(data,map_infos,tf_lights,tf_current_light)
 
-        get_agent_routes(data ,map_infos)#the routing is interpolated from the future trajectory until out of map
+        #get_agent_routes(data ,map_infos)#the routing is interpolated from the future trajectory until out of map
         # map_pos=data["map_save"]["traj_pos"].reshape(-1,2)
         #
         # xmin = map_pos[:, 0].min()
@@ -245,7 +245,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[:1]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[:1]
     # func = partial(
     #     wm2argo,
     #     split=split,
@@ -255,10 +255,67 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     #
     # with multiprocessing.Pool(num_workers) as p:
     #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
-    print(len(packages))
+    # print(len(packages))
     for file_path in tqdm(packages):
         wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
+import multiprocessing
+import os
+import pickle
+from tqdm import tqdm
+from src.smart.tokens.my_token_processor import TokenProcessor
+import torch
+import datetime
+
+# Initialize the token processor once globally
+token_processor = TokenProcessor(
+    map_token_file="map_traj_token5.pkl",
+    agent_token_file="agent_vocab_555_s2.pkl",
+    map_token_sampling={"num_k": 1, "temp": 1.0},
+    agent_token_sampling={"num_k": 1, "temp": 1.0}
+)
+token_processor.eval()
+
+# Set paths
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token1/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
+
+# Worker function
+def process_file(filename):
+    input_path = os.path.join(data_directory, filename)
+    output_path = os.path.join(token_data_directory, filename)
+    with open(input_path, "rb") as f:
+        data = pickle.load(f)
+
+    pos = data["agent"]["position"]
+    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    distance = torch.norm(pos - pos[av_index], dim=-1)
+
+    # we do not believe the perception out of range of 150 meters
+    data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+
+    # if 'gt_pos_raw' in data:
+    tokenized_map, tokenized_agent = token_processor(data)
+
+    # Remove unnecessary keys
+    tokenized_agent.pop('gt_pos_raw', None)
+    tokenized_agent.pop("gt_head_raw", None)
+    tokenized_agent.pop("gt_valid_raw", None)
+    tokenized_agent.pop('gt_z_raw', None)
+    tokenized_agent.pop('gt_idx', None)
+    tokenized_agent.pop('gt_heading', None)
+    tokenized_agent.pop('gt_pos', None)
+
+    tokenized_map["type"] = tokenized_map["type"].to(torch.uint8)
+    tokenized_map["pl_type"] = tokenized_map["pl_type"].to(torch.uint8)
+    tokenized_map["light_type"] = tokenized_map["light_type"].to(torch.uint8)
+    tokenized_map["token_idx"] = tokenized_map["token_idx"].to(torch.int16)
+
+    data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
+
+    # Save the tokenized data
+    with open(output_path, "wb") as f:
+        pickle.dump(data_dict, f)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -271,9 +328,14 @@ if __name__ == "__main__":
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
     parser.add_argument("--split", type=str, default="training")
-    parser.add_argument("--num_workers", type=int, default=12)
+    parser.add_argument("--num_workers", type=int, default=8)
     args = parser.parse_args()
 
     batch_process9s_transformer(
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     )
+
+    files = os.listdir(data_directory)#[150000:]#:]#
+
+    for file in tqdm(files):
+        process_file(file)

@@ -81,7 +81,7 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=10
+        sample_interval=1
 
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]

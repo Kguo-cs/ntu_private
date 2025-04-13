@@ -221,6 +221,16 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent]
         tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
+        # av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+        #
+        # initial_token_dict =self.tokenized_initial_pos(
+        #     valid=valid,
+        #     pos=pos,
+        #     heading=heading,
+        #     role=data["agent"]["role"],
+        # )
+        # tokenized_agent.update(initial_token_dict)
+
         token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
@@ -231,6 +241,19 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent.update(token_dict)
         return tokenized_agent
+
+    def tokenized_initial_pos(self,
+            valid,
+            pos,
+            heading,
+            agent_shape
+        ):
+
+        pos=1
+
+
+        return 1
+
 
     def my_match_agent_token(
         self,
@@ -411,6 +434,28 @@ class TokenProcessor(torch.nn.Module):
             change_needed = (heading_diff > 1.5) & valid_pairs[:, i]
             heading[:, i + 1][change_needed] = heading[:, i][change_needed]#sequential
         return heading
+
+    def _extrapolate_agent_to_first_step(
+            self,
+            valid: Tensor,  # [n_agent, n_step]
+            pos: Tensor,  # [n_agent, n_step, 2]
+            heading: Tensor,  # [n_agent, n_step]
+            vel: Tensor,  # [n_agent, n_step, 2]
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        # [n_agent], max will give the first True step
+        first_valid_step = torch.max(valid, dim=1).indices  # [n_agent]
+
+        for i, t in enumerate(first_valid_step):
+            if t > 0:
+                # Fill from step 0 up to (but not including) step t
+                vel[i, :t] = vel[i, t]
+                valid[i, :t] = True
+                heading[i, :t] = heading[i, t]
+
+                for j in range(t - 1, -1, -1):
+                    pos[i, j] = pos[i, j + 1] - vel[i, t] * 0.1  # 0.1 is the time delta
+
+        return valid, pos, heading, vel
 
     def _extrapolate_agent_to_prev_token_step(
         self,
