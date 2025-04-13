@@ -15,7 +15,6 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.replay_buffer = deque(maxlen=100)
         self.critic_tau = 0.005
         self.critic_target_update_frequency = 1
         self.gamma = 0.99
@@ -28,6 +27,13 @@ class IQ_SoftQ(LightningModule):
 
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
+        self.batch_replay=True
+
+        if self.batch_replay:
+            self.replay_buffer = deque(maxlen=4000)
+        else:
+            self.replay_buffer = deque(maxlen=100)
+
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
             tokenized_map,
@@ -35,53 +41,31 @@ class IQ_SoftQ(LightningModule):
             sampling_scheme=self.training_rollout_sampling,
         )
 
-        tokenized_agent_rollout = {}
+        if self.batch_replay:
+            for i in range(tokenized_agent["num_graphs"]):
+                tokenized_agent_rollout={}
+                agent_mask= tokenized_agent['batch']==i
+                for key in ["sampled_pos","sampled_heading","sampled_idx","valid_mask","type","shape"]:
+                    tokenized_agent_rollout[key]=pred[key][agent_mask]
 
-        tokenized_agent_rollout['sampled_pos'] = pred["pred_pos"]
-        tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
-        tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
-        tokenized_agent_rollout['valid_mask'] = pred['pred_valid'] #tokenized_agent['valid_mask'] # #tokenized_agent['valid_mask']
-        tokenized_agent_rollout['type'] = tokenized_agent['type']
-        tokenized_agent_rollout['shape'] = tokenized_agent['shape']
-        tokenized_agent_rollout['batch'] = tokenized_agent['batch']
-        tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
-        # tokenized_agent_rollout['next_route'] = tokenized_agent['next_route']
-        # tokenized_agent_rollout['light'] = tokenized_agent['light']
-        # pred_dict = self.encoder(tokenized_map, tokenized_agent_rollout)
+                map_mask=tokenized_map["batch"]==i
+                tokenized_map_rollout = {}
+                for key in ["position","orientation","token_idx","type","pl_type","light_type"]:
+                    tokenized_map_rollout[key]=tokenized_map[key][map_mask]
+                self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
-        # pred_pos=pred["pred_pos"].cpu().numpy()
-        #
-        # np.save('p.npy',pred_pos)
+        else:
+            tokenized_agent_rollout = {}
+            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
+                tokenized_agent_rollout[key] = pred[key]
 
-        # for i in range(1):
-        #     plt.plot(pred_pos[i][:,0],pred_pos[i][:,1])
-        #
-        # plt.show()
-        #
-        # for i in range(tokenized_agent["num_graphs"]):
-        #     agent_mask= tokenized_agent['batch']==i
-        #     tokenized_agent_rollout = {}
-        #
-        #     tokenized_agent_rollout['sampled_pos'] = pred["pred_pos"][agent_mask]
-        #     tokenized_agent_rollout['sampled_heading'] = pred['pred_head'][agent_mask]
-        #     tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"][agent_mask]
-        #     tokenized_agent_rollout['valid_mask'] = pred[ "pred_valid"][agent_mask]  # tokenized_agent['valid_mask']
-        #     tokenized_agent_rollout['type'] = tokenized_agent['type'][agent_mask]
-        #     tokenized_agent_rollout['shape'] = tokenized_agent['shape'][agent_mask]
-        #
-        #     map_mask=tokenized_map["batch"]==i
-        #
-        tokenized_map_rollout={}
+            tokenized_agent_rollout['batch'] = tokenized_agent['batch']
+            tokenized_map_rollout = {}
 
-        tokenized_map_rollout["position"]=tokenized_map["position"]
-        tokenized_map_rollout["orientation"]=tokenized_map["orientation"]
-        tokenized_map_rollout["token_idx"]=tokenized_map["token_idx"]
-        tokenized_map_rollout["type"]=tokenized_map["type"]
-        tokenized_map_rollout["pl_type"]=tokenized_map["pl_type"]
-        tokenized_map_rollout["light_type"]=tokenized_map["light_type"]
-        tokenized_map_rollout["batch"] = tokenized_map["batch"]
+            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type"]:
+                tokenized_map_rollout[key] = tokenized_map[key]
 
-        self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
+            self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
@@ -163,73 +147,47 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy
 
-    def collate_agent(self,batch_list):
+    def collect_agent(self,num_graphs):
 
-        map_batch,agent_batch=batch_list[0]
+        if self.batch_replay:
+            tokenized_agent_rollout={}
+            tokenized_map_rollout = {}
 
-        # sampled_pos=[]
-        # sampled_heading=[]
-        # sampled_idx=[]
-        # valid_mask=[]
-        # agent_type=[]
-        # shape=[]
-        # agent_batchid=[]
-        #
-        # position=[]
-        # orientation=[]
-        # token_idx=[]
-        # map_type=[]
-        # pl_type=[]
-        # light_type=[]
-        # map_batchid=[]
-        #
-        # for i,(tokenized_map_rollout,tokenized_agent_rollout) in enumerate(batch_list):
-        #
-        #     sampled_pos.append(tokenized_agent_rollout["sampled_pos"])
-        #     sampled_heading.append(tokenized_agent_rollout["sampled_heading"])
-        #     sampled_idx.append(tokenized_agent_rollout["sampled_idx"])
-        #     valid_mask.append(tokenized_agent_rollout["valid_mask"])
-        #     agent_type.append(tokenized_agent_rollout["type"])
-        #     shape.append(tokenized_agent_rollout["shape"])
-        #     agent_batchid.append(torch.zeros_like(tokenized_agent_rollout["type"])+i)
-        #
-        #     position.append(tokenized_map_rollout["position"])
-        #     orientation.append(tokenized_map_rollout["orientation"])
-        #     token_idx.append(tokenized_map_rollout["token_idx"])
-        #     map_type.append(tokenized_map_rollout["type"])
-        #     pl_type.append(tokenized_map_rollout["pl_type"])
-        #     light_type.append(tokenized_map_rollout["light_type"])
-        #     map_batchid.append(torch.zeros_like(tokenized_map_rollout["type"])+i)
-        #
-        #
-        # agent_batch['sampled_pos'] =torch.cat(sampled_pos)
-        # agent_batch['sampled_heading'] =torch.cat(sampled_heading)
-        # agent_batch['sampled_idx'] = torch.cat(sampled_idx)
-        # agent_batch['valid_mask'] = torch.cat(valid_mask)
-        # agent_batch['type'] = torch.cat(agent_type)
-        # agent_batch['shape'] = torch.cat(shape)
-        # agent_batch["batch"]=torch.cat(agent_batchid)
-        #
-        agent_batch["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
-        agent_batch["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
-        agent_batch["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
-        # agent_batch['num_graphs'] = len(batch_list)
-        #
-        #
-        # map_batch["position"]= torch.cat(position)
-        # map_batch["orientation"]= torch.cat(orientation)
-        # map_batch["token_idx"]= torch.cat(token_idx)
-        # map_batch["type"]=torch.cat(map_type)
-        # map_batch["pl_type"]=torch.cat(pl_type)
-        # map_batch["light_type"]=torch.cat(light_type)
-        # map_batch["batch"]=torch.cat(map_batchid)
-        map_batch["token_traj_src"]=self.token_processor.map_token_traj_src
+            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape","batch"]:
+                tokenized_agent_rollout[key]=[]
+            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
+                tokenized_map_rollout[key]=[]
 
-        return map_batch,agent_batch
+            batch_list=random.sample(self.replay_buffer, num_graphs)
+
+            for i,(map,agent) in enumerate(batch_list):
+                for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
+                    tokenized_agent_rollout[key].append(agent[key])
+                tokenized_agent_rollout["batch"].append(torch.zeros_like(agent["type"])+i)
+
+                for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type"]:
+                    tokenized_map_rollout[key].append(map[key])
+                tokenized_map_rollout["batch"].append(torch.zeros_like(map["type"])+i)
+
+            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape","batch"]:
+                tokenized_agent_rollout[key]=torch.cat(tokenized_agent_rollout[key])
+            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
+                tokenized_map_rollout[key]=torch.cat(tokenized_map_rollout[key])
+        else:
+            batch_list=random.sample(self.replay_buffer, 1)
+            tokenized_map_rollout,tokenized_agent_rollout=batch_list[0]
+
+        tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
+        tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
+        tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
+        tokenized_agent_rollout['num_graphs'] = num_graphs
+        tokenized_map_rollout["token_traj_src"]=self.token_processor.map_token_traj_src
+
+        return tokenized_map_rollout,tokenized_agent_rollout
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        agent_tokenized_map, agent_tokenized_agent = self.collate_agent(random.sample(self.replay_buffer,1)) #random.sample(self.replay_buffer,1)[0]
+        agent_tokenized_map, agent_tokenized_agent = self.collect_agent(tokenized_agent['num_graphs'])
 
         expert_reward,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 

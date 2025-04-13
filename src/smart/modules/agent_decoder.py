@@ -950,8 +950,14 @@ class SMARTAgentDecoder(nn.Module):
             # for shifting proxy targets by lr
             "next_token_action": torch.stack(next_token_action_list, dim=1),
             # "sample_list":sample_list,
-            "feat_a": torch.stack(feat_a_list,dim=1),
-            "action_log_probs": torch.stack(action_log_probs_list, dim=1),
+            # "feat_a": torch.stack(feat_a_list,dim=1),
+            # "action_log_probs": torch.stack(action_log_probs_list, dim=1),
+            "type":tokenized_agent["type"],
+            "shape":tokenized_agent["shape"],
+            "sampled_pos": pos_a,  # [n_agent, 18, 2]
+            "sampled_heading": head_a,  # [n_agent, 18]
+            "valid_mask": pred_valid,  # [n_agent, 18]
+            "sampled_idx": pred_idx,  # [n_agent, 18]
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
