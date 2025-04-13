@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
 
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
-        self.batch_replay=True
+        self.batch_replay=False
 
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
@@ -62,7 +62,7 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
             tokenized_map_rollout = {}
 
-            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type"]:
+            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
                 tokenized_map_rollout[key] = tokenized_map[key]
 
             self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
