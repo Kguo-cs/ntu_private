@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "kl001_predvalid_map300" #_detach_batch_replay
+task_name: "BC" #_detach_batch_replaykl001_predvalid_map300
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
