@@ -18,3 +18,12 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip ke@10.87.21
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
+
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
+
+qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P personal-ke.guo
+
+source ~/scratch/miniconda3/bin/activate
+cd ~/scratch/sim
+conda activate catk
