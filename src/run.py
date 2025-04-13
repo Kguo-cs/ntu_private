@@ -16,6 +16,7 @@ from typing import List
 import hydra
 import lightning as L
 import torch
+print('f')
 import wandb
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
@@ -23,6 +24,7 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 import sys
 import os
+print('f1')
 
 os.environ["WANDB_SILENT"] = "true"
 
