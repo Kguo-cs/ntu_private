@@ -16,7 +16,6 @@ from typing import List
 import hydra
 import lightning as L
 import torch
-print('f')
 import wandb
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
@@ -24,7 +23,6 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 import sys
 import os
-print('f1')
 
 os.environ["WANDB_SILENT"] = "true"
 
@@ -32,6 +30,7 @@ wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 
 working_dir=os.getcwd()
 

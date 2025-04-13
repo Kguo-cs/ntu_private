@@ -187,11 +187,11 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        agent_tokenized_map, agent_tokenized_agent = self.collect_agent(tokenized_agent['num_graphs'])
+        tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
         expert_reward,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 
-        agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(agent_tokenized_map, agent_tokenized_agent, key='agent')
+        agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
@@ -204,8 +204,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
-        #agent_mean_reward = agent_reward.mean()
-        agent_ratio=1 #0.5
+        agent_ratio=1
 
         value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
