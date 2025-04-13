@@ -25,7 +25,7 @@ model:
       method_link: ntu
       account_name: ntu
 
-ckpt_path: /home/ke/code/catk/src/logs/epoch=0-step=4870-val_closed_wosac=0.7035.ckpt
+ckpt_path: /home/ke/code/catk/src/logs/js1_pred_valid_token/2025-04-13_10-17-49/epoch_006.ckpt
 
 trainer:
   limit_train_batches: 1.0

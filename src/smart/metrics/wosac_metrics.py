@@ -29,7 +29,7 @@ from waymo_open_dataset.protos import (
 )
 import os
 
-low_memory=os.getenv("low_memory",False)
+working_dir=os.getcwd()
 
 class WOSACMetrics(Metric):
     """
@@ -90,7 +90,7 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
-        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and os.cpu_count()!=32:
+        if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and 'ntu' in working_dir:
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)

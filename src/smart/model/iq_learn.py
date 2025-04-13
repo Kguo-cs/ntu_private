@@ -34,6 +34,8 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
+        self.reward_w=0
+
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
             tokenized_map,
@@ -187,34 +189,36 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
-
         expert_reward,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
-
-        agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        agent_ratio=0
-        reward_w=0.1
+        if self.reward_w==0:
+            critic_loss =expert_nll
+        else:
+            tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-        reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+            agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-        self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
+            agent_ratio=0
 
-        agent_ratio=1
+            reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
-        value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+            self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
-        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+            agent_ratio=1
 
-        reward_mean= (expert_reward.sum()*(1-agent_ratio)+agent_reward.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+            value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
-        self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
+            self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
-        critic_loss = expert_nll+reward_w*(reward_loss+reward_mean)#-self.alpha*agent_entropy
+            reward_mean= (expert_reward.sum()*(1-agent_ratio)+agent_reward.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+
+            self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
+
+            critic_loss = expert_nll+self.reward_w*(reward_loss+reward_mean)#-self.alpha*agent_entropy
 
         return critic_loss
 
@@ -268,7 +272,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
 
-        if len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0:
+        if self.reward_w!=0 and (len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0):
             with torch.no_grad():
                 self.encoder.eval()
                 self.rollout(tokenized_map, tokenized_agent)
