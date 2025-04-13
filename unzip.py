@@ -2,8 +2,6 @@ import zipfile
 import os
 
 
-print(f"✅ Extracted {zip_path} to {extract_to}")
-
 
 zip_path = "./src/waymo_data/full/validation_tfrecords_splitted.zip"
 extract_to = "validation_tfrecords_splitted"  # Folder to extract contents
