@@ -127,7 +127,7 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
-        div = 'kl'
+        div = 'rkl'
 
         if div=="kl":
             alpha=1
