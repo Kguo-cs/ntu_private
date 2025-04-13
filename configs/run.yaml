@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "kl01" #_detach
+task_name: "kl01_eval10" #_detach
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

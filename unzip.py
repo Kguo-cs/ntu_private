@@ -1,7 +1,7 @@
 import zipfile
 import os
 
-zip_path = "~/scratch/sim/src/waymo_data/full/validation_tfrecords_splitted.zip"
+zip_path = "./src/waymo_data/full/training_token.zip"
 extract_to = "validation_tfrecords_splitted"  # Folder to extract contents
 
 # Create the folder if it doesn't exist
