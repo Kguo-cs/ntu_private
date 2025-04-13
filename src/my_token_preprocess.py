@@ -26,12 +26,12 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    pos = data["agent"]["position"]
-    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-    distance = torch.norm(pos - pos[av_index], dim=-1)
-
-    # we do not believe the perception out of range of 150 meters
-    data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+    # pos = data["agent"]["position"]
+    # av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    # distance = torch.norm(pos - pos[av_index], dim=-1)
+    #
+    # # we do not believe the perception out of range of 150 meters
+    # data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
 
     # if 'gt_pos_raw' in data:
     tokenized_map, tokenized_agent = token_processor(data)

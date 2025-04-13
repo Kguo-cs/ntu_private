@@ -2,7 +2,6 @@
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
 qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
-ssh ke.guo@aspire2antu.nscc.sg
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
@@ -24,6 +23,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation.zip ke.guo@aspire2a
 
 qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P personal-ke.guo
 
+
+ssh ke.guo@aspire2antu.nscc.sg
+
 source ~/scratch/miniconda3/bin/activate
-cd ~/scratch/sim
+cd ~/scratch/sim/src
 conda activate catk
