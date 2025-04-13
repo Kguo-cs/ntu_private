@@ -48,7 +48,6 @@ log = RankedLogger(__name__, rank_zero_only=True)
 
 torch.set_float32_matmul_precision("high")
 
-
 def run(cfg: DictConfig) -> None:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)

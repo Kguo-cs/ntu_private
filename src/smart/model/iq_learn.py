@@ -115,7 +115,7 @@ class IQ_SoftQ(LightningModule):
         div = 'kl'
 
         if div=="kl":
-            alpha=0.1
+            alpha=0.01
             reward=torch.clamp_min(reward,min=alpha*0.01)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
@@ -262,7 +262,7 @@ class IQ_SoftQ(LightningModule):
         return tokenized_map, tokenized_agent
 
     def training_step(self, data, batch_idx):
-        # time1=time.time()
+
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
         else:
@@ -279,23 +279,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
         return loss
-
-    def on_validation_epoch_end(self):
-        if self.val_closed_loop:
-            # if not self.wosac_submission.is_active:
-            epoch_wosac_metrics = self.wosac_metrics.compute()
-            epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
-            if self.global_rank == 0:
-                # epoch_wosac_metrics["epoch"] = (
-                #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
-                # )
-                # self.logger.log_metrics(epoch_wosac_metrics)
-                for key, value in epoch_wosac_metrics.items():
-                    self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-
-            self.wosac_metrics.reset()
-            self.minADE.reset()
-
 
 # def soft_update( net, target_net, tau):
 #     for param, target_param in zip(net.parameters(), target_net.parameters()):
