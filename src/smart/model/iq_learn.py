@@ -40,7 +40,7 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout['sampled_pos'] = pred["pred_pos"]
         tokenized_agent_rollout['sampled_heading'] = pred['pred_head']
         tokenized_agent_rollout['sampled_idx'] = pred["pred_idx"]
-        tokenized_agent_rollout['valid_mask'] = tokenized_agent['valid_mask']
+        tokenized_agent_rollout['valid_mask'] = pred['pred_valid'] #tokenized_agent['valid_mask']
         tokenized_agent_rollout['type'] = tokenized_agent['type']
         tokenized_agent_rollout['shape'] = tokenized_agent['shape']
         tokenized_agent_rollout['batch'] = tokenized_agent['batch']
@@ -127,7 +127,7 @@ class IQ_SoftQ(LightningModule):
         state_action_mask = valid_mask[:, 2:] & state_mask
 
         reward=rewards[state_action_mask]
-        div = 'rkl'
+        div = 'js'
 
         if div=="kl":
             alpha=1
