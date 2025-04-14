@@ -114,7 +114,7 @@ class IQ_SoftQ(LightningModule):
 
         reward=rewards[state_action_mask]
 
-        div = 'kl'
+        div = 'tv'
 
         if div=="kl":
             alpha=1e-3
@@ -129,9 +129,13 @@ class IQ_SoftQ(LightningModule):
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
             alpha=1
-            reward=torch.clamp_min(reward,min=alpha*(-np.log(2)+0.01))
-            reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
+            reward_clip=torch.clamp_min(reward,min=alpha*(-np.log(2)+0.01))
+            reward_loss= -alpha*(2-(-reward_clip/alpha).exp()).log()
         elif div=="tv":
+            if key == 'expert':
+                reward = torch.clamp_max(reward,max=1)
+            else:
+                reward=torch.clamp_min(reward,min=-1)
             reward_loss= -reward
         else:
             alpha = 0.01
@@ -148,6 +152,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
+
 
         return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy
 
