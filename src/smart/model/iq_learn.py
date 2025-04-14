@@ -114,10 +114,10 @@ class IQ_SoftQ(LightningModule):
 
         reward=rewards[state_action_mask]
 
-        div = 'tv'
+        div = 'kl'
 
         if div=="kl":
-            alpha=0.001
+            alpha=1e-4
             reward=torch.clamp_min(reward,min=alpha*0.01)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
@@ -198,7 +198,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
         if self.reward_w==0:
-            critic_loss =expert_nll
+            loss =expert_nll
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
@@ -220,9 +220,13 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
-            critic_loss = expert_nll+self.reward_w*(reward_loss+reward_mean) #self.reward_w*reward_mean ##-self.alpha*agent_entropy
+            critic_loss=self.reward_w*(reward_loss+reward_mean)
 
-        return critic_loss
+            self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+
+            loss = expert_nll+ critic_loss#self.reward_w*reward_mean ##-self.alpha*agent_entropy
+
+        return loss
 
     def process_data(self,data):
         map=data["tokenized_map"]
