@@ -119,7 +119,7 @@ class IQ_SoftQ(LightningModule):
         div = 'kl'
 
         if div=="kl":
-            alpha=1e-3
+            alpha=1e-4
             reward=torch.clamp_min(reward,min=alpha*0.01)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
