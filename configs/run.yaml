@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "kl1e-3clip_constraint" #_detach_batch_replaykl001_predvalid_map300
+task_name: "kl1e-3clip_constraint_rewardw1" #_detach_batch_replaykl001_predvalid_map300
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
