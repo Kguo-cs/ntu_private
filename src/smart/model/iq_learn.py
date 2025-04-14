@@ -114,7 +114,7 @@ class IQ_SoftQ(LightningModule):
 
         reward=rewards[state_action_mask]
 
-        div = 'tv'
+        div = 'js'
 
         if div=="kl":
             alpha=1e-3
