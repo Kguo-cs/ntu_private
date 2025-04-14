@@ -117,7 +117,7 @@ class IQ_SoftQ(LightningModule):
         div = 'kl'
 
         if div=="kl":
-            alpha=0.01
+            alpha=0.001
             reward=torch.clamp_min(reward,min=alpha*0.01)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
@@ -218,7 +218,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
-            critic_loss = expert_nll+self.reward_w*(reward_mean)#-self.alpha*agent_entropyreward_loss+
+            critic_loss = expert_nll+self.reward_w*(reward_loss+reward_mean)#-self.alpha*agent_entropy
 
         return critic_loss
 
