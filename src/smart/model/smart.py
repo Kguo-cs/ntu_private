@@ -198,10 +198,7 @@ class SMART(LightningModule):
                         pred_z=pred_z,
                         pred_head=pred_head,
                     )
-                    #time1=time.time()
-                    for i in range(len(scenario_rollouts)//1):
-                        scenario_rollouts_update=scenario_rollouts[i*1:(i+1)*1]
-                        self.wosac_metrics.update(data["tfrecord_path"][i*1:(i+1)*1], scenario_rollouts_update)
+                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
                     # print(time.time() - time1)
 
                 #print(time.time()-t1)
