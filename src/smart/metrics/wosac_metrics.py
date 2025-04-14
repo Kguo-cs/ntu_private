@@ -93,20 +93,21 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
+        scenarios = []
+        for scenario_file in scenario_files:
+            if scenario_file in self.scenario_cache.keys():
+                scenario = self.scenario_cache[scenario_file]
+            else:
+                scenario = scenario_pb2.Scenario()
+                for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
+                    scenario.ParseFromString(bytes(data.numpy()))
+                    break
+            scenarios.append(scenario)
+
         if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and 'ntu' in working_dir:
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
-            scenarios=[]
-            for scenario_file in scenario_files:
-                if scenario_file in self.scenario_cache.keys():
-                    scenario=self.scenario_cache[scenario_file]
-                else:
-                    scenario = scenario_pb2.Scenario()
-                    for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
-                        scenario.ParseFromString(bytes(data.numpy()))
-                        break
-                scenarios.append(scenario)
 
             with mp.Pool(processes=len(scenario_rollouts)) as pool:
                 pool_scenario_metrics = pool.starmap(
@@ -122,7 +123,7 @@ class WOSACMetrics(Metric):
                 pool.join()
         else:
             pool_scenario_metrics = []
-            for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
+            for _scenario, _scenario_rollout in zip(scenarios, scenario_rollouts):
                 pool_scenario_metrics.append(
                     self._compute_scenario_metrics(
                         self.wosac_config, _scenario, _scenario_rollout, self.ego_only
