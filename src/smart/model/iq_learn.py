@@ -114,12 +114,12 @@ class IQ_SoftQ(LightningModule):
 
         reward=rewards[state_action_mask]
 
-        div = 'js'
+        div = 'kl'
 
         if div=="kl":
-            alpha=1e-3
-            reward_clip=torch.clamp_min(reward,min=alpha*0.01)
-            reward_loss= -alpha*((reward_clip/alpha).log()+1)
+            alpha=1e-4
+            reward=torch.clamp_min(reward,min=alpha*0.01)
+            reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=0.1
             reward_loss= (-reward/alpha-1).exp() * alpha
