@@ -102,6 +102,7 @@ class WOSACMetrics(Metric):
                 for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
                     scenario.ParseFromString(bytes(data.numpy()))
                     break
+                self.scenario_cache[scenario_file]=scenario
             scenarios.append(scenario)
 
         if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and 'ntu' in working_dir:
