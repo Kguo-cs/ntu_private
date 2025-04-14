@@ -16,7 +16,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip ke@10.87.21
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/logs/js1_pred_valid_token/2025-04-13_10-17-49/checkpoints/epoch_006.ckpt /home/ke/code/catk/src/logs/ 
 
-
+rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/logs/BC/2025-04-13_21-17-43/sim_agent/l6ps9mup/checkpoints/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt ./
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
 

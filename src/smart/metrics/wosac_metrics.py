@@ -64,14 +64,17 @@ class WOSACMetrics(Metric):
         self.add_state("scenario_counter", default=tensor(0.0), dist_reduce_fx="sum")
         tf.config.set_visible_devices([], "GPU")
 
+        self.scenario_cache={}
+
     @staticmethod
     def _compute_scenario_metrics(
-        config, scenario_file, scenario_rollout, ego_only
+        config, scenario, scenario_rollout, ego_only
     ) -> sim_agents_metrics_pb2.SimAgentMetrics:
-        scenario = scenario_pb2.Scenario()
-        for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
-            scenario.ParseFromString(bytes(data.numpy()))
-            break
+
+        # scenario = scenario_pb2.Scenario()
+        # for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
+        #     scenario.ParseFromString(bytes(data.numpy()))
+        #     break
         if ego_only:
             for i in range(len(scenario.tracks)):
                 if i != scenario.sdc_track_index:
@@ -94,12 +97,23 @@ class WOSACMetrics(Metric):
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
+            scenarios=[]
+            for scenario_file in scenario_files:
+                if scenario_file in self.scenario_cache.keys():
+                    scenario=self.scenario_cache[scenario_file]
+                else:
+                    scenario = scenario_pb2.Scenario()
+                    for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
+                        scenario.ParseFromString(bytes(data.numpy()))
+                        break
+                scenarios.append(scenario)
+
             with mp.Pool(processes=len(scenario_rollouts)) as pool:
                 pool_scenario_metrics = pool.starmap(
                     self._compute_scenario_metrics,
                     zip(
                         itertools.repeat(self.wosac_config),
-                        scenario_files,
+                        scenarios,
                         scenario_rollouts,
                         itertools.repeat(self.ego_only),
                     ),
