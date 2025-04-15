@@ -34,7 +34,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
+        self.reward_w= 0
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
