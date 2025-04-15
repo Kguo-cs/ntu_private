@@ -34,7 +34,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=100)
 
         self.reward_w= 1
-        self.use_target_q=True
+        self.use_target_q=False
 
         if self.use_target_q:
             self.target_net=SMARTDecoder(
@@ -127,7 +127,7 @@ class IQ_SoftQ(LightningModule):
 
         if div=="kl":
             alpha=1e-3
-            reward=torch.clamp_min(reward,min=alpha*1e-2)
+            reward=torch.clamp_min(reward,min=alpha*1e-3)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=0.1
