@@ -33,8 +33,8 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
-        self.use_target_q=True
+        self.reward_w= 10
+        self.use_target_q=False
         self.soft_update=True
 
         if self.use_target_q:
@@ -48,8 +48,6 @@ class IQ_SoftQ(LightningModule):
                 self.critic_target_update_frequency = 1
 
             else:
-
-                self.critic_tau = 0.005
                 self.critic_target_update_frequency = 4
 
     def rollout(self, tokenized_map, tokenized_agent):
