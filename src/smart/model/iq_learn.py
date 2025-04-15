@@ -303,7 +303,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
         if self.global_step % self.critic_target_update_frequency == 0 and self.use_target_q:
-            soft_update(self.encoder,self.target_net,self.target_net)
+            soft_update(self.encoder,self.target_net,self.critic_tau)
 
         return loss
 
