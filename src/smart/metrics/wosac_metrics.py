@@ -64,17 +64,15 @@ class WOSACMetrics(Metric):
         self.add_state("scenario_counter", default=tensor(0.0), dist_reduce_fx="sum")
         tf.config.set_visible_devices([], "GPU")
 
-        self.scenario_cache={}
-
     @staticmethod
     def _compute_scenario_metrics(
-        config, scenario, scenario_rollout, ego_only
+        config, scenario_file, scenario_rollout, ego_only
     ) -> sim_agents_metrics_pb2.SimAgentMetrics:
 
-        # scenario = scenario_pb2.Scenario()
-        # for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
-        #     scenario.ParseFromString(bytes(data.numpy()))
-        #     break
+        scenario = scenario_pb2.Scenario()
+        for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
+            scenario.ParseFromString(bytes(data.numpy()))
+            break
         if ego_only:
             for i in range(len(scenario.tracks)):
                 if i != scenario.sdc_track_index:
@@ -93,18 +91,6 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
-        scenarios = []
-        for scenario_file in scenario_files:
-            if scenario_file in self.scenario_cache.keys():
-                scenario = self.scenario_cache[scenario_file]
-            else:
-                scenario = scenario_pb2.Scenario()
-                for data in tf.data.TFRecordDataset([scenario_file], compression_type=""):
-                    scenario.ParseFromString(bytes(data.numpy()))
-                    break
-                self.scenario_cache[scenario_file]=scenario
-            scenarios.append(scenario)
-
         if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and 'ntu' in working_dir:
             if not self.is_mp_init:
                 self.is_mp_init = True
@@ -115,7 +101,7 @@ class WOSACMetrics(Metric):
                     self._compute_scenario_metrics,
                     zip(
                         itertools.repeat(self.wosac_config),
-                        scenarios,
+                        scenario_files,
                         scenario_rollouts,
                         itertools.repeat(self.ego_only),
                     ),
@@ -124,7 +110,7 @@ class WOSACMetrics(Metric):
                 pool.join()
         else:
             pool_scenario_metrics = []
-            for _scenario, _scenario_rollout in zip(scenarios, scenario_rollouts):
+            for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
                 pool_scenario_metrics.append(
                     self._compute_scenario_metrics(
                         self.wosac_config, _scenario, _scenario_rollout, self.ego_only

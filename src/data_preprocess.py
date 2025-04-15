@@ -28,6 +28,7 @@ from waymo_open_dataset.protos import scenario_pb2
 
 from src.smart.utils.geometry import wrap_angle
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
+import matplotlib.pyplot as plt
 
 # agent_types = {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
 # agent_roles = {0: "ego_vehicle", 1: "interest", 2: "predict"}
@@ -198,17 +199,17 @@ def get_map_features(map_infos, tf_current_light, dim=2):
         "edge_index"
     ] = point_to_polygon_edge_index
 
-    mp_edge = []
+    # mp_edge = []
+    #
+    # for edge in map_infos['mp_edge']:
+    #     if edge[1] in polygon_ids:
+    #         mp_edge.append((polygon_ids.index(edge[0]), polygon_ids.index(edge[1])))
+    #     else:
+    #         mp_edge.append((polygon_ids.index(edge[0]), -1))
+    #
+    # mp_edge = np.array(mp_edge)
 
-    for edge in map_infos['mp_edge']:
-        if edge[1] in polygon_ids:
-            mp_edge.append((polygon_ids.index(edge[0]), polygon_ids.index(edge[1])))
-        else:
-            mp_edge.append((polygon_ids.index(edge[0]), -1))
-
-    mp_edge = np.array(mp_edge)
-
-    map_infos["mp_edge"]=mp_edge
+    # map_infos["mp_edge"]=mp_edge
 
     return map_data
 
@@ -326,6 +327,8 @@ def decode_map_features_from_proto(map_features):
                     axis=0,
                 )
 
+                #plt.plot(cur_polyline[:,0],cur_polyline[:,1],'r')
+
                 cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
                 map_infos["lane"].append(cur_info)
                 polylines.append(cur_polyline)
@@ -349,6 +352,7 @@ def decode_map_features_from_proto(map_features):
                     ],
                     axis=0,
                 )
+                #plt.plot(cur_polyline[:,0],cur_polyline[:,1],'b')
 
                 cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
                 map_infos["road_edge"].append(cur_info)
@@ -382,6 +386,7 @@ def decode_map_features_from_proto(map_features):
                     ],
                     axis=0,
                 )
+                #plt.plot(cur_polyline[:,0],cur_polyline[:,1],'g')
 
                 cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
                 map_infos["road_line"].append(cur_info)
@@ -406,7 +411,7 @@ def decode_map_features_from_proto(map_features):
             map_infos["crosswalk"].append(cur_info)
             polylines.append(cur_polyline)
             point_cnt += len(cur_polyline)
-
+    #plt.show()
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
         if feature_data_type == "stop_sign":
@@ -429,7 +434,7 @@ def decode_map_features_from_proto(map_features):
         polylines = np.zeros((0, 8), dtype=np.float32)
         print("Empty polylines.")
     map_infos["all_polylines"] = polylines
-    map_infos["mp_edge"]=mp_edge
+    #map_infos["mp_edge"]=mp_edge
     return map_infos
 
 
@@ -492,13 +497,13 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         )
 
         data["scenario_id"] = scenario_id
-        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-            pickle.dump(data, f)
-
-        if output_dir_tfrecords_splitted is not None:
-            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-                file_writer.write(tf_data)
+        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+        #     pickle.dump(data, f)
+        #
+        # if output_dir_tfrecords_splitted is not None:
+        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+        #         file_writer.write(tf_data)
 
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
