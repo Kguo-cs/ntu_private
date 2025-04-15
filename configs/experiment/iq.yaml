@@ -6,7 +6,6 @@ defaults:
 
 model:
   model_config:
-    automatic_optimization: false
     lr: 1e-3
     token_processor:
       map_token_sampling: # open-loop
