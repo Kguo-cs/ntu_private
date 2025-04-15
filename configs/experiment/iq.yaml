@@ -21,7 +21,7 @@ model:
       temp: 1.0
 
 #ckpt_path: /home/ke/code/catk/src/logs/debug_open_source/runs/2025-02-20_15-59-44/checkpoints/epoch_000.ckpt
-ckpt_path: './ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt' #null # #/home/ke/code/catk/src/logs/epoch_002.ckptnull #
+ckpt_path: null  #'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt' #null # #/home/ke/code/catk/src/logs/epoch_002.ckptnull #
 
 trainer:
   limit_train_batches: 1.0
