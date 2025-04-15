@@ -35,9 +35,9 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 28
+  val_batch_size: 128
   test_batch_size: 2
-  num_workers: 28
+  num_workers: 32
   shuffle: false
   pin_memory: false
 
