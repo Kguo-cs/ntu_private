@@ -41,8 +41,8 @@ class IQ_SoftQ(LightningModule):
                 **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
             )
             self.target_net.load_state_dict(self.encoder.state_dict())
-            self.critic_tau = 0.1
-            self.critic_target_update_frequency = 4
+            self.critic_tau = 0.005
+            self.critic_target_update_frequency = 1
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
@@ -302,9 +302,9 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
-        if self.global_step % self.critic_target_update_frequency == 0 and self.use_target_q:
-            #soft_update(self.encoder,self.target_net,self.critic_tau)
-            hard_update(self.encoder,self.target_net)
+        if self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
+            soft_update(self.encoder,self.target_net,self.critic_tau)
+            # hard_update(self.encoder,self.target_net)
 
         return loss
 
