@@ -34,7 +34,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
+        self.reward_w= 10
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
@@ -230,7 +230,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss#expert_nll+
+            loss = expert_nll+ critic_loss
 
         return loss
 
