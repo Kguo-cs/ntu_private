@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "Kl_reward10_pretrain" #_detach_batch_replaykl001_predvalid_map300clip_constraint_rewardw01
+task_name: "Kl1e-2_reward1_pretrain" #_detach_batch_replaykl001_predvalid_map300clip_constraint_rewardw01
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

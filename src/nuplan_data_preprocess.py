@@ -35,20 +35,13 @@ import matplotlib.pyplot as plt
 # polyline_type = {
 #     # for lane
 #     "TYPE_FREEWAY": 0,
-#     "TYPE_SURFACE_STREET": 1,
-#     "TYPE_STOP_SIGN": 2,
-#     "TYPE_BIKE_LANE": 3,
-#     # for roadedge
-#     "TYPE_ROAD_EDGE_BOUNDARY": 4,
-#     "TYPE_ROAD_EDGE_MEDIAN": 5,
-#     # for roadline
-#     "BROKEN": 6,
-#     "SOLID_SINGLE": 7,
-#     "DOUBLE": 8,
-#     # for crosswalk, speed bump and drive way
-#     "TYPE_CROSSWALK": 9,
+#     "TYPE_SURFACE_STREET": 0,
+#     "TYPE_STOP_SIGN": 0,
+#     "TYPE_BIKE_LANE": 0,
+#     # for crosswalk
+#     "TYPE_CROSSWALK": 1,
 # }
-_polygon_types = ["lane", "road_edge", "road_line", "crosswalk"]
+_polygon_types = ["lane", "crosswalk"]
 _polygon_light_type = [
     "NO_LANE_STATE",
     "LANE_STATE_UNKNOWN",
@@ -163,17 +156,17 @@ def get_map_features(map_infos, tf_current_light, dim=2):
                     polygon_light_type[_idx] = _polygon_light_type.index(
                         res["state"].item()
                     )
-                    light_type=_polygon_light_type.index(    res["state"].item()  )
-                    if light_type==3:
-                        plt.plot(centerline[:,0],centerline[:,1],'green')
-                    if light_type==2:
-                        plt.plot(centerline[:,0],centerline[:,1],'red')
-                    if light_type==4:
-                        plt.plot(centerline[:,0],centerline[:,1],'yellow')
-
-                    print(light_type)
-
-    plt.show()
+    #                 light_type=_polygon_light_type.index(    res["state"].item()  )
+    #                 if light_type==3:
+    #                     plt.plot(centerline[:,0],centerline[:,1],'green')
+    #                 if light_type==2:
+    #                     plt.plot(centerline[:,0],centerline[:,1],'red')
+    #                 if light_type==4:
+    #                     plt.plot(centerline[:,0],centerline[:,1],'yellow')
+    #
+    #                 print(light_type)
+    #
+    # plt.show()
 
 
     num_points = torch.tensor(
@@ -310,7 +303,7 @@ def decode_tracks_from_proto(scenario):
 def decode_map_features_from_proto(map_features):
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
     polylines = []
-    mp_edge=[]
+    #mp_edge=[]
     point_cnt = 0
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
@@ -321,16 +314,7 @@ def decode_map_features_from_proto(map_features):
         feature = getattr(mf, feature_data_type)
         if feature_data_type == "lane":
             if len(feature.polyline) > 1:
-                cur_info = {"id": mf.id}
-                if feature.type == 0:  # UNDEFINED
-                    cur_info["type"] = 1
-                elif feature.type == 1:  # FREEWAY
-                    cur_info["type"] = 0
-                elif feature.type == 2:  # SURFACE_STREET
-                    cur_info["type"] = 1
-                elif feature.type == 3:  # BIKE_LANE
-                    cur_info["type"] = 3
-
+                cur_info = {"id": mf.id,"type":0}
                 cur_polyline = np.stack(
                     [
                         np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
@@ -338,78 +322,17 @@ def decode_map_features_from_proto(map_features):
                     ],
                     axis=0,
                 )
-
-                plt.plot(cur_polyline[:,0],cur_polyline[:,1],'r')
 
                 cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
                 map_infos["lane"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
-                if len(feature.exit_lanes) > 0:
-                    for _id_exit in feature.exit_lanes:
-                        mp_edge.append([mf.id, _id_exit])
-                else:
-                    mp_edge.append([mf.id, -1])
 
-        elif feature_data_type == "road_edge":
-            if len(feature.polyline) > 1:
-                cur_info = {"id": mf.id}
-                # assert feature.type > 0
-                cur_info["type"] = feature.type + 3
-
-                cur_polyline = np.stack(
-                    [
-                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
-                        for p in feature.polyline
-                    ],
-                    axis=0,
-                )
-                #plt.plot(cur_polyline[:,0],cur_polyline[:,1],'b')
-
-                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-                map_infos["road_edge"].append(cur_info)
-                polylines.append(cur_polyline)
-                point_cnt += len(cur_polyline)
-
-        elif feature_data_type == "road_line":
-            if len(feature.polyline) > 1:
-                cur_info = {"id": mf.id}
-                # there is no UNKNOWN = 0
-                # BROKEN_SINGLE_WHITE = 1
-                # SOLID_SINGLE_WHITE = 2
-                # SOLID_DOUBLE_WHITE = 3
-                # BROKEN_SINGLE_YELLOW = 4
-                # BROKEN_DOUBLE_YELLOW = 5
-                # SOLID_SINGLE_YELLOW = 6
-                # SOLID_DOUBLE_YELLOW = 7
-                # PASSING_DOUBLE_YELLOW = 8
-                # assert feature.type > 0  # no UNKNOWN = 0
-                if feature.type in [1, 4, 5]:
-                    cur_info["type"] = 6  # BROKEN
-                elif feature.type in [2, 6]:
-                    cur_info["type"] = 7  # SOLID_SINGLE
-                else:
-                    cur_info["type"] = 8  # DOUBLE
-
-                cur_polyline = np.stack(
-                    [
-                        np.array([p.x, p.y, p.z, cur_info["type"], cur_info["id"]])
-                        for p in feature.polyline
-                    ],
-                    axis=0,
-                )
-                # plt.plot(cur_polyline[:,0],cur_polyline[:,1],'grey')
-
-                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-                map_infos["road_line"].append(cur_info)
-                polylines.append(cur_polyline)
-                point_cnt += len(cur_polyline)
-
-        elif feature_data_type in ["speed_bump", "driveway", "crosswalk"]:
+        elif feature_data_type in ["crosswalk"]:
             xyz = np.array([[p.x, p.y, p.z] for p in feature.polygon])
             polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
             pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
-            cur_info = {"id": mf.id, "type": 9}
+            cur_info = {"id": mf.id, "type": 1}
 
             cur_polyline = np.stack(
                 [
@@ -423,22 +346,6 @@ def decode_map_features_from_proto(map_features):
             map_infos["crosswalk"].append(cur_info)
             polylines.append(cur_polyline)
             point_cnt += len(cur_polyline)
-    #plt.show()
-    for mf in map_features:
-        feature_data_type = mf.WhichOneof("feature_data")
-        if feature_data_type == "stop_sign":
-            feature = mf.stop_sign
-            for l_id in feature.lane:
-                # override FREEWAY/SURFACE_STREET with stop sign lane
-                # BIKE_LANE remains unchanged
-                is_found = False
-                for _i in range(len(map_infos["lane"])):
-                    if map_infos["lane"][_i]["id"] == l_id:
-                        is_found = True
-                        if map_infos["lane"][_i]["type"] < 2:
-                            map_infos["lane"][_i]["type"] = 2
-                # not necessary found, some stop sign lanes are for lane with length 1
-                # assert is_found
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)
@@ -509,13 +416,13 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         )
 
         data["scenario_id"] = scenario_id
-        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-        #     pickle.dump(data, f)
-        #
-        # if output_dir_tfrecords_splitted is not None:
-        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-        #         file_writer.write(tf_data)
+        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+            pickle.dump(data, f)
+
+        if output_dir_tfrecords_splitted is not None:
+            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+                file_writer.write(tf_data)
 
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
@@ -551,7 +458,7 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/waymo_data/full"
+        "--output_dir", type=str, default="/home/ke/code/catk/waymo_data/nuplan"
     )
     parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=12)
