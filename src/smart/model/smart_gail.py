@@ -40,11 +40,6 @@ class SMART_IQ(IQ_SoftQ, SMART):
         IQ_SoftQ.__init__(self, model_config)  # Explicit call
 
 
-        # self.target_net=SMARTDecoder(
-        #     **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
-        # )
-        # self.target_net.load_state_dict(self.encoder.state_dict())
-
     # def configure_optimizers(self):
     #     optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
     #

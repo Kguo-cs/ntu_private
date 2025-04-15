@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from src.smart.tokens.my_token_processor import TokenProcessor
+from src.smart.modules.smart_decoder import SMARTDecoder
 
 
 class IQ_SoftQ(LightningModule):
@@ -15,8 +16,6 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.critic_tau = 0.005
-        self.critic_target_update_frequency = 1
         self.gamma = 0.99
         self.alpha = self.encoder.agent_encoder.alpha
 
@@ -35,6 +34,15 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=100)
 
         self.reward_w= 1
+        self.use_target_q=True
+
+        if self.use_target_q:
+            self.target_net=SMARTDecoder(
+                **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
+            )
+            self.target_net.load_state_dict(self.encoder.state_dict())
+            self.critic_tau = 0.01
+            self.critic_target_update_frequency = 1
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
@@ -77,6 +85,10 @@ class IQ_SoftQ(LightningModule):
 
         q = q_value[:, :-1]
 
+        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+        logpi= torch.log(pi + 1e-10)
+        entropy = -torch.sum(pi * logpi, dim=-1)
+
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
@@ -85,17 +97,13 @@ class IQ_SoftQ(LightningModule):
 
         current_V = v[:, :-1]
 
-        target_v=v[:, 1:].detach()
+        if self.use_target_q:
+            with torch.no_grad():
+                next_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
+                target_v = self.alpha * torch.logsumexp(next_q / self.alpha, dim=-1, keepdim=False)
+        else:
+            target_v=v[:, 1:].detach()
 
-        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
-        logpi= torch.log(pi + 1e-10)
-        entropy = -torch.sum(pi * logpi, dim=-1)
-        # pred_logprob=self.logsoftmax(q/self.alpha)
-        # with torch.no_grad():
-            # next_q = q_value[:, 1:]#self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
-            # target_v = self.alpha * torch.logsumexp(next_q / self.alpha, dim=-1, keepdim=False)
-            # pi = torch.softmax(next_q / self.alpha, dim=-1)  # Compute policy
-            # target_v= torch.sum(pi * next_q, dim=-1)
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
@@ -294,9 +302,12 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
+        if self.global_step % self.critic_target_update_frequency == 0 and self.use_target_q:
+            soft_update(self.encoder,self.target_net,self.target_net)
+
         return loss
 
-# def soft_update( net, target_net, tau):
-#     for param, target_param in zip(net.parameters(), target_net.parameters()):
-#         target_param.data.copy_(tau * param.data +
-#                                 (1 - tau) * target_param.data)
+def soft_update( net, target_net, tau):
+    for param, target_param in zip(net.parameters(), target_net.parameters()):
+        target_param.data.copy_(tau * param.data +
+                                (1 - tau) * target_param.data)
