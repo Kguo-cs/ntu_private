@@ -123,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'rkl'
+        div = 'kl'
 
         if div=="kl":
             alpha=1e-3
