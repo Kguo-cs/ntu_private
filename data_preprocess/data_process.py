@@ -9,6 +9,10 @@ from nuplan.common.maps.maps_datatypes import RasterLayer, RasterMap, SemanticMa
 import pickle
 from pathlib import Path
 from tqdm import tqdm
+gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/GUMP' # #'/home/ke/code/GUMP' #'/home/users/ntu/lyuchen/scratch/keguo_projects/gump' ##~/scratch/keguo_projects/gump'
+import sys
+
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
 from .process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
@@ -95,7 +99,6 @@ scenario_mapping_config = {
 # Example usage:
 scenario_mapping = ScenarioMapping(subsample_ratio_override=0.5,**scenario_mapping_config)
 
-gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/GUMP' # #'/home/ke/code/GUMP' #'/home/users/ntu/lyuchen/scratch/keguo_projects/gump' ##~/scratch/keguo_projects/gump'
 
 os.environ["NUPLAN_DEVKIT_PATH"] =gump_path+ "/third_party/nuplan-devkit"
 os.environ["NUPLAN_DATA_ROOT"] = gump_path+"/nuplan_data/dataset/nuplan-v1.1/splits/train"
