@@ -224,7 +224,7 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy,agent_constraint_loss = self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            agent_ratio=0.5
+            agent_ratio=0
 
             reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
