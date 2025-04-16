@@ -95,7 +95,7 @@ scenario_mapping_config = {
 # Example usage:
 scenario_mapping = ScenarioMapping(subsample_ratio_override=0.5,**scenario_mapping_config)
 
-gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/gump' #'/home/ke/code/GUMP' # #'/home/ke/code/GUMP' #'/home/users/ntu/lyuchen/scratch/keguo_projects/gump' ##~/scratch/keguo_projects/gump'
+gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/catk' #'/home/ke/code/GUMP' # #'/home/ke/code/GUMP' #'/home/users/ntu/lyuchen/scratch/keguo_projects/gump' ##~/scratch/keguo_projects/gump'
 
 os.environ["NUPLAN_DEVKIT_PATH"] =gump_path+ "/third_party/nuplan-devkit"
 os.environ["NUPLAN_DATA_ROOT"] = gump_path+"/nuplan_data/dataset/nuplan-v1.1/splits/train"
@@ -308,7 +308,7 @@ for scenario in tqdm(scenarios):
 
     data=get_map_vector(scenario)
     scenario_id=scenario.token
-    output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/nuplan_cache'
+    output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan'
     output_dir = Path(output_dir)
     data["agent"]=get_agent(scenario)
 

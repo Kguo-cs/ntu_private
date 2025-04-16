@@ -22,3 +22,5 @@
 **/logs
 **/waymo_data
 src/ckpts/
+exp/
+nuplan_data/
