@@ -9,7 +9,9 @@ from nuplan.common.maps.maps_datatypes import RasterLayer, RasterMap, SemanticMa
 import pickle
 from pathlib import Path
 from tqdm import tqdm
-gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/GUMP' # #'/home/ke/code/GUMP' #'/home/users/ntu/lyuchen/scratch/keguo_projects/gump' ##~/scratch/keguo_projects/gump'
+
+gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk' # #'/home/ke/code/catk'
+
 import sys
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
@@ -115,7 +117,7 @@ scenario_builder=NuPlanScenarioBuilder(
         scenario_mapping=scenario_mapping,
         vehicle_parameters=get_pacifica_parameters()
 )
-worker=SingleMachineParallelExecutor(use_process_pool=False,max_workers=16)
+worker=SingleMachineParallelExecutor(use_process_pool=False,max_workers=28)
 scenario_filter=ScenarioFilter(
                                 scenario_types=None,
                                 scenario_tokens=None,
@@ -241,6 +243,10 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_training'
+
+os.makedirs(output_dir,exist_ok=True)
+output_dir = Path(output_dir)
 
 
 def get_agent(scenario):
@@ -311,8 +317,6 @@ for scenario in tqdm(scenarios):
 
     data=get_map_vector(scenario)
     scenario_id=scenario.token
-    output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan'
-    output_dir = Path(output_dir)
     data["agent"]=get_agent(scenario)
 
     with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
