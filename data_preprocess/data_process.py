@@ -14,7 +14,7 @@ import ray
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path=os.getcwd() #'/home/ke/code/catk'
+gump_path='/home/ke/code/catk'#os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
@@ -249,9 +249,14 @@ future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
 output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_training'
+scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
+print(len(scenarios))
+
+with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+    pickle.dump(scenarios, f)
 
 
 def get_agent(scenario,origin_ego):
@@ -337,9 +342,11 @@ def process_scenario(scenario):
 
 # with multiprocessing.Pool(28) as p:
 #     r = list(tqdm(p.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+print(len(scenarios))
+
 
 with Pool(28) as pool:
-    results = pool.starmap(process_scenario, scenarios)
+    results = pool.starmap(process_scenario, zip(scenarios))
 
 
 # # Submit tasks in parallel
