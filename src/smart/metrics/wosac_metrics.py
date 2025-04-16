@@ -96,7 +96,7 @@ class WOSACMetrics(Metric):
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
 
-            with mp.Pool(processes=len(scenario_rollouts)) as pool:
+            with mp.Pool(processes=os.cpu_count()) as pool:
                 pool_scenario_metrics = pool.starmap(
                     self._compute_scenario_metrics,
                     zip(
