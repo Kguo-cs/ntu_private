@@ -121,18 +121,17 @@ scenario_builder=NuPlanScenarioBuilder(
         vehicle_parameters=get_pacifica_parameters()
 )
 worker=SingleMachineParallelExecutor(use_process_pool=False,max_workers=28)
-scenario_filter=ScenarioFilter(
-                                scenario_types=None,
+scenario_filter=ScenarioFilter( scenario_types=None,
                                 scenario_tokens=None,
                                 log_names=None,
                                 map_names=None,
                                 limit_total_scenarios=None,
                                 ego_displacement_minimum_m=None,
-                               num_scenarios_per_type=20000,
-                               timestamp_threshold_s=10,
-                               remove_invalid_goals=True,
-                               shuffle=False,
-                               expand_scenarios=False)
+                                num_scenarios_per_type=20000,
+                                timestamp_threshold_s=10,
+                                remove_invalid_goals=False,
+                                shuffle=False,
+                                expand_scenarios=False)
 
 
 
