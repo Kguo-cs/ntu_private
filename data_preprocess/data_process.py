@@ -103,7 +103,7 @@ scenario_mapping = ScenarioMapping(subsample_ratio_override=0.5,**scenario_mappi
 os.environ["NUPLAN_DEVKIT_PATH"] =gump_path+ "/third_party/nuplan-devkit"
 os.environ["NUPLAN_DATA_ROOT"] = gump_path+"/nuplan_data/dataset/nuplan-v1.1/splits/train"
 os.environ["NUPLAN_MAPS_ROOT"] =gump_path+ "/nuplan_data/dataset/maps"
-os.environ["NUPLAN_EXP_ROOT"] = gump_path+'/exp'
+os.environ["NUPLAN_EXP_ROOT"] = gump_path
 
 scenario_builder=NuPlanScenarioBuilder(
         data_root=os.getenv("NUPLAN_DATA_ROOT"),
@@ -123,7 +123,7 @@ scenario_filter=ScenarioFilter(
                                 map_names=None,
                                 limit_total_scenarios=None,
                                 ego_displacement_minimum_m=None,
-                               num_scenarios_per_type=10,
+                               num_scenarios_per_type=10000,
                                timestamp_threshold_s=10,
                                remove_invalid_goals=True,
                                shuffle=False,
