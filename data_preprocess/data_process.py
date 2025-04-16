@@ -15,7 +15,7 @@ import sys
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
-from .process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
+from data_preprocess.process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
 
 scenario_mapping_config = {
     "scenario_map": {
