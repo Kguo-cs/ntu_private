@@ -230,7 +230,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
-            agent_ratio=1
+            agent_ratio=0.5
 
             value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
@@ -240,7 +240,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
-            critic_loss=self.global_step/10000*self.reward_w*(reward_loss+reward_mean)#+expert_constraint_loss+agent_constraint_loss
+            critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
