@@ -14,7 +14,7 @@ import ray
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path='/home/ke/code/catk'#os.getcwd() #'/home/ke/code/catk'
+gump_path=os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
