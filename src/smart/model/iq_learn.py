@@ -132,7 +132,7 @@ class IQ_SoftQ(LightningModule):
         div = 'kl'
 
         if div=="kl":
-            alpha=1e-3*(self.global_step/10000+1e-2)
+            alpha=1e-3#*(self.global_step/10000+1e-2)
             reward=torch.clamp_min(reward,min=alpha*1e-5)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
@@ -240,7 +240,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
-            critic_loss=self.reward_w*(reward_loss+reward_mean)#+expert_constraint_loss+agent_constraint_loss
+            critic_loss=self.global_step/10000*self.reward_w*(reward_loss+reward_mean)#+expert_constraint_loss+agent_constraint_loss
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
