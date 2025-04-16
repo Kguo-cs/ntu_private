@@ -14,12 +14,12 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: iq #iq
+  - experiment: iq #wosac_sub #iq #iq
 
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "Kl1e-3_reward1_min1e3_soft0005" #Kl1e-3_reward1_min1e3_soft0005_min1e10_soft001soft_detach_batch_replaykl001_predvalid_map300clip_constraint_rewardw01_pretrain
+task_name: "Kl1e-3_min1e3_soft0005" #Kl1e-3_reward1_min1e3_soft0005_min1e10_soft001soft_detach_batch_replaykl001_predvalid_map300clip_constraint_rewardw01_pretrain
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

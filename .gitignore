@@ -21,3 +21,4 @@
 
 **/logs
 **/waymo_data
+src/ckpts/
