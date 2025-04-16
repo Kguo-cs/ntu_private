@@ -4,7 +4,7 @@ val_batch_size: 4
 test_batch_size: 4
 num_workers: 4
 shuffle: true
-pin_memory: true
+pin_memory: false
 persistent_workers: true
 train_raw_dir: ${paths.cache_root}/training #_token1
 val_raw_dir: ${paths.cache_root}/validation
