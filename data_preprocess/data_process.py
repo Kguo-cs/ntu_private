@@ -11,12 +11,13 @@ from pathlib import Path
 from tqdm import tqdm
 import multiprocessing
 import ray
+from multiprocessing import Pool
 
-gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-
+#gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
+gump_path=os.getcwd() #'/home/ke/code/catk'
 import sys
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append(gump_path)
 
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
 from data_preprocess.process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
@@ -317,11 +318,11 @@ def get_agent(scenario,origin_ego):
     
     return out_dict
 
-ray.init(num_cpus=32)  # or ray.init(num_cpus=...)
+# ray.init(num_cpus=2)  # or ray.init(num_cpus=...)
 
 # print(len(scenarios))
 # for scenario in tqdm(scenarios):
-@ray.remote
+# @ray.remote
 def process_scenario(scenario):
     ego_state = scenario.get_ego_state_at_iteration(10)
 
@@ -338,12 +339,15 @@ def process_scenario(scenario):
 # with multiprocessing.Pool(28) as p:
 #     r = list(tqdm(p.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 
+with Pool(28) as pool:
+    results = pool.starmap(process_scenario, scenarios)
 
-# Submit tasks in parallel
-futures = [process_scenario.remote(scenario) for scenario in scenarios]
 
-# Optional: use tqdm to show progress
-for _ in tqdm(ray.get(futures), desc="Processing scenarios"):
-    pass
-
-ray.shutdown()
+# # Submit tasks in parallel
+# futures = [process_scenario.remote(scenario) for scenario in scenarios]
+#
+# # Optional: use tqdm to show progress
+# for _ in tqdm(ray.get(futures), desc="Processing scenarios"):
+#     pass
+#
+# ray.shutdown()
