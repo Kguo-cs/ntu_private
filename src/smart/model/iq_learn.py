@@ -33,8 +33,8 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 0
-        self.use_target_q=False
+        self.reward_w= 1
+        self.use_target_q=True
         self.soft_update=True
 
         if self.use_target_q:
@@ -230,7 +230,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
 
-            agent_ratio=0
+            agent_ratio=1
 
             value_loss= (expert_value_loss.sum()*(1-agent_ratio)+agent_value_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
 
