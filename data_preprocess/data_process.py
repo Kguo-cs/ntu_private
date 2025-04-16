@@ -351,9 +351,10 @@ print(len(scenarios))
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(28) as pool:
-    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-
+# with Pool(28) as pool:
+#     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+for scenario in scenarios:
+    process_scenario(scenario)
 
 # # Submit tasks in parallel
 # futures = [process_scenario.remote(scenario) for scenario in scenarios]
