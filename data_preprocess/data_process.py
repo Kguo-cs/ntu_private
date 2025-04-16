@@ -135,7 +135,26 @@ scenario_filter=ScenarioFilter( scenario_types=None,
 
 
 
-scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+# scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+
+past_time_horizon=1
+past_num_steps=10
+future_time_horizon=8
+future_num_steps=80
+num_step = future_num_steps + past_num_steps + 1
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_training'
+scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
+
+os.makedirs(output_dir,exist_ok=True)
+output_dir = Path(output_dir)
+# print(len(scenarios))
+#
+# with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+#     pickle.dump(scenarios, f)
+
+with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
+    scenarios = pickle.load(f)
+
 
 
 def get_map_vector(scenario,origin_ego):
@@ -243,21 +262,6 @@ def get_map_vector(scenario,origin_ego):
 
     return data
 
-past_time_horizon=1
-past_num_steps=10
-future_time_horizon=8
-future_num_steps=80
-num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_training'
-scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
-
-os.makedirs(output_dir,exist_ok=True)
-output_dir = Path(output_dir)
-print(len(scenarios))
-
-with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
-    pickle.dump(scenarios, f)
-
 
 def get_agent(scenario,origin_ego):
 
@@ -344,9 +348,11 @@ def process_scenario(scenario):
 #     r = list(tqdm(p.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 print(len(scenarios))
 
-
+#
+# with Pool(28) as pool:
+#     results = pool.starmap(process_scenario, zip(scenarios))
 with Pool(28) as pool:
-    results = pool.starmap(process_scenario, zip(scenarios))
+    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 
 
 # # Submit tasks in parallel
