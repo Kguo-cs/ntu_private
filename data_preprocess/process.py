@@ -18,6 +18,10 @@ import numpy as np
 import torch
 from scipy.interpolate import interp1d
 import pandas as pd
+import warnings
+
+# Convert all RuntimeWarnings to errors
+warnings.simplefilter("error", RuntimeWarning)
 
 _polygon_types = ["lane","crosswalk"]
 _polygon_light_type = [
@@ -270,6 +274,9 @@ def _interplating_polyline(polylines, distance=0.5, split_distace=5):
         )
         polylines_list.append(polylines[start:end])
 
+    if dist_along_path_list[0][1]==0:
+        print(1)
+
     multi_polylines_list = []
     for idx in range(len(dist_along_path_list)):
         if len(dist_along_path_list[idx]) < 2:
@@ -284,6 +291,7 @@ def _interplating_polyline(polylines, distance=0.5, split_distace=5):
         new_dist_along_path = np.concatenate(
             [new_dist_along_path, dist_along_path[[-1]]]
         )
+
 
         # Combine the new x and y coordinates into a single array
         new_polylines = fxy(new_dist_along_path)

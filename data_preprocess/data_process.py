@@ -9,8 +9,9 @@ from nuplan.common.maps.maps_datatypes import RasterLayer, RasterMap, SemanticMa
 import pickle
 from pathlib import Path
 from tqdm import tqdm
+import multiprocessing
 
-gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk' # #'/home/ke/code/catk'
+gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
 
 import sys
 
@@ -125,7 +126,7 @@ scenario_filter=ScenarioFilter(
                                 map_names=None,
                                 limit_total_scenarios=None,
                                 ego_displacement_minimum_m=None,
-                               num_scenarios_per_type=10000,
+                               num_scenarios_per_type=20000,
                                timestamp_threshold_s=10,
                                remove_invalid_goals=True,
                                shuffle=False,
@@ -136,10 +137,9 @@ scenario_filter=ScenarioFilter(
 scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
 
 
-def get_map_vector(scenario):
-    ego_state = scenario.get_ego_state_at_iteration(0)
+def get_map_vector(scenario,origin_ego):
 
-    origin = Point2D(ego_state.center.x, ego_state.center.y)
+    origin = Point2D(origin_ego[0],origin_ego[1])
 
     map_api = scenario.map_api
     map_infos = {"lane": [], "crosswalk": []}
@@ -203,7 +203,11 @@ def get_map_vector(scenario):
         point_cnt += len(cur_polyline)
 
     try:
-        polylines = np.concatenate(polylines, axis=0).astype(np.float32)
+        polylines=np.concatenate(polylines, axis=0)
+
+        polylines[:,:2]-=origin_ego[None]
+
+        polylines = polylines.astype(np.float32)
     except:
         polylines = np.zeros((0, 8), dtype=np.float32)
         print("Empty polylines.")
@@ -249,7 +253,7 @@ os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
 
 
-def get_agent(scenario):
+def get_agent(scenario,origin_ego):
 
     detections = scenario.get_tracked_objects_at_iteration(past_num_steps)
 
@@ -281,8 +285,8 @@ def get_agent(scenario):
         agent = ego_state.agent
 
         track_infos["valid"][0][t] = True
-        track_infos["states"][0][t][0] = agent.center.x
-        track_infos["states"][0][t][1] = agent.center.y
+        track_infos["states"][0][t][0] = agent.center.x-origin_ego[0]
+        track_infos["states"][0][t][1] = agent.center.y-origin_ego[1]
         track_infos["states"][0][t][3] = agent.box.length
         track_infos["states"][0][t][4] = agent.box.width
         track_infos["states"][0][t][5] = agent.box.height
@@ -299,8 +303,8 @@ def get_agent(scenario):
                 track_infos["valid"][track_idx][t] = True
                 track_infos["object_type"][track_idx] = track_type
 
-                track_infos["states"][track_idx][t][0] = agent.center.x
-                track_infos["states"][track_idx][t][1] = agent.center.y
+                track_infos["states"][track_idx][t][0] = agent.center.x-origin_ego[0]
+                track_infos["states"][track_idx][t][1] = agent.center.y-origin_ego[1]
                 track_infos["states"][track_idx][t][3] = agent.box.length
                 track_infos["states"][track_idx][t][4] = agent.box.width
                 track_infos["states"][track_idx][t][5] = agent.box.height
@@ -312,12 +316,21 @@ def get_agent(scenario):
     
     return out_dict
 
-print(len(scenarios))
-for scenario in tqdm(scenarios):
+# print(len(scenarios))
+# for scenario in tqdm(scenarios):
 
-    data=get_map_vector(scenario)
+def process(scenario):
+    ego_state = scenario.get_ego_state_at_iteration(10)
+
+    origin_ego=np.array([ego_state.center.x,ego_state.center.y])
+
+    data=get_map_vector(scenario,origin_ego)
     scenario_id=scenario.token
-    data["agent"]=get_agent(scenario)
+    data["agent"]=get_agent(scenario,origin_ego)
 
     with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
         pickle.dump(data, f)
+
+
+with multiprocessing.Pool(28) as p:
+    r = list(tqdm(p.imap_unordered(process, scenarios), total=len(scenarios)))
