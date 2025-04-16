@@ -10,6 +10,7 @@ import pickle
 from pathlib import Path
 from tqdm import tqdm
 import multiprocessing
+import ray
 
 gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
 
@@ -316,10 +317,12 @@ def get_agent(scenario,origin_ego):
     
     return out_dict
 
+ray.init(num_cpus=32)  # or ray.init(num_cpus=...)
+
 # print(len(scenarios))
 # for scenario in tqdm(scenarios):
-
-def process(scenario):
+@ray.remote
+def process_scenario(scenario):
     ego_state = scenario.get_ego_state_at_iteration(10)
 
     origin_ego=np.array([ego_state.center.x,ego_state.center.y])
@@ -332,5 +335,15 @@ def process(scenario):
         pickle.dump(data, f)
 
 
-with multiprocessing.Pool(28) as p:
-    r = list(tqdm(p.imap_unordered(process, scenarios), total=len(scenarios)))
+# with multiprocessing.Pool(28) as p:
+#     r = list(tqdm(p.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+
+
+# Submit tasks in parallel
+futures = [process_scenario.remote(scenario) for scenario in scenarios]
+
+# Optional: use tqdm to show progress
+for _ in tqdm(ray.get(futures), desc="Processing scenarios"):
+    pass
+
+ray.shutdown()
