@@ -33,7 +33,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
+        self.reward_w= 0
         self.use_target_q=True
         self.soft_update=True
 
@@ -308,7 +308,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
-        if self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
+        if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
                 soft_update(self.encoder,self.target_net,self.critic_tau)

@@ -163,17 +163,17 @@ def get_map_features(map_infos, tf_current_light, dim=2):
                     polygon_light_type[_idx] = _polygon_light_type.index(
                         res["state"].item()
                     )
-                    light_type=_polygon_light_type.index(    res["state"].item()  )
-                    if light_type==3:
-                        plt.plot(centerline[:,0],centerline[:,1],'green')
-                    if light_type==2:
-                        plt.plot(centerline[:,0],centerline[:,1],'red')
-                    if light_type==4:
-                        plt.plot(centerline[:,0],centerline[:,1],'yellow')
-
-                    print(light_type)
-
-    plt.show()
+    #                 light_type=_polygon_light_type.index(    res["state"].item()  )
+    #                 if light_type==3:
+    #                     plt.plot(centerline[:,0],centerline[:,1],'green')
+    #                 if light_type==2:
+    #                     plt.plot(centerline[:,0],centerline[:,1],'red')
+    #                 if light_type==4:
+    #                     plt.plot(centerline[:,0],centerline[:,1],'yellow')
+    #
+    #                 print(light_type)
+    #
+    # plt.show()
 
 
     num_points = torch.tensor(
@@ -211,17 +211,17 @@ def get_map_features(map_infos, tf_current_light, dim=2):
         "edge_index"
     ] = point_to_polygon_edge_index
 
-    # mp_edge = []
-    #
-    # for edge in map_infos['mp_edge']:
-    #     if edge[1] in polygon_ids:
-    #         mp_edge.append((polygon_ids.index(edge[0]), polygon_ids.index(edge[1])))
-    #     else:
-    #         mp_edge.append((polygon_ids.index(edge[0]), -1))
-    #
-    # mp_edge = np.array(mp_edge)
+    mp_edge = []
 
-    # map_infos["mp_edge"]=mp_edge
+    for edge in map_infos['mp_edge']:
+        if edge[1] in polygon_ids:
+            mp_edge.append((polygon_ids.index(edge[0]), polygon_ids.index(edge[1])))
+        else:
+            mp_edge.append((polygon_ids.index(edge[0]), -1))
+
+    mp_edge = np.array(mp_edge)
+
+    map_infos["mp_edge"]=mp_edge
 
     return map_data
 
@@ -339,7 +339,7 @@ def decode_map_features_from_proto(map_features):
                     axis=0,
                 )
 
-                plt.plot(cur_polyline[:,0],cur_polyline[:,1],'r')
+                #plt.plot(cur_polyline[:,0],cur_polyline[:,1],'r')
 
                 cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
                 map_infos["lane"].append(cur_info)
@@ -446,7 +446,7 @@ def decode_map_features_from_proto(map_features):
         polylines = np.zeros((0, 8), dtype=np.float32)
         print("Empty polylines.")
     map_infos["all_polylines"] = polylines
-    #map_infos["mp_edge"]=mp_edge
+    map_infos["mp_edge"]=mp_edge
     return map_infos
 
 
@@ -509,13 +509,13 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         )
 
         data["scenario_id"] = scenario_id
-        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-        #     pickle.dump(data, f)
-        #
-        # if output_dir_tfrecords_splitted is not None:
-        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-        #         file_writer.write(tf_data)
+        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+            pickle.dump(data, f)
+
+        if output_dir_tfrecords_splitted is not None:
+            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+                file_writer.write(tf_data)
 
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
@@ -553,7 +553,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="test")
     parser.add_argument("--num_workers", type=int, default=12)
     args = parser.parse_args()
 
