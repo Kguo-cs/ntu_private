@@ -14,7 +14,7 @@ import ray
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path=os.getcwd() #'/home/ke/code/catk'
+gump_path='/home/ke/code/catk'#os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
@@ -351,7 +351,7 @@ print(len(scenarios))
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-# with Pool(28) as pool:
+# with Pool(4) as pool:
 #     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 for scenario in tqdm(scenarios):
     process_scenario(scenario)
