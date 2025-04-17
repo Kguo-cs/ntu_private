@@ -154,8 +154,7 @@ class IQ_SoftQ(LightningModule):
             # reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
             with torch.no_grad():
                 phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
-            reward_loss = -(phi_grad * reward).mean()
-
+            reward_loss = -(phi_grad * reward)
         elif div=="tv":
             if key == 'expert':
                 reward = torch.clamp_max(reward,max=1)
