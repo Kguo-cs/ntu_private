@@ -5,7 +5,7 @@ qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P 12002486
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
-cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim
+cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim/src
 conda activate catk
 export PBS_JOBID=38599.pbs111
 

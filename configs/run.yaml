@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "kl_min1e4" #x2_1e2_soft0005_32
+task_name: "js_min1e4" #x2_1e2_soft0005_32
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
