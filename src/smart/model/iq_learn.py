@@ -162,7 +162,7 @@ class IQ_SoftQ(LightningModule):
                 reward=torch.clamp_min(reward,min=-1)
             reward_loss= -reward
         else:
-            alpha = 1e-1
+            alpha = 0.1
 
             reward_loss= -reward+reward.square()/(4*alpha)
 
