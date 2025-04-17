@@ -25,7 +25,7 @@ model:
       method_link: ntu
       account_name: ntu
 
-ckpt_path: /home/ke/code/catk/src/waymo_data/lr1e3_Kl1e-3_reward1_min1e3_soft0005/epoch=7-step=94947-val_closed_wosac=0.7517.ckpt
+ckpt_path: /home/ke/code/catk/src/waymo_data/BC/epoch=5-step=73038-val_closed_wosac=0.7477.ckpt #/home/ke/code/catk/src/waymo_data/lr1e3_Kl1e-3_reward1_min1e3_soft0005/epoch=7-step=94947-val_closed_wosac=0.7517.ckpt
 
 trainer:
   limit_train_batches: 1.0
@@ -35,7 +35,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 128
+  val_batch_size: 64
   test_batch_size: 2
   num_workers: 32
   shuffle: false

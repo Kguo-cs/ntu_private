@@ -33,11 +33,11 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
+        self.reward_w= 0
         self.use_target_q=True
         self.soft_update=True
 
-        if self.use_target_q:
+        if self.reward_w and self.use_target_q:
             self.target_net=SMARTDecoder(
                 **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
             )
@@ -129,7 +129,7 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'rkl'
+        div = 'js'
         #TO DO: detach gradient, clip reward
 
         if div=="kl":
@@ -145,9 +145,13 @@ class IQ_SoftQ(LightningModule):
             alpha=1
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
-            alpha=1
-            reward=torch.clamp_min(reward,min=alpha*(-np.log(2-1e-4)))
-            reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
+            # alpha=1
+            # reward=torch.clamp_min(reward,min=alpha*(-np.log(2-1e-4)))
+            # reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
+            with torch.no_grad():
+                phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
+            reward_loss = -(phi_grad * reward).mean()
+
         elif div=="tv":
             if key == 'expert':
                 reward = torch.clamp_max(reward,max=1)
