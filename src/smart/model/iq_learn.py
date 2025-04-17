@@ -33,7 +33,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
+        self.reward_w= 1e-2
         self.use_target_q=True
         self.soft_update=True
 
@@ -129,11 +129,11 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'rkl'
+        div = 'kl'
         #TO DO: detach gradient, clip reward
 
         if div=="kl":
-            alpha=1e-2#*(self.global_step/10000+1e-2)
+            alpha=1e-1#*(self.global_step/10000+1e-2)
             reward=torch.clamp_min(reward,min=alpha*1e-5)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
