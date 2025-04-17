@@ -142,7 +142,7 @@ class IQ_SoftQ(LightningModule):
             # reward_loss= alpha*(-reward/alpha-1).exp()
             with torch.no_grad():
                 phi_grad = torch.exp(-reward)
-            reward_loss = -(phi_grad * reward).mean()
+            reward_loss = -(phi_grad * reward)
 
            # reward_loss= reward_loss.detach()*reward
         elif div=="sh":
