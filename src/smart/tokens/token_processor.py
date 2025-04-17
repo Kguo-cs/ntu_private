@@ -231,20 +231,20 @@ class TokenProcessor(torch.nn.Module):
         # )
         # tokenized_agent.update(initial_token_dict)
 
-        # token_dict = self._match_agent_token(
-        #     valid=valid,
-        #     pos=pos,
-        #     heading=heading,
-        #     agent_shape=agent_shape,
-        #     token_traj=token_traj,
-        # )
-        token_dict = self.my_match_agent_token(
+        token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
             agent_shape=agent_shape,
             token_traj=token_traj,
         )
+        # token_dict = self.my_match_agent_token(
+        #     valid=valid,
+        #     pos=pos,
+        #     heading=heading,
+        #     agent_shape=agent_shape,
+        #     token_traj=token_traj,
+        # )
 
         tokenized_agent.update(token_dict)
         return tokenized_agent
