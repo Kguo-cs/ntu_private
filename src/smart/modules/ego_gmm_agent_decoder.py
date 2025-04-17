@@ -670,31 +670,31 @@ class EgoGMMAgentDecoder(nn.Module):
                 next_token_idx=tokenized_agent["gt_idx"][:, n_step].clone(),
             )  # next_token_idx: [n_agent], next_token_traj_all: [n_agent, 6, 4, 2]
 
-            tokenized_agent_current = {}
-
-            tokenized_agent_current['sampled_pos'] = pos_a[:, -step_current_2hz:]
-            tokenized_agent_current['sampled_heading'] = head_a[:, -step_current_2hz:]
-            tokenized_agent_current['sampled_idx'] = agent_token_index[:, -step_current_2hz:]
-            tokenized_agent_current['valid_mask'] = pred_valid[:, n_step-step_current_2hz:n_step]
-            tokenized_agent_current['trajectory_token_veh']=tokenized_agent['trajectory_token_veh']
-            tokenized_agent_current['trajectory_token_ped']=tokenized_agent['trajectory_token_ped']
-            tokenized_agent_current['trajectory_token_cyc']=tokenized_agent['trajectory_token_cyc']
-            tokenized_agent_current['type']=tokenized_agent['type']
-            tokenized_agent_current['shape']=tokenized_agent['shape']
-            tokenized_agent_current['batch']=tokenized_agent['batch']
-            tokenized_agent_current['num_graphs']=tokenized_agent['num_graphs']
-
-            agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
-
-            self.forward(tokenized_agent_current, map_feature)
-            sample={
-                "state": tokenized_agent_current,
-                "action": ego_sample,
-                "prev_log_prob": prev_log_prob,
-                "feat_a_now": feat_a_now,
-            }
-
-            sample_list.append(sample)
+            # tokenized_agent_current = {}
+            #
+            # tokenized_agent_current['sampled_pos'] = pos_a[:, -step_current_2hz:]
+            # tokenized_agent_current['sampled_heading'] = head_a[:, -step_current_2hz:]
+            # tokenized_agent_current['sampled_idx'] = agent_token_index[:, -step_current_2hz:]
+            # tokenized_agent_current['valid_mask'] = pred_valid[:, n_step-step_current_2hz:n_step]
+            # tokenized_agent_current['trajectory_token_veh']=tokenized_agent['trajectory_token_veh']
+            # tokenized_agent_current['trajectory_token_ped']=tokenized_agent['trajectory_token_ped']
+            # tokenized_agent_current['trajectory_token_cyc']=tokenized_agent['trajectory_token_cyc']
+            # tokenized_agent_current['type']=tokenized_agent['type']
+            # tokenized_agent_current['shape']=tokenized_agent['shape']
+            # tokenized_agent_current['batch']=tokenized_agent['batch']
+            # tokenized_agent_current['num_graphs']=tokenized_agent['num_graphs']
+            #
+            # agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
+            #
+            # self.forward(tokenized_agent_current, map_feature)
+            # sample={
+            #     "state": tokenized_agent_current,
+            #     "action": ego_sample,
+            #     "prev_log_prob": prev_log_prob,
+            #     "feat_a_now": feat_a_now,
+            # }
+            #
+            # sample_list.append(sample)
 
 
             diff_xy = next_token_traj_all[:, -1, 0] - next_token_traj_all[:, -1, 3]

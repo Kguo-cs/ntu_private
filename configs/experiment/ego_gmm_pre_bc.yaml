@@ -2,7 +2,7 @@
 
 defaults:
   # - override /trainer: ddp
-  - override /model: ego_gmm_gail
+  - override /model: ego_gmm
 
 model:
   model_config:
@@ -33,10 +33,10 @@ trainer:
   limit_val_batches: 0.1
   check_val_every_n_epoch: 1
   max_epochs: 64
-  gradient_clip_val: 0.0
+  val_check_interval: 0.000001
 
 data:
-  train_batch_size: 2
+  train_batch_size: 1
   val_batch_size: 1
   test_batch_size: 10
   num_workers: 10

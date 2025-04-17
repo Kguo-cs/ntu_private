@@ -30,14 +30,14 @@ model_config:
     temp_mode: 1e-3
     temp_cov: 1e-3
   decoder:
-    hidden_dim: 128
+    hidden_dim: 8
     num_freq_bands: 64
     num_heads: 4
     head_dim: 8
     dropout: 0.1
     hist_drop_prob: 0.1
-    num_map_layers: 2
-    num_agent_layers: 4
+    num_map_layers: 1
+    num_agent_layers: 1
     pl2pl_radius: 10
     pl2a_radius: 30
     a2a_radius: 60
