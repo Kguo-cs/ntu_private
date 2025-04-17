@@ -553,7 +553,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="test")
+    parser.add_argument("--split", type=str, default="testing")
     parser.add_argument("--num_workers", type=int, default=12)
     args = parser.parse_args()
 
