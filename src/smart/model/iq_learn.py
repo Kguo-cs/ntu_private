@@ -16,7 +16,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.gamma = 0.95
+        self.gamma = 1
         self.alpha = self.encoder.agent_encoder.alpha
 
         self.reg_mult = 0.5
