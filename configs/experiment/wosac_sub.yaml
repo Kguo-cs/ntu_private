@@ -25,7 +25,7 @@ model:
       method_link: ntu
       account_name: ntu
 
-ckpt_path: /home/ke/code/catk/src/waymo_data/kl_rewardw1e3/2025-04-17_15-03-46/epoch=9-step=121729-val_closed_wosac=0.7520.ckpt #/home/ke/code/catk/src/waymo_data/rkl1_1e-3/epoch=6-step=85210-val_closed_wosac=0.7563.ckpt #/home/ke/code/catk/src/waymo_data/lr1e3_Kl1e-3_reward1_min1e3_soft0005/epoch=7-step=94947-val_closed_wosac=0.7517.ckpt
+ckpt_path: /home/ke/code/catk/src/waymo_data/js1_1e-3/epoch=2-step=36518-val_closed_wosac=0.7502.ckpt #/home/ke/code/catk/src/waymo_data/rkl1_1e-3/epoch=6-step=85210-val_closed_wosac=0.7563.ckpt #/home/ke/code/catk/src/waymo_data/lr1e3_Kl1e-3_reward1_min1e3_soft0005/epoch=7-step=94947-val_closed_wosac=0.7517.ckpt
 
 trainer:
   limit_train_batches: 1.0

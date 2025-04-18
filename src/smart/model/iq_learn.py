@@ -21,9 +21,6 @@ class IQ_SoftQ(LightningModule):
 
         self.reg_mult = 0.5
 
-        self.Q_max = 1.0 / (self.reg_mult * (1 - self.gamma))
-        self.Q_min = - 1.0 / (self.reg_mult * (1 - self.gamma))
-
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
         self.batch_replay=False
