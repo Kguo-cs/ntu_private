@@ -16,7 +16,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.gamma = 1
+        self.gamma = 0.99
         self.alpha = self.encoder.agent_encoder.alpha
 
         self.reg_mult = 0.5
@@ -28,9 +28,9 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=100)
+            self.replay_buffer = deque(maxlen=10)
 
-        self.reward_w= 1e-3
+        self.reward_w= 1e-2
         self.use_target_q=True
         self.soft_update=True
 
