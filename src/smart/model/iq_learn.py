@@ -34,7 +34,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=100)
 
         self.reward_w= 1e-1
-        self.use_target_q=True
+        self.use_target_q=False
         self.soft_update=True
 
         if self.reward_w and self.use_target_q:
