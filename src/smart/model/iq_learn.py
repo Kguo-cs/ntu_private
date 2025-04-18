@@ -28,7 +28,7 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=10)
+            self.replay_buffer = deque(maxlen=1)
 
         self.reward_w= 1e-3
         self.use_target_q=True
