@@ -28,7 +28,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=100)
 
-        self.reward_w= 1
+        self.reward_w = 1
         self.use_target_q=False
         self.soft_update=True
 
@@ -132,7 +132,7 @@ class IQ_SoftQ(LightningModule):
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=1
-            reward=torch.clamp_min(reward,min=alpha*(-1+np.log(1e-3)))
+            reward=torch.clamp(reward,max=alpha*(-1+np.log(1e3)),min=alpha*(-1+np.log(1e-3)))
             reward_loss= alpha*(-reward/alpha-1).exp()
             # with torch.no_grad():
             #     phi_grad = torch.exp(-reward)
