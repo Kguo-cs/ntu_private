@@ -29,7 +29,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=100)
 
         self.reward_w = 1
-        self.use_target_q=False
+        self.use_target_q=True
         self.soft_update=True
 
         if self.reward_w and self.use_target_q:
@@ -39,7 +39,7 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
             if self.soft_update:
-                self.critic_tau = 0.01
+                self.critic_tau = 0.005
                 self.critic_target_update_frequency = 1
             else:
                 self.critic_target_update_frequency = 4
