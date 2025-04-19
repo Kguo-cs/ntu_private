@@ -40,7 +40,7 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
             if self.soft_update:
-                self.critic_tau = 5e-3
+                self.critic_tau = 5e-4
                 self.critic_target_update_frequency = 1
             else:
                 self.critic_target_update_frequency = 4
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss #expert_nll+
+            loss =  expert_nll+critic_loss #
 
         return loss
 
