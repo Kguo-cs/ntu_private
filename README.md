@@ -20,7 +20,7 @@ rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/logs
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
 

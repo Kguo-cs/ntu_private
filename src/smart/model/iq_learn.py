@@ -124,10 +124,10 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'kl'
+        div = 'rkl'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
 
-        eps=1e-1
+        eps=1e-2
 
         if div=="kl":
             alpha=1#*(self.global_step/10000+1e-2)
@@ -135,7 +135,7 @@ class IQ_SoftQ(LightningModule):
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=1
-            reward=torch.clamp(reward,max=alpha*(-1+np.log(1e3)),min=alpha*(-1+np.log(1e-3)))
+            reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
             reward_loss= alpha*(-reward/alpha-1).exp()
             # with torch.no_grad():
             #     phi_grad = torch.exp(-reward)
