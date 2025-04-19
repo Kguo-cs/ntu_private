@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 1e-4
+    lr: 5e-5
     token_processor:
       map_token_sampling: # open-loop
         num_k: 1 # for k nearest neighbors
@@ -18,6 +18,7 @@ model:
       criterium: topk_prob # {topk_dist_sampled_with_prob, topk_prob, topk_prob_sampled_with_dist}
       num_k: 2048 # for k nearest neighbors, set to -1 to turn-off closed-loop training
       temp: 1.0
+    finetune: true
 
 #ckpt_path: /home/ke/code/catk/src/logs/debug_open_source/runs/2025-02-20_15-59-44/checkpoints/epoch_000.ckpt
 ckpt_path: './ckpts/epoch=6-step=85210-val_closed_wosac=0.7563.ckpt'#'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt'  #'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt' #null # #/home/ke/code/catk/src/logs/epoch_002.ckptnull #
