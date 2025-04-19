@@ -40,7 +40,7 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
             if self.soft_update:
-                self.critic_tau = 5e-4
+                self.critic_tau = 1e-4
                 self.critic_target_update_frequency = 1
             else:
                 self.critic_target_update_frequency = 4
@@ -124,7 +124,7 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'js'
+        div = 'kl'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
 
         if div=="kl":
