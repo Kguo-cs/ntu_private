@@ -124,12 +124,14 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'kl'
+        div = 'js'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
+
+        eps=1e-2
 
         if div=="kl":
             alpha=1#*(self.global_step/10000+1e-2)
-            reward=torch.clamp(reward,max=alpha*1e2,min=alpha*1e-2)
+            reward=torch.clamp(reward,max=alpha/eps,min=alpha*eps)
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=1
@@ -145,7 +147,7 @@ class IQ_SoftQ(LightningModule):
             reward_loss= -1/(1/reward+1/alpha)
         elif div =='js':
             alpha=1
-            reward=torch.clamp(reward,max=alpha*(np.log(1/2+1e2)),min=alpha*(np.log(1/2+1e-2)))
+            reward=torch.clamp(reward,max=alpha*(np.log(1/2+1/eps)),min=alpha*(np.log(1/2+eps)))
             reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
             # with torch.no_grad():
             #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
@@ -303,7 +305,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
 
-        if self.reward_w!=0 and (len(self.replay_buffer) < self.replay_buffer.maxlen or self.global_step % 10 == 0):
+        if self.reward_w!=0 and self.global_step % 10 == 0:
             with torch.no_grad():
                 self.encoder.eval()
                 self.rollout(tokenized_map, tokenized_agent)
