@@ -124,7 +124,7 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'js'
+        div = 'kl'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
 
         eps=1e-1
