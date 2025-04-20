@@ -124,7 +124,7 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'x2'
+        div = 'my'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
 
         eps=1e-1
@@ -158,11 +158,13 @@ class IQ_SoftQ(LightningModule):
             else:
                 reward=torch.clamp_min(reward,min=-1)
             reward_loss= -reward
-        else:
+        elif div=='x2':
             alpha = 1
             reward=torch.clamp(reward,min=2*(1-1/eps),max=2*(1-eps))
 
             reward_loss= -reward+reward.square()/(4*alpha)
+        else:
+            reward_loss = -reward
 
         entropy =entropy[state_mask].mean()
 
