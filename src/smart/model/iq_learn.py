@@ -33,6 +33,8 @@ class IQ_SoftQ(LightningModule):
         self.use_target_q=True
         self.soft_update=True
 
+        self.rollout_freq=5
+
         if self.reward_w and self.use_target_q:
             self.target_net=SMARTDecoder(
                 **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
@@ -318,7 +320,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
 
-        if self.reward_w!=0 and self.global_step % 10 == 0:
+        if self.reward_w!=0 and self.global_step % self.rollout_freq == 0:
             with torch.no_grad():
                 self.encoder.eval()
                 self.rollout(tokenized_map, tokenized_agent)
