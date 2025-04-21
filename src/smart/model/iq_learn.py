@@ -33,7 +33,7 @@ class IQ_SoftQ(LightningModule):
         self.use_target_q=True
         self.soft_update=True
 
-        self.rollout_freq=1
+        self.rollout_freq=2
 
         if self.reward_w and self.use_target_q:
             self.target_net=SMARTDecoder(
