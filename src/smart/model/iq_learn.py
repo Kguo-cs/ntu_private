@@ -125,7 +125,7 @@ class IQ_SoftQ(LightningModule):
 
         constraint_loss = torch.relu(-reward).mean()
 
-        div = 'my'
+        div = 'rkl'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
 
         eps=1e-1
@@ -136,7 +136,7 @@ class IQ_SoftQ(LightningModule):
             reward_loss= -alpha*((reward/alpha).log()+1)
         elif div == "rkl":
             alpha=1
-            reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
+            #reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
             reward_loss= alpha*(-reward/alpha-1).exp()
             # with torch.no_grad():
             #     phi_grad = torch.exp(-reward)
@@ -250,12 +250,12 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
-            # critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
+            critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            alpha=2
+            #alpha=2
 
             #critic_loss=-(expert_reward/alpha).exp().mean()+1/2*(2*agent_reward/alpha).exp().mean()
-            critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean()
+            #critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean()
 
             #critic_loss=-expert_reward.mean()+agent_reward.exp().mean()
             # critic_loss=-expert_reward.mean()+1/2*agent_reward.square().mean()
