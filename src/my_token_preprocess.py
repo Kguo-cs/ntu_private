@@ -16,7 +16,7 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token1/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token/"
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
 
 # Worker function
@@ -44,11 +44,6 @@ def process_file(filename):
     tokenized_agent.pop('gt_idx', None)
     tokenized_agent.pop('gt_heading', None)
     tokenized_agent.pop('gt_pos', None)
-
-    tokenized_map["type"] = tokenized_map["type"].to(torch.uint8)
-    tokenized_map["pl_type"] = tokenized_map["pl_type"].to(torch.uint8)
-    tokenized_map["light_type"] = tokenized_map["light_type"].to(torch.uint8)
-    tokenized_map["token_idx"] = tokenized_map["token_idx"].to(torch.int16)
 
     data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
 
