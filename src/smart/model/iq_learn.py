@@ -265,7 +265,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  expert_nll+critic_loss #*0.1 #
+            loss =  expert_nll*0.1+critic_loss # #
 
         return loss
 
