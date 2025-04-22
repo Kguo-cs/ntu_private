@@ -45,7 +45,7 @@ class IQ_SoftQ(LightningModule):
                 self.critic_tau = 1e-5
                 self.critic_target_update_frequency = 1
             else:
-                self.critic_target_update_frequency = 10
+                self.critic_target_update_frequency = 100
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
@@ -252,7 +252,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            alpha=2
+            alpha=0.1
 
             #critic_loss=-(expert_reward/alpha).exp().mean()+1/2*(2*agent_reward/alpha).exp().mean()
             #critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean()
