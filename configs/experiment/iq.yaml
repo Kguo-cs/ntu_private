@@ -20,7 +20,7 @@ model:
       num_k: 2048 # for k nearest neighbors, set to -1 to turn-off closed-loop training
       temp: 1.0
 
-ckpt_path: ./ckpts/epoch=1-step=18261-val_closed_wosac=0.7403.ckpt #'./ckpts/epoch=6-step=85210-val_closed_wosac=0.7563.ckpt'#'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt'  #'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt' #null # #/home/ke/code/catk/src/logs/epoch_002.ckptnull #
+ckpt_path: null #./ckpts/epoch=1-step=18261-val_closed_wosac=0.7403.ckpt #'./ckpts/epoch=6-step=85210-val_closed_wosac=0.7563.ckpt'#'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt'  #'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt' #null # #/home/ke/code/catk/src/logs/epoch_002.ckptnull #
 
 trainer:
   limit_train_batches: 1.0
