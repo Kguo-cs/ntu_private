@@ -33,8 +33,23 @@ from src.smart.utils import (
 from torch_scatter import scatter_add
 from .kl_loss import DiagGaussian
 from torch_geometric.nn.pool import knn_graph
-class SMARTAgentDecoder(nn.Module):
+#from torch._dynamo import disable
 
+# @disable
+def safe_radius(*args, **kwargs):
+    return radius(*args, **kwargs)
+
+#@disable
+def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
+    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
+    row, col = edge_index
+    distances = (x[col] - x[row]).norm(dim=1)
+    mask = distances <= r
+    final_edge_index = edge_index[:, mask]
+
+    return final_edge_index
+
+class SMARTAgentDecoder(nn.Module):
     def __init__(
         self,
         hidden_dim: int,
@@ -301,14 +316,6 @@ class SMARTAgentDecoder(nn.Module):
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
         return edge_index_t, r_t
 
-    def radiusGraphNearest(self,x, batch, r, loop, max_num_neighbors):
-        edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
-        row, col = edge_index
-        distances = (x[col] - x[row]).norm(dim=1)
-        mask = distances <= r
-        final_edge_index = edge_index[:, mask]
-
-        return final_edge_index
 
 
     def build_interaction_edge(
@@ -330,7 +337,7 @@ class SMARTAgentDecoder(nn.Module):
         #     loop=False,
         #     max_num_neighbors=300
         # )
-        edge_index_a2a = self.radiusGraphNearest(x=pos_s[:, :2],
+        edge_index_a2a = radiusGraphNearest(x=pos_s[:, :2],
                                              r=self.a2a_radius,
                                              batch=batch_s,
                                              loop=False,
@@ -371,7 +378,7 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
-        edge_index_pl2a = radius(
+        edge_index_pl2a = safe_radius(
             x=pos_s[:, :2],
             y=pos_pl[:, :2],
             r=self.pl2a_radius,

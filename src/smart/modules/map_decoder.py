@@ -22,6 +22,13 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from torch_scatter import scatter_mean
 
+# from torch._dynamo import disable
+#
+# @disable
+def safe_radius(*args, **kwargs):
+    return radius_graph(*args, **kwargs)
+
+
 class SMARTMapDecoder(nn.Module):
 
     def __init__(
@@ -80,7 +87,7 @@ class SMARTMapDecoder(nn.Module):
             self.light_pl_emb(tokenized_map["light_type"]),
         ]
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
-        edge_index_pt2pt = radius_graph(
+        edge_index_pt2pt = safe_radius(
             x=pos_pt,
             r=self.pl2pl_radius,
             batch=tokenized_map["batch"],
