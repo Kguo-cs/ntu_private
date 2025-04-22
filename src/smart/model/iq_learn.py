@@ -31,7 +31,7 @@ class IQ_SoftQ(LightningModule):
 
         self.reward_w = 1
         self.use_target_q=True
-        self.soft_update=True
+        self.soft_update=False
 
         self.rollout_freq=1
 
