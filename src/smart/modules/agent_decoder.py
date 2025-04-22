@@ -33,13 +33,13 @@ from src.smart.utils import (
 from torch_scatter import scatter_add
 from .kl_loss import DiagGaussian
 from torch_geometric.nn.pool import knn_graph
-from torch._dynamo import disable
+#from torch._dynamo import disable
 
-@disable
+# @disable
 def safe_radius(*args, **kwargs):
     return radius(*args, **kwargs)
 
-@disable
+#@disable
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
     row, col = edge_index

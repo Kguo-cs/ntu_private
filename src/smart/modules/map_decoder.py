@@ -22,9 +22,9 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from torch_scatter import scatter_mean
 
-from torch._dynamo import disable
-
-@disable
+# from torch._dynamo import disable
+#
+# @disable
 def safe_radius(*args, **kwargs):
     return radius_graph(*args, **kwargs)
 
