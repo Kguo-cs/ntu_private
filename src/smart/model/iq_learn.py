@@ -42,7 +42,7 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
             if self.soft_update:
-                self.critic_tau = 1e-4
+                self.critic_tau = 2e-5
                 self.critic_target_update_frequency = 1
             else:
                 self.critic_target_update_frequency = 100
@@ -103,10 +103,10 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             with torch.no_grad():
                 next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
-                target_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
-                next_v = v[:, 1:].detach()
+                next_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
+                # next_v = v[:, 1:].detach()
 
-            target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
+            # target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
         else:
             next_v=v[:, 1:].detach()
 
@@ -172,7 +172,7 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[state_mask].mean()
 
-        value_loss=(current_V-target_v)[state_action_mask]
+        value_loss=(current_V-next_v)[state_action_mask]
 
         self.log("train/"+key+"_V", current_V[state_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q[state_action_mask].mean().item(), on_step=True, batch_size=1)
@@ -182,7 +182,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-        return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy,target_loss
+        return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy
 
     def collect_agent(self,num_graphs):
 
@@ -224,7 +224,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_,expert_target_loss = self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_reward_loss,expert_value_loss, expert_valid,expert_logprob,_ = self.get_QV(tokenized_map, tokenized_agent)
 
         expert_nll=-expert_logprob[expert_valid].mean()
 
@@ -235,7 +235,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-            agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy,agent_target_loss = self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward,agent_reward_loss ,agent_value_loss,agent_valid,_,agent_entropy = self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
             agent_ratio=0
 
@@ -255,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            alpha=1
+            alpha=0.05
 
             #critic_loss=-(expert_reward/alpha).exp().mean()+1/2*(2*agent_reward/alpha).exp().mean()
             #critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean()
@@ -270,7 +270,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  expert_nll+critic_loss+(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  expert_nll+critic_loss #+(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
