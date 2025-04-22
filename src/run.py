@@ -58,7 +58,7 @@ def run(cfg: DictConfig) -> None:
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model, _recursive_=False)
 
-    #model=torch.compile(model)
+    model=torch.compile(model)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
