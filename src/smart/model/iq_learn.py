@@ -45,7 +45,7 @@ class IQ_SoftQ(LightningModule):
                 self.critic_tau = 1e-4
                 self.critic_target_update_frequency = 1
             else:
-                self.critic_target_update_frequency = 4
+                self.critic_target_update_frequency = 10
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
