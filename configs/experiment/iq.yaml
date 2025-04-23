@@ -31,7 +31,7 @@ trainer:
 
 data:
   train_batch_size: 39
-  val_batch_size: 10
+  val_batch_size: 32
   test_batch_size: 10
   num_workers: 28
 
