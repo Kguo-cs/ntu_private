@@ -110,25 +110,22 @@ class IQ_SoftQ(LightningModule):
 
         state_action_mask = action_mask & state_mask
 
-        if self.use_target_q:
-            with torch.no_grad():
-                next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
-                next_target_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
-                # next_v = v[:, 1:].detach()
-                #self.log("train/" + key + "_NextTargetV", next_target_v[action_mask].mean().item(), on_step=True, batch_size=1)
-            # target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
-        else:
-            rewards = current_Q - (1 - done) * self.gamma * next_v
-
-
-
         next_v = v[:, 1:].detach()
 
         done = torch.zeros_like(next_v)
 
         done[:, -1] = 1
 
-        rewards = current_Q - (1 - done) * self.gamma * next_target_v
+
+        if self.use_target_q:
+            with torch.no_grad():
+                next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
+                next_target_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
+                # next_v = v[:, 1:].detach()
+                self.log("train/" + key + "_NextTargetV", next_target_v[action_mask].mean().item(), on_step=True, batch_size=1)
+            rewards = current_Q - (1 - done) * self.gamma * next_target_v
+        else:
+            rewards = current_Q - (1 - done) * self.gamma * next_v
 
         reward = rewards[state_action_mask]
 
@@ -286,7 +283,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+0.1*(expert_V.square().mean()+agent_V.square().mean() ) #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+1*(expert_V.square().mean()+agent_V.square().mean() ) #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
