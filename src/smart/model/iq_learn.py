@@ -325,7 +325,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
 
-        if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)==0):
+        if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)<self.replay_buffer.maxlen):
             with torch.no_grad():
                 self.encoder.eval()
                 self.rollout(tokenized_map, tokenized_agent)
