@@ -123,11 +123,13 @@ class IQ_SoftQ(LightningModule):
 
         state_mask=valid_mask[:, 1:-1]
 
-        state_action_mask = valid_mask[:, 2:] & state_mask
+        action_mask= valid_mask[:, 2:]
+
+        state_action_mask = action_mask & state_mask
 
         reward=rewards[state_action_mask]
 
-        constraint_loss = torch.relu(-reward).mean()
+        #constraint_loss = torch.relu(-reward).mean()
 
         div = 'rkl'
         #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
@@ -180,7 +182,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_NextV", next_v[action_mask].mean().item(), on_step=True, batch_size=1)
 
         return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy
 
@@ -258,7 +260,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=-(expert_reward/alpha).exp().mean()+1/2*(2*agent_reward/alpha).exp().mean()
             alpha=1
-            critic_loss=((-expert_reward).exp()+1).log().mean()+0.01*((agent_reward/alpha).exp()+1).log().mean() #((-expert_reward/alpha).exp()+1).log().mean()
+            critic_loss=((-expert_reward).exp()+1).log().mean()+0.05*((agent_reward/alpha).exp()+1).log().mean() #((-expert_reward/alpha).exp()+1).log().mean()
             # alpha=0.1
             #
             # critic_loss= (-expert_reward+expert_reward.square()/(4*alpha)).mean()+ (agent_reward+agent_reward.square()/(4*alpha)).mean()
