@@ -102,7 +102,6 @@ class IQ_SoftQ(LightningModule):
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-
         valid_mask = tokenized_agent["valid_mask"]
 
         state_mask=valid_mask[:, 1:-1]
@@ -123,7 +122,7 @@ class IQ_SoftQ(LightningModule):
                 next_target_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
                 # next_v = v[:, 1:].detach()
                 rewards = current_Q - (1 - done) * self.gamma * next_target_v
-                self.log("train/" + key + "_NextTargetV", next_target_v[action_mask].mean().item(), on_step=True, batch_size=1)
+                #self.log("train/" + key + "_NextTargetV", next_target_v[action_mask].mean().item(), on_step=True, batch_size=1)
             # target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
         else:
             rewards = current_Q - (1 - done) * self.gamma * next_v
