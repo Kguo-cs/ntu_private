@@ -100,24 +100,13 @@ class IQ_SoftQ(LightningModule):
 
         current_V = v[:, :-1]
 
-        if self.use_target_q:
-            with torch.no_grad():
-                next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
-                next_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
-                # next_v = v[:, 1:].detach()
-
-            # target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
-        else:
-            next_v=v[:, 1:].detach()
-
+        next_v = v[:, 1:]
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         done = torch.zeros_like(next_v)
 
         done[:, -1] = 1
-
-        rewards = current_Q - (1 - done) * self.gamma * next_v
 
         valid_mask = tokenized_agent["valid_mask"]
 
@@ -126,6 +115,16 @@ class IQ_SoftQ(LightningModule):
         action_mask= valid_mask[:, 2:]
 
         state_action_mask = action_mask & state_mask
+
+
+        if self.use_target_q:
+            with torch.no_grad():
+                next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
+                next_target_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
+                rewards = current_Q - (1 - done) * self.gamma * next_target_v
+                self.log("train/" + key + "_NextTargetV", next_target_v[action_mask].mean().item(), on_step=True, batch_size=1)
+        else:
+            rewards = current_Q - (1 - done) * self.gamma * next_v.detach()
 
         reward=rewards[state_action_mask]
 
@@ -283,7 +282,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+0.1*(expert_Q.mean()-agent_Q.mean() ) #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+(expert_V.square().mean()-agent_V.square().mean() ) #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
