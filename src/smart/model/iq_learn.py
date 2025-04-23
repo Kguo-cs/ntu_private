@@ -258,7 +258,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=-(expert_reward/alpha).exp().mean()+1/2*(2*agent_reward/alpha).exp().mean()
             alpha=1
-            critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+agent_reward.mean()#((agent_reward/alpha).exp()+1).log()
+            critic_loss=-expert_reward.mean()+((agent_reward/alpha).exp()+1).log().mean()#((-expert_reward/alpha).exp()+1).log().mean()
             # alpha=0.1
             #
             # critic_loss= (-expert_reward+expert_reward.square()/(4*alpha)).mean()+ (agent_reward+agent_reward.square()/(4*alpha)).mean()
@@ -339,7 +339,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=2e-5 #self.critic_tau/(self.global_step+1)
+                tau=1e-5 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)

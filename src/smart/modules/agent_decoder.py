@@ -963,7 +963,7 @@ class SMARTAgentDecoder(nn.Module):
             "shape":tokenized_agent["shape"],
             "sampled_pos": pos_a,  # [n_agent, 18, 2]
             "sampled_heading": head_a,  # [n_agent, 18]
-            "valid_mask": tokenized_agent["valid_mask"],  # [n_agent, 18]
+            "valid_mask": pred_valid,  # [n_agent, 18]
             "sampled_idx": pred_idx,  # [n_agent, 18]
         }
 
