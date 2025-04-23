@@ -94,8 +94,6 @@ class SMART(LightningModule):
         return loss
 
     def validation_step(self, data, batch_idx):
-        if self.global_step<87000:
-            return
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
