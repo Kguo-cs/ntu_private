@@ -100,24 +100,11 @@ class IQ_SoftQ(LightningModule):
 
         current_V = v[:, :-1]
 
-        if self.use_target_q:
-            with torch.no_grad():
-                next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
-                next_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
-                # next_v = v[:, 1:].detach()
-
-            # target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
-        else:
-            next_v=v[:, 1:].detach()
-
-
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-        done = torch.zeros_like(next_v)
+        done = torch.zeros_like(v)
 
         done[:, -1] = 1
-
-        rewards = current_Q - (1 - done) * self.gamma * next_v
 
         valid_mask = tokenized_agent["valid_mask"]
 
@@ -126,6 +113,17 @@ class IQ_SoftQ(LightningModule):
         action_mask= valid_mask[:, 2:]
 
         state_action_mask = action_mask & state_mask
+
+        if self.use_target_q:
+            with torch.no_grad():
+                next_target_q = self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"][:, 1:]
+                next_target_v = self.alpha * torch.logsumexp(next_target_q / self.alpha, dim=-1, keepdim=False)
+                # next_v = v[:, 1:].detach()
+                rewards = current_Q - (1 - done) * self.gamma * next_target_v
+                self.log("train/" + key + "_NextTargetV", next_target_v[action_mask].mean().item(), on_step=True, batch_size=1)
+            # target_loss = torch.nn.functional.mse_loss(q_value[:, 1:], next_target_q)
+        else:
+            next_v=v[:, 1:].detach()
 
         reward=rewards[state_action_mask]
 
