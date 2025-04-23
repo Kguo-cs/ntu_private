@@ -30,7 +30,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=False
+        self.use_target_q=True
         self.soft_update=True
 
         self.rollout_freq=1
@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+0.1*(expert_Q.square().mean()+agent_Q.square().mean() ) #expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+0.01*(expert_Q.square().mean()+agent_Q.square().mean() ) #expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
