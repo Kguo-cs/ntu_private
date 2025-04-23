@@ -102,6 +102,13 @@ class IQ_SoftQ(LightningModule):
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
+        valid_mask = tokenized_agent["valid_mask"]
+
+        state_mask=valid_mask[:, 1:-1]
+
+        action_mask= valid_mask[:, 2:]
+
+        state_action_mask = action_mask & state_mask
 
         if self.use_target_q:
             with torch.no_grad():
@@ -113,19 +120,14 @@ class IQ_SoftQ(LightningModule):
         else:
             rewards = current_Q - (1 - done) * self.gamma * next_v
 
-        valid_mask = tokenized_agent["valid_mask"]
 
-        state_mask=valid_mask[:, 1:-1]
-
-        action_mask= valid_mask[:, 2:]
-
-        state_action_mask = action_mask & state_mask
 
         next_v = v[:, 1:].detach()
 
         done = torch.zeros_like(next_v)
 
         done[:, -1] = 1
+
         rewards = current_Q - (1 - done) * self.gamma * next_target_v
 
         reward = rewards[state_action_mask]
