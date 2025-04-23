@@ -327,9 +327,9 @@ class IQ_SoftQ(LightningModule):
 
         if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)==0):
             with torch.no_grad():
-                #self.encoder.eval()
+                self.encoder.eval()
                 self.rollout(tokenized_map, tokenized_agent)
-                #self.encoder.train()
+                self.encoder.train()
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
