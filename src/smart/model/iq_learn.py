@@ -27,13 +27,13 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=100)
+            self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
         self.use_target_q=True
         self.soft_update=True
 
-        self.rollout_freq=10
+        self.rollout_freq=1
 
         if self.reward_w and self.use_target_q:
             self.target_net=SMARTDecoder(
@@ -327,9 +327,9 @@ class IQ_SoftQ(LightningModule):
 
         if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)<self.replay_buffer.maxlen):
             with torch.no_grad():
-                self.encoder.eval()
+               # self.encoder.eval()
                 self.rollout(tokenized_map, tokenized_agent)
-                self.encoder.train()
+              #  self.encoder.train()
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
