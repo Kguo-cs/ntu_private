@@ -34,12 +34,12 @@ class IQ_SoftQ(LightningModule):
         self.soft_update=True
 
         self.rollout_freq=1
+        self.target_net = SMARTDecoder(
+            **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
+        )
+        self.target_net.load_state_dict(self.encoder.state_dict())
 
         if self.reward_w and self.use_target_q:
-            self.target_net=SMARTDecoder(
-                **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
-            )
-            self.target_net.load_state_dict(self.encoder.state_dict())
 
             if self.soft_update:
                 self.critic_tau = 1
