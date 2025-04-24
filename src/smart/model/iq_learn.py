@@ -110,10 +110,6 @@ class IQ_SoftQ(LightningModule):
             #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
             # reward_loss = -(phi_grad * reward)
         elif div == "tv":
-            if key == 'expert':
-                reward = torch.clamp_max(reward, max=1)
-            else:
-                reward = torch.clamp_min(reward, min=-1)
             reward_loss = -reward
         elif div == 'x2':
             alpha = 1
@@ -292,7 +288,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=0.1*(expert_current_V_diff.square().mean()+agent_current_next_V_diff.square().mean() )
+            constraint_loss=(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
