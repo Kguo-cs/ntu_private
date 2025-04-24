@@ -80,6 +80,52 @@ class IQ_SoftQ(LightningModule):
 
             self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
+    def compute_reward_loss(self,reward):
+
+        div = 'rkl'
+        # TO DO: detach gradient, clip reward, gmm, refine by KL constrained
+
+        eps = 1e-1
+
+        if div == "kl":
+            alpha = 1  # *(self.global_step/10000+1e-2)
+            reward = torch.clamp(reward, max=alpha / eps, min=alpha * eps)
+            reward_loss = -alpha * ((reward / alpha).log() + 1)
+        elif div == "rkl":
+            alpha = 10
+            # reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
+            reward_loss = alpha * (-reward / alpha - 1).exp()
+            # with torch.no_grad():
+            #     phi_grad = torch.exp(-reward)
+            # reward_loss = -(phi_grad * reward)
+        # reward_loss= reward_loss.detach()*reward
+        elif div == "sh":
+            alpha = 1
+            reward_loss = -1 / (1 / reward + 1 / alpha)
+        elif div == 'js':
+            alpha = 1
+            reward = torch.clamp_min(reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
+            reward_loss = -alpha * (2 - (-reward / alpha).exp()).log()
+            # with torch.no_grad():
+            #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
+            # reward_loss = -(phi_grad * reward)
+        elif div == "tv":
+            if key == 'expert':
+                reward = torch.clamp_max(reward, max=1)
+            else:
+                reward = torch.clamp_min(reward, min=-1)
+            reward_loss = -reward
+        elif div == 'x2':
+            alpha = 1
+            reward = torch.clamp(reward, min=2 * (1 - 1 / eps), max=2 * (1 - eps))
+
+            reward_loss = -reward + reward.square() / (4 * alpha)
+        else:
+            reward_loss = -reward
+
+        return reward_loss
+
+
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
         pred_dict = self.encoder(tokenized_map, tokenized_agent)
@@ -100,8 +146,6 @@ class IQ_SoftQ(LightningModule):
 
         current_V = v[:, :-1]
 
-        action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-
         valid_mask = tokenized_agent["valid_mask"]
 
         state_mask=valid_mask[:, 1:-1]
@@ -120,84 +164,39 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             with torch.no_grad():
                 target_q=self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"]
-                target_V = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
-                next_target_V=target_V[:, 1:]
-                current_target_V = target_V[:, :-1]
+                target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
+                next_target_V=target_v[:, 1:]
+                current_target_V = target_v[:, :-1]
                 self.log("train/" + key + "_NextTargetV", next_target_V[action_mask].mean().item(), on_step=True, batch_size=1)
             # rewards = current_Q - (1 - done) * self.gamma * next_target_v
-            rewards = current_Q - (1 - done) * self.gamma * next_V.detach()
+            reward = current_Q - (1 - done) * self.gamma * next_V.detach()
         else:
-            rewards = current_Q - (1 - done) * self.gamma * next_V.detach()
+            reward = current_Q - (1 - done) * self.gamma * next_V.detach()
 
-        reward = rewards[state_action_mask]
+        reward = reward[state_action_mask]
 
-        #constraint_loss = torch.relu(-reward).mean()
-
-        div = 'rkl'
-        #TO DO: detach gradient, clip reward, gmm, refine by KL constrained
-
-        eps=1e-1
-
-        if div=="kl":
-            alpha=1#*(self.global_step/10000+1e-2)
-            reward=torch.clamp(reward,max=alpha/eps,min=alpha*eps)
-            reward_loss= -alpha*((reward/alpha).log()+1)
-        elif div == "rkl":
-            alpha=10
-            # reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
-            reward_loss= alpha*(-reward/alpha-1).exp()
-            # with torch.no_grad():
-            #     phi_grad = torch.exp(-reward)
-            # reward_loss = -(phi_grad * reward)
-           # reward_loss= reward_loss.detach()*reward
-        elif div=="sh":
-            alpha=1
-            reward_loss= -1/(1/reward+1/alpha)
-        elif div =='js':
-            alpha=1
-            reward=torch.clamp_min(reward,min=alpha*(np.log(1/2+eps)))#,max=alpha*(np.log(1/2+1/eps))
-            reward_loss= -alpha*(2-(-reward/alpha).exp()).log()
-            # with torch.no_grad():
-            #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
-            # reward_loss = -(phi_grad * reward)
-        elif div=="tv":
-            if key == 'expert':
-                reward = torch.clamp_max(reward,max=1)
-            else:
-                reward=torch.clamp_min(reward,min=-1)
-            reward_loss= -reward
-        elif div=='x2':
-            alpha = 1
-            reward=torch.clamp(reward,min=2*(1-1/eps),max=2*(1-eps))
-
-            reward_loss= -reward+reward.square()/(4*alpha)
-        else:
-            reward_loss = -reward
-
-        entropy =entropy[state_mask].mean()
-
-        adv=(current_Q-current_V)
+        adv=(current_Q-current_V)[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
         current_V=current_V[state_mask]
 
-        #target_next_v=((1 - done) * self.gamma * next_v)[action_mask]
+        entropy =entropy[state_mask]
 
         next_V=next_V[action_mask]
 
         current_target_V=current_target_V[state_mask]
 
+        action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
+
         self.log("train/"+key+"_V", current_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_adv", adv[state_action_mask].mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_entropy", entropy.item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_adv", adv.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
 
-
-        return  reward,reward_loss, state_action_mask,action_logprob,entropy,current_V,current_Q,next_V,current_target_V
+        return  reward,current_V,current_Q,next_V,current_target_V,action_logprob
 
     def collect_agent(self,num_graphs):
 
@@ -239,9 +238,9 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_reward_loss, expert_valid,expert_logprob,_,expert_V ,expert_Q,expert_next_V,expert_current_target_V= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_target_V,expert_logprob= self.get_QV(tokenized_map, tokenized_agent)
 
-        expert_nll=-expert_logprob[expert_valid].mean()
+        expert_nll=-expert_logprob.mean()
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -250,28 +249,26 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-            agent_reward,agent_reward_loss ,agent_valid,_,agent_entropy,agent_V ,agent_Q,agent_next_V,agent_current_target_V= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward,agent_V ,agent_Q,agent_next_V,agent_current_target_V ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            agent_ratio=0
+            # agent_ratio=0
+            #
+            # reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+            #
+            # self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
+            # reward_loss=self.compute_reward_loss(reward)
 
-            reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
-
-            self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
-
-            agent_ratio=1
-
-            reward_mean= (expert_reward.sum()*(1-agent_ratio)+agent_reward.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
-
-            self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
+            # agent_ratio=1
+            #
+            # reward_mean= (expert_reward.sum()*(1-agent_ratio)+agent_reward.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
+            #
+            # self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
 
             #critic_loss=-(expert_reward/alpha).exp().mean()+1/2*(2*agent_reward/alpha).exp().mean()
-            alpha=1
-
-
-
+            # alpha=1
             #critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean()
             # alpha=0.1
             critic_loss=-expert_reward.mean()+agent_reward.mean()#
@@ -362,7 +359,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-4 #self.critic_tau/(self.global_step+1)
+                tau=1e-3 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)
