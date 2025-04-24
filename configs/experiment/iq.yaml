@@ -30,7 +30,7 @@ trainer:
   max_epochs: 16
 
 data:
-  train_batch_size: 38
+  train_batch_size: 37
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 28
