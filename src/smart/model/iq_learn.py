@@ -270,9 +270,9 @@ class IQ_SoftQ(LightningModule):
 
 
 
-            critic_loss=-expert_reward.mean()+agent_reward.mean()#((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean() #((-expert_reward/alpha).exp()+1).log().mean()
+            critic_loss=((-expert_reward/alpha).exp()+1).log().mean()+((agent_reward/alpha).exp()+1).log().mean() #((-expert_reward/alpha).exp()+1).log().mean()
             # alpha=0.1
-            #
+            #-expert_reward.mean()+agent_reward.mean()#
             # critic_loss= (-expert_reward+expert_reward.square()/(4*alpha)).mean()+ (agent_reward+agent_reward.square()/(4*alpha)).mean()
 
             #critic_loss=-expert_reward.mean()+agent_reward.exp().mean()
@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+0.1*(expert_V.square().mean()+agent_V.square().mean() ) #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+10*(expert_V.square().mean()+agent_V.square().mean() ) #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
