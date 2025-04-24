@@ -182,6 +182,8 @@ class IQ_SoftQ(LightningModule):
 
         current_V=current_V[state_mask]
 
+        target_v=((1 - done) * self.gamma * next_v)[action_mask]
+
         next_V=next_v[action_mask]
 
         self.log("train/"+key+"_V", current_V.mean().item(), on_step=True, batch_size=1)
@@ -193,7 +195,8 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy,current_V,current_Q,next_V
+
+        return  reward,reward_loss,value_loss, state_action_mask,action_logprob,entropy,current_V,current_Q,target_v
 
     def collect_agent(self,num_graphs):
 
@@ -290,7 +293,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )
-            constraint_loss=-agent_next_V.mean() #expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
+            constraint_loss=expert_next_V.mean()-agent_next_V.mean() #expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
