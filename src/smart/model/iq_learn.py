@@ -288,11 +288,11 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )
-            constraint_loss=(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
+            constraint_loss=expert_V.mean() #(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss#+constraint_loss #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss++constraint_loss #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
