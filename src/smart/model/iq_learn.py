@@ -176,7 +176,6 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[state_mask].mean()
 
-
         adv=(current_Q-current_V)
 
         current_Q=current_Q[state_action_mask]
@@ -186,7 +185,8 @@ class IQ_SoftQ(LightningModule):
         #target_next_v=((1 - done) * self.gamma * next_v)[action_mask]
 
         next_V=next_V[action_mask]
-        current_target_V=current_target_V[action_mask]
+
+        current_target_V=current_target_V[state_mask]
 
         self.log("train/"+key+"_V", current_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
