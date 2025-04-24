@@ -190,7 +190,7 @@ class IQ_SoftQ(LightningModule):
         next_V_diff=next_V-next_target_V
 
         self.log("train/" + key + "_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_NextV_diff", next_target_V[action_mask].mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_NextV_diff", next_target_V.mean().item(), on_step=True, batch_size=1)
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
 
