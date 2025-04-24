@@ -1,0 +1,8 @@
+
+
+sqil
+critic_loss=(expert_reward-1).square().mean()+(agent_reward+1).square().mean()
+
+work poorly:
+
+Q increase
