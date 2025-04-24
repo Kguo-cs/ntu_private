@@ -160,13 +160,13 @@ class IQ_SoftQ(LightningModule):
 
         done[:, -1] = 1
 
-
         if self.use_target_q:
             with torch.no_grad():
                 target_q=self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"]
                 target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
-                next_target_V=target_v[:, 1:]
                 current_target_V = target_v[:, :-1]
+                next_target_V = target_v[:, 1:]
+                self.log("train/" + key + "_TargetV", current_target_V[state_mask].mean().item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_NextTargetV", next_target_V[action_mask].mean().item(), on_step=True, batch_size=1)
             # rewards = current_Q - (1 - done) * self.gamma * next_target_v
             reward = current_Q - (1 - done) * self.gamma * next_V.detach()
@@ -286,9 +286,9 @@ class IQ_SoftQ(LightningModule):
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
-            #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )
-            constraint_loss=(expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() #expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
+            #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
 
+            constraint_loss=2*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             loss =  critic_loss+constraint_loss #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
