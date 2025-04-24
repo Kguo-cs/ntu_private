@@ -183,9 +183,10 @@ class IQ_SoftQ(LightningModule):
 
         current_target_V = target_v[:, :-1][state_mask]
 
-        next_target_V = target_v[:, 1:][state_mask]
+        next_target_V = target_v[:, 1:][action_mask]
 
         current_V_diff=current_V-current_target_V
+
         next_V_diff=next_V-next_target_V
 
         self.log("train/" + key + "_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
