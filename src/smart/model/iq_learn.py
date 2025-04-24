@@ -164,10 +164,6 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q=self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"]
                 target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
-                current_target_V = target_v[:, :-1]
-                next_target_V = target_v[:, 1:]
-                self.log("train/" + key + "_TargetV", current_target_V[state_mask].mean().item(), on_step=True, batch_size=1)
-                self.log("train/" + key + "_NextTargetV", next_target_V[action_mask].mean().item(), on_step=True, batch_size=1)
             # rewards = current_Q - (1 - done) * self.gamma * next_target_v
             reward = current_Q - (1 - done) * self.gamma * next_V.detach()
         else:
@@ -185,7 +181,15 @@ class IQ_SoftQ(LightningModule):
 
         next_V=next_V[action_mask]
 
-        current_target_V=current_target_V[state_mask]
+        current_target_V = target_v[:, :-1][state_mask]
+
+        next_target_V = target_v[:, 1:][state_mask]
+
+        current_V_diff=current_V-current_target_V
+        next_V_diff=next_V-next_target_V
+
+        self.log("train/" + key + "_TargetV_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_NextTargetV_diff", next_target_V[action_mask].mean().item(), on_step=True, batch_size=1)
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
 
@@ -196,7 +200,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,current_target_V,action_logprob
+        return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,action_logprob
 
     def collect_agent(self,num_graphs):
 
@@ -238,7 +242,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_target_V,expert_logprob= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_V_diff,expert_current_next_V_diff,expert_logprob= self.get_QV(tokenized_map, tokenized_agent)
 
         expert_nll=-expert_logprob.mean()
 
@@ -249,7 +253,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-            agent_reward,agent_V ,agent_Q,agent_next_V,agent_current_target_V ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward,agent_V ,agent_Q,agent_next_V,agent_current_V_diff,agent_current_next_V_diff ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
             # agent_ratio=0
             #
@@ -287,8 +291,9 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
+            constraint_loss=10*(expert_current_V_diff.square().mean()+agent_current_next_V_diff.square().mean() )
 
-            constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
+            #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             loss =  critic_loss+constraint_loss #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
@@ -359,7 +364,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-3 #self.critic_tau/(self.global_step+1)
+                tau=1e-4 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)
