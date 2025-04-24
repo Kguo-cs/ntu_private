@@ -274,7 +274,7 @@ class IQ_SoftQ(LightningModule):
             # alpha=0.1
             #-expert_reward.mean()+agent_reward.mean()#
             # critic_loss= (-expert_reward+expert_reward.square()/(4*alpha)).mean()+ (agent_reward+agent_reward.square()/(4*alpha)).mean()
-            critic_loss=torch.sigmoid_(-expert_reward).mean()+torch.sigmoid_(-expert_reward).mean() #((-expert_reward/alpha).exp()+1).log().mean()
+            critic_loss=torch.sigmoid_(-expert_reward).mean()+torch.sigmoid_(agent_reward).mean() #((-expert_reward/alpha).exp()+1).log().mean()
 
             #critic_loss=-expert_reward.mean()+agent_reward.exp().mean()
             # critic_loss=-expert_reward.mean()+1/2*agent_reward.square().mean()
