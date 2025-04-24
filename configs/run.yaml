@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: BCE_notarget1e4_SnextV_movingV1e4  #1exp1Vclip  #2SVclip #1exp2V #_drop0_rollout1_maxlen1 #Q01_01BC_mymatchx2_1e2_soft0005_32_min1e4rkl1_clip
+task_name: RKL_notarget1e4_SnextV_movingV1e4  #1exp1Vclip  #2SVclip #1exp2V #_drop0_rollout1_maxlen1 #Q01_01BC_mymatchx2_1e2_soft0005_32_min1e4rkl1_clip
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
