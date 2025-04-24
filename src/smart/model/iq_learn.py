@@ -185,8 +185,8 @@ class IQ_SoftQ(LightningModule):
 
         next_V_diff=next_V-next_target_V
 
-        self.log("train/" + key + "_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_NextV_diff", next_V_diff.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_V_diff", current_V_diff.abs().mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_NextV_diff", next_V_diff.abs().mean().item(), on_step=True, batch_size=1)
 
         action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
 
@@ -288,7 +288,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=0.1*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
+            constraint_loss=(expert_current_V_diff.abs().mean()+agent_current_V_diff.abs().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
