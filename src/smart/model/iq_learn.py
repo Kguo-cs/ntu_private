@@ -176,7 +176,6 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[state_mask].mean()
 
-        value_loss=(current_V-next_v)[state_action_mask]
 
         adv=(current_Q-current_V)
 
@@ -195,7 +194,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_entropy", entropy.item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward_loss", reward_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
 
 
