@@ -286,7 +286,7 @@ class IQ_SoftQ(LightningModule):
                 critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()+agent_reward.mean()
             elif div=='kl':
                 expert_reward = torch.clamp_min(expert_reward, min=alpha * eps)
-                critic_loss = -alpha * ((expert_reward / alpha).log() + 1)+agent_reward.mean()
+                critic_loss = -alpha * ((expert_reward / alpha).log().mean() + 1)+agent_reward.mean()
             elif div=='js':
                 expert_reward = torch.clamp_min(expert_reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
                 critic_loss = -(2 - (-expert_reward / alpha).exp()).log().mean()+agent_reward.mean()
