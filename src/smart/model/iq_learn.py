@@ -161,7 +161,7 @@ class IQ_SoftQ(LightningModule):
                 target_q=self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"]
                 target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
             # rewards = current_Q - (1 - done) * self.gamma * next_target_v
-            reward = current_Q - (1 - done) * self.gamma * next_V#.detach()
+            reward = current_Q - (1 - done) * self.gamma * target_v #next_V#.detach()
         else:
             reward = current_Q - (1 - done) * self.gamma * next_V.detach()
 
