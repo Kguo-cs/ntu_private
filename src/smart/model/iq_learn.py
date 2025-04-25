@@ -124,23 +124,23 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        pred_dict = self.encoder(tokenized_map, tokenized_agent)
+        q_value = self.encoder(tokenized_map, tokenized_agent)["q_value"]
 
-        q_value =pred_dict["q_value"]
+        v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
         q = q_value[:, :-1]
 
         pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+
         logpi= torch.log(pi + 1e-10)
+
         entropy = -torch.sum(pi * logpi, dim=-1)
 
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-        v=  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-
-        current_V = v[:, :-1]
+        current_V = v_value[:, :-1]
 
         valid_mask = tokenized_agent["valid_mask"]
 
@@ -150,7 +150,7 @@ class IQ_SoftQ(LightningModule):
 
         state_action_mask = action_mask & state_mask
 
-        next_V = v[:, 1:]
+        next_V = v_value[:, 1:]
 
         done = torch.zeros_like(next_V)
 
@@ -288,7 +288,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=50*(expert_current_next_V_diff.square().mean()+agent_current_next_V_diff.square().mean() )
+            constraint_loss=20*(expert_current_next_V_diff.square().mean()+agent_current_next_V_diff.square().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
