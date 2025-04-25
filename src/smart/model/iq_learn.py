@@ -31,7 +31,7 @@ class IQ_SoftQ(LightningModule):
 
         self.reward_w = 1
         self.use_target_q=True
-        self.soft_update=True
+        self.soft_update=False
 
         self.rollout_freq=1
         self.target_net = SMARTDecoder(
@@ -45,7 +45,7 @@ class IQ_SoftQ(LightningModule):
                 self.critic_tau = 1
                 self.critic_target_update_frequency = 1
             else:
-                self.critic_target_update_frequency = 100
+                self.critic_target_update_frequency = 1
 
     def rollout(self, tokenized_map, tokenized_agent):
         pred = self.encoder.inference(
@@ -267,9 +267,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='lsif'
-
-            alpha=1
+            div='bce'
 
             if div=="lsif":
                 critic_loss=-expert_reward.exp().mean()+1/2*(2*agent_reward).exp().mean()
