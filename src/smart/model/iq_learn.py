@@ -162,7 +162,7 @@ class IQ_SoftQ(LightningModule):
                 target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
                 next_target_V = target_v[:, 1:]
             # rewards = current_Q - (1 - done) * self.gamma * next_target_v
-            reward = current_Q - (1 - done) * self.gamma * next_V.detach() #next_V#
+            reward = current_Q - (1 - done) * self.gamma * next_V #.detach() #next_V#
         else:
             reward = current_Q - (1 - done) * self.gamma * next_V.detach()
 
@@ -273,7 +273,7 @@ class IQ_SoftQ(LightningModule):
             if div=="lsif":
                 critic_loss=-expert_reward.exp().mean()+1/2*(2*agent_reward).exp().mean()
             elif div == 'bce':
-                critic_loss=((-expert_reward/10).exp()+1).log().mean()+((agent_reward/10).exp()+1).log().mean()
+                critic_loss=((-expert_reward/1).exp()+1).log().mean()+((agent_reward/1).exp()+1).log().mean()
             elif div=='ukl':
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
             elif div=='rkl':
