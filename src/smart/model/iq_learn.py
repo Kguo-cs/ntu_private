@@ -240,7 +240,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_V_diff,expert_current_next_V_diff,expert_logprob= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_V_diff,expert_next_V_diff,expert_logprob= self.get_QV(tokenized_map, tokenized_agent)
 
         expert_nll=-expert_logprob.mean()
 
@@ -251,7 +251,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-            agent_reward,agent_V ,agent_Q,agent_next_V,agent_current_V_diff,agent_current_next_V_diff ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward,agent_V ,agent_Q,agent_next_V,agent_current_V_diff,agent_next_V_diff ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
             # agent_ratio=0
             #
@@ -289,7 +289,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=2*(expert_current_next_V_diff.square().mean()+agent_current_next_V_diff.square().mean() )
+            constraint_loss=2*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
