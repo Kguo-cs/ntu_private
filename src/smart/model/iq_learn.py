@@ -162,7 +162,7 @@ class IQ_SoftQ(LightningModule):
                 target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
                 next_target_V = target_v[:, 1:]
             # rewards = current_Q - (1 - done) * self.gamma * next_target_v
-            reward = current_Q - (1 - done) * self.gamma * next_V #.detach() #next_V#
+            reward = current_Q - (1 - done) * self.gamma * next_V.detach() #next_V#
         else:
             reward = current_Q - (1 - done) * self.gamma * next_V.detach()
 
