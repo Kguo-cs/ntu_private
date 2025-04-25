@@ -268,7 +268,9 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='bce'
+            div='js'
+            alpha=1
+            eps=1e-3
 
             if div=="lsif":
                 critic_loss=-expert_reward.exp().mean()+1/2*(2*agent_reward).exp().mean()
@@ -282,6 +284,10 @@ class IQ_SoftQ(LightningModule):
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
                 critic_loss= (-expert_reward +expert_reward.square()/4).mean()+agent_reward.mean()
+            elif div=='js':
+                alpha = 1
+                expert_reward = torch.clamp_min(expert_reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
+                critic_loss = -(2 - (-expert_reward / alpha).exp()).log().mean()+agent_reward.mean()
             else:
                 critic_loss=0
 
@@ -289,7 +295,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=10*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
+            constraint_loss=2*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
