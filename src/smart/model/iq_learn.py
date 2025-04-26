@@ -27,13 +27,13 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=1)
+            self.replay_buffer = deque(maxlen=100)
 
         self.reward_w = 1
         self.use_target_q=True
         self.soft_update=True
 
-        self.rollout_freq=1
+        self.rollout_freq=10
         self.target_net = SMARTDecoder(
             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
         )
@@ -302,7 +302,7 @@ class IQ_SoftQ(LightningModule):
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss =  expert_nll+critic_loss+constraint_loss #.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+constraint_loss #expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
