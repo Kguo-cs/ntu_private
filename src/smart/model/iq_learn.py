@@ -27,13 +27,13 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=100)
+            self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
         self.use_target_q=True
         self.soft_update=True
 
-        self.rollout_freq=10
+        self.rollout_freq=1
         self.target_net = SMARTDecoder(
             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
         )
@@ -370,7 +370,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-4 #self.critic_tau/(self.global_step+1)
+                tau=1e-3 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)
