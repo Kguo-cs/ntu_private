@@ -17,7 +17,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.gamma = 0.99
+        self.gamma = 0.8
         self.alpha = self.encoder.agent_encoder.alpha
 
         self.logsoftmax = nn.LogSoftmax(dim=-1)
@@ -370,7 +370,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-5 #self.critic_tau/(self.global_step+1)
+                tau=1e-4 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)
