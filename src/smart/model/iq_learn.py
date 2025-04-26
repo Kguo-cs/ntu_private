@@ -151,6 +151,14 @@ class IQ_SoftQ(LightningModule):
 
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
+        valid_mask = tokenized_agent["valid_mask"]
+
+        state_mask=valid_mask[:, 1:-1]
+
+        action_mask= valid_mask[:, 2:]
+
+        state_action_mask = action_mask & state_mask
+
         q,current_Q,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action)
 
         with torch.no_grad():
@@ -160,17 +168,9 @@ class IQ_SoftQ(LightningModule):
 
         logpi= torch.log(pi + 1e-10)
 
-        action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
+        action_nll = -logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask].mean()
 
         entropy = -torch.sum(pi * logpi, dim=-1)
-
-        valid_mask = tokenized_agent["valid_mask"]
-
-        state_mask=valid_mask[:, 1:-1]
-
-        action_mask= valid_mask[:, 2:]
-
-        state_action_mask = action_mask & state_mask
 
         reward = reward[state_action_mask]
 
@@ -195,7 +195,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_NextV_diff", next_V_diff.abs().mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_reward_diff", reward_diff.abs().mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,action_logprob
+        return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,action_nll
 
     def collect_agent(self,num_graphs):
 
@@ -237,9 +237,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_V_diff,expert_next_V_diff,expert_logprob= self.get_QV(tokenized_map, tokenized_agent)
-
-        expert_nll=-expert_logprob.mean()
+        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_V_diff,expert_next_V_diff,expert_nll= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
