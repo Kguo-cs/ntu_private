@@ -122,25 +122,47 @@ class IQ_SoftQ(LightningModule):
         return reward_loss
 
 
-    def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
+    def get_network_QV(self,network,tokenized_map, tokenized_agent,action):
 
-        q_value = self.encoder(tokenized_map, tokenized_agent)["q_value"]
+        q_value = network(tokenized_map, tokenized_agent)["q_value"]
 
         v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
         q = q_value[:, :-1]
 
-        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
-
-        logpi= torch.log(pi + 1e-10)
-
-        entropy = -torch.sum(pi * logpi, dim=-1)
-
-        action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         current_V = v_value[:, :-1]
+
+        next_V = v_value[:, 1:]
+
+        done = torch.zeros_like(next_V)
+
+        done[:, -1] = 1
+
+        next_V = (1 - done) * next_V
+
+        reward = current_Q - self.gamma * next_V.detach()  # next_V#
+
+        return q,current_Q,current_V,next_V,reward
+
+    def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
+
+        action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
+
+        q,current_Q,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action)
+
+        with torch.no_grad():
+            target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action)
+
+        pi = torch.softmax(q / self.alpha, dim=-1)  # Compute policy
+
+        logpi= torch.log(pi + 1e-10)
+
+        action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
+
+        entropy = -torch.sum(pi * logpi, dim=-1)
 
         valid_mask = tokenized_agent["valid_mask"]
 
@@ -150,25 +172,7 @@ class IQ_SoftQ(LightningModule):
 
         state_action_mask = action_mask & state_mask
 
-        next_V = v_value[:, 1:]
-
-        done = torch.zeros_like(next_V)
-
-        done[:, -1] = 1
-
-        if self.use_target_q:
-            with torch.no_grad():
-                target_q=self.target_net(tokenized_map, tokenized_agent,kl_loss=False)["q_value"]
-                target_v = self.alpha * torch.logsumexp(target_q / self.alpha, dim=-1, keepdim=False)
-                next_target_V = target_v[:, 1:]
-            # rewards = current_Q - (1 - done) * self.gamma * next_target_v
-            reward = current_Q - (1 - done) * self.gamma * next_V #.detach() #next_V#
-        else:
-            reward = current_Q - (1 - done) * self.gamma * next_V.detach()
-
         reward = reward[state_action_mask]
-
-        adv=(current_Q-current_V)[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
@@ -176,27 +180,20 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[state_mask]
 
-        next_V=( (1 - done) * next_V)[action_mask]
+        current_V_diff=current_V-target_current_V[state_mask]
 
-        current_target_V = target_v[:, :-1][state_mask]
+        next_V_diff=next_V-target_next_V[action_mask]
 
-        next_target_V =  ((1 - done) * next_target_V)[action_mask]
-
-        current_V_diff=current_V-current_target_V
-
-        next_V_diff=next_V-next_target_V
-
-        self.log("train/" + key + "_V_diff", current_V_diff.abs().mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_NextV_diff", next_V_diff.abs().mean().item(), on_step=True, batch_size=1)
-
-        action_logprob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask]
+        reward_diff=reward-target_reward[state_action_mask]
 
         self.log("train/"+key+"_V", current_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_adv", adv.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_V_diff", current_V_diff.abs().mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_NextV_diff", next_V_diff.abs().mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_reward_diff", reward_diff.abs().mean().item(), on_step=True, batch_size=1)
 
         return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,action_logprob
 
@@ -279,7 +276,7 @@ class IQ_SoftQ(LightningModule):
             elif div=='ukl':
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
             elif div=='rkl':
-                critic_loss= alpha *(-expert_reward / alpha  - 1).exp().mean()+agent_reward.mean()
+                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_reward.mean()#- 1
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
@@ -297,7 +294,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=10*(expert_next_V_diff.square().mean()+agent_next_V_diff.square().mean() )
+            constraint_loss=10*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
