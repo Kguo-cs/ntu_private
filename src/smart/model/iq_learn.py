@@ -17,7 +17,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.gamma = 0.99
+        self.gamma = 0
         self.alpha = self.encoder.agent_encoder.alpha
 
         self.logsoftmax = nn.LogSoftmax(dim=-1)
@@ -302,7 +302,7 @@ class IQ_SoftQ(LightningModule):
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+constraint_loss #expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+0*constraint_loss #expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
