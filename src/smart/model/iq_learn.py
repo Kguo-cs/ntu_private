@@ -130,7 +130,6 @@ class IQ_SoftQ(LightningModule):
 
         q = q_value[:, :-1]
 
-
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         current_V = v_value[:, :-1]
@@ -195,7 +194,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_NextV_diff", next_V_diff.abs().mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_reward_diff", reward_diff.abs().mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,action_nll
+        return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,reward_diff,action_nll
 
     def collect_agent(self,num_graphs):
 
@@ -237,7 +236,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V ,expert_Q,expert_next_V,expert_current_V_diff,expert_next_V_diff,expert_nll= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_V,expert_Q,expert_next_V,expert_current_V_diff,expert_next_V_diff,expert_reward_diff,expert_nll= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -246,7 +245,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-            agent_reward,agent_V ,agent_Q,agent_next_V,agent_current_V_diff,agent_next_V_diff ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward,agent_V,agent_Q,agent_next_V,agent_current_V_diff,agent_next_V_diff,agent_reward_diff ,_= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
             # agent_ratio=0
             #
@@ -274,7 +273,7 @@ class IQ_SoftQ(LightningModule):
             elif div=='ukl':
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
             elif div=='rkl':
-                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_reward.mean()#- 1
+                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_reward.mean()- 1
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
@@ -292,7 +291,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=0*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )
+            constraint_loss=1*(expert_reward_diff.square().mean()+agent_reward_diff.square().mean() )
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
