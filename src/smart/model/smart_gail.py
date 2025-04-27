@@ -42,7 +42,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
     def configure_optimizers(self):
         optimizer1 = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
-        optimizer2 = torch.optim.AdamW(self.target_net.parameters(), lr=self.lr/100)
+        optimizer2 = torch.optim.SGD(self.target_net.parameters(), lr=self.lr/100)
 
         return [optimizer1, optimizer2]
 
