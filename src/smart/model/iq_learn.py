@@ -164,6 +164,8 @@ class IQ_SoftQ(LightningModule):
         with torch.no_grad():
             target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action)
 
+        reward = current_Q - self.gamma * target_next_V  # next_V#
+
         pi = torch.softmax(q / self.alpha, dim=-1)
 
         logpi= torch.log(pi + 1e-10)
@@ -266,7 +268,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='kl'
+            div='rkl'
             alpha=1
             eps=1e-3
 
