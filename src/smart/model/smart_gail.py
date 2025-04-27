@@ -40,11 +40,11 @@ class SMART_IQ(IQ_SoftQ, SMART):
         IQ_SoftQ.__init__(self, model_config)  # Explicit call
 
 
-    def configure_optimizers(self):
-        optimizer1 = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
-        optimizer2 = torch.optim.AdamW(self.target_net.parameters(), lr=self.lr/10000)
-
-        return [optimizer1, optimizer2]
+    # def configure_optimizers(self):
+    #     optimizer1 = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+    #     optimizer2 = torch.optim.AdamW(self.target_net.parameters(), lr=self.lr/10000)
+    #
+    #     return [optimizer1, optimizer2]
 
 
 
