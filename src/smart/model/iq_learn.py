@@ -37,7 +37,7 @@ class IQ_SoftQ(LightningModule):
         self.target_net = SMARTDecoder(
             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
         )
-        #self.target_net.load_state_dict(self.encoder.state_dict())
+        self.target_net.load_state_dict(self.encoder.state_dict())
 
         self.automatic_optimization=False
 
