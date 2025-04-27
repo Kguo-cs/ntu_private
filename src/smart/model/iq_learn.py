@@ -303,7 +303,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_ratio", constraint_ratio.item(), on_step=True, batch_size=1)
 
-            constraint_loss=constraint_ratio.detach()*0.05*constraint_loss
+            constraint_loss=constraint_ratio.detach()*0.02*constraint_loss
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
