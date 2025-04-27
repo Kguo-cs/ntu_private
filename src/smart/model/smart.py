@@ -243,7 +243,7 @@ class SMART(LightningModule):
                     self.wosac_submission.save_sub_file()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr,weight_decay=0.1)
 
         def lr_lambda(current_step):
             current_step = self.current_epoch + 1
