@@ -39,7 +39,7 @@ class IQ_SoftQ(LightningModule):
         )
         self.target_net.load_state_dict(self.encoder.state_dict())
 
-        self.automatic_optimization=False
+        #self.automatic_optimization=False
 
         if self.reward_w and self.use_target_q:
 
@@ -161,8 +161,8 @@ class IQ_SoftQ(LightningModule):
 
         q,current_Q,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action)
 
-        # with torch.no_grad():
-        target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action)
+        with torch.no_grad():
+            target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action)
 
         pi = torch.softmax(q / self.alpha, dim=-1)
 
@@ -266,7 +266,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='rkl'
+            div='kl'
             alpha=1
             eps=1e-3
 
@@ -306,8 +306,6 @@ class IQ_SoftQ(LightningModule):
             # constraint_loss=constraint_ratio.detach()*0.02*constraint_loss
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
-
-
 
             loss =  critic_loss+constraint_loss #expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
@@ -374,20 +372,20 @@ class IQ_SoftQ(LightningModule):
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
         # Get the optimizers
-        opt1, opt2 = self.optimizers()
-        opt1.zero_grad()
-        opt2.zero_grad()
-        self.manual_backward(loss)
-        opt1.step()
-        opt2.step()
+        # opt1, opt2 = self.optimizers()
+        # opt1.zero_grad()
+        # opt2.zero_grad()
+        # self.manual_backward(loss)
+        # opt1.step()
+        # opt2.step()
 
-        # if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
-        #
-        #     if self.soft_update:
-        #         tau=1e-4 #self.critic_tau/(self.global_step+1)
-        #         soft_update(self.encoder,self.target_net,tau)
-        #     else:
-        #         hard_update(self.encoder,self.target_net)
+        if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
+
+            if self.soft_update:
+                tau=1e-4 #self.critic_tau/(self.global_step+1)
+                soft_update(self.encoder,self.target_net,tau)
+            else:
+                hard_update(self.encoder,self.target_net)
 
         return loss
 
