@@ -39,6 +39,8 @@ class IQ_SoftQ(LightningModule):
         )
         self.target_net.load_state_dict(self.encoder.state_dict())
 
+        self.automatic_optimization=False
+
         if self.reward_w and self.use_target_q:
 
             if self.soft_update:
@@ -297,7 +299,7 @@ class IQ_SoftQ(LightningModule):
 
             #constraint_loss=2*(torch.clamp_min(expert_V,min=0).square().mean()+torch.clamp_max(agent_V,max=0).square().mean() )
             #constraint_loss=0.5*((expert_V/2).exp().mean()+(-agent_V/2).exp().mean() )#expert_next_V.mean()(torch.clamp_min(expert_V,min=0).exp().mean()+torch.clamp_min(-agent_V,min=0).exp().mean() )
-            constraint_loss=10*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)
+            constraint_loss=(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             #constraint_loss=10*((expert_V-expert_current_target_V).square().mean()+(agent_V-agent_current_target_V).square().mean() )
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
@@ -366,6 +368,13 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
+        # Get the optimizers
+        opt1, opt2 = self.optimizers()
+        opt1.zero_grad()
+        opt2.zero_grad()
+        self.manual_backward(loss)
+        opt1.step()
+        opt2.step()
 
         # if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
         #
