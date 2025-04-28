@@ -148,58 +148,6 @@ class RolloutBuffer:
         self.dones = []
         self.returns = []
 
-    def get_reward(self, discriminator):
-        with torch.no_grad():
-            state_tensor = torch.FloatTensor(self.states[:-1])  # .cuda()
-            action_tensor = torch.FloatTensor(self.actions).to(torch.int)  # .cuda()
-            rewards = torch.log(discriminator(state_tensor, action_tensor))  # GAIL reward
-
-            #  self.size=4
-            #  actions = torch.tensor([(0, 1), (1, 0), (0, -1), (-1, 0)] )
-            #  self.goal=torch.tensor([4,4])
-            #
-            # # next_state=state_tensor + actions[action_tensor]
-            #
-            #  dist_to_goal=torch.linalg.norm(state_tensor-self.goal,dim=-1)
-            #
-            #  rewards=dist_to_goal[:-1]-dist_to_goal[1:]
-            #
-            # rewards=torch.linalg.norm(next_state-self.goal,dim=-1)-torch.linalg.norm(state_tensor-self.goal,dim=-1)
-
-            # actions = torch.tensor([(0, 1), (1, 0), (0, -1), (-1, 0), (0, 0)])
-            # rewards=[]
-            # for  i in range(len(state_tensor)):
-            #     if (state_tensor[i]==torch.zeros([2])).all() and action_tensor[i]==4:
-            #         rewards.append(0)
-            #     elif action_tensor[i] ==torch.argmin(torch.linalg.norm(state_tensor[i][None]+actions-torch.tensor([[size-1,size-1]]),dim=-1)):
-            #         rewards.append(0)
-            #     else:
-            #         rewards.append(-1)
-            #
-            # rewards=torch.tensor(rewards)
-            self.rewards = rewards.squeeze()  # .tolist()
-
-    def compute_returns(self, gamma=0.99, gae_lambda=0.95):
-        gae = 0
-        for step in reversed(range(len(self.rewards))):
-            delta = (
-                    self.rewards[step]
-                    + gamma * self.values[step + 1] * (1 - self.dones[step])
-                    - self.values[step]
-            )
-            gae = (
-                    delta
-                    + gamma * gae_lambda * (1 - self.dones[step]) * gae
-            )
-            self.returns.insert(0, gae + self.values[step])
-
-        self.returns = torch.tensor(self.returns)
-
-    def compute_advantages(self, ):
-        self.advantages = torch.tensor(self.returns) - torch.tensor(self.values[:-1])
-        # Normalize the advantages
-        # self.advantages =(self.advantages - self.advantages.mean()) / (self.advantages.std() + 1e-5)
-
     def sample(self):
         return {"state": torch.FloatTensor(self.states[:-1]),
                 "action": torch.FloatTensor(self.actions).to(torch.int),
@@ -242,9 +190,9 @@ buffer = RolloutBuffer()
 q_net = True
 
 
-class PPO(pl.LightningModule):
+class IQ(pl.LightningModule):
     def __init__(self):
-        super(PPO, self).__init__()
+        super(IQ, self).__init__()
         state_dim = 3  # Grid coordinates
         action_dim = 5  # Four possible actions
 
@@ -258,7 +206,6 @@ class PPO(pl.LightningModule):
         self.critic_target_update_frequency = 1
         self.gamma = 0.99
 
-        self.automatic_optimization = False
         self.alpha = 0.1  # 0.5
 
     def rollout(self, q_net):
@@ -376,7 +323,7 @@ class PPO(pl.LightningModule):
 
         return critic_loss
 
-    def iq_update(self, critic_optimizer):
+    def iq_update(self):
 
         expert_idx = random.randint(0, len(expert_trajs) - 1)
 
@@ -406,14 +353,10 @@ class PPO(pl.LightningModule):
 
         critic_loss = self.get_iq_loss(batch)
 
-        critic_optimizer.zero_grad()
-        critic_loss.backward()
-        # step critic
-        critic_optimizer.step()
 
-        # if self.global_step % self.critic_target_update_frequency == 0:
-        #     self.soft_update(self.q_net, self.target_net,
-        #                 self.critic_tau)
+        return critic_loss
+
+
 
     def soft_update(self, net, target_net, tau):
         for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -422,12 +365,11 @@ class PPO(pl.LightningModule):
 
     # GAIL Training
     def training_step(self, batch):
-        policy_optimizer, discriminator_optimizer, critic_optimizer = self.optimizers()
 
         with torch.no_grad():
             self.rollout(q_net=q_net)
 
-        self.iq_update(critic_optimizer)
+        loss=self.iq_update()
 
         if self.global_step % 100 == 0:
             with torch.no_grad():
@@ -444,7 +386,10 @@ class PPO(pl.LightningModule):
                 self.log("train/state_mse_loss", state_mse_loss, on_step=True, batch_size=1)
                 # poilicy_vst = torch.round(poilicy_vst * 10) / 10  # Round to 1 decimal place
 
-                # print(poilicy_vst.sum())
+        if self.global_step % self.critic_target_update_frequency == 0:
+            self.soft_update(self.q_net, self.target_net,
+                             self.critic_tau)
+        return loss
 
     def compute_visitation_frequencies(self, horizon=16):
         """
@@ -511,16 +456,11 @@ class PPO(pl.LightningModule):
         return d_total
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
-        policy_optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
-        discriminator_optimizer = optim.Adam(self.discriminator.parameters(),
-                                             lr=1e-3)  # discriminator lr should be bigger
-        critic_optimizer = optim.Adam(self.q_net.parameters(), lr=1e-3)
-        return [policy_optimizer, discriminator_optimizer, critic_optimizer], []
+        critic_optimizer=optim.Adam(self.q_net.parameters(),lr=1e-3)
+        return critic_optimizer
 
 
-# ppo is learning rate sensitive. no advantage normalization
-#
-ppo = PPO()
+iq = IQ()
 
 # Initialize TensorBoard logger
 logger = TensorBoardLogger(save_dir='/home/ke/code/catk/src/logs', name='tv_alpha01')  # _1e3
@@ -531,10 +471,10 @@ logger = TensorBoardLogger(save_dir='/home/ke/code/catk/src/logs', name='tv_alph
 
 # Initialize the Trainer and start training
 trainer = pl.Trainer(logger=logger, accelerator='cpu', max_epochs=1, log_every_n_steps=10)
-trainer.fit(ppo)
+trainer.fit(iq)
 
 
-# ppo.train_rl()  # Manual RL training
+# iq.train_rl()  # Manual RL training
 
 def visualize_policy(env, num_episodes=100):
     visitation_counts = np.zeros((env.size, env.size))
@@ -556,9 +496,9 @@ def visualize_policy(env, num_episodes=100):
             visitation_counts[state] += 1
             state_tensor = torch.FloatTensor([sample, state[0], state[1]]).unsqueeze(0)
             if q_net:
-                pred_logit = ppo.q_net(state_tensor) / ppo.alpha
+                pred_logit = iq.q_net(state_tensor) / iq.alpha
             else:
-                pred_logit = ppo.policy(state_tensor)[0]
+                pred_logit = iq.policy(state_tensor)[0]
             dist = Categorical(logits=pred_logit)
             action = dist.sample().detach().numpy()[0]
             next_state, _, done = env.step(action)
@@ -574,9 +514,9 @@ def visualize_policy(env, num_episodes=100):
             state = (i, j)
             state_tensor = torch.FloatTensor([sample, state[0], state[1]]).unsqueeze(0)
             if q_net:
-                pred_logit = ppo.q_net(state_tensor) / ppo.alpha
+                pred_logit = iq.q_net(state_tensor) / iq.alpha
             else:
-                pred_logit, state_value = ppo.policy(state_tensor)
+                pred_logit, state_value = iq.policy(state_tensor)
 
             action_prob = torch.softmax(pred_logit, dim=1).detach().numpy()[0]
 
@@ -607,9 +547,9 @@ def visualize_policy(env, num_episodes=100):
             state = (i, j)
             state_tensor = torch.FloatTensor([sample, state[0], state[1]]).unsqueeze(0)
             if q_net:
-                pred_logit = ppo.q_net(state_tensor) / ppo.alpha
+                pred_logit = iq.q_net(state_tensor) / iq.alpha
             else:
-                pred_logit, state_value = ppo.policy(state_tensor)
+                pred_logit, state_value = iq.policy(state_tensor)
 
             action_prob = torch.softmax(pred_logit, dim=1).detach().numpy()[0]
 

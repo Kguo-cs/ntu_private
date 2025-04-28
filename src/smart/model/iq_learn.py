@@ -137,7 +137,9 @@ class IQ_SoftQ(LightningModule):
 
         next_V = v_value[:, 1:]
 
-        done = ~action_mask#torch.zeros_like(next_V)
+        done = torch.zeros_like(next_V)
+
+        done[~action_mask] = 1
 
         done[:, -1] = 1
 
