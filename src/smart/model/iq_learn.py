@@ -268,7 +268,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='rkl'
+            div='sqil'
             alpha=1
             eps=1e-3
 
@@ -297,7 +297,7 @@ class IQ_SoftQ(LightningModule):
                 # expert_reward = torch.clamp_min(expert_reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
                 #critic_loss = -(2 - (-expert_reward / alpha).exp()).log().mean()+agent_reward.mean()
             else:
-                critic_loss=0
+                critic_loss=(expert_reward-1 ).square().mean()+(agent_reward+1).square().mean()
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
@@ -311,7 +311,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+constraint_loss #expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss#+constraint_loss #expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
@@ -386,7 +386,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-3 #self.critic_tau/(self.global_step+1)
+                tau=1e-4 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)
