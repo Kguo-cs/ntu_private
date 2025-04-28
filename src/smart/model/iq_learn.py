@@ -123,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
         return reward_loss
 
-    def get_network_QV(self,network,tokenized_map, tokenized_agent,action):
+    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,action_mask):
 
         q_value = network(tokenized_map, tokenized_agent)["q_value"]
 
@@ -137,7 +137,7 @@ class IQ_SoftQ(LightningModule):
 
         next_V = v_value[:, 1:]
 
-        done = torch.zeros_like(next_V)
+        done = ~action_mask#torch.zeros_like(next_V)
 
         done[:, -1] = 1
 
@@ -153,16 +153,16 @@ class IQ_SoftQ(LightningModule):
 
         valid_mask = tokenized_agent["valid_mask"]
 
-        state_mask=valid_mask[:, 1:-1]
+        state_mask = valid_mask[:, 1:-1]
 
         action_mask= valid_mask[:, 2:]
 
         state_action_mask = action_mask & state_mask
 
-        q,current_Q,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action)
+        q,current_Q,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,action_mask)
 
         with torch.no_grad():
-            target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action)
+            target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
 
         reward = current_Q - self.gamma * target_next_V  # next_V#
 
