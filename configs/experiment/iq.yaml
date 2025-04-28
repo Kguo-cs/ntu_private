@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 1e-6
+    lr: 1e-5
     lr_min_ratio: 1e-2
     token_processor:
       map_token_sampling: # open-loop
