@@ -14,10 +14,11 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import os
 
-print(os.cpu_count())
+size = 10
 
-size = 8
+x_dim = 1000  # Four possible actions
 
+action_dim=x_dim*x_dim
 
 # Define Grid Environment
 class GridEnv:
@@ -26,7 +27,13 @@ class GridEnv:
         self.start = start
         self.goal = (size - 1, size - 1)
         self.state = start
-        self.actions = [(0, 1), (1, 0), (0, -1), (-1, 0), (0, 0)]  # Right, Down, Left, Up
+
+        self.actions=[]
+        for i in range(x_dim):
+            for j in range(x_dim):
+                x=-1+2/(x_dim-1)*i
+                y=-1+2/(x_dim-1)*j
+                self.actions.append([x,y])
 
     def reset(self):
         self.state = self.start
@@ -40,22 +47,11 @@ class GridEnv:
         self.state = next_state
         return next_state, reward, done
 
-    def render(self, policy=None):
-        grid = np.zeros((self.size, self.size))
-        grid[self.goal] = 2  # Goal State
-        grid[self.state] = 1  # Current State
-        plt.imshow(grid, cmap='coolwarm', origin='upper')
-        plt.xticks(range(self.size))
-        plt.yticks(range(self.size))
-        plt.grid()
-        plt.show()
-
-
 # Generate Expert Trajectories
 expert_trajs = []
 
 
-def generate_expert_data(env, episodes=100):
+def generate_expert_data(env, episodes=1):
     global expert_trajs
     expert_trajs = []
     for t in range(episodes):
@@ -63,7 +59,7 @@ def generate_expert_data(env, episodes=100):
         trajectory = []
         # print(random.random())
         if t < 100:
-            for i in range(16):  # Max 16 steps per episode
+            for i in range(size):  # Max 16 steps per episode
                 action = np.argmin(
                     [np.linalg.norm(np.array(env.goal) - np.array((state[0] + a[0], state[1] + a[1]))) for a in
                      env.actions])
@@ -73,16 +69,16 @@ def generate_expert_data(env, episodes=100):
                 if done:
                     break
         else:
-            for _ in range(16):  # Max 16 steps per episode
+            for _ in range(size):  # Max 16 steps per episode
                 trajectory.append(((1, 0, 0), 4))
         expert_trajs.append(trajectory)
 
 
 def visualize_expert_data(env, expert_trajs):
-    expert_grid = np.zeros((env.size, env.size, 5))
+    expert_grid = np.zeros((env.size, env.size,action_dim))
     for traj in expert_trajs:
         for pos, action in traj:
-            expert_grid[pos[1:3]][action] += 1 / len(expert_trajs)
+            expert_grid[int(pos[1]),int(pos[2])][action] += 1 / len(expert_trajs)
     # grid[env.goal] = 2
     # print(grid)
     # print(grid[0][0]/grid.sum())
@@ -90,7 +86,7 @@ def visualize_expert_data(env, expert_trajs):
     grid = np.zeros((env.size, env.size))
     for traj in expert_trajs:
         for pos, action in traj:
-            grid[pos[1:3]] += 1
+            grid[int(pos[1]),int(pos[2])] += 1
     print(grid)
     # plt.imshow(grid, cmap='coolwarm', origin='upper')
     # plt.xticks(range(env.size))
@@ -109,7 +105,7 @@ class RandomNumberDataset(Dataset):
         self.max_val = max_val
 
     def __len__(self):
-        return 3000
+        return 3000#0
 
     def __getitem__(self, idx):
         return 0
@@ -117,8 +113,7 @@ class RandomNumberDataset(Dataset):
 
 env = GridEnv()
 generate_expert_data(env)
-expert_vst = visualize_expert_data(env, expert_trajs).reshape(64, 5)
-
+expert_vst = visualize_expert_data(env, expert_trajs).reshape(env.size*env.size, action_dim)
 
 # Define Rollout Buffer
 class RolloutBuffer:
@@ -163,27 +158,13 @@ class Critic(nn.Module):
     def __init__(self, state_dim, action_dim):
         super().__init__()
         self.fc = nn.Sequential(
-            nn.Linear(state_dim, 32),
+            nn.Linear(state_dim, 256),
             nn.ReLU(),
-            nn.Linear(32, action_dim)
+            nn.Linear(256, action_dim)
         )
 
     def forward(self, state):
         return self.fc(state)
-
-    def get_action(self, state, alpha):
-        state = torch.FloatTensor(state).to(self.device).unsqueeze(0)
-        with torch.no_grad():
-            q = self.fc(state)
-            dist = F.softmax(q / alpha, dim=1)
-            # if sample:
-            dist = Categorical(dist)
-            action = dist.sample()  # if sample else dist.mean
-            # else:
-            #     action = torch.argmax(dist, dim=1)
-
-        return action.detach().cpu().numpy()[0]
-
 
 buffer = RolloutBuffer()
 
@@ -194,7 +175,6 @@ class IQ(pl.LightningModule):
     def __init__(self):
         super(IQ, self).__init__()
         state_dim = 3  # Grid coordinates
-        action_dim = 5  # Four possible actions
 
         self.critic_tau = 1e-4
         # self.log_alpha = torch.tensor(np.log(0.01))
@@ -217,8 +197,8 @@ class IQ(pl.LightningModule):
 
         state = expert_trajs[expert_idx][0][0]
 
-        for i in range(15):
-            state_tensor = torch.FloatTensor(state).unsqueeze(0)  # .cuda()
+        for i in range(size-1):
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).cuda()
 
             if q_net:
                 pred_logit = self.q_net(state_tensor) / self.alpha
@@ -233,7 +213,7 @@ class IQ(pl.LightningModule):
             buffer.add(state, action, 0, log_prob, done, value)  # Reward to be updated later
             state = (state[0], next_state[0], next_state[1])
 
-        state_tensor = torch.FloatTensor(state).unsqueeze(0)  # .cuda()
+        state_tensor = torch.FloatTensor(state).unsqueeze(0).cuda()
 
         if q_net:
             value = 0
@@ -244,7 +224,7 @@ class IQ(pl.LightningModule):
         buffer.states.append(state)  # Reward to be updated later
         buffer.dones[-1] = True
 
-        dist_to_goal = torch.linalg.norm(state_tensor[:, 1:] - torch.tensor([size - 1, size - 1]))  # .cuda())
+        dist_to_goal = torch.linalg.norm(state_tensor[:, 1:] - torch.tensor([size - 1, size - 1]) .cuda()     )
 
         self.log("train/dist_to_goal", dist_to_goal.mean().item(), on_step=True, batch_size=1)
 
@@ -298,7 +278,7 @@ class IQ(pl.LightningModule):
         self.log("train/expert_NextV", y[~is_expert].mean().item(), on_step=True, batch_size=1)
         self.log("train/agent_NextV", y[~is_expert].mean().item(), on_step=True, batch_size=1)
 
-        loss = -expert_reward + agent_reward
+        loss = 10*(-expert_reward + agent_reward)
 
         return loss, loss_dict
 
@@ -341,22 +321,19 @@ class IQ(pl.LightningModule):
 
         expert_batch_done = online_batch_done
 
-        batch_state = torch.cat([online_batch_state, expert_batch_state], dim=0)
+        batch_state = torch.cat([online_batch_state, expert_batch_state], dim=0).cuda()
         batch_next_state = torch.cat(
-            [online_batch_next_state, expert_batch_next_state], dim=0)
-        batch_action = torch.cat([online_batch_action, expert_batch_action], dim=0)
-        batch_done = torch.cat([online_batch_done, expert_batch_done], dim=0)
+            [online_batch_next_state, expert_batch_next_state], dim=0).cuda()
+        batch_action = torch.cat([online_batch_action, expert_batch_action], dim=0).cuda()
+        batch_done = torch.cat([online_batch_done, expert_batch_done], dim=0).cuda()
         is_expert = torch.cat([torch.zeros_like(online_batch_done, dtype=torch.bool),
-                               torch.ones_like(expert_batch_done, dtype=torch.bool)], dim=0)
+                               torch.ones_like(expert_batch_done, dtype=torch.bool)], dim=0).cuda()
 
         batch = (batch_state, batch_next_state, batch_action, batch_done, is_expert)
 
         critic_loss = self.get_iq_loss(batch)
 
-
         return critic_loss
-
-
 
     def soft_update(self, net, target_net, tau):
         for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -371,19 +348,19 @@ class IQ(pl.LightningModule):
 
         loss=self.iq_update()
 
-        if self.global_step % 100 == 0:
-            with torch.no_grad():
-                visit_freq = self.compute_visitation_frequencies()
-
-                mse_loss = np.mean((visit_freq.numpy() - expert_vst) ** 2)
-                self.log("train/mse_loss", mse_loss, on_step=True, batch_size=1)
-
-                exp_vst = expert_vst.reshape(8, 8, 5).sum(-1)
-
-                poilicy_vst = visit_freq.reshape(8, 8, 5).sum(-1)
-
-                state_mse_loss = np.mean((exp_vst - poilicy_vst.numpy()) ** 2)
-                self.log("train/state_mse_loss", state_mse_loss, on_step=True, batch_size=1)
+        # if self.global_step % 100 == 0:
+        #     with torch.no_grad():
+        #         visit_freq = self.compute_visitation_frequencies()
+        #
+        #         mse_loss = np.mean((visit_freq.numpy() - expert_vst) ** 2)
+        #         self.log("train/mse_loss", mse_loss, on_step=True, batch_size=1)
+        #
+        #         exp_vst = expert_vst.reshape(8, 8, 5).sum(-1)
+        #
+        #         poilicy_vst = visit_freq.reshape(8, 8, 5).sum(-1)
+        #
+        #         state_mse_loss = np.mean((exp_vst - poilicy_vst.numpy()) ** 2)
+        #         self.log("train/state_mse_loss", state_mse_loss, on_step=True, batch_size=1)
                 # poilicy_vst = torch.round(poilicy_vst * 10) / 10  # Round to 1 decimal place
 
         if self.global_step % self.critic_target_update_frequency == 0:
@@ -391,7 +368,7 @@ class IQ(pl.LightningModule):
                              self.critic_tau)
         return loss
 
-    def compute_visitation_frequencies(self, horizon=16):
+    def compute_visitation_frequencies(self, horizon=size):
         """
         Compute state-action visitation frequencies under a given policy.
 
@@ -407,25 +384,19 @@ class IQ(pl.LightningModule):
         num_actions = len(env.actions)
 
         # Flatten state (row, col) into an index for easier matrix operations
-        state_to_index = lambda s: s[0] * env.size + s[1]
+        state_to_index = lambda s: int(s[0] * env.size + s[1])
 
         # Initialize visitation frequency matrix
 
         d_total = 0
 
-        for sample in [0, 1]:
+        for sample in [0]:
             d = torch.zeros((num_states, num_actions, horizon))
 
-            # d[state_to_index(env.start), :, 0] = torch.softmax(self.q_net(torch.FloatTensor(((sample,env.start[0],env.start[1])))),dim=-1)  # Start at (0,0)        # Start state
-            if q_net:
-                # Transition probability contribution
-                d[state_to_index(env.start), :, 0] = torch.softmax(
-                    self.q_net(torch.FloatTensor(((sample, env.start[0], env.start[1])))),
-                    dim=-1)  # Start at (0,0)        # Start state
-            else:
-                d[state_to_index(env.start), :, 0] = torch.softmax(
-                    self.policy(torch.FloatTensor([sample, env.start[0], env.start[1]]))[0],
-                    dim=-1)  # Start at (0,0)        # Start state
+            # Transition probability contribution
+            d[state_to_index(env.start), :, 0] = torch.softmax(
+                self.q_net(torch.FloatTensor(((sample, env.start[0], env.start[1])))),
+                dim=-1)  # Start at (0,0)        # Start state
 
             # Compute visitation frequencies iteratively
             for t in range(horizon - 1):
@@ -456,11 +427,11 @@ class IQ(pl.LightningModule):
         return d_total
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
-        critic_optimizer=optim.Adam(self.q_net.parameters(),lr=1e-3)
+        critic_optimizer=optim.Adam(self.q_net.parameters(),lr=5e-4)
         return critic_optimizer
 
 
-iq = IQ()
+iq = IQ().cuda()
 
 # Initialize TensorBoard logger
 logger = TensorBoardLogger(save_dir='/home/ke/code/catk/src/logs', name='tv_alpha01')  # _1e3
@@ -470,7 +441,7 @@ logger = TensorBoardLogger(save_dir='/home/ke/code/catk/src/logs', name='tv_alph
 
 
 # Initialize the Trainer and start training
-trainer = pl.Trainer(logger=logger, accelerator='cpu', max_epochs=1, log_every_n_steps=10)
+trainer = pl.Trainer(logger=logger, accelerator='cuda', max_epochs=1, log_every_n_steps=10)
 trainer.fit(iq)
 
 
@@ -488,12 +459,12 @@ def visualize_policy(env, num_episodes=100):
     for _ in range(num_episodes):
         env.reset()
         state = env.start
-        if _ < 50:
+        if _ < 100:
             sample = 0
         else:
             sample = 1
-        for _ in range(16):
-            visitation_counts[state] += 1
+        for _ in range(size):
+            visitation_counts[int(state[0]),int(state[1])] += 1
             state_tensor = torch.FloatTensor([sample, state[0], state[1]]).unsqueeze(0)
             if q_net:
                 pred_logit = iq.q_net(state_tensor) / iq.alpha
@@ -508,39 +479,6 @@ def visualize_policy(env, num_episodes=100):
 
     print(visitation_counts.astype(int))  # Right, Down, Left, Up
     # print(np.abs(visitation_counts-expert_vst).mean())
-    sample = 1
-    for i in range(env.size):
-        for j in range(env.size):
-            state = (i, j)
-            state_tensor = torch.FloatTensor([sample, state[0], state[1]]).unsqueeze(0)
-            if q_net:
-                pred_logit = iq.q_net(state_tensor) / iq.alpha
-            else:
-                pred_logit, state_value = iq.policy(state_tensor)
-
-            action_prob = torch.softmax(pred_logit, dim=1).detach().numpy()[0]
-
-            policy_Right[i, j] = action_prob[0]
-            policy_Down[i, j] = action_prob[1]
-            policy_Left[i, j] = action_prob[2]
-            policy_Up[i, j] = action_prob[3]
-            policy_Stop[i, j] = action_prob[4]
-            # value_grid[i, j] = state_value.detach().numpy()[0]
-
-    fig, axes = plt.subplots(3, 3, figsize=(15, 10))
-    titles = ['Visitation Frequency', 'Policy Right', 'Policy Down', 'Policy Left', 'Policy Up', 'Policy Stop',
-              'State Value']
-    data = [visitation_counts, policy_Right, policy_Down, policy_Left, policy_Up, policy_Stop, value_grid]
-
-    for ax, title, d in zip(axes.flat, titles, data):
-        im = ax.imshow(d, cmap='coolwarm', origin='upper', vmin=0, vmax=1 if 'Policy' in title else None)
-        ax.set_title(title)
-        ax.set_xticks(range(env.size))
-        ax.set_yticks(range(env.size))
-        fig.colorbar(im, ax=ax)
-
-    plt.tight_layout()
-    plt.show()
     sample = 0
     for i in range(env.size):
         for j in range(env.size):
