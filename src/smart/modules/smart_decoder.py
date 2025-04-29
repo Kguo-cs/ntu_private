@@ -131,7 +131,7 @@ class SMARTDecoder(nn.Module):
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
-            map_feature["pt_token"]=map_feature['pt_token'].detach()
+            #map_feature["pt_token"]=map_feature['pt_token'].detach()
         else:
             map_feature = self.map_encoder(tokenized_map)
             tokenized_map["map_feature"] = map_feature
