@@ -126,7 +126,7 @@ class SMARTMapDecoder(nn.Module):
             "pt_token": x_pt,
             "position": pos_pt,
             "orientation": orient_pt,
-            "batch": tokenized_map["batch"],
+            #"batch": tokenized_map["batch"],
             # "lane_token": lane_token,
             # "pos_lane":pos_lane,
             # "orient_lane": orient_lane,
