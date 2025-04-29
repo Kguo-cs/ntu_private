@@ -75,7 +75,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout[key] = pred[key]
 
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
-            tokenized_map_rollout = {"map_feature":tokenized_map["map_feature"]}
+            tokenized_map_rollout = tokenized_map#{"map_feature":tokenized_map["map_feature"]}
 
             # for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
             #     tokenized_map_rollout[key] = tokenized_map[key]
@@ -238,7 +238,7 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
         tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
         tokenized_agent_rollout['num_graphs'] = num_graphs
-        tokenized_map_rollout["token_traj_src"]=self.token_processor.map_token_traj_src
+        #tokenized_map_rollout["token_traj_src"]=self.token_processor.map_token_traj_src
 
         return tokenized_map_rollout,tokenized_agent_rollout
 
@@ -276,7 +276,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='bce'
+            div='rkl'
             alpha=1
 
             if div=="lsif":
