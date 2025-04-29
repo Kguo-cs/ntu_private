@@ -303,7 +303,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*5*
+            constraint_loss=5*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
@@ -388,7 +388,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-3 #self.critic_tau/(self.global_step+1)
+                tau=2e-4 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)
