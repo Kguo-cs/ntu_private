@@ -20,7 +20,7 @@ from torch_geometric.loader import DataLoader
 from src.smart.datasets import MultiDataset
 
 from .target_builder import WaymoTargetBuilderTrain, WaymoTargetBuilderVal
-
+import torch
 
 class MultiDataModule(LightningDataModule):
     def __init__(
@@ -93,7 +93,7 @@ class MultiDataModule(LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,  # False
             persistent_workers=self.persistent_workers,
-            drop_last=False
+            drop_last=False,
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:

@@ -122,7 +122,7 @@ class VisWaymo:
         raster_map, self.top_left_px = self._register_map(mp_xyz, self.px_per_m)
         self._draw_map(raster_map, mp_xyz, mp_type)
 
-        self.interval=5
+        self.interval=1
 
         im_gt_maps = [raster_map.copy() for _ in range(0,n_step,self.interval)]
         self._draw_traffic_lights(im_gt_maps, tl_lane_state[::self.interval], tl_lane_id[::self.interval], mp_xyz, mp_id)
@@ -297,7 +297,7 @@ class VisWaymo:
             )
             _video_path = (self.save_dir / f"rollout_{i_rollout:02d}.mp4").as_posix()
             self.video_paths.append(_video_path)
-            save_images_to_mp4(images, _video_path,fps=20//self.interval)
+            save_images_to_mp4(images, _video_path,fps=10//self.interval)
 
     def _get_features_from_trajs(
         self, trajs: List[sim_agents_submission_pb2.SimulatedTrajectory]
