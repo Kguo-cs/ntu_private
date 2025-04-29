@@ -10,7 +10,7 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
-
+import copy
 from typing import Dict, Optional
 
 import torch
@@ -131,9 +131,10 @@ class SMARTDecoder(nn.Module):
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
+            map_feature["pt_token"]=map_feature['pt_token'].detach()
         else:
             map_feature = self.map_encoder(tokenized_map)
-            tokenized_map["map_feature"] = map_feature.detach()
+            tokenized_map["map_feature"] = map_feature
 
         if self.use_latent:
             post_dist = self.post_encoder(tokenized_agent, map_feature,get_latent_dist=True)
