@@ -388,9 +388,9 @@ class IQ_SoftQ(LightningModule):
 
             if self.soft_update:
                 tau=2e-4 #self.critic_tau/(self.global_step+1)
-                soft_update(self.encoder,self.target_net,tau)
+                soft_update(self.encoder.agent_encoder,self.target_net.agent_encoder,tau)
             else:
-                hard_update(self.encoder,self.target_net)
+                hard_update(self.encoder.agent_encoder,self.target_net.agent_encoder)
 
         return loss
 
