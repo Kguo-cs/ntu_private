@@ -145,7 +145,7 @@ class IQ_SoftQ(LightningModule):
 
         next_V = (1 - done) * next_V
 
-        reward = current_Q - self.gamma * next_V.detach()  # next_V#
+        reward = current_Q - self.gamma * next_V#.detach()  # next_V#
 
         return q,current_Q,current_V,next_V,reward
 
@@ -166,7 +166,7 @@ class IQ_SoftQ(LightningModule):
         with torch.no_grad():
             target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
 
-        reward = current_Q - self.gamma * target_next_V  # next_V#
+        # reward = current_Q - self.gamma * target_next_V  # next_V#
 
         pi = torch.softmax(q / self.alpha, dim=-1)
 
@@ -272,7 +272,6 @@ class IQ_SoftQ(LightningModule):
 
             div='bce'
             alpha=1
-            eps=1e-3
 
             if div=="lsif":
                 critic_loss=-expert_reward.exp().mean()+1/2*(2*agent_reward).exp().mean()
@@ -388,7 +387,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-3 #self.critic_tau/(self.global_step+1)
+                tau=2e-4 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder,self.target_net,tau)
             else:
                 hard_update(self.encoder,self.target_net)

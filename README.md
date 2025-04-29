@@ -24,7 +24,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip ke.guo@aspi
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
 
-qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
+qsub -I -l select=1:ngpus=1 -l walltime=64:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
 ssh ke.guo@aspire2antu.nscc.sg
 
