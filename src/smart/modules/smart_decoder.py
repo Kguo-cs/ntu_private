@@ -129,7 +129,11 @@ class SMARTDecoder(nn.Module):
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],kl_loss=True
     ) -> Dict[str, Tensor]:
-        map_feature = self.map_encoder(tokenized_map)
+        if "map_feature" in tokenized_map:
+            map_feature = tokenized_map["map_feature"]
+        else:
+            map_feature = self.map_encoder(tokenized_map)
+            tokenized_map["map_feature"] = map_feature.detach()
 
         if self.use_latent:
             post_dist = self.post_encoder(tokenized_agent, map_feature,get_latent_dist=True)
@@ -157,7 +161,11 @@ class SMARTDecoder(nn.Module):
         tokenized_agent: Dict[str, Tensor],
         sampling_scheme: DictConfig,
     ) -> Dict[str, Tensor]:
-        map_feature = self.map_encoder(tokenized_map)
+        if "map_feature" in tokenized_map:
+            map_feature = tokenized_map["map_feature"]
+        else:
+            map_feature = self.map_encoder(tokenized_map)
+            tokenized_map["map_feature"] = map_feature
 
         if self.use_latent:
             prior_dist = self.prior_encoder(tokenized_agent, map_feature,n_step=2,get_latent_dist=True)

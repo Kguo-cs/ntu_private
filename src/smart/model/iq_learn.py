@@ -75,10 +75,10 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout[key] = pred[key]
 
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
-            tokenized_map_rollout = {}
+            tokenized_map_rollout = {"map_feature":tokenized_map["map_feature"]}
 
-            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
-                tokenized_map_rollout[key] = tokenized_map[key]
+            # for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
+            #     tokenized_map_rollout[key] = tokenized_map[key]
 
             self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
@@ -248,6 +248,12 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
+        if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)<self.replay_buffer.maxlen):
+            with torch.no_grad():
+                #self.encoder.eval()
+                self.rollout(tokenized_map, tokenized_agent)
+                #self.encoder.train()
+
         if self.reward_w==0:
             loss =expert_nll
         else:
@@ -270,7 +276,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='rkl'
+            div='bce'
             alpha=1
 
             if div=="lsif":
@@ -302,7 +308,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=1*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=5*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
@@ -365,12 +371,6 @@ class IQ_SoftQ(LightningModule):
             tokenized_map, tokenized_agent = self.token_processor(data)
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
-
-        if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)<self.replay_buffer.maxlen):
-            with torch.no_grad():
-                #self.encoder.eval()
-                self.rollout(tokenized_map, tokenized_agent)
-                #self.encoder.train()
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
