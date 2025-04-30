@@ -10,7 +10,7 @@ import numpy as np
 
 from src.smart.tokens.my_token_processor import TokenProcessor
 from src.smart.modules.smart_decoder import SMARTDecoder
-
+import pickle
 
 class IQ_SoftQ(LightningModule):
 

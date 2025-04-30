@@ -5,6 +5,8 @@ from tqdm import tqdm
 from src.smart.tokens.my_token_processor import TokenProcessor
 import torch
 import datetime
+from torch_geometric.data import HeteroData
+torch.set_float32_matmul_precision("high")
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
@@ -12,7 +14,7 @@ token_processor = TokenProcessor(
     agent_token_file="agent_vocab_555_s2.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0}
-)
+).cuda()
 token_processor.eval()
 
 # Set paths
@@ -32,7 +34,14 @@ def process_file(filename):
 
     # we do not believe the perception out of range of 150 meters
     data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+    # data["num_graphs"]=1
+    #
+    # data["pt_token"]["batch"]=torch.zeros(len(pos))
+    # data["agent"]["batch"]=torch.zeros(len(pos))
 
+    data= HeteroData(data).cuda()
+
+    #data=torch.load("data.pt")
     # if 'gt_pos_raw' in data:
     tokenized_map, tokenized_agent = token_processor(data)
 
@@ -53,16 +62,10 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(data_directory)#[150000:]#:]#
+    files = os.listdir(data_directory)
 
     for file in tqdm(files):
         process_file(file)
-        # file = os.path.join(token_data_directory, filename)
-        #
-        # timestamp = os.path.getmtime(file)
-        # modified_time = datetime.datetime.fromtimestamp(timestamp)
-        #
-        # print("Last modified time:", modified_time)
 
     # # Use tqdm inside multiprocessing with a wrapper
     # with multiprocessing.Pool(processes=os.cpu_count()) as pool:
