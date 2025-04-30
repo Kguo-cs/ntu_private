@@ -32,7 +32,7 @@ from src.smart.utils import (
 )
 from torch_scatter import scatter_add
 from .kl_loss import DiagGaussian
-from torch_geometric.nn.pool import knn_graph
+from torch_geometric.nn.pool import knn_graph,knn
 #from torch._dynamo import disable
 
 # @disable
@@ -48,6 +48,16 @@ def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     final_edge_index = edge_index[:, mask]
 
     return final_edge_index
+
+def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
+    edge_index = knn(x, y, max_num_neighbors, batch_x=batch_x, batch_y=batch_y)
+    row, col = edge_index
+    distances = (x[col] - y[row]).norm(dim=1)
+    mask = distances <= r
+    final_edge_index = edge_index[:, mask]
+
+    return final_edge_index
+
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -378,14 +388,20 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
-        edge_index_pl2a = safe_radius(
-            x=pos_s[:, :2],
-            y=pos_pl[:, :2],
-            r=self.pl2a_radius,
-            batch_x=batch_s,
-            batch_y=batch_pl,
-            max_num_neighbors=300//10,#picked randomly
-        )
+        # edge_index_pl2a = safe_radius(
+        #     x=pos_s[:, :2],
+        #     y=pos_pl[:, :2],
+        #     r=self.pl2a_radius,
+        #     batch_x=batch_s,
+        #     batch_y=batch_pl,
+        #     max_num_neighbors=300//10,#picked randomly
+        # )
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
+                                             y=pos_pl[:, :2],
+                                             r=self.pl2a_radius,
+                                             batch_x=batch_s,
+                                             batch_y=batch_pl,
+                                             max_num_neighbors=30)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]

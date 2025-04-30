@@ -21,7 +21,7 @@ from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from torch_scatter import scatter_mean
-
+from .agent_decoder import  radiusGraphNearest
 # from torch._dynamo import disable
 #
 # @disable
@@ -87,13 +87,21 @@ class SMARTMapDecoder(nn.Module):
             self.light_pl_emb(tokenized_map["light_type"]),
         ]
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
-        edge_index_pt2pt = safe_radius(
+
+        edge_index_pt2pt=radiusGraphNearest(
             x=pos_pt,
             r=self.pl2pl_radius,
             batch=tokenized_map["batch"],
             loop=False,
-            max_num_neighbors=100,
+            max_num_neighbors=100//10,
         )
+        # edge_index_pt2pt = safe_radius(
+        #     x=pos_pt,
+        #     r=self.pl2pl_radius,
+        #     batch=tokenized_map["batch"],
+        #     loop=False,
+        #     max_num_neighbors=100,
+        # )
         rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
         rel_orient_pt2pt = wrap_angle(
             orient_pt[edge_index_pt2pt[0]] - orient_pt[edge_index_pt2pt[1]]
