@@ -1,14 +1,10 @@
 import copy
-
 from lightning import LightningModule
-
 import random
 from collections import deque
 import torch.nn as nn
 import torch
 import numpy as np
-
-from src.smart.tokens.my_token_processor import TokenProcessor
 from src.smart.modules.smart_decoder import SMARTDecoder
 import pickle
 
@@ -42,7 +38,6 @@ class IQ_SoftQ(LightningModule):
         #self.automatic_optimization=False
 
         if self.reward_w and self.use_target_q:
-
             if self.soft_update:
                 self.critic_tau = 1
                 self.critic_target_update_frequency = 1
@@ -285,6 +280,8 @@ class IQ_SoftQ(LightningModule):
                 critic_loss=((-expert_reward/1).exp()+1).log().mean()+((agent_reward/1).exp()+1).log().mean()
             elif div=='ukl':
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
+            elif div=='rukl':
+                critic_loss = -expert_reward.mean() +(-expert_reward ).exp()+ agent_reward.exp().mean()+agent_reward.mean()
             elif div=='rkl':
                 # phi_grad = torch.exp(-expert_reward).detach()
                 # critic_loss =  -(phi_grad*expert_reward).mean()+agent_reward.mean()
