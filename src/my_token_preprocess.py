@@ -54,6 +54,12 @@ def process_file(filename):
     tokenized_agent.pop('gt_heading', None)
     tokenized_agent.pop('gt_pos', None)
 
+    for key in tokenized_map.keys():
+        tokenized_map[key]=tokenized_map[key].cpu()
+
+    for key in tokenized_agent.keys():
+        tokenized_agent[key]=tokenized_agent[key].cpu()
+
     data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
 
     # Save the tokenized data
