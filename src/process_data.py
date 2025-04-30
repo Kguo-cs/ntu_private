@@ -33,7 +33,7 @@ data_directory = "./waymo_data/full/training_token/"
 output_directory = "./waymo_data/full/training/"
 os.makedirs(output_directory, exist_ok=True)
 
-files = os.listdir(data_directory)
+files = os.listdir(data_directory)[300000:]
 
 def process_file(filename):
     input_path = os.path.join(data_directory, filename)
