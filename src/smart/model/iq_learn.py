@@ -281,7 +281,7 @@ class IQ_SoftQ(LightningModule):
             elif div=='ukl':
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
             elif div=='rukl':
-                critic_loss = -expert_reward.mean() +(-expert_reward ).exp()+ agent_reward.exp().mean()+agent_reward.mean()
+                critic_loss = -expert_reward.mean() +(-expert_reward ).exp().mean()+ agent_reward.exp().mean()+agent_reward.mean()
             elif div=='rkl':
                 # phi_grad = torch.exp(-expert_reward).detach()
                 # critic_loss =  -(phi_grad*expert_reward).mean()+agent_reward.mean()
