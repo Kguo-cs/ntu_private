@@ -3,7 +3,7 @@ import os
 from  tqdm import tqdm
 
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
+data_directory = "./waymo_data/full/training/"
 
 
 files = os.listdir(data_directory)
