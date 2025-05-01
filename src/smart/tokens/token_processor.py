@@ -117,9 +117,9 @@ class TokenProcessor(torch.nn.Module):
         else:
             token_idx = torch.argmin(dist, dim=-1)
 
-        batch=data["pt_token"]["batch"]
+        batch=data["pt_token"]["batch"] [::sample_interval]
        #  # light_edge=data["pt_token"]["light_edge"]
-        ln_id=data["pt_token"]["ln_id"]
+        ln_id=data["pt_token"]["ln_id"]  [::sample_interval]
        #  #
        #  # agent_batch=data["agent"]["batch"]
        #  # next_route=data["agent"]["next_route"]
@@ -129,7 +129,7 @@ class TokenProcessor(torch.nn.Module):
        #  #light_num=0
         all_ln_id=[]
 
-        for i in range(max(batch)+1):
+        for i in range(data.num_graphs):
             batch_ln_id=ln_id[batch==i]+ln_num
             # mask=next_route==-1
             # next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
@@ -141,7 +141,7 @@ class TokenProcessor(torch.nn.Module):
             #
             #     light_num=light_edge[i][-1][0]+1
 
-            ln_num=max(batch_ln_id).item()+1
+            ln_num=max(batch_ln_id)+1
             all_ln_id.append(batch_ln_id)
             #ln_id[batch==i]=batch_ln_id
            # pl_num+=len(batch_ln_id)+1
