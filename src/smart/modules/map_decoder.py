@@ -93,7 +93,7 @@ class SMARTMapDecoder(nn.Module):
             r=self.pl2pl_radius,
             batch=tokenized_map["batch"],
             loop=False,
-            max_num_neighbors=100,
+            max_num_neighbors=50,
         )
         # edge_index_pt2pt = safe_radius(
         #     x=pos_pt,
