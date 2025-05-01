@@ -123,18 +123,18 @@ class SMARTMapDecoder(nn.Module):
 
         batch=tokenized_map["batch"]
 
-        # ln_id=tokenized_map["ln_id"]
-        #
-        # x_pt=scatter_mean(x_pt,ln_id,dim=0)
-        # #lane_token=torch.cat([lane_token,torch.zeros_like(lane_token[:1])])
-        #
-        # pos_pt=scatter_mean(pos_pt,ln_id,dim=0)
-        # # pos_lane=torch.cat([pos_lane,torch.zeros_like(pos_lane[:1])])
-        #
-        # orient_pt=scatter_mean(orient_pt,ln_id,dim=0)
-        # # orient_pt=torch.cat([orient_pt,torch.zeros_like(orient_pt[:1])])
-        #
-        # batch=scatter_mean(batch,ln_id,dim=0)
+        ln_id=tokenized_map["ln_id"]
+
+        x_pt=scatter_mean(x_pt,ln_id,dim=0)
+        #lane_token=torch.cat([lane_token,torch.zeros_like(lane_token[:1])])
+
+        pos_pt=scatter_mean(pos_pt,ln_id,dim=0)
+        # pos_lane=torch.cat([pos_lane,torch.zeros_like(pos_lane[:1])])
+
+        orient_pt=scatter_mean(orient_pt,ln_id,dim=0)
+        # orient_pt=torch.cat([orient_pt,torch.zeros_like(orient_pt[:1])])
+
+        batch=scatter_mean(batch,ln_id,dim=0)
 
         return {
             "pt_token": x_pt,
