@@ -273,8 +273,8 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='rkl'
-            alpha=2
+            div='bce_x'
+            alpha=1
 
             if div=="lsif":
                 critic_loss=-expert_reward.exp().mean()+1/2*(2*agent_reward).exp().mean()
