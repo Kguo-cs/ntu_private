@@ -51,6 +51,8 @@ class IQ_SoftQ(LightningModule):
             sampling_scheme=self.training_rollout_sampling,
         )
 
+        self.log("rollout_entropy",pred["rollout_entropy"].mean().item(), on_step=True, batch_size=1)
+
         if self.batch_replay:
             for i in range(tokenized_agent["num_graphs"]):
                 tokenized_agent_rollout={}
@@ -271,7 +273,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='rkl'
+            div='exp'
             alpha=1
 
             if div=="lsif":
@@ -321,7 +323,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss =  critic_loss+constraint_loss-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss =  critic_loss+constraint_loss #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 

@@ -34,6 +34,7 @@ from torch_scatter import scatter_add
 from .kl_loss import DiagGaussian
 from torch_geometric.nn.pool import knn_graph,knn
 #from torch._dynamo import disable
+import torch.nn.functional as F
 
 # @disable
 def safe_radius(*args, **kwargs):
@@ -672,8 +673,9 @@ class SMARTAgentDecoder(nn.Module):
 
         #agent_token_index = tokenized_agent["gt_idx"][:, :step_current_2hz]
         #sample_list=[]
-        action_log_probs_list=[]
-        feat_a_list=[]
+        # action_log_probs_list=[]
+        # feat_a_list=[]
+        entropy_list=[]
 
         if latent_feature is not None:
 
@@ -848,6 +850,12 @@ class SMARTAgentDecoder(nn.Module):
                 token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_token, 2]
             )  # next_token_idx: [n_agent], next_token_traj_all: [n_agent, 6, 4, 2]
 
+            probs = F.softmax(next_token_logits/self.alpha, dim=-1)
+            log_probs = F.log_softmax(next_token_logits/self.alpha, dim=-1)
+            entropy = -torch.sum(probs * log_probs, dim=-1)
+
+            entropy_list.append(entropy)
+
             # agent_state = {}
             #
             # hist_len=1
@@ -875,8 +883,8 @@ class SMARTAgentDecoder(nn.Module):
             # }
             #
             # sample_list.append(sample)
-            action_log_probs_list.append(prev_log_prob)
-            feat_a_list.append(feat_a_now)
+            # action_log_probs_list.append(prev_log_prob)
+            # feat_a_list.append(feat_a_now)
 
             diff_xy = next_token_traj_all[:, -1, 0] - next_token_traj_all[:, -1, 3]
             next_token_action_list.append(
@@ -981,6 +989,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": pred_valid,  # [n_agent, 18]
             "sampled_idx": pred_idx,  # [n_agent, 18]
+            "rollout_entropy":torch.stack(entropy_list)
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
