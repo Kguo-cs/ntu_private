@@ -850,11 +850,11 @@ class SMARTAgentDecoder(nn.Module):
                 token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_token, 2]
             )  # next_token_idx: [n_agent], next_token_traj_all: [n_agent, 6, 4, 2]
 
-            probs = F.softmax(next_token_logits/self.alpha, dim=-1)
-            log_probs = F.log_softmax(next_token_logits/self.alpha, dim=-1)
-            entropy = -torch.sum(probs * log_probs, dim=-1)
-
-            entropy_list.append(entropy)
+            # probs = F.softmax(next_token_logits/self.alpha, dim=-1)
+            # log_probs = F.log_softmax(next_token_logits/self.alpha, dim=-1)
+            # entropy = -torch.sum(probs * log_probs, dim=-1)
+            #
+            # entropy_list.append(entropy)
 
             # agent_state = {}
             #
@@ -989,7 +989,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": pred_valid,  # [n_agent, 18]
             "sampled_idx": pred_idx,  # [n_agent, 18]
-            "rollout_entropy":torch.stack(entropy_list)
+            # "rollout_entropy":torch.stack(entropy_list)
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission

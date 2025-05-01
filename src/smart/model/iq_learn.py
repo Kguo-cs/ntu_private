@@ -48,10 +48,10 @@ class IQ_SoftQ(LightningModule):
         pred = self.encoder.inference(
             tokenized_map,
             tokenized_agent,
-            sampling_scheme=self.training_rollout_sampling,
+            sampling_scheme=self.validation_rollout_sampling,
         )
 
-        self.log("rollout_entropy",pred["rollout_entropy"].mean().item(), on_step=True, batch_size=1)
+        #self.log("rollout_entropy",pred["rollout_entropy"].mean().item(), on_step=True, batch_size=1)
 
         if self.batch_replay:
             for i in range(tokenized_agent["num_graphs"]):
