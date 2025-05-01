@@ -85,7 +85,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=10
+        sample_interval=1
 
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
@@ -117,19 +117,19 @@ class TokenProcessor(torch.nn.Module):
         else:
             token_idx = torch.argmin(dist, dim=-1)
 
-        # batch=data["pt_token"]["batch"]
+        batch=data["pt_token"]["batch"]
         # light_edge=data["pt_token"]["light_edge"]
-        # ln_id=data["pt_token"]["ln_id"]
+        ln_id=data["pt_token"]["ln_id"]
         #
         # agent_batch=data["agent"]["batch"]
         # next_route=data["agent"]["next_route"]
 
-        # ln_num=0
+        ln_num=0
         # pl_num=0
         # light_num=0
 
-        # for i in range(max(batch)+1):
-        #     batch_ln_id=ln_id[batch==i]+ln_num
+        for i in range(max(batch)+1):
+            batch_ln_id=ln_id[batch==i]+ln_num
         #     mask=next_route==-1
         #     next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
         #     next_route[mask]=-1
@@ -140,8 +140,8 @@ class TokenProcessor(torch.nn.Module):
         #
         #         light_num=light_edge[i][-1][0]+1
         #
-        #     ln_num=max(batch_ln_id).item()+1
-        #     ln_id[batch==i]=batch_ln_id
+            ln_num=max(batch_ln_id).item()+1
+            ln_id[batch==i]=batch_ln_id
         #     pl_num+=len(batch_ln_id)+1
         #
         # light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
@@ -157,7 +157,7 @@ class TokenProcessor(torch.nn.Module):
             "pl_type": data["pt_token"]["pl_type"].long()[::sample_interval] ,  # [n_pl]
             "light_type": data["pt_token"]["light_type"].long()[::sample_interval] ,  # [n_pl]
             "batch": data["pt_token"]["batch"][::sample_interval] ,  # [n_pl]
-            # "ln_id": ln_id,
+            "ln_id": ln_id,
             # "light_edge": light_edge,
         }
         return tokenized_map
