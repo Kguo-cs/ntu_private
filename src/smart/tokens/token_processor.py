@@ -86,7 +86,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=1
+        sample_interval=10
 
         batch=data["pt_token"]["batch"]
         # light_edge=data["pt_token"]["light_edge"]
@@ -126,12 +126,12 @@ class TokenProcessor(torch.nn.Module):
         light_type=data["pt_token"]["light_type"].long()[::sample_interval]
         batch=data["pt_token"]["batch"][::sample_interval]
 
-        traj_pos=scatter_mean(traj_pos,ln_id,dim=0)
-        traj_theta=scatter_mean(traj_theta,ln_id)
-        type=scatter_mean(type,ln_id)
-        pl_type=scatter_mean(pl_type,ln_id)
-        light_type=scatter_mean(light_type,ln_id)
-        batch=scatter_mean(batch,ln_id)
+        # traj_pos=scatter_mean(traj_pos,ln_id,dim=0)
+        # traj_theta=scatter_mean(traj_theta,ln_id)
+        # type=scatter_mean(type,ln_id)
+        # pl_type=scatter_mean(pl_type,ln_id)
+        # light_type=scatter_mean(light_type,ln_id)
+        # batch=scatter_mean(batch,ln_id)
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
