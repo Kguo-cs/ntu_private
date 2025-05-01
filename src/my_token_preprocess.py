@@ -18,8 +18,8 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token/"
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_token_valid/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
 # Worker function
 def process_file(filename):
@@ -28,12 +28,12 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    pos = data["agent"]["position"]
-    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-    distance = torch.norm(pos - pos[av_index], dim=-1)
+    #pos = data["agent"]["position"]
+    #av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    #distance = torch.norm(pos - pos[av_index], dim=-1)
 
     # we do not believe the perception out of range of 150 meters
-    data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+    #data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
     # data["num_graphs"]=1
     #
     # data["pt_token"]["batch"]=torch.zeros(len(pos))
@@ -59,6 +59,11 @@ def process_file(filename):
 
     for key in tokenized_agent.keys():
         tokenized_agent[key]=tokenized_agent[key].cpu()
+
+    tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
+    tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
+    tokenized_map["num_nodes"] = len(tokenized_map["position"])
+    tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
 
     data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
 

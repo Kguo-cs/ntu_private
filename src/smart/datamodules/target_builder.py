@@ -49,8 +49,8 @@ class WaymoTargetBuilderTrain(BaseTransform):
             # else:
             #     data["agent"]["train_mask"] = train_mask  # [n_agent]
         else:
-            data["tokenized_map"]["num_nodes"]=len( data["tokenized_map"]["position"])
-            data["tokenized_agent"]["num_nodes"]=len( data["tokenized_agent"]["sampled_pos"])
+            data["tokenized_map"]["num_nodes"]=len(data["tokenized_map"]["position"])
+            data["tokenized_agent"]["num_nodes"]=len(data["tokenized_agent"]["sampled_pos"])
 
         return HeteroData(data)
 
