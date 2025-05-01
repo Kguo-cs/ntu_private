@@ -129,20 +129,20 @@ class TokenProcessor(torch.nn.Module):
        #  #light_num=0
         all_ln_id=[]
 
-        for i in range(data.num_graphs):
-            batch_ln_id=ln_id[batch==i]+ln_num
-            # mask=next_route==-1
-            # next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
-            # next_route[mask]=-1
-
-            # if len(light_edge[i]):
-            #     light_edge[i][:,0]+=light_num
-            #     light_edge[i][:,1]+=pl_num
-            #
-            #     light_num=light_edge[i][-1][0]+1
-
-            ln_num=max(batch_ln_id)+1
-            all_ln_id.append(batch_ln_id)
+        # for i in range(data.num_graphs):
+        #     batch_ln_id=ln_id[batch==i]+ln_num
+        #     # mask=next_route==-1
+        #     # next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
+        #     # next_route[mask]=-1
+        #
+        #     # if len(light_edge[i]):
+        #     #     light_edge[i][:,0]+=light_num
+        #     #     light_edge[i][:,1]+=pl_num
+        #     #
+        #     #     light_num=light_edge[i][-1][0]+1
+        #
+        #     ln_num=max(batch_ln_id)+1
+        #     all_ln_id.append(batch_ln_id)
             #ln_id[batch==i]=batch_ln_id
            # pl_num+=len(batch_ln_id)+1
         #
