@@ -28,6 +28,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from torch_scatter import scatter_mean
 
 
 class TokenProcessor(torch.nn.Module):
@@ -87,36 +88,6 @@ class TokenProcessor(torch.nn.Module):
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
         sample_interval=1
 
-        traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
-
-        traj_pos_local, _ = transform_to_local(
-            pos_global=traj_pos,  # [n_pl, 3, 2]
-            head_global=None,  # [n_pl, 1]
-            pos_now=traj_pos[:, 0],  # [n_pl, 2]
-            head_now=traj_theta,  # [n_pl]
-        )
-        # [1, n_token, 3, 2] - [n_pl, 1, 3, 2]
-        dist = torch.sum(
-            (self.map_token_sample_pt - traj_pos_local.unsqueeze(1)) ** 2,
-            dim=(-2, -1),
-        )  # [n_pl, n_token]
-
-        if self.training and (self.map_token_sampling.num_k > 1):
-            topk_dists, topk_indices = torch.topk(
-                dist,
-                self.map_token_sampling.num_k,
-                dim=-1,
-                largest=False,
-                sorted=False,
-            )  # [n_pl, K]
-
-            topk_logits = (-1e-6 - topk_dists) / self.map_token_sampling.temp
-            _samples = Categorical(logits=topk_logits).sample()  # [n_pl] in K
-            token_idx = topk_indices[torch.arange(len(_samples)), _samples].contiguous()
-        else:
-            token_idx = torch.argmin(dist, dim=-1)
-
         batch=data["pt_token"]["batch"]
         # light_edge=data["pt_token"]["light_edge"]
         ln_id=data["pt_token"]["ln_id"]
@@ -148,16 +119,58 @@ class TokenProcessor(torch.nn.Module):
 
         #data["agent"]["next_route"]=next_route
 
+        traj_pos = data["map_save"]["traj_pos"][::sample_interval] # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"][::sample_interval]  # [n_pl]
+        type=data["pt_token"]["type"].long()[::sample_interval]
+        pl_type=data["pt_token"]["pl_type"].long()[::sample_interval]
+        light_type=data["pt_token"]["light_type"].long()[::sample_interval]
+        batch=data["pt_token"]["batch"][::sample_interval]
+
+        traj_pos=scatter_mean(traj_pos,ln_id,dim=0)
+        traj_theta=scatter_mean(traj_theta,ln_id)
+        type=scatter_mean(type,ln_id)
+        pl_type=scatter_mean(pl_type,ln_id)
+        light_type=scatter_mean(light_type,ln_id)
+        batch=scatter_mean(batch,ln_id)
+
+        traj_pos_local, _ = transform_to_local(
+            pos_global=traj_pos,  # [n_pl, 3, 2]
+            head_global=None,  # [n_pl, 1]
+            pos_now=traj_pos[:, 0],  # [n_pl, 2]
+            head_now=traj_theta,  # [n_pl]
+        )
+        # [1, n_token, 3, 2] - [n_pl, 1, 3, 2]
+        dist = torch.sum(
+            (self.map_token_sample_pt - traj_pos_local.unsqueeze(1)) ** 2,
+            dim=(-2, -1),
+        )  # [n_pl, n_token]
+
+        if self.training and (self.map_token_sampling.num_k > 1):
+            topk_dists, topk_indices = torch.topk(
+                dist,
+                self.map_token_sampling.num_k,
+                dim=-1,
+                largest=False,
+                sorted=False,
+            )  # [n_pl, K]
+
+            topk_logits = (-1e-6 - topk_dists) / self.map_token_sampling.temp
+            _samples = Categorical(logits=topk_logits).sample()  # [n_pl] in K
+            token_idx = topk_indices[torch.arange(len(_samples)), _samples].contiguous()
+        else:
+            token_idx = torch.argmin(dist, dim=-1)
+
+
         tokenized_map = {
             "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
             "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-            "type": data["pt_token"]["type"].long()[::sample_interval] ,  # [n_pl]
-            "pl_type": data["pt_token"]["pl_type"].long()[::sample_interval] ,  # [n_pl]
-            "light_type": data["pt_token"]["light_type"].long()[::sample_interval] ,  # [n_pl]
-            "batch": data["pt_token"]["batch"][::sample_interval] ,  # [n_pl]
-            "ln_id": ln_id,
+            "type": type ,  # [n_pl]
+            "pl_type": pl_type ,  # [n_pl]
+            "light_type": light_type ,  # [n_pl]
+            "batch": batch ,  # [n_pl]
+            # "ln_id": ln_id,
             # "light_edge": light_edge,
         }
         return tokenized_map
