@@ -112,6 +112,7 @@ class TokenProcessor(torch.nn.Module):
         type=scatter_mean(type,ln_id,dim=0)
         pl_type=scatter_mean(pl_type,ln_id,dim=0)
         light_type=scatter_mean(light_type,ln_id,dim=0)
+        batch=scatter_mean(batch,ln_id,dim=0)
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
