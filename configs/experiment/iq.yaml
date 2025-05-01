@@ -17,11 +17,11 @@ model:
         temp: 1.0
     training_rollout_sampling:
       criterium: topk_prob # {topk_dist_sampled_with_prob, topk_prob, topk_prob_sampled_with_dist}
-      num_k: 64 # for k nearest neighbors, set to -1 to turn-off closed-loop training
+      num_k: 256 # for k nearest neighbors, set to -1 to turn-off closed-loop training
       temp: 1.0
     validation_rollout_sampling:
       criterium: topk_prob
-      num_k: 64 # for k most likely
+      num_k: 256 # for k most likely
       temp: 1.0
 
 ckpt_path: null #/home/ke/code/catk/src/logs/epoch=0-step=6581-val_closed_wosac=0.7126.ckpt #./ckpts/epoch=2-step=41744-val_closed_wosac=0.7528.ckpt #/home/ke/code/catk/src/logs/epoch=0-step=3478-val_closed_wosac=0.6567.ckpt #./ckpts/epoch=6-step=86460-val_closed_wosac=0.7533.ckpt #./ckpts/epoch=5-step=68684-val_closed_wosac=0.7437.ckpt #./ckpts/epoch=3-step=45650-val_closed_wosac=0.7437.ckpt #./ckpts/epoch=1-step=18261-val_closed_wosac=0.7403.ckpt #'./ckpts/epoch=6-step=85210-val_closed_wosac=0.7563.ckpt'#'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt'  #'./ckpts/epoch=10-step=133900-val_closed_wosac=0.7516.ckpt' #null # #/home/ke/code/catk/src/logs/epoch_002.ckptnull #
