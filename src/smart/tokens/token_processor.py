@@ -28,6 +28,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from torch_scatter import scatter_mean,scatter_max
 
 
 class TokenProcessor(torch.nn.Module):
@@ -85,7 +86,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=10
+        sample_interval=1
 
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
@@ -124,31 +125,39 @@ class TokenProcessor(torch.nn.Module):
        #  # agent_batch=data["agent"]["batch"]
        #  # next_route=data["agent"]["next_route"]
        #
-        ln_num=0
-       # # pl_num=0
-       #  #light_num=0
-        all_ln_id=[]
-
-        for i in range(data.num_graphs):
-            batch_ln_id=ln_id[batch==i]+ln_num
-            # mask=next_route==-1
-            # next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
-            # next_route[mask]=-1
-
-            # if len(light_edge[i]):
-            #     light_edge[i][:,0]+=light_num
-            #     light_edge[i][:,1]+=pl_num
-            #
-            #     light_num=light_edge[i][-1][0]+1
-
-            ln_num=max(batch_ln_id)+1
-            all_ln_id.append(batch_ln_id)
-            #ln_id[batch==i]=batch_ln_id
-           # pl_num+=len(batch_ln_id)+1
-        #
+       #  ln_num=0
+       # # # pl_num=0
+       # #  #light_num=0
+       #  all_ln_id=[]
+       #
+       #  for i in range(data.num_graphs):
+       #      batch_ln_id=ln_id[batch==i]+ln_num
+       #      # mask=next_route==-1
+       #      # next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
+       #      # next_route[mask]=-1
+       #
+       #      # if len(light_edge[i]):
+       #      #     light_edge[i][:,0]+=light_num
+       #      #     light_edge[i][:,1]+=pl_num
+       #      #
+       #      #     light_num=light_edge[i][-1][0]+1
+       #
+       #      ln_num=max(batch_ln_id)+1
+       #      all_ln_id.append(batch_ln_id)
+       #      #ln_id[batch==i]=batch_ln_id
+       #     # pl_num+=len(batch_ln_id)+1
+       #  #
         # light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
 
-        #data["agent"]["next_route"]=next_route
+        # Step 1: compute per-graph max ln_id
+        ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+
+        # Step 2: compute cumulative offset for each graph (ln_num per graph)
+        offsets = torch.zeros_like(ln_id_max)
+        offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+
+        # Step 3: gather offsets using batch
+        adjusted_ln_id = ln_id + offsets[batch]
 
         tokenized_map = {
             "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]
@@ -159,7 +168,7 @@ class TokenProcessor(torch.nn.Module):
             "pl_type": data["pt_token"]["pl_type"].long()[::sample_interval] ,  # [n_pl]
             "light_type": data["pt_token"]["light_type"].long()[::sample_interval] ,  # [n_pl]
             "batch": batch ,  # [n_pl]
-            "ln_id": torch.cat(all_ln_id),
+            "ln_id": adjusted_ln_id,
             # "light_edge": light_edge,
         }
         return tokenized_map
