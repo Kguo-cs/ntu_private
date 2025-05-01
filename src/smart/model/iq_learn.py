@@ -45,11 +45,14 @@ class IQ_SoftQ(LightningModule):
                 self.critic_target_update_frequency = 1
 
     def rollout(self, tokenized_map, tokenized_agent):
-        pred = self.encoder.inference(
-            tokenized_map,
-            tokenized_agent,
-            sampling_scheme=self.validation_rollout_sampling,
-        )
+        self.encoder.eval()
+        with torch.no_grad():
+            pred = self.encoder.inference(
+                tokenized_map,
+                tokenized_agent,
+                sampling_scheme=self.validation_rollout_sampling,
+            )
+        self.encoder.train()
 
         #self.log("rollout_entropy",pred["rollout_entropy"].mean().item(), on_step=True, batch_size=1)
 
@@ -78,47 +81,6 @@ class IQ_SoftQ(LightningModule):
             #     tokenized_map_rollout[key] = tokenized_map[key]
 
             self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
-
-    def compute_reward_loss(self,reward):
-
-        div = 'rkl'
-        # TO DO: detach gradient, clip reward, gmm, refine by KL constrained
-
-        eps = 1e-1
-
-        if div == "kl":
-            alpha = 1  # *(self.global_step/10000+1e-2)
-            reward = torch.clamp(reward, max=alpha / eps, min=alpha * eps)
-            reward_loss = -alpha * ((reward / alpha).log() + 1)
-        elif div == "rkl":
-            alpha = 10
-            # reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
-            reward_loss = alpha * (-reward / alpha - 1).exp()
-            # with torch.no_grad():
-            #     phi_grad = torch.exp(-reward)
-            # reward_loss = -(phi_grad * reward)
-        # reward_loss= reward_loss.detach()*reward
-        elif div == "sh":
-            alpha = 1
-            reward_loss = -1 / (1 / reward + 1 / alpha)
-        elif div == 'js':
-            alpha = 1
-            reward = torch.clamp_min(reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
-            reward_loss = -alpha * (2 - (-reward / alpha).exp()).log()
-            # with torch.no_grad():
-            #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
-            # reward_loss = -(phi_grad * reward)
-        elif div == "tv":
-            reward_loss = -reward
-        elif div == 'x2':
-            alpha = 1
-            reward = torch.clamp(reward, min=2 * (1 - 1 / eps), max=2 * (1 - eps))
-
-            reward_loss = -reward + reward.square() / (4 * alpha)
-        else:
-            reward_loss = -reward
-
-        return reward_loss
 
     def get_network_QV(self,network,tokenized_map, tokenized_agent,action,action_mask):
 
@@ -246,10 +208,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
         if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)<self.replay_buffer.maxlen):
-            with torch.no_grad():
-                self.encoder.eval()
-                self.rollout(tokenized_map, tokenized_agent)
-                self.encoder.train()
+            self.rollout(tokenized_map, tokenized_agent)
 
         if self.reward_w==0:
             loss =expert_nll
@@ -273,7 +232,7 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='tv'
+            div='js'
             alpha=1
 
             if div=="lsif":
@@ -304,10 +263,10 @@ class IQ_SoftQ(LightningModule):
             elif div=='sh':
                 critic_loss = - (expert_reward / (1+expert_reward)).mean() +agent_reward.mean()
             elif div=='js':
-                phi_grad = torch.exp(-expert_reward) / (2 - torch.exp(-expert_reward))
-                critic_loss =  -(phi_grad.detach()*expert_reward).mean()+agent_reward.mean()
-                # expert_reward = torch.clamp_min(expert_reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
-                #critic_loss = -(2 - (-expert_reward / alpha).exp()).log().mean()+agent_reward.mean()
+                # phi_grad = torch.exp(-expert_reward) / (2 - torch.exp(-expert_reward))
+                # critic_loss =  -(phi_grad.detach()*expert_reward).mean()+agent_reward.mean()
+                expert_reward = torch.clamp_min(expert_reward, min=alpha * (np.log(1 / 2 + 1e-3)))  # ,max=alpha*(np.log(1/2+1/eps))
+                critic_loss = -(2 - (-expert_reward / alpha).exp()).log().mean()+agent_reward.mean()
             else:
                 critic_loss= (expert_reward-1 ).square().mean()+(agent_reward+1).square().mean()
 
@@ -408,3 +367,43 @@ def hard_update(source, target):
     for param, target_param in zip(source.parameters(), target.parameters()):
         target_param.data.copy_(param.data)
 
+# def compute_reward_loss(self,reward):
+#
+#     div = 'rkl'
+#     # TO DO: detach gradient, clip reward, gmm, refine by KL constrained
+#
+#     eps = 1e-1
+#
+#     if div == "kl":
+#         alpha = 1  # *(self.global_step/10000+1e-2)
+#         reward = torch.clamp(reward, max=alpha / eps, min=alpha * eps)
+#         reward_loss = -alpha * ((reward / alpha).log() + 1)
+#     elif div == "rkl":
+#         alpha = 10
+#         # reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
+#         reward_loss = alpha * (-reward / alpha - 1).exp()
+#         # with torch.no_grad():
+#         #     phi_grad = torch.exp(-reward)
+#         # reward_loss = -(phi_grad * reward)
+#     # reward_loss= reward_loss.detach()*reward
+#     elif div == "sh":
+#         alpha = 1
+#         reward_loss = -1 / (1 / reward + 1 / alpha)
+#     elif div == 'js':
+#         alpha = 1
+#         reward = torch.clamp_min(reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
+#         reward_loss = -alpha * (2 - (-reward / alpha).exp()).log()
+#         # with torch.no_grad():
+#         #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
+#         # reward_loss = -(phi_grad * reward)
+#     elif div == "tv":
+#         reward_loss = -reward
+#     elif div == 'x2':
+#         alpha = 1
+#         reward = torch.clamp(reward, min=2 * (1 - 1 / eps), max=2 * (1 - eps))
+#
+#         reward_loss = -reward + reward.square() / (4 * alpha)
+#     else:
+#         reward_loss = -reward
+#
+#     return reward_loss
