@@ -232,8 +232,8 @@ class IQ_SoftQ(LightningModule):
 
             #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
 
-            div='x2'
-            alpha=2
+            div='rkl'
+            alpha=5
             eps=1e-3
 
             if div=="lsif":
@@ -299,9 +299,9 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['sampled_heading'] = agent['sampled_heading']
         tokenized_agent['sampled_idx'] = agent["sampled_idx"]
 
-        tokenized_agent["gt_pos"] = agent["sampled_pos"]
-        tokenized_agent["gt_heading"]  = agent['sampled_heading']
-        tokenized_agent["gt_idx"] = agent["sampled_idx"]
+        tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
+        tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
+        tokenized_agent["gt_idx"] = tokenized_agent['sampled_idx']
 
         tokenized_agent['valid_mask'] = agent['valid_mask']
         tokenized_agent['type'] = agent['type']
