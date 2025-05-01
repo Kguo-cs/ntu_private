@@ -157,7 +157,7 @@ class TokenProcessor(torch.nn.Module):
             "pl_type": data["pt_token"]["pl_type"].long()[::sample_interval] ,  # [n_pl]
             "light_type": data["pt_token"]["light_type"].long()[::sample_interval] ,  # [n_pl]
             "batch": data["pt_token"]["batch"][::sample_interval] ,  # [n_pl]
-            "ln_id": ln_id,
+            #"ln_id": ln_id,
             # "light_edge": light_edge,
         }
         return tokenized_map
