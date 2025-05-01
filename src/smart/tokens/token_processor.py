@@ -107,12 +107,12 @@ class TokenProcessor(torch.nn.Module):
         # Step 3: gather offsets using batch
         adjusted_ln_id = ln_id + offsets[batch]
 
-        traj_pos=scatter_mean(traj_pos,ln_id,dim=0)
-        traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
-        type=scatter_mean(type,ln_id,dim=0)
-        pl_type=scatter_mean(pl_type,ln_id,dim=0)
-        light_type=scatter_mean(light_type,ln_id,dim=0)
-        batch=scatter_mean(batch,ln_id,dim=0)
+        # traj_pos=scatter_mean(traj_pos,ln_id,dim=0)
+        # traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
+        # type=scatter_mean(type,ln_id,dim=0)
+        # pl_type=scatter_mean(pl_type,ln_id,dim=0)
+        # light_type=scatter_mean(light_type,ln_id,dim=0)
+        # batch=scatter_mean(batch,ln_id,dim=0)
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
