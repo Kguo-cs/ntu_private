@@ -188,7 +188,7 @@ class SMARTAgentDecoder(nn.Module):
 
         latent_dim=16
 
-        self.alpha=1#0.1
+        self.alpha=0.1
 
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
