@@ -126,6 +126,9 @@ class TokenProcessor(torch.nn.Module):
         lane_position=scatter_mean(position,batch_ln_id,dim=0)
         traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
         batch=scatter_mean(batch,batch_ln_id,dim=0)
+        type=scatter_mean(type,batch_ln_id,dim=0)
+        pl_type=scatter_mean(pl_type,batch_ln_id,dim=0)
+        light_type=scatter_mean(light_type,batch_ln_id,dim=0)
 
         lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
 

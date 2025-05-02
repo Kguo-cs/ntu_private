@@ -61,6 +61,7 @@ def process_file(filename):
         tokenized_agent[key]=tokenized_agent[key].cpu()
 
     tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
+    tokenized_map["ln_id"]=  tokenized_map["ln_id"].to(torch.int16)
     tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_map["num_nodes"] = len(tokenized_map["position"])
     tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])

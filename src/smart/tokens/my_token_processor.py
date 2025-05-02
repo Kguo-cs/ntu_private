@@ -28,7 +28,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
-from torch_scatter import scatter_mean,scatter_max
+from torch_scatter import scatter_mean,scatter_max,scatter_min
 
 
 class TokenProcessor(torch.nn.Module):
@@ -87,6 +87,9 @@ class TokenProcessor(torch.nn.Module):
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
         ln_id = data["pt_token"]["ln_id"][::sample_interval]
+        type= data["pt_token"]["type"].long()[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"].long()[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"].long()[::sample_interval]  # [n_pl]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -150,9 +153,9 @@ class TokenProcessor(torch.nn.Module):
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
            # "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-            "type": data["pt_token"]["type"][::sample_interval] ,  # [n_pl]
-            "pl_type": data["pt_token"]["pl_type"][::sample_interval] ,  # [n_pl]
-            "light_type": data["pt_token"]["light_type"][::sample_interval] ,  # [n_pl]
+            "type": type ,  # [n_pl]
+            "pl_type": pl_type ,  # [n_pl]
+            "light_type": light_type ,  # [n_pl]
             "ln_id":ln_id,
             "rel_position":rel_position
         }

@@ -91,11 +91,11 @@ class SMARTMapDecoder(nn.Module):
 
         pos_embed=self.relPos_embed(tokenized_map["rel_position"])
 
-        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)+pos_embed
-
         ln_id=tokenized_map["ln_id"]
 
-        x_pt=scatter_max(x_pt,ln_id,dim=0)[0]
+        x_pt=scatter_max(x_pt+pos_embed,ln_id,dim=0)[0]
+
+        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
         batch=tokenized_map["batch"]
 
