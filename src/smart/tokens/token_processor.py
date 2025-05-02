@@ -50,6 +50,8 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
+        self.use_lane=False
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map = self.tokenize_map(data)
@@ -86,7 +88,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=1
+        sample_interval=10
 
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
@@ -95,17 +97,19 @@ class TokenProcessor(torch.nn.Module):
         light_type= data["pt_token"]["light_type"].long()[::sample_interval]  # [n_pl]
 
         batch = data["pt_token"]["batch"][::sample_interval]
-        #  # light_edge=data["pt_token"]["light_edge"]
-        ln_id = data["pt_token"]["ln_id"][::sample_interval]
-        # Step 1: compute per-graph max ln_id
-        ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
 
-        # Step 2: compute cumulative offset for each graph (ln_num per graph)
-        offsets = torch.zeros_like(ln_id_max)
-        offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+        if self.use_lane:
+            ln_id = data["pt_token"]["ln_id"][::sample_interval]
 
-        # Step 3: gather offsets using batch
-        batch_ln_id = ln_id + offsets[batch]
+            # Step 1: compute per-graph max ln_id
+            ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+
+            # Step 2: compute cumulative offset for each graph (ln_num per graph)
+            offsets = torch.zeros_like(ln_id_max)
+            offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+
+            # Step 3: gather offsets using batch
+            batch_ln_id = ln_id + offsets[batch]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -123,29 +127,45 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
-        lane_position=scatter_mean(position,batch_ln_id,dim=0)
-        traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
-        batch=scatter_mean(batch,batch_ln_id,dim=0)
-        type=scatter_mean(type,batch_ln_id,dim=0)
-        pl_type=scatter_mean(pl_type,batch_ln_id,dim=0)
-        light_type=scatter_mean(light_type,batch_ln_id,dim=0)
+        if self.use_lane:
 
-        lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
+            lane_position=scatter_mean(position,batch_ln_id,dim=0)
 
-        rel_position = position - lane_center_pos  # [n_pl, 2]
+            traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
+            batch=scatter_mean(batch,batch_ln_id,dim=0)
+            type=scatter_mean(type,batch_ln_id,dim=0)
+            pl_type=scatter_mean(pl_type,batch_ln_id,dim=0)
+            light_type=scatter_mean(light_type,batch_ln_id,dim=0)
 
-        tokenized_map = {
-            "position": lane_position,  # [n_pl, 2]
-            "orientation": traj_theta,  # [n_pl]
-            "token_idx": token_idx,  # [n_pl]
-            "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-            "type": type ,  # [n_pl]
-            "pl_type": pl_type ,  # [n_pl]
-            "light_type": light_type ,  # [n_pl]
-            "batch": batch ,  # [n_pl]
-            "ln_id": batch_ln_id,
-            "rel_position":rel_position
-        }
+            lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
+
+            rel_position = position - lane_center_pos  # [n_pl, 2]
+
+            tokenized_map = {
+                "position": lane_position,  # [n_pl, 2]
+                "orientation": traj_theta,  # [n_pl]
+                "token_idx": token_idx,  # [n_pl]
+                "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
+                "type": type ,  # [n_pl]
+                "pl_type": pl_type ,  # [n_pl]
+                "light_type": light_type ,  # [n_pl]
+                "batch": batch ,  # [n_pl]
+                "ln_id": batch_ln_id,
+                "rel_position":rel_position
+            }
+        else:
+            tokenized_map = {
+                "position": position,  # [n_pl, 2]
+                "orientation": traj_theta,  # [n_pl]
+                "token_idx": token_idx,  # [n_pl]
+                "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
+                "type": type ,  # [n_pl]
+                "pl_type": pl_type ,  # [n_pl]
+                "light_type": light_type ,  # [n_pl]
+                "batch": batch ,  # [n_pl]
+            }
+
+
         return tokenized_map
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
