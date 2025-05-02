@@ -86,12 +86,13 @@ class SMARTMapDecoder(nn.Module):
             self.polygon_type_emb(tokenized_map["pl_type"]),
             self.light_pl_emb(tokenized_map["light_type"]),
         ]
+
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
 
         ln_id=tokenized_map["ln_id"]
 
-        x_pt=scatter_max(x_pt,ln_id,dim=0)
+        x_pt=scatter_mean(x_pt,ln_id,dim=0)
         #lane_token=torch.cat([lane_token,torch.zeros_like(lane_token[:1])])
 
         pos_pt=scatter_mean(pos_pt,ln_id,dim=0)
