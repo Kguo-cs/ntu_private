@@ -83,17 +83,17 @@ class SMARTMapDecoder(nn.Module):
         pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
         x_pt = pt_token_emb_src[tokenized_map["token_idx"]]
 
-        x_pt_categorical_embs = [
-            self.type_pt_emb(tokenized_map["type"]),
-            self.polygon_type_emb(tokenized_map["pl_type"]),
-            self.light_pl_emb(tokenized_map["light_type"]),
-        ]
-
         pos_embed=self.relPos_embed(tokenized_map["rel_position"])
 
         ln_id=tokenized_map["ln_id"]
 
         x_pt=scatter_max(x_pt+pos_embed,ln_id,dim=0)[0]
+
+        x_pt_categorical_embs = [
+            self.type_pt_emb(tokenized_map["type"]),
+            self.polygon_type_emb(tokenized_map["pl_type"]),
+            self.light_pl_emb(tokenized_map["light_type"]),
+        ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
@@ -104,7 +104,7 @@ class SMARTMapDecoder(nn.Module):
             r=self.pl2pl_radius,
             batch=batch,
             loop=False,
-            max_num_neighbors=10,
+            max_num_neighbors=20,
         )
         # edge_index_pt2pt = safe_radius(
         #     x=pos_pt,
