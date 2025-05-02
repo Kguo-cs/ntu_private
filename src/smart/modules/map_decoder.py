@@ -87,7 +87,7 @@ class SMARTMapDecoder(nn.Module):
 
         ln_id=tokenized_map["ln_id"]
 
-        x_pt=scatter_max(x_pt+pos_embed,ln_id,dim=0)[0]
+        x_pt=scatter_mean(x_pt+pos_embed,ln_id,dim=0)#[0]
 
         x_pt_categorical_embs = [
             self.type_pt_emb(tokenized_map["type"]),
