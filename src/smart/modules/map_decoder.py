@@ -72,6 +72,8 @@ class SMARTMapDecoder(nn.Module):
         # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
         self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
+        self.relPos_embed=nn.Linear(2, hidden_dim)
+
         self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict) -> Dict[str, torch.Tensor]:
@@ -87,7 +89,9 @@ class SMARTMapDecoder(nn.Module):
             self.light_pl_emb(tokenized_map["light_type"]),
         ]
 
-        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
+        pos_embed=self.relPos_embed(tokenized_map["rel_position"])
+
+        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)+pos_embed
 
         ln_id=tokenized_map["ln_id"]
 
