@@ -89,15 +89,16 @@ class SMARTMapDecoder(nn.Module):
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-
         ln_id=tokenized_map["ln_id"]
 
         x_pt=scatter_mean(x_pt,ln_id,dim=0)
 
+        batch=tokenized_map["batch"]
+
         edge_index_pt2pt=radiusGraphNearest(
             x=pos_pt,
             r=self.pl2pl_radius,
-            batch=tokenized_map["batch"],
+            batch=batch,
             loop=False,
             max_num_neighbors=20,
         )
