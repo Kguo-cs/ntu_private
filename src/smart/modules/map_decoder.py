@@ -72,7 +72,7 @@ class SMARTMapDecoder(nn.Module):
         # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
         self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-        self.use_lane=True
+        self.use_lane=False
 
         if self.use_lane:
             self.relPos_embed=nn.Linear(2, hidden_dim)
