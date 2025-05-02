@@ -170,9 +170,14 @@ class TokenProcessor(torch.nn.Module):
        #  #
         # light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
 
+        position=traj_pos[:, 0].contiguous()
+
+        position=scatter_mean(position,batch_ln_id,dim=0)
+        traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
+        batch=scatter_mean(batch,ln_id,dim=0)
 
         tokenized_map = {
-            "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]
+            "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
             "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]

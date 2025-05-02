@@ -93,22 +93,11 @@ class SMARTMapDecoder(nn.Module):
         ln_id=tokenized_map["ln_id"]
 
         x_pt=scatter_mean(x_pt,ln_id,dim=0)
-        #lane_token=torch.cat([lane_token,torch.zeros_like(lane_token[:1])])
-
-        pos_pt=scatter_mean(pos_pt,ln_id,dim=0)
-        # pos_lane=torch.cat([pos_lane,torch.zeros_like(pos_lane[:1])])
-
-        orient_pt=scatter_mean(orient_pt,ln_id,dim=0)
-        # orient_pt=torch.cat([orient_pt,torch.zeros_like(orient_pt[:1])])
-
-        batch=tokenized_map["batch"]
-
-        batch=scatter_mean(batch,ln_id,dim=0)
 
         edge_index_pt2pt=radiusGraphNearest(
             x=pos_pt,
             r=self.pl2pl_radius,
-            batch=batch,
+            batch=tokenized_map["batch"],
             loop=False,
             max_num_neighbors=20,
         )
