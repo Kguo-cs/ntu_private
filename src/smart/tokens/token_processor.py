@@ -173,8 +173,8 @@ class TokenProcessor(torch.nn.Module):
         position=traj_pos[:, 0].contiguous()
 
         position=scatter_mean(position,batch_ln_id,dim=0)
-        traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
-        batch=scatter_mean(batch,ln_id,dim=0)
+        traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
+        batch=scatter_mean(batch,batch_ln_id,dim=0)
 
         tokenized_map = {
             "position": position,  # [n_pl, 2]
