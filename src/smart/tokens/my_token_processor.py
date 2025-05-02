@@ -86,6 +86,7 @@ class TokenProcessor(torch.nn.Module):
 
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
+        ln_id = data["pt_token"]["ln_id"][::sample_interval]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -135,26 +136,25 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
-        lane_position=scatter_mean(position,batch_ln_id,dim=0)
-        traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
-        batch=scatter_mean(batch,batch_ln_id,dim=0)
+        lane_position=scatter_mean(position,ln_id,dim=0)
+        traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
 
-        lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
+        lane_center_pos = lane_position[ln_id]  # [n_pl, 2]
 
         rel_position = position - lane_center_pos  # [n_pl, 2]
 
 
         tokenized_map = {
-            "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]
+           # "position": position,  # [n_pl, 2]
+            "position": lane_position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
            # "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
             "type": data["pt_token"]["type"][::sample_interval] ,  # [n_pl]
             "pl_type": data["pt_token"]["pl_type"][::sample_interval] ,  # [n_pl]
             "light_type": data["pt_token"]["light_type"][::sample_interval] ,  # [n_pl]
-            #"batch": data["pt_token"]["batch"][::sample_interval] ,  # [n_pl]
-            #"ln_id": data["pt_token"]["ln_id"] #,
-            # "light_edge": light_edge,
+            "ln_id":ln_id,
+            "rel_position":rel_position
         }
         return tokenized_map
 
