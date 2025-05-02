@@ -46,7 +46,7 @@ import os
 
 def extract_zip_with_progress(zip_path, extract_to):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        files = zip_ref.infolist()
+        files = zip_ref.infolist()[:200]
 
         with tqdm(total=len(files), desc="Extracting", unit="file") as pbar:
             for file in files:
