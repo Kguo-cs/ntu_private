@@ -104,7 +104,7 @@ class SMARTMapDecoder(nn.Module):
             r=self.pl2pl_radius,
             batch=batch,
             loop=False,
-            max_num_neighbors=20,
+            max_num_neighbors=10,
         )
         # edge_index_pt2pt = safe_radius(
         #     x=pos_pt,
