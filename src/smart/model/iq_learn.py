@@ -297,7 +297,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent['sampled_pos'] = agent["sampled_pos"]
         tokenized_agent['sampled_heading'] = agent['sampled_heading']
-        tokenized_agent['sampled_idx'] = agent["sampled_idx"]
+        tokenized_agent['sampled_idx'] = agent["sampled_idx"].long()
 
         tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
         tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
