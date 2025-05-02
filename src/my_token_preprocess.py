@@ -57,13 +57,14 @@ def process_file(filename):
     for key in tokenized_map.keys():
         tokenized_map[key]=tokenized_map[key].cpu()
 
-    for key in tokenized_agent.keys():
-        tokenized_agent[key]=tokenized_agent[key].cpu()
-
     tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
     tokenized_map["ln_id"]=  tokenized_map["ln_id"].to(torch.int16)
     tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_map["num_nodes"] = len(tokenized_map["position"])
+
+    for key in tokenized_agent.keys():
+        tokenized_agent[key]=tokenized_agent[key].cpu()
+
     tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
 
     data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}

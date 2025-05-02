@@ -87,9 +87,9 @@ class TokenProcessor(torch.nn.Module):
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
         ln_id = data["pt_token"]["ln_id"][::sample_interval]
-        type= data["pt_token"]["type"].long()[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"].long()[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"].long()[::sample_interval]  # [n_pl]
+        type= data["pt_token"]["type"][::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"][::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"][::sample_interval]  # [n_pl]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -141,11 +141,13 @@ class TokenProcessor(torch.nn.Module):
 
         lane_position=scatter_mean(position,ln_id,dim=0)
         traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
+        type=scatter_mean(type,ln_id,dim=0)
+        pl_type=scatter_mean(pl_type,ln_id,dim=0)
+        light_type=scatter_mean(light_type,ln_id,dim=0)
 
         lane_center_pos = lane_position[ln_id]  # [n_pl, 2]
 
         rel_position = position - lane_center_pos  # [n_pl, 2]
-
 
         tokenized_map = {
            # "position": position,  # [n_pl, 2]
