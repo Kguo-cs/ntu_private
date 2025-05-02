@@ -28,6 +28,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from torch_scatter import scatter_mean,scatter_max
 
 
 class TokenProcessor(torch.nn.Module):
@@ -81,7 +82,7 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=10
+        sample_interval=1
 
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
@@ -130,6 +131,18 @@ class TokenProcessor(torch.nn.Module):
         # light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
 
         #data["agent"]["next_route"]=next_route
+
+
+        position=traj_pos[:, 0].contiguous()
+
+        lane_position=scatter_mean(position,batch_ln_id,dim=0)
+        traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
+        batch=scatter_mean(batch,batch_ln_id,dim=0)
+
+        lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
+
+        rel_position = position - lane_center_pos  # [n_pl, 2]
+
 
         tokenized_map = {
             "position": traj_pos[:, 0].contiguous(),  # [n_pl, 2]

@@ -95,7 +95,7 @@ class SMARTMapDecoder(nn.Module):
 
         ln_id=tokenized_map["ln_id"]
 
-        x_pt=scatter_mean(x_pt,ln_id,dim=0)
+        x_pt=scatter_max(x_pt,ln_id,dim=0)
 
         batch=tokenized_map["batch"]
 
