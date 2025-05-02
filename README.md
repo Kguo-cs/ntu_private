@@ -10,7 +10,7 @@ conda activate catk
 export PBS_JOBID=42532.pbs111
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token_valid.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_token.zip ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/
 
