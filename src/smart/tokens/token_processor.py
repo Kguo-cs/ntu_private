@@ -90,6 +90,9 @@ class TokenProcessor(torch.nn.Module):
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
         sample_interval=10
 
+        if self.use_lane:
+            sample_interval=1
+
         traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
         type= data["pt_token"]["type"].long()[::sample_interval]  # [n_pl]
@@ -111,7 +114,7 @@ class TokenProcessor(torch.nn.Module):
 
 
             # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device)
+            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device).long()
             offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
 
             # Step 3: gather offsets using batch
