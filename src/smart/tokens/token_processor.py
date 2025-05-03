@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        self.use_lane=False
+        self.use_lane=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:

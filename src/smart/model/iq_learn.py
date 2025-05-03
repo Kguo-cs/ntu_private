@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from src.smart.modules.smart_decoder import SMARTDecoder
 import pickle
+from torch_scatter import scatter_mean,scatter_max
 
 class IQ_SoftQ(LightningModule):
 
@@ -329,6 +330,24 @@ class IQ_SoftQ(LightningModule):
         tokenized_map["light_type"]= map["light_type"].long()
         tokenized_map["batch"]= map["batch"]
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
+
+        if "ln_id" in map._mapping.keys():
+            ln_id = map["ln_id"]
+            batch=map["batch"]
+
+            # Step 1: compute per-graph max ln_id
+            ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+
+            # Step 2: compute cumulative offset for each graph (ln_num per graph)
+            offsets = torch.zeros_like(ln_id_max)
+            offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+            batch_ln_id = (ln_id + offsets[batch]).long()
+            batch=scatter_mean(batch,batch_ln_id,dim=0)
+
+            # Step 3: gather offsets using batch
+            tokenized_map["ln_id"] = batch_ln_id
+            tokenized_map["rel_position"]=map["rel_position"]
+            tokenized_map["batch"]=batch
 
         return tokenized_map, tokenized_agent
 
