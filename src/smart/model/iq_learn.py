@@ -107,7 +107,7 @@ class IQ_SoftQ(LightningModule):
 
         reward = current_Q - self.gamma * next_V#.detach()  # next_V#
 
-        return q,current_Q,current_V,next_V,reward
+        return q,current_Q,v_value,current_V,next_V,reward
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
@@ -121,10 +121,10 @@ class IQ_SoftQ(LightningModule):
 
         state_action_mask = action_mask & state_mask
 
-        q,current_Q,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,action_mask)
+        q,current_Q,V,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,action_mask)
 
         with torch.no_grad():
-            target_q, target_current_Q, target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
+            target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
 
         # reward = current_Q - self.gamma * target_next_V  # next_V#
 
@@ -148,6 +148,8 @@ class IQ_SoftQ(LightningModule):
 
         next_V_diff=(next_V-target_next_V)[action_mask]
 
+        V_diff=(V-target_V)[valid_mask[:, 1:]]
+
         reward_diff=reward-target_reward[state_action_mask]
 
         Q_diff=current_Q-target_current_Q[state_action_mask]
@@ -162,7 +164,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_reward_diff", reward_diff.abs().mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", Q_diff.abs().mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,current_V_diff,next_V_diff,Q_diff,action_nll,entropy
+        return  reward,current_V,current_Q,next_V,V_diff,current_V_diff,next_V_diff,Q_diff,action_nll,entropy
 
     def collect_agent(self,num_graphs):
 
@@ -204,7 +206,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V,expert_Q,expert_next_V,expert_current_V_diff,expert_next_V_diff,expert_Q_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_current_V_diff,expert_next_V_diff,expert_Q_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -216,7 +218,7 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
-            agent_reward,agent_V,agent_Q,agent_next_V,agent_current_V_diff,agent_next_V_diff,agent_Q_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff,agent_Q_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
             # agent_ratio=0
             #
@@ -276,7 +278,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=5*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=5*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
