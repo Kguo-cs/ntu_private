@@ -89,7 +89,7 @@ class SMARTMapDecoder(nn.Module):
         if self.use_lane:
             pos_embed=self.relPos_embed(tokenized_map["rel_position"])
 
-            x_pt=scatter_max(x_pt+pos_embed,tokenized_map["ln_id"],dim=0)[0]
+            x_pt=scatter_mean(x_pt+pos_embed,tokenized_map["ln_id"],dim=0)#[0]
 
         x_pt_categorical_embs = [
             self.type_pt_emb(tokenized_map["type"]),
