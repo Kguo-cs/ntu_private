@@ -86,13 +86,6 @@ class SMARTMapDecoder(nn.Module):
         pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
         x_pt = pt_token_emb_src[tokenized_map["token_idx"]]
 
-        if self.use_lane:
-            pos_embed=torch.cat([x_pt,tokenized_map["rel_position"]],dim=-1)
-
-            x_pt=self.relPos_embed(pos_embed)
-
-            x_pt=scatter_mean(x_pt,tokenized_map["ln_id"],dim=0)#[0]
-
         x_pt_categorical_embs = [
             self.type_pt_emb(tokenized_map["type"]),
             self.polygon_type_emb(tokenized_map["pl_type"]),
@@ -100,6 +93,13 @@ class SMARTMapDecoder(nn.Module):
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
+
+        if self.use_lane:
+            pos_embed=torch.cat([x_pt,tokenized_map["rel_position"]],dim=-1)
+
+            x_pt=self.relPos_embed(pos_embed)
+
+            x_pt=scatter_mean(x_pt,tokenized_map["ln_id"],dim=0)#[0]
 
         batch=tokenized_map["batch"]
 
