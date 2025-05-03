@@ -101,7 +101,7 @@ class IQ_SoftQ(LightningModule):
 
         #done[~action_mask] = 1
 
-        done[:, -1] = 1
+        #done[:, -1] = 1
 
         next_V = (1 - done) * next_V
 
