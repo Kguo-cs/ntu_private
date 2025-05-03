@@ -336,11 +336,14 @@ class IQ_SoftQ(LightningModule):
             batch=map["batch"]
 
             # Step 1: compute per-graph max ln_id
-            ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+            #ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+
+            ln_id_max=ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
+
 
             # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            offsets = torch.zeros_like(ln_id_max)
-            offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device)
+            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
             batch_ln_id = (ln_id + offsets[batch]).long()
             batch=scatter_mean(batch,batch_ln_id,dim=0)
 

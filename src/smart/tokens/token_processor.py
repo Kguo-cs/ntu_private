@@ -101,12 +101,18 @@ class TokenProcessor(torch.nn.Module):
         if self.use_lane:
             ln_id = data["pt_token"]["ln_id"][::sample_interval]
 
-            # Step 1: compute per-graph max ln_id
-            ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+            # # Step 1: compute per-graph max ln_id
+            # ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+            #
+            # # Step 2: compute cumulative offset for each graph (ln_num per graph)
+            # offsets = torch.zeros_like(ln_id_max)
+            # offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+            ln_id_max=ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
+
 
             # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            offsets = torch.zeros_like(ln_id_max)
-            offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
+            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device)
+            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
 
             # Step 3: gather offsets using batch
             batch_ln_id = ln_id + offsets[batch]

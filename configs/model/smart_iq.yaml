@@ -17,4 +17,4 @@ model_config:
     num_map_layers: 1
     num_agent_layers: 1
     pl2pl_radius: 30
-    pl2a_radius: 30
+    pl2a_radius: 40
