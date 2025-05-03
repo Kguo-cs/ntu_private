@@ -75,7 +75,7 @@ class SMARTMapDecoder(nn.Module):
         self.use_lane=True
 
         if self.use_lane:
-            self.relPos_embed=nn.Linear(2, hidden_dim)
+            self.relPos_embed=MLPEmbedding(2, hidden_dim)
 
         self.apply(weight_init)
 
@@ -106,7 +106,7 @@ class SMARTMapDecoder(nn.Module):
             r=self.pl2pl_radius,
             batch=batch,
             loop=False,
-            max_num_neighbors=20,
+            max_num_neighbors=10,
         )
         # edge_index_pt2pt = safe_radius(
         #     x=pos_pt,
