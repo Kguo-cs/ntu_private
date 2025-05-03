@@ -276,7 +276,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=5*(expert_next_V_diff.square().mean()+agent_next_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=5*(expert_current_V_diff.square().mean()+agent_current_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
