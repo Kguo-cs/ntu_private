@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=8:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=10:00:00 -P 12002486
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
