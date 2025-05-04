@@ -365,7 +365,7 @@ class IQ_SoftQ(LightningModule):
 
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
-            tokenized_agent["dist_mask"]=data["agent"]["dist_mask"]
+           # tokenized_agent["dist_mask"]=data["agent"]["dist_mask"]
 
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
