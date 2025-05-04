@@ -24,13 +24,13 @@ class WaymoTargetBuilderTrain(BaseTransform):
 
     def __call__(self, data) -> HeteroData:
 
-        # if "agent" in data.keys():
-        #     pos = data["agent"]["position"]
-        #     av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-        #     distance = torch.norm(pos - pos[av_index], dim=-1)
-        # #
-        # #     # we do not believe the perception out of range of 150 meters
-        # #     data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+        if "agent" in data.keys():
+            pos = data["agent"]["position"]
+            av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+            distance = torch.norm(pos - pos[av_index], dim=-1)
+        #
+        #     # we do not believe the perception out of range of 150 meters
+            data["agent"]["valid_mask"][:,self.step_current:] = data["agent"]["valid_mask"] [:,self.step_current:]& (distance[:,self.step_current:] < 150)
         #     data["agent"]["dist_mask"] =distance < 150
         #     # we do not predict vehicle too far away from ego car
         #     # role_train_mask = data["agent"]["role"].any(-1)
