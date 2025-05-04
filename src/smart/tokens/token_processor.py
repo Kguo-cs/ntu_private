@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        self.use_lane=False
+        self.use_lane=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -102,7 +102,7 @@ class TokenProcessor(torch.nn.Module):
         batch = data["pt_token"]["batch"][::sample_interval]
 
         if self.use_lane:
-            #ln_id = data["pt_token"]["ln_id"][::sample_interval]
+            ln_id = data["pt_token"]["ln_id"][::sample_interval]
 
             # # Step 1: compute per-graph max ln_id
             # ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
@@ -111,16 +111,16 @@ class TokenProcessor(torch.nn.Module):
             # offsets = torch.zeros_like(ln_id_max)
             # offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
 
-            # ln_id_max=ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
-            #
-            #
-            # # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            # offsets = torch.zeros([data.num_graphs],device=ln_id_max.device).long()
-            # offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
-            #
-            # # Step 3: gather offsets using batch
-            # batch_ln_id = ln_id + offsets[batch]
-            batch_ln_id=torch.arange(len(traj_pos)//10+1,device=traj_pos.device)[:,None].repeat(1,10).reshape(-1)[:len(traj_pos)]
+            ln_id_max=ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
+
+
+            # Step 2: compute cumulative offset for each graph (ln_num per graph)
+            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device).long()
+            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
+
+            # Step 3: gather offsets using batch
+            batch_ln_id = ln_id + offsets[batch]
+            #batch_ln_id=torch.arange(len(traj_pos)//10+1,device=traj_pos.device)[:,None].repeat(1,10).reshape(-1)[:len(traj_pos)]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -144,9 +144,9 @@ class TokenProcessor(torch.nn.Module):
 
             traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
             batch=scatter_mean(batch,batch_ln_id,dim=0)
-            #type=scatter_mean(type,batch_ln_id,dim=0)
-            #pl_type=scatter_mean(pl_type,batch_ln_id,dim=0)
-            #light_type=scatter_mean(light_type,batch_ln_id,dim=0)
+            type=scatter_mean(type,batch_ln_id,dim=0)
+            pl_type=scatter_mean(pl_type,batch_ln_id,dim=0)
+            light_type=scatter_mean(light_type,batch_ln_id,dim=0)
 
             lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
 

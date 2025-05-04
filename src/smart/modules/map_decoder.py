@@ -72,10 +72,10 @@ class SMARTMapDecoder(nn.Module):
         # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
         self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-        self.use_lane=False
+        self.use_lane=True
 
         if self.use_lane:
-            self.relPos_embed=MLPEmbedding(2+hidden_dim, hidden_dim)
+            self.relPos_embed=nn.Linear(2+hidden_dim, hidden_dim)
 
         self.apply(weight_init)
 
@@ -86,13 +86,6 @@ class SMARTMapDecoder(nn.Module):
         pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
         x_pt = pt_token_emb_src[tokenized_map["token_idx"]]
 
-        x_pt_categorical_embs = [
-            self.type_pt_emb(tokenized_map["type"]),
-            self.polygon_type_emb(tokenized_map["pl_type"]),
-            self.light_pl_emb(tokenized_map["light_type"]),
-        ]
-
-        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
         if self.use_lane:
             pos_embed=torch.cat([x_pt,tokenized_map["rel_position"]],dim=-1)
@@ -100,6 +93,14 @@ class SMARTMapDecoder(nn.Module):
             x_pt=self.relPos_embed(pos_embed)
 
             x_pt=scatter_mean(x_pt,tokenized_map["ln_id"],dim=0)#[0]
+
+        x_pt_categorical_embs = [
+            self.type_pt_emb(tokenized_map["type"]),
+            self.polygon_type_emb(tokenized_map["pl_type"]),
+            self.light_pl_emb(tokenized_map["light_type"]),
+        ]
+
+        x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
         batch=tokenized_map["batch"]
 
