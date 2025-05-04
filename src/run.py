@@ -31,6 +31,7 @@ wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/ke/code/catk')
 
 working_dir=os.getcwd()
 

@@ -113,7 +113,12 @@ class IQ_SoftQ(LightningModule):
 
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
-        valid_mask = tokenized_agent["valid_mask"]
+        if key=='expert':
+            dist_mask = tokenized_agent["dist_mask"][:,::5]
+
+            valid_mask= tokenized_agent["valid_mask"] & dist_mask[:,1:] & dist_mask[:,:-1]
+        else:
+            valid_mask = tokenized_agent["valid_mask"]
 
         state_mask = valid_mask[:, 1:-1]
 
@@ -360,8 +365,11 @@ class IQ_SoftQ(LightningModule):
 
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
+            tokenized_agent["dist_mask"]=data["agent"]["dist_mask"]
+
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
+
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
