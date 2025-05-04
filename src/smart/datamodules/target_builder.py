@@ -24,32 +24,32 @@ class WaymoTargetBuilderTrain(BaseTransform):
 
     def __call__(self, data) -> HeteroData:
 
-        if "agent" in data.keys():
-            pos = data["agent"]["position"]
-            av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-            distance = torch.norm(pos - pos[av_index], dim=-1)
-        #
-        #     # we do not believe the perception out of range of 150 meters
-        #     data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
-            data["agent"]["dist_mask"] =distance < 150
-            # we do not predict vehicle too far away from ego car
-            # role_train_mask = data["agent"]["role"].any(-1)
-            # extra_train_mask = (distance[:, self.step_current] < 100) & (
-            #     data["agent"]["valid_mask"][:, self.step_current + 1 :].sum(-1) >= 5
-            # )
-            #
-            # train_mask = extra_train_mask | role_train_mask
-            # if train_mask.sum() > self.max_num:  # too many vehicle
-            #     _indices = torch.where(extra_train_mask & ~role_train_mask)[0]
-            #     selected_indices = _indices[
-            #         torch.randperm(_indices.size(0))[: self.max_num - role_train_mask.sum()]
-            #     ]
-            #     data["agent"]["train_mask"] = role_train_mask
-            #     data["agent"]["train_mask"][selected_indices] = True
-            # else:
-            #     data["agent"]["train_mask"] = train_mask  # [n_agent]
-        else:
-            data["tokenized_map"]["num_nodes"]=len(data["tokenized_map"]["ln_id"])
+        # if "agent" in data.keys():
+        #     pos = data["agent"]["position"]
+        #     av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+        #     distance = torch.norm(pos - pos[av_index], dim=-1)
+        # #
+        # #     # we do not believe the perception out of range of 150 meters
+        # #     data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+        #     data["agent"]["dist_mask"] =distance < 150
+        #     # we do not predict vehicle too far away from ego car
+        #     # role_train_mask = data["agent"]["role"].any(-1)
+        #     # extra_train_mask = (distance[:, self.step_current] < 100) & (
+        #     #     data["agent"]["valid_mask"][:, self.step_current + 1 :].sum(-1) >= 5
+        #     # )
+        #     #
+        #     # train_mask = extra_train_mask | role_train_mask
+        #     # if train_mask.sum() > self.max_num:  # too many vehicle
+        #     #     _indices = torch.where(extra_train_mask & ~role_train_mask)[0]
+        #     #     selected_indices = _indices[
+        #     #         torch.randperm(_indices.size(0))[: self.max_num - role_train_mask.sum()]
+        #     #     ]
+        #     #     data["agent"]["train_mask"] = role_train_mask
+        #     #     data["agent"]["train_mask"][selected_indices] = True
+        #     # else:
+        #     #     data["agent"]["train_mask"] = train_mask  # [n_agent]
+        # else:
+        #     data["tokenized_map"]["num_nodes"]=len(data["tokenized_map"]["ln_id"])
         #     data["tokenized_agent"]["num_nodes"]=len(data["tokenized_agent"]["sampled_pos"])
 
         return HeteroData(data)
