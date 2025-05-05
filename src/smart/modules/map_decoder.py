@@ -86,7 +86,6 @@ class SMARTMapDecoder(nn.Module):
         pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
         x_pt = pt_token_emb_src[tokenized_map["token_idx"]]
 
-
         if self.use_lane:
             rel_position=torch.cat([x_pt,tokenized_map["rel_position"]],dim=-1)
 

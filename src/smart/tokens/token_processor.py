@@ -192,9 +192,9 @@ class TokenProcessor(torch.nn.Module):
                 "orientation": traj_theta,  # [n_pl]
                 "token_idx": token_idx,  # [n_pl]
                 "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-                "type": type ,  # [n_pl]
-                "pl_type": pl_type ,  # [n_pl]
-                "light_type": light_type ,  # [n_pl]
+                "type": type.long() ,  # [n_pl]
+                "pl_type": pl_type.long() ,  # [n_pl]
+                "light_type": light_type.long() ,  # [n_pl]
                 "batch": batch ,  # [n_pl]
             }
 

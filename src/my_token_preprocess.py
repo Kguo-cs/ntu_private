@@ -75,7 +75,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(data_directory)
+    files = os.listdir(data_directory)#[len(os.listdir(token_data_directory))-2:]
 
     for file in tqdm(files):
         process_file(file)
