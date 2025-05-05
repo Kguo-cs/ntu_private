@@ -93,13 +93,17 @@ class TokenProcessor(torch.nn.Module):
         if self.use_lane:
             sample_interval=1
 
-        traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
-        type= data["pt_token"]["type"].long()[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"].long()[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"].long()[::sample_interval]  # [n_pl]
+        pt_num=len(data["pt_token"]["batch"])
 
-        batch = data["pt_token"]["batch"][::sample_interval]
+        sample_list=np.random.choice(np.arange(pt_num),pt_num//sample_interval )
+
+        traj_pos = data["map_save"]["traj_pos"] [sample_list]#[::sample_interval] # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"] [sample_list]#[::sample_interval]  # [n_pl]
+        type= data["pt_token"]["type"][sample_list].long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"][sample_list].long()#[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"][sample_list].long()#[::sample_interval]  # [n_pl]
+
+        batch = data["pt_token"]["batch"] [sample_list] #[::sample_interval]
 
         if self.use_lane:
             ln_id = data["pt_token"]["ln_id"][::sample_interval]
