@@ -139,8 +139,29 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
-        lane_position=scatter_mean(position,ln_id,dim=0)
-        traj_theta=scatter_mean(traj_theta,ln_id,dim=0)
+        device = ln_id.device
+        unique_ids, ln_id = torch.unique(ln_id, return_inverse=True)
+        lane_ids=ln_id
+
+        # Detect lane change boundaries
+        lane_change = torch.ones_like(lane_ids, dtype=torch.bool)
+        lane_change[1:] = lane_ids[1:] != lane_ids[:-1]
+
+        # Start index of each lane
+        start_indices = torch.nonzero(lane_change, as_tuple=False).squeeze()
+
+        # End index is just before the next start, or end of tensor
+        next_starts = torch.cat([
+            start_indices[1:],
+            torch.tensor([lane_ids.size(0)], device=lane_ids.device)
+        ])
+        end_indices = next_starts - 1
+
+        # Middle index is always the average (even for single-point lanes)
+        mid_indices = (start_indices + end_indices) // 2
+
+        lane_position=position[mid_indices]
+        traj_theta=traj_theta[mid_indices]
         type=scatter_mean(type,ln_id,dim=0)
         pl_type=scatter_mean(pl_type,ln_id,dim=0)
         light_type=scatter_mean(light_type,ln_id,dim=0)

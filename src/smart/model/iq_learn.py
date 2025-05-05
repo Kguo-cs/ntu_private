@@ -225,8 +225,8 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff,agent_Q_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            div='rkl'
-            alpha=1
+            div='x2'
+            alpha=4
             eps=1e-3
 
             if div=="lsif":
@@ -318,7 +318,7 @@ class IQ_SoftQ(LightningModule):
         if "ln_id" in map._mapping.keys():
             ln_id = map["ln_id"]
             batch=map["batch"]
-
+            unique_ids, ln_id = torch.unique(ln_id, return_inverse=True)
             # Step 1: compute per-graph max ln_id
             #ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
 

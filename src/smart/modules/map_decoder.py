@@ -72,10 +72,10 @@ class SMARTMapDecoder(nn.Module):
         # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
         self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-        self.use_lane=False
+        self.use_lane=True
 
         if self.use_lane:
-            self.relPos_embed=nn.Linear(2, hidden_dim)
+            self.relPos_embed=MLPEmbedding(2+hidden_dim, hidden_dim)
 
         self.apply(weight_init)
 
@@ -88,9 +88,9 @@ class SMARTMapDecoder(nn.Module):
 
 
         if self.use_lane:
-            # pos_embed=torch.cat([x_pt,tokenized_map["rel_position"]],dim=-1)
+            rel_position=torch.cat([x_pt,tokenized_map["rel_position"]],dim=-1)
 
-            x_pt=x_pt+self.relPos_embed(tokenized_map["rel_position"])
+            x_pt=self.relPos_embed(rel_position)
 
             x_pt=scatter_mean(x_pt,tokenized_map["ln_id"],dim=0)#[0]
 
