@@ -95,7 +95,7 @@ class TokenProcessor(torch.nn.Module):
 
         pt_num=len(data["pt_token"]["batch"])
 
-        sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
+        #sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
 
         ln_id = data["pt_token"]["ln_id"]
 
@@ -116,13 +116,13 @@ class TokenProcessor(torch.nn.Module):
         #
         # sample_list=mid_indices
 
-        traj_pos = data["map_save"]["traj_pos"] [sample_list]#[::sample_interval] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [sample_list]#[::sample_interval]  # [n_pl]
-        type= data["pt_token"]["type"][sample_list].long()#[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"][sample_list].long()#[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"][sample_list].long()#[::sample_interval]  # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"] #[sample_list]#[::sample_interval] # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"] #[sample_list]#[::sample_interval]  # [n_pl]
+        type= data["pt_token"]["type"]#[sample_list].long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"]#[sample_list]#[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"]#[sample_list]#[::sample_interval]  # [n_pl]
 
-        batch = data["pt_token"]["batch"] [sample_list] #[::sample_interval]
+        batch = data["pt_token"]["batch"] #[sample_list] #[::sample_interval]
 
         if self.use_lane:
 
@@ -179,9 +179,9 @@ class TokenProcessor(torch.nn.Module):
                 "orientation": traj_theta,  # [n_pl]
                 "token_idx": token_idx,  # [n_pl]
                 "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-                "type": type ,  # [n_pl]
-                "pl_type": pl_type ,  # [n_pl]
-                "light_type": light_type ,  # [n_pl]
+                "type": type.long() ,  # [n_pl]
+                "pl_type": pl_type.long() ,  # [n_pl]
+                "light_type": light_type.long() ,  # [n_pl]
                 "batch": batch ,  # [n_pl]
                 "ln_id": batch_ln_id,
                 "rel_position":rel_position
