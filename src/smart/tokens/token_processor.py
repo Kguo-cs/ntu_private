@@ -95,7 +95,23 @@ class TokenProcessor(torch.nn.Module):
 
         pt_num=len(data["pt_token"]["batch"])
 
-        sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
+        #sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
+
+        lane_ids = data["pt_token"]["ln_id"]
+        # Identify lane change points
+        lane_change = torch.ones_like(lane_ids, dtype=torch.bool, device=lane_ids.device)
+        lane_change[1:] = lane_ids[1:] != lane_ids[:-1]
+
+        # Get start indices of each lane
+        start_indices = lane_change.nonzero(as_tuple=False).squeeze()
+
+        # Get end indices of each lane
+        end_indices = torch.cat([start_indices[1:] - 1, torch.tensor([len(lane_ids) - 1], device=lane_ids.device)])
+
+        # Compute middle indices
+        mid_indices = ((start_indices + end_indices) // 2)
+
+        sample_list=mid_indices
 
         traj_pos = data["map_save"]["traj_pos"] [sample_list]#[::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [sample_list]#[::sample_interval]  # [n_pl]
