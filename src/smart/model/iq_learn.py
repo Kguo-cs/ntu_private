@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=False
+        self.use_target_q=True
         self.soft_update=True
 
         self.rollout_freq=1
@@ -235,8 +235,8 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            div='x2'
-            alpha=4
+            div='rkl'
+            alpha=20
             eps=1e-3
 
             if div=="lsif":
