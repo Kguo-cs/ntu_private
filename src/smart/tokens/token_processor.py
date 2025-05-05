@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        self.use_lane=True
+        self.use_lane=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -93,7 +93,7 @@ class TokenProcessor(torch.nn.Module):
         if self.use_lane:
             sample_interval=1
 
-        pt_num=len(data["pt_token"]["batch"])
+        #pt_num=len(data["pt_token"]["batch"])
 
         #sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
 

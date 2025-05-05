@@ -97,17 +97,17 @@ class IQ_SoftQ(LightningModule):
 
         next_V = v_value[:, 1:]
 
-        done = torch.zeros_like(next_V)
+        dones = torch.zeros_like(next_V)
 
-       # done[~action_mask] = 1
+        dones[~action_mask] = 1
 
-        done[:, -1] = 1
+        dones[:, -1] = 1
 
-        next_V = (1 - done) * next_V
+        next_V = (1 - dones) * next_V
 
         reward = current_Q - self.gamma * next_V#.detach()  # next_V#
 
-        return q,current_Q,v_value,current_V,next_V,reward
+        return q,current_Q,v_value,current_V,next_V,reward,dones
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
@@ -126,10 +126,10 @@ class IQ_SoftQ(LightningModule):
 
         state_action_mask = action_mask & state_mask
 
-        q,current_Q,V,current_V,next_V,reward=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,action_mask)
+        q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,action_mask)
 
         with torch.no_grad():
-            target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
+            target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
 
         # reward = current_Q - self.gamma * target_next_V  # next_V#
 
@@ -137,7 +137,21 @@ class IQ_SoftQ(LightningModule):
 
         logpi= torch.log(pi + 1e-10)
 
-        action_nll = -logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])[state_action_mask].mean()
+        log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+
+        action_nll = -log_prob[state_action_mask].mean()
+
+        # Create discount vector [1, γ, γ², ..., γ^(t-1)]
+        #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
+        rewards=reward- self.alpha * log_prob
+
+        returns = torch.zeros_like(rewards)
+        running_return = torch.zeros(rewards.size(0), device=rewards.device)
+
+        # Convert done mask to 1s and 0s if needed
+        for i in range(rewards.size(1)-1,-1,-1):
+            running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
+            returns[:, i] = running_return
 
         entropy = -torch.sum(pi * logpi, dim=-1)
 
@@ -153,7 +167,8 @@ class IQ_SoftQ(LightningModule):
 
         next_V_diff=(next_V-target_next_V)[action_mask]
 
-        V_diff=(V-target_V)[valid_mask[:, 1:]]
+        # V_diff=(V-target_V)[valid_mask[:, 1:]]
+        V_diff=current_V-returns[state_mask]
 
         reward_diff=reward-target_reward[state_action_mask]
 

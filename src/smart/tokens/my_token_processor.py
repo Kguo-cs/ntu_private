@@ -139,7 +139,6 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
-        device = ln_id.device
         unique_ids, ln_id = torch.unique(ln_id, return_inverse=True)
         lane_ids=ln_id
 
