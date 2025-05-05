@@ -225,23 +225,8 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff,agent_Q_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            # agent_ratio=0
-            #
-            # reward_loss= (expert_reward_loss.sum()*(1-agent_ratio)+agent_reward_loss.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
-            #
-            # self.log("train/reward_loss", reward_loss.item(), on_step=True, batch_size=1)
-            # reward_loss=self.compute_reward_loss(reward)
-
-            # agent_ratio=1
-            #
-            # reward_mean= (expert_reward.sum()*(1-agent_ratio)+agent_reward.sum()*agent_ratio)/(expert_valid.sum()*(1-agent_ratio)+agent_valid.sum()*agent_ratio)
-            #
-            # self.log("train/reward_mean", reward_mean.item(), on_step=True, batch_size=1)
-
-            #critic_loss=self.reward_w*(reward_loss+reward_mean)#self.global_step/10000*+expert_constraint_loss+agent_constraint_loss
-
             div='rkl'
-            alpha=1
+            alpha=10
             eps=1e-3
 
             if div=="lsif":
@@ -252,14 +237,6 @@ class IQ_SoftQ(LightningModule):
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
             elif div=='exp':
                 critic_loss = (-expert_reward ).exp().mean()+ agent_reward.exp().mean()
-            elif div=='bce_x':
-                critic_loss=((-expert_reward/1).exp()+1).log().mean()+ agent_reward.mean()
-            elif div=='expx':
-                critic_loss =-expert_reward.mean() +(-expert_reward ).exp().mean()+ agent_reward.mean()
-            elif div=='rukl':
-                critic_loss = -expert_reward.mean() +(-expert_reward ).exp().mean()+ agent_reward.exp().mean()+agent_reward.mean()
-            elif div=='rkla':
-                critic_loss= alpha *(-expert_reward / alpha +1 ).exp().mean()+agent_reward.mean()
             elif div=='rkl':
                 # phi_grad = torch.exp(-expert_reward).detach()
                 # critic_loss =  -(phi_grad*expert_reward).mean()+agent_reward.mean()
