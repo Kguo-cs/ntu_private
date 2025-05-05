@@ -140,6 +140,7 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
+
         else:
             # Create discount vector [1, γ, γ², ..., γ^(t-1)]
             #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
@@ -270,7 +271,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=5*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=10*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
