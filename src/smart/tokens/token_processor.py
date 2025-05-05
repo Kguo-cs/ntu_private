@@ -95,7 +95,7 @@ class TokenProcessor(torch.nn.Module):
 
         pt_num=len(data["pt_token"]["batch"])
 
-        sample_list=np.random.choice(np.arange(pt_num),pt_num//sample_interval )
+        sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
 
         traj_pos = data["map_save"]["traj_pos"] [sample_list]#[::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [sample_list]#[::sample_interval]  # [n_pl]
