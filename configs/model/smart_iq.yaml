@@ -17,6 +17,7 @@ model_config:
     num_map_layers: 1
     num_agent_layers: 1
     pl2pl_radius: 10
-    pl2a_radius: 35
+    pl2a_radius: 40
+    a2a_radius: 60
     time_span: 20
 
