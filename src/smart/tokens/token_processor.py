@@ -169,6 +169,8 @@ class TokenProcessor(torch.nn.Module):
 
             rel_position = position - lane_center_pos  # [n_pl, 2]
 
+            token_idx=token_idx[mid_indices]
+
             tokenized_map = {
                 "position": lane_position,  # [n_pl, 2]
                 "orientation": traj_theta,  # [n_pl]

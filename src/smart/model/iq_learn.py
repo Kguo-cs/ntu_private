@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=False
+        self.use_target_q=True
         self.soft_update=True
 
         self.rollout_freq=1
@@ -112,11 +112,6 @@ class IQ_SoftQ(LightningModule):
 
         action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
-        # if key=='expert':
-        #     #dist_mask = tokenized_agent["dist_mask"][:,::5]
-        #
-        #     valid_mask= tokenized_agent["valid_mask"] #& dist_mask[:,1:] & dist_mask[:,:-1]
-        # else:
         valid_mask = tokenized_agent["valid_mask"][:, 1:]
 
         state_mask = valid_mask[:, :-1]
