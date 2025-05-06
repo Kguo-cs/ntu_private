@@ -93,13 +93,36 @@ class TokenProcessor(torch.nn.Module):
         if self.use_lane:
             sample_interval=1
 
-        traj_pos = data["map_save"]["traj_pos"][::sample_interval] #[sample_list]# # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [::sample_interval]#[sample_list]#  # [n_pl]
-        type= data["pt_token"]["type"][::sample_interval]#[sample_list].long()#[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"][::sample_interval]#[sample_list]#[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"][::sample_interval] #[sample_list]#[::sample_interval]  # [n_pl]
+        ln_id = data["pt_token"]["ln_id"]
+        batch = data["pt_token"]["batch"]
 
-        batch = data["pt_token"]["batch"][::sample_interval] #[sample_list] #
+        ln_id_max = ln_id[torch.where(ln_id[1:] < ln_id[:-1])]
+        offsets = torch.zeros([data.num_graphs], device=ln_id_max.device).long()
+        offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
+        lane_ids = ln_id + offsets[batch]
+
+        # Get unique lane IDs
+        pt_idx=torch.arange(len(lane_ids),device=ln_id.device)
+
+        # Collect sampled points
+        sampled_points = []
+
+        for lane in range(lane_ids[-1]+1):
+            # Get indices where lane_id == current lane
+            sampled_lane_points = pt_idx[lane_ids == lane][::sample_interval]
+
+            sampled_points.append(sampled_lane_points)
+
+        # Concatenate all sampled points
+        sample_list = torch.cat(sampled_points)
+
+        traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
+        type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
+
+        batch = data["pt_token"]["batch"][sample_list]#[::sample_interval] # #
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -118,16 +141,10 @@ class TokenProcessor(torch.nn.Module):
         position=traj_pos[:, 0].contiguous()
 
         if self.use_lane:
-            ln_id = data["pt_token"]["ln_id"]
-
-            ln_id_max = ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
-            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device).long()
-            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
-            batch_ln_id = ln_id + offsets[batch]
 
             # # Identify lane change points
-            lane_change = torch.ones_like(batch_ln_id, dtype=torch.bool, device=ln_id.device)
-            lane_change[1:] = batch_ln_id[1:] != batch_ln_id[:-1]
+            lane_change = torch.ones_like(lane_ids, dtype=torch.bool, device=ln_id.device)
+            lane_change[1:] = lane_ids[1:] != lane_ids[:-1]
 
             # Get start indices of each lane
             start_indices = lane_change.nonzero(as_tuple=False).squeeze()
@@ -146,11 +163,11 @@ class TokenProcessor(torch.nn.Module):
             pl_type=pl_type[mid_indices]#scatter_mean(pl_type,batch_ln_id,dim=0)
             light_type=light_type[mid_indices]#scatter_mean(light_type,batch_ln_id,dim=0)
 
-            rel_position = position - lane_position[batch_ln_id]  # [n_pl, 2]
-            rel_theta= traj_theta - lane_theta[batch_ln_id]  # [n_pl, 2]
+            rel_position = position - lane_position[lane_ids]  # [n_pl, 2]
+            rel_theta= traj_theta - lane_theta[lane_ids]  # [n_pl, 2]
             rel_pose=torch.cat([rel_position,rel_theta[:,None]],dim=-1)
 
-            token_idx=token_idx[mid_indices]
+            # token_idx=token_idx[mid_indices]
 
             tokenized_map = {
                 "position": lane_position,  # [n_pl, 2]

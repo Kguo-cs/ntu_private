@@ -135,29 +135,29 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
-
-                target_pi = torch.softmax(target_q / self.alpha, dim=-1)
-
-                target_logpi = torch.log(target_pi + 1e-10)
-
-                target_log_prob = target_logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0],
-                                                                                                     q.shape[1])
-
-                # Create discount vector [1, γ, γ², ..., γ^(t-1)]
-                # gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
-                rewards = target_reward - self.alpha * target_log_prob
-
-                returns = torch.zeros_like(V)
-                running_return = torch.zeros(rewards.size(0), device=rewards.device)
-
-                # Convert done mask to 1s and 0s if needed
-                for i in range(rewards.size(1) - 1, -1, -1):
-                    running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
-                    returns[:, i] = running_return
-
-                target_V = returns
-                target_current_V = target_V[:, :-1]
-                target_next_V = target_V[:, 1:]
+                #
+                # target_pi = torch.softmax(target_q / self.alpha, dim=-1)
+                #
+                # target_logpi = torch.log(target_pi + 1e-10)
+                #
+                # target_log_prob = target_logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0],
+                #                                                                                      q.shape[1])
+                #
+                # # Create discount vector [1, γ, γ², ..., γ^(t-1)]
+                # # gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
+                # rewards = target_reward - self.alpha * target_log_prob
+                #
+                # returns = torch.zeros_like(V)
+                # running_return = torch.zeros(rewards.size(0), device=rewards.device)
+                #
+                # # Convert done mask to 1s and 0s if needed
+                # for i in range(rewards.size(1) - 1, -1, -1):
+                #     running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
+                #     returns[:, i] = running_return
+                #
+                # target_V = returns
+                # target_current_V = target_V[:, :-1]
+                # target_next_V = target_V[:, 1:]
 
         else:
             with torch.no_grad():
