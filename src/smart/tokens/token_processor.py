@@ -97,8 +97,6 @@ class TokenProcessor(torch.nn.Module):
 
         #sample_list=np.sort(np.random.choice(np.arange(pt_num),pt_num//sample_interval ))
 
-        ln_id = data["pt_token"]["ln_id"]
-
         traj_pos = data["map_save"]["traj_pos"][::sample_interval] #[sample_list]# # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] [::sample_interval]#[sample_list]#  # [n_pl]
         type= data["pt_token"]["type"][::sample_interval]#[sample_list].long()#[::sample_interval]  # [n_pl]
@@ -106,26 +104,6 @@ class TokenProcessor(torch.nn.Module):
         light_type= data["pt_token"]["light_type"][::sample_interval] #[sample_list]#[::sample_interval]  # [n_pl]
 
         batch = data["pt_token"]["batch"][::sample_interval] #[sample_list] #
-
-        if self.use_lane:
-
-            # # Step 1: compute per-graph max ln_id
-            # ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
-            #
-            # # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            # offsets = torch.zeros_like(ln_id_max)
-            # offsets[1:] = torch.cumsum(ln_id_max[:-1] + 1, dim=0)
-
-            ln_id_max=ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
-
-
-            # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device).long()
-            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
-
-            # Step 3: gather offsets using batch
-            batch_ln_id = ln_id + offsets[batch]
-            #batch_ln_id=torch.arange(len(traj_pos)//10+1,device=traj_pos.device)[:,None].repeat(1,10).reshape(-1)[:len(traj_pos)]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -144,6 +122,13 @@ class TokenProcessor(torch.nn.Module):
         position=traj_pos[:, 0].contiguous()
 
         if self.use_lane:
+            ln_id = data["pt_token"]["ln_id"]
+
+            ln_id_max = ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
+            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device).long()
+            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
+            batch_ln_id = ln_id + offsets[batch]
+
             # # Identify lane change points
             lane_change = torch.ones_like(batch_ln_id, dtype=torch.bool, device=ln_id.device)
             lane_change[1:] = batch_ln_id[1:] != batch_ln_id[:-1]
