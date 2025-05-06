@@ -7,7 +7,7 @@ qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim/src
 conda activate catk
-export PBS_JOBID=42532.pbs111
+export PBS_JOBID=43727.pbs111
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_lane_mid.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
