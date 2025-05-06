@@ -402,7 +402,7 @@ class SMARTAgentDecoder(nn.Module):
                                              r=self.pl2a_radius,
                                              batch_x=batch_s,
                                              batch_y=batch_pl,
-                                             max_num_neighbors=1)
+                                             max_num_neighbors=15)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
