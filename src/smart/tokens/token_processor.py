@@ -141,8 +141,8 @@ class TokenProcessor(torch.nn.Module):
         type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
         pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
         light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
-        #
-        # batch = data["pt_token"]["batch"][sample_list]#[::sample_interval] # #
+        batch = data["pt_token"]["batch"][sample_list]#[::sample_interval] # #
+
         # traj_pos = data["map_save"]["traj_pos"][::sample_interval] ## # [n_pl, 3, 2]
         # traj_theta = data["map_save"]["traj_theta"][::sample_interval]##  # [n_pl]
         # type= data["pt_token"]["type"][::sample_interval]#.long()#[::sample_interval]  # [n_pl]
