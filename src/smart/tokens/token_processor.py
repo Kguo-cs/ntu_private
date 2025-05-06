@@ -88,7 +88,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=20
+        sample_interval=10
 
         if self.use_lane:
             sample_interval=1
@@ -104,17 +104,37 @@ class TokenProcessor(torch.nn.Module):
         # Get unique lane IDs
         pt_idx=torch.arange(len(lane_ids),device=ln_id.device)
 
-        # Collect sampled points
-        sampled_points = []
+        # # Collect sampled points
+        # sampled_points = []
+        #
+        # for lane in range(lane_ids[-1]+1):
+        #     # Get indices where lane_id == current lane
+        #     sampled_lane_points = pt_idx[lane_ids == lane][::sample_interval]
+        #
+        #     sampled_points.append(sampled_lane_points)
+        #
+        # # Concatenate all sampled points
+        # sample_list = torch.cat(sampled_points)
+        #
 
-        for lane in range(lane_ids[-1]+1):
-            # Get indices where lane_id == current lane
-            sampled_lane_points = pt_idx[lane_ids == lane][::sample_interval]
+        # Get change points (start of each lane group)
+        change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
+        starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
+        ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
+        lengths = ends - starts
 
-            sampled_points.append(sampled_lane_points)
+        # Create global index mask for sampling
+        max_len = lengths.max()
+        grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
+        mask = grid < lengths.unsqueeze(1)
+        sampling_mask = (grid % sample_interval == 0) & mask
 
-        # Concatenate all sampled points
-        sample_list = torch.cat(sampled_points)
+        # Flattened index positions per group
+        base = starts.unsqueeze(1) + grid
+        valid_idx = base[sampling_mask]
+
+        # Recover sampled original indices
+        sample_list = pt_idx[valid_idx]
 
         traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
