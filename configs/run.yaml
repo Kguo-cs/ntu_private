@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: x2_allV4_adam_noactiondone_lane10_r20r30 #_agent15 #targetreturn #_midtheta #reg20 #onlymid #returndetach_reg  #_midlane_return #_lane #_allV_adam_valid #_trainmasklane_linear2__plr20pl10_pla40max10_current_V_finaldone_actiondone #currentV_nofinaldone #nextV_mean10_catmlp__r30_relpos_meantype_nearestlane10mean #_nomask #_inter2pt_inter4 #_lanemean #_val256 #_entropy001 #_entropy01 #_drop01bc__noptdetach #_done #rkl_copy1e3_ScurrentV10_targetV #_decay0 # ratio002 #10 #     #_soft1e4_timespan5 #000_gamma0_roll10_len100 #BC_1exp1Vclip  #2SVclip #1exp2V #_drop0_rollout1_maxlen1 #Q01_01BC_mymatchx2_1e2_soft0005_32_min1e4rkl1_clip
+task_name: x2_allV4_adam_noactiondone_lane10_r10r30 #_agent15 #targetreturn #_midtheta #reg20 #onlymid #returndetach_reg  #_midlane_return #_lane #_allV_adam_valid #_trainmasklane_linear2__plr20pl10_pla40max10_current_V_finaldone_actiondone #currentV_nofinaldone #nextV_mean10_catmlp__r30_relpos_meantype_nearestlane10mean #_nomask #_inter2pt_inter4 #_lanemean #_val256 #_entropy001 #_entropy01 #_drop01bc__noptdetach #_done #rkl_copy1e3_ScurrentV10_targetV #_decay0 # ratio002 #10 #     #_soft1e4_timespan5 #000_gamma0_roll10_len100 #BC_1exp1Vclip  #2SVclip #1exp2V #_drop0_rollout1_maxlen1 #Q01_01BC_mymatchx2_1e2_soft0005_32_min1e4rkl1_clip
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
