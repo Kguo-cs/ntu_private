@@ -88,7 +88,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=10
+        sample_interval=15
 
         if self.use_lane:
             sample_interval=1
@@ -198,7 +198,7 @@ class TokenProcessor(torch.nn.Module):
                 "pl_type": pl_type.long() ,  # [n_pl]
                 "light_type": light_type.long() ,  # [n_pl]
                 "batch": batch ,  # [n_pl]
-                "ln_id": batch_ln_id,
+                "ln_id": lane_ids,
                 "rel_pose":rel_pose
             }
         else:
