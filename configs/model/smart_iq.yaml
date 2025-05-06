@@ -19,5 +19,5 @@ model_config:
     pl2pl_radius: 10
     pl2a_radius: 50
     a2a_radius: 60
-    time_span: 20
+    #time_span: 20
 
