@@ -18,5 +18,5 @@ model_config:
     num_agent_layers: 1
     pl2pl_radius: 10
     pl2a_radius: 40
-   #time_span: 10
+    time_span: 10
 
