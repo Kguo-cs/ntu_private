@@ -161,13 +161,15 @@ class TokenProcessor(torch.nn.Module):
 
         lane_position=position[mid_indices]
         traj_theta=traj_theta[mid_indices]
-        type=scatter_mean(type,ln_id,dim=0)
-        pl_type=scatter_mean(pl_type,ln_id,dim=0)
-        light_type=scatter_mean(light_type,ln_id,dim=0)
+        type=type[mid_indices]#scatter_mean(type,ln_id,dim=0)
+        pl_type=pl_type[mid_indices]#scatter_mean(pl_type,ln_id,dim=0)
+        light_type=light_type[mid_indices] #scatter_mean(light_type,ln_id,dim=0)
+        ln_id=ln_id[mid_indices]
+        token_idx=token_idx[mid_indices]
 
-        lane_center_pos = lane_position[ln_id]  # [n_pl, 2]
-
-        rel_position = position - lane_center_pos  # [n_pl, 2]
+        # lane_center_pos = lane_position[ln_id]  # [n_pl, 2]
+        #
+        # rel_position = position - lane_center_pos  # [n_pl, 2]
 
         tokenized_map = {
            # "position": position,  # [n_pl, 2]
@@ -179,7 +181,7 @@ class TokenProcessor(torch.nn.Module):
             "pl_type": pl_type ,  # [n_pl]
             "light_type": light_type ,  # [n_pl]
             "ln_id":ln_id,
-            "rel_position":rel_position
+           # "rel_position":rel_position
         }
         return tokenized_map
 

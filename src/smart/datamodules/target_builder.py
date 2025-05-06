@@ -27,7 +27,7 @@ class WaymoTargetBuilderTrain(BaseTransform):
         if "agent" in data.keys():
             _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
 
-            pos = data["agent"]["position"]
+            #pos = data["agent"]["position"]
         #     av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
         #     distance = torch.norm(pos - pos[av_index], dim=-1)
         # #

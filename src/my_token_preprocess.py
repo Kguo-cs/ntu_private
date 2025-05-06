@@ -18,7 +18,7 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_lane_mid/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_only_mid/"
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
 # Worker function
