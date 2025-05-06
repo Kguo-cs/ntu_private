@@ -51,7 +51,7 @@ class WaymoTargetBuilderTrain(BaseTransform):
       #  else:
 #            data["tokenized_map"]["num_nodes"]=len(data["tokenized_map"]["ln_id"])
         #     data["tokenized_agent"]["num_nodes"]=len(data["tokenized_agent"]["sampled_pos"])
-        _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
+        #_,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
 
         return HeteroData(data)
 
