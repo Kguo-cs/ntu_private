@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        self.use_lane=False
+        self.use_lane=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -99,23 +99,6 @@ class TokenProcessor(torch.nn.Module):
 
         ln_id = data["pt_token"]["ln_id"]
 
-        _, ln_id = torch.unique(ln_id, return_inverse=True)
-
-        # # Identify lane change points
-        # lane_change = torch.ones_like(ln_id, dtype=torch.bool, device=ln_id.device)
-        # lane_change[1:] = ln_id[1:] != ln_id[:-1]
-        #
-        # # Get start indices of each lane
-        # start_indices = lane_change.nonzero(as_tuple=False).squeeze()
-        #
-        # # Get end indices of each lane
-        # end_indices = torch.cat([start_indices[1:] - 1, torch.tensor([len(ln_id) - 1], device=ln_id.device)])
-        #
-        # # Compute middle indices
-        # mid_indices = ((start_indices + end_indices) // 2)
-        #
-        # sample_list=mid_indices
-
         traj_pos = data["map_save"]["traj_pos"] #[sample_list]#[::sample_interval] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] #[sample_list]#[::sample_interval]  # [n_pl]
         type= data["pt_token"]["type"]#[sample_list].long()#[::sample_interval]  # [n_pl]
@@ -161,10 +144,22 @@ class TokenProcessor(torch.nn.Module):
         position=traj_pos[:, 0].contiguous()
 
         if self.use_lane:
+            # # Identify lane change points
+            lane_change = torch.ones_like(batch_ln_id, dtype=torch.bool, device=ln_id.device)
+            lane_change[1:] = batch_ln_id[1:] != batch_ln_id[:-1]
 
-            lane_position=scatter_mean(position,batch_ln_id,dim=0)
+            # Get start indices of each lane
+            start_indices = lane_change.nonzero(as_tuple=False).squeeze()
 
-            traj_theta=scatter_mean(traj_theta,batch_ln_id,dim=0)
+            # Get end indices of each lane
+            end_indices = torch.cat([start_indices[1:] - 1, torch.tensor([len(ln_id) - 1], device=ln_id.device)])
+
+            # Compute middle indices
+            mid_indices = ((start_indices + end_indices) // 2)
+
+            lane_position=position[mid_indices]#scatter_mean(position,batch_ln_id,dim=0)
+
+            traj_theta=traj_theta[mid_indices] #scatter_mean(traj_theta,batch_ln_id,dim=0)
             batch=scatter_mean(batch,batch_ln_id,dim=0)
             type=scatter_mean(type,batch_ln_id,dim=0)
             pl_type=scatter_mean(pl_type,batch_ln_id,dim=0)
