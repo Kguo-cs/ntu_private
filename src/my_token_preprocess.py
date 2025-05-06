@@ -18,7 +18,7 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_only_mid/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
 # Worker function
@@ -58,9 +58,9 @@ def process_file(filename):
         tokenized_map[key]=tokenized_map[key].cpu()
 
     tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
-    tokenized_map["ln_id"]=  tokenized_map["ln_id"].to(torch.int16)
+    #tokenized_map["ln_id"]=  tokenized_map["ln_id"].to(torch.int16)
     tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
-    tokenized_map["num_nodes"] = len(tokenized_map["ln_id"])
+    tokenized_map["num_nodes"] = len(tokenized_map["position"])
 
     for key in tokenized_agent.keys():
         tokenized_agent[key]=tokenized_agent[key].cpu()

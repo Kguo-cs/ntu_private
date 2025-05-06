@@ -82,14 +82,56 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=1
+        sample_interval=10
 
-        traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
-        ln_id = data["pt_token"]["ln_id"][::sample_interval]
-        type= data["pt_token"]["type"][::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"][::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"][::sample_interval]  # [n_pl]
+        lane_ids = data["pt_token"]["ln_id"]
+
+        pt_idx=torch.arange(len(lane_ids),device=lane_ids.device)
+
+        # # Collect sampled points
+        # sampled_points = []
+        #
+        # for lane in range(lane_ids[-1]+1):
+        #     # Get indices where lane_id == current lane
+        #     sampled_lane_points = pt_idx[lane_ids == lane][::sample_interval]
+        #
+        #     sampled_points.append(sampled_lane_points)
+        #
+        # # Concatenate all sampled points
+        # sample_list = torch.cat(sampled_points)
+        #
+
+        # Get change points (start of each lane group)
+        change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
+        starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
+        ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
+        lengths = ends - starts
+
+        # Create global index mask for sampling
+        max_len = lengths.max()
+        grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
+        mask = grid < lengths.unsqueeze(1)
+        sampling_mask = (grid % sample_interval == 0) & mask
+
+        # Flattened index positions per group
+        base = starts.unsqueeze(1) + grid
+        valid_idx = base[sampling_mask]
+        # Recover sampled original indices
+        sample_list = pt_idx[valid_idx]
+
+        # traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
+        # traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
+        # ln_id = data["pt_token"]["ln_id"][::sample_interval]
+        # type= data["pt_token"]["type"][::sample_interval]  # [n_pl]
+        # pl_type= data["pt_token"]["pl_type"][::sample_interval]  # [n_pl]
+        # light_type= data["pt_token"]["light_type"][::sample_interval]  # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
+        type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
+
+        #dist=torch.linalg.norm(traj_pos[1:,0]-traj_pos[:-1,0],dim=-1)#each two point with interval 50
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -138,34 +180,34 @@ class TokenProcessor(torch.nn.Module):
 
 
         position=traj_pos[:, 0].contiguous()
+        #
+        # unique_ids, ln_id = torch.unique(ln_id, return_inverse=True)
+        # lane_ids=ln_id
+        #
+        # # Detect lane change boundaries
+        # lane_change = torch.ones_like(lane_ids, dtype=torch.bool)
+        # lane_change[1:] = lane_ids[1:] != lane_ids[:-1]
+        #
+        # # Start index of each lane
+        # start_indices = torch.nonzero(lane_change, as_tuple=False).squeeze()
+        #
+        # # End index is just before the next start, or end of tensor
+        # next_starts = torch.cat([
+        #     start_indices[1:],
+        #     torch.tensor([lane_ids.size(0)], device=lane_ids.device)
+        # ])
+        # end_indices = next_starts - 1
+        #
+        # # Middle index is always the average (even for single-point lanes)
+        # mid_indices = (start_indices + end_indices) // 2
 
-        unique_ids, ln_id = torch.unique(ln_id, return_inverse=True)
-        lane_ids=ln_id
-
-        # Detect lane change boundaries
-        lane_change = torch.ones_like(lane_ids, dtype=torch.bool)
-        lane_change[1:] = lane_ids[1:] != lane_ids[:-1]
-
-        # Start index of each lane
-        start_indices = torch.nonzero(lane_change, as_tuple=False).squeeze()
-
-        # End index is just before the next start, or end of tensor
-        next_starts = torch.cat([
-            start_indices[1:],
-            torch.tensor([lane_ids.size(0)], device=lane_ids.device)
-        ])
-        end_indices = next_starts - 1
-
-        # Middle index is always the average (even for single-point lanes)
-        mid_indices = (start_indices + end_indices) // 2
-
-        lane_position=position[mid_indices]
-        traj_theta=traj_theta[mid_indices]
-        type=type[mid_indices]#scatter_mean(type,ln_id,dim=0)
-        pl_type=pl_type[mid_indices]#scatter_mean(pl_type,ln_id,dim=0)
-        light_type=light_type[mid_indices] #scatter_mean(light_type,ln_id,dim=0)
-        ln_id=ln_id[mid_indices]
-        token_idx=token_idx[mid_indices]
+        # lane_position=position[mid_indices]
+        # traj_theta=traj_theta[mid_indices]
+        # type=type[mid_indices]#scatter_mean(type,ln_id,dim=0)
+        # pl_type=pl_type[mid_indices]#scatter_mean(pl_type,ln_id,dim=0)
+        # light_type=light_type[mid_indices] #scatter_mean(light_type,ln_id,dim=0)
+        # ln_id=ln_id[mid_indices]
+        # token_idx=token_idx[mid_indices]
 
         # lane_center_pos = lane_position[ln_id]  # [n_pl, 2]
         #
@@ -173,14 +215,14 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_map = {
            # "position": position,  # [n_pl, 2]
-            "position": lane_position,  # [n_pl, 2]
+            "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
            # "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
             "type": type ,  # [n_pl]
             "pl_type": pl_type ,  # [n_pl]
             "light_type": light_type ,  # [n_pl]
-            "ln_id":ln_id,
+           # "ln_id":ln_id,
            # "rel_position":rel_position
         }
         return tokenized_map
