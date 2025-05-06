@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        self.use_lane=True
+        self.use_lane=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -99,13 +99,13 @@ class TokenProcessor(torch.nn.Module):
 
         ln_id = data["pt_token"]["ln_id"]
 
-        traj_pos = data["map_save"]["traj_pos"] #[sample_list]#[::sample_interval] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] #[sample_list]#[::sample_interval]  # [n_pl]
-        type= data["pt_token"]["type"]#[sample_list].long()#[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"]#[sample_list]#[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"]#[sample_list]#[::sample_interval]  # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"][::sample_interval] #[sample_list]# # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"] [::sample_interval]#[sample_list]#  # [n_pl]
+        type= data["pt_token"]["type"][::sample_interval]#[sample_list].long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"][::sample_interval]#[sample_list]#[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"][::sample_interval] #[sample_list]#[::sample_interval]  # [n_pl]
 
-        batch = data["pt_token"]["batch"] #[sample_list] #[::sample_interval]
+        batch = data["pt_token"]["batch"][::sample_interval] #[sample_list] #
 
         if self.use_lane:
 
