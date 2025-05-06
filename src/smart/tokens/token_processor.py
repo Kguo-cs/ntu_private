@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        self.use_lane=False
+        self.use_lane=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -159,21 +159,21 @@ class TokenProcessor(torch.nn.Module):
 
             lane_position=position[mid_indices]#scatter_mean(position,batch_ln_id,dim=0)
 
-            traj_theta=traj_theta[mid_indices] #scatter_mean(traj_theta,batch_ln_id,dim=0)
+            lane_theta=traj_theta[mid_indices] #scatter_mean(traj_theta,batch_ln_id,dim=0)
             batch=batch[mid_indices]#scatter_mean(batch,batch_ln_id,dim=0)
             type=type[mid_indices]#scatter_mean(type,batch_ln_id,dim=0)
             pl_type=pl_type[mid_indices]#scatter_mean(pl_type,batch_ln_id,dim=0)
             light_type=light_type[mid_indices]#scatter_mean(light_type,batch_ln_id,dim=0)
 
-            lane_center_pos = lane_position[batch_ln_id]  # [n_pl, 2]
+            rel_position = position - lane_position[batch_ln_id]  # [n_pl, 2]
+            rel_theta= traj_theta - lane_theta[batch_ln_id]  # [n_pl, 2]
+            rel_pose=torch.cat([rel_position,rel_theta[:,None]],dim=-1)
 
-            rel_position = position - lane_center_pos  # [n_pl, 2]
-
-            token_idx=token_idx[mid_indices]
+            # token_idx=token_idx[mid_indices]
 
             tokenized_map = {
                 "position": lane_position,  # [n_pl, 2]
-                "orientation": traj_theta,  # [n_pl]
+                "orientation": lane_theta,  # [n_pl]
                 "token_idx": token_idx,  # [n_pl]
                 "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
                 "type": type.long() ,  # [n_pl]
@@ -181,7 +181,7 @@ class TokenProcessor(torch.nn.Module):
                 "light_type": light_type.long() ,  # [n_pl]
                 "batch": batch ,  # [n_pl]
                 "ln_id": batch_ln_id,
-                "rel_position":rel_position
+                "rel_pose":rel_pose
             }
         else:
             tokenized_map = {
