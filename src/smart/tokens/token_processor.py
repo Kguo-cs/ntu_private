@@ -150,7 +150,7 @@ class TokenProcessor(torch.nn.Module):
             rel_theta= traj_theta - lane_theta[batch_ln_id]  # [n_pl, 2]
             rel_pose=torch.cat([rel_position,rel_theta[:,None]],dim=-1)
 
-            # token_idx=token_idx[mid_indices]
+            token_idx=token_idx[mid_indices]
 
             tokenized_map = {
                 "position": lane_position,  # [n_pl, 2]
