@@ -136,9 +136,9 @@ class TokenProcessor(torch.nn.Module):
         # Recover sampled original indices
         sample_list = pt_idx[valid_idx]
 
-        sample_list=torch.cat([sample_list,ends-1])
-
-        sample_list=torch.unique(sample_list)
+        # sample_list=torch.cat([sample_list,ends-1])
+        #
+        # sample_list=torch.unique(sample_list)
 
         traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
