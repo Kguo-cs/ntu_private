@@ -30,7 +30,7 @@ import os
 
 # print(f"✅ Extracted {zip_path} to {extract_to}")
 
-zip_path = "./src/waymo_data/full/training_token_valid.zip"
+zip_path = "./src/waymo_data/full/training_lane_mid.zip"
 extract_to = "./src/waymo_data/full"  # Folder to extract contents
 
 # Create the folder if it doesn't exist
@@ -46,7 +46,7 @@ import os
 
 def extract_zip_with_progress(zip_path, extract_to):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        files = zip_ref.infolist()[:200]
+        files = zip_ref.infolist()
 
         with tqdm(total=len(files), desc="Extracting", unit="file") as pbar:
             for file in files:
