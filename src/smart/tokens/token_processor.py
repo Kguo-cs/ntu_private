@@ -93,67 +93,52 @@ class TokenProcessor(torch.nn.Module):
         if self.use_lane:
             sample_interval=1
 
-        ln_id = data["pt_token"]["ln_id"]
-        batch = data["pt_token"]["batch"]
-
-        ln_id_max = ln_id[torch.where(ln_id[1:] < ln_id[:-1])]
-        offsets = torch.zeros([data.num_graphs], device=ln_id_max.device).long()
-        offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
-        lane_ids = ln_id + offsets[batch]
-
-        # Get unique lane IDs
-        pt_idx=torch.arange(len(lane_ids),device=ln_id.device)
-
-        # # Collect sampled points
-        # sampled_points = []
+        #ln_id = data["pt_token"]["ln_id"]
+        #batch = data["pt_token"]["batch"]
         #
-        # for lane in range(lane_ids[-1]+1):
-        #     # Get indices where lane_id == current lane
-        #     sampled_lane_points = pt_idx[lane_ids == lane][::sample_interval]
+        # ln_id_max = ln_id[torch.where(ln_id[1:] < ln_id[:-1])]
+        # offsets = torch.zeros([data.num_graphs], device=ln_id_max.device).long()
+        # offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
+        # lane_ids = ln_id + offsets[batch]
         #
-        #     sampled_points.append(sampled_lane_points)
+        # # Get unique lane IDs
+        # pt_idx=torch.arange(len(lane_ids),device=ln_id.device)
         #
-        # # Concatenate all sampled points
-        # sample_list = torch.cat(sampled_points)
+        # change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
+        # starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
+        # ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
+        # lengths = ends - starts
         #
-
-        # Get change points (start of each lane group)
-        change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
-        starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
-        ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
-        lengths = ends - starts
-
-        # Create global index mask for sampling
-        max_len = lengths.max()
-        grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
-        mask = grid < lengths.unsqueeze(1)
-        sampling_mask = (grid % sample_interval == 0) & mask
-
-        # Flattened index positions per group
-        base = starts.unsqueeze(1) + grid
-        valid_idx = base[sampling_mask]
-
-        # Recover sampled original indices
-        sample_list = pt_idx[valid_idx]
-
-        # sample_list=torch.cat([sample_list,ends-1])
+        # # Create global index mask for sampling
+        # max_len = lengths.max()
+        # grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
+        # mask = grid < lengths.unsqueeze(1)
+        # sampling_mask = (grid % sample_interval == 0) & mask
         #
-        # sample_list=torch.unique(sample_list)
-
-        traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
-        type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
-        batch = data["pt_token"]["batch"][sample_list]#[::sample_interval] # #
-
-        # traj_pos = data["map_save"]["traj_pos"][::sample_interval] ## # [n_pl, 3, 2]
-        # traj_theta = data["map_save"]["traj_theta"][::sample_interval]##  # [n_pl]
-        # type= data["pt_token"]["type"][::sample_interval]#.long()#[::sample_interval]  # [n_pl]
-        # pl_type= data["pt_token"]["pl_type"][::sample_interval]##[::sample_interval]  # [n_pl]
-        # light_type= data["pt_token"]["light_type"][::sample_interval] ##[::sample_interval]  # [n_pl]
+        # # Flattened index positions per group
+        # base = starts.unsqueeze(1) + grid
+        # valid_idx = base[sampling_mask]
         #
-        # batch = data["pt_token"]["batch"][::sample_interval] # #
+        # # Recover sampled original indices
+        # sample_list = pt_idx[valid_idx]
+        #
+        # # sample_list=torch.cat([sample_list,ends-1])
+        # #
+        # # sample_list=torch.unique(sample_list)
+        #
+        # traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
+        # traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
+        # type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
+        # pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
+        # light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
+        # batch = data["pt_token"]["batch"][sample_list]#[::sample_interval] # #
+
+        traj_pos = data["map_save"]["traj_pos"][::sample_interval] ## # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"][::sample_interval]##  # [n_pl]
+        type= data["pt_token"]["type"][::sample_interval]#.long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"][::sample_interval]##[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"][::sample_interval] ##[::sample_interval]  # [n_pl]
+        batch = data["pt_token"]["batch"][::sample_interval] # #
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
