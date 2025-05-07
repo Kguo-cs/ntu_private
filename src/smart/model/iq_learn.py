@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=True
+        self.use_target_q=False
         self.soft_update=True
 
         self.rollout_freq=1
@@ -157,22 +157,22 @@ class IQ_SoftQ(LightningModule):
                 # target_next_V = target_V[:, 1:]
 
         else:
-           # with torch.no_grad():
+           with torch.no_grad():
                 # Create discount vector [1, γ, γ², ..., γ^(t-1)]
                 #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
-            rewards=reward #- self.alpha * log_prob
+                rewards=reward - self.alpha * log_prob
 
-            returns = torch.zeros_like(V)
-            running_return = torch.zeros(rewards.size(0), device=rewards.device)
+                returns = torch.zeros_like(V)
+                running_return = torch.zeros(rewards.size(0), device=rewards.device)
 
-            # Convert done mask to 1s and 0s if needed
-            for i in range(rewards.size(1)-1,-1,-1):
-                running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
-                returns[:, i] = running_return
+                # Convert done mask to 1s and 0s if needed
+                for i in range(rewards.size(1)-1,-1,-1):
+                    running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
+                    returns[:, i] = running_return
 
-            target_V=returns
-            target_current_V=target_V[:,:-1]
-            target_next_V=target_V[:,1:]
+                target_V=returns
+                target_current_V=target_V[:,:-1]
+                target_next_V=target_V[:,1:]
 
             # reward= current_Q - self.gamma * target_next_V
 
