@@ -160,7 +160,7 @@ class IQ_SoftQ(LightningModule):
            # with torch.no_grad():
                 # Create discount vector [1, γ, γ², ..., γ^(t-1)]
                 #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
-            rewards=reward- self.alpha * log_prob
+            rewards=reward #- self.alpha * log_prob
 
             returns = torch.zeros_like(V)
             running_return = torch.zeros(rewards.size(0), device=rewards.device)
