@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=False
+        self.use_target_q=True
         self.soft_update=True
 
         self.rollout_freq=1
