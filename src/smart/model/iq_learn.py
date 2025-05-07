@@ -157,22 +157,22 @@ class IQ_SoftQ(LightningModule):
                 target_next_V = target_V[:, 1:]
 
         else:
-            with torch.no_grad():
+           # with torch.no_grad():
                 # Create discount vector [1, γ, γ², ..., γ^(t-1)]
                 #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
-                rewards=reward- self.alpha * log_prob
+            rewards=reward- self.alpha * log_prob
 
-                returns = torch.zeros_like(V)
-                running_return = torch.zeros(rewards.size(0), device=rewards.device)
+            returns = torch.zeros_like(V)
+            running_return = torch.zeros(rewards.size(0), device=rewards.device)
 
-                # Convert done mask to 1s and 0s if needed
-                for i in range(rewards.size(1)-1,-1,-1):
-                    running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
-                    returns[:, i] = running_return
+            # Convert done mask to 1s and 0s if needed
+            for i in range(rewards.size(1)-1,-1,-1):
+                running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
+                returns[:, i] = running_return
 
-                target_V=returns
-                target_current_V=target_V[:,:-1]
-                target_next_V=target_V[:,1:]
+            target_V=returns
+            target_current_V=target_V[:,:-1]
+            target_next_V=target_V[:,1:]
 
             # reward= current_Q - self.gamma * target_next_V
 
@@ -382,7 +382,7 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
 
             if self.soft_update:
-                tau=1e-3 #self.critic_tau/(self.global_step+1)
+                tau=2e-4 #self.critic_tau/(self.global_step+1)
                 soft_update(self.encoder.agent_encoder,self.target_net.agent_encoder,tau)
             else:
                 hard_update(self.encoder.agent_encoder,self.target_net.agent_encoder)
