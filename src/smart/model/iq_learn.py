@@ -98,7 +98,7 @@ class IQ_SoftQ(LightningModule):
 
         dones = torch.zeros_like(next_V)
 
-       # dones[~action_mask] = 1
+        dones[~action_mask] = 1
 
         dones[:, -1] = 1
 
