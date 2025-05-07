@@ -1,9 +1,12 @@
 import random
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+import matplotlib.pyplot as plt
+
 
 Q = nn.Parameter(torch.zeros([2, 2]))  # shape: [state, action]
 Q_optimizer = optim.Adam([Q], lr=1e-3)
@@ -19,23 +22,33 @@ def sample(s1_pi,s2_pi):
     state_list=[]
 
     for t in range(horizon):
-        if random.random()< s1_pi[0].item():
-            a1 = 0
-        else:
-            a1 = 1
-        if random.random() < s2_pi[0].item():
-            a2 = 0
-        else:
-            a2 = 1
 
         if current_state==0:
-            if a1==1 and a2==1:
-                next_state=1
+            if random.random()< s1_pi[0].item():
+                a1 = 0
             else:
-                next_state=0
-            state_list.append((current_state,a1,next_state))
+                a1 = 1
+            if random.random() < s1_pi[0].item():
+                a2 = 0
+            else:
+                a2 = 1
+
+            if a1 == 1 and a2 == 1:
+                next_state = 1
+            else:
+                next_state = 0
+            state_list.append((current_state, a1, next_state))
             state_list.append((current_state,a2,next_state))
         else:
+            if random.random()< s2_pi[0].item():
+                a1 = 0
+            else:
+                a1 = 1
+            if random.random() < s2_pi[0].item():
+                a2 = 0
+            else:
+                a2 = 1
+
             next_state=1
             state_list.append((current_state,a1,next_state))
             state_list.append((current_state,a2,next_state))
@@ -45,9 +58,9 @@ def sample(s1_pi,s2_pi):
     return torch.tensor(state_list)
 
 
-
-
-for i in range(10000):
+agent_reward_list=[]
+expert_reward_list=[]
+for i in range(5000):
     expert_reward=Q[0][0]-gamma*torch.logsumexp(Q[0,:], dim=-1, keepdim=False)
 
     current_policy= torch.softmax(Q,dim=-1)
@@ -87,6 +100,8 @@ for i in range(10000):
     # agent_reward=s1_a1a1*(Q[0][0]-V_1)+s1_a1a2*(Q[0][0]-V_2)+s1_a1a2*(Q[0][1]-V_2)+s1_a2a2*(Q[0][1]-V_1)+\
     #               s2_a1a1*(Q[1][0]-V_2)+s2_a1a2*(Q[1][0]-V_2)+s2_a2a1*(Q[1][1]-V_2)+s2_a2a2*(Q[1][1]-V_2)
 
+    V=torch.logsumexp(Q, dim=-1, keepdim=False)
+
 
     loss=-expert_reward+agent_reward
     Q_optimizer.zero_grad()
@@ -96,12 +111,18 @@ for i in range(10000):
 
     #print(loss)
 
-    print(s1_pi[0],expert_reward.mean(),agent_reward.mean())
-    print(Q[0])
+    print(s1_pi[0],V[0],V[1],expert_reward,)
+
+    agent_reward_list.append(agent_reward)
+    expert_reward_list.append(expert_reward)
+
+    #print(Q[0])
+
     # print(Q[1])
 
 
-print(1)
+plt.plot(np.arange(len(agent_reward_list)),torch.tensor(agent_reward_list).numpy())
+plt.plot(np.arange(len(expert_reward_list)),torch.tensor(expert_reward_list).numpy())
 
-
+plt.show()
 
