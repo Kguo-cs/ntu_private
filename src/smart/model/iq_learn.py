@@ -136,8 +136,8 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,action_mask)
 
-                target_V[:,-1]=0
-                target_next_V[:,-1]=0
+                #target_V[:,-1]=0
+                #target_next_V[:,-1]=0
                 # target_pi = torch.softmax(target_q / self.alpha, dim=-1)
                 #
                 # target_logpi = torch.log(target_pi + 1e-10)
