@@ -182,11 +182,11 @@ class IQ_SoftQ(LightningModule):
             target_current_V=target_V[:,:-1]
             target_next_V=target_V[:,1:]
 
-            #reward = current_Q - self.gamma * target_next_V
+            reward = current_Q - self.gamma * target_next_V
 
-            # reward=reward[cumulative_mask[:,1:]]
+            reward=reward[cumulative_mask[:,1:]]
 
-        reward = reward[state_action_mask]
+        #reward = reward[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
