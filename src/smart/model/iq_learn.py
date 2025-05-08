@@ -99,7 +99,7 @@ class IQ_SoftQ(LightningModule):
 
             current_V= current_Q - self.alpha * log_prob
 
-            v_value=torch.stack([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
+            v_value=torch.cat([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
 
         else:
             v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
