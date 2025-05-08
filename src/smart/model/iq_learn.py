@@ -74,7 +74,6 @@ class IQ_SoftQ(LightningModule):
             for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
                 tokenized_agent_rollout[key] = pred[key]
 
-            tokenized_agent_rollout['valid_mask'] = tokenized_agent['valid_mask']
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
             tokenized_map_rollout = tokenized_map#{"map_feature":tokenized_map["map_feature"]}
 
@@ -118,6 +117,8 @@ class IQ_SoftQ(LightningModule):
         state_mask = valid_mask[:, :-1]
 
         action_mask= valid_mask[:, 1:]
+
+        agent_mask= valid_mask.all(-1)
 
         state_action_mask = action_mask & state_mask
 
@@ -169,9 +170,10 @@ class IQ_SoftQ(LightningModule):
             #running_return = torch.zeros(rewards.size(0), device=rewards.device)
 
             running_return=V[:,-1]
+            returns[:, -1] = running_return
 
             # Convert done mask to 1s and 0s if needed
-            for i in range(rewards.size(1)-1,-1,-1):
+            for i in range(rewards.size(1)-2,-1,-1):
                 running_return = rewards[:, i] + self.gamma * running_return #* (1.0 - dones[:, i])
                 returns[:, i] = running_return
 
@@ -185,17 +187,17 @@ class IQ_SoftQ(LightningModule):
 
         current_Q=current_Q[state_action_mask]
 
+        current_V_diff=(current_V-target_current_V)[agent_mask]
+
+        next_V_diff=(next_V-target_next_V)[agent_mask]
+
+        V_diff=(V-target_V)[agent_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
+
         current_V=current_V[state_mask]
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
         entropy =entropy[state_mask]
-
-        current_V_diff=current_V-target_current_V[state_mask]
-
-        next_V_diff=(next_V-target_next_V)[action_mask]
-
-        V_diff=(V-target_V)[valid_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
 
         self.log("train/"+key+"_V", current_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
