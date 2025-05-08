@@ -86,13 +86,9 @@ class IQ_SoftQ(LightningModule):
 
         q_value = network(tokenized_map, tokenized_agent)["q_value"]
 
-        v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-
         q = q_value[:, :-1]
 
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-
-        current_V = v_value[:, :-1]
 
         if key=='expert':
             pi = torch.softmax(q / self.alpha, dim=-1)
@@ -101,9 +97,16 @@ class IQ_SoftQ(LightningModule):
 
             log_prob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-            next_V= q- self.alpha * log_prob
+            current_V= current_Q - self.alpha * log_prob
+
+            v_value=torch.stack([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
+
         else:
-            next_V = v_value[:, 1:]
+            v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+
+            current_V = v_value[:, :-1]
+
+        next_V = v_value[:, 1:]
 
         dones = torch.zeros_like(next_V)
 
