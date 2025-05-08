@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=True
+        self.use_target_q=False
         self.soft_update=True
 
         self.rollout_freq=1
@@ -100,7 +100,7 @@ class IQ_SoftQ(LightningModule):
 
         #dones[~action_mask] = 1
 
-        dones[:, -1] = 1
+        #dones[:, -1] = 1
 
         next_V = (1 - dones) * next_V
 
@@ -165,11 +165,13 @@ class IQ_SoftQ(LightningModule):
             rewards=reward - self.alpha * log_prob
 
             returns = torch.zeros_like(V)
-            running_return = torch.zeros(rewards.size(0), device=rewards.device)
+            #running_return = torch.zeros(rewards.size(0), device=rewards.device)
+
+            running_return=V[:,-1]
 
             # Convert done mask to 1s and 0s if needed
             for i in range(rewards.size(1)-1,-1,-1):
-                running_return = rewards[:, i] + self.gamma * running_return * (1.0 - dones[:, i])
+                running_return = rewards[:, i] + self.gamma * running_return #* (1.0 - dones[:, i])
                 returns[:, i] = running_return
 
             target_V=returns
@@ -294,7 +296,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=5*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=0*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
