@@ -74,6 +74,7 @@ class IQ_SoftQ(LightningModule):
             for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
                 tokenized_agent_rollout[key] = pred[key]
 
+            tokenized_agent_rollout['valid_mask'] = tokenized_agent['valid_mask']
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
             tokenized_map_rollout = tokenized_map#{"map_feature":tokenized_map["map_feature"]}
 
