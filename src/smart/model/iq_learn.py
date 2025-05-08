@@ -91,13 +91,13 @@ class IQ_SoftQ(LightningModule):
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         if key=='expert':
-            pi = torch.softmax(q / self.alpha, dim=-1)
+            # pi = torch.softmax(q / self.alpha, dim=-1)
+            #
+            # logpi = torch.log(pi + 1e-10)
+            #
+            # log_prob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-            logpi = torch.log(pi + 1e-10)
-
-            log_prob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-
-            current_V= current_Q - self.alpha * log_prob
+            current_V= current_Q #- self.alpha * log_prob
 
             v_value=torch.cat([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
         else:
