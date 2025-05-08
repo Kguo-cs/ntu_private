@@ -182,11 +182,11 @@ class IQ_SoftQ(LightningModule):
             target_current_V=target_V[:,:-1]
             target_next_V=target_V[:,1:]
 
-            reward = current_Q - self.gamma * target_next_V
+            # reward = current_Q - self.gamma * target_next_V
+            #
+            # reward=reward[cumulative_mask[:,1:]]
 
-            reward=reward[cumulative_mask[:,1:]]
-
-        #reward = reward[state_action_mask]
+        reward = reward[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
@@ -267,7 +267,7 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            div='tv'
+            div='x2'
             alpha=4
             eps=1e-3
 
@@ -302,7 +302,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=0*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=5*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
