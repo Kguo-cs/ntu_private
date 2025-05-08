@@ -118,7 +118,7 @@ class IQ_SoftQ(LightningModule):
 
         action_mask= valid_mask[:, 1:]
 
-        agent_mask= valid_mask.all(-1)
+        cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
 
         state_action_mask = action_mask & state_mask
 
@@ -174,7 +174,7 @@ class IQ_SoftQ(LightningModule):
 
             # Convert done mask to 1s and 0s if needed
             for i in range(rewards.size(1)-1,-1,-1):
-                running_return = rewards[:, i] + self.gamma * running_return #* (1.0 - dones[:, i])
+                running_return = (rewards[:, i] + self.gamma * running_return)*cumulative_mask[:,i] #* (1.0 - dones[:, i])
                 returns[:, i] = running_return
 
             target_V=returns
@@ -187,11 +187,11 @@ class IQ_SoftQ(LightningModule):
 
         current_Q=current_Q[state_action_mask]
 
-        current_V_diff=(current_V-target_current_V)[agent_mask]
+        current_V_diff=(current_V-target_current_V)[cumulative_mask[:,:-1]]
 
-        next_V_diff=(next_V-target_next_V)[agent_mask]
+        next_V_diff=(next_V-target_next_V)[cumulative_mask[:,1:]]
 
-        V_diff=(V-target_V)[agent_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
+        V_diff=(V-target_V)[cumulative_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
 
         current_V=current_V[state_mask]
 
