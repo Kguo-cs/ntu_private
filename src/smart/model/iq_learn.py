@@ -180,7 +180,7 @@ class IQ_SoftQ(LightningModule):
             returns = torch.zeros_like(V)
             #running_return = torch.zeros(rewards.size(0), device=rewards.device)
 
-            returns[:, -1] = V[:,-1].detach()
+            returns[:, -1] = V[:,-1]#.detach()
             running_return=returns[:,-1]
 
             # Convert done mask to 1s and 0s if needed
@@ -192,11 +192,11 @@ class IQ_SoftQ(LightningModule):
             target_current_V=target_V[:,:-1]
             target_next_V=target_V[:,1:]
 
-            reward = current_Q - self.gamma * target_next_V
+            # reward = current_Q - self.gamma * target_next_V
+            #
+            # reward=reward[cumulative_mask[:,1:]]
 
-            reward=reward[cumulative_mask[:,1:]]
-
-        #reward = reward[state_action_mask]
+        reward = reward[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
@@ -218,8 +218,8 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_V_diff", current_V_diff.abs().mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_NextV_diff", next_V_diff.abs().mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_NextV_diff", next_V_diff.mean().item(), on_step=True, batch_size=1)
 
         return  reward,current_V,current_Q,next_V,V_diff,current_V_diff,next_V_diff,action_nll,entropy
 
@@ -312,7 +312,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=5*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=0*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
