@@ -90,18 +90,18 @@ class IQ_SoftQ(LightningModule):
 
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-        if key=='expert':
-            # pi = torch.softmax(q / self.alpha, dim=-1)
-            #
-            # logpi = torch.log(pi + 1e-10)
-            #
-            # log_prob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-
-            current_V= current_Q #- self.alpha * log_prob
-
-            v_value=torch.cat([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
-        else:
-            v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+        # if key=='expert':
+        #     # pi = torch.softmax(q / self.alpha, dim=-1)
+        #     #
+        #     # logpi = torch.log(pi + 1e-10)
+        #     #
+        #     # log_prob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+        #
+        #     current_V= current_Q - self.alpha * log_prob
+        #
+        #     v_value=torch.cat([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
+        # else:
+        v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
         current_V = v_value[:, :-1]
 
@@ -180,7 +180,7 @@ class IQ_SoftQ(LightningModule):
             returns = torch.zeros_like(V)
             #running_return = torch.zeros(rewards.size(0), device=rewards.device)
 
-            #returns[:, -1] = V[:,-1]
+            returns[:, -1] = V[:,-1]
             running_return=returns[:,-1]
 
             # Convert done mask to 1s and 0s if needed
@@ -192,11 +192,11 @@ class IQ_SoftQ(LightningModule):
             target_current_V=target_V[:,:-1]
             target_next_V=target_V[:,1:]
 
-            # reward = current_Q - self.gamma * target_next_V
-            #
-            # reward=reward[cumulative_mask[:,1:]]
+            reward = current_Q - self.gamma * target_next_V
 
-        reward = reward[state_action_mask]
+            reward=reward[cumulative_mask[:,1:]]
+
+        #reward = reward[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
@@ -277,7 +277,7 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            div='tv'
+            div='x2'
             alpha=4
             eps=1e-3
 
