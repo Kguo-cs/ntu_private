@@ -181,7 +181,7 @@ class IQ_SoftQ(LightningModule):
             returns = torch.zeros_like(V)
             #running_return = torch.zeros(rewards.size(0), device=rewards.device)
 
-            #returns[:, -1] = V[:,-1]
+            returns[:, -1] = V[:,-1]
             running_return=returns[:,-1]
 
             # Convert done mask to 1s and 0s if needed
