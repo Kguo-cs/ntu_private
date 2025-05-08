@@ -25,7 +25,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10.zip ke.guo@as
 
 
 
-qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
+qsub -I -l select=1:ngpus=1 -l walltime=96:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
 ssh ke.guo@aspire2antu.nscc.sg
 
