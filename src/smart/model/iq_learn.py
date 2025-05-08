@@ -160,6 +160,7 @@ class IQ_SoftQ(LightningModule):
                 # target_current_V = target_V[:, :-1]
                 # target_next_V = target_V[:, 1:]
 
+
         else:
            #with torch.no_grad():
             # Create discount vector [1, γ, γ², ..., γ^(t-1)]
@@ -174,14 +175,16 @@ class IQ_SoftQ(LightningModule):
 
             # Convert done mask to 1s and 0s if needed
             for i in range(rewards.size(1)-1,-1,-1):
-                running_return = (rewards[:, i] + self.gamma * running_return)*cumulative_mask[:,i] #* (1.0 - dones[:, i])
+                running_return = (rewards[:, i] + self.gamma * running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
                 returns[:, i] = running_return
 
             target_V=returns
             target_current_V=target_V[:,:-1]
             target_next_V=target_V[:,1:]
 
-            # reward= current_Q - self.gamma * target_next_V
+            #reward = current_Q - self.gamma * target_next_V
+
+            # reward=reward[cumulative_mask[:,1:]]
 
         reward = reward[state_action_mask]
 
