@@ -206,7 +206,7 @@ class IQ_SoftQ(LightningModule):
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
-        V_diff=(V-target_V)[cumulative_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
+        V_diff=(V-target_V)[valid_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
 
         current_V=current_V[state_mask]
 
@@ -312,7 +312,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=5*expert_V_diff.square().mean() #*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
+            constraint_loss=10*expert_V_diff.square().mean() #*(expert_V_diff.square().mean()+agent_V_diff.square().mean() )#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
