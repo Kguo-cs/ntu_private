@@ -113,7 +113,7 @@ class IQ_SoftQ(LightningModule):
 
         dones[:, -1] = 1
 
-        next_V = (1 - dones) * next_V
+        next_V=(1 - dones) * next_V
 
         reward = current_Q - self.gamma * next_V #.detach()  # next_V#
 
@@ -178,7 +178,7 @@ class IQ_SoftQ(LightningModule):
 
         returns = torch.zeros_like(V)
 
-        returns[:, -1] = V[:,-1]#.detach()
+        # returns[:, -1] = V[:,-1]#.detach()
         running_return=returns[:,-1]
 
         # Convert done mask to 1s and 0s if needed
