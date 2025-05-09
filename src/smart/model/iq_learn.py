@@ -171,38 +171,31 @@ class IQ_SoftQ(LightningModule):
                 # target_current_V = target_V[:, :-1]
                 # target_next_V = target_V[:, 1:]
 
-        else:
-            with torch.no_grad():
-            # Create discount vector [1, γ, γ², ..., γ^(t-1)]
-            #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
-                rewards=reward - self.alpha * log_prob
+                # with torch.no_grad():
+                # Create discount vector [1, γ, γ², ..., γ^(t-1)]
+                #gammas = self.gamma ** torch.arange(reward.shape[-1], device=reward.device)
+        rewards=reward - self.alpha * log_prob
 
-                returns = torch.zeros_like(V)
-                #running_return = torch.zeros(rewards.size(0), device=rewards.device)
+        returns = torch.zeros_like(V)
 
-                #returns[:, -1] = V[:,-1]#.detach()
-                running_return=returns[:,-1]
+        returns[:, -1] = V[:,-1]#.detach()
+        running_return=returns[:,-1]
 
-                # Convert done mask to 1s and 0s if needed
-                for i in range(rewards.size(1)-1,-1,-1):
-                    running_return = (rewards[:, i] + self.gamma * running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
-                    returns[:, i] = running_return
+        # Convert done mask to 1s and 0s if needed
+        for i in range(rewards.size(1)-1,-1,-1):
+            running_return = (rewards[:, i] + self.gamma * running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
+            returns[:, i] = running_return
 
-                target_V=returns
-                target_current_V=target_V[:,:-1]
-                target_next_V=target_V[:,1:]
-
-            # reward = current_Q - self.gamma * target_next_V
-            #
-            # reward=reward[cumulative_mask[:,1:]]
+        current_returns=returns[:,:-1]
+        next_returns=returns[:,1:]
 
         reward = reward[state_action_mask]
 
         current_Q=current_Q[state_action_mask]
 
-        current_V_diff=(current_V-target_current_V)[cumulative_mask[:,:-1]]
+        current_V_diff=(current_V-current_returns)[cumulative_mask[:,:-1]]
 
-        next_V_diff=(next_V-target_next_V)[cumulative_mask[:,1:]]
+        next_V_diff=(next_V-next_returns)[cumulative_mask[:,1:]]
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
