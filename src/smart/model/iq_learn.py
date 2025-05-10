@@ -115,9 +115,6 @@ class IQ_SoftQ(LightningModule):
 
         next_V=(1 - dones) * next_V
 
-        if key=='expert':
-            next_V= next_V.detach()
-
         reward = current_Q - self.gamma * next_V
 
         return q,current_Q,v_value,current_V,next_V,reward,dones
@@ -285,7 +282,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=0*(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=100*(expert_V_diff.square().mean() )#+agent_V_diff.square().mean()10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
