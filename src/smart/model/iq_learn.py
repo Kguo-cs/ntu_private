@@ -149,8 +149,8 @@ class IQ_SoftQ(LightningModule):
 
         returns = torch.zeros_like(V)
 
-        if key=="expert":
-            returns[:, -1]=0.1
+        # if key=="expert":
+        #     returns[:, -1]=0.1
 
         # returns[:, -1] = V[:,-1]#.detach()
         running_return=returns[:,-1]
@@ -286,7 +286,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=10*expert_current_V_diff.square().mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=10*(expert_current_V_diff-0.1).square().mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
