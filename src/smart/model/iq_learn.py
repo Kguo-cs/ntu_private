@@ -115,6 +115,9 @@ class IQ_SoftQ(LightningModule):
 
         next_V=(1 - dones) * next_V
 
+        if key=='expert':
+            next_V= next_V.detach()
+
         reward = current_Q - self.gamma * next_V
 
         return q,current_Q,v_value,current_V,next_V,reward,dones
