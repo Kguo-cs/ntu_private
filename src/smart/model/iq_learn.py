@@ -82,7 +82,7 @@ class IQ_SoftQ(LightningModule):
 
             self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
-    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key):
+    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key,cumulative_mask):
 
         q_value = network(tokenized_map, tokenized_agent)["q_value"]
 
@@ -109,13 +109,13 @@ class IQ_SoftQ(LightningModule):
 
         dones = torch.zeros_like(next_V)
 
-        #dones[~action_mask] = 1
+        dones[~cumulative_mask] = 1
 
         dones[:, -1] = 1
 
         next_V=(1 - dones) * next_V
 
-        reward = current_Q - self.gamma * next_V #.detach()  # next_V#
+        reward = current_Q - self.gamma * next_V
 
         return q,current_Q,v_value,current_V,next_V,reward,dones
 
@@ -133,7 +133,7 @@ class IQ_SoftQ(LightningModule):
 
         state_action_mask = action_mask & state_mask
 
-        q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
+        q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,cumulative_mask)
 
         pi = torch.softmax(q / self.alpha, dim=-1)
 
@@ -189,7 +189,7 @@ class IQ_SoftQ(LightningModule):
         current_returns=returns[:,:-1]
         next_returns=returns[:,1:]
 
-        reward = reward[state_action_mask]
+        reward = reward[cumulative_mask]
 
         current_Q=current_Q[state_action_mask]
 
@@ -305,7 +305,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=20*(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=0*(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
