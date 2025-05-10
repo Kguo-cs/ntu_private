@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.reward_w = 1
-        self.use_target_q=True
+        self.use_target_q=False
         self.soft_update=True
 
         self.rollout_freq=1
@@ -286,7 +286,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=10*(expert_current_V_diff-0.1).square().mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=10*(expert_current_V_diff).square().mean() #-0.1(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
