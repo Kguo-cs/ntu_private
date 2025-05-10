@@ -109,7 +109,7 @@ class IQ_SoftQ(LightningModule):
 
         dones = torch.zeros_like(next_V)
 
-        dones[~cumulative_mask[1:]] = 1
+        dones[~cumulative_mask[:,1:]] = 1
 
         dones[:, -1] = 1
 
@@ -189,7 +189,7 @@ class IQ_SoftQ(LightningModule):
         current_returns=returns[:,:-1]
         next_returns=returns[:,1:]
 
-        reward = reward[cumulative_mask[1:]]
+        reward = reward[cumulative_mask[:,1:]]
 
         current_Q=current_Q[state_action_mask]
 
