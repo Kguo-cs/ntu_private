@@ -165,6 +165,7 @@ class IQ_SoftQ(LightningModule):
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
             target_V = returns
+            reward = current_Q - self.gamma * next_returns
 
         reward = reward[cumulative_mask[:,1:]]
 
@@ -282,7 +283,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=10*(expert_current_V_diff-0.2).square().mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=0*(expert_current_V_diff-0.2).square().mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
