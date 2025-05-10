@@ -162,7 +162,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.use_target_q:
             with torch.no_grad():
-                target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key)
+                target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
             target_V = returns
 
