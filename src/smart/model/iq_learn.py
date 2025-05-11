@@ -149,15 +149,17 @@ class IQ_SoftQ(LightningModule):
 
         returns = torch.zeros_like(V)
 
-        # if key=="expert":
-        #     returns[:, -1]=0.1
+        if key=="expert":
+            done_reward=0.1
+        else:
+            done_reward=0
 
         # returns[:, -1] = V[:,-1]#.detach()
-        running_return=returns[:,-1]
+        running_return=returns[:,-1]+done_reward
 
         # Convert done mask to 1s and 0s if needed
         for i in range(rewards.size(1)-1,-1,-1):
-            running_return = (rewards[:, i] + self.gamma * running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
+            running_return = (rewards[:, i]+done_reward*dones[:,i] + self.gamma *running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
             returns[:, i] = running_return
 
         current_returns=returns[:,:-1]
@@ -167,7 +169,8 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
-            target_V = returns.detach()
+            target_V = returns#cannot .detach()
+            reward= current_Q - self.gamma * next_returns
 
         reward = reward[cumulative_mask[:,1:]]
 
@@ -285,7 +288,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=10*((expert_V_diff-0.1).square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=10*((expert_V_diff).square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
