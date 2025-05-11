@@ -115,10 +115,7 @@ class IQ_SoftQ(LightningModule):
 
         next_V=(1 - dones) * next_V
 
-        if key=="expert":
-            reward = current_Q - 1
-        else:
-            reward = current_Q - self.gamma * next_V
+        reward = current_Q - self.gamma * next_V
 
         return q,current_Q,v_value,current_V,next_V,reward,dones
 
@@ -169,7 +166,7 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
-            target_V = 1#returns#cannot .detach()
+            target_V = 10 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
 
         reward = reward[cumulative_mask[:,1:]]
