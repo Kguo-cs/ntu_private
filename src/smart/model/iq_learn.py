@@ -167,7 +167,7 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
-            target_V = returns
+            target_V = returns.detach()
 
         reward = reward[cumulative_mask[:,1:]]
 
