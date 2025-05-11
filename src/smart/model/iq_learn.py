@@ -159,7 +159,7 @@ class IQ_SoftQ(LightningModule):
 
         # Convert done mask to 1s and 0s if needed
         for i in range(rewards.size(1)-1,-1,-1):
-            running_return = (rewards[:, i]+done_reward*dones[:,i] + self.gamma *running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
+            running_return = (rewards[:, i]+done_reward*dones[:,i+1] + self.gamma *running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
             returns[:, i] = running_return
 
         current_returns=returns[:,:-1]
