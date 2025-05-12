@@ -252,7 +252,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
-            alpha=4
+            alpha=1
             eps=1e-3
 
             if div=="lsif":
