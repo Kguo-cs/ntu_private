@@ -173,9 +173,9 @@ class IQ_SoftQ(LightningModule):
 
         current_Q=current_Q[state_action_mask]
 
-        current_V_diff=(current_V-current_returns)[cumulative_mask[:,:-1]]
+        current_Q_diff=(current_Q-current_returns)[cumulative_mask[:,:-1]]
 
-        next_V_diff=(next_V-next_returns)[cumulative_mask[:,1:]]
+        current_V_diff=(current_V-current_returns)[cumulative_mask[:,:-1]]
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
@@ -189,10 +189,9 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_NextV", next_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_NextV_diff", next_V_diff.mean().item(), on_step=True, batch_size=1)
 
         return  reward,current_V,current_Q,next_V,V_diff,current_V_diff,next_V_diff,action_nll,entropy
 
