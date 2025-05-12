@@ -194,7 +194,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,V_diff,current_V_diff,next_V_diff,action_nll,entropy
+        return  reward,current_V,current_Q,next_V,V_diff,action_nll,entropy
 
     def collect_agent(self,num_graphs):
 
@@ -236,7 +236,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_current_V_diff,expert_next_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
 
             # tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
             #
-            # agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            # agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
             agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
