@@ -160,7 +160,7 @@ class IQ_SoftQ(LightningModule):
         #     returns += 0.1
 
         current_returns=returns[:,:-1]
-        next_returns=returns[:,1:]
+        #next_returns=returns[:,1:]
 
         if self.use_target_q and key=="expert":
             with torch.no_grad():
@@ -170,7 +170,6 @@ class IQ_SoftQ(LightningModule):
             #reward= current_Q - self.gamma * next_returns
 
         reward = reward[cumulative_mask[:,1:]]
-
 
         current_Q_diff=(current_Q-current_returns)[cumulative_mask[:,:-1]]
 
@@ -253,7 +252,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
-            alpha=0.1
+            alpha=4
             eps=1e-3
 
             if div=="lsif":
@@ -287,7 +286,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=0*(expert_V_diff.square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=10*(expert_V_diff.square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
