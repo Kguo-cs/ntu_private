@@ -171,7 +171,6 @@ class IQ_SoftQ(LightningModule):
 
         reward = reward[cumulative_mask[:,1:]]
 
-        current_Q=current_Q[state_action_mask]
 
         current_Q_diff=(current_Q-current_returns)[cumulative_mask[:,:-1]]
 
@@ -182,6 +181,8 @@ class IQ_SoftQ(LightningModule):
         V_diff=(V-target_V)[cumulative_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
 
         current_V=current_V[state_mask]
+
+        current_Q=current_Q[state_action_mask]
 
         entropy =entropy[state_mask]
 
