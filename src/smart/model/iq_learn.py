@@ -240,15 +240,17 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        if self.reward_w!=0 and (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer)<self.replay_buffer.maxlen):
-            self.rollout(tokenized_map, tokenized_agent)
 
         if self.reward_w==0:
             loss =expert_nll
         else:
-            tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
+            # if (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer) < self.replay_buffer.maxlen):
+            #     self.rollout(tokenized_map, tokenized_agent)
 
-            agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            # tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
+            #
+            # agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff,agent_current_V_diff,agent_next_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
             alpha=4
@@ -285,7 +287,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=10*((expert_V_diff).square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=0*(expert_V_diff.square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
