@@ -12,7 +12,7 @@ export PBS_JOBID=44745.pbs111
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_lane_mid.zip ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/
+rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training_inter10.zip /home/ke/code/catk/src/waymo_data/full/training_inter10.zip 
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/logs/js1_pred_valid_token/2025-04-13_10-17-49/checkpoints/epoch_006.ckpt /home/ke/code/catk/src/logs/ 
 
