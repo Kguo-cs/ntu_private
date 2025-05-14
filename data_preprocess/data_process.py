@@ -14,7 +14,7 @@ import ray
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path='/home/ke/code/catk'#os.getcwd() #'/home/ke/code/catk'
+gump_path='/home/ke/code/sim'#os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
@@ -105,7 +105,7 @@ scenario_mapping_config = {
 scenario_mapping = ScenarioMapping(subsample_ratio_override=0.5,**scenario_mapping_config)
 
 
-os.environ["NUPLAN_DEVKIT_PATH"] =gump_path+ "/third_party/nuplan-devkit"
+os.environ["NUPLAN_DEVKIT_PATH"] =gump_path+ "/nuplan-devkit"
 os.environ["NUPLAN_DATA_ROOT"] = gump_path+"/nuplan_data/dataset/nuplan-v1.1/splits/train"
 os.environ["NUPLAN_MAPS_ROOT"] =gump_path+ "/nuplan_data/dataset/maps"
 os.environ["NUPLAN_EXP_ROOT"] = gump_path
@@ -120,7 +120,7 @@ scenario_builder=NuPlanScenarioBuilder(
         scenario_mapping=scenario_mapping,
         vehicle_parameters=get_pacifica_parameters()
 )
-worker=SingleMachineParallelExecutor(use_process_pool=False,max_workers=28)
+worker=SingleMachineParallelExecutor(use_process_pool=False,max_workers=32)
 scenario_filter=ScenarioFilter( scenario_types=None,
                                 scenario_tokens=None,
                                 log_names=None,
@@ -135,7 +135,7 @@ scenario_filter=ScenarioFilter( scenario_types=None,
 
 
 
-# scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
 
 past_time_horizon=1
 past_num_steps=10
@@ -149,11 +149,11 @@ os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
 # print(len(scenarios))
 #
-# with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
-#     pickle.dump(scenarios, f)
+with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+    pickle.dump(scenarios, f)
 
-with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
-    scenarios = pickle.load(f)
+# with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
+#     scenarios = pickle.load(f)
 
 
 
