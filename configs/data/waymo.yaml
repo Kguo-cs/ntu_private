@@ -6,7 +6,7 @@ num_workers: 4
 shuffle: true
 pin_memory: false
 persistent_workers: true
-train_raw_dir: ${paths.cache_root}/training_token_valid #token_valid  #inter10 #token_valid #_token #1_token
+train_raw_dir: ${paths.cache_root}/training_lane_valid #token_valid  #inter10 #token_valid #_token #1_token
 val_raw_dir: ${paths.cache_root}/validation
 val_tfrecords_splitted: ${paths.cache_root}/validation_tfrecords_splitted
 test_raw_dir: ${paths.cache_root}/testing
