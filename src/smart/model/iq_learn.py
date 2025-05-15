@@ -252,7 +252,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
-            alpha=1
+            alpha=0.5
             eps=1e-3
 
             if div=="lsif":
@@ -286,7 +286,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=0.1*(expert_V_diff.square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
+            constraint_loss=1*(expert_V_diff.square()).mean() #(expert_V_diff.square().mean() +agent_V_diff.square().mean())#10*000/(self.global_step+1)10*
 
             constraint_ratio=critic_loss/constraint_loss
 
