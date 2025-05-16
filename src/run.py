@@ -32,6 +32,7 @@ sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 sys.path.append('/home/ke/code/catk')
+sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 
 working_dir=os.getcwd()
 
