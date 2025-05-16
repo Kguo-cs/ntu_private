@@ -251,8 +251,8 @@ class IQ_SoftQ(LightningModule):
             # agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
             agent_reward=torch.zeros_like(expert_reward)
 
-            div='x2'
-            alpha=4
+            div='rkl'
+            alpha=1
             eps=1e-3
 
             if div=="lsif":

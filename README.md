@@ -23,6 +23,7 @@ rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /h
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
 
 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted.zip zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
@@ -33,3 +34,18 @@ source ~/miniconda3/bin/activate
 cd ~/scratch/sim/src
 conda activate catk
 Gk@1402862912
+
+qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-zhangshu
+
+ssh zhangshu@aspire2antu.nscc.sg
+
+Gk@140286
+
+
+conda create -y -n catk python=3.11.9
+conda activate catk
+conda install -y -c conda-forge ffmpeg=4.3.2
+pip install -r install/requirements.txt
+pip install torch_geometric
+pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+cu121.html
+pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
