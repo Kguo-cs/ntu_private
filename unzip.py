@@ -30,7 +30,7 @@ import os
 
 # print(f"✅ Extracted {zip_path} to {extract_to}")
 
-zip_path = "./src/waymo_data/full/validation.zip"
+zip_path = "./src/waymo_data/full/validation_tfrecords_splitted.zip"
 extract_to = "./src/waymo_data/full"  # Folder to extract contents
 
 # Create the folder if it doesn't exist
