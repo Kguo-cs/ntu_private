@@ -14,12 +14,12 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: iq #iq #ego_gmm_pre_bc  #wosac_sub #iq #iq
+  - experiment: iq_finetune #iq #ego_gmm_pre_bc  #wosac_sub #iq #iq
 
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc_inter10
+task_name: x2_V1_agent
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
