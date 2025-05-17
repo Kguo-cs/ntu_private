@@ -75,12 +75,12 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout[key] = pred[key]
 
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
-            tokenized_map_rollout = tokenized_map#{"map_feature":tokenized_map["map_feature"]}
+            tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
+            tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
+            tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
+            tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
 
-            # for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
-            #     tokenized_map_rollout[key] = tokenized_map[key]
-
-            self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
+        return tokenized_map,tokenized_agent_rollout
 
     def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key,cumulative_mask):
 
@@ -195,61 +195,21 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,current_V,current_Q,next_V,V_diff,action_nll,entropy
 
-    def collect_agent(self,tokenized_map, tokenized_agent):
-        self.rollout(tokenized_map, tokenized_agent)
-
-        if self.batch_replay:
-            tokenized_agent_rollout={}
-            tokenized_map_rollout = {}
-
-            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape","batch"]:
-                tokenized_agent_rollout[key]=[]
-            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
-                tokenized_map_rollout[key]=[]
-
-            batch_list=random.sample(self.replay_buffer, tokenized_agent['num_graphs'])
-
-            for i,(map,agent) in enumerate(batch_list):
-                for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
-                    tokenized_agent_rollout[key].append(agent[key])
-                tokenized_agent_rollout["batch"].append(torch.zeros_like(agent["type"])+i)
-
-                for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type"]:
-                    tokenized_map_rollout[key].append(map[key])
-                tokenized_map_rollout["batch"].append(torch.zeros_like(map["type"])+i)
-
-            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape","batch"]:
-                tokenized_agent_rollout[key]=torch.cat(tokenized_agent_rollout[key])
-            for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
-                tokenized_map_rollout[key]=torch.cat(tokenized_map_rollout[key])
-        else:
-            batch_list=random.sample(self.replay_buffer, 1)
-            tokenized_map_rollout,tokenized_agent_rollout=batch_list[0]
-
-        tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
-        tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
-        tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
-        tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
-        #tokenized_map_rollout["token_traj_src"]=self.token_processor.map_token_traj_src
-
-        return tokenized_map_rollout,tokenized_agent_rollout
-
     def iq_update(self, tokenized_map, tokenized_agent):
-
-        tokenized_map_rollout,tokenized_agent_rollout =self.collect_agent(tokenized_map, tokenized_agent)
 
         expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-
         if self.reward_w==0:
             loss =expert_nll
         else:
+            tokenized_map_rollout,tokenized_agent_rollout =self.rollout(tokenized_map, tokenized_agent)
 
-            agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
+            agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
+                tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            agent_reward=torch.zeros_like(expert_reward)
+            # agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
             alpha=1
