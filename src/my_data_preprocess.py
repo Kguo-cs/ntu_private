@@ -37,7 +37,7 @@ from src.smart.tokens.my_token_processor import TokenProcessor
 
 torch.set_float32_matmul_precision("high")
 
-light_dict=np.load("waymo_data/light_dict.npy")
+light_cluster=np.load("./initial_tokenizer/light_cluster.npy")#261
 token_processor = TokenProcessor(
     map_token_file="map_traj_token5.pkl",
     agent_token_file="agent_vocab_555_s2.pkl",
@@ -47,32 +47,33 @@ token_processor = TokenProcessor(
 
 
 def process_light(data,map_infos,tf_lights,tf_current_light):
-    polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
+    polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]#189
+    polyline_index = [x["polyline_index"] for k in _polygon_types for x in map_infos[k]]#189
+    all_polylines = map_infos["all_polylines"][:,:2]
 
     current_light_ids=torch.tensor(tf_current_light["lane_id"].values)
-
     if len(current_light_ids):#consider only the light position is known
         in_lane=torch.isin(current_light_ids,torch.tensor(polygon_ids))
 
         current_light_ids=current_light_ids[in_lane]
 
-    ln_id=data['pt_token']["ln_id"]
-
-    polygon_pos=data['map_save']['traj_pos']
-
-    light_pos=torch.zeros([len(tf_current_light), 2])
-    light_polyline=torch.zeros([len(tf_current_light), 3,3,2])
+    light_pos=np.zeros([len(current_light_ids),2])
+    light_polyline=np.zeros([len(current_light_ids),3,2])
 
     for i, current_light_id in enumerate(current_light_ids):
-        light_polygon_idx=np.where(ln_id==polygon_ids.index(current_light_id))[0]
+        light_idx=polygon_ids.index(current_light_id)
 
-        light_polyline[i][0]=polygon_pos[light_polygon_idx[0]]
-        light_polyline[i][1]=polygon_pos[light_polygon_idx[len(light_polygon_idx)//2]]
-        light_polyline[i][2]=polygon_pos[light_polygon_idx[-1]]
+        polyline_range=polyline_index[light_idx]
 
-        light_pos[i]=polygon_pos[light_polygon_idx[len(light_polygon_idx)//2]][0]
+        polyline=all_polylines[polyline_range[0]:polyline_range[1]]
 
-    light_all = torch.zeros([len(tf_current_light), 90],dtype=torch.int8)
+        light_pos[i]=polyline[len(polyline)//2]
+
+        light_polyline[i][0]=polyline[0]
+        light_polyline[i][1]=polyline[len(polyline)//2]
+        light_polyline[i][2]=polyline[-1]
+
+    light_all = torch.zeros([len(current_light_ids), 90],dtype=torch.int8)
 
     for t in range(1,91):
         light_t = tf_lights.loc[tf_lights["time_step"] == t]
@@ -83,13 +84,11 @@ def process_light(data,map_infos,tf_lights,tf_current_light):
 
     light_all=light_all.reshape(-1,18,5)
 
-    light_match=torch.all(light_all[None]-light_dict[:,None,None],axis=-1)
+    light_match=torch.all(light_all[None]-light_cluster[:,None,None],axis=-1)
 
     light_token=torch.argmax(light_match.to(torch.int),dim=0).to(torch.int16)
 
-    return light_token,light_pos,light_polyline.reshape(-1,18)
-
-
+    return light_token,torch.FloatTensor(light_pos),torch.FloatTensor(light_polyline).reshape(-1,6)
 
 def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
     dataset = tf.data.TFRecordDataset(
@@ -134,6 +133,7 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         tokenized_agent.pop('gt_idx', None)
         tokenized_agent.pop('gt_heading', None)
         tokenized_agent.pop('gt_pos', None)
+
         tokenized_agent["sampled_idx"] = tokenized_agent["sampled_idx"].to(torch.int16)
         tokenized_agent["light_token"] = light_token
         tokenized_agent["light_pos"] = light_pos
@@ -167,7 +167,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[:1]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])
     # func = partial(
     #     wm2argo,
     #     split=split,

@@ -84,7 +84,7 @@ class TokenProcessor(torch.nn.Module):
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
         sample_interval=10
 
-        lane_ids = data["pt_token"]["ln_id"]
+        lane_ids =torch.unique(data["pt_token"]["ln_id"], return_inverse=True)[1]
 
         pt_idx=torch.arange(len(lane_ids),device=lane_ids.device)
 
@@ -99,7 +99,6 @@ class TokenProcessor(torch.nn.Module):
         #
         # # Concatenate all sampled points
         # sample_list = torch.cat(sampled_points)
-        #
 
         # Get change points (start of each lane group)
         change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
@@ -179,7 +178,7 @@ class TokenProcessor(torch.nn.Module):
         #data["agent"]["next_route"]=next_route
 
 
-        position=traj_pos[:, 0].contiguous()
+        position=traj_pos[:, 0] #.contiguous()
 
         tokenized_map = {
            # "position": position,  # [n_pl, 2]
