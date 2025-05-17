@@ -18,4 +18,5 @@ model_config:
     num_agent_layers: 1
     pl2pl_radius: 20
     pl2a_radius: 40
+    hidden_dim: 256
 
