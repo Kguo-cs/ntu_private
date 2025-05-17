@@ -195,7 +195,8 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,current_V,current_Q,next_V,V_diff,action_nll,entropy
 
-    def collect_agent(self,num_graphs):
+    def collect_agent(self,tokenized_map, tokenized_agent):
+        self.rollout(tokenized_map, tokenized_agent)
 
         if self.batch_replay:
             tokenized_agent_rollout={}
@@ -206,7 +207,7 @@ class IQ_SoftQ(LightningModule):
             for key in ["position", "orientation", "token_idx", "type", "pl_type", "light_type","batch"]:
                 tokenized_map_rollout[key]=[]
 
-            batch_list=random.sample(self.replay_buffer, num_graphs)
+            batch_list=random.sample(self.replay_buffer, tokenized_agent['num_graphs'])
 
             for i,(map,agent) in enumerate(batch_list):
                 for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
@@ -228,12 +229,14 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
         tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
         tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
-        tokenized_agent_rollout['num_graphs'] = num_graphs
+        tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
         #tokenized_map_rollout["token_traj_src"]=self.token_processor.map_token_traj_src
 
         return tokenized_map_rollout,tokenized_agent_rollout
 
     def iq_update(self, tokenized_map, tokenized_agent):
+
+        tokenized_map_rollout,tokenized_agent_rollout =self.collect_agent(tokenized_map, tokenized_agent)
 
         expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
 
@@ -243,10 +246,6 @@ class IQ_SoftQ(LightningModule):
         if self.reward_w==0:
             loss =expert_nll
         else:
-            # if (self.global_step % self.rollout_freq == 0 or len(self.replay_buffer) < self.replay_buffer.maxlen):
-            self.rollout(tokenized_map, tokenized_agent)
-
-            tokenized_map_rollout,tokenized_agent_rollout = self.collect_agent(tokenized_agent['num_graphs'])
 
             agent_reward,agent_V,agent_Q,agent_next_V,agent_V_diff ,_,agent_entropy= self.get_QV(tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
