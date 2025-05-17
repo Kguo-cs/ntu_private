@@ -7,7 +7,7 @@ qsub -I -l select=1:ngpus=1 -l walltime=10:00:00 -P 12002486
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim/src
 conda activate catk
-export PBS_JOBID=44745.pbs111
+export PBS_JOBID=10298079.pbs101
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
@@ -35,7 +35,7 @@ cd ~/scratch/sim/src
 conda activate catk
 Gk@1402862912
 
-qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-zhangshu
+qsub -I -l select=1:ngpus=1 -l walltime=96:00:00 -P personal-zhangshu
 
 ssh zhangshu@aspire2antu.nscc.sg
 
