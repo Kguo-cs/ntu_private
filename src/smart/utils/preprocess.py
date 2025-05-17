@@ -129,7 +129,7 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
     split_polyline_theta = []
     split_polygon_type = []
     split_light_type = []
-    split_polyline_id=[]
+    #split_polyline_id=[]
 
     for i in sorted(torch.unique(pt2pl[1])):
         index = pt2pl[0, pt2pl[1] == i]
@@ -146,12 +146,13 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
         split_polyline = _interplating_polyline(cur_pos.numpy())
         if split_polyline is None:
             continue
+        split_polyline=split_polyline[::10]
         split_polyline_pos.append(split_polyline[..., :2])
         split_polyline_theta.append(split_polyline[..., 2])
         split_polyline_type.append(cur_type[0].repeat(split_polyline.shape[0]))
         split_polygon_type.append(polygon_type.repeat(split_polyline.shape[0]))
         split_light_type.append(light_type.repeat(split_polyline.shape[0]))
-        split_polyline_id.append(torch.zeros([split_polyline.shape[0]],dtype=torch.int64)+i)
+        #split_polyline_id.append(torch.zeros([split_polyline.shape[0]],dtype=torch.int64)+i)
 
     data = {}
     if len(split_polyline_pos) == 0:  # add dummy empty map
@@ -164,7 +165,7 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
             "type": torch.tensor([0], dtype=torch.uint8),
             "pl_type": torch.tensor([0], dtype=torch.uint8),
             "light_type": torch.tensor([0], dtype=torch.uint8),
-            "ln_id": torch.tensor([0], dtype=torch.uint8),
+            #"ln_id": torch.tensor([0], dtype=torch.uint8),
             "num_nodes": 1,
         }
     else:
@@ -176,7 +177,7 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
             "type": torch.cat(split_polyline_type, dim=0),  # [num_nodes], uint8
             "pl_type": torch.cat(split_polygon_type, dim=0),  # [num_nodes], uint8
             "light_type": torch.cat(split_light_type, dim=0),  # [num_nodes], uint8
-            "ln_id": torch.cat(split_polyline_id, dim=0),
+           # "ln_id": torch.cat(split_polyline_id, dim=0),
             "num_nodes": data["map_save"]["traj_pos"].shape[0]
         }
     return data

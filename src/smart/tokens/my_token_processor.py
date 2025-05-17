@@ -82,11 +82,11 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        sample_interval=10
-
-        lane_ids =torch.unique(data["pt_token"]["ln_id"], return_inverse=True)[1]
-
-        pt_idx=torch.arange(len(lane_ids),device=lane_ids.device)
+        # sample_interval=10
+        #
+        # lane_ids =torch.unique(data["pt_token"]["ln_id"], return_inverse=True)[1]
+        #
+        # pt_idx=torch.arange(len(lane_ids),device=lane_ids.device)
 
         # # Collect sampled points
         # sampled_points = []
@@ -101,22 +101,22 @@ class TokenProcessor(torch.nn.Module):
         # sample_list = torch.cat(sampled_points)
 
         # Get change points (start of each lane group)
-        change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
-        starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
-        ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
-        lengths = ends - starts
-
-        # Create global index mask for sampling
-        max_len = lengths.max()
-        grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
-        mask = grid < lengths.unsqueeze(1)
-        sampling_mask = (grid % sample_interval == 0) & mask
-
-        # Flattened index positions per group
-        base = starts.unsqueeze(1) + grid
-        valid_idx = base[sampling_mask]
-        # Recover sampled original indices
-        sample_list = pt_idx[valid_idx]
+        # change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
+        # starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
+        # ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
+        # lengths = ends - starts
+        #
+        # # Create global index mask for sampling
+        # max_len = lengths.max()
+        # grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
+        # mask = grid < lengths.unsqueeze(1)
+        # sampling_mask = (grid % sample_interval == 0) & mask
+        #
+        # # Flattened index positions per group
+        # base = starts.unsqueeze(1) + grid
+        # valid_idx = base[sampling_mask]
+        # # Recover sampled original indices
+        # sample_list = pt_idx[valid_idx]
 
         # traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
         # traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
@@ -124,11 +124,11 @@ class TokenProcessor(torch.nn.Module):
         # type= data["pt_token"]["type"][::sample_interval]  # [n_pl]
         # pl_type= data["pt_token"]["pl_type"][::sample_interval]  # [n_pl]
         # light_type= data["pt_token"]["light_type"][::sample_interval]  # [n_pl]
-        traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
-        type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"]#[sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"]#[sample_list] #[::sample_interval]##  # [n_pl]
+        type= data["pt_token"]["type"]#[sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"]#[sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
+        light_type= data["pt_token"]["light_type"]#[sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
 
         #dist=torch.linalg.norm(traj_pos[1:,0]-traj_pos[:-1,0],dim=-1)#each two point with interval 50
 
