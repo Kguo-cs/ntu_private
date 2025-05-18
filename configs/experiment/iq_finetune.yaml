@@ -25,7 +25,7 @@ model:
       temp: 1.0
     finetune: true
 
-ckpt_path: ./ckpts/epoch=27-step=189392-val_closed_wosac=0.7713.ckpt
+ckpt_path: ./ckpts/epoch=9-step=60880-val_closed_wosac=0.7684.ckpt
 
 trainer:
   limit_train_batches: 1.0

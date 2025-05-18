@@ -77,41 +77,43 @@ def process_light(map_infos,tf_lights,tf_current_light):
     #         res = light_t[light_t["lane_id"] == light_id.item()]
     #         if len(res):
     #             light_all1[i][t-1] = _polygon_light_type.index(res["state"].item())
+    if len(current_light_ids):
+        # Create a mapping from lane_id to index in light_all
+        lane_id_to_index = {lid.item(): idx for idx, lid in enumerate(current_light_ids)}
 
-    # Create a mapping from lane_id to index in light_all
-    lane_id_to_index = {lid.item(): idx for idx, lid in enumerate(current_light_ids)}
+        # Filter to only relevant lane_ids
+        tf_lights_filtered = tf_lights[tf_lights["lane_id"].isin(lane_id_to_index)]
 
-    # Filter to only relevant lane_ids
-    tf_lights_filtered = tf_lights[tf_lights["lane_id"].isin(lane_id_to_index)]
+        # Also filter to time_step in 1–90
+        tf_lights_filtered = tf_lights_filtered[
+            (tf_lights_filtered["time_step"] >= 1) & (tf_lights_filtered["time_step"] <= 90)]
 
-    # Also filter to time_step in 1–90
-    tf_lights_filtered = tf_lights_filtered[
-        (tf_lights_filtered["time_step"] >= 1) & (tf_lights_filtered["time_step"] <= 90)]
+        # Map lane_id to row index
+        tf_lights_filtered = tf_lights_filtered.copy()  # to avoid SettingWithCopyWarning
+        tf_lights_filtered["row_idx"] = tf_lights_filtered["lane_id"].map(lane_id_to_index)
 
-    # Map lane_id to row index
-    tf_lights_filtered = tf_lights_filtered.copy()  # to avoid SettingWithCopyWarning
-    tf_lights_filtered["row_idx"] = tf_lights_filtered["lane_id"].map(lane_id_to_index)
+        # Map state to its index
+        state_to_index = {state: idx for idx, state in enumerate(_polygon_light_type)}
+        tf_lights_filtered["state_idx"] = tf_lights_filtered["state"].map(state_to_index)
 
-    # Map state to its index
-    state_to_index = {state: idx for idx, state in enumerate(_polygon_light_type)}
-    tf_lights_filtered["state_idx"] = tf_lights_filtered["state"].map(state_to_index)
+        # Now prepare tensor
+        light_all = torch.zeros((len(current_light_ids), 90), dtype=torch.int8)
 
-    # Now prepare tensor
-    light_all = torch.zeros((len(current_light_ids), 90), dtype=torch.int8)
+        # Use .itertuples() for faster iteration and assign to tensor
+        for row in tf_lights_filtered.itertuples(index=False):
+            i = row.row_idx
+            t = row.time_step - 1  # convert to 0-based index
+            s = row.state_idx
+            if pd.notna(i) and pd.notna(s):
+                light_all[i, t] = s
 
-    # Use .itertuples() for faster iteration and assign to tensor
-    for row in tf_lights_filtered.itertuples(index=False):
-        i = row.row_idx
-        t = row.time_step - 1  # convert to 0-based index
-        s = row.state_idx
-        if pd.notna(i) and pd.notna(s):
-            light_all[i, t] = s
+        light_all=light_all.reshape(len(light_all),-1,5)
 
-    light_all=light_all.reshape(-1,18,5)
+        light_match=torch.all(light_all[None]-light_cluster[:,None,None],axis=-1)
 
-    light_match=torch.all(light_all[None]-light_cluster[:,None,None],axis=-1)
-
-    light_token=torch.argmax(light_match.to(torch.int),dim=0).to(torch.int16)
+        light_token=torch.argmax(light_match.to(torch.int),dim=0).to(torch.int16)
+    else:
+        light_token=torch.zeros([len(current_light_ids),18], dtype=torch.int8)
 
     return light_token,torch.FloatTensor(light_pos),torch.FloatTensor(light_polyline).reshape(-1,4)
 
@@ -165,15 +167,18 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             tokenized_agent[key] = tokenized_agent[key].cpu()
 
         tokenized_map["token_idx"] = tokenized_map["token_idx"].to(torch.int16)
-        tokenized_agent["light_token"] = light_token
-        tokenized_agent["light_pos"] = light_pos
-        tokenized_agent["light_polyline"] = light_polyline
         tokenized_agent["sampled_idx"] = tokenized_agent["sampled_idx"].to(torch.int16)
 
         tokenized_map["num_nodes"] = len(tokenized_map["position"])
         tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
 
-        data = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
+        tokenized_light={}
+        tokenized_light["light_token"] = light_token
+        tokenized_light["light_pos"] = light_pos
+        tokenized_light["light_polyline"] = light_polyline
+        tokenized_light["num_nodes"] = len(light_token)
+
+        data = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent,"tokenized_light":tokenized_light}
 
         data["scenario_id"] = scenario_id
         with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
@@ -210,6 +215,30 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
         wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--input_dir",
+        type=str,
+        default="/media/ke/Windows/waymo_data",
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
+    )
+    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--num_workers", type=int, default=12)
+    args = parser.parse_args()
+
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    )
+    #
+    # files = os.listdir(data_directory)
+    #
+    # for file in tqdm(files):
+    #     process_file(file)
 
 # Set paths
 token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_light/"
@@ -254,27 +283,3 @@ def process_file(filename):
     # Save the tokenized data
     with open(output_path, "wb") as f:
         pickle.dump(data_dict, f)
-
-
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--input_dir",
-        type=str,
-        default="/media/ke/Windows/waymo_data",
-    )
-    parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
-    )
-    parser.add_argument("--split", type=str, default="training")
-    parser.add_argument("--num_workers", type=int, default=12)
-    args = parser.parse_args()
-
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    )
-    #
-    # files = os.listdir(data_directory)
-    #
-    # for file in tqdm(files):
-    #     process_file(file)
