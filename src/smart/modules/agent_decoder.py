@@ -206,6 +206,47 @@ class SMARTAgentDecoder(nn.Module):
         if self.time_embed:
            self.t_embedding=nn.Embedding(18,hidden_dim)
 
+        self.pred_light=False
+
+        if self.pred_light:
+            self.light_embedding=nn.Embedding(261,hidden_dim)
+
+            encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim,nhead=num_heads,dim_feedforward=hidden_dim,dropout=hist_drop_prob)
+            self.lg_temp_layer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+            # self.pt2a_attn_layers = nn.ModuleList(
+            #     [
+            #         AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=head_dim,
+            #             dropout=dropout,
+            #             bipartite=True,
+            #             has_pos_emb=True,
+            #         )
+            #         for _ in range(num_layers)
+            #     ]
+            # )
+
+
+            self.lg2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+
+            self.light_token_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=261
+            )
+
     def agent_token_embedding(
         self,
         agent_token_index,  # [n_agent, n_step]
@@ -509,9 +550,6 @@ class SMARTAgentDecoder(nn.Module):
         if latent_feature is not None:
             feat_a=feat_a+self.latent_embedding(latent_feature)[:,None]
 
-        if self.state_action:
-            feat_a[:,:-1]+=feat_a[:,1:]
-
         # ! build temporal, interaction and map2agent edges
         edge_index_t, r_t = self.build_temporal_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -558,15 +596,40 @@ class SMARTAgentDecoder(nn.Module):
         #
         # self.process_route(feat_a,mask,tokenized_agent["next_route"],map_feature,pos_a,head_a,head_vector_a)
         # pt_token = map_feature["pt_token"].clone()
-        # light = tokenized_agent["light"]
-        #
+        if self.pred_light:
+            light_embedding = self.light_embedding(tokenized_agent["light_token"])  # [B, L, D]
+            seq_len = light_embedding.size(1)
+
+            # Create the causal attention mask
+            attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(light_embedding.device)  # [L, L]
+
+            # Pass it into your transformer layer
+            feat_light = self.lg_temp_layer(light_embedding, mask=attn_mask, is_causal=True)
+
+            batch_lg=tokenized_agent["batch_lg"]
+
+            pos_lg=tokenized_agent["pos_lg"]
+            orient_lg=tokenized_agent["orient_lg"]
+
+            edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
+                pos_pl=pos_lg,  # [n_pl, 2]
+                orient_pl=orient_lg,  # [n_pl]
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask=mask,  # [n_agent, n_step]
+                batch_s=batch_s,  # [n_agent*n_step]
+                batch_pl=batch_lg,  # [n_pl*n_step]
+            )
+
+        feat_map = (
+            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        )
+
         # feat_map=self.process_light(pt_token, light, map_feature["light_edge"])
 
         # ! attention layers
         # [n_step*n_pl, hidden_dim]
-        feat_map = (
-            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
-        )
 
         if self.time_embed:
             feat_a=feat_a+self.t_embedding.weight[None,:n_step]
@@ -579,6 +642,10 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = self.pt2a_attn_layers[i](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
+            if self.pred_light:
+                feat_a = self.lg2a_attn_layers[i](
+                    (feat_light, feat_a), r_lg2a, edge_index_lg2a
+                )
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 

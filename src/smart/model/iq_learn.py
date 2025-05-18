@@ -26,13 +26,13 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.reward_w = 1
+        self.finetune = model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
         self.rollout_freq=1
 
-        if self.reward_w and self.use_target_q:
+        if  self.use_target_q:
             self.target_net = SMARTDecoder(
                 **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
             )
@@ -156,11 +156,7 @@ class IQ_SoftQ(LightningModule):
             running_return = (rewards[:, i] + self.gamma *running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
             returns[:, i] = running_return
 
-        # if key=="expert":
-        #     returns += 0.1
-
         current_returns=returns[:,:-1]
-        #next_returns=returns[:,1:]
 
         if self.use_target_q and key=="expert":
             with torch.no_grad():
@@ -201,7 +197,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        if self.reward_w==0:
+        if not self.finetune:
             loss =expert_nll
         else:
             tokenized_map_rollout,tokenized_agent_rollout =self.rollout(tokenized_map, tokenized_agent)
@@ -301,14 +297,14 @@ class IQ_SoftQ(LightningModule):
         tokenized_map["batch"]= map["batch"]
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
-        if "tokenized_light" in data.keys():
+        if "light_pos" in data.keys():
 
-            light=data["tokenized_light"]
+            tokenized_light=data["tokenized_light"]
 
-            tokenized_agent["tokenized_light"]=light["tokenized_light"]
-            tokenized_agent["light_pos"]=light["light_pos"]
-            tokenized_agent["light_polyline"]=light["light_polyline"]
-            tokenized_agent["light_batch"]=light["batch"]
+            tokenized_agent["light_token"]=tokenized_light["light_token"].long()
+            tokenized_agent["pos_lg"]=tokenized_light["light_pos"]
+            tokenized_agent["orient_lg"]=torch.atan2(tokenized_light["light_polyline"][-1],tokenized_light["light_polyline"][-2])
+            tokenized_agent["batch_lg"]=tokenized_light["batch"]
 
         return tokenized_map, tokenized_agent
 
@@ -324,7 +320,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
-        if self.reward_w!=0 and self.use_target_q and self.global_step % self.critic_target_update_frequency == 0  :
+        if self.use_target_q :
 
             if self.soft_update:
                 tau=2e-4 #self.critic_tau/(self.global_step+1)
