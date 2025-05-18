@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.reward_w = 1
+        self.reward_w = 0
         self.use_target_q=False
         self.soft_update=True
 
@@ -246,7 +246,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=10*(expert_V_diff.square().mean()+agent_V_diff.square().mean())
+            constraint_loss=1*(expert_V_diff.square().mean())#+agent_V_diff.square().mean()
 
             constraint_ratio=critic_loss/constraint_loss
 
@@ -301,26 +301,14 @@ class IQ_SoftQ(LightningModule):
         tokenized_map["batch"]= map["batch"]
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
-        if "ln_id" in map._mapping.keys():
-            ln_id = map["ln_id"]
-            batch=map["batch"]
-            #unique_ids, ln_id = torch.unique(ln_id, return_inverse=True)
-            # Step 1: compute per-graph max ln_id
-            #ln_id_max, _ = scatter_max(ln_id, batch, dim=0, dim_size=data.num_graphs)
+        if "tokenized_light" in data.keys():
 
-            ln_id_max=ln_id[torch.where(ln_id[1:]<ln_id[:-1])]
+            light=data["tokenized_light"]
 
-
-            # Step 2: compute cumulative offset for each graph (ln_num per graph)
-            offsets = torch.zeros([data.num_graphs],device=ln_id_max.device)
-            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
-            batch_ln_id = (ln_id + offsets[batch]).long()
-            batch=scatter_mean(batch,batch_ln_id,dim=0)
-
-            # Step 3: gather offsets using batch
-            tokenized_map["ln_id"] = batch_ln_id
-            tokenized_map["rel_position"]=map["rel_position"]
-            tokenized_map["batch"]=batch
+            tokenized_agent["tokenized_light"]=light["tokenized_light"]
+            tokenized_agent["light_pos"]=light["light_pos"]
+            tokenized_agent["light_polyline"]=light["light_polyline"]
+            tokenized_agent["light_batch"]=light["batch"]
 
         return tokenized_map, tokenized_agent
 

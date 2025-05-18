@@ -24,8 +24,8 @@ class WaymoTargetBuilderTrain(BaseTransform):
 
     def __call__(self, data) -> HeteroData:
 
-        if "agent" in data.keys():
-            _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
+        # if "agent" in data.keys():
+        #     _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
 
             #pos = data["agent"]["position"]
         #     av_index = torch.where(data["agent"]["role"][:, 0])[0].item()

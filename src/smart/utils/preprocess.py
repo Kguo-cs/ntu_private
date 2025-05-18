@@ -144,6 +144,9 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
         # assert len(np.unique(cur_type)) == 1
 
         split_polyline = _interplating_polyline(cur_pos.numpy())
+
+        #split_polyline1 = _interplating_polyline(cur_pos.numpy(), distance=5, split_distace=50)
+
         if split_polyline is None:
             continue
         split_polyline=split_polyline[::10]
