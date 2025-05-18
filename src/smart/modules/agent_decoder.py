@@ -215,16 +215,9 @@ class SMARTAgentDecoder(nn.Module):
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
-            self.r_lg2lg_emb = FourierEmbedding(
-                input_dim=3,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
 
             encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim,nhead=num_heads,dim_feedforward=hidden_dim,dropout=hist_drop_prob)
             self.lg_temp_layer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-
-            self.lg2lg_radius=60
 
             self.lg2lg_layers =AttentionLayer(
                         hidden_dim=hidden_dim,
@@ -233,9 +226,7 @@ class SMARTAgentDecoder(nn.Module):
                         dropout=dropout,
                         bipartite=False,
                         has_pos_emb=True,
-                    )
-
-
+                        )
 
             self.lg2a_attn_layers = nn.ModuleList(
                 [
@@ -376,8 +367,6 @@ class SMARTAgentDecoder(nn.Module):
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
         return edge_index_t, r_t
 
-
-
     def build_interaction_edge(
         self,
         pos_a,  # [n_agent, n_step, 2]
@@ -430,6 +419,7 @@ class SMARTAgentDecoder(nn.Module):
         mask,  # [n_agent, n_step]
         batch_s,  # [n_agent*n_step]
         batch_pl,  # [n_pl*n_step]
+        max_num_neighbors=10
     ):
         n_step = pos_a.shape[1]
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
@@ -438,20 +428,12 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
-        # edge_index_pl2a = safe_radius(
-        #     x=pos_s[:, :2],
-        #     y=pos_pl[:, :2],
-        #     r=self.pl2a_radius,
-        #     batch_x=batch_s,
-        #     batch_y=batch_pl,
-        #     max_num_neighbors=300//10,#picked randomly
-        # )
         edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
                                              y=pos_pl[:, :2],
                                              r=self.pl2a_radius,
                                              batch_x=batch_s,
                                              batch_y=batch_pl,
-                                             max_num_neighbors=10)
+                                             max_num_neighbors=max_num_neighbors)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
@@ -469,63 +451,12 @@ class SMARTAgentDecoder(nn.Module):
             ],
             dim=-1,
         )
-        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+        if max_num_neighbors==10:
+            r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+        else:
+            r_pl2a = self.r_lg2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+
         return edge_index_pl2a, r_pl2a
-
-    def build_route2agent_edge(
-        self,
-        pos_ln,  # [n_ln, 2]
-        orient_ln,  # [n_ln]
-        pos_a,  # [n_agent, n_step, 2]
-        head_a,  # [n_agent, n_step]
-        head_vector_a,  # [n_agent, n_step, 2]
-    ):
-        pos_s = pos_a.flatten(0, 1)
-        head_s = head_a.reshape(-1)
-        head_vector_s = head_vector_a.reshape(-1, 2)
-        edge_index_ln2a = torch.stack([torch.arange(len(pos_s)),torch.arange(len(pos_s)) ],dim=0).to(pos_s.device)
-        rel_pos_ln2a = pos_ln[edge_index_ln2a[0]] - pos_s[edge_index_ln2a[1]]
-        rel_orient_ln2a = wrap_angle(
-            orient_ln[edge_index_ln2a[0]] - head_s[edge_index_ln2a[1]]
-        )
-        r_ln2a = torch.stack(
-            [
-                torch.norm(rel_pos_ln2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_ln2a[1]],
-                    nbr_vector=rel_pos_ln2a[:, :2],
-                ),
-                rel_orient_ln2a,
-            ],
-            dim=-1,
-        )
-        r_ln2a = self.r_ln2a_emb(continuous_inputs=r_ln2a, categorical_embs=None)
-
-        return r_ln2a
-
-
-    def process_route(self,feat_a,mask ,next_route,map_feature,pos_a,head_a,head_vector_a):
-
-        r_ln2a = self.build_route2agent_edge(
-            pos_ln=map_feature["pos_lane"][next_route].reshape(-1,2),  # [n_pl, 2]
-            orient_ln=map_feature["orient_lane"][next_route].reshape(-1),  # [n_pl]
-            pos_a=pos_a,  # [n_agent, hist_step, 2]
-            head_a=head_a,  # [n_agent, hist_step]
-            head_vector_a=head_vector_a,  # [n_agent, hist_step, 2]
-        )
-
-        next_route_token = map_feature["lane_token"][next_route] + r_ln2a.view(next_route.shape[0],next_route.shape[1],-1)
-        next_route_mask = next_route != -1
-
-        feat_a[next_route_mask & mask ] += next_route_token[next_route_mask & mask]
-
-
-    def process_light(self,pt_token,light,light_edge):
-        light_t = self.light_pl_emb(light)
-        pt_token=pt_token[:,None].repeat(1,light.shape[1],1)
-        pt_token[light_edge[:, 1]] += light_t[light_edge[:, 0]]
-
-        return pt_token.swapaxes(0,1).flatten(0,1)
 
     def forward(
         self,
@@ -605,50 +536,47 @@ class SMARTAgentDecoder(nn.Module):
         # self.process_route(feat_a,mask,tokenized_agent["next_route"],map_feature,pos_a,head_a,head_vector_a)
         # pt_token = map_feature["pt_token"].clone()
         if self.pred_light:
-            light_embedding = self.light_embedding(tokenized_agent["light_token"])  # [B, L, D]
-            seq_len = light_embedding.size(1)
+            light_idx=tokenized_agent["light_idx"]
+            pos_lg=map_feature["pos_lg"]
+            orient_lg=map_feature["orient_lg"]
+            edge_index_lg2lg=map_feature["edge_index_lg2lg"]
+            r_lg2lg=map_feature["r_lg2lg"]
+            batch_lg=map_feature["batch_lg"]
 
-            # Create the causal attention mask
-            attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(light_embedding.device)  # [L, L]
+            light_embedding = self.light_embedding(light_idx)  # [B, L, D]
 
-            # Pass it into your transformer layer
+            attn_mask = nn.Transformer.generate_square_subsequent_mask(light_embedding.size(1)).to(light_embedding.device)  # [L, L]
+
             x_lg = self.lg_temp_layer(light_embedding, mask=attn_mask, is_causal=True)
 
-            batch_lg=tokenized_agent["batch_lg"]
+            x_lg_flat=x_lg.reshape(-1,x_lg.shape[-1])
 
-            pos_lg=tokenized_agent["pos_lg"]
-            orient_lg=tokenized_agent["orient_lg"]
-            orient_vector_lg = torch.stack([orient_lg.cos(), orient_lg.sin()], dim=-1)
+            N, T, C = x_lg.shape
+            E = edge_index_lg2lg.size(1)
 
-            edge_index_lg2lg = radiusGraphNearest(
-                x=pos_lg,
-                r=self.lg2lg_radius,
-                batch=batch_lg,
-                loop=False,
-                max_num_neighbors=10,
-            )
+            # Step 1: Repeat edge index T times
+            edge_index_lg2lg_rep = edge_index_lg2lg.repeat(1, T)  # [2, E*T]
 
-            rel_pos_lg2lg = pos_lg[edge_index_lg2lg[0]] - pos_lg[edge_index_lg2lg[1]]
+            # Step 2: Compute offset for each time step
+            # (0, N, 2N, ..., (T-1)*N) for each E edges
+            time_offsets = torch.arange(T, device=edge_index_lg2lg.device) * N  # [T]
+            time_offsets = time_offsets.repeat_interleave(E)  # [E*T]
 
-            rel_orient_lg2lg = wrap_angle(
-                orient_lg[edge_index_lg2lg[0]] - orient_lg[edge_index_lg2lg[1]]
-            )
+            # Step 3: Add offset to both source and target node indices
+            edge_index_lg2lg_T = edge_index_lg2lg_rep + time_offsets.unsqueeze(0)  # [2, E*T]
 
-            r_lg2lg = torch.stack(
+            # Step 4: Repeat edge features T times
+            r_lg2lg_T = r_lg2lg.repeat(T, 1)  # [E*T, F]
+
+            feat_lg = self.lg2lg_layers(x_lg_flat, r_lg2lg_T, edge_index_lg2lg_T)
+
+            batch_lg = torch.cat(
                 [
-                    torch.norm(rel_pos_lg2lg[:, :2], p=2, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=orient_vector_lg[edge_index_lg2lg[1]],
-                        nbr_vector=rel_pos_lg2lg[:, :2],
-                    ),
-                    rel_orient_lg2lg,
+                    batch_lg + tokenized_agent["num_graphs"] * t
+                    for t in range(n_step)
                 ],
-                dim=-1,
+                dim=0,
             )
-
-            r_lg2lg = self.r_lg2lg_emb(continuous_inputs=r_lg2lg, categorical_embs=None)
-
-            x_lg = self.lg2lg_layers(x_lg, r_lg2lg, edge_index_lg2lg)
 
             edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
                 pos_pl=pos_lg,  # [n_pl, 2]
@@ -659,9 +587,13 @@ class SMARTAgentDecoder(nn.Module):
                 mask=mask,  # [n_agent, n_step]
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
+                max_num_neighbors=5
             )
 
+            next_light_logits =self.light_token_predict_head(feat_lg.reshape(-1, T, feat_lg.shape[-1]))
 
+        else:
+            next_light_logits=None
 
         feat_map = (
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
@@ -685,7 +617,7 @@ class SMARTAgentDecoder(nn.Module):
             )
             if self.pred_light:
                 feat_a = self.lg2a_attn_layers[i](
-                    (feat_light, feat_a), r_lg2a, edge_index_lg2a
+                    (feat_lg, feat_a), r_lg2a, edge_index_lg2a
                 )
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
@@ -704,40 +636,91 @@ class SMARTAgentDecoder(nn.Module):
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
 
-        if self.state_action:
-            expert_mask=tokenized_agent["valid_mask"][:, 1:-1] & tokenized_agent["valid_mask"][:, 2:]
-            score=next_token_logits[:, 1:-1,0]
-            if not torch.all(expert_mask):
-                score=score[expert_mask]
-            return score
+        if "gt_pos_raw" not in tokenized_agent.keys():
+            if next_light_logits is not None:
+                next_light_logits = torch.cat([next_light_logits,-torch.inf+torch.zeros([next_light_logits.shape[0],next_light_logits.shape[1],
+                                                                                      next_token_logits.shape[2]-next_light_logits.shape[2]],
+                                                                                        device=next_light_logits.device)],dim=-1)
+
+                next_token_logits=torch.cat([next_token_logits, next_light_logits], dim=0)
+            return {
+                # action that goes from [(10->15), ..., (85->90)]
+                "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
+                 "feat_a": feat_a[:, 1:-1],
+                 "q_value": next_token_logits[:, 1:],
+             }
         else:
-           if "gt_pos_raw" not in tokenized_agent.keys():
-                 return {
-                    # action that goes from [(10->15), ..., (85->90)]
-                    "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-                     "feat_a": feat_a[:, 1:-1],
-                     "q_value": next_token_logits[:, 1:]
-                 }
-           else:
-                return {
-                    # action that goes from [(10->15), ..., (85->90)]
-                    "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-                    "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
-                    # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
-                    "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
-                    "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
-                    "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
-                    # for step {5, 10, ..., 90}
-                    "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
-                    "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
-                    "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
-                    # or use the tokenized gt
-                    "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
-                    "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
-                    "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18],
-                    "feat_a": feat_a[:, 1:-1],
-                    "q_value": next_token_logits[:, 1:]
-                }
+            return {
+                # action that goes from [(10->15), ..., (85->90)]
+                "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
+                "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
+                # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
+                "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+                "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+                "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+                # for step {5, 10, ..., 90}
+                "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
+                "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
+                "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
+                # or use the tokenized gt
+                "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
+                "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
+                "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18],
+                "feat_a": feat_a[:, 1:-1],
+                "q_value": next_token_logits[:, 1:]
+            }
+
+    def autoregressive_light_prediction(self, initial_token, max_len, map_feature, device):
+        """
+        Autoregressively predict light tokens with lg2lg interaction at each timestep.
+
+        Args:
+            initial_token: [B] LongTensor, initial <BOS> token
+            max_len: int, number of tokens to generate
+            map_feature: dict with keys: pos_lg, orient_lg, edge_index_lg2lg, r_lg2lg, batch_lg
+            device: torch.device
+
+        Returns:
+            predicted_tokens: [B, max_len] LongTensor of predicted light tokens
+        """
+        B = initial_token.shape[0]
+        predicted_tokens = torch.zeros(B, max_len, dtype=torch.long, device=device)
+        predicted_tokens[:, 0] = initial_token
+
+        # Static map features
+        pos_lg = map_feature["pos_lg"]  # [N, 2]
+        orient_lg = map_feature["orient_lg"]  # [N]
+        edge_index_lg2lg = map_feature["edge_index_lg2lg"]  # [2, E]
+        r_lg2lg = map_feature["r_lg2lg"]  # [E, F]
+        batch_lg = map_feature["batch_lg"]  # [N]
+
+        N = pos_lg.size(0)
+
+        for t in range(1, max_len):
+            # Step 1: Embed predicted sequence so far
+            embedded = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
+
+            # Step 2: Causal self-attention
+            attn_mask = nn.Transformer.generate_square_subsequent_mask(t).to(device)  # [t, t]
+            x_lg = self.lg_temp_layer(embedded, mask=attn_mask, is_causal=True)  # [B, t, D]
+
+            # Step 3: Get last token hidden state and expand to match LG node layout
+            x_lg_last = x_lg[:, -1]  # [B, D]
+            x_lg_last_expanded = x_lg_last.repeat_interleave(N // B, dim=0)  # [N, D]
+
+            # Step 4: lg2lg message passing
+            x_lg_updated = self.lg2lg_layers(x_lg_last_expanded, r_lg2lg, edge_index_lg2lg)  # [N, D]
+
+            # Step 5: Pool or reshape back to [B, D] for prediction
+            x_lg_pooled = global_mean_pool(x_lg_updated, batch_lg)  # [B, D]
+
+            # Step 6: Predict next token
+            logits = self.light_token_predict_head(x_lg_pooled.unsqueeze(1))  # [B, 1, vocab]
+            next_token = torch.argmax(logits.squeeze(1), dim=-1)  # [B]
+
+            predicted_tokens[:, t] = next_token
+
+        return predicted_tokens
 
     def inference(
         self,
@@ -779,18 +762,14 @@ class SMARTAgentDecoder(nn.Module):
             inference=True,
         )
 
-        #agent_token_index = tokenized_agent["gt_idx"][:, :step_current_2hz]
-        #sample_list=[]
-        # action_log_probs_list=[]
-        # feat_a_list=[]
-        entropy_list=[]
-
         if latent_feature is not None:
 
             latent_embedding=self.latent_embedding(latent_feature)
 
-        # next_route =tokenized_agent["next_route"]
-        # light = tokenized_agent["light"]
+        if "pos_lg" in map_feature.keys():
+
+            light=self.autoregressive_light_prediction(map_feature)
+
 
         if not self.training:
             pred_traj_10hz = torch.zeros(
@@ -801,9 +780,10 @@ class SMARTAgentDecoder(nn.Module):
             )
 
         pred_valid = tokenized_agent["valid_mask"].clone()
-        next_token_logits_list = []
-        next_token_action_list = []
-        feat_a_t_dict = {}
+
+
+
+
         for t in range(n_step_future_2hz):  # 0 -> 15
             t_now = step_current_2hz - 1 + t  # 1 -> 16
             n_step = t_now + 1  # 2 -> 17
@@ -865,10 +845,10 @@ class SMARTAgentDecoder(nn.Module):
                 mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
             )
 
-            # self.process_route(feat_a[:, -1:], inference_mask[:, -1:], next_route[:, t_now:t_now+1], map_feature, pos_a[:, -1:], head_a[:, -1:], head_vector_a[:, -1:])
-            #
-            # pt_token=self.process_light(map_feature["pt_token"].clone(),light[:, t_now:t_now+1],map_feature["light_edge"])
             pt_token=map_feature["pt_token"]
+            next_token_logits_list = []
+            next_token_action_list = []
+            feat_a_t_dict = {}
 
             # ! attention layers
             for i in range(self.num_layers):
@@ -957,42 +937,6 @@ class SMARTAgentDecoder(nn.Module):
                 valid_next_gt=None,#tokenized_agent["gt_valid_raw"][:, n_step],  # [n_agent]
                 token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_token, 2]
             )  # next_token_idx: [n_agent], next_token_traj_all: [n_agent, 6, 4, 2]
-
-            # probs = F.softmax(next_token_logits/self.alpha, dim=-1)
-            # log_probs = F.log_softmax(next_token_logits/self.alpha, dim=-1)
-            # entropy = -torch.sum(probs * log_probs, dim=-1)
-            #
-            # entropy_list.append(entropy)
-
-            # agent_state = {}
-            #
-            # hist_len=1
-            #
-            # agent_state['sampled_pos'] = pos_a[:, -hist_len:]
-            # agent_state['sampled_heading'] = head_a[:, -hist_len:]
-            # agent_state['sampled_idx'] = agent_token_index[:, -hist_len:]
-            # agent_state['valid_mask'] = pred_valid[:, n_step-hist_len:n_step]
-            # agent_state['trajectory_token_veh']=tokenized_agent['trajectory_token_veh']
-            # agent_state['trajectory_token_ped']=tokenized_agent['trajectory_token_ped']
-            # agent_state['trajectory_token_cyc']=tokenized_agent['trajectory_token_cyc']
-            # agent_state['type']=tokenized_agent['type']
-            # agent_state['shape']=tokenized_agent['shape']
-            # agent_state['batch']=tokenized_agent['batch']
-            # agent_state['num_graphs']=tokenized_agent['num_graphs']
-            # agent_state['next_route']=next_route[:, n_step-hist_len:n_step]
-            # agent_state['light']=light[:, n_step-hist_len:n_step]
-            #
-            #agent_token_index = torch.cat([agent_token_index, next_token_idx[:, None]], dim=-1)
-            # sample={
-            #     "state": agent_state,
-            #     "action": next_token_idx,
-            #     "prev_log_prob": prev_log_prob,
-            #     "feat_a_now": feat_a_now,
-            # }
-            #
-            # sample_list.append(sample)
-            # action_log_probs_list.append(prev_log_prob)
-            # feat_a_list.append(feat_a_now)
 
             diff_xy = next_token_traj_all[:, -1, 0] - next_token_traj_all[:, -1, 3]
             next_token_action_list.append(
