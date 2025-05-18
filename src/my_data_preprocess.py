@@ -17,6 +17,14 @@ from argparse import ArgumentParser
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import sys
+import os
+
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/ke/code/catk')
+sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 
 import numpy as np
 import pandas as pd
@@ -33,7 +41,7 @@ import os
 
 torch.set_float32_matmul_precision("high")
 
-light_cluster=np.load("./initial_tokenizer/light_cluster.npy")#261
+light_cluster=np.load("./src/initial_tokenizer/light_cluster.npy")#261
 token_processor = TokenProcessor(
     map_token_file="map_traj_token5.pkl",
     agent_token_file="agent_vocab_555_s2.pkl",
@@ -200,7 +208,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[600:]
     # func = partial(
     #     wm2argo,
     #     split=split,
