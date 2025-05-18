@@ -200,12 +200,12 @@ class IQ_SoftQ(LightningModule):
         if not self.finetune:
             loss =expert_nll
         else:
-            tokenized_map_rollout,tokenized_agent_rollout =self.rollout(tokenized_map, tokenized_agent)
+            # tokenized_map_rollout,tokenized_agent_rollout =self.rollout(tokenized_map, tokenized_agent)
+            #
+            # agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
+            #     tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
-            agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
-                tokenized_map_rollout,tokenized_agent_rollout, key='agent')
-
-            # agent_reward=torch.zeros_like(expert_reward)
+            agent_reward=torch.zeros_like(expert_reward)
 
             div='x2'
             alpha=1
@@ -303,7 +303,7 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent["light_token"]=tokenized_light["light_token"].long()
             tokenized_agent["pos_lg"]=tokenized_light["light_pos"]
-            tokenized_agent["orient_lg"]=torch.atan2(tokenized_light["light_polyline"][-1],tokenized_light["light_polyline"][-2])
+            tokenized_agent["orient_lg"]=torch.atan2(tokenized_light["light_polyline"][:,-1],tokenized_light["light_polyline"][:,-2])
             tokenized_agent["batch_lg"]=tokenized_light["batch"]
 
         return tokenized_map, tokenized_agent

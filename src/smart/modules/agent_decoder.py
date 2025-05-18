@@ -210,23 +210,31 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_light:
             self.light_embedding=nn.Embedding(261,hidden_dim)
+            self.r_lg2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_pt2a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
+            self.r_lg2lg_emb = FourierEmbedding(
+                input_dim=3,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
 
             encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim,nhead=num_heads,dim_feedforward=hidden_dim,dropout=hist_drop_prob)
             self.lg_temp_layer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-            # self.pt2a_attn_layers = nn.ModuleList(
-            #     [
-            #         AttentionLayer(
-            #             hidden_dim=hidden_dim,
-            #             num_heads=num_heads,
-            #             head_dim=head_dim,
-            #             dropout=dropout,
-            #             bipartite=True,
-            #             has_pos_emb=True,
-            #         )
-            #         for _ in range(num_layers)
-            #     ]
-            # )
+            self.lg2lg_radius=60
+
+            self.lg2lg_layers =AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+
 
 
             self.lg2a_attn_layers = nn.ModuleList(
@@ -604,12 +612,43 @@ class SMARTAgentDecoder(nn.Module):
             attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(light_embedding.device)  # [L, L]
 
             # Pass it into your transformer layer
-            feat_light = self.lg_temp_layer(light_embedding, mask=attn_mask, is_causal=True)
+            x_lg = self.lg_temp_layer(light_embedding, mask=attn_mask, is_causal=True)
 
             batch_lg=tokenized_agent["batch_lg"]
 
             pos_lg=tokenized_agent["pos_lg"]
             orient_lg=tokenized_agent["orient_lg"]
+            orient_vector_lg = torch.stack([orient_lg.cos(), orient_lg.sin()], dim=-1)
+
+            edge_index_lg2lg = radiusGraphNearest(
+                x=pos_lg,
+                r=self.lg2lg_radius,
+                batch=batch_lg,
+                loop=False,
+                max_num_neighbors=10,
+            )
+
+            rel_pos_lg2lg = pos_lg[edge_index_lg2lg[0]] - pos_lg[edge_index_lg2lg[1]]
+
+            rel_orient_lg2lg = wrap_angle(
+                orient_lg[edge_index_lg2lg[0]] - orient_lg[edge_index_lg2lg[1]]
+            )
+
+            r_lg2lg = torch.stack(
+                [
+                    torch.norm(rel_pos_lg2lg[:, :2], p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=orient_vector_lg[edge_index_lg2lg[1]],
+                        nbr_vector=rel_pos_lg2lg[:, :2],
+                    ),
+                    rel_orient_lg2lg,
+                ],
+                dim=-1,
+            )
+
+            r_lg2lg = self.r_lg2lg_emb(continuous_inputs=r_lg2lg, categorical_embs=None)
+
+            x_lg = self.lg2lg_layers(x_lg, r_lg2lg, edge_index_lg2lg)
 
             edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
                 pos_pl=pos_lg,  # [n_pl, 2]
@@ -621,6 +660,8 @@ class SMARTAgentDecoder(nn.Module):
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
             )
+
+
 
         feat_map = (
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
