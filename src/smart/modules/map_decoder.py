@@ -56,7 +56,6 @@ class SMARTMapDecoder(nn.Module):
             num_freq_bands=num_freq_bands,
         )
 
-
         self.pt2pt_layers = nn.ModuleList(
             [
                 AttentionLayer(

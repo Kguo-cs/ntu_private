@@ -792,7 +792,6 @@ class SMARTAgentDecoder(nn.Module):
 
             pred_light_idx,lg_features=self.autoregressive_light_prediction(light_idx,map_feature,n_step_future_2hz)
 
-
         if not self.training:
             pred_traj_10hz = torch.zeros(
                 [n_agent, n_step_future_10hz, 2], dtype=pos_a.dtype, device=pos_a.device
@@ -902,12 +901,6 @@ class SMARTAgentDecoder(nn.Module):
                         _feat_temporal+=latent_embedding[:,None]
                     else:
                         _feat_temporal[:,-1]+=latent_embedding
-
-                if self.time_embed:
-                    if t==0:
-                        _feat_temporal+=self.t_embedding.weight[None,:2]
-                    else:
-                        _feat_temporal[:,-1]+=self.t_embedding.weight[None,t+1]
 
                 if t == 0:  # init, process hist_step together
                     _feat_temporal = self.t_attn_layers[i](
