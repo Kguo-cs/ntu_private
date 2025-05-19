@@ -68,5 +68,6 @@ class WaymoTargetBuilderVal(BaseTransform):
         super(WaymoTargetBuilderVal, self).__init__()
 
     def __call__(self, data) -> HeteroData:
-        _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
+        # _,  data["pt_token"]["ln_id"] = torch.unique( data["pt_token"]["ln_id"], return_inverse=True)
+
         return HeteroData(data)

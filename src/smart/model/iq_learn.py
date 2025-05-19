@@ -82,7 +82,7 @@ class IQ_SoftQ(LightningModule):
 
             if "light_idx" in pred.keys():
                 tokenized_agent_rollout['light_idx'] = pred['light_idx']
-                tokenized_agent_rollout['lg_features'] = pred['lg_features']
+                # tokenized_agent_rollout['lg_features'] = pred['lg_features']
 
         return tokenized_map,tokenized_agent_rollout
 
@@ -94,17 +94,6 @@ class IQ_SoftQ(LightningModule):
 
         current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
-        # if key=='expert':
-        #     # pi = torch.softmax(q / self.alpha, dim=-1)
-        #     #
-        #     # logpi = torch.log(pi + 1e-10)
-        #     #
-        #     # log_prob = logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-        #
-        #     current_V= current_Q - self.alpha * log_prob
-        #
-        #     v_value=torch.cat([current_V,torch.zeros_like(current_V[:,:1])],dim=1)
-        # else:
         v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
         current_V = v_value[:, :-1]
@@ -131,7 +120,6 @@ class IQ_SoftQ(LightningModule):
             light_valid_mask = torch.ones_like(tokenized_agent["light_idx"][:, 1:]).to(torch.bool)
 
             valid_mask =  torch.cat([tokenized_agent["valid_mask"][:, 1:], light_valid_mask])
-
         else:
             action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
@@ -209,23 +197,22 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
-
-        agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
-            tokenized_map_rollout, tokenized_agent_rollout, key='agent')
-
         if not self.finetune:
             loss =expert_nll
         else:
+            tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
 
-            div='rkl'
-            alpha=1
-            eps=1e-3
+            agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
+                tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            if div=="lsif":
-                critic_loss=-expert_reward.exp().mean()+1/2*(2*agent_reward).exp().mean()
+            div = 'rkl'
+            alpha = 1
+            eps = 1e-3
+
+            if div == "lsif":
+                critic_loss = -expert_reward.exp().mean() + 1 / 2 * (2 * agent_reward).exp().mean()
             elif div == 'bce':
-                critic_loss=((-expert_reward/1).exp()+1).log().mean()+((agent_reward/1).exp()+1).log().mean()
+                critic_loss = ((-expert_reward / 1).exp() + 1).log().mean()+((agent_reward/1).exp()+1).log().mean()
             elif div=='ukl':
                 critic_loss = -expert_reward.mean() + agent_reward.exp().mean()
             elif div=='exp':
@@ -312,7 +299,7 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_light=data["tokenized_light"]
 
-            tokenized_agent["light_idx"]=tokenized_light["light_token"].long()
+            tokenized_agent["light_idx"]=tokenized_light["light_idx"].long()
             tokenized_map["pos_lg"]=tokenized_light["light_pos"]
             tokenized_map["orient_lg"]=tokenized_light["light_orient"]
             tokenized_map["batch_lg"]=tokenized_light["batch"]

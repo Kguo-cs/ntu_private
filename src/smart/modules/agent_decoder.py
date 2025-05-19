@@ -207,7 +207,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.time_embed:
            self.t_embedding=nn.Embedding(18,hidden_dim)
 
-        self.pred_light=False
+        self.pred_light=True
 
         if self.pred_light:
             self.light_embedding=nn.Embedding(261,hidden_dim)
@@ -587,21 +587,21 @@ class SMARTAgentDecoder(nn.Module):
             orient_lg=map_feature["orient_lg"]
             batch_lg = map_feature["batch_lg"]
 
-            if "lg_features" in tokenized_agent.keys():
-                feat_lg = tokenized_agent['lg_features']
-            else:
-                edge_index_lg2lg=map_feature["edge_index_lg2lg"]
-                r_lg2lg=map_feature["r_lg2lg"]
+            # if "lg_features" in tokenized_agent.keys():
+            #     feat_lg = tokenized_agent['lg_features']
+            # else:
+            edge_index_lg2lg=map_feature["edge_index_lg2lg"]
+            r_lg2lg=map_feature["r_lg2lg"]
 
-                light_embedding = self.light_embedding(light_idx)  # [B, L, D]
+            light_embedding = self.light_embedding(light_idx)  # [B, L, D]
 
-                lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_idx )
+            lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_idx )
 
-                x_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
+            x_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
 
-                r_lg2lg_T,edge_index_lg2lg_T=self.build_lg2lg_edge(r_lg2lg,edge_index_lg2lg,light_idx)
+            r_lg2lg_T,edge_index_lg2lg_T=self.build_lg2lg_edge(r_lg2lg,edge_index_lg2lg,light_idx)
 
-                feat_lg = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).reshape(-1, light_idx.shape[1], x_lg.shape[-1])
+            feat_lg = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).reshape(-1, light_idx.shape[1], x_lg.shape[-1])
 
             batch_lg = torch.cat(
                 [
@@ -706,8 +706,6 @@ class SMARTAgentDecoder(nn.Module):
         B = initial_token.shape[0]
         current_len=initial_token.shape[1]
 
-        max_len=1
-
         device=initial_token.device
         predicted_tokens = torch.zeros(B, max_len+current_len, dtype=torch.long, device=device)
         predicted_tokens[:,:current_len ] = initial_token
@@ -734,7 +732,6 @@ class SMARTAgentDecoder(nn.Module):
                 r_lg2lg_T, edge_index_lg2lg_T = self.build_lg2lg_edge(r_lg2lg, edge_index_lg2lg, light_idx)
 
                 x_lg_updated = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t,  x_lg.shape[ -1])  # [N, D]
-
                 lg_features[:, :t] = x_lg_updated
 
                 x_lg_updated=x_lg_updated[:,-1]
@@ -752,7 +749,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 x_lg_updated = self.lg2lg_layers(x_lg, r_lg2lg, edge_index_lg2lg)  # [N, D]
 
-                lg_features[:, t] = x_lg_updated
+                lg_features[:, t-1] = x_lg_updated
 
             logits = self.light_token_predict_head(x_lg_updated)
 
@@ -760,22 +757,6 @@ class SMARTAgentDecoder(nn.Module):
             samples = cat_dist.sample()  # [n_agent] in K
 
             predicted_tokens[:, t] = samples
-
-        t=current_len+max_len-1
-
-        light_idx = predicted_tokens[:, :t]
-
-        light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
-        mask = torch.ones_like(light_idx).to(torch.bool)
-
-        lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask)
-
-        x_lg = self.lg_temp_layer(light_embedding.flatten(0, 1), lg_r_t, lg_edge_index_t)
-
-        r_lg2lg_T, edge_index_lg2lg_T = self.build_lg2lg_edge(r_lg2lg, edge_index_lg2lg, light_idx)
-
-        x_lg_updated = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, x_lg.shape[-1])  # [N, D]
-
 
         return predicted_tokens,lg_features
 
@@ -1135,7 +1116,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if "pos_lg" in map_feature.keys():
             out_dict["light_idx"]=pred_light_idx
-            out_dict["lg_features"]=lg_features
+            #out_dict["lg_features"]=lg_features
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_traj_10hz"] = pred_traj_10hz
