@@ -17,8 +17,6 @@ class IQ_SoftQ(LightningModule):
         self.gamma = 0.99
         self.alpha = self.encoder.agent_encoder.alpha
 
-        self.logsoftmax = nn.LogSoftmax(dim=-1)
-
         self.batch_replay=False
 
         if self.batch_replay:
@@ -53,8 +51,6 @@ class IQ_SoftQ(LightningModule):
                 sampling_scheme=self.validation_rollout_sampling,
             )
         self.encoder.train()
-
-        #self.log("rollout_entropy",pred["rollout_entropy"].mean().item(), on_step=True, batch_size=1)
 
         if self.batch_replay:
             for i in range(tokenized_agent["num_graphs"]):
@@ -259,20 +255,14 @@ class IQ_SoftQ(LightningModule):
         agent=data["tokenized_agent"]
 
         tokenized_agent={}
+        for key in ["sampled_pos", "sampled_heading", "valid_mask", "type","batch", "shape"]:
+            tokenized_agent[key] = agent[key]
 
-        tokenized_agent['sampled_pos'] = agent["sampled_pos"]
-        tokenized_agent['sampled_heading'] = agent['sampled_heading']
         tokenized_agent['sampled_idx'] = agent["sampled_idx"].long()
-
         tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
         tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
         tokenized_agent["gt_idx"] = tokenized_agent['sampled_idx']
-
-        tokenized_agent['valid_mask'] = agent['valid_mask']
-        tokenized_agent['type'] = agent['type']
-        tokenized_agent['batch'] = agent['batch']
         tokenized_agent['num_graphs'] = data.num_graphs
-        tokenized_agent['shape'] = agent['shape']
 
         agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
             agent['type']
@@ -285,14 +275,12 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent['trajectory_token_cyc'] = self.token_processor.trajectory_token_cyc
 
         tokenized_map={}
+        for key in ["position", "orientation", "batch"]:
+            tokenized_map[key] = map[key]
 
-        tokenized_map["position"]= map["position"]
-        tokenized_map["orientation"]=  map["orientation"]
-        tokenized_map["token_idx"]=  map["token_idx"].long()
-        tokenized_map["type"]= map["type"].long()
-        tokenized_map["pl_type"]= map["pl_type"].long()
-        tokenized_map["light_type"]= map["light_type"].long()
-        tokenized_map["batch"]= map["batch"]
+        for key in ["token_idx", "type", "pl_type","light_type"]:
+            tokenized_map[key] = map[key].long()
+
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
         if "light_pos" in data.keys():
@@ -310,7 +298,6 @@ class IQ_SoftQ(LightningModule):
 
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
-           # tokenized_agent["dist_mask"]=data["agent"]["dist_mask"]
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
 
@@ -320,7 +307,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.use_target_q :
             if self.soft_update:
-                tau=1e-4 #self.critic_tau/(self.global_step+1)
+                tau=1e-4
                 soft_update(self.encoder.agent_encoder,self.target_net.agent_encoder,tau)
             else:
                 hard_update(self.encoder.agent_encoder,self.target_net.agent_encoder)
@@ -335,44 +322,3 @@ def soft_update( net, target_net, tau):
 def hard_update(source, target):
     for param, target_param in zip(source.parameters(), target.parameters()):
         target_param.data.copy_(param.data)
-
-# def compute_reward_loss(self,reward):
-#
-#     div = 'rkl'
-#     # TO DO: detach gradient, clip reward, gmm, refine by KL constrained
-#
-#     eps = 1e-1
-#
-#     if div == "kl":
-#         alpha = 1  # *(self.global_step/10000+1e-2)
-#         reward = torch.clamp(reward, max=alpha / eps, min=alpha * eps)
-#         reward_loss = -alpha * ((reward / alpha).log() + 1)
-#     elif div == "rkl":
-#         alpha = 10
-#         # reward=torch.clamp(reward,max=alpha*(-1-np.log(eps)),min=alpha*(-1+np.log(eps)))
-#         reward_loss = alpha * (-reward / alpha - 1).exp()
-#         # with torch.no_grad():
-#         #     phi_grad = torch.exp(-reward)
-#         # reward_loss = -(phi_grad * reward)
-#     # reward_loss= reward_loss.detach()*reward
-#     elif div == "sh":
-#         alpha = 1
-#         reward_loss = -1 / (1 / reward + 1 / alpha)
-#     elif div == 'js':
-#         alpha = 1
-#         reward = torch.clamp_min(reward, min=alpha * (np.log(1 / 2 + eps)))  # ,max=alpha*(np.log(1/2+1/eps))
-#         reward_loss = -alpha * (2 - (-reward / alpha).exp()).log()
-#         # with torch.no_grad():
-#         #     phi_grad = torch.exp(-reward)/(2 - torch.exp(-reward))
-#         # reward_loss = -(phi_grad * reward)
-#     elif div == "tv":
-#         reward_loss = -reward
-#     elif div == 'x2':
-#         alpha = 1
-#         reward = torch.clamp(reward, min=2 * (1 - 1 / eps), max=2 * (1 - eps))
-#
-#         reward_loss = -reward + reward.square() / (4 * alpha)
-#     else:
-#         reward_loss = -reward
-#
-#     return reward_loss

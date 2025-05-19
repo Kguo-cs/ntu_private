@@ -110,11 +110,6 @@ class SMARTAgentDecoder(nn.Module):
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
-        # self.r_ln2a_emb = FourierEmbedding(
-        #     input_dim=input_dim_r_pt2a,
-        #     hidden_dim=hidden_dim,
-        #     num_freq_bands=num_freq_bands,
-        # )
         self.r_pt2a_emb = FourierEmbedding(
             input_dim=input_dim_r_pt2a,
             hidden_dim=hidden_dim,
@@ -178,13 +173,6 @@ class SMARTAgentDecoder(nn.Module):
             ]
         )
 
-        # self.light_pl_emb = nn.Embedding(5, hidden_dim)
-
-        self.state_action=state_action
-
-        if state_action:
-            n_token_agent=1
-
         self.use_latent=use_latent
 
         latent_dim=16
@@ -202,28 +190,25 @@ class SMARTAgentDecoder(nn.Module):
 
         self.apply(weight_init)
 
-        self.time_embed=False
-
-        if self.time_embed:
-           self.t_embedding=nn.Embedding(18,hidden_dim)
-
         self.pred_light=True
 
         if self.pred_light:
+
+            self.lg_time_span=90
+
             self.light_embedding=nn.Embedding(261,hidden_dim)
+
             self.r_lg2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_pt2a,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
+
             self.lg_t_emb = FourierEmbedding(
                 input_dim=1,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
-
-            # encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim,nhead=num_heads,dim_feedforward=hidden_dim,dropout=hist_drop_prob)
-            # self.lg_temp_layer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
             self.lg_temp_layer=  AttentionLayer(
                     hidden_dim=hidden_dim,
@@ -232,8 +217,7 @@ class SMARTAgentDecoder(nn.Module):
                     dropout=dropout,
                     bipartite=False,
                     has_pos_emb=True,
-                )
-
+            )
 
             self.lg2lg_layers =AttentionLayer(
                         hidden_dim=hidden_dim,
@@ -499,7 +483,7 @@ class SMARTAgentDecoder(nn.Module):
         edge_index_t = dense_to_sparse(mask_t)[0]
         edge_index_t = edge_index_t[:, edge_index_t[1] > edge_index_t[0]]
         edge_index_t = edge_index_t[
-                       :, edge_index_t[1] - edge_index_t[0] <= self.time_span / self.shift
+                       :, edge_index_t[1] - edge_index_t[0] <= self.lg_time_span / self.shift
                        ]
 
         r_t=edge_index_t[0] - edge_index_t[1]
@@ -591,6 +575,7 @@ class SMARTAgentDecoder(nn.Module):
             #     feat_lg = tokenized_agent['lg_features']
             # else:
             edge_index_lg2lg=map_feature["edge_index_lg2lg"]
+
             r_lg2lg=map_feature["r_lg2lg"]
 
             light_embedding = self.light_embedding(light_idx)  # [B, L, D]
@@ -732,6 +717,7 @@ class SMARTAgentDecoder(nn.Module):
                 r_lg2lg_T, edge_index_lg2lg_T = self.build_lg2lg_edge(r_lg2lg, edge_index_lg2lg, light_idx)
 
                 x_lg_updated = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t,  x_lg.shape[ -1])  # [N, D]
+
                 lg_features[:, :t] = x_lg_updated
 
                 x_lg_updated=x_lg_updated[:,-1]

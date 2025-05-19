@@ -73,7 +73,7 @@ def process_light(map_infos,tf_lights,tf_current_light):
 
         polyline=all_polylines[polyline_range[0]:polyline_range[1]]
 
-        start_pos=polyline[len(polyline)//2]
+        start_pos=polyline[0]
         light_pos[i]=start_pos
 
         light_polyline[i][0]=polyline[len(polyline)//2]-start_pos
@@ -216,7 +216,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[200:300]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[:1]
     # func = partial(
     #     wm2argo,
     #     split=split,
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
