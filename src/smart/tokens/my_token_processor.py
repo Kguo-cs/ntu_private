@@ -50,11 +50,33 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
+        light_token_all=torch.IntTensor(np.load("./initial_tokenizer/light_cluster.npy"))#261
+
+        self.register_buffer(f"light_token_all", light_token_all, persistent=False)
+
     @torch.no_grad()
-    def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def forward(self, data: HeteroData) :
+        tokenized_light = self.tokenized_light(data)
         tokenized_map = self.tokenize_map(data)
         tokenized_agent = self.tokenize_agent(data)
-        return tokenized_map, tokenized_agent
+
+        return tokenized_map, tokenized_agent,tokenized_light
+
+    def tokenized_light(self, data: HeteroData) -> HeteroData:
+        light=data["light"]
+
+        light_all=light["type"]
+
+        light_match=torch.all(light_all[None]==self.light_token_all[:,None,None],dim=-1)
+
+        light_idx=torch.argmax(light_match.to(torch.int),dim=0).to(torch.int16)
+
+        tokenized_light = {}
+        tokenized_light["light_idx"] = light_idx
+        tokenized_light["light_pos"] = light["pos"]
+        tokenized_light["light_orient"] =torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])
+
+        return tokenized_light
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]

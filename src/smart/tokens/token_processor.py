@@ -52,10 +52,30 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_lane=False
 
+        light_token_all=torch.IntTensor(np.load("./initial_tokenizer/light_cluster.npy"))#261
+
+        self.register_buffer(f"light_token_all", light_token_all, persistent=False)
+
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map = self.tokenize_map(data)
         tokenized_agent = self.tokenize_agent(data)
+
+        if "light_polyline" in data.keys():
+            light=data["light"]
+
+            light_all=light["type"]
+
+            light_match=torch.all(light_all[None]==self.light_token_all[:,None,None],dim=-1)
+
+            light_idx=torch.argmax(light_match.to(torch.int),dim=0)
+
+            tokenized_agent["light_idx"]=light_idx
+            tokenized_map["pos_lg"]=light["pos"]
+            tokenized_map["orient_lg"]=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])
+            tokenized_map["batch_lg"]=light["batch"]
+
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:

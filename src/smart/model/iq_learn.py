@@ -218,8 +218,8 @@ class IQ_SoftQ(LightningModule):
             loss =expert_nll
         else:
 
-            div='x2'
-            alpha=0.25
+            div='rkl'
+            alpha=1
             eps=1e-3
 
             if div=="lsif":
@@ -314,7 +314,7 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent["light_idx"]=tokenized_light["light_token"].long()
             tokenized_map["pos_lg"]=tokenized_light["light_pos"]
-            tokenized_map["orient_lg"]=torch.atan2(tokenized_light["light_polyline"][:,-1],tokenized_light["light_polyline"][:,-2])
+            tokenized_map["orient_lg"]=tokenized_light["light_orient"]
             tokenized_map["batch_lg"]=tokenized_light["batch"]
 
         return tokenized_map, tokenized_agent

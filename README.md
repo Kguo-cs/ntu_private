@@ -20,10 +20,9 @@ rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_0
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10.zip ke.guo@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation.zip ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/
 
-
-rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted.zip zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation.zip zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo

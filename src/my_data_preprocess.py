@@ -117,11 +117,6 @@ def process_light(map_infos,tf_lights,tf_current_light):
 
     light_all=light_all.reshape(-1,18,5)
 
-    #     light_match=torch.all(light_all[None]==light_cluster[:,None,None],axis=-1)
-    #
-    #     light_token=torch.argmax(light_match.to(torch.int),dim=0).to(torch.int16)
-    # else:
-    #     light_token=torch.zeros([len(current_light_ids),18], dtype=torch.int8)
 
     light={
         "type": light_all,

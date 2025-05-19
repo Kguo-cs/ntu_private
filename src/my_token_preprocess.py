@@ -2,11 +2,21 @@ import multiprocessing
 import os
 import pickle
 from tqdm import tqdm
-from src.smart.tokens.my_token_processor import TokenProcessor
 import torch
 import datetime
 from torch_geometric.data import HeteroData
 torch.set_float32_matmul_precision("high")
+import sys
+
+
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/ke/code/catk')
+sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
+
+
+from src.smart.tokens.my_token_processor import TokenProcessor
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
@@ -18,8 +28,8 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_light/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
 
 # Worker function
 def process_file(filename):
@@ -41,9 +51,12 @@ def process_file(filename):
 
     data= HeteroData(data).cuda()
 
+
+    data["light"]["type"]=data["light"]["type"].reshape(-1,18,5)
+
     #data=torch.load("data.pt")
     # if 'gt_pos_raw' in data:
-    tokenized_map, tokenized_agent = token_processor(data)
+    tokenized_map, tokenized_agent,tokenized_light = token_processor(data)
 
     # Remove unnecessary keys
     tokenized_agent.pop('gt_pos_raw', None)
@@ -58,16 +71,21 @@ def process_file(filename):
         tokenized_map[key]=tokenized_map[key].cpu()
 
     tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
-    #tokenized_map["ln_id"]=  tokenized_map["ln_id"].to(torch.int16)
     tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_map["num_nodes"] = len(tokenized_map["position"])
+
 
     for key in tokenized_agent.keys():
         tokenized_agent[key]=tokenized_agent[key].cpu()
 
     tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
 
-    data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
+    for key in tokenized_light.keys():
+        tokenized_light[key]=tokenized_light[key].cpu()
+
+    tokenized_light["num_nodes"] = len(tokenized_light["light_idx"])
+
+    data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent,"tokenized_light": tokenized_light}
 
     # Save the tokenized data
     with open(output_path, "wb") as f:
