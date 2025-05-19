@@ -617,9 +617,6 @@ class SMARTAgentDecoder(nn.Module):
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
         )
 
-        if self.time_embed:
-            feat_a=feat_a+self.t_embedding.weight[None,:n_step]
-
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
             feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
