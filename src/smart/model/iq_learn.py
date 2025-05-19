@@ -219,7 +219,7 @@ class IQ_SoftQ(LightningModule):
         else:
 
             div='x2'
-            alpha=4
+            alpha=0.25
             eps=1e-3
 
             if div=="lsif":
