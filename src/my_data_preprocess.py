@@ -115,7 +115,7 @@ def process_light(map_infos,tf_lights,tf_current_light):
             if pd.notna(i) and pd.notna(s):
                 light_all[i, t] = s
 
-        light_all=light_all.reshape(len(light_all),-1,5)
+    light_all=light_all.reshape(-1,18,5)
 
     #     light_match=torch.all(light_all[None]==light_cluster[:,None,None],axis=-1)
     #
@@ -202,10 +202,10 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
             pickle.dump(data, f)
 
-        if output_dir_tfrecords_splitted is not None:
-            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-                file_writer.write(tf_data)
+        # if output_dir_tfrecords_splitted is not None:
+        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+        #         file_writer.write(tf_data)
         # print(time.time()-time1)
 
         #print(1/0)
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 

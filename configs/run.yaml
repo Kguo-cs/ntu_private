@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: x2_experttargetV1_bc
+task_name: x2_4_expertV1_bc
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.finetune = model_config.finetune
-        self.use_target_q=True
+        self.use_target_q=False
         self.soft_update=True
 
         self.rollout_freq=1
@@ -79,6 +79,10 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
             tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
             tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
+
+            if "light_idx" in pred.keys():
+                tokenized_agent_rollout['light_idx'] = pred['light_idx']
+                tokenized_agent_rollout['lg_features'] = pred['lg_features']
 
         return tokenized_map,tokenized_agent_rollout
 
@@ -205,16 +209,17 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
+        tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
+
+        agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
+            tokenized_map_rollout, tokenized_agent_rollout, key='agent')
+
         if not self.finetune:
             loss =expert_nll
         else:
-            tokenized_map_rollout,tokenized_agent_rollout =self.rollout(tokenized_map, tokenized_agent)
-
-            agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
-                tokenized_map_rollout,tokenized_agent_rollout, key='agent')
 
             div='x2'
-            alpha=1
+            alpha=4
             eps=1e-3
 
             if div=="lsif":
