@@ -203,12 +203,12 @@ class SMARTAgentDecoder(nn.Module):
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
-
-            self.lg_t_emb = FourierEmbedding(
-                input_dim=1,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
+            #
+            # self.lg_t_emb = FourierEmbedding(
+            #     input_dim=1,
+            #     hidden_dim=hidden_dim,
+            #     num_freq_bands=num_freq_bands,
+            # )
 
             # self.lg_temp_layer=  AttentionLayer(
             #         hidden_dim=hidden_dim,
@@ -218,7 +218,6 @@ class SMARTAgentDecoder(nn.Module):
             #         bipartite=False,
             #         has_pos_emb=True,
             # )
-            # nn.TransformerEncoderLayer()
             self.lg_temp_layer=RoFormerBlock(
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
@@ -705,7 +704,7 @@ class SMARTAgentDecoder(nn.Module):
         predicted_tokens = torch.zeros(B, max_len+current_len, dtype=torch.long, device=device)
         predicted_tokens[:,:current_len ] = initial_token
 
-        lg_features= torch.zeros(B, current_len+max_len-1,self.hidden_dim, dtype=torch.float32, device=device)
+       # lg_features= torch.zeros(B, current_len+max_len-1,self.hidden_dim, dtype=torch.float32, device=device)
 
         # Static map features
         # edge_index_lg2lg = map_feature["edge_index_lg2lg"]  # [2, E]
@@ -764,7 +763,7 @@ class SMARTAgentDecoder(nn.Module):
 
             predicted_tokens[:, t] = samples
 
-        return predicted_tokens,lg_features
+        return predicted_tokens,x_lg
 
     def inference(
         self,
