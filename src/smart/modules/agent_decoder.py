@@ -207,7 +207,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.time_embed:
            self.t_embedding=nn.Embedding(18,hidden_dim)
 
-        self.pred_light=True
+        self.pred_light=False
 
         if self.pred_light:
             self.light_embedding=nn.Embedding(261,hidden_dim)
