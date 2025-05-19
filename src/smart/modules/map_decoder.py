@@ -146,9 +146,9 @@ class SMARTMapDecoder(nn.Module):
             orient_lg=tokenized_map["orient_lg"]
             batch_lg=tokenized_map["batch_lg"]
 
-            edge_index_lg2lg,r_lg2lg =self.build_map2map_edge(pos_lg, orient_lg, batch_lg,radius=60)
-
-            r_lg2lg = self.r_pt2pt_emb(continuous_inputs=r_lg2lg, categorical_embs=None)
+            # edge_index_lg2lg,r_lg2lg =self.build_map2map_edge(pos_lg, orient_lg, batch_lg,radius=60)
+            #
+            # r_lg2lg = self.r_pt2pt_emb(continuous_inputs=r_lg2lg, categorical_embs=None)
 
             return {
                 "pt_token": x_pt,
@@ -156,8 +156,8 @@ class SMARTMapDecoder(nn.Module):
                 "orientation": orient_pt,
                 "batch": batch,
 
-                "r_lg2lg":r_lg2lg,
-                "edge_index_lg2lg":edge_index_lg2lg,
+                # "r_lg2lg":r_lg2lg,
+                # "edge_index_lg2lg":edge_index_lg2lg,
                 "pos_lg":pos_lg,
                 "orient_lg":orient_lg,
                 "batch_lg":batch_lg,

@@ -36,7 +36,7 @@ from torch_geometric.nn.pool import knn_graph,knn
 #from torch._dynamo import disable
 import torch.nn.functional as F
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-
+from src.smart.layers.relative_transformer import RoFormerSelfAttention,get_sin_cos,RoFormerBlock
 # @disable
 def safe_radius(*args, **kwargs):
     return radius(*args, **kwargs)
@@ -210,23 +210,29 @@ class SMARTAgentDecoder(nn.Module):
                 num_freq_bands=num_freq_bands,
             )
 
-            self.lg_temp_layer=  AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-            )
-
-            self.lg2lg_layers =AttentionLayer(
+            # self.lg_temp_layer=  AttentionLayer(
+            #         hidden_dim=hidden_dim,
+            #         num_heads=num_heads,
+            #         head_dim=head_dim,
+            #         dropout=dropout,
+            #         bipartite=False,
+            #         has_pos_emb=True,
+            # )
+            # nn.TransformerEncoderLayer()
+            self.lg_temp_layer=RoFormerBlock(
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
-                        head_dim=head_dim,
                         dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                        )
+                    )
+
+            # self.lg2lg_layers =AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=head_dim,
+            #             dropout=dropout,
+            #             bipartite=False,
+            #             has_pos_emb=True,
+            #             )
 
             self.lg2a_attn_layers = nn.ModuleList(
                 [
@@ -570,23 +576,30 @@ class SMARTAgentDecoder(nn.Module):
             pos_lg=map_feature["pos_lg"]
             orient_lg=map_feature["orient_lg"]
             batch_lg = map_feature["batch_lg"]
+            seq_len=light_idx.size(1)
 
             # if "lg_features" in tokenized_agent.keys():
             #     feat_lg = tokenized_agent['lg_features']
             # else:
-            edge_index_lg2lg=map_feature["edge_index_lg2lg"]
-
-            r_lg2lg=map_feature["r_lg2lg"]
+            # edge_index_lg2lg=map_feature["edge_index_lg2lg"]
+            #
+            # r_lg2lg=map_feature["r_lg2lg"]
 
             light_embedding = self.light_embedding(light_idx)  # [B, L, D]
 
-            lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_idx )
+            # lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_idx )
+            #
+            # x_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
+            attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(
+                light_embedding.device)  # [L, L]
 
-            x_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
+            sinusoidal_pos=get_sin_cos(seq_len, self.lg_temp_layer.attention_head_size, light_embedding.device)
 
-            r_lg2lg_T,edge_index_lg2lg_T=self.build_lg2lg_edge(r_lg2lg,edge_index_lg2lg,light_idx)
+            feat_lg = self.lg_temp_layer(light_embedding, attention_mask=attn_mask,sinusoidal_pos=sinusoidal_pos)
 
-            feat_lg = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).reshape(-1, light_idx.shape[1], x_lg.shape[-1])
+            # r_lg2lg_T,edge_index_lg2lg_T=self.build_lg2lg_edge(r_lg2lg,edge_index_lg2lg,light_idx)
+            #
+            # feat_lg = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).reshape(-1, light_idx.shape[1], x_lg.shape[-1])
 
             batch_lg = torch.cat(
                 [
@@ -695,46 +708,56 @@ class SMARTAgentDecoder(nn.Module):
         lg_features= torch.zeros(B, current_len+max_len-1,self.hidden_dim, dtype=torch.float32, device=device)
 
         # Static map features
-        edge_index_lg2lg = map_feature["edge_index_lg2lg"]  # [2, E]
-        r_lg2lg = map_feature["r_lg2lg"]  # [E, F]
+        # edge_index_lg2lg = map_feature["edge_index_lg2lg"]  # [2, E]
+        # r_lg2lg = map_feature["r_lg2lg"]  # [E, F]
 
         for t in range(current_len, max_len+current_len):
 
             light_idx = predicted_tokens[:, :t]
 
             light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
-            mask = torch.ones_like(light_idx).to(torch.bool)
+            # mask = torch.ones_like(light_idx).to(torch.bool)
+            seq_len=light_idx.shape[1]
 
-            if t==current_len:
+            attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(
+                light_embedding.device)  # [L, L]
 
-                lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask)
+            sinusoidal_pos=get_sin_cos(seq_len, self.lg_temp_layer.attention_head_size, light_embedding.device)
 
-                x_lg = self.lg_temp_layer(light_embedding.flatten(0, 1), lg_r_t, lg_edge_index_t)
+            x_lg = self.lg_temp_layer(light_embedding, attention_mask=attn_mask,sinusoidal_pos=sinusoidal_pos)
 
-                r_lg2lg_T, edge_index_lg2lg_T = self.build_lg2lg_edge(r_lg2lg, edge_index_lg2lg, light_idx)
+            x_lg_last=x_lg[:,-1,:]
 
-                x_lg_updated = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t,  x_lg.shape[ -1])  # [N, D]
+            # if t==current_len:
+            #
+            #     lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask)
+            #
+            #     x_lg = self.lg_temp_layer(light_embedding.flatten(0, 1), lg_r_t, lg_edge_index_t)
+            #
+            #     r_lg2lg_T, edge_index_lg2lg_T = self.build_lg2lg_edge(r_lg2lg, edge_index_lg2lg, light_idx)
+            #
+            #     x_lg = self.lg2lg_layers(x_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t,  x_lg.shape[ -1])  # [N, D]
+            #
+            #     lg_features[:, :t] = x_lg
+            #
+            #     x_lg_last=x_lg[:,-1]
+            #
+            # else:
+            #     inference_mask = mask.clone()
+            #
+            #     inference_mask[:, :-1] = False
+            #
+            #     lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask,inference_mask=inference_mask)
+            #
+            #     lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
+            #
+            #     x_lg_last = self.lg_temp_layer((light_embedding.flatten(0, 1), light_embedding[:, -1]), lg_r_t, lg_edge_index_t)
+            #
+            #     x_lg_last = self.lg2lg_layers(x_lg_last, r_lg2lg, edge_index_lg2lg)  # [N, D]
+            #
+            #     lg_features[:, t-1] = x_lg_last
 
-                lg_features[:, :t] = x_lg_updated
-
-                x_lg_updated=x_lg_updated[:,-1]
-
-            else:
-                inference_mask = mask.clone()
-
-                inference_mask[:, :-1] = False
-
-                lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask,inference_mask=inference_mask)
-
-                lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
-
-                x_lg = self.lg_temp_layer((light_embedding.flatten(0, 1), light_embedding[:, -1]), lg_r_t, lg_edge_index_t)
-
-                x_lg_updated = self.lg2lg_layers(x_lg, r_lg2lg, edge_index_lg2lg)  # [N, D]
-
-                lg_features[:, t-1] = x_lg_updated
-
-            logits = self.light_token_predict_head(x_lg_updated)
+            logits = self.light_token_predict_head(x_lg_last)
 
             cat_dist = Categorical(logits=logits/self.alpha)
             samples = cat_dist.sample()  # [n_agent] in K
