@@ -281,7 +281,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
-        if "light_pos" in data.keys():
+        if self.encoder.agent_encoder.pred_light:
 
             tokenized_light=data["tokenized_light"]
 
