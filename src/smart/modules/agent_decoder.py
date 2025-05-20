@@ -971,7 +971,7 @@ class SMARTAgentDecoder(nn.Module):
                         (_feat_map, _feat_temporal), r_pl2a, edge_index_pl2a
                     )
 
-                    if "pos_lg" in map_feature.keys():
+                    if self.pred_light:
                         _feat_temporal = self.lg2a_attn_layers[i](
                             (lg_features[:,:hist_step].flatten(0, 1), _feat_temporal), r_lg2a, edge_index_lg2a
                         )
@@ -1002,7 +1002,7 @@ class SMARTAgentDecoder(nn.Module):
                     feat_a_now = self.pt2a_attn_layers[i](
                         (pt_token, feat_a_now), r_pl2a, edge_index_pl2a
                     )
-                    if "pos_lg" in map_feature.keys():
+                    if self.pred_light:
                         _feat_temporal = self.lg2a_attn_layers[i](
                             (lg_features[:,t_now], feat_a_now), r_lg2a, edge_index_lg2a
                         )
