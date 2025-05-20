@@ -110,7 +110,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        if "light_idx" in tokenized_agent.keys():
+        if self.encoder.agent_encoder.pred_light:
             action = torch.cat([tokenized_agent["sampled_idx"][:, 2:],tokenized_agent["light_idx"][:, 2:]]).reshape(-1)
 
             valid_mask =  torch.cat([tokenized_agent["valid_mask"][:, 1:], tokenized_agent["light_valid_mask"][:, 1:]])
