@@ -190,7 +190,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.apply(weight_init)
 
-        self.pred_light=True
+        self.pred_light=False
 
         if self.pred_light:
 
@@ -577,7 +577,6 @@ class SMARTAgentDecoder(nn.Module):
             pos_lg=map_feature["pos_lg"]
             head_lg=map_feature["orient_lg"]
             batch_lg = map_feature["batch_lg"]
-            #seq_len=light_idx.size(1)
             batch_lg = torch.cat(
                 [
                     batch_lg + tokenized_agent["num_graphs"] * t
@@ -628,9 +627,6 @@ class SMARTAgentDecoder(nn.Module):
 
             next_light_logits =self.light_token_predict_head(feat_lg)
 
-        else:
-            next_light_logits=None
-
         feat_map = (
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
         )
@@ -664,7 +660,7 @@ class SMARTAgentDecoder(nn.Module):
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
 
-        if next_light_logits is not None:
+        if self.pred_light:
             next_light_logits = torch.cat(
                 [next_light_logits, -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],
                                                               next_token_logits.shape[2] - next_light_logits.shape[2]],
@@ -842,7 +838,7 @@ class SMARTAgentDecoder(nn.Module):
 
             latent_embedding=self.latent_embedding(latent_feature)
 
-        if "pos_lg" in map_feature.keys():
+        if self.pred_light:
             light_idx=tokenized_agent["light_idx"][:, :step_current_2hz]
 
             pred_light_idx,lg_features=self.autoregressive_light_prediction(light_idx,map_feature,n_step_future_2hz,tokenized_agent["num_graphs"])
@@ -919,7 +915,7 @@ class SMARTAgentDecoder(nn.Module):
                 mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
             )
 
-            if "pos_lg" in map_feature.keys():
+            if self.pred_light:
                 batch_lg = map_feature["batch_lg"]
 
                 if t == 0:  # init
@@ -941,9 +937,6 @@ class SMARTAgentDecoder(nn.Module):
                     batch_pl=batch_lg,  # [n_pl*hist_step]
                     max_num_neighbors=5
                 )
-
-
-
 
             pt_token=map_feature["pt_token"]
             next_token_logits_list = []
