@@ -9,7 +9,7 @@ model_config:
   n_vis_scenario: 1
   n_vis_rollout: 1
   decoder:
-    hidden_dim: 128
+    hidden_dim: 256
     num_map_layers: 1
     num_agent_layers: 1
     pl2pl_radius: 20

@@ -82,7 +82,7 @@ class IQ_SoftQ(LightningModule):
 
         return tokenized_map,tokenized_agent_rollout
 
-    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key,cumulative_mask):
+    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key,action_mask):
 
         q_value = network(tokenized_map, tokenized_agent)["q_value"]
 
@@ -97,8 +97,6 @@ class IQ_SoftQ(LightningModule):
         next_V = v_value[:, 1:]
 
         dones = torch.zeros_like(next_V)
-
-        dones[~cumulative_mask[:,1:]] = 1
 
         dones[:, -1] = 1
 
@@ -123,11 +121,11 @@ class IQ_SoftQ(LightningModule):
 
         action_mask= valid_mask[:, 1:]
 
-        cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
+        # cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
 
         state_action_mask = action_mask & state_mask
 
-        q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,cumulative_mask)
+        q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,action_mask)
 
         pi = torch.softmax( q / self.alpha, dim=-1)
 
@@ -148,7 +146,6 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/"+key+"_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-
         action_nll = -log_prob[state_action_mask].mean()
 
         entropy = -torch.sum(pi * logpi, dim=-1)
@@ -161,7 +158,7 @@ class IQ_SoftQ(LightningModule):
 
         # Convert done mask to 1s and 0s if needed
         for i in range(rewards.size(1)-1,-1,-1):
-            running_return = (rewards[:, i] + self.gamma *running_return)*cumulative_mask[:,i+1] #* (1.0 - dones[:, i])
+            running_return = rewards[:, i] + self.gamma *running_return
             returns[:, i] = running_return
 
         current_returns=returns[:,:-1]
@@ -173,15 +170,15 @@ class IQ_SoftQ(LightningModule):
             target_V = 1 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
 
-        reward = reward[cumulative_mask[:,1:]]
+        reward = reward[state_action_mask]
 
-        current_Q_diff=(current_Q-current_returns)[cumulative_mask[:,:-1]]
+        current_Q_diff=(current_Q-current_returns)[state_action_mask.all(-1)]
 
-        current_V_diff=(current_V-current_returns)[cumulative_mask[:,:-1]]
+        current_V_diff=(current_V-current_returns)[state_action_mask.all(-1)]
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
-        V_diff=(V-target_V)[cumulative_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
+        V_diff=(V-target_V)[state_mask]#last_V#(V-target_V)[:,-1][valid_mask[:,-1]]
 
         current_V=current_V[state_mask]
 
