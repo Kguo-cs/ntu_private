@@ -156,7 +156,6 @@ class IQ_SoftQ(LightningModule):
 
         running_return=returns[:,-1]
 
-        # Convert done mask to 1s and 0s if needed
         for i in range(rewards.size(1)-1,-1,-1):
             running_return = rewards[:, i] + self.gamma *running_return
             returns[:, i] = running_return
@@ -300,11 +299,17 @@ class IQ_SoftQ(LightningModule):
 
             light_mask=light_idx<3
 
-            tokenized_agent["light_idx"]=light_idx
-            tokenized_agent["light_valid_mask"]=light_mask
-            tokenized_map["pos_lg"]=tokenized_light["light_pos"]
-            tokenized_map["orient_lg"]=tokenized_light["light_orient"]
-            tokenized_map["batch_lg"]=tokenized_light["batch"]
+            light_pred_mask=torch.zeros_like(light_mask[:,0])
+
+            for i in range(data.num_graphs):
+                select_idx=torch.argmax(light_mask.sum(axis=1)+(tokenized_light["batch"]==i)*100)
+                light_pred_mask[select_idx]=True
+
+            tokenized_agent["light_idx"]=light_idx[light_pred_mask]
+            tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
+            tokenized_map["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]
+            tokenized_map["orient_lg"]=tokenized_light["light_orient"][light_pred_mask]
+            tokenized_map["batch_lg"]=tokenized_light["batch"][light_pred_mask]
 
         return tokenized_map, tokenized_agent
 
