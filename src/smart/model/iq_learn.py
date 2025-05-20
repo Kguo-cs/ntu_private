@@ -302,8 +302,9 @@ class IQ_SoftQ(LightningModule):
             light_pred_mask=torch.zeros_like(light_mask[:,0])
 
             for i in range(data.num_graphs):
-                select_idx=torch.argmax(light_mask.sum(axis=1)+(tokenized_light["batch"]==i)*100)
-                light_pred_mask[select_idx]=True
+                if (tokenized_light["batch"]==i).sum():
+                    select_idx=torch.argmax(light_mask.sum(axis=1)+(tokenized_light["batch"]==i)*100)
+                    light_pred_mask[select_idx]=True
 
             tokenized_agent["light_idx"]=light_idx[light_pred_mask]
             tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
