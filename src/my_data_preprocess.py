@@ -229,9 +229,6 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     print(len(packages))
     for file_path in tqdm(packages):
         wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
-    #
-
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -243,7 +240,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 

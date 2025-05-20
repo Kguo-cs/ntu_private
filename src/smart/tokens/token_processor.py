@@ -56,6 +56,13 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"light_token_all", light_token_all, persistent=False)
 
+        light_token_last=light_token_all[:,-1].long()
+
+        map_tensor=torch.tensor([3,4,0,1,2])
+
+        light_token_last=map_tensor[light_token_last]
+
+        self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -69,9 +76,12 @@ class TokenProcessor(torch.nn.Module):
 
             light_match=torch.all(light_all[None]==self.light_token_all[:,None,None],dim=-1)
 
-            light_idx=torch.argmax(light_match.to(torch.int),dim=0)
+            light_idx=self.light_token_last[torch.argmax(light_match.to(torch.int),dim=0)]
+
+            light_mask = light_idx < 3
 
             tokenized_agent["light_idx"]=light_idx
+            tokenized_agent["light_valid_mask"]=light_mask
             tokenized_map["pos_lg"]=light["pos"]
             tokenized_map["orient_lg"]=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])
             tokenized_map["batch_lg"]=light["batch"]

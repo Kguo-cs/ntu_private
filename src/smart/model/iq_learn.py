@@ -113,9 +113,7 @@ class IQ_SoftQ(LightningModule):
         if "light_idx" in tokenized_agent.keys():
             action = torch.cat([tokenized_agent["sampled_idx"][:, 2:],tokenized_agent["light_idx"][:, 2:]]).reshape(-1)
 
-            light_valid_mask = torch.ones_like(tokenized_agent["light_idx"][:, 1:]).to(torch.bool)
-
-            valid_mask =  torch.cat([tokenized_agent["valid_mask"][:, 1:], light_valid_mask])
+            valid_mask =  torch.cat([tokenized_agent["valid_mask"][:, 1:], tokenized_agent["light_valid_mask"][:, 1:]])
         else:
             action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
@@ -287,7 +285,12 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_light=data["tokenized_light"]
 
-            tokenized_agent["light_idx"]=tokenized_light["light_idx"].long()
+            light_idx=self.token_processor.light_token_last[tokenized_light["light_idx"].long()]
+
+            light_mask=light_idx<3
+
+            tokenized_agent["light_idx"]=light_idx
+            tokenized_agent["light_valid_mask"]=light_mask
             tokenized_map["pos_lg"]=tokenized_light["light_pos"]
             tokenized_map["orient_lg"]=tokenized_light["light_orient"]
             tokenized_map["batch_lg"]=tokenized_light["batch"]
