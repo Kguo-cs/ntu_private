@@ -135,6 +135,20 @@ class IQ_SoftQ(LightningModule):
 
         log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
+        if self.encoder.agent_encoder.pred_light:
+            agent_num=len(tokenized_agent["sampled_idx"])
+            light_nll=-log_prob[agent_num:][state_action_mask[agent_num:]]
+
+            self.log("train/"+key+"_light_nll", light_nll.mean().item(), on_step=True, batch_size=1)
+
+            light_pred=torch.argmax(logpi[agent_num:] , dim=-1)
+            real_light=tokenized_agent["light_idx"][:, 2:]
+
+            light_acc=(light_pred==real_light)[state_action_mask[agent_num:]]
+
+            self.log("train/"+key+"_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
+
+
         action_nll = -log_prob[state_action_mask].mean()
 
         entropy = -torch.sum(pi * logpi, dim=-1)

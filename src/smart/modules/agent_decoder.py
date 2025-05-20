@@ -190,7 +190,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.apply(weight_init)
 
-        self.pred_light=False
+        self.pred_light=True
 
         if self.pred_light:
 
@@ -743,8 +743,6 @@ class SMARTAgentDecoder(nn.Module):
             #
             # x_lg_last=x_lg[:,-1,:]
 
-
-
             if t==current_len:
 
                 lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask)
@@ -787,8 +785,10 @@ class SMARTAgentDecoder(nn.Module):
 
             logits = self.light_token_predict_head(lg_features[:,t-1])
 
-            cat_dist = Categorical(logits=logits/self.alpha)
-            samples = cat_dist.sample()  # [n_agent] in K
+            samples=torch.argmax(logits, dim=-1)
+
+            # cat_dist = Categorical(logits=logits/self.alpha)
+            # samples = cat_dist.sample()  # [n_agent] in K
 
             predicted_tokens[:, t] = samples
 
