@@ -190,7 +190,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.apply(weight_init)
 
-        self.pred_light=True
+        self.pred_light=False
 
         if self.pred_light:
 
