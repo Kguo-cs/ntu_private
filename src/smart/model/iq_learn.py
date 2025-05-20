@@ -303,8 +303,19 @@ class IQ_SoftQ(LightningModule):
 
             for i in range(data.num_graphs):
                 if (tokenized_light["batch"]==i).sum():
-                    select_idx=torch.argmax(light_mask.sum(axis=1)+(tokenized_light["batch"]==i)*100)
-                    light_pred_mask[select_idx]=True
+                    # select_idx=torch.argmax(light_mask.sum(dim=1)+(tokenized_light["batch"]==i)*100)
+                    # light_pred_mask[select_idx]=True
+                    # Compute scores with a large bias for current graph index
+                    scores = light_mask.sum(dim=1) + (tokenized_light["batch"] == i) * 100
+
+                    # Get all indices with the max score
+                    max_indices = (scores == scores.max()).nonzero(as_tuple=True)[0]
+
+                    # Randomly select one of them
+                    select_idx = max_indices[torch.randint(len(max_indices), (1,))]
+
+                    # Set the corresponding mask to True
+                    light_pred_mask[select_idx] = True
 
             tokenized_agent["light_idx"]=light_idx[light_pred_mask]
             tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]

@@ -22,9 +22,9 @@ rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /h
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
