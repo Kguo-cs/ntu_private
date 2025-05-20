@@ -436,7 +436,7 @@ class SMARTAgentDecoder(nn.Module):
         batch_s,  # [n_agent*n_step]
         batch_pl,  # [n_pl*n_step]
         pl2a_radius=40,
-        max_num_neighbors=10
+        max_num_neighbors=8
     ):
         n_step = pos_a.shape[1]
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
@@ -468,7 +468,7 @@ class SMARTAgentDecoder(nn.Module):
             ],
             dim=-1,
         )
-        if max_num_neighbors==10:
+        if max_num_neighbors==8:
             r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
         else:
             r_pl2a = self.r_lg2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
