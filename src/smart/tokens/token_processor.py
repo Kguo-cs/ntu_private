@@ -79,12 +79,18 @@ class TokenProcessor(torch.nn.Module):
             light_idx=self.light_token_last[torch.argmax(light_match.to(torch.int),dim=0)]
 
             light_mask = light_idx < 3
+            light_pred_mask=torch.zeros_like(light_mask[:,0])
 
-            tokenized_agent["light_idx"]=light_idx
-            tokenized_agent["light_valid_mask"]=light_mask
-            tokenized_map["pos_lg"]=light["pos"]
-            tokenized_map["orient_lg"]=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])
-            tokenized_map["batch_lg"]=light["batch"]
+            for i in range(data.num_graphs):
+                if (light["batch"]==i).sum():
+                    select_idx=torch.argmax(light_mask.sum(axis=1)+(light["batch"]==i)*100)
+                    light_pred_mask[select_idx]=True
+
+            tokenized_agent["light_idx"]=light_idx[light_pred_mask]
+            tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
+            tokenized_map["pos_lg"]=light["pos"][light_pred_mask]
+            tokenized_map["orient_lg"]=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])[light_pred_mask]
+            tokenized_map["batch_lg"]=light["batch"][light_pred_mask]
 
         return tokenized_map, tokenized_agent
 
