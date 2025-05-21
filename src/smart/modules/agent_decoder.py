@@ -174,7 +174,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_type=5
 
-            self.light_dropout=0
+            self.light_dropout=0.2
 
             self.light_embedding=nn.Embedding(self.light_type,hidden_dim)
 
