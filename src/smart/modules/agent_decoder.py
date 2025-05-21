@@ -170,7 +170,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_light:
 
-            self.lg_time_span=90
+            self.lg_time_span=time_span
 
             self.light_type=5
 
