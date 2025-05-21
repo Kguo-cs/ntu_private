@@ -166,7 +166,7 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
-            target_V = 1 #returns#cannot .detach()
+            target_V = 2 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
 
         reward = reward[state_action_mask]
@@ -209,7 +209,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'rkl'
+            div = 'x2'
             alpha = 1
             eps = 1e-3
 
