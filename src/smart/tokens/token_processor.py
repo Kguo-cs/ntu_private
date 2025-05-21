@@ -79,12 +79,12 @@ class TokenProcessor(torch.nn.Module):
             light_idx=self.light_token_last[torch.argmax(light_match.to(torch.int),dim=0)]
 
             light_mask = light_idx < 3
-            light_pred_mask=torch.zeros_like(light_mask[:,0])
+            light_pred_mask=torch.ones_like(light_mask[:,0]).to(torch.bool)
 
-            for i in range(data.num_graphs):
-                if (light["batch"]==i).sum():
-                    select_idx=torch.argmax(light_mask.sum(axis=1)+(light["batch"]==i)*100)
-                    light_pred_mask[select_idx]=True
+            # for i in range(data.num_graphs):
+            #     if (light["batch"]==i).sum():
+            #         select_idx=torch.argmax(light_mask.sum(axis=1)+(light["batch"]==i)*100)
+            #         light_pred_mask[select_idx]=True
 
             tokenized_agent["light_idx"]=light_idx[light_pred_mask]
             tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
