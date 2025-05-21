@@ -174,7 +174,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_type=5
 
-            self.light_dropout=0
+            self.light_dropout=0.5
 
             self.light_embedding=nn.Embedding(self.light_type,hidden_dim)
 
@@ -737,24 +737,12 @@ class SMARTAgentDecoder(nn.Module):
 
             light_mask=light_idx<3
 
-            # mask = torch.ones_like(light_idx).to(torch.bool)
-            # seq_len=light_idx.shape[1]
-            #
-            # attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(
-            #     light_embedding.device)  # [L, L]
-            #
-            # sinusoidal_pos=get_sin_cos(seq_len, self.lg_temp_layer.attention_head_size, light_embedding.device)
-            #
-            # x_lg = self.lg_temp_layer(light_embedding, attention_mask=attn_mask,sinusoidal_pos=sinusoidal_pos)
-            #
-            # x_lg_last=x_lg[:,-1,:]
-
             if t==current_len:
 
                 lg_edge_index_t,lg_r_t = self.build_temporal_edge(
-                    pos_a=pos_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step, 2]
-                    head_a=head_lg[:, None].repeat(1, current_len),  # [n_agent, n_step]
-                    head_vector_a=head_vector_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step, 2]
+                    pos_a=pos_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
+                    head_a=head_lg[:, None].repeat(1, t),  # [n_agent, n_step]
+                    head_vector_a=head_vector_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
                     mask=light_mask,  # [n_agent, n_step]
                     )
 
