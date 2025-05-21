@@ -610,6 +610,7 @@ class SMARTAgentDecoder(nn.Module):
                 mask=mask,  # [n_agent, n_step]
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
+                pl2a_radius=100
             )
             #
             # predicted_tokens = light_idx.clone()
@@ -1001,6 +1002,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
                     batch_s=batch_s,  # [n_agent*hist_step]
                     batch_pl=batch_lg,  # [n_pl*hist_step]
+                    pl2a_radius=100
                 )
 
             pt_token=map_feature["pt_token"]
