@@ -184,11 +184,11 @@ class SMARTAgentDecoder(nn.Module):
             #     num_freq_bands=num_freq_bands,
             # )
             #
-            self.lg_t_emb = FourierEmbedding(
-                input_dim=1,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
+            # self.lg_t_emb = FourierEmbedding(
+            #     input_dim=1,
+            #     hidden_dim=hidden_dim,
+            #     num_freq_bands=num_freq_bands,
+            # )
 
             self.lg_temp_layer=  AttentionLayer(
                     hidden_dim=hidden_dim,
@@ -546,6 +546,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_lg=map_feature["pos_lg"]
             head_lg=map_feature["orient_lg"]
             batch_lg = map_feature["batch_lg"]
+            head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
 
             batch_lg = torch.cat(
                 [
@@ -559,35 +560,14 @@ class SMARTAgentDecoder(nn.Module):
 
             light_embedding = self.light_embedding(light_idx)  # [B, L, D]
 
-            lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_mask )
+            lg_edge_index_t,  lg_r_t = self.build_temporal_edge(
+                    pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                    head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
+                    head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                    mask=light_mask,  # [n_agent, n_step]
+                 )
 
             feat_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
-
-            # head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
-
-            # edge_index_pl2lg, r_pl2lg = self.build_map2agent_edge(
-            #     pos_pl=map_feature["position"],  # [n_pl, 2]
-            #     orient_pl=map_feature["orientation"],  # [n_pl]
-            #     pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-            #     head_a=head_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step]
-            #     head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-            #     mask=light_mask,  # [n_agent, n_step]
-            #     batch_s=batch_lg,  # [n_agent*n_step]
-            #     batch_pl=batch_pl,  # [n_pl*n_step]
-            #     pl2a_radius=100
-            # )
-            #
-            # feat_lg = self.pt2lg_attn_layers(
-            #     (feat_map, feat_lg), r_pl2lg, edge_index_pl2lg
-            # )
-
-            # attn_mask = nn.Transformer.generate_square_subsequent_mask(seq_len).to(
-            #     light_embedding.device)  # [L, L]
-            #
-            # sinusoidal_pos=get_sin_cos(seq_len, self.lg_temp_layer.attention_head_size, light_embedding.device)
-            #
-            # feat_lg = self.lg_temp_layer(light_embedding, attention_mask=attn_mask,sinusoidal_pos=sinusoidal_pos)
-            head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
 
             edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
                 pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
@@ -740,7 +720,7 @@ class SMARTAgentDecoder(nn.Module):
         head_lg = map_feature["orient_lg"]
         head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
         batch_lg=map_feature["batch_lg"]
-        #
+
         edge_index_lg2lg, r_lg2lg = self.build_interaction_edge(
             pos_a=pos_lg[:, None],  # [n_agent, hist_step, 2]
             head_a=head_lg[:, None],  # [n_agent, hist_step]
@@ -748,17 +728,6 @@ class SMARTAgentDecoder(nn.Module):
             batch_s=batch_lg,  # [n_agent*hist_step]
             mask=torch.ones_like(head_lg).to(torch.bool)[:, None],  # [n_agent, hist_step]
         )
-        # edge_index_pl2lg, r_pl2lg = self.build_map2agent_edge(
-        #     pos_pl=map_feature["position"],  # [n_pl, 2]
-        #     orient_pl=map_feature["orientation"],  # [n_pl]
-        #     pos_a=pos_lg[:, None],  # [n_agent, n_step, 2]
-        #     head_a=head_lg[:, None],  # [n_agent, n_step]
-        #     head_vector_a=head_vector_lg[:, None],  # [n_agent, n_step, 2]
-        #     mask=torch.ones_like(head_lg).to(torch.bool)[:, None],  # [n_agent, n_step]
-        #     batch_s=batch_lg,  # [n_agent*n_step]
-        #     batch_pl=map_feature["batch"],  # [n_pl*n_step]
-        #     pl2a_radius=100
-        # )
 
         for t in range(current_len, max_len+current_len):
 
@@ -766,7 +735,7 @@ class SMARTAgentDecoder(nn.Module):
 
             light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
 
-            mask=light_idx<3
+            light_mask=light_idx<3
 
             # mask = torch.ones_like(light_idx).to(torch.bool)
             # seq_len=light_idx.shape[1]
@@ -782,7 +751,12 @@ class SMARTAgentDecoder(nn.Module):
 
             if t==current_len:
 
-                lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask)
+                lg_edge_index_t,lg_r_t = self.build_temporal_edge(
+                    pos_a=pos_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step, 2]
+                    head_a=head_lg[:, None].repeat(1, current_len),  # [n_agent, n_step]
+                    head_vector_a=head_vector_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step, 2]
+                    mask=light_mask,  # [n_agent, n_step]
+                    )
 
                 feat_lg = self.lg_temp_layer(light_embedding.flatten(0, 1), lg_r_t, lg_edge_index_t)
 
@@ -793,58 +767,33 @@ class SMARTAgentDecoder(nn.Module):
                     ],
                     dim=0,
                 )
-                # batch_pl = torch.cat(
-                #     [
-                #         map_feature["batch"] + num_graphs * t
-                #         for t in range(current_len)
-                #     ],
-                #     dim=0,
-                # )
-
-                # edge_index_pl2lg_T, r_pl2lg_T = self.build_map2agent_edge(
-                #     pos_pl=map_feature["position"],  # [n_pl, 2]
-                #     orient_pl=map_feature["orientation"],  # [n_pl]
-                #     pos_a=pos_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step, 2]
-                #     head_a=head_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step]
-                #     head_vector_a=head_vector_lg[:, None].repeat(1, current_len, 1),  # [n_agent, n_step, 2]
-                #     mask=mask,  # [n_agent, n_step]
-                #     batch_s=batch_lg,  # [n_agent*n_step]
-                #     batch_pl=batch_pl,  # [n_pl*n_step]
-                #     pl2a_radius=100
-                # )
-                # feat_map = (
-                #     map_feature["pt_token"].unsqueeze(0).expand(current_len, -1, -1).flatten(0, 1)
-                # )
-                #
-                # feat_lg = self.pt2lg_attn_layers(
-                #     (feat_map, feat_lg), r_pl2lg_T, edge_index_pl2lg_T
-                # )
 
                 edge_index_lg2lg_T, r_lg2lg_T = self.build_interaction_edge(
-                    pos_a=pos_lg[:, None].repeat(1, current_len, 1),  # [n_agent, hist_step, 2]
-                    head_a=head_lg[:, None].repeat(1, current_len),  # [n_agent, hist_step]
-                    head_vector_a=head_vector_lg[:, None].repeat(1, current_len,1),  # [n_agent, hist_step, 2]
+                    pos_a=pos_lg[:, None].repeat(1, t, 1),  # [n_agent, hist_step, 2]
+                    head_a=head_lg[:, None].repeat(1, t),  # [n_agent, hist_step]
+                    head_vector_a=head_vector_lg[:, None].repeat(1, t,1),  # [n_agent, hist_step, 2]
                     batch_s=batch_lg,  # [n_agent*hist_step]
-                    mask=mask,  # [n_agent, hist_step]
+                    mask=light_mask,  # [n_agent, hist_step]
                 )
 
                 feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])  # [N, D]
 
                 lg_features[:, :t] = feat_lg.view(-1, t, feat_lg.shape[-1])
             else:
-                inference_mask = mask.clone()
+                inference_mask = light_mask.clone()
 
                 inference_mask[:, :-1] = False
 
-                lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask, inference_mask=inference_mask)
+                lg_edge_index_t,lg_r_t = self.build_temporal_edge(
+                    pos_a=pos_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
+                    head_a=head_lg[:, None].repeat(1, t),  # [n_agent, n_step]
+                    head_vector_a=head_vector_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
+                    mask=light_mask,  # [n_agent, n_step]
+                    inference_mask=inference_mask)
 
                 lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
 
                 feat_lg = self.lg_temp_layer((light_embedding.flatten(0, 1), light_embedding[:, -1]), lg_r_t, lg_edge_index_t)
-
-                # feat_lg = self.pt2lg_attn_layers(
-                #     (map_feature["pt_token"], feat_lg), r_pl2lg, edge_index_pl2lg
-                # )
 
                 feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)  # [N, D]
 
