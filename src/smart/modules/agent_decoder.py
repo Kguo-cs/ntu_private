@@ -216,7 +216,7 @@ class SMARTAgentDecoder(nn.Module):
                     hidden_dim=hidden_dim,
                     num_heads=num_heads,
                     head_dim=head_dim,
-                    dropout=dropout,
+                    dropout=0.5,
                     bipartite=False,
                     has_pos_emb=True,
             )
@@ -599,13 +599,13 @@ class SMARTAgentDecoder(nn.Module):
                 dim=0,
             )
 
-            #light_mask=tokenized_agent["light_valid_mask"]
+            light_mask=tokenized_agent["light_valid_mask"]
 
-           # light_embedding = self.light_embedding(light_idx)  # [B, L, D]
+            light_embedding = self.light_embedding(light_idx)  # [B, L, D]
 
-           # lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_mask )
+            lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(light_mask )
 
-            #feat_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
+            feat_lg = self.lg_temp_layer(light_embedding.reshape(-1,light_embedding.shape[-1]), lg_r_t, lg_edge_index_t)
 
             #head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
 
@@ -657,49 +657,49 @@ class SMARTAgentDecoder(nn.Module):
                 pl2a_radius=100,
                 max_num_neighbors=1
             )
+            #
+            # predicted_tokens = light_idx.clone()
+            # lg_features =[]
+            # next_light_logits=[]
+            #
+            # for t in range(1, light_idx.shape[1]+1):
+            #
+            #     light_idx = predicted_tokens[:, :t]
+            #
+            #     light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
+            #
+            #     mask = light_idx < 3
+            #
+            #     inference_mask = mask.clone()
+            #
+            #     inference_mask[:, :-1] = False
+            #
+            #     lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask, inference_mask=inference_mask)
+            #
+            #     lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
+            #
+            #     feat_lg1 = self.lg_temp_layer((light_embedding.flatten(0, 1), light_embedding[:, -1]), lg_r_t,
+            #                                  lg_edge_index_t)
+            #
+            #     lg_features.append(feat_lg1)
+            #
+            #     logits = self.light_token_predict_head(feat_lg1)
+            #
+            #     next_light_logits.append(logits)
+            #
+            #     if t<light_idx.shape[1]:
+            #
+            #         cat_dist = Categorical(logits=logits / self.alpha)
+            #
+            #         samples = cat_dist.sample()  # [n_agent] in K
+            #
+            #         predicted_tokens[:, t] = samples
+            #
+            #
+            # next_light_logits = torch.stack(next_light_logits, dim=1)
+            # feat_lg=torch.stack(lg_features, dim=1)
 
-            predicted_tokens = light_idx.clone()
-            lg_features =[]
-            next_light_logits=[]
-
-            for t in range(1, light_idx.shape[1]+1):
-
-                light_idx = predicted_tokens[:, :t]
-
-                light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
-
-                mask = light_idx < 3
-
-                inference_mask = mask.clone()
-
-                inference_mask[:, :-1] = False
-
-                lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask, inference_mask=inference_mask)
-
-                lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
-
-                feat_lg1 = self.lg_temp_layer((light_embedding.flatten(0, 1), light_embedding[:, -1]), lg_r_t,
-                                             lg_edge_index_t)
-
-                lg_features.append(feat_lg1)
-
-                logits = self.light_token_predict_head(feat_lg1)
-
-                next_light_logits.append(logits)
-
-                if t<light_idx.shape[1]:
-
-                    cat_dist = Categorical(logits=logits / self.alpha)
-
-                    samples = cat_dist.sample()  # [n_agent] in K
-
-                    predicted_tokens[:, t] = samples
-
-
-            next_light_logits = torch.stack(next_light_logits, dim=1)
-            feat_lg=torch.stack(lg_features, dim=1)
-
-            # next_light_logits =self.light_token_predict_head(feat_lg)
+            next_light_logits =self.light_token_predict_head(feat_lg)
 
 
         for i in range(self.num_layers):
