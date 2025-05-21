@@ -40,6 +40,7 @@ class SMARTMapDecoder(nn.Module):
         num_heads: int,
         head_dim: int,
         dropout: float,
+        pt2pt_neighbor:int
     ) -> None:
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
@@ -74,6 +75,7 @@ class SMARTMapDecoder(nn.Module):
         self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
         self.use_lane=False
+        self.pt2pt_neighbor=pt2pt_neighbor
 
         if self.use_lane:
             self.relPos_embed=MLPEmbedding(3+hidden_dim, hidden_dim)
@@ -89,7 +91,7 @@ class SMARTMapDecoder(nn.Module):
             r=radius,
             batch=batch,
             loop=False,
-            max_num_neighbors=10,
+            max_num_neighbors=self.pl2pl_neighbor,
         )
         rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
 

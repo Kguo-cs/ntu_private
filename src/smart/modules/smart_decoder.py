@@ -41,6 +41,9 @@ class SMARTDecoder(nn.Module):
         dropout: float,
         hist_drop_prob: float,
         n_token_agent: int,
+        pt2pt_neighbor:int,
+        pt2a_neighbor: int,
+        a2a_neighbor: int,
         state_action=False,
         use_latent=False
     ) -> None:
@@ -53,6 +56,7 @@ class SMARTDecoder(nn.Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
+            pt2pt_neighbor=pt2pt_neighbor,
         )
 
         self.agent_encoder = SMARTAgentDecoder(
@@ -69,7 +73,8 @@ class SMARTDecoder(nn.Module):
             dropout=dropout,
             hist_drop_prob=hist_drop_prob,
             n_token_agent=n_token_agent,
-            state_action=state_action,
+            pt2a_neighbor=pt2a_neighbor,
+            a2a_neighbor=a2a_neighbor,
             use_latent=use_latent
         )
 

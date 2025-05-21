@@ -17,7 +17,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
-from torch_cluster import radius, radius_graph
 from torch_geometric.utils import dense_to_sparse, subgraph
 
 from src.smart.layers import MLPLayer
@@ -30,35 +29,9 @@ from src.smart.utils import (
     weight_init,
     wrap_angle,
 )
-from torch_scatter import scatter_add
 from .kl_loss import DiagGaussian
-from torch_geometric.nn.pool import knn_graph,knn
-#from torch._dynamo import disable
-import torch.nn.functional as F
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from src.smart.layers.relative_transformer import RoFormerSelfAttention,get_sin_cos,RoFormerBlock
-# @disable
-def safe_radius(*args, **kwargs):
-    return radius(*args, **kwargs)
-
-#@disable
-def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
-    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
-    row, col = edge_index
-    distances = (x[col] - x[row]).norm(dim=1)
-    mask = distances <= r
-    final_edge_index = edge_index[:, mask]
-
-    return final_edge_index
-
-def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
-    edge_index = knn(x, y, max_num_neighbors, batch_x=batch_x, batch_y=batch_y)
-    row, col = edge_index
-    distances = (x[col] - y[row]).norm(dim=1)
-    mask = distances <= r
-    final_edge_index = edge_index[:, mask]
-
-    return final_edge_index
+from .build_edge import radiusGraphNearest,radiusGraphNearest2
 
 
 class SMARTAgentDecoder(nn.Module):
@@ -77,8 +50,9 @@ class SMARTAgentDecoder(nn.Module):
         dropout: float,
         hist_drop_prob: float,
         n_token_agent: int,
-        state_action:bool,
-        use_latent:bool=False
+        pt2a_neighbor: int,
+        a2a_neighbor:int,
+        use_latent: bool = False
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -90,6 +64,8 @@ class SMARTAgentDecoder(nn.Module):
         self.num_layers = num_layers
         self.shift = 5
         self.hist_drop_prob = hist_drop_prob
+        self.pt2a_neighbor=pt2a_neighbor
+        self.a2a_neighbor=a2a_neighbor
 
         input_dim_x_a = 2
         input_dim_r_t = 4
@@ -198,21 +174,21 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_type=5
 
+            self.light_dropout=0.5
+
             self.light_embedding=nn.Embedding(self.light_type,hidden_dim)
 
-            self.r_lg2a_emb = FourierEmbedding(
-                input_dim=input_dim_r_pt2a,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
+            # self.r_lg2a_emb = FourierEmbedding(
+            #     input_dim=input_dim_r_pt2a,
+            #     hidden_dim=hidden_dim,
+            #     num_freq_bands=num_freq_bands,
+            # )
             #
             self.lg_t_emb = FourierEmbedding(
                 input_dim=1,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
-
-            self.light_dropout=0.5
 
             self.lg_temp_layer=  AttentionLayer(
                     hidden_dim=hidden_dim,
@@ -222,11 +198,7 @@ class SMARTAgentDecoder(nn.Module):
                     bipartite=False,
                     has_pos_emb=True,
             )
-            # self.lg_temp_layer=RoFormerBlock(
-            #             hidden_dim=hidden_dim,
-            #             num_heads=num_heads,
-            #             dropout=dropout,
-            #         )
+
             self.r_lg2lg_emb = FourierEmbedding(
                 input_dim=input_dim_r_a2a,
                 hidden_dim=hidden_dim,
@@ -241,15 +213,6 @@ class SMARTAgentDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                         )
-            # self.pt2lg_attn_layers =                     AttentionLayer(
-            #             hidden_dim=hidden_dim,
-            #             num_heads=num_heads,
-            #             head_dim=head_dim,
-            #             dropout=dropout,
-            #             bipartite=True,
-            #             has_pos_emb=True,
-            #         )
-            #
 
             self.lg2a_attn_layers = nn.ModuleList(
                 [
@@ -403,13 +366,7 @@ class SMARTAgentDecoder(nn.Module):
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-        # edge_index_a2a = radius_graph(
-        #     x=pos_s[:, :2],
-        #     r=self.a2a_radius,
-        #     batch=batch_s,
-        #     loop=False,
-        #     max_num_neighbors=300
-        # )
+
         edge_index_a2a = radiusGraphNearest(x=pos_s[:, :2],
                                              r=self.a2a_radius,
                                              batch=batch_s,
@@ -447,8 +404,7 @@ class SMARTAgentDecoder(nn.Module):
         mask,  # [n_agent, n_step]
         batch_s,  # [n_agent*n_step]
         batch_pl,  # [n_pl*n_step]
-        pl2a_radius=40,
-        max_num_neighbors=8
+        pl2a_radius=40
     ):
         n_step = pos_a.shape[1]
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
@@ -462,7 +418,7 @@ class SMARTAgentDecoder(nn.Module):
                                              r=pl2a_radius,
                                              batch_x=batch_s,
                                              batch_y=batch_pl,
-                                             max_num_neighbors=max_num_neighbors)
+                                             max_num_neighbors=self.pt2a_neighbor)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
@@ -480,10 +436,8 @@ class SMARTAgentDecoder(nn.Module):
             ],
             dim=-1,
         )
-        if max_num_neighbors==8:
-            r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
-        else:
-            r_pl2a = self.r_lg2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+
+        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 
         return edge_index_pl2a, r_pl2a
 
@@ -667,8 +621,7 @@ class SMARTAgentDecoder(nn.Module):
                 mask=mask,  # [n_agent, n_step]
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
-                pl2a_radius=100,
-                max_num_neighbors=1
+                pl2a_radius=100
             )
             #
             # predicted_tokens = light_idx.clone()
@@ -1040,6 +993,7 @@ class SMARTAgentDecoder(nn.Module):
                 head_vector_a=head_vector_a[:, -hist_step:],  # [n_agent, hist_step, 2]
                 batch_s=batch_s,  # [n_agent*hist_step]
                 mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
+                max_num_neighbors=self.max_num_neighbors,
             )
 
             if self.pred_light:
@@ -1062,8 +1016,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
                     batch_s=batch_s,  # [n_agent*hist_step]
                     batch_pl=batch_lg,  # [n_pl*hist_step]
-                    pl2a_radius=100,
-                    max_num_neighbors=1
+                    pl2a_radius=100
                 )
 
             pt_token=map_feature["pt_token"]
