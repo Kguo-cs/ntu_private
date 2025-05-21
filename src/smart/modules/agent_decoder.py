@@ -216,7 +216,7 @@ class SMARTAgentDecoder(nn.Module):
                     hidden_dim=hidden_dim,
                     num_heads=num_heads,
                     head_dim=head_dim,
-                    dropout=0.5,
+                    dropout=dropout,
                     bipartite=False,
                     has_pos_emb=True,
             )
@@ -1113,7 +1113,7 @@ class SMARTAgentDecoder(nn.Module):
                         (pt_token, feat_a_now), r_pl2a, edge_index_pl2a
                     )
                     if self.pred_light:
-                        _feat_temporal = self.lg2a_attn_layers[i](
+                        feat_a_now = self.lg2a_attn_layers[i](
                             (lg_features[:,t_now], feat_a_now), r_lg2a, edge_index_lg2a
                         )
 
