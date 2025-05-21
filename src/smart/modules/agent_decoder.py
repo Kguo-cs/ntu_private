@@ -199,12 +199,6 @@ class SMARTAgentDecoder(nn.Module):
                     has_pos_emb=True,
             )
 
-            self.r_lg2lg_emb = FourierEmbedding(
-                input_dim=input_dim_r_a2a,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-            )
-
             self.lg2lg_layers =AttentionLayer(
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
@@ -359,8 +353,7 @@ class SMARTAgentDecoder(nn.Module):
         head_a,  # [n_agent, n_step]
         head_vector_a,  # [n_agent, n_step, 2]
         batch_s,  # [n_agent*n_step]
-        mask,  # [n_agent, n_step]
-        max_num_neighbors=10
+        mask  # [n_agent, n_step]
     ):
         mask = mask.transpose(0, 1).reshape(-1)
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
@@ -371,7 +364,7 @@ class SMARTAgentDecoder(nn.Module):
                                              r=self.a2a_radius,
                                              batch=batch_s,
                                              loop=False,
-                                             max_num_neighbors=max_num_neighbors)
+                                             max_num_neighbors=self.a2a_neighbor)
 
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
@@ -387,10 +380,7 @@ class SMARTAgentDecoder(nn.Module):
             ],
             dim=-1,
         )
-        if max_num_neighbors==10:
-            r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
-        else:
-            r_a2a = self.r_lg2lg_emb(continuous_inputs=r_a2a, categorical_embs=None)
+        r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
         return edge_index_a2a, r_a2a
 
@@ -604,8 +594,7 @@ class SMARTAgentDecoder(nn.Module):
                 head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
                 head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
                 batch_s=batch_lg,  # [n_agent*n_step]
-                mask=mask,  # [n_agent, n_step]
-                max_num_neighbors=20
+                mask=light_mask  # [n_agent, n_step]
             )
 
             feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
@@ -758,7 +747,6 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_lg[:, None],  # [n_agent, hist_step, 2]
             batch_s=batch_lg,  # [n_agent*hist_step]
             mask=torch.ones_like(head_lg).to(torch.bool)[:, None],  # [n_agent, hist_step]
-            max_num_neighbors=20
         )
         # edge_index_pl2lg, r_pl2lg = self.build_map2agent_edge(
         #     pos_pl=map_feature["position"],  # [n_pl, 2]
@@ -838,7 +826,6 @@ class SMARTAgentDecoder(nn.Module):
                     head_vector_a=head_vector_lg[:, None].repeat(1, current_len,1),  # [n_agent, hist_step, 2]
                     batch_s=batch_lg,  # [n_agent*hist_step]
                     mask=mask,  # [n_agent, hist_step]
-                    max_num_neighbors=20
                 )
 
                 feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])  # [N, D]

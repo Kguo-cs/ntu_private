@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc_pla8_light_all_lg2lgdrop05_sharenum8 #drop05 #_tune_x2_2 #x2_target10 #_nodone #light1_randn_map #256 #light_bc_lg_inter_mask #rkl_1_expertV1_bc
+task_name: bc_pla8_light_all_lg2lgdrop05_shareapt #drop05 #_tune_x2_2 #x2_target10 #_nodone #light1_randn_map #256 #light_bc_lg_inter_mask #rkl_1_expertV1_bc
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
