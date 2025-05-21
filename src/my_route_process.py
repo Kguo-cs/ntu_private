@@ -134,8 +134,21 @@ def get_agent_routes(agent,map_infos):
     # For each position, get first True index in time (axis=2)
     first_change_idx = change_mask.to(torch.int).argmax(axis=2)  # (B, T)
 
+    changing_point=routing_idx[torch.arange(len(first_change_idx))[:,None],first_change_idx]
+    changing_valid=valid_mask[torch.arange(len(first_change_idx))[:,None],first_change_idx]
 
-    print(1)
+    changing_valid[first_change_idx==0]=False
+
+
+    changing_point_dir=lane_dir[changing_point]
+
+    changing_point_dir[~changing_valid]=torch.nan
+    cur_lane_dir[~valid_mask]=torch.nan
+
+    diff_dir=changing_point_dir-cur_lane_dir
+
+    return {"diff_dir":diff_dir}
+
 
     # # Where no change is found, .argmax returns 0 — fix it:
     # no_change_mask = ~change_mask.to(torch.bool).any(axis=2)
@@ -231,4 +244,10 @@ if __name__ == "__main__":
 
     batch_process9s_transformer(
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    )
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, 'validation', num_workers=args.num_workers
+    )
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, 'testing', num_workers=args.num_workers
     )
