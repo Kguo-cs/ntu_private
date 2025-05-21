@@ -11,7 +11,7 @@ model_config:
   decoder:
     hidden_dim: 128
     num_map_layers: 1
-    num_agent_layers: 2
+    num_agent_layers: 1
     pl2pl_radius: 20
     pl2a_radius: 40
     dropout: 0
