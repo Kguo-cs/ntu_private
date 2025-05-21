@@ -98,7 +98,7 @@ class IQ_SoftQ(LightningModule):
 
         dones = torch.zeros_like(next_V)
 
-        #dones[:, -1] = 1
+        dones[:, -1] = 1
 
         next_V=(1 - dones) * next_V
 
@@ -209,7 +209,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'x2'
+            div = 'rkl'
             alpha = 1
             eps = 1e-3
 
