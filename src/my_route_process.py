@@ -71,7 +71,6 @@ def get_agent_routes(data,map_infos):
     route_id[~valid_mask]=-1
 
     dest_map_ids=route_id[:,-1]
-    map_edge=map_infos["mp_edge"]
 
     inter_routes=[]
 
@@ -199,18 +198,11 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
 
         track_infos = decode_tracks_from_proto(scenario)
         map_infos = decode_map_features_from_proto(scenario.map_features)
-        dynamic_map_infos = decode_dynamic_map_states_from_proto(
-            scenario.dynamic_map_states
-        )
-       # print(time.time()-time1)
 
         current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id
-        tf_lights = process_dynamic_map(dynamic_map_infos)
-        tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-        map_data = get_map_features(map_infos, tf_current_light)
 
-        data = preprocess_map(map_data)
+        data={}
 
         data["agent"] = get_agent_features(
             track_infos,
@@ -218,52 +210,13 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             num_historical_steps=current_time_index + 1,
             num_steps=91,
         )
+        get_agent_routes(data, map_infos)
 
-        data["light"]=process_light(map_infos,tf_lights,tf_current_light)
-
-        # data = HeteroData(data).cuda()
-        #
-        # tokenized_map, tokenized_agent = token_processor(data)
-        #
-        # tokenized_agent.pop('gt_pos_raw', None)
-        # tokenized_agent.pop("gt_head_raw", None)
-        # tokenized_agent.pop("gt_valid_raw", None)
-        # tokenized_agent.pop('gt_z_raw', None)
-        # tokenized_agent.pop('gt_idx', None)
-        # tokenized_agent.pop('gt_heading', None)
-        # tokenized_agent.pop('gt_pos', None)
-        #
-        # for key in tokenized_map.keys():
-        #     tokenized_map[key] = tokenized_map[key].cpu()
-        #
-        # for key in tokenized_agent.keys():
-        #     tokenized_agent[key] = tokenized_agent[key].cpu()
-        #
-        # tokenized_map["token_idx"] = tokenized_map["token_idx"].to(torch.int16)
-        # tokenized_agent["sampled_idx"] = tokenized_agent["sampled_idx"].to(torch.int16)
-        #
-        # tokenized_map["num_nodes"] = len(tokenized_map["position"])
-        # tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
-        #
-        # tokenized_light={}
-        # tokenized_light["light_token"] = light_token
-        # tokenized_light["light_pos"] = light_pos
-        # tokenized_light["light_polyline"] = light_polyline
-        # tokenized_light["num_nodes"] = len(light_token)
-        #
-        # data = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent,"tokenized_light":tokenized_light}
 
         data["scenario_id"] = scenario_id
         with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
             pickle.dump(data, f)
 
-        # if output_dir_tfrecords_splitted is not None:
-        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-        #         file_writer.write(tf_data)
-        # print(time.time()-time1)
-
-        #print(1/0)
 
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
@@ -272,7 +225,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     if split == "validation":
         output_dir_tfrecords_splitted = output_dir / "validation_tfrecords_splitted"
         output_dir_tfrecords_splitted.mkdir(exist_ok=True, parents=True)
-    output_dir = output_dir / split
+    output_dir = output_dir / (split+'route')
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
@@ -300,59 +253,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="testing")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
     batch_process9s_transformer(
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     )
-    #
-    # files = os.listdir(data_directory)
-    #
-    # for file in tqdm(files):
-    #     process_file(file)
-
-# # Set paths
-# token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_light/"
-# data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
-
-# # Worker function
-# def process_file(filename):
-#     input_path = os.path.join(data_directory, filename)
-#     output_path = os.path.join(token_data_directory, filename)
-#     with open(input_path, "rb") as f:
-#         data = pickle.load(f)
-
-#     data= HeteroData(data).cuda()
-
-#     tokenized_map, tokenized_agent = token_processor(data)
-
-#     tokenized_agent.pop('gt_pos_raw', None)
-#     tokenized_agent.pop("gt_head_raw", None)
-#     tokenized_agent.pop("gt_valid_raw", None)
-#     tokenized_agent.pop('gt_z_raw', None)
-#     tokenized_agent.pop('gt_idx', None)
-#     tokenized_agent.pop('gt_heading', None)
-#     tokenized_agent.pop('gt_pos', None)
-#     tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
-#     tokenized_agent["light_token"]=data["light_token"]
-#     tokenized_agent["light_pos"]= data["light_pos"]
-#     tokenized_agent["light_polyline"]=data["light_polyline"]
-#     tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
-
-#     for key in tokenized_map.keys():
-#         tokenized_map[key]=tokenized_map[key].cpu()
-
-
-#     for key in tokenized_agent.keys():
-#         tokenized_agent[key]=tokenized_agent[key].cpu()
-
-#     tokenized_map["num_nodes"] = len(tokenized_map["position"])
-#     tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
-
-#     data_dict = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent}
-
-#     # Save the tokenized data
-#     with open(output_path, "wb") as f:
-#         pickle.dump(data_dict, f)
