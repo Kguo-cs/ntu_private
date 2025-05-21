@@ -993,7 +993,6 @@ class SMARTAgentDecoder(nn.Module):
                 head_vector_a=head_vector_a[:, -hist_step:],  # [n_agent, hist_step, 2]
                 batch_s=batch_s,  # [n_agent*hist_step]
                 mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
-                max_num_neighbors=self.max_num_neighbors,
             )
 
             if self.pred_light:
