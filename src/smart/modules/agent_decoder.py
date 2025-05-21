@@ -643,7 +643,7 @@ class SMARTAgentDecoder(nn.Module):
             #
             # feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
 
-            #feat_lg=feat_lg.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
+            feat_lg=feat_lg.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
 
             edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
                 pos_pl=pos_lg,  # [n_pl, 2]
