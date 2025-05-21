@@ -16,7 +16,7 @@ rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training_a.zip 
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/logs/js1_pred_valid_token/2025-04-13_10-17-49/checkpoints/epoch_006.ckpt /home/ke/code/catk/src/logs/ 
 
-rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_064_noshare/05.11_18.22/pad/vvk987iv/checkpoints/epoch=5-step=18444.ckpt ./
+rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_share_shareagentt_nobuffer_onlyinitego/05.10_00.41/pad/upw5aleq/checkpoints/epoch=15-step=49184.ckpt ./
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
 

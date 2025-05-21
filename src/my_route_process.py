@@ -34,156 +34,131 @@ import torch
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 from waymo_open_dataset.protos import scenario_pb2
-from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
-from src.data_preprocess import decode_tracks_from_proto,decode_map_features_from_proto,decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,_polygon_types,_polygon_light_type
+from src.data_preprocess import decode_tracks_from_proto,get_agent_features
 
-def get_agent_routes(data,map_infos):
-    positions=data["agent"]['position'][:,5::5,:2]
-    heading=data["agent"]["heading"][:,5::5]
-    valid_mask=data["agent"]['valid_mask'][:,5::5]
-    last_velocity=data["agent"]['velocity'][:,-1]
 
-    extended_goal_pos=positions[:,-1] + last_velocity * 1
 
-    positions=torch.cat([positions,extended_goal_pos[:,None]],dim=1)
-    heading=torch.cat([heading,heading[:,-1:]],dim=1)
-    valid_mask=torch.cat([valid_mask,valid_mask[:,-1:]],dim=1)
+def decode_map_features_from_proto(map_features):
+    map_infos = {}
+    polylines = []
+    #lane_headings = []
+    point_cnt = 0
+    for mf in map_features:
+        feature_data_type = mf.WhichOneof("feature_data")
+        # pip install waymo-open-dataset-tf-2-6-0==1.4.9, not updated, should be driveway
+        if feature_data_type is None:
+            continue
 
-    map_data=data["map_save"]
+        feature = getattr(mf, feature_data_type)
+        if feature_data_type == "lane":
+            if len(feature.polyline) > 1:
 
-    map_pos=map_data['traj_pos']
-    map_dir=map_data['traj_theta']
+                cur_polyline = np.stack(
+                    [
+                        np.array([p.x, p.y, len(polylines)])
+                        for p in feature.polyline
+                    ],
+                    axis=0,
+                )
 
-    pl_type=data['pt_token']['type']
-    ln_id=data['pt_token']['ln_id']
+                polyline_heading = np.arctan2(
+                    cur_polyline[1:, 1] - cur_polyline[:-1, 1],
+                    cur_polyline[1:, 0] - cur_polyline[:-1, 0],
+                )
 
-    lane_mask=torch.isin(pl_type,torch.tensor([0, 1, 2,3]))
-    veh_lane_pos = map_pos[lane_mask][:, 1, :2].reshape(-1, 2)
-    veh_lane_dir = map_dir[lane_mask]
+                polyline_heading=np.concatenate([polyline_heading[:1], polyline_heading])[:,None]
 
-    dist = torch.linalg.norm(veh_lane_pos[None,None] - positions[:,:,None], dim=-1)
-    rot = torch.einsum('i,mj->mji', veh_lane_dir, heading)
+                cur_polyline=np.concatenate([cur_polyline, polyline_heading],axis=-1)
+
+                polylines.append(cur_polyline)
+                point_cnt += len(cur_polyline)
+
+    try:
+        polylines = np.concatenate(polylines, axis=0).astype(np.float32)
+        #lane_headings=np.stack(lane_headings)
+    except:
+        polylines = np.zeros((0, 4), dtype=np.float32)
+       # lane_headings=np.zeros((0,), dtype=np.float32)
+        print("Empty polylines.")
+    map_infos["all_polylines"] = torch.FloatTensor(polylines)
+    #map_infos["lane_headings"] = torch.FloatTensor(lane_headings)
+
+    return map_infos
+
+
+
+def get_agent_routes(agent,map_infos):
+    positions=agent['position'][:,1::5,:2]
+    heading=agent["heading"][:,1::5]
+    valid_mask=agent['valid_mask'][:,1::5]
+    # last_velocity=agent['velocity'][:,-1]
+    #
+    # extended_goal_pos=positions[:,-1] + last_velocity * 0.5
+    #
+    # positions=torch.cat([positions,extended_goal_pos[:,None]],dim=1)
+    # heading=torch.cat([heading,heading[:,-1:]],dim=1)
+    # valid_mask=torch.cat([valid_mask,valid_mask[:,-1:]],dim=1)
+
+    all_polylines=map_infos["all_polylines"]
+    polyline_start_heading=map_infos["all_polylines"]
+
+    lane_pos=all_polylines[:,:2]
+
+    lane_dir=all_polylines[:,-1]
+
+    ln_id=all_polylines[:,2]
+
+    dist = torch.linalg.norm(lane_pos[None,None] - positions[:,:,None], dim=-1)
+    rot = torch.einsum('i,mj->mji', lane_dir, heading)
     dist_rot=5*(rot<0)+dist
     routing_idx = torch.argmin(dist_rot,dim=-1)
 
-    route_id=ln_id[routing_idx]
+    cur_lane_dir=lane_dir[routing_idx]
 
-    route_id[~valid_mask]=-1
+    route=ln_id[routing_idx]
 
-    dest_map_ids=route_id[:,-1]
+    route[~valid_mask]=-1
 
-    inter_routes=[]
+    B, T = route.shape
 
-    for dest_map_id in dest_map_ids:
+    # Create a (T, T) upper triangle mask (i < j)
+    mask = torch.triu(torch.ones((T, T), dtype=torch.bool), diagonal=1)
 
-        next_list=[]
+    # Expand for batch
+    route_exp = route[:, :, None]              # (B, T, 1)
+    future_exp = route[:, None, :]             # (B, 1, T)
 
-        next_map_id = dest_map_id
-        max_len=4
-        while next_map_id!=-1 and len(next_list)<max_len:
-            next_edges = np.where(map_edge[:, 0] == next_map_id)[0]        # t_mask=valid_mask[veh_mask]
-            dest_map_id, next_map_id = map_edge[np.random.choice(next_edges)]        # routing_dist = torch.amin(dist_rot,dim=-1)*t_mask
-            next_list.append(next_map_id)
+    # Compare: where future != current and time is in the future
+    change_mask = (route_exp != future_exp) & mask[None, :, :]  # (B, T, T)
 
-        next_list=next_list+[-1]*(max_len-len(next_list))
-
-        inter_routes.append(next_list)
-
-    route=torch.cat([route_id,torch.tensor(inter_routes)],dim=1)
-    B, L = route.shape
-
-    next_route=torch.zeros_like(route[:,:L-5])
-
-    for t in range(L-5):
-        fut_route=route[:,t+1:]
-
-        cur_route=route[:,t]
-
-        mask=fut_route!=cur_route[:,None]
-
-        next_idx=torch.argmax(mask.to(torch.int),dim=1)+t+1
-
-        next_route[:,t]=route[torch.arange(len(next_idx)),next_idx]
-
-    data["agent"]["route"]=route
-    data["agent"]["next_route"]=next_route
+    # For each position, get first True index in time (axis=2)
+    first_change_idx = change_mask.to(torch.int).argmax(axis=2)  # (B, T)
 
 
+    print(1)
 
-def process_light(map_infos,tf_lights,tf_current_light):
-    polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]#189
-    polyline_index = [x["polyline_index"] for k in _polygon_types for x in map_infos[k]]#189
-    all_polylines = map_infos["all_polylines"][:,:2]
-
-    current_light_ids=torch.tensor(tf_current_light["lane_id"].values)
-    if len(current_light_ids):#consider only the light position is known
-        in_lane=torch.isin(current_light_ids,torch.tensor(polygon_ids))
-
-        current_light_ids=current_light_ids[in_lane]
-
-    light_pos=np.zeros([len(current_light_ids),2])
-    light_polyline=np.zeros([len(current_light_ids),2,2])
-    light_all = torch.zeros((len(current_light_ids), 90), dtype=torch.int8)
-
-    for i, current_light_id in enumerate(current_light_ids):
-        light_idx=polygon_ids.index(current_light_id)
-
-        polyline_range=polyline_index[light_idx]
-
-        polyline=all_polylines[polyline_range[0]:polyline_range[1]]
-
-        start_pos=polyline[0]
-        light_pos[i]=start_pos
-
-        light_polyline[i][0]=polyline[len(polyline)//2]-start_pos
-        light_polyline[i][1]=polyline[-1]-start_pos
-
-    # light_all1 = torch.zeros([len(current_light_ids), 90],dtype=torch.int8)
+    # # Where no change is found, .argmax returns 0 — fix it:
+    # no_change_mask = ~change_mask.to(torch.bool).any(axis=2)
+    # first_change_idx[no_change_mask] = -1
     #
-    # for t in range(1,91):
-    #     light_t = tf_lights.loc[tf_lights["time_step"] == t]
-    #     for i, light_id in enumerate(current_light_ids):
-    #         res = light_t[light_t["lane_id"] == light_id.item()]
-    #         if len(res):
-    #             light_all1[i][t-1] = _polygon_light_type.index(res["state"].item())
-    if len(current_light_ids):
-        # Create a mapping from lane_id to index in light_all
-        lane_id_to_index = {lid.item(): idx for idx, lid in enumerate(current_light_ids)}
+    # # Use advanced indexing to gather the next different value
+    # batch_idx = torch.arange(B)[:, None]
+    # next_route = torch.where(first_change_idx != -1,
+    #                          route[batch_idx, first_change_idx],
+    #                          -1)
+    #
+    # route_pair=torch.stack([route, next_route], dim=-1).reshape(-1,2)
 
-        # Filter to only relevant lane_ids
-        tf_lights_filtered = tf_lights[tf_lights["lane_id"].isin(lane_id_to_index)]
+    # unique_route_pair = torch.unique(route_pair, dim=0)
+    #
+    # avail_pair=unique_route_pair[(route_pair[:,0]!=-1)&(route_pair[:,1]!=-1)]
+    #
+    # lane_dir1=lane_dir[avail_pair[:,0]]
 
-        # Also filter to time_step in 1–90
-        tf_lights_filtered = tf_lights_filtered[
-            (tf_lights_filtered["time_step"] >= 1) & (tf_lights_filtered["time_step"] <= 90)]
-
-        # Map lane_id to row index
-        tf_lights_filtered = tf_lights_filtered.copy()  # to avoid SettingWithCopyWarning
-        tf_lights_filtered["row_idx"] = tf_lights_filtered["lane_id"].map(lane_id_to_index)
-
-        # Map state to its index
-        state_to_index = {state: idx for idx, state in enumerate(_polygon_light_type)}
-        tf_lights_filtered["state_idx"] = tf_lights_filtered["state"].map(state_to_index)
+    #print("route pair shape:", route_pair.shape)
 
 
-        # Use .itertuples() for faster iteration and assign to tensor
-        for row in tf_lights_filtered.itertuples(index=False):
-            i = row.row_idx
-            t = row.time_step - 1  # convert to 0-based index
-            s = row.state_idx
-            if pd.notna(i) and pd.notna(s):
-                light_all[i, t] = s
 
-    light_all=light_all.reshape(-1,18,5)
-
-
-    light={
-        "type": light_all,
-        "pos": torch.FloatTensor(light_pos),
-        "light_polyline": torch.FloatTensor(light_polyline).reshape(-1,4),
-        "num_nodes": light_all.shape[0]
-    }
-    return light
 
 def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
     dataset = tf.data.TFRecordDataset(
@@ -202,18 +177,15 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id
 
-        data={}
-
-        data["agent"] = get_agent_features(
+        agent = get_agent_features(
             track_infos,
             split=split,
             num_historical_steps=current_time_index + 1,
             num_steps=91,
         )
-        get_agent_routes(data, map_infos)
+        data=get_agent_routes(agent, map_infos)
 
 
-        data["scenario_id"] = scenario_id
         with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
             pickle.dump(data, f)
 
