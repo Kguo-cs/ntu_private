@@ -212,11 +212,13 @@ class SMARTAgentDecoder(nn.Module):
                 num_freq_bands=num_freq_bands,
             )
 
+            self.light_dropout=0.5
+
             self.lg_temp_layer=  AttentionLayer(
                     hidden_dim=hidden_dim,
                     num_heads=num_heads,
                     head_dim=head_dim,
-                    dropout=dropout,
+                    dropout=self.light_dropout,
                     bipartite=False,
                     has_pos_emb=True,
             )
@@ -235,7 +237,7 @@ class SMARTAgentDecoder(nn.Module):
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
                         head_dim=head_dim,
-                        dropout=dropout,
+                        dropout=self.light_dropout,
                         bipartite=False,
                         has_pos_emb=True,
                         )
@@ -255,7 +257,7 @@ class SMARTAgentDecoder(nn.Module):
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
                         head_dim=head_dim,
-                        dropout=dropout,
+                        dropout=self.light_dropout,
                         bipartite=True,
                         has_pos_emb=True,
                     )
