@@ -94,8 +94,7 @@ class SMARTDecoder(nn.Module):
                 head_dim=head_dim,
                 dropout=dropout,
                 hist_drop_prob=hist_drop_prob,
-                n_token_agent=16,
-                state_action=state_action,
+                n_token_agent=16
             )
 
             self.prior_encoder = SMARTAgentDecoder(
@@ -111,8 +110,7 @@ class SMARTDecoder(nn.Module):
                 head_dim=head_dim,
                 dropout=dropout,
                 hist_drop_prob=hist_drop_prob,
-                n_token_agent=16,
-                state_action=state_action,
+                n_token_agent=16
             )
 
             self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
