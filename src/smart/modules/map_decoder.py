@@ -91,7 +91,7 @@ class SMARTMapDecoder(nn.Module):
             r=radius,
             batch=batch,
             loop=False,
-            max_num_neighbors=self.pl2pl_neighbor,
+            max_num_neighbors=self.pt2pt_neighbor,
         )
         rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
 
