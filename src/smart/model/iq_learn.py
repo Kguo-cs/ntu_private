@@ -299,7 +299,7 @@ class IQ_SoftQ(LightningModule):
 
             light_mask=light_idx<3
 
-            light_pred_mask=torch.ones_like(light_idx).to(torch.bool)
+            light_pred_mask=torch.ones_like(light_idx[:,0]).to(torch.bool)
 
             # light_pred_mask=torch.zeros_like(light_mask[:,0])
             #
