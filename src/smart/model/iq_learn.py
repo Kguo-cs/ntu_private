@@ -171,9 +171,9 @@ class IQ_SoftQ(LightningModule):
 
         reward = reward[state_action_mask]
 
-        current_Q_diff=(current_Q-current_returns)[state_action_mask.all(-1)]
+        current_Q_diff=(current_Q-current_returns)[state_mask.all(-1)]
 
-        current_V_diff=(current_V-current_returns)[state_action_mask.all(-1)]
+        current_V_diff=(current_V-current_returns)[state_mask.all(-1)]
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
@@ -209,7 +209,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'rkl'
+            div = 'x2'
             alpha = 1
             eps = 1e-3
 
