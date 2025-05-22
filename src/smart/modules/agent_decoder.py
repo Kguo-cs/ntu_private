@@ -224,7 +224,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_route:
 
-            self.route_type=25
+            self.route_type=10
 
             self.route_embedding=nn.Embedding(self.route_type+1,hidden_dim)
 
@@ -609,10 +609,6 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = self.pt2a_attn_layers[i](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
-            if self.pred_light:
-                feat_a = self.lg2a_attn_layers[i](
-                    (feat_lg, feat_a), r_lg2a, edge_index_lg2a
-                )
             if i==0 and self.pred_route:
                 next_route_logits=self.route_token_predict_head(feat_a).view(n_agent, n_step, -1)
                 if self.training:
@@ -621,6 +617,11 @@ class SMARTAgentDecoder(nn.Module):
                     route_idx=torch.zeros_like(head_a).long()+self.route_type
                 route_embedding=self.route_embedding(route_idx)
                 feat_a=feat_a+route_embedding.view(-1, feat_a.shape[-1])
+
+            if self.pred_light:
+                feat_a = self.lg2a_attn_layers[i](
+                    (feat_lg, feat_a), r_lg2a, edge_index_lg2a
+                )
 
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
@@ -954,15 +955,15 @@ class SMARTAgentDecoder(nn.Module):
                         (_feat_map, _feat_temporal), r_pl2a, edge_index_pl2a
                     )
 
-                    if self.pred_light:
-                        _feat_temporal = self.lg2a_attn_layers[i](
-                            (lg_features[:,:hist_step].flatten(0, 1), _feat_temporal), r_lg2a, edge_index_lg2a
-                        )
 
                     if i==0 and self.pred_route:
                         route_idx = torch.zeros_like(head_a).long() + self.route_type
                         route_embedding = self.route_embedding(route_idx)
                         _feat_temporal = _feat_temporal + route_embedding.view(-1,self.hidden_dim)
+                    if self.pred_light:
+                        _feat_temporal = self.lg2a_attn_layers[i](
+                            (lg_features[:,:hist_step].flatten(0, 1), _feat_temporal), r_lg2a, edge_index_lg2a
+                        )
 
                     _feat_temporal = self.a2a_attn_layers[i](
                         _feat_temporal, r_a2a, edge_index_a2a
@@ -990,10 +991,6 @@ class SMARTAgentDecoder(nn.Module):
                     feat_a_now = self.pt2a_attn_layers[i](
                         (pt_token, feat_a_now), r_pl2a, edge_index_pl2a
                     )
-                    if self.pred_light:
-                        feat_a_now = self.lg2a_attn_layers[i](
-                            (lg_features[:,t_now], feat_a_now), r_lg2a, edge_index_lg2a
-                        )
                     if i==0 and self.pred_route:
                         next_route_logits = self.route_token_predict_head(feat_a_now)
                         cat_dist = Categorical(logits=next_route_logits / self.alpha)
@@ -1001,6 +998,10 @@ class SMARTAgentDecoder(nn.Module):
 
                         route_embedding = self.route_embedding(route_idx)
                         feat_a_now = feat_a_now + route_embedding
+                    if self.pred_light:
+                        feat_a_now = self.lg2a_attn_layers[i](
+                            (lg_features[:,t_now], feat_a_now), r_lg2a, edge_index_lg2a
+                        )
 
                     feat_a_now = self.a2a_attn_layers[i](
                         feat_a_now, r_a2a, edge_index_a2a
