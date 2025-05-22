@@ -224,7 +224,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_route:
 
-            self.route_type=20
+            self.route_type=25
 
             self.route_embedding=nn.Embedding(self.route_type+1,hidden_dim)
 
@@ -959,7 +959,7 @@ class SMARTAgentDecoder(nn.Module):
                             (lg_features[:,:hist_step].flatten(0, 1), _feat_temporal), r_lg2a, edge_index_lg2a
                         )
 
-                    if self.pred_route:
+                    if i==0 and self.pred_route:
                         route_idx = torch.zeros_like(head_a).long() + self.route_type
                         route_embedding = self.route_embedding(route_idx)
                         _feat_temporal = _feat_temporal + route_embedding.view(-1,self.hidden_dim)
@@ -994,7 +994,7 @@ class SMARTAgentDecoder(nn.Module):
                         feat_a_now = self.lg2a_attn_layers[i](
                             (lg_features[:,t_now], feat_a_now), r_lg2a, edge_index_lg2a
                         )
-                    if self.pred_route:
+                    if i==0 and self.pred_route:
                         next_route_logits = self.route_token_predict_head(feat_a_now)
                         cat_dist = Categorical(logits=next_route_logits / self.alpha)
                         route_idx = cat_dist.sample()  # [n_agent] in K

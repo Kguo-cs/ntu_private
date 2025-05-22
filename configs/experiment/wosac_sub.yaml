@@ -25,7 +25,7 @@ model:
       method_link: ntu
       account_name: ntu
 
-ckpt_path: /home/ke/code/catk/src/waymo_data/last.ckpt
+ckpt_path: /home/ke/code/catk/src/ckpts/epoch=13-step=106540-val_closed_wosac=0.7721.ckpt
 
 trainer:
   limit_train_batches: 1.0
@@ -35,7 +35,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 64
+  val_batch_size: 128
   test_batch_size: 2
   num_workers: 32
   shuffle: false

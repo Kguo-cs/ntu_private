@@ -34,10 +34,10 @@ trainer:
   max_epochs: 32
 
 data:
-  train_batch_size: 64
+  train_batch_size: 62
   val_batch_size: 32
   test_batch_size: 10
-  num_workers: 32
+  num_workers: 28
 
 #action: validate
 
