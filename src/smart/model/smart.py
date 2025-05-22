@@ -123,7 +123,7 @@ class SMART(LightningModule):
             self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
 
         # ! closed-loop vlidation
-        if  self.val_closed_loop:#self.global_rank == 0 and
+        if self.global_rank == 0 and self.val_closed_loop:
             pred_traj, pred_z, pred_head = [], [], []
             #t1=time.time()
             map_feature = self.encoder.map_encoder(tokenized_map)
@@ -227,13 +227,13 @@ class SMART(LightningModule):
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
                 epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
-                #if self.global_rank == 0:
+                if self.global_rank == 0:
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
-                for key, value in epoch_wosac_metrics.items():
-                    self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+                    for key, value in epoch_wosac_metrics.items():
+                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 
                 self.wosac_metrics.reset()
                 self.minADE.reset()
