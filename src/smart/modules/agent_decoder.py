@@ -636,23 +636,26 @@ class SMARTAgentDecoder(nn.Module):
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
 
-        if self.pred_route:
-            next_route_logits = torch.cat(
-                [next_route_logits, -torch.inf + torch.zeros([next_route_logits.shape[0], next_route_logits.shape[1],
-                                                              next_token_logits.shape[2] - next_route_logits.shape[2]],
-                                                             device=next_route_logits.device)], dim=-1)
 
-            next_token_logits = torch.cat([next_token_logits, next_route_logits], dim=0)
-
-        if self.pred_light:
-            next_light_logits = torch.cat(
-                [next_light_logits, -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],
-                                                              next_token_logits.shape[2] - next_light_logits.shape[2]],
-                                                             device=next_light_logits.device)], dim=-1)
-
-            next_token_logits = torch.cat([next_token_logits, next_light_logits], dim=0)
 
         if "gt_pos_raw" not in tokenized_agent.keys():
+            if self.pred_route:
+                next_route_logits = torch.cat(
+                    [next_route_logits,
+                     -torch.inf + torch.zeros([next_route_logits.shape[0], next_route_logits.shape[1],
+                                               next_token_logits.shape[2] - next_route_logits.shape[2]],
+                                              device=next_route_logits.device)], dim=-1)
+
+                next_token_logits = torch.cat([next_token_logits, next_route_logits], dim=0)
+
+            if self.pred_light:
+                next_light_logits = torch.cat(
+                    [next_light_logits,
+                     -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],
+                                               next_token_logits.shape[2] - next_light_logits.shape[2]],
+                                              device=next_light_logits.device)], dim=-1)
+
+                next_token_logits = torch.cat([next_token_logits, next_light_logits], dim=0)
             return {
                 # action that goes from [(10->15), ..., (85->90)]
                 "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
@@ -762,7 +765,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 feat_lg1 = self.lg2lg_layers(feat_lg1, r_lg2lg, edge_index_lg2lg)  # [N, D]
 
-                lg_features[:, t-1] = feat_lg
+                lg_features[:, t-1] = feat_lg[:, -1]
 
             logits = self.light_token_predict_head(feat_lg1)
 

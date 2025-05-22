@@ -32,7 +32,6 @@ trainer:
   check_val_every_n_epoch: 1
   #val_check_interval: 0.000005
   max_epochs: 32
-#  gradient_clip_val: 0
 
 data:
   train_batch_size: 70

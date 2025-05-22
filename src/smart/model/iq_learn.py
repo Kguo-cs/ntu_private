@@ -78,7 +78,6 @@ class IQ_SoftQ(LightningModule):
 
             if "light_idx" in pred.keys():
                 tokenized_agent_rollout['light_idx'] = pred['light_idx']
-                # tokenized_agent_rollout['lg_features'] = pred['lg_features']
 
         return tokenized_map,tokenized_agent_rollout
 
