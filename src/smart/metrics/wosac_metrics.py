@@ -117,6 +117,7 @@ class WOSACMetrics(Metric):
                     )
                 )
 
+        print("finished computing scenario metrics")
 
         for scenario_metrics in pool_scenario_metrics:
             self.scenario_counter += 1
