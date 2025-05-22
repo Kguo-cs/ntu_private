@@ -24,7 +24,7 @@ for filename in tqdm(files):
 
     diff_dir=data["diff_dir"] % (2 * torch.pi)
 
-    diff_dir=diff_dir/(2 * torch.pi/100)
+    diff_dir=diff_dir/(2 * torch.pi/120)
 
     diff_mask=torch.isnan(diff_dir)
 

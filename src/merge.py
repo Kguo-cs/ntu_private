@@ -8,11 +8,11 @@ with open("./waymo_data/full/trainingroute.pkl", "rb") as f:
 
 
 
-data_directory = "./waymo_data/full/training_light/"
+data_directory = "./waymo_data/full/training_route/"
 
 files = os.listdir(data_directory)
 
-output_directory="./waymo_data/full/training_route/"
+output_directory="./waymo_data/full/training_route1/"
 # for filename in tqdm(files):
 #     input_path = os.path.join(data_directory, filename)
 #     with open(input_path, "rb") as f:
@@ -24,6 +24,8 @@ output_directory="./waymo_data/full/training_route/"
 #     output_path="./waymo_data/full/training_route/"+filename
 #     with open(input_path, "wb") as f:
 #         pickle.dump(data, f)
+os.makedirs(output_directory)
+
 def process_file(filename):
     input_path = os.path.join(data_directory, filename)
     with open(input_path, "rb") as f:
