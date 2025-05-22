@@ -216,7 +216,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[35:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")]) #[35:]
     # func = partial(
     #     wm2argo,
     #     split=split,
@@ -247,9 +247,9 @@ if __name__ == "__main__":
     # batch_process9s_transformer(
     #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     # )
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, 'validation', num_workers=args.num_workers
-    )
     # batch_process9s_transformer(
-    #     args.input_dir, args.output_dir, 'testing', num_workers=args.num_workers
+    #     args.input_dir, args.output_dir, 'validation', num_workers=args.num_workers
     # )
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, 'testing', num_workers=args.num_workers
+    )
