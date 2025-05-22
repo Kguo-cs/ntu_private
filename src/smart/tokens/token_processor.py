@@ -78,7 +78,7 @@ class TokenProcessor(torch.nn.Module):
 
             light_idx=self.light_token_last[torch.argmax(light_match.to(torch.int),dim=0)]
 
-            light_mask = light_idx < 3
+            light_mask = light_idx < 5
             light_pred_mask=torch.ones_like(light_mask[:,0]).to(torch.bool)
 
             # for i in range(data.num_graphs):
