@@ -2,12 +2,12 @@ import pickle
 from  tqdm import tqdm
 import os
 
-with open("/home/ke/code/catk/src/waymo_data/full/trainingroute.pkl", "rb") as f:
+with open("./waymo_data/full/trainingroute.pkl", "rb") as f:
     training_route = pickle.load(f)
 
 
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_light/"
+data_directory = "./waymo_data/full/training_light/"
 
 files = os.listdir(data_directory)
 
