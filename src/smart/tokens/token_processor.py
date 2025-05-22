@@ -64,11 +64,6 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
-        # with open("/home/ke/code/catk/src/waymo_data/full/trainingroute.pkl", "rb") as f:
-        #     training_route = pickle.load(f)
-        #
-        # self.training_route=training_route
-
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map = self.tokenize_map(data)
