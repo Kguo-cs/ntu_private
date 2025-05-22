@@ -336,7 +336,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_route:
 
-            route_idx= agent["route_idx"]//(100//self.encoder.agent_encoder.route_type)
+            route_idx= agent["route_idx"]//(120//self.encoder.agent_encoder.route_type)
             route_idx[:, :2] = -1
 
             route_idx[route_idx==-1]=self.encoder.agent_encoder.route_type
