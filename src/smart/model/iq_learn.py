@@ -111,8 +111,11 @@ class IQ_SoftQ(LightningModule):
         action=tokenized_agent["sampled_idx"][:, 2:]
 
         if self.encoder.agent_encoder.pred_route:
-            action = torch.cat([action,tokenized_agent["route_idx"][:, 2:]])
+            action = torch.cat([action,tokenized_agent["route_idx"][:, 1:-1]])
             valid_mask = torch.cat([valid_mask,tokenized_agent["route_valid_mask"]])
+
+        agent_num=len(valid_mask)
+
 
         if self.encoder.agent_encoder.pred_light:
             action = torch.cat([action,tokenized_agent["light_idx"][:, 2:]])
@@ -140,7 +143,6 @@ class IQ_SoftQ(LightningModule):
         log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         if self.encoder.agent_encoder.pred_light:
-            agent_num=len(tokenized_agent["sampled_idx"])
             light_nll=-log_prob[agent_num:][state_action_mask[agent_num:]]
 
             self.log("train/"+key+"_light_nll", light_nll.mean().item(), on_step=True, batch_size=1)

@@ -583,9 +583,9 @@ class SMARTAgentDecoder(nn.Module):
                 mask=light_mask  # [n_agent, n_step]
             )
 
-            feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
+            feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
 
-            feat_lg1=feat_lg1.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
+            feat_lg1=feat_lg.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
 
             edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
                 pos_pl=pos_lg,  # [n_pl, 2]
@@ -744,9 +744,11 @@ class SMARTAgentDecoder(nn.Module):
                     mask=light_mask,  # [n_agent, hist_step]
                 )
 
-                feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])[:,-1]
+                feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])
 
-                lg_features[:, :t] = feat_lg.view(-1, t, feat_lg.shape[-1])
+                feat_lg1=feat_lg[:,-1]
+
+                lg_features[:, :t] = feat_lg
             else:
                 inference_mask = light_mask.clone()
 
@@ -765,7 +767,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)  # [N, D]
 
-                lg_features[:, t-1] = feat_lg
+                lg_features[:, t-1] = feat_lg1
 
             logits = self.light_token_predict_head(feat_lg1)
 
@@ -956,6 +958,14 @@ class SMARTAgentDecoder(nn.Module):
                         _feat_temporal = self.lg2a_attn_layers[i](
                             (lg_features[:,:hist_step].flatten(0, 1), _feat_temporal), r_lg2a, edge_index_lg2a
                         )
+
+                    if self.pred_route:
+                        next_route_logits = self.route_token_predict_head(_feat_temporal).view(n_agent, n_step, -1)
+                        cat_dist = Categorical(logits=next_route_logits / self.alpha)
+                        route_idx = cat_dist.sample()  # [n_agent] in K
+
+                        route_embedding = self.route_embedding(route_idx)
+                        feat_a = feat_a + route_embedding.view(-1, feat_a.shape[-1])
 
                     _feat_temporal = self.a2a_attn_layers[i](
                         _feat_temporal, r_a2a, edge_index_a2a
