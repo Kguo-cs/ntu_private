@@ -109,10 +109,12 @@ class IQ_SoftQ(LightningModule):
 
         valid_mask = tokenized_agent["valid_mask"][:,1:]
         action=tokenized_agent["sampled_idx"][:, 2:]
+        state_mask = valid_mask[:, :-1]
 
         if self.encoder.agent_encoder.pred_route:
             action = torch.cat([action,tokenized_agent["route_idx"][:, 1:-1]])
             valid_mask = torch.cat([valid_mask,tokenized_agent["route_valid_mask"][:,:-1]])
+            state_mask=torch.cat([state_mask,tokenized_agent["route_valid_mask"][:,1:-1]])
 
         agent_num=len(valid_mask)
 
@@ -120,11 +122,9 @@ class IQ_SoftQ(LightningModule):
             action = torch.cat([action,tokenized_agent["light_idx"][:, 2:]])
 
             valid_mask =  torch.cat([valid_mask, tokenized_agent["light_valid_mask"][:,1:]])
+            state_mask=torch.cat([state_mask,tokenized_agent["light_valid_mask"][:,1:-1]])
 
         action=action.reshape(-1)
-
-        state_mask = torch.ones_like(valid_mask[:, :-1])
-
         action_mask= valid_mask[:, 1:]
 
         # cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
