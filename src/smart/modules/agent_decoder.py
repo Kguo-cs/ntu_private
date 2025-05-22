@@ -573,7 +573,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask=light_mask,  # [n_agent, n_step]
                  )
 
-            feat_lg1 = self.lg_temp_layer(feat_lg, lg_r_t, lg_edge_index_t)
+            feat_lg = self.lg_temp_layer(feat_lg, lg_r_t, lg_edge_index_t)
 
             edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
                 pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
@@ -583,7 +583,7 @@ class SMARTAgentDecoder(nn.Module):
                 mask=light_mask  # [n_agent, n_step]
             )
 
-            feat_lg1 = self.lg2lg_layers(feat_lg1, r_lg2lg, edge_index_lg2lg)
+            feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
 
             feat_lg1=feat_lg1.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
 
@@ -726,7 +726,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask=light_mask,  # [n_agent, n_step]
                     )
 
-                feat_lg1 = self.lg_temp_layer(feat_lg.flatten(0, 1), lg_r_t, lg_edge_index_t)
+                feat_lg = self.lg_temp_layer(feat_lg.flatten(0, 1), lg_r_t, lg_edge_index_t)
 
                 batch_lg = torch.cat(
                     [
@@ -744,7 +744,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask=light_mask,  # [n_agent, hist_step]
                 )
 
-                feat_lg1 = self.lg2lg_layers(feat_lg1, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])[:,-1]
+                feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])[:,-1]
 
                 lg_features[:, :t] = feat_lg.view(-1, t, feat_lg.shape[-1])
             else:
@@ -761,11 +761,11 @@ class SMARTAgentDecoder(nn.Module):
 
                 lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
 
-                feat_lg1 = self.lg_temp_layer((feat_lg.flatten(0, 1), feat_lg[:, -1]), lg_r_t, lg_edge_index_t)
+                feat_lg = self.lg_temp_layer((feat_lg.flatten(0, 1), feat_lg[:, -1]), lg_r_t, lg_edge_index_t)
 
-                feat_lg1 = self.lg2lg_layers(feat_lg1, r_lg2lg, edge_index_lg2lg)  # [N, D]
+                feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)  # [N, D]
 
-                lg_features[:, t-1] = feat_lg[:, -1]
+                lg_features[:, t-1] = feat_lg
 
             logits = self.light_token_predict_head(feat_lg1)
 
