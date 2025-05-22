@@ -224,7 +224,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_route:
 
-            self.route_type=10
+            self.route_type=5
 
             self.route_embedding=nn.Embedding(self.route_type+1,hidden_dim)
 
@@ -639,8 +639,6 @@ class SMARTAgentDecoder(nn.Module):
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
 
-
-
         if "gt_pos_raw" not in tokenized_agent.keys():
             if self.pred_route:
                 next_route_logits = torch.cat(
@@ -685,7 +683,6 @@ class SMARTAgentDecoder(nn.Module):
                 "feat_a": feat_a[:, 1:-1],
                 "q_value": next_token_logits[:, 1:]
             }
-
 
     def autoregressive_light_prediction(self, initial_token, map_feature,max_len,num_graphs):
         B = initial_token.shape[0]
