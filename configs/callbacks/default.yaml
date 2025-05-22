@@ -12,7 +12,7 @@ defaults:
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
   dirpath: null
-  filename: "epoch={epoch}-step={step}-val_closed_wosac={val_open/acc:.4f}"
+  filename: "epoch={epoch}-step={step}-acc={val_open/acc:.4f}"
   monitor: "val_open/acc"
   verbose: false
   save_last: true
