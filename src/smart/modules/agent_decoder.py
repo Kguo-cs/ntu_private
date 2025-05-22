@@ -224,7 +224,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_route:
 
-            self.route_type=20
+            self.route_type=10
 
             self.route_embedding=nn.Embedding(self.route_type+1,hidden_dim)
 
