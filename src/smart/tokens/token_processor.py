@@ -78,7 +78,7 @@ class TokenProcessor(torch.nn.Module):
 
             light_idx=torch.argmax(light_match.to(torch.int),dim=0)
 
-            #light_idx=self.light_token_last[torch.argmax(light_match.to(torch.int),dim=0)]
+            light_idx=self.light_token_last[light_idx]
 
             light_mask = light_idx < 500
             light_pred_mask=torch.ones_like(light_mask[:,0]).to(torch.bool)

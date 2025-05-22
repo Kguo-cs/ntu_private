@@ -172,7 +172,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.lg_time_span=time_span
 
-            self.light_type=261
+            self.light_type=5
 
             self.light_dropout=0
 
@@ -223,7 +223,7 @@ class SMARTAgentDecoder(nn.Module):
             )
 
             self.light_token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=261
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.light_type
             )
 
     def agent_token_embedding(
@@ -939,7 +939,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
                     batch_s=batch_s,  # [n_agent*hist_step]
                     batch_pl=batch_lg,  # [n_pl*hist_step]
-                   pl2a_radius=100
+                    pl2a_radius=100
                 )
 
             pt_token=map_feature["pt_token"]

@@ -296,7 +296,7 @@ class IQ_SoftQ(LightningModule):
             tokenized_light=data["tokenized_light"]
             light_idx=tokenized_light["light_idx"].long()
 
-            # light_idx=self.token_processor.light_token_last[tokenized_light["light_idx"].long()]
+            light_idx=self.token_processor.light_token_last[light_idx]
 
             light_mask=light_idx<500
 
