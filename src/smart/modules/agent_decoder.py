@@ -590,7 +590,7 @@ class SMARTAgentDecoder(nn.Module):
                 mask=mask,  # [n_agent, n_step]
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
-               pl2a_radius=100
+                pl2a_radius=100
             )
             #
             # predicted_tokens = light_idx.clone()
@@ -735,7 +735,7 @@ class SMARTAgentDecoder(nn.Module):
 
             light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
 
-            light_mask=light_idx<3
+            light_mask=light_idx<500
 
             if t==current_len:
 

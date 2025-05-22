@@ -88,9 +88,6 @@ def decode_map_features_from_proto(map_features):
 
 
 def get_agent_routes(agent,map_infos):
-    positions=agent['position'][:,1::5,:2]
-    heading=agent["heading"][:,1::5]
-    valid_mask=agent['valid_mask'][:,1::5]
     # last_velocity=agent['velocity'][:,-1]
     #
     # extended_goal_pos=positions[:,-1] + last_velocity * 0.5
@@ -98,54 +95,59 @@ def get_agent_routes(agent,map_infos):
     # positions=torch.cat([positions,extended_goal_pos[:,None]],dim=1)
     # heading=torch.cat([heading,heading[:,-1:]],dim=1)
     # valid_mask=torch.cat([valid_mask,valid_mask[:,-1:]],dim=1)
+    positions = agent['position'][:, 1::5, :2]
+    heading = agent["heading"][:, 1::5]
 
     all_polylines=map_infos["all_polylines"]
-    polyline_start_heading=map_infos["all_polylines"]
 
-    lane_pos=all_polylines[:,:2]
+    if len(all_polylines):
+        valid_mask=agent['valid_mask'][:, 1::5]
 
-    lane_dir=all_polylines[:,-1]
+        lane_pos = all_polylines[:, :2]
 
-    ln_id=all_polylines[:,2]
+        lane_dir = all_polylines[:, -1]
 
-    dist = torch.linalg.norm(lane_pos[None,None] - positions[:,:,None], dim=-1)
-    rot = torch.einsum('i,mj->mji', lane_dir, heading)
-    dist_rot=5*(rot<0)+dist
-    routing_idx = torch.argmin(dist_rot,dim=-1)
+        ln_id = all_polylines[:, 2]
 
-    cur_lane_dir=lane_dir[routing_idx]
+        dist = torch.linalg.norm(lane_pos[None,None] - positions[:,:,None], dim=-1)
+        rot = torch.einsum('i,mj->mji', lane_dir, heading)
+        dist_rot=5*(rot<0)+dist
+        routing_idx = torch.argmin(dist_rot,dim=-1)
 
-    route=ln_id[routing_idx]
+        cur_lane_dir=lane_dir[routing_idx]
 
-    route[~valid_mask]=-1
+        route=ln_id[routing_idx]
 
-    B, T = route.shape
+        route[~valid_mask]=-1
 
-    # Create a (T, T) upper triangle mask (i < j)
-    mask = torch.triu(torch.ones((T, T), dtype=torch.bool), diagonal=1)
+        B, T = route.shape
 
-    # Expand for batch
-    route_exp = route[:, :, None]              # (B, T, 1)
-    future_exp = route[:, None, :]             # (B, 1, T)
+        # Create a (T, T) upper triangle mask (i < j)
+        mask = torch.triu(torch.ones((T, T), dtype=torch.bool), diagonal=1)
 
-    # Compare: where future != current and time is in the future
-    change_mask = (route_exp != future_exp) & mask[None, :, :]  # (B, T, T)
+        # Expand for batch
+        route_exp = route[:, :, None]              # (B, T, 1)
+        future_exp = route[:, None, :]             # (B, 1, T)
 
-    # For each position, get first True index in time (axis=2)
-    first_change_idx = change_mask.to(torch.int).argmax(axis=2)  # (B, T)
+        # Compare: where future != current and time is in the future
+        change_mask = (route_exp != future_exp) & mask[None, :, :]  # (B, T, T)
 
-    changing_point=routing_idx[torch.arange(len(first_change_idx))[:,None],first_change_idx]
-    changing_valid=valid_mask[torch.arange(len(first_change_idx))[:,None],first_change_idx]
+        # For each position, get first True index in time (axis=2)
+        first_change_idx = change_mask.to(torch.int).argmax(axis=2)  # (B, T)
 
-    changing_valid[first_change_idx==0]=False
+        changing_point=routing_idx[torch.arange(len(first_change_idx))[:,None],first_change_idx]
+        changing_valid=valid_mask[torch.arange(len(first_change_idx))[:,None],first_change_idx]
 
+        changing_valid[first_change_idx==0]=False
 
-    changing_point_dir=lane_dir[changing_point]
+        changing_point_dir=lane_dir[changing_point]
 
-    changing_point_dir[~changing_valid]=torch.nan
-    cur_lane_dir[~valid_mask]=torch.nan
+        changing_point_dir[~changing_valid]=torch.nan
+        cur_lane_dir[~valid_mask]=torch.nan
 
-    diff_dir=changing_point_dir-cur_lane_dir
+        diff_dir=changing_point_dir-cur_lane_dir
+    else:
+        diff_dir=torch.zeros_like(heading)+torch.nan
 
     return {"diff_dir":diff_dir}
 
@@ -214,7 +216,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[:1]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[35:]
     # func = partial(
     #     wm2argo,
     #     split=split,
@@ -242,12 +244,12 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    )
+    # batch_process9s_transformer(
+    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    # )
     batch_process9s_transformer(
         args.input_dir, args.output_dir, 'validation', num_workers=args.num_workers
     )
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, 'testing', num_workers=args.num_workers
-    )
+    # batch_process9s_transformer(
+    #     args.input_dir, args.output_dir, 'testing', num_workers=args.num_workers
+    # )
