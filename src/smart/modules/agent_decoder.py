@@ -178,12 +178,6 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_embedding=nn.Embedding(self.light_type,hidden_dim)
 
-            # self.r_lg2a_emb = FourierEmbedding(
-            #     input_dim=input_dim_r_pt2a,
-            #     hidden_dim=hidden_dim,
-            #     num_freq_bands=num_freq_bands,
-            # )
-            #
             # self.lg_t_emb = FourierEmbedding(
             #     input_dim=1,
             #     hidden_dim=hidden_dim,
@@ -223,7 +217,19 @@ class SMARTAgentDecoder(nn.Module):
             )
 
             self.light_token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.light_type
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3
+            )
+
+        self.pred_route=False
+
+        if self.pred_route:
+
+            self.route_type=11
+
+            self.route_embedding=nn.Embedding(self.route_type,hidden_dim)
+
+            self.route_token_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.route_type-1
             )
 
     def agent_token_embedding(
@@ -592,50 +598,8 @@ class SMARTAgentDecoder(nn.Module):
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100
             )
-            #
-            # predicted_tokens = light_idx.clone()
-            # lg_features =[]
-            # next_light_logits=[]
-            #
-            # for t in range(1, light_idx.shape[1]+1):
-            #
-            #     light_idx = predicted_tokens[:, :t]
-            #
-            #     light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
-            #
-            #     mask = light_idx < 3
-            #
-            #     inference_mask = mask.clone()
-            #
-            #     inference_mask[:, :-1] = False
-            #
-            #     lg_r_t, lg_edge_index_t = self.build_temporal_lg_edge(mask, inference_mask=inference_mask)
-            #
-            #     lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
-            #
-            #     feat_lg1 = self.lg_temp_layer((light_embedding.flatten(0, 1), light_embedding[:, -1]), lg_r_t,
-            #                                  lg_edge_index_t)
-            #
-            #     lg_features.append(feat_lg1)
-            #
-            #     logits = self.light_token_predict_head(feat_lg1)
-            #
-            #     next_light_logits.append(logits)
-            #
-            #     if t<light_idx.shape[1]:
-            #
-            #         cat_dist = Categorical(logits=logits / self.alpha)
-            #
-            #         samples = cat_dist.sample()  # [n_agent] in K
-            #
-            #         predicted_tokens[:, t] = samples
-            #
-            #
-            # next_light_logits = torch.stack(next_light_logits, dim=1)
-            # feat_lg=torch.stack(lg_features, dim=1)
 
             next_light_logits =self.light_token_predict_head(feat_lg)
-
 
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
@@ -649,6 +613,12 @@ class SMARTAgentDecoder(nn.Module):
                 feat_a = self.lg2a_attn_layers[i](
                     (feat_lg, feat_a), r_lg2a, edge_index_lg2a
                 )
+            if self.pred_route:
+                next_route_logits=self.route_token_predict_head(feat_a).view(n_agent, n_step, -1)
+                route_idx=tokenized_agent["route_idx"]
+                route_embedding=self.route_embedding(route_idx)
+                feat_a=feat_a+route_embedding.view(-1, feat_a.shape[-1])
+
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
@@ -666,22 +636,28 @@ class SMARTAgentDecoder(nn.Module):
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
 
+        if self.pred_route:
+            next_route_logits = torch.cat(
+                [next_route_logits, -torch.inf + torch.zeros([next_route_logits.shape[0], next_route_logits.shape[1],
+                                                              next_token_logits.shape[2] - next_route_logits.shape[2]],
+                                                             device=next_route_logits.device)], dim=-1)
+
+            next_token_logits = torch.cat([next_token_logits, next_route_logits], dim=0)
+
         if self.pred_light:
             next_light_logits = torch.cat(
                 [next_light_logits, -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],
                                                               next_token_logits.shape[2] - next_light_logits.shape[2]],
                                                              device=next_light_logits.device)], dim=-1)
 
-            q_value = torch.cat([next_token_logits, next_light_logits], dim=0)[:, 1:]
-        else:
-            q_value = next_token_logits[:, 1:]
+            next_token_logits = torch.cat([next_token_logits, next_light_logits], dim=0)
 
         if "gt_pos_raw" not in tokenized_agent.keys():
             return {
                 # action that goes from [(10->15), ..., (85->90)]
                 "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
                  "feat_a": feat_a[:, 1:-1],
-                 "q_value": q_value,
+                 "q_value": next_token_logits[:, 1:],
              }
         else:
             return {
@@ -703,6 +679,7 @@ class SMARTAgentDecoder(nn.Module):
                 "feat_a": feat_a[:, 1:-1],
                 "q_value": q_value
             }
+
 
     def autoregressive_light_prediction(self, initial_token, map_feature,max_len,num_graphs):
         B = initial_token.shape[0]
@@ -735,7 +712,7 @@ class SMARTAgentDecoder(nn.Module):
 
             light_embedding = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
 
-            light_mask=light_idx<500
+            light_mask=light_idx<3
 
             if t==current_len:
 

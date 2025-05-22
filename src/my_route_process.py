@@ -52,7 +52,6 @@ def decode_map_features_from_proto(map_features):
         feature = getattr(mf, feature_data_type)
         if feature_data_type == "lane":
             if len(feature.polyline) > 1:
-
                 cur_polyline = np.stack(
                     [
                         np.array([p.x, p.y, len(polylines)])

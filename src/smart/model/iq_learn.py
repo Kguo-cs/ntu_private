@@ -108,14 +108,21 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
+        valid_mask = tokenized_agent["valid_mask"]
+        action=tokenized_agent["sampled_idx"][:, 2:]
+
+        if self.encoder.agent_encoder.pred_route:
+            action = torch.cat([action,tokenized_agent["route_idx"][:, 2:]])
+            valid_mask = torch.cat([valid_mask,tokenized_agent["route_valid_mask"]])
+
         if self.encoder.agent_encoder.pred_light:
-            action = torch.cat([tokenized_agent["sampled_idx"][:, 2:],tokenized_agent["light_idx"][:, 2:]]).reshape(-1)
+            action = torch.cat([action,tokenized_agent["light_idx"][:, 2:]])
 
-            valid_mask =  torch.cat([tokenized_agent["valid_mask"][:, 1:], tokenized_agent["light_valid_mask"][:, 1:]])
-        else:
-            action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
+            valid_mask =  torch.cat([valid_mask, tokenized_agent["light_valid_mask"]])
 
-            valid_mask = tokenized_agent["valid_mask"][:, 1:]
+        action=action.reshape(-1)
+
+        valid_mask=valid_mask[:,1:]
 
         state_mask = valid_mask[:, :-1]
 
@@ -298,9 +305,10 @@ class IQ_SoftQ(LightningModule):
 
             light_idx=self.token_processor.light_token_last[light_idx]
 
-            light_mask=light_idx<500
+            light_mask=light_idx<3
 
             light_pred_mask=torch.ones_like(light_idx[:,0]).to(torch.bool)
+
 
             # light_pred_mask=torch.zeros_like(light_mask[:,0])
             #
@@ -325,6 +333,20 @@ class IQ_SoftQ(LightningModule):
             tokenized_map["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]
             tokenized_map["orient_lg"]=tokenized_light["light_orient"][light_pred_mask]
             tokenized_map["batch_lg"]=tokenized_light["batch"][light_pred_mask]
+
+        if self.encoder.agent_encoder.pred_route:
+            route=[]
+            for scenario_id in data["scenario_id"]:
+                route_idx=self.token_processor.training_route[scenario_id]//10
+                route_idx[:,:2] = -1
+                route.append(route_idx)
+
+            route=torch.cat(route).long().to(agent_shape.device)
+
+            route[route==-1]=10
+
+            tokenized_agent["route_idx"] = route
+            tokenized_agent["route_valid_mask"]=route!=10
 
         return tokenized_map, tokenized_agent
 

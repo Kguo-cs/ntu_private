@@ -55,4 +55,5 @@ class MultiDataset(Dataset):
             data["tfrecord_path"] = (
                 self._tfrecord_dir / (data["scenario_id"] + ".tfrecords")
             ).as_posix()
+        data["scenario_id"] = self.raw_paths[idx].split('/')[-1][:-4]
         return data
