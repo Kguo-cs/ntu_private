@@ -116,7 +116,7 @@ class WOSACMetrics(Metric):
                     self.wosac_config, _scenario, _scenario_rollout, self.ego_only
                 )
             )
-
+        print('finished computing scenario metrics')
 
         for scenario_metrics in pool_scenario_metrics:
             self.scenario_counter += 1
