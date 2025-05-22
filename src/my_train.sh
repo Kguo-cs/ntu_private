@@ -12,4 +12,4 @@ source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
-python -m torch.distributed.run --nproc_per_node=4 --master_port=29502 run.py > cat12.log  2>&1
+python -m torch.distributed.run --nproc_per_node=4 --master_port=29502 run.py > cat112.log  2>&1
