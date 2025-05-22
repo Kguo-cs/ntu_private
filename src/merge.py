@@ -20,5 +20,6 @@ for filename in tqdm(files):
     route_idx=training_route[filename[:-4]]
     data['tokenized_agent']['route_idx']=route_idx
 
+    output_path="./waymo_data/full/training_route/"+filename
     with open(input_path, "wb") as f:
         pickle.dump(data, f)

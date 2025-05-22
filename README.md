@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=11:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=6:00:00 -P 12002486
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
@@ -24,7 +24,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light ke@10.87.216.98
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/trainingroute.pkl shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo

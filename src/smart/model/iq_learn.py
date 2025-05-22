@@ -336,18 +336,14 @@ class IQ_SoftQ(LightningModule):
             tokenized_map["batch_lg"]=tokenized_light["batch"][light_pred_mask]
 
         if self.encoder.agent_encoder.pred_route:
-            route=[]
-            for scenario_id in data["scenario_id"]:
-                route_idx=self.token_processor.training_route[scenario_id]//10
-                route_idx[:,:2] = -1
-                route.append(route_idx)
 
-            route=torch.cat(route).long().to(agent_shape.device)
+            route_idx= tokenized_agent["route_idx"]
+            route_idx[:, :2] = -1
 
-            route[route==-1]=10
+            route_idx[route_idx==-1]=10
 
-            tokenized_agent["route_idx"] = route
-            tokenized_agent["route_valid_mask"]=route!=10
+            tokenized_agent["route_idx"] = route_idx
+            tokenized_agent["route_valid_mask"]=route_idx!=10
 
         return tokenized_map, tokenized_agent
 
