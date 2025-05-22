@@ -334,7 +334,6 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_route:
 
-            print(torch.max(agent["route_idx"]))
 
             route_idx= agent["route_idx"]//(120//self.encoder.agent_encoder.route_type)
             route_idx[:, :2] = -1
