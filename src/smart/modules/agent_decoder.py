@@ -677,7 +677,7 @@ class SMARTAgentDecoder(nn.Module):
                 "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
                 "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18],
                 "feat_a": feat_a[:, 1:-1],
-                "q_value": q_value
+                "q_value": next_token_logits[:, 1:]
             }
 
 
