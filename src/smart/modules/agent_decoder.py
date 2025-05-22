@@ -599,7 +599,7 @@ class SMARTAgentDecoder(nn.Module):
                 pl2a_radius=100
             )
 
-            next_light_logits =self.light_token_predict_head(feat_lg)
+            next_light_logits =self.light_token_predict_head(feat_lg1)
 
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
