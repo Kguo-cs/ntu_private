@@ -172,7 +172,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.lg_time_span=time_span
 
-            self.light_type=5
+            self.light_type=261
 
             self.light_dropout=0
 
@@ -223,7 +223,7 @@ class SMARTAgentDecoder(nn.Module):
             )
 
             self.light_token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=5
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=261
             )
 
     def agent_token_embedding(

@@ -294,10 +294,11 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.agent_encoder.pred_light:
 
             tokenized_light=data["tokenized_light"]
+            light_idx=tokenized_light["light_idx"].long()
 
-            light_idx=self.token_processor.light_token_last[tokenized_light["light_idx"].long()]
+            # light_idx=self.token_processor.light_token_last[tokenized_light["light_idx"].long()]
 
-            light_mask=light_idx<5
+            light_mask=light_idx<500
 
             light_pred_mask=torch.ones_like(light_idx[:,0]).to(torch.bool)
 
