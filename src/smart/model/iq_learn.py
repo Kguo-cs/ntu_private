@@ -336,12 +336,12 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_route:
 
-            route_idx= tokenized_agent["route_idx"]//10
+            route_idx= agent["route_idx"]//10
             route_idx[:, :2] = -1
 
             route_idx[route_idx==-1]=10
 
-            tokenized_agent["route_idx"] = route_idx
+            tokenized_agent["route_idx"] = route_idx.long()
             tokenized_agent["route_valid_mask"]=route_idx!=10
 
         return tokenized_map, tokenized_agent
