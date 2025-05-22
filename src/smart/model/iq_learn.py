@@ -116,7 +116,6 @@ class IQ_SoftQ(LightningModule):
 
         agent_num=len(valid_mask)
 
-
         if self.encoder.agent_encoder.pred_light:
             action = torch.cat([action,tokenized_agent["light_idx"][:, 2:]])
 
@@ -337,7 +336,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_route:
 
-            route_idx= tokenized_agent["route_idx"]
+            route_idx= tokenized_agent["route_idx"]//10
             route_idx[:, :2] = -1
 
             route_idx[route_idx==-1]=10
