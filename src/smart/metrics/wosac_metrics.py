@@ -91,31 +91,31 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
-        if  'ntu' in working_dir:
-            if not self.is_mp_init:
-                self.is_mp_init = True
-                mp.set_start_method("forkserver", force=True)
-
-            with mp.Pool(processes=os.cpu_count()) as pool:
-                pool_scenario_metrics = pool.starmap(
-                    self._compute_scenario_metrics,
-                    zip(
-                        itertools.repeat(self.wosac_config),
-                        scenario_files,
-                        scenario_rollouts,
-                        itertools.repeat(self.ego_only),
-                    ),
+        # if os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and 'ntu' in working_dir:
+        #     if not self.is_mp_init:
+        #         self.is_mp_init = True
+        #         mp.set_start_method("forkserver", force=True)
+        #
+        #     with mp.Pool(processes=os.cpu_count()) as pool:
+        #         pool_scenario_metrics = pool.starmap(
+        #             self._compute_scenario_metrics,
+        #             zip(
+        #                 itertools.repeat(self.wosac_config),
+        #                 scenario_files,
+        #                 scenario_rollouts,
+        #                 itertools.repeat(self.ego_only),
+        #             ),
+        #         )
+        #         pool.close()
+        #         pool.join()
+        # else:
+        pool_scenario_metrics = []
+        for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
+            pool_scenario_metrics.append(
+                self._compute_scenario_metrics(
+                    self.wosac_config, _scenario, _scenario_rollout, self.ego_only
                 )
-                pool.close()
-                pool.join()
-        else:
-            pool_scenario_metrics = []
-            for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
-                pool_scenario_metrics.append(
-                    self._compute_scenario_metrics(
-                        self.wosac_config, _scenario, _scenario_rollout, self.ego_only
-                    )
-                )
+            )
 
 
         for scenario_metrics in pool_scenario_metrics:
