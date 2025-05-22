@@ -107,23 +107,21 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        valid_mask = tokenized_agent["valid_mask"]
+        valid_mask = tokenized_agent["valid_mask"][:,1:]
         action=tokenized_agent["sampled_idx"][:, 2:]
 
         if self.encoder.agent_encoder.pred_route:
             action = torch.cat([action,tokenized_agent["route_idx"][:, 1:-1]])
-            valid_mask = torch.cat([valid_mask,tokenized_agent["route_valid_mask"]])
+            valid_mask = torch.cat([valid_mask,tokenized_agent["route_valid_mask"][:,:-1]])
 
         agent_num=len(valid_mask)
 
         if self.encoder.agent_encoder.pred_light:
             action = torch.cat([action,tokenized_agent["light_idx"][:, 2:]])
 
-            valid_mask =  torch.cat([valid_mask, tokenized_agent["light_valid_mask"]])
+            valid_mask =  torch.cat([valid_mask, tokenized_agent["light_valid_mask"][:,1:]])
 
         action=action.reshape(-1)
-
-        valid_mask=valid_mask[:,1:]
 
         state_mask = valid_mask[:, :-1]
 
