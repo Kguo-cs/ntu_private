@@ -16,7 +16,7 @@ model_checkpoint:
   monitor: "val_closed/wosac_likelihood/metametric"
   verbose: false
   save_last: true
-  save_top_k: 1
+  save_top_k: 3
   mode: "max"
   auto_insert_metric_name: false
   save_weights_only: false

@@ -123,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
         action=action.reshape(-1)
 
-        state_mask = valid_mask[:, :-1]
+        state_mask = torch.ones_like(valid_mask[:, :-1])
 
         action_mask= valid_mask[:, 1:]
 
@@ -176,13 +176,13 @@ class IQ_SoftQ(LightningModule):
 
         reward = reward[state_action_mask]
 
-        current_Q_diff=(current_Q-current_returns)[state_mask.all(-1)]
+        current_Q_diff=(current_Q-current_returns)[valid_mask.all(-1)]
 
-        current_V_diff=(current_V-current_returns)[state_mask.all(-1)]
+        current_V_diff=(current_V-current_returns)[valid_mask.all(-1)]
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
-        V_diff=(V-target_V)[valid_mask]
+        V_diff=(V-target_V)#[valid_mask]
 
         current_V=current_V[state_mask]
 
@@ -227,8 +227,6 @@ class IQ_SoftQ(LightningModule):
             elif div=='exp':
                 critic_loss = (-expert_reward ).exp().mean()+ agent_reward.exp().mean()
             elif div=='rkl':
-                # phi_grad = torch.exp(-expert_reward).detach()
-                # critic_loss =  -(phi_grad*expert_reward).mean()+agent_reward.mean()
                 critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_reward.mean()
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()

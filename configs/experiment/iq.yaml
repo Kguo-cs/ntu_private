@@ -31,10 +31,10 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.000005
-  max_epochs: 32
+  max_epochs: 64
 
 data:
-  train_batch_size: 62
+  train_batch_size: 64
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 28
