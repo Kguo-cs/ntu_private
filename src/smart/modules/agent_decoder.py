@@ -562,7 +562,7 @@ class SMARTAgentDecoder(nn.Module):
                 dim=0,
             )
 
-            light_mask=tokenized_agent["light_valid_mask"]
+            light_mask=light_idx<3
 
             feat_lg = self.light_embedding(light_idx).reshape(-1,self.hidden_dim)  # [B, L, D]
 
