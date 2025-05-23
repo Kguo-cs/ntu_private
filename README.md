@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=2:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=3:00:00 -P 12002486
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
@@ -20,11 +20,11 @@ rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_s
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_route1 ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/testing shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/trainingroute.pkl zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/test zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/trainingroute.pkl shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc_shareaptemp100_pt10_layer24_35/2025-05-23_10-33-36/sim/gi8wv02d/checkpoints/epoch=35-step=57074-acc=0.8069.ckpt ./
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
