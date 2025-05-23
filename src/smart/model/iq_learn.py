@@ -121,8 +121,10 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.agent_encoder.pred_light:
             action = torch.cat([action,tokenized_agent["light_idx"][:, 2:]])
 
-            valid_mask =  torch.cat([valid_mask, tokenized_agent["light_valid_mask"][:,1:]])
-            state_mask=torch.cat([state_mask,tokenized_agent["light_valid_mask"][:,1:-1]])
+            light_valid_mask=tokenized_agent["light_idx"]<3
+
+            valid_mask =  torch.cat([valid_mask, light_valid_mask[:,1:]])
+            state_mask=torch.cat([state_mask,light_valid_mask[:,1:-1]])
 
         action=action.reshape(-1)
         action_mask= valid_mask[:, 1:]
