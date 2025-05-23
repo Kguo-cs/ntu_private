@@ -182,7 +182,7 @@ class IQ_SoftQ(LightningModule):
 
         last_V=V[:,-1][valid_mask[:,-1]]
 
-        V_diff=(V-target_V)#[valid_mask]
+        V_diff=(V-target_V)[valid_mask]
 
         current_V=current_V[state_mask]
 
