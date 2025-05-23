@@ -25,7 +25,7 @@ model:
       temp: 1.0
 #    val_closed_loop: False
 
-ckpt_path: './logs/bc_shareaptemp100_pt10_layer24_route10/2025-05-22_22-19-01/sim/ajf1dx68/checkpoints/epoch=33-step=64702-acc=0.8082.ckpt'
+ckpt_path: './logs/bc_shareaptemp100_pt10_layer24_route10/2025-05-22_22-19-01/sim/ajf1dx68/checkpoints/epoch=25-step=49478-acc=0.8085.ckpt'
 #ckpt_path: './logs/bc_shareaptemp100_pt10_layer24/2025-05-22_22-16-02/sim/klso3md5/checkpoints/epoch=33-step=51748-acc=0.8068.ckpt'
 
 trainer:
