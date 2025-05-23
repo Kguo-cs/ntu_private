@@ -220,7 +220,7 @@ class SMARTAgentDecoder(nn.Module):
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3
             )
 
-        self.pred_route=False
+        self.pred_route=True
 
         if self.pred_route:
 
