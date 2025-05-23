@@ -25,7 +25,7 @@ model:
       temp: 1.0
     finetune: true
 
-ckpt_path: './logs/bc_shareaptemp100_pt10_layer24/2025-05-22_22-16-02/sim/klso3md5/checkpoints/epoch=33-step=51748-acc=0.8068.ckpt'
+ckpt_path: './logs/bc_shareaptemp100_pt10_layer24/2025-05-23_10-13-51/sim/lqv66h7j/checkpoints/epoch=33-step=54030-acc=0.8078.ckpt'
 
 trainer:
   limit_train_batches: 1.0
