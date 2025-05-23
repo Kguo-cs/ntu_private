@@ -176,7 +176,7 @@ class IQ_SoftQ(LightningModule):
             target_V = 1 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
 
-        reward = reward[valid_mask]#use agent mask
+        reward = reward[state_action_mask]#use agent mask
 
         current_Q_diff=(current_Q-current_returns)[valid_mask.all(-1)]
 
