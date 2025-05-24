@@ -73,21 +73,11 @@ class SMARTAgentDecoder(nn.Module):
         input_dim_r_a2a = 3
         input_dim_token = 8
 
-        self.type_a_emb = nn.Embedding(3, hidden_dim)
-        self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
+        self.alpha=0.1
 
-        self.x_a_emb = FourierEmbedding(
-            input_dim=input_dim_x_a,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
+        self.pred_agent=True
         self.r_t_emb = FourierEmbedding(
             input_dim=input_dim_r_t,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
-        self.r_pt2a_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2a,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
@@ -96,77 +86,81 @@ class SMARTAgentDecoder(nn.Module):
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
-        self.token_emb_veh = MLPEmbedding(
-            input_dim=input_dim_token, hidden_dim=hidden_dim
-        )
-        self.token_emb_ped = MLPEmbedding(
-            input_dim=input_dim_token, hidden_dim=hidden_dim
-        )
-        self.token_emb_cyc = MLPEmbedding(
-            input_dim=input_dim_token, hidden_dim=hidden_dim
-        )
-        self.fusion_emb = MLPEmbedding(
-            input_dim=self.hidden_dim * 2, hidden_dim=self.hidden_dim
-        )
 
-        self.t_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-        self.pt2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=True,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-        self.a2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
+        if self.pred_agent:
 
-        self.use_latent=use_latent
+            self.type_a_emb = nn.Embedding(3, hidden_dim)
+            self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
 
-        latent_dim=16
+            self.x_a_emb = FourierEmbedding(
+                input_dim=input_dim_x_a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
+            self.r_pt2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_pt2a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
+            self.token_emb_veh = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.token_emb_ped = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.token_emb_cyc = MLPEmbedding(
+                input_dim=input_dim_token, hidden_dim=hidden_dim
+            )
+            self.fusion_emb = MLPEmbedding(
+                input_dim=self.hidden_dim * 2, hidden_dim=self.hidden_dim
+            )
 
-        self.alpha=0.1
+            self.t_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+            self.pt2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+            self.a2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
-        self.token_predict_head = MLPLayer(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-        )
 
-        if  use_latent:
-            self.latent_embedding= MLPLayer(
-                    input_dim=latent_dim, hidden_dim=hidden_dim, output_dim=hidden_dim
-                )
+            self.token_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+            )
 
-        self.apply(weight_init)
-
-        self.pred_light=True
+        self.pred_light=False
 
         if self.pred_light:
 
@@ -201,24 +195,26 @@ class SMARTAgentDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                         )
-
-            self.lg2a_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=self.light_dropout,
-                        bipartite=True,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
-
+            
             self.light_token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim= 3
             )
+            
+            if self.pred_agent:
+                self.lg2a_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=self.light_dropout,
+                            bipartite=True,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
+
 
         self.pred_route=False
 
@@ -231,6 +227,9 @@ class SMARTAgentDecoder(nn.Module):
             self.route_token_predict_head = MLPLayer(
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.route_type
             )
+
+
+        self.apply(weight_init)
 
     def agent_token_embedding(
         self,
@@ -475,12 +474,59 @@ class SMARTAgentDecoder(nn.Module):
         self,
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
-        latent_feature=None,
-        get_latent_dist=False,
-        n_step=None
     ) -> Dict[str, torch.Tensor]:
-        if n_step is None:
-            n_step=tokenized_agent["sampled_pos"].shape[1]
+
+        if self.pred_light:
+            n_step=tokenized_agent["light_idx"].shape[1]
+
+            light_idx=tokenized_agent["light_idx"]
+            pos_lg=tokenized_agent["pos_lg"]
+            head_lg=tokenized_agent["orient_lg"]
+            batch_lg = tokenized_agent["batch_lg"]
+            head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
+
+            batch_lg = torch.cat(
+                [
+                    batch_lg + tokenized_agent["num_graphs"] * t
+                    for t in range(n_step)
+                ],
+                dim=0,
+            )
+
+            light_mask=light_idx<3
+
+            feat_lg = self.light_embedding(light_idx).reshape(-1,self.hidden_dim)  # [B, L, D]
+
+            lg_edge_index_t,  lg_r_t = self.build_temporal_edge(
+                    pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                    head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
+                    head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                    mask=light_mask,  # [n_agent, n_step]
+                 )
+
+            feat_lg = self.lg_temp_layer(feat_lg, lg_r_t, lg_edge_index_t)
+
+            edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
+                pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
+                head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                batch_s=batch_lg,  # [n_agent*n_step]
+                mask=light_mask  # [n_agent, n_step]
+            )
+
+            feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
+
+            feat_lg=feat_lg.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
+
+            next_light_logits =self.light_token_predict_head(feat_lg)
+
+
+        if not self.pred_agent:
+            return {
+                "q_value": next_light_logits[:, 1:],
+             }
+
+        n_step = tokenized_agent["sampled_idx"].shape[1]
         mask = tokenized_agent["valid_mask"][:,:n_step]
         pos_a = tokenized_agent["sampled_pos"][:,:n_step]
         head_a = tokenized_agent["sampled_heading"][:,:n_step]
@@ -498,9 +544,6 @@ class SMARTAgentDecoder(nn.Module):
             agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
-
-        if latent_feature is not None:
-            feat_a=feat_a+self.latent_embedding(latent_feature)[:,None]
 
         # ! build temporal, interaction and map2agent edges
         edge_index_t, r_t = self.build_temporal_edge(
@@ -546,47 +589,7 @@ class SMARTAgentDecoder(nn.Module):
         feat_map = (
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
         )
-
         if self.pred_light:
-            light_idx=tokenized_agent["light_idx"]
-            pos_lg=map_feature["pos_lg"]
-            head_lg=map_feature["orient_lg"]
-            batch_lg = map_feature["batch_lg"]
-            head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
-
-            batch_lg = torch.cat(
-                [
-                    batch_lg + tokenized_agent["num_graphs"] * t
-                    for t in range(n_step)
-                ],
-                dim=0,
-            )
-
-            light_mask=light_idx<3
-
-            feat_lg = self.light_embedding(light_idx).reshape(-1,self.hidden_dim)  # [B, L, D]
-
-            lg_edge_index_t,  lg_r_t = self.build_temporal_edge(
-                    pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-                    head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
-                    head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-                    mask=light_mask,  # [n_agent, n_step]
-                 )
-
-            feat_lg = self.lg_temp_layer(feat_lg, lg_r_t, lg_edge_index_t)
-
-            edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
-                pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-                head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
-                head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-                batch_s=batch_lg,  # [n_agent*n_step]
-                mask=light_mask  # [n_agent, n_step]
-            )
-
-            feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
-
-            feat_lg1=feat_lg.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
-
             edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
                 pos_pl=pos_lg,  # [n_pl, 2]
                 orient_pl=head_lg,  # [n_pl]
@@ -598,9 +601,6 @@ class SMARTAgentDecoder(nn.Module):
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100
             )
-
-            next_light_logits =self.light_token_predict_head(feat_lg1)
-
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
             feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
@@ -626,17 +626,6 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
-        if get_latent_dist :
-            latent = torch.amax(feat_a,dim=1)
-
-            mean=self.token_predict_head(latent)
-
-            log_std=torch.zeros_like(mean)
-
-            latent_dist=DiagGaussian(mean, log_std)
-
-            return latent_dist
-
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -661,7 +650,6 @@ class SMARTAgentDecoder(nn.Module):
             return {
                 # action that goes from [(10->15), ..., (85->90)]
                 "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-                 "feat_a": feat_a[:, 1:-1],
                  "q_value": next_token_logits[:, 1:],
              }
         else:
@@ -681,13 +669,13 @@ class SMARTAgentDecoder(nn.Module):
                 "gt_pos": tokenized_agent["gt_pos"],  # [n_agent, 18, 2]
                 "gt_head": tokenized_agent["gt_heading"],  # [n_agent, 18]
                 "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18],
-                "feat_a": feat_a[:, 1:-1],
                 "q_value": next_token_logits[:, 1:]
             }
 
-    def autoregressive_light_prediction(self, initial_token, map_feature,max_len,num_graphs):
+    def autoregressive_light_prediction(self, initial_token, tokenized_agent,max_len):
         B = initial_token.shape[0]
         current_len=initial_token.shape[1]
+        num_graphs=tokenized_agent["num_graphs"]
 
         device=initial_token.device
         predicted_tokens = torch.zeros(B, max_len+current_len, dtype=torch.long, device=device)
@@ -697,10 +685,10 @@ class SMARTAgentDecoder(nn.Module):
 
         # Static map features
 
-        pos_lg = map_feature["pos_lg"]
-        head_lg = map_feature["orient_lg"]
+        pos_lg = tokenized_agent["pos_lg"]
+        head_lg = tokenized_agent["orient_lg"]
         head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
-        batch_lg=map_feature["batch_lg"]
+        batch_lg=tokenized_agent["batch_lg"]
 
         edge_index_lg2lg, r_lg2lg = self.build_interaction_edge(
             pos_a=pos_lg[:, None],  # [n_agent, hist_step, 2]
@@ -783,14 +771,22 @@ class SMARTAgentDecoder(nn.Module):
         self,
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
-        sampling_scheme: DictConfig,
-        latent_feature=None
+        sampling_scheme: DictConfig
     ) -> Dict[str, torch.Tensor]:
-        n_agent = tokenized_agent["valid_mask"].shape[0]
         n_step_future_10hz = self.num_future_steps  # 80
         n_step_future_2hz = n_step_future_10hz // self.shift  # 16
         step_current_10hz = self.num_historical_steps - 1  # 10
         step_current_2hz = step_current_10hz // self.shift  # 2
+
+        if self.pred_light:
+            light_idx=tokenized_agent["light_idx"][:, :step_current_2hz]
+
+            pred_light_idx,lg_features=self.autoregressive_light_prediction(light_idx,tokenized_agent,n_step_future_2hz)
+
+        if not self.pred_agent:
+            return {"light_idx":pred_light_idx}
+
+        n_agent = tokenized_agent["valid_mask"].shape[0]
 
         pos_a = tokenized_agent["gt_pos"][:, :step_current_2hz].clone()
         head_a = tokenized_agent["gt_heading"][:, :step_current_2hz].clone()
@@ -819,14 +815,9 @@ class SMARTAgentDecoder(nn.Module):
             inference=True,
         )
 
-        if latent_feature is not None:
 
-            latent_embedding=self.latent_embedding(latent_feature)
 
-        if self.pred_light:
-            light_idx=tokenized_agent["light_idx"][:, :step_current_2hz]
 
-            pred_light_idx,lg_features=self.autoregressive_light_prediction(light_idx,map_feature,n_step_future_2hz,tokenized_agent["num_graphs"])
 
         if not self.training:
             pred_traj_10hz = torch.zeros(
@@ -931,11 +922,6 @@ class SMARTAgentDecoder(nn.Module):
             for i in range(self.num_layers):
                 # [n_agent, n_step, hidden_dim]
                 _feat_temporal = feat_a if i == 0 else feat_a_t_dict[i]
-                if latent_feature is not None:
-                    if t==0:
-                        _feat_temporal+=latent_embedding[:,None]
-                    else:
-                        _feat_temporal[:,-1]+=latent_embedding
 
                 if t == 0:  # init, process hist_step together
                     _feat_temporal = self.t_attn_layers[i](

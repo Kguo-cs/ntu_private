@@ -45,42 +45,44 @@ class SMARTMapDecoder(nn.Module):
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
+        self.use_map=True
 
-        self.type_pt_emb = nn.Embedding(10, hidden_dim)
-        self.polygon_type_emb = nn.Embedding(4, hidden_dim)
-        self.light_pl_emb = nn.Embedding(5, hidden_dim)
+        if self.use_map:
+            self.type_pt_emb = nn.Embedding(10, hidden_dim)
+            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+            self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
-        input_dim_r_pt2pt = 3
-        self.r_pt2pt_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2pt,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
+            input_dim_r_pt2pt = 3
+            self.r_pt2pt_emb = FourierEmbedding(
+                input_dim=input_dim_r_pt2pt,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
 
-        self.pt2pt_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
+            self.pt2pt_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
-        # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-        self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+            # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
+            self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-        self.use_lane=False
-        self.pt2pt_neighbor=pt2pt_neighbor
+            self.use_lane=False
+            self.pt2pt_neighbor=pt2pt_neighbor
 
-        if self.use_lane:
-            self.relPos_embed=MLPEmbedding(3+hidden_dim, hidden_dim)
+            if self.use_lane:
+                self.relPos_embed=MLPEmbedding(3+hidden_dim, hidden_dim)
 
-        self.apply(weight_init)
+            self.apply(weight_init)
 
     def build_map2map_edge(self,pos_pt,orient_pt,batch,radius=None):
 
@@ -114,6 +116,9 @@ class SMARTMapDecoder(nn.Module):
         return edge_index_pt2pt,r_pt2pt
 
     def forward(self, tokenized_map: Dict) -> Dict[str, torch.Tensor]:
+        if not self.use_map:
+            return {}
+
         pos_pt = tokenized_map["position"]
         orient_pt = tokenized_map["orientation"]
         pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
@@ -143,32 +148,10 @@ class SMARTMapDecoder(nn.Module):
         for i in range(self.num_layers):
             x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        if "pos_lg" in tokenized_map.keys():
-            pos_lg=tokenized_map["pos_lg"]
-            orient_lg=tokenized_map["orient_lg"]
-            batch_lg=tokenized_map["batch_lg"]
-
-            # edge_index_lg2lg,r_lg2lg =self.build_map2map_edge(pos_lg, orient_lg, batch_lg,radius=60)
-            #
-            # r_lg2lg = self.r_pt2pt_emb(continuous_inputs=r_lg2lg, categorical_embs=None)
-
-            return {
-                "pt_token": x_pt,
-                "position": pos_pt,
-                "orientation": orient_pt,
-                "batch": batch,
-
-                # "r_lg2lg":r_lg2lg,
-                # "edge_index_lg2lg":edge_index_lg2lg,
-                "pos_lg":pos_lg,
-                "orient_lg":orient_lg,
-                "batch_lg":batch_lg,
-            }
-        else:
-            return {
-                "pt_token": x_pt,
-                "position": pos_pt,
-                "orientation": orient_pt,
-                "batch": batch
-            }
+        return {
+            "pt_token": x_pt,
+            "position": pos_pt,
+            "orientation": orient_pt,
+            "batch": batch
+        }
 
