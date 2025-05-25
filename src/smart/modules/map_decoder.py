@@ -45,7 +45,7 @@ class SMARTMapDecoder(nn.Module):
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
-        self.use_map=True
+        self.use_map=False
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)

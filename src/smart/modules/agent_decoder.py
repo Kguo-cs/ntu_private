@@ -75,7 +75,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.alpha=0.1
 
-        self.pred_agent=True
+        self.pred_agent=False
         self.r_t_emb = FourierEmbedding(
             input_dim=input_dim_r_t,
             hidden_dim=hidden_dim,
@@ -160,7 +160,7 @@ class SMARTAgentDecoder(nn.Module):
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
             )
 
-        self.pred_light=False
+        self.pred_light=True
 
         if self.pred_light:
 
@@ -171,6 +171,8 @@ class SMARTAgentDecoder(nn.Module):
             self.light_dropout=0
 
             self.light_embedding=nn.Embedding(self.light_type,hidden_dim)
+
+            self.light_polyline_embedding=MLPEmbedding(input_dim=10, hidden_dim=hidden_dim)
 
             # self.lg_t_emb = FourierEmbedding(
             #     input_dim=1,
@@ -495,7 +497,24 @@ class SMARTAgentDecoder(nn.Module):
 
             light_mask=light_idx<3
 
-            feat_lg = self.light_embedding(light_idx).reshape(-1,self.hidden_dim)  # [B, L, D]
+            # random_light = torch.randint(low=0, high=3, size=light_idx.shape,device=light_idx.device).long()
+
+            # random_mask=torch.rand_like(light_idx.float()) > 0.5
+
+            noised_light_idx=light_idx.clone()
+
+            # noised_light_idx[random_mask]=random_light[random_mask]
+
+
+            feat_lg = self.light_embedding(noised_light_idx) # [B, L, D]
+
+            polyline_lg=tokenized_agent["polyline_lg"].reshape(-1,10,2)[:,1::2].reshape(-1,10)
+
+            feat_polyline_lg = self.light_polyline_embedding(polyline_lg)[:,None]
+
+            feat_lg=feat_lg+feat_polyline_lg
+
+            feat_lg=feat_lg.reshape(-1,self.hidden_dim)
 
             lg_edge_index_t,  lg_r_t = self.build_temporal_edge(
                     pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
@@ -522,6 +541,7 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if not self.pred_agent:
+
             return {
                 "q_value": next_light_logits[:, 1:],
              }
@@ -689,6 +709,9 @@ class SMARTAgentDecoder(nn.Module):
         head_lg = tokenized_agent["orient_lg"]
         head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
         batch_lg=tokenized_agent["batch_lg"]
+        polyline_lg=tokenized_agent["polyline_lg"].reshape(-1,10,2)[:,1::2].reshape(-1,10)
+
+        feat_polyline_lg = self.light_polyline_embedding(polyline_lg)[:,None]
 
         edge_index_lg2lg, r_lg2lg = self.build_interaction_edge(
             pos_a=pos_lg[:, None],  # [n_agent, hist_step, 2]
@@ -702,7 +725,7 @@ class SMARTAgentDecoder(nn.Module):
 
             light_idx = predicted_tokens[:, :t]
 
-            feat_lg = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
+            feat_lg = self.light_embedding(predicted_tokens[:, :t])+feat_polyline_lg  # [B, t, D]
 
             light_mask=light_idx<3
 
@@ -779,7 +802,7 @@ class SMARTAgentDecoder(nn.Module):
         step_current_2hz = step_current_10hz // self.shift  # 2
 
         if self.pred_light:
-            light_idx=tokenized_agent["light_idx"][:, :step_current_2hz]
+            light_idx=tokenized_agent["light_idx"][:, :step_current_2hz].clone()
 
             pred_light_idx,lg_features=self.autoregressive_light_prediction(light_idx,tokenized_agent,n_step_future_2hz)
 
@@ -814,10 +837,6 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],
             inference=True,
         )
-
-
-
-
 
         if not self.training:
             pred_traj_10hz = torch.zeros(

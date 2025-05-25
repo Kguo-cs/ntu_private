@@ -111,6 +111,39 @@ def get_agent_routes(data,map_infos):
 
 
 
+def interpolate_polyline(polyline: torch.Tensor, num_points: int = 10) -> torch.Tensor:
+    # Step 1: Compute segment lengths
+    segment_vectors = polyline[1:] - polyline[:-1]  # (N-1, 2)
+    segment_lengths = torch.norm(segment_vectors, dim=1)  # (N-1,)
+
+    total_length = segment_lengths.sum()
+    cumulative_lengths = torch.cat([torch.tensor([0.0], device=polyline.device), segment_lengths.cumsum(0)])  # (N,)
+
+    # Step 2: Interpolate positions along the total length
+    target_lengths = torch.linspace(0, total_length, steps=num_points)  # (num_points,)
+
+    # Step 3: For each target length, find which segment it falls in
+    points = []
+    for t_len in target_lengths:
+        seg_idx = torch.searchsorted(cumulative_lengths, t_len, right=True) - 1
+        seg_idx = torch.clamp(seg_idx, 0, len(segment_vectors) - 1)
+
+        seg_start = polyline[seg_idx]
+        seg_vec = segment_vectors[seg_idx]
+        seg_len = segment_lengths[seg_idx]
+
+        # Avoid division by zero
+        if seg_len > 0:
+            alpha = (t_len - cumulative_lengths[seg_idx]) / seg_len
+        else:
+            alpha = 0.0
+
+        point = seg_start + alpha * seg_vec
+        points.append(point)
+
+    return torch.stack(points)  # (num_points, 2)
+
+
 def process_light(map_infos,tf_lights,tf_current_light):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]#189
     polyline_index = [x["polyline_index"] for k in _polygon_types for x in map_infos[k]]#189
@@ -123,7 +156,7 @@ def process_light(map_infos,tf_lights,tf_current_light):
         current_light_ids=current_light_ids[in_lane]
 
     light_pos=np.zeros([len(current_light_ids),2])
-    light_polyline=np.zeros([len(current_light_ids),2,2])
+    light_polyline=np.zeros([len(current_light_ids),10,2])
     light_all = torch.zeros((len(current_light_ids), 90), dtype=torch.int8)
 
     for i, current_light_id in enumerate(current_light_ids):
@@ -131,13 +164,25 @@ def process_light(map_infos,tf_lights,tf_current_light):
 
         polyline_range=polyline_index[light_idx]
 
-        polyline=all_polylines[polyline_range[0]:polyline_range[1]]
+        polylines=all_polylines[polyline_range[0]:polyline_range[1]]
+        euclidean_dists = np.linalg.norm(polylines[1:, :2] - polylines[:-1, :2], axis=-1)
+        euclidean_dists = np.concatenate([[0], euclidean_dists])
 
-        start_pos=polyline[0]
+        dist_along_path=np.cumsum(euclidean_dists)
+
+        fxy = interp1d(dist_along_path, polylines, axis=0)
+
+        # Create an array of distances at which to interpolate
+        new_dist_along_path = np.arange(0, dist_along_path[-1], dist_along_path[-1]/10)
+        new_dist_along_path = np.concatenate(
+            [new_dist_along_path[1:], dist_along_path[[-1]]]
+        )
+        new_polylines = fxy(new_dist_along_path)
+
+        start_pos=polylines[0]
         light_pos[i]=start_pos
 
-        light_polyline[i][0]=polyline[len(polyline)//2]-start_pos
-        light_polyline[i][1]=polyline[-1]-start_pos
+        light_polyline[i]=new_polylines-start_pos[None]
 
     # light_all1 = torch.zeros([len(current_light_ids), 90],dtype=torch.int8)
     #
@@ -175,13 +220,12 @@ def process_light(map_infos,tf_lights,tf_current_light):
             if pd.notna(i) and pd.notna(s):
                 light_all[i, t] = s
 
-    light_all=light_all.reshape(-1,18,5)
-
+    light_idx=light_all[:,4::5]
 
     light={
-        "type": light_all,
-        "pos": torch.FloatTensor(light_pos),
-        "light_polyline": torch.FloatTensor(light_polyline).reshape(-1,4),
+        "light_idx": light_idx,
+        "light_pos": torch.FloatTensor(light_pos),
+        "light_orient": torch.FloatTensor(light_polyline).reshape(-1,20),
         "num_nodes": light_all.shape[0]
     }
     return light
@@ -197,7 +241,7 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         scenario = scenario_pb2.Scenario()
         scenario.ParseFromString(bytes(tf_data))
 
-        track_infos = decode_tracks_from_proto(scenario)
+        #track_infos = decode_tracks_from_proto(scenario)
         map_infos = decode_map_features_from_proto(scenario.map_features)
         dynamic_map_infos = decode_dynamic_map_states_from_proto(
             scenario.dynamic_map_states
@@ -208,16 +252,18 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         scenario_id = scenario.scenario_id
         tf_lights = process_dynamic_map(dynamic_map_infos)
         tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-        map_data = get_map_features(map_infos, tf_current_light)
+        # map_data = get_map_features(map_infos, tf_current_light)
+        #
+        # data = preprocess_map(map_data)
+        #
+        # data["agent"] = get_agent_features(
+        #     track_infos,
+        #     split=split,
+        #     num_historical_steps=current_time_index + 1,
+        #     num_steps=91,
+        # )
 
-        data = preprocess_map(map_data)
-
-        data["agent"] = get_agent_features(
-            track_infos,
-            split=split,
-            num_historical_steps=current_time_index + 1,
-            num_steps=91,
-        )
+        data={}
 
         data["light"]=process_light(map_infos,tf_lights,tf_current_light)
 
@@ -300,7 +346,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="testing")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
