@@ -75,7 +75,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.alpha=0.1
 
-        self.pred_agent=False
+        self.pred_agent=True
         self.r_t_emb = FourierEmbedding(
             input_dim=input_dim_r_t,
             hidden_dim=hidden_dim,
@@ -160,7 +160,7 @@ class SMARTAgentDecoder(nn.Module):
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
             )
 
-        self.pred_light=True
+        self.pred_light=False
 
         if self.pred_light:
 
@@ -241,8 +241,6 @@ class SMARTAgentDecoder(nn.Module):
             self.route_token_predict_head = MLPLayer(
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.route_type
             )
-
-
         self.apply(weight_init)
 
     def agent_token_embedding(

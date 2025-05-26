@@ -24,7 +24,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True#model_config.finetune
+        self.finetune = False#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -134,7 +134,7 @@ class IQ_SoftQ(LightningModule):
 
         # cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
 
-        state_action_mask = action_mask & state_mask
+        state_action_mask = valid_mask.all(-1)#action_mask & state_mask
 
         q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,action_mask)
 
@@ -212,56 +212,53 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        # diff=tokenized_agent["next_light_logits"]-tokenized_agent["next_light_logits1"]
+        if self.encoder.agent_encoder.pred_light:
+            real_light=tokenized_agent["light_idx"][:, 2:]
 
-        # self.log("train/pred_diff", diff.float().abs().max().item(), on_step=True, batch_size=1)
+            batch_lg=tokenized_agent["batch_lg"]
 
-        real_light=tokenized_agent["light_idx"][:, 2:]
+            batch_mask=batch_lg[:,None]==batch_lg[None]
 
-        batch_lg=tokenized_agent["batch_lg"]
+            real_light_mask=real_light<3
 
-        batch_mask=batch_lg[:,None]==batch_lg[None]
+            repeat_pred=tokenized_agent["light_idx"][:, 1:2].repeat(1,real_light.shape[1])
 
-        real_light_mask=real_light<3
+            repeat_light_acc=(repeat_pred==real_light)[real_light_mask]
 
-        repeat_pred=tokenized_agent["light_idx"][:, 1:2].repeat(1,real_light.shape[1])
+            self.log("train/repeat_light_acc", repeat_light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-        repeat_light_acc=(repeat_pred==real_light)[real_light_mask]
+            real_relation,real_relation_mask=self.compute_consistence(real_light,batch_mask)
 
-        self.log("train/repeat_light_acc", repeat_light_acc.float().mean().item(), on_step=True, batch_size=1)
+            repeat_relation,_=self.compute_consistence(repeat_pred,batch_mask)
 
-        real_relation,real_relation_mask=self.compute_consistence(real_light,batch_mask)
+            repeat_relation_acc=(real_relation==repeat_relation)[real_relation_mask]
 
-        repeat_relation,_=self.compute_consistence(repeat_pred,batch_mask)
-
-        repeat_relation_acc=(real_relation==repeat_relation)[real_relation_mask]
-        
-        self.log("train/repeat_relation_acc", repeat_relation_acc.float().mean().item(), on_step=True, batch_size=1)
-
-        tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
-
-        light_rollout=tokenized_agent_rollout["light_idx"][:, 2:]
-
-        light_acc = (light_rollout == real_light)
-
-        self.log("train/agent_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-
-        agent_relation,_=self.compute_consistence(light_rollout,batch_mask)
-
-        # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
-        # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
-
-        agent_relation_acc=(real_relation==agent_relation)[real_relation_mask]
-        
-        self.log("train/agent_relation_acc", agent_relation_acc.float().mean().item(), on_step=True, batch_size=1)
+            self.log("train/repeat_relation_acc", repeat_relation_acc.float().mean().item(), on_step=True, batch_size=1)
 
         if not self.finetune:
             loss =expert_nll
         else:
+            tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
+
+            light_rollout = tokenized_agent_rollout["light_idx"][:, 2:]
+
+            light_acc = (light_rollout == real_light)
+
+            self.log("train/agent_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
+
+            agent_relation, _ = self.compute_consistence(light_rollout, batch_mask)
+
+            # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
+            # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
+
+            agent_relation_acc = (real_relation == agent_relation)[real_relation_mask]
+
+            self.log("train/agent_relation_acc", agent_relation_acc.float().mean().item(), on_step=True, batch_size=1)
+
             agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'x2'
+            div = 'tv'
             alpha = 1
             eps = 1e-3
 
@@ -294,7 +291,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=1*expert_V_diff.square().mean()#
+            constraint_loss=expert_V_diff.square().mean()#
 
             constraint_ratio=critic_loss/constraint_loss
 
