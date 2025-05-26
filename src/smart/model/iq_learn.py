@@ -204,7 +204,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,last_V-1,action_nll,entropy
+        return  reward,current_V,current_Q,next_V,last_V,action_nll,entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
@@ -294,7 +294,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=1*(expert_V_diff.square().mean())#+agent_V_diff.square().mean()
+            constraint_loss=1*(expert_V_diff.square().mean()+agent_V_diff.square().mean())#
 
             constraint_ratio=critic_loss/constraint_loss
 
