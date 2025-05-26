@@ -24,7 +24,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -66,7 +66,7 @@ class IQ_SoftQ(LightningModule):
 
         if "light_idx" in pred.keys():
             tokenized_agent_rollout['light_idx'] = pred['light_idx']
-            for key in ["pos_lg", "orient_lg", "polyline_lg", "batch_lg"]:
+            for key in ["pos_lg", "orient_lg", "batch_lg"]:#, "polyline_lg"
                 tokenized_agent_rollout[key] = tokenized_agent[key]
         return tokenized_map,tokenized_agent_rollout
 
@@ -86,7 +86,7 @@ class IQ_SoftQ(LightningModule):
 
         dones = torch.zeros_like(next_V)
 
-        dones[:, -1] = 1
+        #dones[:, -1] = 1
 
         next_V=(1 - dones) * next_V
 
@@ -145,17 +145,12 @@ class IQ_SoftQ(LightningModule):
         log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
         if self.encoder.agent_encoder.pred_light and key=="expert":
-            light_nll=-log_prob[agent_num:][state_action_mask[agent_num:]]
-
-            self.log("train/"+key+"_light_nll", light_nll.mean().item(), on_step=True, batch_size=1)
-
             light_pred=torch.argmax(logpi[agent_num:] , dim=-1)
             real_light=tokenized_agent["light_idx"][:, 2:]
 
             light_acc=(light_pred==real_light)[state_action_mask[agent_num:]]
 
             self.log("train/"+key+"_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-
 
         action_nll = -log_prob[state_action_mask].mean()
 
@@ -164,6 +159,8 @@ class IQ_SoftQ(LightningModule):
         rewards=reward - self.alpha * log_prob
 
         returns = torch.zeros_like(V)
+
+        returns[:,-1]=next_V[:,-1]
 
         running_return=returns[:,-1]
 
@@ -196,21 +193,28 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[state_mask]
 
+        init_V=V[:,0][valid_mask[:,0]]
+
         self.log("train/"+key+"_V", current_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,V_diff,action_nll,entropy
+        return  reward,current_V,current_Q,next_V,last_V-1,action_nll,entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
         expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
+
+        # diff=tokenized_agent["next_light_logits"]-tokenized_agent["next_light_logits1"]
+
+        # self.log("train/pred_diff", diff.float().abs().max().item(), on_step=True, batch_size=1)
 
         real_light=tokenized_agent["light_idx"][:, 2:]
 
@@ -247,11 +251,9 @@ class IQ_SoftQ(LightningModule):
         # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
         # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
 
-        relation_acc=(real_relation==agent_relation)[real_relation_mask]
+        agent_relation_acc=(real_relation==agent_relation)[real_relation_mask]
         
-        self.log("train/relation_acc", relation_acc.float().mean().item(), on_step=True, batch_size=1)
-
-
+        self.log("train/agent_relation_acc", agent_relation_acc.float().mean().item(), on_step=True, batch_size=1)
 
         if not self.finetune:
             loss =expert_nll
@@ -292,7 +294,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=0*(expert_V_diff.square().mean())#+agent_V_diff.square().mean()
+            constraint_loss=1*(expert_V_diff.square().mean())#+agent_V_diff.square().mean()
 
             constraint_ratio=critic_loss/constraint_loss
 
@@ -302,7 +304,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss +constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
@@ -358,27 +360,32 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_light:
 
-            tokenized_light=data["light"]
-            map_tensor=torch.tensor([3,4,0,1,2]).to(tokenized_light["light_idx"].device)
+            tokenized_light=data["tokenized_light"]
+            # map_tensor=torch.tensor([3,4,0,1,2]).to(tokenized_light["light_idx"].device)
 
-            light_idx=map_tensor[tokenized_light["light_idx"].long()]
+            # light_idx=map_tensor[tokenized_light["light_idx"].long()]
 
-            # light_idx=self.token_processor.light_token_last[light_idx]
+            # # light_idx=self.token_processor.light_token_last[light_idx]
 
-            light_mask=light_idx<3
+            # light_mask=light_idx<3
 
-            light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
+            # light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
 
-            tokenized_agent["light_idx"]=light_idx[light_pred_mask]
-            tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
-            tokenized_agent["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]
+            tokenized_agent["light_idx"]=tokenized_light["light_idx"].long()
+            tokenized_agent["pos_lg"]=tokenized_light["pos_lg"]
+            tokenized_agent["orient_lg"]=tokenized_light["orient_lg"]
+            tokenized_agent["batch_lg"]=tokenized_light["batch"]
 
-            light_polyline=tokenized_light["light_orient"]
-            light_orient=torch.atan2(light_polyline[:,-1],light_polyline[:,-2])
-            tokenized_agent["polyline_lg"]=light_polyline[light_pred_mask]
+            # tokenized_agent["light_idx"]=light_idx[light_pred_mask]
+            # tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
+            # tokenized_agent["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]
 
-            tokenized_agent["orient_lg"]=light_orient[light_pred_mask]
-            tokenized_agent["batch_lg"]=tokenized_light["batch"][light_pred_mask]
+            # light_polyline=tokenized_light["light_orient"]
+            # light_orient=torch.atan2(light_polyline[:,-1],light_polyline[:,-2])
+            # tokenized_agent["polyline_lg"]=light_polyline[light_pred_mask]
+
+            # tokenized_agent["orient_lg"]=light_orient[light_pred_mask]
+            # tokenized_agent["batch_lg"]=tokenized_light["batch"][light_pred_mask]
 
         if self.encoder.agent_encoder.pred_route:
             route_idx= agent["route_idx"]//(120//self.encoder.agent_encoder.route_type)

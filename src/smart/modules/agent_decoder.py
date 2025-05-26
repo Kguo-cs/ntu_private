@@ -166,6 +166,8 @@ class SMARTAgentDecoder(nn.Module):
 
             self.lg_time_span=time_span
 
+            self.light_hist=time_span//self.shift
+
             self.light_type=5
 
             self.light_dropout=0
@@ -174,22 +176,29 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_polyline_embedding=MLPEmbedding(input_dim=10, hidden_dim=hidden_dim)
 
+            self.light_layer_num=1
+
             # self.lg_t_emb = FourierEmbedding(
             #     input_dim=1,
             #     hidden_dim=hidden_dim,
             #     num_freq_bands=num_freq_bands,
             # )
 
-            self.lg_temp_layer=  AttentionLayer(
+            self.lg_temp_layers= nn.ModuleList(
+                    [ AttentionLayer(
                     hidden_dim=hidden_dim,
                     num_heads=num_heads,
                     head_dim=head_dim,
                     dropout=self.light_dropout,
                     bipartite=False,
                     has_pos_emb=True,
-            )
+                    )
+                    for _ in range(self.light_layer_num)
+                    ]
+                )
 
-            self.lg2lg_layers =AttentionLayer(
+            self.lg2lg_layers =nn.ModuleList(
+                    [AttentionLayer(
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
                         head_dim=head_dim,
@@ -197,6 +206,9 @@ class SMARTAgentDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                         )
+                        for _ in range(self.light_layer_num)
+                    ]
+                )
             
             self.light_token_predict_head = MLPLayer(
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim= 3
@@ -497,22 +509,21 @@ class SMARTAgentDecoder(nn.Module):
 
             light_mask=light_idx<3
 
-            # random_light = torch.randint(low=0, high=3, size=light_idx.shape,device=light_idx.device).long()
-
-            # random_mask=torch.rand_like(light_idx.float()) > 0.5
-
             noised_light_idx=light_idx.clone()
 
-            # noised_light_idx[random_mask]=random_light[random_mask]
+            random_light = torch.randint(low=0, high=3, size=light_idx.shape,device=light_idx.device).long()
 
+            random_mask=torch.rand_like(light_idx.float()) > 0.9
+
+            noised_light_idx[random_mask]=random_light[random_mask]
 
             feat_lg = self.light_embedding(noised_light_idx) # [B, L, D]
 
-            polyline_lg=tokenized_agent["polyline_lg"].reshape(-1,10,2)[:,1::2].reshape(-1,10)
+            #polyline_lg=tokenized_agent["polyline_lg"].reshape(-1,10,2)[:,1::2].reshape(-1,10)
 
-            feat_polyline_lg = self.light_polyline_embedding(polyline_lg)[:,None]
+            # feat_polyline_lg = self.light_polyline_embedding(polyline_lg)[:,None]
 
-            feat_lg=feat_lg+feat_polyline_lg
+            # feat_lg=feat_lg+feat_polyline_lg
 
             feat_lg=feat_lg.reshape(-1,self.hidden_dim)
 
@@ -522,9 +533,6 @@ class SMARTAgentDecoder(nn.Module):
                     head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
                     mask=light_mask,  # [n_agent, n_step]
                  )
-
-            feat_lg = self.lg_temp_layer(feat_lg, lg_r_t, lg_edge_index_t)
-
             edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
                 pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
                 head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
@@ -533,14 +541,17 @@ class SMARTAgentDecoder(nn.Module):
                 mask=light_mask  # [n_agent, n_step]
             )
 
-            feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
+            for i in range(self.light_layer_num):
+                feat_lg = self.lg_temp_layers[i](feat_lg, lg_r_t, lg_edge_index_t)
 
-            feat_lg=feat_lg.reshape(-1, light_idx.shape[1], feat_lg.shape[-1])
+                feat_lg = self.lg2lg_layers[i](feat_lg, r_lg2lg, edge_index_lg2lg)#ts better than st
 
-            next_light_logits =self.light_token_predict_head(feat_lg)
-
+            next_light_logits =self.light_token_predict_head(feat_lg).reshape(light_idx.shape[0], light_idx.shape[1], -1)
 
         if not self.pred_agent:
+            # tokenized_agent["next_light_logits"]=next_light_logits
+            # tokenized_agent["next_light_logits1"]=next_light_logits1
+            tokenized_agent["feat_lg"]=feat_lg.reshape(light_idx.shape[0], light_idx.shape[1], -1)
 
             return {
                 "q_value": next_light_logits[:, 1:],
@@ -693,25 +704,16 @@ class SMARTAgentDecoder(nn.Module):
             }
 
     def autoregressive_light_prediction(self, initial_token, tokenized_agent,max_len):
-        B = initial_token.shape[0]
         current_len=initial_token.shape[1]
         num_graphs=tokenized_agent["num_graphs"]
-
-        device=initial_token.device
-        predicted_tokens = torch.zeros(B, max_len+current_len, dtype=torch.long, device=device)
-        predicted_tokens[:,:current_len ] = initial_token
-
-        lg_features= torch.zeros(B, current_len+max_len-1,self.hidden_dim, dtype=torch.float32, device=device)
-
-        # Static map features
 
         pos_lg = tokenized_agent["pos_lg"]
         head_lg = tokenized_agent["orient_lg"]
         head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
         batch_lg=tokenized_agent["batch_lg"]
-        polyline_lg=tokenized_agent["polyline_lg"].reshape(-1,10,2)[:,1::2].reshape(-1,10)
+        # polyline_lg=tokenized_agent["polyline_lg"].reshape(-1,10,2)[:,1::2].reshape(-1,10)
 
-        feat_polyline_lg = self.light_polyline_embedding(polyline_lg)[:,None]
+        # feat_polyline_lg = self.light_polyline_embedding(polyline_lg)[:,None]
 
         edge_index_lg2lg, r_lg2lg = self.build_interaction_edge(
             pos_a=pos_lg[:, None],  # [n_agent, hist_step, 2]
@@ -720,73 +722,88 @@ class SMARTAgentDecoder(nn.Module):
             batch_s=batch_lg,  # [n_agent*hist_step]
             mask=torch.ones_like(head_lg).to(torch.bool)[:, None],  # [n_agent, hist_step]
         )
+        predicted_tokens = initial_token
 
         for t in range(current_len, max_len+current_len):
 
-            light_idx = predicted_tokens[:, :t]
+            light_idx = predicted_tokens[:, -self.light_hist:] 
 
-            feat_lg = self.light_embedding(predicted_tokens[:, :t])+feat_polyline_lg  # [B, t, D]
+            feat_lg = self.light_embedding(light_idx)#+feat_polyline_lg  # [B, t, D]
+
+            feat_lg=feat_lg.flatten(0, 1)
 
             light_mask=light_idx<3
+            hist_len=light_idx.shape[1]
 
             if t==current_len:
 
-                lg_edge_index_t,lg_r_t = self.build_temporal_edge(
-                    pos_a=pos_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
-                    head_a=head_lg[:, None].repeat(1, t),  # [n_agent, n_step]
-                    head_vector_a=head_vector_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
-                    mask=light_mask,  # [n_agent, n_step]
+                if "feat_lg" in tokenized_agent.keys():
+                    feat_lg=tokenized_agent["feat_lg"][:,:t]
+                else:
+                    lg_edge_index_t,lg_r_t = self.build_temporal_edge(
+                        pos_a=pos_lg[:, None].repeat(1, hist_len, 1),  # [n_agent, n_step, 2]
+                        head_a=head_lg[:, None].repeat(1, hist_len),  # [n_agent, n_step]
+                        head_vector_a=head_vector_lg[:, None].repeat(1, hist_len, 1),  # [n_agent, n_step, 2]
+                        mask=light_mask,  # [n_agent, n_step]
+                        )
+
+                    batch_lg = torch.cat(
+                        [
+                            batch_lg + num_graphs * t
+                            for t in range(current_len)
+                        ],
+                        dim=0,
                     )
 
-                feat_lg = self.lg_temp_layer(feat_lg.flatten(0, 1), lg_r_t, lg_edge_index_t)
+                    edge_index_lg2lg_T, r_lg2lg_T = self.build_interaction_edge(
+                        pos_a=pos_lg[:, None].repeat(1, hist_len, 1),  # [n_agent, hist_step, 2]
+                        head_a=head_lg[:, None].repeat(1, hist_len),  # [n_agent, hist_step]
+                        head_vector_a=head_vector_lg[:, None].repeat(1, hist_len,1),  # [n_agent, hist_step, 2]
+                        batch_s=batch_lg,  # [n_agent*hist_step]
+                        mask=light_mask,  # [n_agent, hist_step]
+                    )
+                    for i in range(self.light_layer_num):
+                        feat_lg = self.lg_temp_layers[i](feat_lg, lg_r_t, lg_edge_index_t)
 
-                batch_lg = torch.cat(
-                    [
-                        batch_lg + num_graphs * t
-                        for t in range(current_len)
-                    ],
-                    dim=0,
-                )
+                        feat_lg = self.lg2lg_layers[i](feat_lg, r_lg2lg_T, edge_index_lg2lg_T)
 
-                edge_index_lg2lg_T, r_lg2lg_T = self.build_interaction_edge(
-                    pos_a=pos_lg[:, None].repeat(1, t, 1),  # [n_agent, hist_step, 2]
-                    head_a=head_lg[:, None].repeat(1, t),  # [n_agent, hist_step]
-                    head_vector_a=head_vector_lg[:, None].repeat(1, t,1),  # [n_agent, hist_step, 2]
-                    batch_s=batch_lg,  # [n_agent*hist_step]
-                    mask=light_mask,  # [n_agent, hist_step]
-                )
+                    feat_lg=feat_lg.view(-1, t, feat_lg.shape[-1])
 
-                feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg_T, edge_index_lg2lg_T).view(-1, t, feat_lg.shape[-1])
+                feat_lg_last=feat_lg[:,-1]
 
-                feat_lg1=feat_lg[:,-1]
-
-                lg_features[:, :t] = feat_lg
+                lg_features = feat_lg
             else:
-                inference_mask = light_mask.clone()
 
-                inference_mask[:, :-1] = False
+                if t<=self.lg_time_span / self.shift+current_len:
+                    inference_mask = light_mask.clone()
 
-                lg_edge_index_t,lg_r_t = self.build_temporal_edge(
-                    pos_a=pos_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
-                    head_a=head_lg[:, None].repeat(1, t),  # [n_agent, n_step]
-                    head_vector_a=head_vector_lg[:, None].repeat(1, t, 1),  # [n_agent, n_step, 2]
-                    mask=light_mask,  # [n_agent, n_step]
-                    inference_mask=inference_mask)
+                    inference_mask[:, :-1] = False
 
-                lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // t - 1
 
-                feat_lg = self.lg_temp_layer((feat_lg.flatten(0, 1), feat_lg[:, -1]), lg_r_t, lg_edge_index_t)
+                    lg_edge_index_t,lg_r_t = self.build_temporal_edge(
+                        pos_a=pos_lg[:, None].repeat(1, hist_len, 1),  # [n_agent, n_step, 2]
+                        head_a=head_lg[:, None].repeat(1, hist_len),  # [n_agent, n_step]
+                        head_vector_a=head_vector_lg[:, None].repeat(1, hist_len, 1),  # [n_agent, n_step, 2]
+                        mask=light_mask,  # [n_agent, n_step]
+                        inference_mask=inference_mask)
 
-                feat_lg1 = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)  # [N, D]
+                    lg_edge_index_t[1] = (lg_edge_index_t[1] + 1) // hist_len - 1
 
-                lg_features[:, t-1] = feat_lg1
+                feat_lg_last=feat_lg.view(-1, hist_len, feat_lg.shape[-1])[:, -1]
+                
+                for i in range(self.light_layer_num):
+                    feat_lg_last = self.lg_temp_layers[i]((feat_lg, feat_lg_last), lg_r_t, lg_edge_index_t)
+                    
+                    feat_lg_last = self.lg2lg_layers[i](feat_lg_last, r_lg2lg, edge_index_lg2lg)  # [N, D]
 
-            logits = self.light_token_predict_head(feat_lg1)
+                lg_features=torch.cat([lg_features,feat_lg_last[:,None]],dim=1)
+
+            logits = self.light_token_predict_head(feat_lg_last)
 
             cat_dist = Categorical(logits=logits/self.alpha)
             samples = cat_dist.sample()  # [n_agent] in K
 
-            predicted_tokens[:, t] = samples
+            predicted_tokens=torch.cat([predicted_tokens,samples[:,None]],dim=1)
 
         return predicted_tokens,lg_features
 

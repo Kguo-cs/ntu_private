@@ -22,7 +22,7 @@ rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /h
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/testing shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/test zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc_shareaptemp100_pt10_layer24_35_fine/2025-05-23_11-48-49/wosac_submission.tar.gz ./
 
