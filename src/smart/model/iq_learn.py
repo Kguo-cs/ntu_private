@@ -399,15 +399,27 @@ class IQ_SoftQ(LightningModule):
 
             lengths = counts.tolist()
 
+            # padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
+            # padded_orient = pad_sequence(torch.split(orient_lg, lengths), batch_first=True, padding_value=0)
+            #
+            # padded_sin, padded_cos = general_rope(padded_pos.reshape(-1,2), self.encoder.agent_encoder.head_dim, padded_orient.reshape(-1))
+            #
+            # padded_sin1=padded_sin.reshape(padded_pos.shape[0],1,padded_pos.shape[1],-1)
+            # padded_cos1=padded_cos.reshape(padded_pos.shape[0],1,padded_pos.shape[1],-1)
+
             sin, cos = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)
 
-            padded_sin = pad_sequence(torch.split(sin, lengths), batch_first=True, padding_value=0)
+            padded_sin = pad_sequence(torch.split(sin, lengths), batch_first=True, padding_value=0)[:,None]
 
-            padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)
+            padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)[:,None]
+
+            # spatial_mask=torch.linalg.norm(padded_pos[:,:,None]-padded_pos[:,None],dim=-1)<100
 
             tokenized_agent["lengths"] = lengths
             tokenized_agent["batch_lg"]=batch_lg
-            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos)
+            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos,None)
+
+
             # tokenized_agent["light_idx"]=light_idx[light_pred_mask]
             # tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
             # tokenized_agent["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]
