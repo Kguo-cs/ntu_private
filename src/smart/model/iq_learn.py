@@ -8,6 +8,8 @@ import numpy as np
 from src.smart.modules.smart_decoder import SMARTDecoder
 import pickle
 from torch_scatter import scatter_mean,scatter_max
+from torch.nn.utils.rnn import pad_sequence
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding,RoFormerBlock,general_rope
 
 class IQ_SoftQ(LightningModule):
 
@@ -24,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -66,7 +68,7 @@ class IQ_SoftQ(LightningModule):
 
         if "light_idx" in pred.keys():
             tokenized_agent_rollout['light_idx'] = pred['light_idx']
-            for key in ["pos_lg", "orient_lg", "batch_lg"]:#, "polyline_lg"
+            for key in ["lengths", "sinusoidal_poshead", "batch_lg"]:#, "polyline_lg"
                 tokenized_agent_rollout[key] = tokenized_agent[key]
         return tokenized_map,tokenized_agent_rollout
 
@@ -174,7 +176,7 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
         else:
-            target_V = 1 #returns#cannot .detach()
+            target_V = 0 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
 
         reward = reward[state_action_mask]#use agent mask
@@ -186,6 +188,8 @@ class IQ_SoftQ(LightningModule):
         last_V=V[:,-1][valid_mask[:,-1]]
 
         V_diff=(V-target_V)[valid_mask]
+
+        value_loss=(current_V-self.gamma *next_V)[state_action_mask]
 
         current_V=current_V[state_mask]
 
@@ -204,11 +208,11 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", current_V_diff.mean().item(), on_step=True, batch_size=1)
 
-        return  reward,current_V,current_Q,next_V,init_V,action_nll,entropy
+        return  reward,value_loss,init_V,action_nll,entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_reward,expert_V,expert_Q,expert_next_V,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -255,10 +259,11 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/agent_relation_acc", agent_relation_acc.float().mean().item(), on_step=True, batch_size=1)
 
-            agent_reward, agent_V, agent_Q, agent_next_V, agent_V_diff, _, agent_entropy = self.get_QV(
+            agent_reward, agent_value_loss, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'tv'
+
+            div = 'rkl'
             alpha = 1
             eps = 1e-3
 
@@ -271,11 +276,11 @@ class IQ_SoftQ(LightningModule):
             elif div=='exp':
                 critic_loss = (-expert_reward ).exp().mean()+ agent_reward.exp().mean()
             elif div=='rkl':
-                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_reward.mean()
+                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+(agent_value_loss.mean()+expert_value_loss.mean())/2
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
-                critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()#+agent_reward.mean()
+                critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()+agent_reward.mean()
             elif div=='kl':
                 expert_reward = torch.clamp_min(expert_reward, min=alpha * eps)
                 critic_loss = -alpha * ((expert_reward / alpha).log().mean() + 1)+agent_reward.mean()
@@ -301,7 +306,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss +constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss #+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
@@ -369,10 +374,40 @@ class IQ_SoftQ(LightningModule):
             # light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
 
             tokenized_agent["light_idx"]=tokenized_light["light_idx"].long()
-            tokenized_agent["pos_lg"]=tokenized_light["pos_lg"]
-            tokenized_agent["orient_lg"]=tokenized_light["orient_lg"]
-            tokenized_agent["batch_lg"]=tokenized_light["batch"]
+            pos_lg=tokenized_light["pos_lg"]
+            orient_lg=tokenized_light["orient_lg"]
+            batch_lg=tokenized_light["batch"]
 
+            centering_pos = scatter_mean(pos_lg, batch_lg, dim=0)
+
+            centering_orient = scatter_mean(orient_lg, batch_lg, dim=0)
+
+            orient_lg = orient_lg - centering_orient[batch_lg]
+
+            pos_lg = pos_lg - centering_pos[batch_lg]
+
+            cos_a = torch.cos(centering_orient)[batch_lg]
+            sin_a = torch.sin(centering_orient)[batch_lg]
+
+            x, y = pos_lg[:, 0], pos_lg[:, 1]
+            x_rot = cos_a * x + sin_a * y
+            y_rot = -sin_a * x + cos_a * y
+
+            pos_lg= torch.stack([x_rot, y_rot], dim=-1)
+
+            unique_ids, counts = batch_lg.unique_consecutive(return_counts=True)
+
+            lengths = counts.tolist()
+
+            sin, cos = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)
+
+            padded_sin = pad_sequence(torch.split(sin, lengths), batch_first=True, padding_value=0)
+
+            padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)
+
+            tokenized_agent["lengths"] = lengths
+            tokenized_agent["batch_lg"]=batch_lg
+            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos)
             # tokenized_agent["light_idx"]=light_idx[light_pred_mask]
             # tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
             # tokenized_agent["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]

@@ -24,6 +24,26 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+import torch.nn.functional as F
+
+# automatically import fused operators
+dropout_add_layer_norm = fused_mlp_func = memory_efficient_attention = flash_attn_func = None
+try:
+    from flash_attn.ops.layer_norm import dropout_add_layer_norm
+    from flash_attn.ops.fused_dense import fused_mlp_func
+except ImportError: pass
+# automatically import faster attention implementations
+try: from xformers.ops import memory_efficient_attention
+except ImportError: pass
+try: from flash_attn import flash_attn_func              # qkv: BLHc, ret: BLHcq
+except ImportError: pass
+try: from torch.nn.functional import scaled_dot_product_attention as slow_attn    # q, k, v: BHLc
+except ImportError:
+    def slow_attn(query, key, value, scale: float, attn_mask=None, dropout_p=0.0):
+        attn = query.mul(scale) @ key.transpose(-2, -1) # BHLc @ BHcL => BHLL
+        if attn_mask is not None: attn.add_(attn_mask)
+        return (F.dropout(attn.softmax(dim=-1), p=dropout_p, inplace=True) if dropout_p > 0 else attn.softmax(dim=-1)) @ value
+
 
 
 class RoFormerSelfAttention(nn.Module):
@@ -33,7 +53,7 @@ class RoFormerSelfAttention(nn.Module):
                  dropout,
                  use_bias=True,
                  is_decoder=False,
-                 rotary_value=True
+                 rotary_value=False
                  ):
         super().__init__()
 
@@ -44,13 +64,18 @@ class RoFormerSelfAttention(nn.Module):
         self.query = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         self.key = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         self.value = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
-
+        self.dropout_p=dropout
         self.dropout = nn.Dropout(dropout)
 
         self.to_out = nn.Linear(hidden_dim, hidden_dim, bias=use_bias)
 
         self.is_decoder = is_decoder
         self.rotary_value = rotary_value
+
+        self.scale =1 / math.sqrt(self.attention_head_size)
+
+        # only used during inference
+        self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (
@@ -59,6 +84,8 @@ class RoFormerSelfAttention(nn.Module):
         )
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
+
+    def kv_caching(self, caching_len): self.caching_len, self.cached_k, self.cached_v = caching_len, None, None
 
     def forward(
         self,
@@ -106,47 +133,64 @@ class RoFormerSelfAttention(nn.Module):
             if self.rotary_value:
                 value_layer = self.apply_rotary(value_layer, sinusoidal_pos)
 
-        if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
-            # Further calls to cross_attention layer can then reuse all cross-attention
-            # key/value_states (first "if" case)
-            # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
-            # all previous decoder key/value_states. Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
-            # if encoder bi-directional self-attention `past_key_value` is always `None`
-            past_key_value = (key_layer, value_layer)
+        # if self.is_decoder:
+        #     # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+        #     # Further calls to cross_attention layer can then reuse all cross-attention
+        #     # key/value_states (first "if" case)
+        #     # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
+        #     # all previous decoder key/value_states. Further calls to uni-directional self-attention
+        #     # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
+        #     # if encoder bi-directional self-attention `past_key_value` is always `None`
+        #     past_key_value = (key_layer, value_layer)
+        # # Take the dot product between "query" and "key" to get the raw attention scores.
+        # attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        #
+        # attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+        # if attention_mask is not None:
+        #     # Apply the attention mask is (precomputed for all layers in RoFormerModel forward() function)
+        #     attention_scores = attention_scores + attention_mask
+        #
+        # # Normalize the attention scores to probabilities.
+        # attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+        #
+        # # This is actually dropping out entire tokens to attend to, which might
+        # # seem a bit unusual, but is taken from the original Transformer paper.
+        # attention_probs = self.dropout(attention_probs)
 
-        # Take the dot product between "query" and "key" to get the raw attention scores.
-        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        # # Mask heads if we want to
+        # if head_mask is not None:
+        #     attention_probs = attention_probs * head_mask
+        #
+        # context_layer = torch.matmul(attention_probs, value_layer)
+        # context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        # new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        # context_layer = context_layer.view(*new_context_layer_shape)
+        #
+        # outputs = (
+        #     (context_layer, attention_probs) if output_attentions else context_layer
+        # )
+        # if self.is_decoder:
+        #     outputs = outputs + (past_key_value,)
+        if self.caching_len:
+            if self.cached_k is None:
+                self.cached_k = key_layer; self.cached_v = value_layer
+            else:
+                key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len:]
+                value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len:]
+                attention_mask=None
 
-        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
-        if attention_mask is not None:
-            # Apply the attention mask is (precomputed for all layers in RoFormerModel forward() function)
-            attention_scores = attention_scores + attention_mask
+        B, L, C = hidden_states.shape
+        attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL
+        if attention_mask is not None: attn.add_(attention_mask)
+        attn = attn.softmax(dim=-1)
+        outputs = (F.dropout(attn, p=self.dropout_p, inplace=True) if self.dropout_p > 0 else attn) @ value_layer
 
-        # Normalize the attention scores to probabilities.
-        attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+        # oup = flash_attn_func(query_layer, key_layer, value_layer, dropout_p=self.dropout_p,
+        #                       softmax_scale=self.scale).view(B, L, C)
 
-        # This is actually dropping out entire tokens to attend to, which might
-        # seem a bit unusual, but is taken from the original Transformer paper.
-        attention_probs = self.dropout(attention_probs)
+        # outputs = slow_attn(query=query_layer, key=key_layer, value=value_layer, scale=self.scale, attn_mask=attention_mask, dropout_p=self.dropout_p)
 
-        # Mask heads if we want to
-        if head_mask is not None:
-            attention_probs = attention_probs * head_mask
-
-        context_layer = torch.matmul(attention_probs, value_layer)
-
-        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
-        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
-        context_layer = context_layer.view(*new_context_layer_shape)
-
-        outputs = (
-            (context_layer, attention_probs) if output_attentions else context_layer
-        )
-
-        if self.is_decoder:
-            outputs = outputs + (past_key_value,)
+        outputs=outputs.transpose(1, 2).reshape(B, L, C)
 
         outputs=self.to_out(outputs)
         return outputs
@@ -159,6 +203,96 @@ class RoFormerSelfAttention(nn.Module):
         # torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1)
         # 如果是旋转value的话，下面这个stack后再flatten才可以，因为训练好的模型最后一个dim是两两之间交替的。
         return torch.stack([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1).flatten(-2, -1)
+
+# Copied from transformers.models.marian.modeling_marian.MarianSinusoidalPositionalEmbedding with Marian->RoFormer
+class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
+    """This module produces sinusoidal positional embeddings of any length."""
+
+    def __init__(
+        self, num_positions: int, embedding_dim: int, padding_idx: Optional[int] = None
+    ):
+        super().__init__(num_positions, embedding_dim)
+        self.weight = self._init_weight(self.weight)
+
+    @staticmethod
+    def _init_weight(out: nn.Parameter):
+        """
+        Identical to the XLM create_sinusoidal_embeddings except features are not interleaved. The cos features are in
+        the 2nd half of the vector. [dim // 2:]
+        """
+        n_pos, dim = out.shape
+        position_enc = np.array(
+            [
+                [pos / np.power(10000, 2 * (j // 2) / dim) for j in range(dim)]
+                for pos in range(n_pos)
+            ]
+        )
+        out.requires_grad = False  # set early to avoid an error in pytorch-1.8+
+        sentinel = dim // 2 if dim % 2 == 0 else (dim // 2) + 1
+        out[:, 0:sentinel] = torch.FloatTensor(np.sin(position_enc[:, 0::2]))
+        out[:, sentinel:] = torch.FloatTensor(np.cos(position_enc[:, 1::2]))
+        out.detach_()
+        return out
+
+    @torch.no_grad()
+    def forward(self, seq_len: int, past_key_values_length: int = 0):
+        """`input_ids_shape` is expected to be [bsz x seqlen]."""
+        positions = torch.arange(
+            past_key_values_length,
+            past_key_values_length + seq_len,
+            dtype=torch.long,
+            device=self.weight.device,
+        )
+        return super().forward(positions)
+
+
+def general_rope1(positions, dim, theta=None):
+    device = positions.device # [B, L, 1]
+
+    div_term = torch.exp(
+        torch.arange(0, dim, 2, device=device, dtype=positions.dtype) *
+        (-math.log(10000.0) / dim)
+    )  # [dim//2]
+
+    angle = positions * div_term  # [B, L, dim//2]
+
+    sin = torch.sin(angle)[None,None]
+    cos = torch.cos(angle)[None,None]
+
+    return sin, cos  # both [B, L, dim//2]
+
+
+def general_rope(positions, dim,theta=None):
+    device = positions.device
+
+    positions = positions[:,:,None]
+
+    div_dim=dim//positions.shape[1]
+
+    if theta is not None:
+        div_dim=div_dim-2
+        theta=theta[:,None].repeat(1,2)
+
+    div_term = torch.exp(
+        torch.arange(0, div_dim, 2, dtype=torch.float32, device=device) * (-torch.log(torch.tensor(10000.0)) / div_dim)
+    )  [None,None]# [D/2]
+
+    sin= torch.sin(positions * div_term).flatten(1,2)
+    cos = torch.cos(positions * div_term).flatten(1,2)
+
+    if theta is not None:
+        sin_theta=torch.sin(theta)
+        cos_theta=torch.cos(theta)
+
+        sin=torch.cat([sin, sin_theta],dim=-1)
+        cos=torch.cat([cos, cos_theta],dim=-1)
+    else:
+        sin=sin.reshape(1,1,-1,dim//2)
+        cos=cos.reshape(1,1,-1,dim//2)
+
+    return sin, cos
+
+
 
 
 # import math
