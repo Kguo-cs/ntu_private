@@ -308,6 +308,9 @@ class IQ_SoftQ(LightningModule):
 
             loss = critic_loss #+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
+
+            #print(critic_loss)
+
         return loss
 
     def compute_consistence(self,light,batch_mask):
@@ -359,6 +362,11 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map[key] = map[key].long()
 
             tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
+            unique_ids, counts = tokenized_agent["batch"].unique_consecutive(return_counts=True)
+
+            lengths = counts.tolist()
+
+            tokenized_agent["agent_lengths"]=lengths
 
         if self.encoder.agent_encoder.pred_light:
 
@@ -399,7 +407,7 @@ class IQ_SoftQ(LightningModule):
 
             lengths = counts.tolist()
 
-            # padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
+            padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
             # padded_orient = pad_sequence(torch.split(orient_lg, lengths), batch_first=True, padding_value=0)
             #
             # padded_sin, padded_cos = general_rope(padded_pos.reshape(-1,2), self.encoder.agent_encoder.head_dim, padded_orient.reshape(-1))
@@ -413,11 +421,11 @@ class IQ_SoftQ(LightningModule):
 
             padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)[:,None]
 
-            # spatial_mask=torch.linalg.norm(padded_pos[:,:,None]-padded_pos[:,None],dim=-1)<100
+            spatial_mask=torch.linalg.norm(padded_pos[:,:,None]-padded_pos[:,None],dim=-1)<200
 
             tokenized_agent["lengths"] = lengths
             tokenized_agent["batch_lg"]=batch_lg
-            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos,None)
+            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos,spatial_mask)
 
 
             # tokenized_agent["light_idx"]=light_idx[light_pred_mask]

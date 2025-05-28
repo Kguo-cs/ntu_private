@@ -52,18 +52,13 @@ def generate_causal_mask(seq_len, device='cpu'):
 
 
 def generate_limited_causal_mask(seq_len, history_len, device='cpu'):
-    # Start with a full mask: all masked (float('-inf'))
-    mask = torch.full((seq_len, seq_len), float('-inf'), device=device)
-
     # for i in range(seq_len):
     #     start = max(0, i - history_len + 1)
     #     mask[i, start:i + 1] = 0.0  # allow self and last `history_len - 1` tokens
 
     i = torch.arange(seq_len, device=device).unsqueeze(1)
     j = torch.arange(seq_len, device=device).unsqueeze(0)
-    mask1 = (j <= i) & (j > i - history_len)  # True means masked
-
-    mask[mask1] = 0
+    mask = (j> i) | (j < i - history_len+ 1)  # True means masked
 
     return mask  # shape: [seq_len, seq_len]
 
