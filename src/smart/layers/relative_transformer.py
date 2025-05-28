@@ -85,7 +85,10 @@ class RoFormerSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def kv_caching(self, caching_len): self.caching_len, self.cached_k, self.cached_v = caching_len, None, None
+    def kv_caching(self, caching_len):
+        self.caching_len = caching_len
+        self.cached_k=None
+        self.cached_v=None
 
     def forward(
         self,
@@ -171,6 +174,7 @@ class RoFormerSelfAttention(nn.Module):
         # )
         # if self.is_decoder:
         #     outputs = outputs + (past_key_value,)
+
         if self.caching_len:
             if self.cached_k is None:
                 self.cached_k = key_layer; self.cached_v = value_layer
@@ -178,6 +182,9 @@ class RoFormerSelfAttention(nn.Module):
                 key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len:]
                 value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len:]
                 attention_mask=None
+        # else:
+        #     self.cached_k = key_layer
+        #     self.cached_v = value_layer
 
         B, L, C = hidden_states.shape
         attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL

@@ -600,6 +600,13 @@ class SMARTAgentDecoder(nn.Module):
     ) -> Dict[str, torch.Tensor]:
 
         if self.pred_light:
+
+            # if "next_light_logits" in tokenized_agent.keys():
+            #     next_light_logits=tokenized_agent["next_light_logits"]
+            #     return {
+            #         "q_value": next_light_logits[:, 1:],
+            #     }
+
             light_idx=tokenized_agent["light_idx"]
             lengths=tokenized_agent["lengths"]
             sinusoidal_poshead=tokenized_agent["sinusoidal_poshead"]
@@ -622,9 +629,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if not self.pred_agent:
             # tokenized_agent["next_light_logits"]=next_light_logits
-            # tokenized_agent["next_light_logits1"]=next_light_logits1
-            tokenized_agent["next_light_logits"]=next_light_logits
-            tokenized_agent["feat_lg"]=feat_lg
+            # tokenized_agent["feat_lg"]=feat_lg
 
             return {
                 "q_value": next_light_logits[:, 1:],
@@ -793,8 +798,6 @@ class SMARTAgentDecoder(nn.Module):
         # )
 
         predicted_tokens = initial_token
-
-        logits_list=[]
         self.temp_rel.attn.kv_caching(self.light_hist)
 
         for t in range(current_len, max_len+current_len):
@@ -802,19 +805,18 @@ class SMARTAgentDecoder(nn.Module):
             # light_idx = predicted_tokens[:, -self.light_hist:]
 
             if t==current_len:
-                # if "feat_lg" in tokenized_agent.keys():
-                #     lg_features=tokenized_agent["feat_lg"][:,:current_len]
-                #     logits=tokenized_agent["next_light_logits"][:,current_len-1]
-                # else:
-                lg_features, next_light_logits = self.predict_light_transformer(predicted_tokens, sinusoidal_poshead,lengths)
-                logits=next_light_logits[:,-1]
+                if "feat_lg" in tokenized_agent.keys():
+                    lg_features=tokenized_agent["feat_lg"][:,:current_len]
+                    next_light_logits=tokenized_agent["next_light_logits"][:,:current_len]
+
+                    self.temp_rel.attn.cached_k=self.temp_rel.attn.cached_k[:,:,:current_len]
+                    self.temp_rel.attn.cached_v=self.temp_rel.attn.cached_v[:,:,:current_len]
+                else:
+                    lg_features, next_light_logits = self.predict_light_transformer(predicted_tokens, sinusoidal_poshead,lengths)
             else:
-                # start_len=max(0,t-self.light_hist)
+                feat_lg, light_logits=self.predict_light_transformer(predicted_tokens[:,-1:], sinusoidal_poshead,lengths,t-1)#
 
-                feat_lg, next_light_logits=self.predict_light_transformer(predicted_tokens[:,-1:], sinusoidal_poshead,lengths,t-1)#
-
-                logits =next_light_logits[:,-1]
-
+                #next_light_logits=torch.cat([next_light_logits,light_logits[:,-1:]],dim=1)
                 lg_features=torch.cat([lg_features,feat_lg[:,-1:]],dim=1)
 
                 # feat_lg = self.light_embedding(light_idx)  # +feat_polyline_lg  # [B, t, D]
@@ -850,13 +852,15 @@ class SMARTAgentDecoder(nn.Module):
                 #
                 # logits = self.light_token_predict_head(feat_lg_last)
 
-            logits_list.append(logits)
-            cat_dist = Categorical(logits=logits/self.alpha)
+            #if t<max_len+current_len:
+            cat_dist = Categorical(logits=next_light_logits[:,-1]/self.alpha)
             samples = cat_dist.sample()  # [n_agent] in K
             predicted_tokens=torch.cat([predicted_tokens,samples[:,None]],dim=1)
+
+        # tokenized_agent["next_light_logits"]=next_light_logits
+
         self.temp_rel.attn.kv_caching(0)
 
-        # autoregrees_logits=torch.stack(logits_list, dim=1)[:,:1][:,-self.light_hist:]
         #
         # print(torch.max(diff.abs()).item(),torch.max(diff[:,0].abs()).item())
         # feat_lg, next_light_logits = self.predict_light_transformer(predicted_tokens, sinusoidal_poshead,lengths)
