@@ -70,6 +70,14 @@ class TokenProcessor(torch.nn.Module):
         tokenized_map = self.tokenize_map(data)
         tokenized_agent = self.tokenize_agent(data)
 
+
+        unique_ids, counts = tokenized_agent["batch"].unique_consecutive(return_counts=True)
+
+        lengths = counts.tolist()
+
+        tokenized_agent["batch_lengths"]=lengths
+
+
         if "light_polyline" in data.keys():
             light=data["light"]
 

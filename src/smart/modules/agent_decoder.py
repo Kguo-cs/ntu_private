@@ -402,24 +402,37 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_len,max_len):
 
-        self.a_t_roformer.attn.kv_caching(self.agent_hist)
-
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_len].clone()
         mask = tokenized_agent["valid_mask"][:, :current_len].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_len].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_len].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
+        if "gt_z_raw" in tokenized_agent.keys():
+            n_agent=sampled_idx.shape[0]
+            pred_traj_10hz = torch.zeros(
+                [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device
+            )
+            pred_head_10hz = torch.zeros(
+                [n_agent, 0], dtype=pos_a.dtype, device=pos_a.device
+            )
+
         for t in range(current_len, max_len + current_len):
             if t == current_len:
-                next_light_logits = tokenized_agent["next_token_logits"][:, :current_len]
+                if "next_token_logits" in tokenized_agent.keys():
+                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_len]
 
-                self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_len]
-                self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_len]
+                    self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_len]
+                    self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_len]
+                else:
+                    next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature)
+
+                self.a_t_roformer.attn.kv_caching(self.agent_hist)
+   
             else:
-                next_light_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,t - 1)
+                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,t - 1)
 
-            cat_dist = Categorical(logits=next_light_logits[:, -1] / self.alpha)
+            cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
 
             next_token_idx = cat_dist.sample()
 
@@ -435,6 +448,15 @@ class SMARTAgentDecoder(nn.Module):
                 pos_now=pos_a[:, -1],  # [n_agent, 2]
                 head_now=head_a[:, -1],  # [n_agent]
             )[0].view(*next_token_traj_all.shape)
+
+            if "gt_z_raw" in tokenized_agent.keys():
+
+                pred_traj=token_traj_global[:, 1:].mean( 2 )
+                pred_traj_10hz=torch.cat([pred_traj_10hz, pred_traj],dim=1)
+                diff_xy = token_traj_global[:, 1:, 0] - token_traj_global[:, 1:, 3]
+                pred_head= torch.arctan2( diff_xy[:, :, 1], diff_xy[:, :, 0]   )
+                pred_head_10hz=torch.cat([pred_head_10hz,pred_head],dim=1)
+
 
             # ! get pos_a_next and head_a_next, spawn unseen agents
             pos_a_next = token_traj_global[:, -1].mean(dim=1)
@@ -455,6 +477,16 @@ class SMARTAgentDecoder(nn.Module):
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
         }
+
+
+        if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+            out_dict["pred_traj_10hz"] = pred_traj_10hz
+            out_dict["pred_head_10hz"] = pred_head_10hz
+            pred_z = tokenized_agent["gt_z_raw"].unsqueeze(1)  # [n_agent, 1]
+            out_dict["pred_z_10hz"] = pred_z.expand(-1, pred_traj_10hz.shape[1])
+            out_dict["gt_pos_raw"] = tokenized_agent["gt_pos_raw"]  # [n_agent, 18, 2]
+            out_dict["gt_head_raw"] = tokenized_agent["gt_head_raw"]  # [n_agent, 18]
+            out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
 
         return out_dict
 
