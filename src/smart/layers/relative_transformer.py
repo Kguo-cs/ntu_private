@@ -87,8 +87,8 @@ class RoFormerSelfAttention(nn.Module):
 
     def kv_caching(self, caching_len):
         self.caching_len = caching_len
-        self.cached_k=None
-        self.cached_v=None
+        # self.cached_k=None
+        # self.cached_v=None
 
     def forward(
         self,
@@ -176,15 +176,15 @@ class RoFormerSelfAttention(nn.Module):
         #     outputs = outputs + (past_key_value,)
 
         if self.caching_len:
-            if self.cached_k is None:
-                self.cached_k = key_layer; self.cached_v = value_layer
-            else:
-                key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len:]
-                value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len:]
-                attention_mask=None
-        # else:
-        #     self.cached_k = key_layer
-        #     self.cached_v = value_layer
+            # if self.cached_k is None:
+            #     self.cached_k = key_layer; self.cached_v = value_layer
+            # else:
+            key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len:]
+            value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len:]
+            attention_mask=None
+        else:
+            self.cached_k = key_layer
+            self.cached_v = value_layer
 
         B, L, C = hidden_states.shape
         attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL
