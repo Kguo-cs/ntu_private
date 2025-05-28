@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True#model_config.finetune
+        self.finetune = False#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -62,6 +62,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout[key] = pred[key]
 
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
+            tokenized_agent_rollout['batch_lengths'] = tokenized_agent['batch_lengths']
             tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
             tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
             tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
@@ -244,20 +245,22 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
 
-            light_rollout = tokenized_agent_rollout["light_idx"][:, 2:]
+            if self.encoder.agent_encoder.pred_light:
 
-            light_acc = (light_rollout == real_light)
+                light_rollout = tokenized_agent_rollout["light_idx"][:, 2:]
 
-            self.log("train/agent_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
+                light_acc = (light_rollout == real_light)
 
-            agent_relation, _ = self.compute_consistence(light_rollout, batch_mask)
+                self.log("train/agent_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-            # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
-            # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
+                agent_relation, _ = self.compute_consistence(light_rollout, batch_mask)
 
-            agent_relation_acc = (real_relation == agent_relation)[real_relation_mask]
+                # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
+                # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
 
-            self.log("train/agent_relation_acc", agent_relation_acc.float().mean().item(), on_step=True, batch_size=1)
+                agent_relation_acc = (real_relation == agent_relation)[real_relation_mask]
+
+                self.log("train/agent_relation_acc", agent_relation_acc.float().mean().item(), on_step=True, batch_size=1)
 
             agent_reward, agent_value_loss, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
@@ -327,6 +330,27 @@ class IQ_SoftQ(LightningModule):
 
         return light_relation,relation_mask
 
+    def rotate(self,pos,heading,batch):
+
+        centering_pos = scatter_mean(pos, batch, dim=0)
+
+        centering_heading = scatter_mean(heading, batch, dim=0)
+
+        heading = heading - centering_heading[batch]
+
+        pos = pos - centering_pos[batch]
+
+        cos_a = torch.cos(centering_heading)[batch]
+        sin_a = torch.sin(centering_heading)[batch]
+
+        x, y = pos[:, 0], pos[:, 1]
+        x_rot = cos_a * x + sin_a * y
+        y_rot = -sin_a * x + cos_a * y
+
+        pos = torch.stack([x_rot, y_rot], dim=-1)
+
+        return  pos,heading
+
     def process_data(self,data):
 
         tokenized_agent={}
@@ -366,7 +390,9 @@ class IQ_SoftQ(LightningModule):
 
             lengths = counts.tolist()
 
-            tokenized_agent["agent_lengths"]=lengths
+            tokenized_agent["batch_lengths"]=lengths
+
+            # pos, heading=self.rotate(tokenized_agent["sampled_pos"], tokenized_agent["sampled_heading"], tokenized_agent["batch"])
 
         if self.encoder.agent_encoder.pred_light:
 
@@ -386,22 +412,7 @@ class IQ_SoftQ(LightningModule):
             orient_lg=tokenized_light["orient_lg"]
             batch_lg=tokenized_light["batch"]
 
-            centering_pos = scatter_mean(pos_lg, batch_lg, dim=0)
-
-            centering_orient = scatter_mean(orient_lg, batch_lg, dim=0)
-
-            orient_lg = orient_lg - centering_orient[batch_lg]
-
-            pos_lg = pos_lg - centering_pos[batch_lg]
-
-            cos_a = torch.cos(centering_orient)[batch_lg]
-            sin_a = torch.sin(centering_orient)[batch_lg]
-
-            x, y = pos_lg[:, 0], pos_lg[:, 1]
-            x_rot = cos_a * x + sin_a * y
-            y_rot = -sin_a * x + cos_a * y
-
-            pos_lg= torch.stack([x_rot, y_rot], dim=-1)
+            pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
 
             unique_ids, counts = batch_lg.unique_consecutive(return_counts=True)
 
