@@ -133,20 +133,24 @@ class SMARTMapDecoder(nn.Module):
 
         padded_pt_feature = self.padding(x_pt, lengths)
 
-        map_mask = (padded_pt_feature == 0).all(-1)[:,None, None]
+        map_mask = (padded_pt_feature == 0).all(-1)[:, None]
 
         sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)
 
         map_sinusoidal = self.padding(sinusoidal_pos, lengths)
 
-        x_pt = self.pt2pt_roformer(padded_pt_feature, map_mask, map_sinusoidal)
+        padd_pos=self.padding(pos_pt, lengths).swapaxes(1,2).flatten(0, 1)
+        # map_spatial_mask=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)<100
+        # agent_attn_mask=map_mask[:,None] & map_spatial_mask
+
+        x_pt = self.pt2pt_roformer(padded_pt_feature, map_mask[:,None], map_sinusoidal)
 
         return {
             "pt_token": x_pt,
             # "position": pos_pt,
             # "orientation": orient_pt,
              "batch": batch,
-             "map_mask": map_mask ,
+             "map_mask": map_mask[:,None] ,
              "map_sinusoidal": map_sinusoidal
         }
 
