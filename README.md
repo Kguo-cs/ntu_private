@@ -53,3 +53,6 @@ pip install -r install/requirements.txt
 pip install torch_geometric
 pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+cu121.html
 pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
+
+
+nohup python run.py > 1.txt 2>&1 &

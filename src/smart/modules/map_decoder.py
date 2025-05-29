@@ -91,7 +91,7 @@ class SMARTMapDecoder(nn.Module):
 
         sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)
 
-        map_sinusoidal = self.padding(sinusoidal_pos, lengths)[:, None]
+        map_sinusoidal = self.padding(sinusoidal_pos, lengths)
 
         x_pt = self.pt2pt_roformer(padded_pt_feature, map_mask, map_sinusoidal)
 

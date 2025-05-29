@@ -191,7 +191,7 @@ class RoFormerSelfAttention(nn.Module):
 
     @staticmethod
     def apply_rotary(x, sinusoidal_pos):
-        sin, cos = sinusoidal_pos.chunk(2, dim=-1)
+        sin, cos = sinusoidal_pos[:,None].chunk(2, dim=-1)
         #sin, cos = sinusoidal_pos
         x1, x2 = x[..., 0::2], x[..., 1::2]
         # 如果是旋转query key的话，下面这个直接cat就行，因为要进行矩阵乘法，最终会在这个维度求和。（只要保持query和key的最后一个dim的每一个位置对应上就可以）
@@ -244,30 +244,28 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
 def general_rope(positions, dim,theta=None):
     device = positions.device
 
-    positions = positions[:,:,None]
+    div_dim=dim//positions.shape[-1]
 
-    div_dim=dim//positions.shape[1]
+    positions = positions
 
     if theta is not None:
         div_dim=div_dim-2
-        theta=theta[:,None].repeat(1,2)
 
     div_term = torch.exp(
         torch.arange(0, div_dim, 2, dtype=torch.float32, device=device) * (-torch.log(torch.tensor(10000.0)) / div_dim)
-    )  [None,None]# [D/2]
+    )
 
-    sin = torch.sin(positions * div_term).flatten(1,2)
-    cos = torch.cos(positions * div_term).flatten(1,2)
+    sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
+    cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
 
     if theta is not None:
+        theta=theta[...,None].repeat_interleave(2,dim=-1)
+
         sin_theta=torch.sin(theta)
         cos_theta=torch.cos(theta)
 
         sin=torch.cat([sin, sin_theta],dim=-1)
         cos=torch.cat([cos, cos_theta],dim=-1)
-    else:
-        sin=sin.reshape(1,1,-1,dim//2)
-        cos=cos.reshape(1,1,-1,dim//2)
 
     sinusoidal_pos=torch.cat([sin,cos],dim=-1)
 

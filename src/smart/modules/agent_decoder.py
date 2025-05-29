@@ -219,7 +219,7 @@ class SMARTAgentDecoder(nn.Module):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
 
-        positions = torch.arange(n_current, n_step + n_current, device=feature.device)[:, None]
+        positions = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
 
         sinusoidal_pos = general_rope(positions, self.head_dim)
 
@@ -274,10 +274,17 @@ class SMARTAgentDecoder(nn.Module):
 
         return feat_lg, next_light_logits
 
-    def predict_agent(self, sampled_idx, agent_mask ,pos_a,head_a,tokenized_agent, map_feature, n_current=0):
+    def predict_agent(self, sampled_idx, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0):
+
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+        sinusoidal = general_rope(pos_a, self.head_dim, head_a)
 
         n_agent, n_step = head_a.shape
+
+        pt_feature=map_feature["pt_token"].repeat_interleave(n_step,dim=0)
+        map_mask=map_feature["map_mask"].repeat_interleave(n_step,dim=0)
+        map_sinusoidal=map_feature["map_sinusoidal"].repeat_interleave(n_step,dim=0)
+        lengths=tokenized_agent["batch_lengths"]
 
         # ! get agent token embeddings
         feat_a = self.agent_token_embedding(
@@ -291,43 +298,20 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
-        feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, n_current, self.agent_hist, ~agent_mask)
+        feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, n_current, self.agent_hist, ~mask_a)
 
-        lengths=tokenized_agent["batch_lengths"]
+        padded_a_feature = self.padding(feat_a, lengths).swapaxes(1,2).flatten(0, 1)
+        agent_sinusoidal = self.padding(sinusoidal, lengths).swapaxes(1,2).flatten(0, 1)
+        padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths).swapaxes(1,2).flatten(0, 1)
 
-        sinusoidal = general_rope(pos_a.flatten(0,1), self.head_dim, head_a.flatten(0,1))
+        feature_mask = (padded_a_feature!=0).any(-1)
 
-        padded_sinusoidal = self.padding(sinusoidal.reshape(n_agent, n_step, -1), lengths)
-
-        agent_sinusoidal = padded_sinusoidal.permute(2,0,1,3).flatten(0, 1)[:,None]
-
-        pt_feature=map_feature["pt_token"]
-        map_mask=map_feature["map_mask"]
-        map_sinusoidal=map_feature["map_sinusoidal"] 
-
-        padded_pt_feature=pt_feature[None].repeat(n_step,1,1,1).flatten(0,1)
-
-        map_mask=map_mask[None].repeat(n_step,1,1,1,1).flatten(0,1)
-
-        padded_a_feature = self.padding(feat_a, lengths)
-
-        padded_a_feature = padded_a_feature.permute(2, 0, 1, 3).flatten(0, 1)
-
-        padding_mask = (padded_a_feature!=0).any(-1)
-
-        map_sinusoidal_repeat=map_sinusoidal[None].repeat(n_step,1,1,1,1).flatten(0,1)
-
-        padded_a_feature = self.pt2a_roformer(padded_a_feature, map_mask,agent_sinusoidal,    padded_pt_feature, map_sinusoidal_repeat )
-
-        padding_agent_mask = self.padding(agent_mask, lengths).permute(2,0,1).flatten(0,1)
-
+        padded_a_feature = self.pt2a_roformer(padded_a_feature, map_mask, agent_sinusoidal,    pt_feature, map_sinusoidal )
         padded_a_feature = self.a2a_roformer(padded_a_feature, ~padding_agent_mask[:,None, None], agent_sinusoidal)
 
-        feat_a = padded_a_feature[padding_mask].reshape(n_step, n_agent, -1).swapaxes(0,1)  # (total_valid_steps, feat_dim)
+        feat_a = padded_a_feature[feature_mask]
 
-        next_token_logits = self.token_predict_head(feat_a)
-
-        #next_token_logits[~mask]=0
+        next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
 
         return next_token_logits
 
