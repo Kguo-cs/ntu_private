@@ -391,7 +391,7 @@ class IQ_SoftQ(LightningModule):
 
             lengths = counts.tolist()
 
-            tokenized_agent["batch_lengths"]=lengths
+            tokenized_agent["lengths_a"]=lengths
 
             # pos, heading=self.rotate(tokenized_agent["sampled_pos"], tokenized_agent["sampled_heading"], tokenized_agent["batch"])
 

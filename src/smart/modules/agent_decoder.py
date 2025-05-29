@@ -284,7 +284,6 @@ class SMARTAgentDecoder(nn.Module):
         pt_feature=map_feature["pt_token"].repeat_interleave(n_step,dim=0)
         map_mask=map_feature["map_mask"].repeat_interleave(n_step,dim=0)
         map_sinusoidal=map_feature["map_sinusoidal"].repeat_interleave(n_step,dim=0)
-        lengths=tokenized_agent["batch_lengths"]
 
         # ! get agent token embeddings
         feat_a = self.agent_token_embedding(
@@ -300,16 +299,19 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, n_current, self.agent_hist, ~mask_a)
 
-        padded_a_feature = self.padding(feat_a, lengths).swapaxes(1,2).flatten(0, 1)
-        agent_sinusoidal = self.padding(sinusoidal, lengths).swapaxes(1,2).flatten(0, 1)
-        padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths).swapaxes(1,2).flatten(0, 1)
+        lengths_a=tokenized_agent["lengths_a"]
+        padded_a_feature = self.padding(feat_a, lengths_a)
+        agent_sinusoidal = self.padding(sinusoidal, lengths_a).swapaxes(1,2).flatten(0, 1)
+        padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths_a).swapaxes(1,2).flatten(0, 1)
 
-        feature_mask = (padded_a_feature!=0).any(-1)
+        feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)
+
+        padded_a_feature=padded_a_feature.swapaxes(1,2).flatten(0, 1)
 
         padded_a_feature = self.pt2a_roformer(padded_a_feature, map_mask, agent_sinusoidal,    pt_feature, map_sinusoidal )
         padded_a_feature = self.a2a_roformer(padded_a_feature, ~padding_agent_mask[:,None, None], agent_sinusoidal)
 
-        feat_a = padded_a_feature[feature_mask]
+        feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 
         next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
 
