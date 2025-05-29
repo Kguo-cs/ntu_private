@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -69,7 +69,7 @@ class IQ_SoftQ(LightningModule):
 
         if "light_idx" in pred.keys():
             tokenized_agent_rollout['light_idx'] = pred['light_idx']
-            for key in ["lengths", "sinusoidal_poshead", "batch_lg"]:#, "polyline_lg"
+            for key in ["lengths_lg", "sinusoidal_lg", "batch_lg"]:#, "polyline_lg"
                 tokenized_agent_rollout[key] = tokenized_agent[key]
         return tokenized_map,tokenized_agent_rollout
 
@@ -413,26 +413,15 @@ class IQ_SoftQ(LightningModule):
 
             pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
 
-            lengths = torch.bincount(batch_lg)
-            #padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
-            # padded_orient = pad_sequence(torch.split(orient_lg, lengths), batch_first=True, padding_value=0)
-            #
-            # padded_sin, padded_cos = general_rope(padded_pos.reshape(-1,2), self.encoder.agent_encoder.head_dim, padded_orient.reshape(-1))
-            #
-            # padded_sin1=padded_sin.reshape(padded_pos.shape[0],1,padded_pos.shape[1],-1)
-            # padded_cos1=padded_cos.reshape(padded_pos.shape[0],1,padded_pos.shape[1],-1)
+            lengths_lg = torch.bincount(batch_lg)
 
-            sin, cos = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)
+            lengths_lg=lengths_lg[lengths_lg>0].tolist()
 
-            padded_sin = pad_sequence(torch.split(sin, lengths), batch_first=True, padding_value=0)[:,None]
+            sinusoidal_lg = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)
 
-            padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)[:,None]
-
-            # spatial_mask=torch.linalg.norm(padded_pos[:,:,None]-padded_pos[:,None],dim=-1)<200
-
-            tokenized_agent["lengths"] = lengths
+            tokenized_agent["lengths_lg"] = lengths_lg
             tokenized_agent["batch_lg"]=batch_lg
-            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos,None)
+            tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
 
 
             # tokenized_agent["light_idx"]=light_idx[light_pred_mask]

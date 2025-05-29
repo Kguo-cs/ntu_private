@@ -41,7 +41,7 @@ class SMARTMapDecoder(nn.Module):
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
-        self.use_map=True
+        self.use_map=False
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -139,7 +139,7 @@ class SMARTMapDecoder(nn.Module):
 
         map_sinusoidal = self.padding(sinusoidal_pos, lengths)
 
-        padd_pos=self.padding(pos_pt, lengths).swapaxes(1,2).flatten(0, 1)
+        # padd_pos=self.padding(pos_pt, lengths).swapaxes(1,2).flatten(0, 1)
         # map_spatial_mask=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)<100
         # agent_attn_mask=map_mask[:,None] & map_spatial_mask
 
