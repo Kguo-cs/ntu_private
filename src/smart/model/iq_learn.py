@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True#model_config.finetune
+        self.finetune = False#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -62,7 +62,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout[key] = pred[key]
 
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
-            tokenized_agent_rollout['batch_lengths'] = tokenized_agent['batch_lengths']
+            tokenized_agent_rollout['lengths_a'] = tokenized_agent['lengths_a']
             tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
             tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
             tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
