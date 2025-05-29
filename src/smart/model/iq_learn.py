@@ -393,8 +393,6 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent["batch_lengths"]=lengths
 
-            
-
             # pos, heading=self.rotate(tokenized_agent["sampled_pos"], tokenized_agent["sampled_heading"], tokenized_agent["batch"])
 
         if self.encoder.agent_encoder.pred_light:
@@ -421,7 +419,7 @@ class IQ_SoftQ(LightningModule):
 
             lengths = counts.tolist()
 
-            padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
+            #padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
             # padded_orient = pad_sequence(torch.split(orient_lg, lengths), batch_first=True, padding_value=0)
             #
             # padded_sin, padded_cos = general_rope(padded_pos.reshape(-1,2), self.encoder.agent_encoder.head_dim, padded_orient.reshape(-1))
