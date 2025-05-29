@@ -311,10 +311,11 @@ class SMARTAgentDecoder(nn.Module):
 
         padded_a_feature = self.pt2a_roformer(padded_a_feature, map_mask, agent_sinusoidal,    pt_feature, map_sinusoidal )
 
-        #padd_pos=self.padding(pos_a, lengths_a).swapaxes(1,2).flatten(0, 1)
-        #agent_spatial_mask=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)<100
+        padd_pos=self.padding(pos_a, lengths_a).swapaxes(1,2).flatten(0, 1)
 
-        agent_attn_mask=padding_agent_mask[:,None] #& agent_spatial_mask
+        agent_spatial_mask=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)<100
+
+        agent_attn_mask=padding_agent_mask[:,None] & agent_spatial_mask
 
         padded_a_feature = self.a2a_roformer(padded_a_feature, ~agent_attn_mask[:,None], agent_sinusoidal)
 
