@@ -143,7 +143,7 @@ class SMARTMapDecoder(nn.Module):
 
         pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
 
-        pt2pt_mask = map_mask | (pt2pt_dist[:,None]>60)
+        pt2pt_mask = map_mask | (pt2pt_dist[:,None]>self.pl2pl_radius)
 
         x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask, map_sinusoidal)
 
