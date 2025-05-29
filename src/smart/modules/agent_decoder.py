@@ -300,6 +300,7 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, n_current, self.agent_hist, ~mask_a)
 
         lengths_a=tokenized_agent["lengths_a"]
+
         padded_a_feature = self.padding(feat_a, lengths_a)
         agent_sinusoidal = self.padding(sinusoidal, lengths_a).swapaxes(1,2).flatten(0, 1)
         padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths_a).swapaxes(1,2).flatten(0, 1)

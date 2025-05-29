@@ -66,19 +66,17 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
-
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map = self.tokenize_map(data)
-        tokenized_agent = self.tokenize_agent(data)
 
+        tokenized_agent = self.tokenize_agent(data)
 
         unique_ids, counts = tokenized_agent["batch"].unique_consecutive(return_counts=True)
 
         lengths = counts.tolist()
 
         tokenized_agent["lengths_a"]=lengths
-
 
         if "light_polyline" in data.keys():
             light=data["light"]
