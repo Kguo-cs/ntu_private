@@ -77,7 +77,7 @@ class TokenProcessor(torch.nn.Module):
 
         lengths = counts.tolist()
 
-        tokenized_agent["batch_lengths"]=lengths
+        tokenized_agent["lengths_a"]=lengths
 
 
         if "light_polyline" in data.keys():

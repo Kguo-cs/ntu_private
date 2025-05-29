@@ -66,24 +66,70 @@ class SMARTMapDecoder(nn.Module):
         if not self.use_map:
             return {}
 
+        batch = tokenized_map["batch"]
         pos_pt = tokenized_map["position"]
-        orient_pt = tokenized_map["orientation"]
+
+        N = pos_pt.size(0)
+        max_k = 500
+
+        # Step 1: Compute per-batch centroids
+        centroid = scatter_mean(pos_pt, batch, dim=0)  # shape: (B, D)
+
+        # Step 2: Compute distance of each point to its batch centroid
+        centroid_per_point = centroid[batch]  # shape: (N, D)
+        distances = torch.norm(pos_pt - centroid_per_point, dim=1)  # shape: (N,)
+
+        # Step 3: For each batch index, select the nearest 500 points
+        # Group indices per batch
+        # unique_batches = torch.unique(batch)
+        # mask = torch.zeros_like(batch, dtype=torch.bool)
+
+        # for b in unique_batches:
+        #     idx = (batch == b).nonzero(as_tuple=False).squeeze()  # indices for batch b
+        #     dist_b = distances[idx]
+        #     if dist_b.numel() <= 500:
+        #         mask[idx] = True
+        #     else:
+        #         topk = torch.topk(dist_b, k=500, largest=False).indices
+        #         selected_idx = idx[topk]
+        #         mask[selected_idx] = True
+
+        # Step 3: Sort distances within each batch (vectorized using a trick)
+        # Offset batch index to separate groups in global sort
+        max_dist = distances.max() + 1  # ensure batch shift won't change intra-batch order
+        sort_key = distances + batch.to(distances.dtype) * max_dist
+        sorted_indices = torch.argsort(sort_key)  # global sort, but grouped by batch
+
+        # Step 4: Count how many elements per batch
+        batch_sizes = torch.bincount(batch)  # shape: (B,)
+        cumsum = torch.cumsum(batch_sizes, dim=0)
+        start = torch.zeros_like(cumsum)
+        start[1:] = cumsum[:-1]
+
+        # Step 5: Create rank per item in sorted list
+        rank = torch.empty_like(batch, dtype=torch.long)
+        rank[sorted_indices] = torch.arange(N, device=batch.device) - start[batch[sorted_indices]]
+
+        # Step 6: Keep only top-k (rank < 500)
+        mask = rank < max_k
+
+        batch=batch[mask]
+        pos_pt=pos_pt[mask]
+
+
+        orient_pt = tokenized_map["orientation"][mask]
         pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
-        x_pt = pt_token_emb_src[tokenized_map["token_idx"]]
+        x_pt = pt_token_emb_src[tokenized_map["token_idx"][mask]]
 
         x_pt_categorical_embs = [
-            self.type_pt_emb(tokenized_map["type"]),
-            self.polygon_type_emb(tokenized_map["pl_type"]),
-            self.light_pl_emb(tokenized_map["light_type"]),
+            self.type_pt_emb(tokenized_map["type"][mask]),
+            self.polygon_type_emb(tokenized_map["pl_type"][mask]),
+            self.light_pl_emb(tokenized_map["light_type"][mask]),
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-        batch = tokenized_map["batch"]
-
-        unique_ids, counts = batch.unique_consecutive(return_counts=True)
-
-        lengths = counts.tolist()
+        lengths = torch.bincount(batch).tolist()
 
         padded_pt_feature = self.padding(x_pt, lengths)
 

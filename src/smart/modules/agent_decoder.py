@@ -306,7 +306,7 @@ class SMARTAgentDecoder(nn.Module):
 
         feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)
 
-        padded_a_feature=padded_a_feature.swapaxes(1,2).flatten(0, 1)
+        padded_a_feature = padded_a_feature.swapaxes(1,2).flatten(0, 1)
 
         padded_a_feature = self.pt2a_roformer(padded_a_feature, map_mask, agent_sinusoidal,    pt_feature, map_sinusoidal )
         padded_a_feature = self.a2a_roformer(padded_a_feature, ~padding_agent_mask[:,None, None], agent_sinusoidal)
@@ -363,7 +363,7 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_light_predict(self,  tokenized_agent, current_len,max_len):
         predicted_tokens = tokenized_agent["light_idx"][:, :current_len].clone()
-        lengths = tokenized_agent["lengths"]
+        lengths = tokenized_agent["lengths_a"]
         sinusoidal_poshead = tokenized_agent["sinusoidal_poshead"]
 
         self.lg_t_roformer.attn.kv_caching(self.light_hist)

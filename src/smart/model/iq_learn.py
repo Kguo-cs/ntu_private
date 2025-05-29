@@ -387,11 +387,9 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
 
-            unique_ids, counts = tokenized_agent["batch"].unique_consecutive(return_counts=True)
+            lengths = torch.bincount(tokenized_agent["batch"])
 
-            lengths = counts.tolist()
-
-            tokenized_agent["lengths_a"]=lengths
+            tokenized_agent["lengths_a"]=lengths.tolist()
 
             # pos, heading=self.rotate(tokenized_agent["sampled_pos"], tokenized_agent["sampled_heading"], tokenized_agent["batch"])
 
@@ -415,10 +413,7 @@ class IQ_SoftQ(LightningModule):
 
             pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
 
-            unique_ids, counts = batch_lg.unique_consecutive(return_counts=True)
-
-            lengths = counts.tolist()
-
+            lengths = torch.bincount(batch_lg)
             #padded_pos = pad_sequence(torch.split(pos_lg, lengths), batch_first=True, padding_value=0)
             # padded_orient = pad_sequence(torch.split(orient_lg, lengths), batch_first=True, padding_value=0)
             #
