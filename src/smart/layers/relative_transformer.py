@@ -330,7 +330,6 @@ def get_sin_cos(seq_len, dim, device):
 #         return self.to_out(out)
 
 
-
 class RoFormerBlock(nn.Module):
     def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1):
         super().__init__()

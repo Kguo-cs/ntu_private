@@ -9,7 +9,7 @@ import numpy as np
 
 
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_inter10_light/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_1000_light/"
 
 raw_data="/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 
@@ -56,7 +56,7 @@ for filename in tqdm(files):
 
     position=data1["tokenized_map"]["position"]
 
-    if data1['tokenized_map']['num_nodes']>500:
+    if data1['tokenized_map']['num_nodes']>1000:
 
         centering=torch.mean(position,dim=0)
 
@@ -64,7 +64,7 @@ for filename in tqdm(files):
 
         sort_idx=torch.argsort(dist)
 
-        mask=sort_idx<500
+        mask=sort_idx<1000
 
         data1["tokenized_map"]["position"]=data1["tokenized_map"]["position"][mask]
         data1["tokenized_map"]["orientation"]=data1["tokenized_map"]["orientation"][mask]
