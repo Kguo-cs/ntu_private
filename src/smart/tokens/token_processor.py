@@ -29,6 +29,8 @@ from src.smart.utils import (
     wrap_angle,
 )
 from torch_scatter import scatter_mean,scatter_max
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
+from torch.nn.utils.rnn import pad_sequence
 
 
 class TokenProcessor(torch.nn.Module):

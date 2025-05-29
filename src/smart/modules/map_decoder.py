@@ -22,9 +22,8 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from torch_scatter import scatter_mean,scatter_max
 from .agent_decoder import  radiusGraphNearest
-# from torch._dynamo import disable
-#
-# @disable
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
+from torch.nn.utils.rnn import pad_sequence
 def safe_radius(*args, **kwargs):
     return radius_graph(*args, **kwargs)
 
@@ -45,7 +44,7 @@ class SMARTMapDecoder(nn.Module):
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
-        self.use_map=False
+        self.use_map=True
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -58,6 +57,8 @@ class SMARTMapDecoder(nn.Module):
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
+
+            self.head_dim=head_dim
 
             self.pt2pt_layers = nn.ModuleList(
                 [
@@ -148,10 +149,25 @@ class SMARTMapDecoder(nn.Module):
         for i in range(self.num_layers):
             x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
+
+        unique_ids, counts = batch.unique_consecutive(return_counts=True)
+
+        lengths = counts.tolist()
+
+        sin, cos = general_rope(pos_pt, self.head_dim, orient_pt)
+
+        padded_sin = pad_sequence(torch.split(sin, lengths), batch_first=True, padding_value=0)[:,None]
+
+        padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)[:,None]
+
+
         return {
             "pt_token": x_pt,
             "position": pos_pt,
             "orientation": orient_pt,
-            "batch": batch
+            "batch": batch,
+            "map_lengths":lengths ,
+            "map_sinusoidal": (padded_sin,padded_cos)
+
         }
 

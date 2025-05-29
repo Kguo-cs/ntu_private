@@ -38,10 +38,11 @@ trainer:
   max_epochs: 64
 
 data:
-  train_batch_size: 64
+  train_batch_size: 16
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 32
 
 #action: validate
 
+# nohup python run.py > 1.txt 2>&1 &

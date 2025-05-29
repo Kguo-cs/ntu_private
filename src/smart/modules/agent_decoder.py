@@ -35,8 +35,7 @@ from torch.distributions import Categorical, Independent, MixtureSameFamily, Nor
 from .build_edge import radiusGraphNearest, radiusGraphNearest2, positionalencoding1d, generate_causal_mask, \
     generate_limited_causal_mask
 from torch.nn.utils.rnn import pad_sequence
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope, \
-    general_rope1
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
 
 
 class SMARTAgentDecoder(nn.Module):
@@ -252,6 +251,7 @@ class SMARTAgentDecoder(nn.Module):
         feature_out = padded_feature1[src_key_padding_mask].reshape(feature.shape[1], feature.shape[0], -1).swapaxes(0, 1)
 
         return feature_out
+            
 
     def predict_light(self, light_idx, sinusoidal_poshead, lengths, n_current=0):
         n_step = light_idx.shape[1]
@@ -301,6 +301,12 @@ class SMARTAgentDecoder(nn.Module):
         #
         # padded_mask=padded_mask1.permute(2,0,1).flatten(0,1)#batch 1 agent 1 no first time step ?
 
+
+
+        # feat_a = self.pt2a_attn_layers(feat_map
+        #     (feat_map, feat_a), r_pl2a, edge_index_pl2a
+        # )
+
         sin, cos = general_rope(pos_a.flatten(0,1), self.head_dim, head_a.flatten(0,1))
 
         padded_sin = self.padding(sin.reshape(n_agent, n_step, -1), lengths)
@@ -313,6 +319,34 @@ class SMARTAgentDecoder(nn.Module):
 
         # padded_pos = pad_sequence(torch.split(pos_a, lengths), batch_first=True, padding_value=0)
         # spatial_mask=spatial_mask[None].repeat(n_step, 1, 1, 1).flatten(0, 1)
+        pt_feature=map_feature["pt_token"]
+        map_lengths=map_feature["map_lengths"] 
+        map_sinusoidal=map_feature["map_sinusoidal"] 
+
+        padded_pt_feature = self.padding(pt_feature, map_lengths)
+
+        padded_pt_feature=padded_pt_feature[None].repeat(n_step,1,1,1).flatten(0,1)
+
+        src_key_padding_mask = (padded_pt_feature!=0).any(-1)
+
+        attn_mask = src_key_padding_mask[:, None]
+
+        padded_a_feature = self.padding(feat_a, lengths)
+
+        padded_a_feature = padded_a_feature.permute(2, 0, 1, 3).flatten(0, 1)
+        
+        src_key_padding_mask = (padded_a_feature!=0).any(-1)
+
+        (map_sin,map_cos)=map_sinusoidal
+
+        map_sin=map_sin[None].repeat(n_step,1,1,1,1).flatten(0,1)
+        map_cos=map_cos[None].repeat(n_step,1,1,1,1).flatten(0,1)
+
+        feat_pta = self.pt2a_roformer(padded_a_feature, ~attn_mask[:, None], (sin,cos),
+                                             padded_pt_feature,(map_sin,map_cos)
+                                             )
+
+        feat_a = feat_pta[src_key_padding_mask].reshape(feat_a.shape[1], feat_a.shape[0], -1).swapaxes(0, 1)
 
         feat_st = self.spatial_embed(feat_a, self.a2a_roformer, lengths, (sin, cos))
 
@@ -489,8 +523,6 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
 
         return out_dict
-
-
 
     def inference(
             self,

@@ -386,11 +386,14 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map[key] = map[key].long()
 
             tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
+
             unique_ids, counts = tokenized_agent["batch"].unique_consecutive(return_counts=True)
 
             lengths = counts.tolist()
 
             tokenized_agent["batch_lengths"]=lengths
+
+            
 
             # pos, heading=self.rotate(tokenized_agent["sampled_pos"], tokenized_agent["sampled_heading"], tokenized_agent["batch"])
 
@@ -432,11 +435,11 @@ class IQ_SoftQ(LightningModule):
 
             padded_cos = pad_sequence(torch.split(cos, lengths), batch_first=True, padding_value=0)[:,None]
 
-            spatial_mask=torch.linalg.norm(padded_pos[:,:,None]-padded_pos[:,None],dim=-1)<200
+            # spatial_mask=torch.linalg.norm(padded_pos[:,:,None]-padded_pos[:,None],dim=-1)<200
 
             tokenized_agent["lengths"] = lengths
             tokenized_agent["batch_lg"]=batch_lg
-            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos,spatial_mask)
+            tokenized_agent["sinusoidal_poshead"] = (padded_sin,padded_cos,None)
 
 
             # tokenized_agent["light_idx"]=light_idx[light_pred_mask]
