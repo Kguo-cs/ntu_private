@@ -361,10 +361,11 @@ class IQ_SoftQ(LightningModule):
             map=data["tokenized_map"]
             agent=data["tokenized_agent"]
 
-            for key in ["sampled_pos", "sampled_heading", "valid_mask", "type","batch", "shape"]:
+            for key in ["sampled_pos", "sampled_heading", "type","batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
             tokenized_agent['sampled_idx'] = agent["sampled_idx"].long()
+            tokenized_agent["valid_mask"] = agent["valid_mask"]
             tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
             tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
             tokenized_agent["gt_idx"] = tokenized_agent['sampled_idx']

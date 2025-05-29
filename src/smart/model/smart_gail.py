@@ -12,15 +12,14 @@
 # its affiliates is strictly prohibited.
 
 
-from src.smart.model.gail import GAIL
+from trash.gail import GAIL
 from src.smart.model.iq_learn import IQ_SoftQ
 from src.smart.model.smart import SMART
 from src.smart.modules.smart_decoder import SMARTDecoder
 
 from src.smart.model.ego_gmm_smart import EgoGMMSMART
 from src.smart.modules.ego_gmm_smart_decoder import EgoGMMSMARTDecoder
-from src.smart.metrics import WOSACSubmission
-import torch
+
 
 class SMART_GAIL(GAIL, SMART):
     def __init__(self, model_config) -> None:
