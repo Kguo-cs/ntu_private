@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc01_sincos_seq_map500_b32  #mask_dist100_256 #_mix_value_rotateposhead #rot #_noise01 #_expertV0 #tv_noise01_initV1 #_noline_nodone128 #no_noise01X2_initv0_noagent_0_initVmean0
+task_name: bc01_sincos_seq_map500_b40 #_agentspatial100  #mask_dist100_256 #_mix_value_rotateposhead #rot #_noise01 #_expertV0 #tv_noise01_initV1 #_noline_nodone128 #no_noise01X2_initv0_noagent_0_initVmean0
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
