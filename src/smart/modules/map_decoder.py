@@ -141,9 +141,9 @@ class SMARTMapDecoder(nn.Module):
 
         padd_pos=self.padding(pos_pt, lengths)
 
-        pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+        pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)[:,None]
 
-        pt2pt_mask = map_mask | (pt2pt_dist[:,None]>self.pl2pl_radius)
+        pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
         x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask, map_sinusoidal)
 
