@@ -24,6 +24,7 @@ from torch_scatter import scatter_mean,scatter_max
 from .agent_decoder import  radiusGraphNearest
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
 from torch.nn.utils.rnn import pad_sequence
+import numpy as np
 
 class SMARTMapDecoder(nn.Module):
 
@@ -87,6 +88,8 @@ class SMARTMapDecoder(nn.Module):
 
         map_mask = (padded_pt_feature == 0).all(-1)[:, None]
 
+        
+
         sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)
 
         map_sinusoidal = self.padding(sinusoidal_pos, lengths)
@@ -98,6 +101,24 @@ class SMARTMapDecoder(nn.Module):
         pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
         x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+
+        #pos_pt1=pos_pt+torch.tensor(np.array([[10,100]])).to(device=x_pt.device)
+
+        #orient_pt1=orient_pt+torch.pi*2
+
+
+        # sinusoidal_pos = general_rope(pos_pt1, self.head_dim, orient_pt1)
+
+        # map_sinusoidal1 = self.padding(sinusoidal_pos, lengths)
+
+        # padd_pos=self.padding(pos_pt1, lengths)
+
+        # pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+
+        # pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
+
+        # x_pt1 = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal1)
+
 
         return {
             "pt_token": x_pt,

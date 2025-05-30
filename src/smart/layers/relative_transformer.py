@@ -77,6 +77,10 @@ class RoFormerSelfAttention(nn.Module):
         # only used during inference
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
+        self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
+
+        self.key_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
+
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (
             self.num_attention_heads,
@@ -89,6 +93,7 @@ class RoFormerSelfAttention(nn.Module):
         self.caching_len = caching_len
         # self.cached_k=None
         # self.cached_v=None
+
 
     def forward(
         self,
@@ -106,17 +111,33 @@ class RoFormerSelfAttention(nn.Module):
         # and values come from an encoder; the attention mask needs to be
         # such that the encoder's padding tokens are not attended to.
         is_cross_attention = encoder_hidden_states is not None
+        
+        query_layer1 = self.transpose_for_scores(self.query_pos(hidden_states))
+
+        query_layer1 = self.apply_rotary(query_layer1, sinusoidal_pos)
 
         if is_cross_attention:
             key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
             value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
             key_layer = self.apply_rotary(key_layer,encoder_sinusoidal_pos)
+
+
+            key_layer1 = self.transpose_for_scores(self.key_pos(encoder_hidden_states))
+
+            key_layer1 = self.apply_rotary(key_layer1, encoder_sinusoidal_pos)
+
+            #value_layer=self.apply_rotary(value_layer,encoder_sinusoidal_pos)
         else:
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
-            # rotary key_layer & value_layer
             key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
 
+            key_layer1 = self.transpose_for_scores(self.key_pos(hidden_states))
+
+            key_layer1 = self.apply_rotary(key_layer1, sinusoidal_pos)
+
+
+            # value_layer=self.apply(value_layer,sinusoidal_pos)
         # if self.is_decoder:
         #     # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
         #     # Further calls to cross_attention layer can then reuse all cross-attention
@@ -176,7 +197,16 @@ class RoFormerSelfAttention(nn.Module):
             attn.add_(attn_bias)
         attn = attn.softmax(dim=-1)
         if attention_mask is not None:
-            attn = attn.masked_fill(attention_mask.bool(), 0)
+            attn = attn.masked_fill(attention_mask, 0)
+
+        relative_pos=query_layer1.mul(self.scale) @ key_layer1.transpose(-1, -2)
+
+        relative_pos=relative_pos.masked_fill(attention_mask.bool(), 0)
+
+        relative_pos=relative_pos.sum(-2)[:,:,:,None]
+
+        value_layer=value_layer+relative_pos
+        
         outputs = (F.dropout(attn, p=self.dropout_p, inplace=True) if self.dropout_p > 0 else attn) @ value_layer
 
         # oup = flash_attn_func(query_layer, key_layer, value_layer, dropout_p=self.dropout_p,
