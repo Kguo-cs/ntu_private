@@ -455,12 +455,22 @@ class SMARTAgentDecoder(nn.Module):
                     self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_len]
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_len]
                 else:
-                    next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_features[:,:t])
+                    if lg_features is not None:
+                        lg_feat=lg_features[:,:t]
+                    else:
+                        lg_feat=None
+
+                    next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
    
             else:
-                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_features[:,-1:],t - 1)
+                if lg_features is not None:
+                    lg_feat=lg_features[:,-1:]
+                else:
+                    lg_feat=None
+
+                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
 
