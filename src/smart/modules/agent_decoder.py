@@ -228,7 +228,7 @@ class SMARTAgentDecoder(nn.Module):
         sinusoidal_pos = general_rope(positions, self.head_dim)
 
         if mask is not None:
-            causal_mask = causal_mask[None,None] #| mask[:,None,None,:]
+            causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 
         feature = network(feature, causal_mask, sinusoidal_pos)
 
@@ -310,7 +310,7 @@ class SMARTAgentDecoder(nn.Module):
 
         pt2a_mask= map_mask | (pt2a_dist>self.pl2a_radius)
 
-        padded_a_feature = self.pt2a_roformer(padded_a_feature, None, agent_sinusoidal,    pt_feature, map_sinusoidal )
+        padded_a_feature = self.pt2a_roformer(padded_a_feature, pt2a_mask[:,None], agent_sinusoidal,    pt_feature, map_sinusoidal )
 
         if feat_lg is not None:
             sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
@@ -328,7 +328,7 @@ class SMARTAgentDecoder(nn.Module):
 
         a2a_mask = padding_agent_mask[:,None] | (a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
-        padded_a_feature = self.a2a_roformer(padded_a_feature, None, agent_sinusoidal)
+        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal)
 
         feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 
