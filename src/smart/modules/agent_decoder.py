@@ -284,7 +284,7 @@ class SMARTAgentDecoder(nn.Module):
 
         padded_a_feature = self.padding(feat_a, lengths_a)
         agent_sinusoidal = self.padding(sinusoidal, lengths_a).swapaxes(1,2).flatten(0, 1)
-        padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths_a).swapaxes(1,2).flatten(0, 1)
+        padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths_a,padding_value=True).swapaxes(1,2).flatten(0, 1)
         padd_pos=self.padding(pos_a, lengths_a).swapaxes(1,2).flatten(0, 1)
 
         feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)

@@ -11,7 +11,7 @@ model_config:
   decoder:
     num_map_layers: 1
     num_agent_layers: 1
-    pl2pl_radius: 40
+    pl2pl_radius: 20
     pl2a_radius: 40
     a2a_radius: 60
     dropout: 0
