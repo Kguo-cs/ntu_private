@@ -176,7 +176,7 @@ class RoFormerSelfAttention(nn.Module):
             attn.add_(attn_bias)
         attn = attn.softmax(dim=-1)
         if attention_mask is not None:
-            attn[attention_mask]=0
+            attn[attention_mask[:,0,None]]=0
         outputs = (F.dropout(attn, p=self.dropout_p, inplace=True) if self.dropout_p > 0 else attn) @ value_layer
 
         # oup = flash_attn_func(query_layer, key_layer, value_layer, dropout_p=self.dropout_p,
