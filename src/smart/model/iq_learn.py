@@ -123,6 +123,8 @@ class IQ_SoftQ(LightningModule):
 
                 valid_mask =  torch.cat([valid_mask, light_valid_mask[:,1:]])#light_valid_mask[:,1:] #
                 state_mask= torch.cat([state_mask,light_valid_mask[:,1:-1]])#light_valid_mask[:,1:-1]#
+
+                all_valid_mask=torch.cat([tokenized_agent["valid_mask"].all(-1) ,light_valid_mask.all(-1)])
             else:
                 action = light_action
                 all_valid_mask=light_valid_mask.all(-1)
@@ -397,27 +399,23 @@ class IQ_SoftQ(LightningModule):
 
             light_idx=tokenized_light["light_idx"]
 
-            light_mask=light_idx<self.encoder.agent_encoder.light_type
+            #light_mask=light_idx<self.encoder.agent_encoder.light_type
 
-            light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
+            # light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
             #light_idx[light_idx>2]=0
 
             #light_pred_mask=torch.ones_like(light_pred_mask)
-            
+            #pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
+
             tokenized_agent["light_idx"]=light_idx.long()#[light_pred_mask]
             pos_lg=tokenized_light["pos_lg"]#[light_pred_mask]
             orient_lg=tokenized_light["orient_lg"]#[light_pred_mask]
             batch_lg=tokenized_light["batch"]#[light_pred_mask]
 
+            lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
 
-            #pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
-
-            lengths_lg = torch.bincount(batch_lg)
-
-            lengths_lg=lengths_lg[lengths_lg>0].tolist()
-
-            sinusoidal_lg = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)
-
+            sinusoidal_lg = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)    
+            sinusoidal_lg=self.encoder.agent_encoder.padding(sinusoidal_lg, lengths_lg)
             tokenized_agent["lengths_lg"] = lengths_lg
             tokenized_agent["batch_lg"]=batch_lg
             tokenized_agent["sinusoidal_lg"] = sinusoidal_lg

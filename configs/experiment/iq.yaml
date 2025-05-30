@@ -34,7 +34,7 @@ trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
-  # val_check_interval: 0.00002
+  #val_check_interval: 0.00002
   max_epochs: 64
 
 data:

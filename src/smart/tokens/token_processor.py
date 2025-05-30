@@ -89,20 +89,21 @@ class TokenProcessor(torch.nn.Module):
 
             light_idx=self.light_token_last[light_idx]
 
-            light_mask = light_idx < 3
-            light_pred_mask=torch.ones_like(light_mask[:,0]).to(torch.bool)
+            tokenized_agent["light_idx"]=light_idx
+            pos_lg=light["pos"]
+            orient_lg=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])
+            batch_lg=light["batch"]
+            lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
 
-            # for i in range(data.num_graphs):
-            #     if (light["batch"]==i).sum():
-            #         select_idx=torch.argmax(light_mask.sum(axis=1)+(light["batch"]==i)*100)
-            #         light_pred_mask[select_idx]=True
+            sinusoidal_lg = general_rope(pos_lg, 16, orient_lg)    
 
-            tokenized_agent["light_idx"]=light_idx[light_pred_mask]
-            tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
-            tokenized_map["pos_lg"]=light["pos"][light_pred_mask]
-            tokenized_map["orient_lg"]=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])[light_pred_mask]
-            tokenized_map["batch_lg"]=light["batch"][light_pred_mask]
+            sinusoidal_lg = pad_sequence(list(torch.split(sinusoidal_lg, lengths_lg)), batch_first=True, padding_value=0)
 
+            tokenized_agent["lengths_lg"] = lengths_lg
+            tokenized_agent["batch_lg"]=batch_lg
+            tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
+
+        
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
@@ -244,15 +245,44 @@ class TokenProcessor(torch.nn.Module):
                 "rel_pose":rel_pose
             }
         else:
+
+            pos_pt=position
+            N = pos_pt.size(0)
+            max_k = 500
+            
+            # Step 1: Compute per-batch centroids
+            centroid = scatter_mean(pos_pt, batch, dim=0)  # shape: (B, D)
+            
+            # Step 2: Compute distance of each point to its batch centroid
+            centroid_per_point = centroid[batch]  # shape: (N, D)
+            distances = torch.norm(pos_pt - centroid_per_point, dim=1)  # shape: (N,)
+        
+            max_dist = distances.max() + 1  # ensure batch shift won't change intra-batch order
+            sort_key = distances + batch.to(distances.dtype) * max_dist
+            sorted_indices = torch.argsort(sort_key)  # global sort, but grouped by batch
+            
+            # Step 4: Count how many elements per batch
+            batch_sizes = torch.bincount(batch)  # shape: (B,)
+            cumsum = torch.cumsum(batch_sizes, dim=0)
+            start = torch.zeros_like(cumsum)
+            start[1:] = cumsum[:-1]
+            
+            # Step 5: Create rank per item in sorted list
+            rank = torch.empty_like(batch, dtype=torch.long)
+            rank[sorted_indices] = torch.arange(N, device=batch.device) - start[batch[sorted_indices]]
+            
+            # Step 6: Keep only top-k (rank < 500)
+            mask = rank < max_k
+
             tokenized_map = {
-                "position": position,  # [n_pl, 2]
-                "orientation": traj_theta,  # [n_pl]
-                "token_idx": token_idx,  # [n_pl]
+                "position": position[mask],  # [n_pl, 2]
+                "orientation": traj_theta[mask],  # [n_pl]
+                "token_idx": token_idx[mask],  # [n_pl]
                 "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-                "type": type.long() ,  # [n_pl]
-                "pl_type": pl_type.long() ,  # [n_pl]
-                "light_type": light_type.long() ,  # [n_pl]
-                "batch": batch ,  # [n_pl]
+                "type": type.long()[mask] ,  # [n_pl]
+                "pl_type": pl_type.long()[mask] ,  # [n_pl]
+                "light_type": light_type.long()[mask] ,  # [n_pl]
+                "batch": batch[mask] ,  # [n_pl]
             }
 
 
