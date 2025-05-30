@@ -41,7 +41,7 @@ class SMARTMapDecoder(nn.Module):
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
-        self.use_map=True
+        self.use_map=False
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -133,7 +133,7 @@ class SMARTMapDecoder(nn.Module):
 
         padded_pt_feature = self.padding(x_pt, lengths)
 
-        map_mask = (padded_pt_feature == 0).all(-1)[:, None,None]
+        map_mask = (padded_pt_feature == 0).all(-1)[:, None]
 
         sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)
 
@@ -141,11 +141,11 @@ class SMARTMapDecoder(nn.Module):
 
         padd_pos=self.padding(pos_pt, lengths)
 
-        pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)[:,None]
+        pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
 
         pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
-        x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask, map_sinusoidal)
+        x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
 
         return {
             "pt_token": x_pt,

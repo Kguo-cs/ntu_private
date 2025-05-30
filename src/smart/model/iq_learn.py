@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -69,6 +69,8 @@ class IQ_SoftQ(LightningModule):
 
         if "light_idx" in pred.keys():
             tokenized_agent_rollout['light_idx'] = pred['light_idx']
+            tokenized_agent_rollout['light_mask'] = pred['light_mask']
+
             for key in ["lengths_lg", "sinusoidal_lg", "batch_lg"]:#, "polyline_lg"
                 tokenized_agent_rollout[key] = tokenized_agent[key]
         return tokenized_map,tokenized_agent_rollout
@@ -224,7 +226,7 @@ class IQ_SoftQ(LightningModule):
 
             batch_mask=batch_lg[:,None]==batch_lg[None]
 
-            real_light_mask=real_light<3
+            real_light_mask=torch.ones_like(tokenized_agent["light_mask"][:, 2:]).to(bool)
 
             repeat_pred=tokenized_agent["light_idx"][:, 1:2].repeat(1,real_light.shape[1])
 
@@ -232,9 +234,9 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/repeat_light_acc", repeat_light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-            real_relation,real_relation_mask=self.compute_consistence(real_light,batch_mask)
+            real_relation,real_relation_mask=self.compute_consistence(real_light,batch_mask,real_light_mask)
 
-            repeat_relation,_=self.compute_consistence(repeat_pred,batch_mask)
+            repeat_relation,_=self.compute_consistence(repeat_pred,batch_mask,real_light_mask)
 
             repeat_relation_acc=(real_relation==repeat_relation)[real_relation_mask]
 
@@ -253,7 +255,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-                agent_relation, _ = self.compute_consistence(light_rollout, batch_mask)
+                agent_relation, _ = self.compute_consistence(light_rollout, batch_mask,real_light_mask)
 
                 # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
                 # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
@@ -316,13 +318,11 @@ class IQ_SoftQ(LightningModule):
 
         return loss
 
-    def compute_consistence(self,light,batch_mask):
+    def compute_consistence(self,light,batch_mask,light_mask):
 
         light_relation=light[:,None]==light[None]
 
         light_relation=light_relation[batch_mask]
-
-        light_mask=light<3
 
         relation_mask=(light_mask[:,None] & light_mask[None]) [batch_mask]
 
@@ -397,22 +397,23 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.agent_encoder.pred_light:
 
             tokenized_light=data["tokenized_light"]
-            # map_tensor=torch.tensor([3,4,0,1,2]).to(tokenized_light["light_idx"].device)
 
-            # light_idx=map_tensor[tokenized_light["light_idx"].long()]
+            light_idx=tokenized_light["light_idx"]
 
-            # # light_idx=self.token_processor.light_token_last[light_idx]
+            light_mask=light_idx<3
 
-            # light_mask=light_idx<3
+            light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
+            tokenized_agent["light_mask"]=light_mask[light_pred_mask]
 
-            # light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
+            #light_idx[light_idx>2]=0
+            
+            tokenized_agent["light_idx"]=light_idx.long()[light_pred_mask]
+            pos_lg=tokenized_light["pos_lg"][light_pred_mask]
+            orient_lg=tokenized_light["orient_lg"][light_pred_mask]
+            batch_lg=tokenized_light["batch"][light_pred_mask]
 
-            tokenized_agent["light_idx"]=tokenized_light["light_idx"].long()
-            pos_lg=tokenized_light["pos_lg"]
-            orient_lg=tokenized_light["orient_lg"]
-            batch_lg=tokenized_light["batch"]
 
-            pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
+            #pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
 
             lengths_lg = torch.bincount(batch_lg)
 
@@ -423,18 +424,6 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["lengths_lg"] = lengths_lg
             tokenized_agent["batch_lg"]=batch_lg
             tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
-
-
-            # tokenized_agent["light_idx"]=light_idx[light_pred_mask]
-            # tokenized_agent["light_valid_mask"]=light_mask[light_pred_mask]
-            # tokenized_agent["pos_lg"]=tokenized_light["light_pos"][light_pred_mask]
-
-            # light_polyline=tokenized_light["light_orient"]
-            # light_orient=torch.atan2(light_polyline[:,-1],light_polyline[:,-2])
-            # tokenized_agent["polyline_lg"]=light_polyline[light_pred_mask]
-
-            # tokenized_agent["orient_lg"]=light_orient[light_pred_mask]
-            # tokenized_agent["batch_lg"]=tokenized_light["batch"][light_pred_mask]
 
         if self.encoder.agent_encoder.pred_route:
             route_idx= agent["route_idx"]//(120//self.encoder.agent_encoder.route_type)
