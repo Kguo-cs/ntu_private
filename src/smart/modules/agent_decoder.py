@@ -462,7 +462,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
-                self.a_t_roformer.attn.kv_caching(self.agent_hist)
+              #  self.a_t_roformer.attn.kv_caching(self.agent_hist)
    
             else:
                 if lg_features is not None:
@@ -470,7 +470,8 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     lg_feat=None
 
-                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
+                #next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
+                next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
 
@@ -506,7 +507,7 @@ class SMARTAgentDecoder(nn.Module):
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
             mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
 
-        self.a_t_roformer.attn.kv_caching(0)
+       # self.a_t_roformer.attn.kv_caching(0)
 
         out_dict = {
             "type": tokenized_agent["type"],

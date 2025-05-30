@@ -246,35 +246,35 @@ class TokenProcessor(torch.nn.Module):
             }
         else:
 
-            pos_pt=position
-            N = pos_pt.size(0)
-            max_k = 500
+            # pos_pt=position
+            # N = pos_pt.size(0)
+            # max_k = 500
             
-            # Step 1: Compute per-batch centroids
-            centroid = scatter_mean(pos_pt, batch, dim=0)  # shape: (B, D)
+            # # Step 1: Compute per-batch centroids
+            # centroid = scatter_mean(pos_pt, batch, dim=0)  # shape: (B, D)
             
-            # Step 2: Compute distance of each point to its batch centroid
-            centroid_per_point = centroid[batch]  # shape: (N, D)
-            distances = torch.norm(pos_pt - centroid_per_point, dim=1)  # shape: (N,)
+            # # Step 2: Compute distance of each point to its batch centroid
+            # centroid_per_point = centroid[batch]  # shape: (N, D)
+            # distances = torch.norm(pos_pt - centroid_per_point, dim=1)  # shape: (N,)
         
-            max_dist = distances.max() + 1  # ensure batch shift won't change intra-batch order
-            sort_key = distances + batch.to(distances.dtype) * max_dist
-            sorted_indices = torch.argsort(sort_key)  # global sort, but grouped by batch
+            # max_dist = distances.max() + 1  # ensure batch shift won't change intra-batch order
+            # sort_key = distances + batch.to(distances.dtype) * max_dist
+            # sorted_indices = torch.argsort(sort_key)  # global sort, but grouped by batch
             
-            # Step 4: Count how many elements per batch
-            batch_sizes = torch.bincount(batch)  # shape: (B,)
-            cumsum = torch.cumsum(batch_sizes, dim=0)
-            start = torch.zeros_like(cumsum)
-            start[1:] = cumsum[:-1]
+            # # Step 4: Count how many elements per batch
+            # batch_sizes = torch.bincount(batch)  # shape: (B,)
+            # cumsum = torch.cumsum(batch_sizes, dim=0)
+            # start = torch.zeros_like(cumsum)
+            # start[1:] = cumsum[:-1]
             
-            # Step 5: Create rank per item in sorted list
-            rank = torch.empty_like(batch, dtype=torch.long)
-            rank[sorted_indices] = torch.arange(N, device=batch.device) - start[batch[sorted_indices]]
+            # # Step 5: Create rank per item in sorted list
+            # rank = torch.empty_like(batch, dtype=torch.long)
+            # rank[sorted_indices] = torch.arange(N, device=batch.device) - start[batch[sorted_indices]]
             
-            # Step 6: Keep only top-k (rank < 500)
-            mask = rank < max_k
+            # # Step 6: Keep only top-k (rank < 500)
+            # mask = rank < max_k
 
-            #mask=torch.ones_like(traj_theta).to(bool)
+            mask=torch.ones_like(traj_theta).to(bool)
 
             tokenized_map = {
                 "position": position[mask],  # [n_pl, 2]
