@@ -29,9 +29,14 @@ for filename in tqdm(files):
 
     tokenized_light=data["light"]
     
-    map_tensor=torch.tensor([3,4,0,1,2]).to(tokenized_light["light_idx"].device)
+    map_tensor=torch.tensor([3,4,0,1,2]).to(tokenized_light["light_idx"].device)#
 
-    light_idx=map_tensor[tokenized_light["light_idx"].long()]
+    light_idx=map_tensor[tokenized_light["light_idx"].long()]#
+    # "LANE_STATE_STOP",
+    # "LANE_STATE_GO",
+    # "LANE_STATE_CAUTION",
+    # "NO_LANE_STATE",
+    # "LANE_STATE_UNKNOWN",
 
     # light_idx=self.token_processor.light_token_last[light_idx]
 

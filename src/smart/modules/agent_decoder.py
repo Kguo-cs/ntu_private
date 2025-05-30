@@ -75,7 +75,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.head_dim = hidden_dim // num_heads
 
-        self.pred_agent = False
+        self.pred_agent = True
 
         if self.pred_agent:
             self.type_a_emb = nn.Embedding(3, hidden_dim)
@@ -112,18 +112,18 @@ class SMARTAgentDecoder(nn.Module):
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
             )
 
-        self.pred_light = True
+        self.pred_light = False
 
         if self.pred_light:
             self.lg_time_span = time_span
 
             self.light_hist = time_span // self.shift
 
-            self.light_type = 3
+            self.light_type = 4
 
             self.light_dropout = 0
 
-            self.light_embedding = nn.Embedding(self.light_type, hidden_dim)
+            self.light_embedding = nn.Embedding(5, hidden_dim)
 
             self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
             self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
@@ -226,15 +226,17 @@ class SMARTAgentDecoder(nn.Module):
         if mask is not None:
             causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 
-        feature = network(feature, causal_mask, sinusoidal_pos)
+        feature = network(feature, None, sinusoidal_pos)
 
         return feature
 
-    def predict_light(self, light_idx,mask_lg, sinusoidal, lengths, n_current=0):
+    def predict_light(self, light_idx, sinusoidal, lengths, n_current=0):
         
         n_step = light_idx.shape[1]
         
-        mask_lg=~mask_lg
+        mask_lg=light_idx>2
+
+        # print(torch.any(mask_lg))
 
         feat_lg = self.light_embedding(light_idx)
 
@@ -250,9 +252,9 @@ class SMARTAgentDecoder(nn.Module):
 
         lg_sinusoidal = self.padding(sinusoidal, lengths).repeat_interleave(n_step,dim=0)
 
-        lg2lg_mask = padding_light_mask[:,None] 
+        lg2lg_mask = padding_light_mask[:,None,None] 
 
-        padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask[:,None], lg_sinusoidal)
+        padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
 
         feat_lg = padded_lg_feature.reshape(len(lengths),n_step,-1,padded_lg_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 
@@ -326,11 +328,10 @@ class SMARTAgentDecoder(nn.Module):
             light_idx = tokenized_agent["light_idx"]
             lengths_lg = tokenized_agent["lengths_lg"]
             sinusoidal_poshead = tokenized_agent["sinusoidal_lg"]
-            mask_lg=tokenized_agent["light_mask"]
 
             noised_light_idx = light_idx.clone()
 
-            random_light = torch.randint(low=0, high=3, size=light_idx.shape, device=light_idx.device).long()
+            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
 
             random_mask = torch.rand_like(light_idx.float()) > 0.9
 
@@ -338,7 +339,7 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx[random_mask] = random_light[random_mask]
 
-            feat_lg, next_light_logits = self.predict_light(noised_light_idx,mask_lg,sinusoidal_poshead, lengths_lg)
+            feat_lg, next_light_logits = self.predict_light(noised_light_idx,sinusoidal_poshead, lengths_lg)
 
         if not self.pred_agent:
             tokenized_agent["next_light_logits"] = next_light_logits
@@ -365,7 +366,6 @@ class SMARTAgentDecoder(nn.Module):
         predicted_tokens = tokenized_agent["light_idx"][:, :current_len].clone()
         lengths_lg = tokenized_agent["lengths_lg"]
         sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
-        mask = tokenized_agent["light_mask"][:, :current_len].clone()
 
         self.lg_t_roformer.attn.kv_caching(self.light_hist)
 
@@ -378,10 +378,10 @@ class SMARTAgentDecoder(nn.Module):
                     self.lg_t_roformer.attn.cached_k = self.lg_t_roformer.attn.cached_k[:, :, :current_len]
                     self.lg_t_roformer.attn.cached_v = self.lg_t_roformer.attn.cached_v[:, :, :current_len]
                 else:
-                    lg_features, next_light_logits = self.predict_light(predicted_tokens,mask, sinusoidal_lg,
+                    lg_features, next_light_logits = self.predict_light(predicted_tokens, sinusoidal_lg,
                                                                                  lengths_lg)
             else:
-                feat_lg, next_light_logits = self.predict_light(predicted_tokens[:, -1:],mask[:, -min(t,self.light_hist):],
+                feat_lg, next_light_logits = self.predict_light(predicted_tokens[:, -1:],
                                                                  sinusoidal_lg, lengths_lg, t - 1)
 
                 lg_features = torch.cat([lg_features, feat_lg[:, -1:]], dim=1)
@@ -391,12 +391,10 @@ class SMARTAgentDecoder(nn.Module):
             samples = cat_dist.sample()
 
             predicted_tokens = torch.cat([predicted_tokens, samples[:, None]], dim=1)
-            mask =torch.cat([mask,torch.ones_like(samples).to(torch.bool).unsqueeze(1)], dim=1)
 
         self.lg_t_roformer.attn.kv_caching(0)
 
         out_dict={"light_idx": predicted_tokens,
-                  "light_mask":mask
                   }
 
         return out_dict
