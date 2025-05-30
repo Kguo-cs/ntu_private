@@ -172,7 +172,7 @@ class RoFormerSelfAttention(nn.Module):
         B, L, C = hidden_states.shape
         attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL
         if attention_mask is not None:
-            attn_bias = torch.where(attention_mask, -torch.inf, 0.)
+            attn_bias = torch.where(attention_mask, -1e9, 0.)
             attn.add_(attn_bias)
         attn = attn.softmax(dim=-1)
         if attention_mask is not None:
