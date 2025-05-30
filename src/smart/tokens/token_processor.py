@@ -274,6 +274,8 @@ class TokenProcessor(torch.nn.Module):
             # # Step 6: Keep only top-k (rank < 500)
             # mask = rank < max_k
 
+            mask=torch.ones_like(traj_theta).to(bool)
+
             tokenized_map = {
                 "position": position[mask],  # [n_pl, 2]
                 "orientation": traj_theta[mask],  # [n_pl]
