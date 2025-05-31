@@ -528,7 +528,7 @@ class SMARTAgentDecoder(nn.Module):
 
         a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,self.a2a_radius)
 
-        a2a_mask = padding_agent_mask[:,None] | (a2a_dist>self.a2a_radius) | (a2a_dist==0)
+        a2a_mask = padding_agent_mask[:,None] | a2a_dist_mask #(a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
         padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.flatten(0, 1))
 
