@@ -202,17 +202,17 @@ class RoFormerSelfAttention(nn.Module):
 
         #if attention_mask.shape[-1]>20:
 
-        relative_pos= query_layer1.mul(self.scale) @ key_layer1.transpose(-1, -2) #BHQK
+        # relative_pos= query_layer1.mul(self.scale) @ key_layer1.transpose(-1, -2) #BHQK
 
-        relative_pos=relative_pos.masked_fill(attention_mask.bool(), 0)#BHQK
+        # relative_pos=relative_pos.masked_fill(attention_mask.bool(), 0)#BHQK
 
-        #relative_pos=relative_pos.sum(-1) [:,:,:,None] #BHQK     
+        # #relative_pos=relative_pos.sum(-1) [:,:,:,None] #BHQK     
 
-        relative_value=value_layer[:,:,None]+relative_pos[:,:,:,:,None]
+        # relative_value=value_layer[:,:,None]+relative_pos[:,:,:,:,None]
         
-        #outputs = attn @ value_layer
+        outputs = attn @ value_layer
 
-        outputs=torch.einsum('bhqk,bhqkc->bhqc',attn,relative_value)
+        #outputs=torch.einsum('bhqk,bhqkc->bhqc',attn,relative_value)
 
         # oup = flash_attn_func(query_layer, key_layer, value_layer, dropout_p=self.dropout_p,
         #                       softmax_scale=self.scale).view(B, L, C)
