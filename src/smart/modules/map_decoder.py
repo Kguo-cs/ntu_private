@@ -44,6 +44,8 @@ class SMARTMapDecoder(nn.Module):
         self.num_layers = num_layers
         self.use_map=True
 
+        self.gnn=True
+
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
@@ -54,7 +56,28 @@ class SMARTMapDecoder(nn.Module):
             # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
             self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
-            self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+            if self.gnn:
+                input_dim_r_pt2pt = 3
+                self.r_pt2pt_emb = FourierEmbedding(
+                    input_dim=input_dim_r_pt2pt,
+                    hidden_dim=hidden_dim,
+                    num_freq_bands=num_freq_bands,
+                )
+                self.pt2pt_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=False,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
+            else:
+                self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
             self.apply(weight_init)
 
@@ -82,27 +105,77 @@ class SMARTMapDecoder(nn.Module):
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-        lengths = torch.bincount(batch).tolist()
 
-        padded_pt_feature = self.padding(x_pt, lengths)
+        if self.gnn:
+            orient_vector_pt = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
-        map_mask = (padded_pt_feature == 0).all(-1)[:, None]
+            edge_index_pt2pt = radiusGraphNearest(
+                x=pos_pt,
+                r=self.pl2pl_radius,
+                batch=batch,
+                loop=False,
+                max_num_neighbors=10,
+            )
+            rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
+            rel_orient_pt2pt = wrap_angle(
+                orient_pt[edge_index_pt2pt[0]] - orient_pt[edge_index_pt2pt[1]]
+            )
+            r_pt2pt = torch.stack(
+                [
+                    torch.norm(rel_pos_pt2pt[:, :2], p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=orient_vector_pt[edge_index_pt2pt[1]],
+                        nbr_vector=rel_pos_pt2pt[:, :2],
+                    ),
+                    rel_orient_pt2pt,
+                ],
+                dim=-1,
+            )
+            r_pt2pt = self.r_pt2pt_emb(continuous_inputs=r_pt2pt, categorical_embs=None)
+            for i in range(self.num_layers):
+                x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        centering_pos = scatter_mean(pos_pt, batch, dim=0)
+            return {
+                "pt_token": x_pt,
+                "position": pos_pt,
+                "orientation": orient_pt,
+                "batch": batch
+            }
+        else:
 
-        centering_heading = scatter_mean(orient_pt, batch, dim=0)
 
-        sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt,centering_pos,centering_heading,batch)
+            lengths = torch.bincount(batch).tolist()
 
-        map_sinusoidal = self.padding(sinusoidal_pos, lengths)
+            padded_pt_feature = self.padding(x_pt, lengths)
 
-        padd_pos=self.padding(pos_pt, lengths)
+            map_mask = (padded_pt_feature == 0).all(-1)[:, None]
 
-        pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+            centering_pos = scatter_mean(pos_pt, batch, dim=0)
 
-        pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
+            centering_heading = scatter_mean(orient_pt, batch, dim=0)
 
-        x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+            sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt,centering_pos,centering_heading,batch)
+
+            map_sinusoidal = self.padding(sinusoidal_pos, lengths)
+
+            padd_pos=self.padding(pos_pt, lengths)
+
+            pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+
+            pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
+
+            x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+
+            return {
+                "pt_token": x_pt,
+                "position": padd_pos,
+                "centering_pos":centering_pos,
+                "centering_heading":centering_heading,
+                # "orientation": orient_pt,
+                 "batch": batch,
+                 "map_mask": map_mask ,
+                 "map_sinusoidal": map_sinusoidal
+            }
 
         #pos_pt1=pos_pt+torch.tensor(np.array([[10,100]])).to(device=x_pt.device)
 
@@ -121,16 +194,4 @@ class SMARTMapDecoder(nn.Module):
 
         # x_pt1 = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal1)
 
-
-
-        return {
-            "pt_token": x_pt,
-            "position": padd_pos,
-            "centering_pos":centering_pos,
-            "centering_heading":centering_heading,
-            # "orientation": orient_pt,
-             "batch": batch,
-             "map_mask": map_mask ,
-             "map_sinusoidal": map_sinusoidal
-        }
 
