@@ -323,7 +323,6 @@ class SMARTAgentDecoder(nn.Module):
 
             padded_a_feature = self.lg2a_roformer(padded_a_feature, None, agent_sinusoidal,    feat_lg, sinusoidal_lg )
 
-
         a2a_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
 
         a2a_mask = padding_agent_mask[:,None] | (a2a_dist>self.a2a_radius) | (a2a_dist==0)

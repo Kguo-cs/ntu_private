@@ -199,13 +199,13 @@ class RoFormerSelfAttention(nn.Module):
         if attention_mask is not None:
             attn = attn.masked_fill(attention_mask, 0)
 
-        # relative_pos=query_layer1.mul(self.scale) @ key_layer1.transpose(-1, -2)
+        relative_pos= query_layer1.mul(self.scale) @ key_layer1.transpose(-1, -2) #BHQK
 
-        # relative_pos=relative_pos.masked_fill(attention_mask.bool(), 0)
+        relative_pos=relative_pos.masked_fill(attention_mask.bool(), 0)
 
-        # relative_pos=relative_pos.sum(-2)[:,:,:,None]
+        relative_pos=relative_pos.sum(-2) [:,:,:,None] #BHK
 
-        # value_layer=value_layer+relative_pos
+        value_layer=value_layer+relative_pos
         
         outputs = (F.dropout(attn, p=self.dropout_p, inplace=True) if self.dropout_p > 0 else attn) @ value_layer
 
