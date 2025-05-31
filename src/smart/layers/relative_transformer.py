@@ -126,13 +126,13 @@ class RoFormerSelfAttention(nn.Module):
             #
             # key_layer1 = self.apply_rotary(key_layer1, encoder_sinusoidal_pos)
 
-            value_layer=self.apply_rotary(value_layer,encoder_sinusoidal_pos)
+            #value_layer=self.apply_rotary(value_layer,encoder_sinusoidal_pos)
         else:
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
             key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
 
-            value_layer=self.apply_rotary(value_layer,sinusoidal_pos)
+            #value_layer=self.apply_rotary(value_layer,sinusoidal_pos)
 
             # key_layer1 = self.transpose_for_scores(self.key_pos(hidden_states))
             #

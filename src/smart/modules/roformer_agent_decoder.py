@@ -281,7 +281,7 @@ class SMARTAgentDecoder(nn.Module):
         pt_feature=map_feature["pt_token"].repeat_interleave(n_step,dim=0)
         map_mask=map_feature["map_mask"].repeat_interleave(n_step,dim=0)
         map_sinusoidal=map_feature["map_sinusoidal"].repeat_interleave(n_step,dim=0)
-        pt_pos=map_feature["position"].repeat_interleave(n_step,dim=0)
+        pt_pos=map_feature["padd_pos"].repeat_interleave(n_step,dim=0)
         mask_a=~mask_a
 
         # ! get agent token embeddings

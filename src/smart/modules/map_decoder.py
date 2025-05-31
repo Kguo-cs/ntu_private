@@ -44,7 +44,7 @@ class SMARTMapDecoder(nn.Module):
         self.num_layers = num_layers
         self.use_map=True
 
-        self.gnn=True
+        self.gnn=False
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -148,13 +148,15 @@ class SMARTMapDecoder(nn.Module):
 
             padded_pt_feature = self.padding(x_pt, lengths)
 
-            map_mask = (padded_pt_feature == 0).all(-1)[:, None]
+            feature_mask=(padded_pt_feature == 0).all(-1)
 
-            centering_pos = scatter_mean(pos_pt, batch, dim=0)
+            map_mask = feature_mask[:, None]
 
-            centering_heading = scatter_mean(orient_pt, batch, dim=0)
+            #centering_pos = scatter_mean(pos_pt, batch, dim=0)
 
-            sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt,centering_pos,centering_heading,batch)
+            #centering_heading = scatter_mean(orient_pt, batch, dim=0)
+
+            sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
 
             map_sinusoidal = self.padding(sinusoidal_pos, lengths)
 
@@ -164,17 +166,21 @@ class SMARTMapDecoder(nn.Module):
 
             pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
-            x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+            padded_a_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+
+            x_pt = padded_a_feature[~feature_mask]
 
             return {
                 "pt_token": x_pt,
-                "position": padd_pos,
-                "centering_pos":centering_pos,
-                "centering_heading":centering_heading,
                 # "orientation": orient_pt,
-                 "batch": batch,
-                 "map_mask": map_mask ,
-                 "map_sinusoidal": map_sinusoidal
+                "position": pos_pt,
+                "orientation": orient_pt,
+                "padd_pos": padd_pos,
+               # "centering_pos":centering_pos,
+              #  "centering_heading":centering_heading,
+                "batch": batch,
+                "map_mask": map_mask,
+                "map_sinusoidal": map_sinusoidal
             }
 
         #pos_pt1=pos_pt+torch.tensor(np.array([[10,100]])).to(device=x_pt.device)
