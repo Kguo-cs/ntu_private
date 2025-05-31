@@ -22,7 +22,7 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from torch_scatter import scatter_mean,scatter_max
 from .agent_decoder import  radiusGraphNearest
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope,padding
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 
@@ -80,11 +80,6 @@ class SMARTMapDecoder(nn.Module):
                 self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
             self.apply(weight_init)
-
-    def padding(self,tensor,lengths ):
-        padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=0)
-
-        return padded_tensor
 
     def forward(self, tokenized_map: Dict):
         if not self.use_map:
@@ -146,7 +141,7 @@ class SMARTMapDecoder(nn.Module):
 
             lengths = torch.bincount(batch).tolist()
 
-            padded_pt_feature = self.padding(x_pt, lengths)
+            padded_pt_feature = padding(x_pt, lengths)
 
             feature_mask=(padded_pt_feature == 0).all(-1)
 
@@ -158,17 +153,17 @@ class SMARTMapDecoder(nn.Module):
 
             sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
 
-            map_sinusoidal = self.padding(sinusoidal_pos, lengths)
+            map_sinusoidal = padding(sinusoidal_pos, lengths)
 
-            padd_pos=self.padding(pos_pt, lengths)
+            padd_pos=padding(pos_pt, lengths)
 
             pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
 
             pt2pt_mask = map_mask | (pt2pt_dist>self.pl2pl_radius) | (pt2pt_dist==0)
 
-            padded_a_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+            x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
 
-            x_pt = padded_a_feature[~feature_mask]
+            # x_pt = padded_a_feature[~feature_mask]
 
             return {
                 "pt_token": x_pt,

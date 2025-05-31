@@ -25,6 +25,7 @@ import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
 
 # automatically import fused operators
 dropout_add_layer_norm = fused_mlp_func = memory_efficient_attention = flash_attn_func = None
@@ -355,3 +356,7 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
         return super().forward(positions)
 
 
+def padding(tensor,lengths,padding_value=0 ):
+    padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
+
+    return padded_tensor
