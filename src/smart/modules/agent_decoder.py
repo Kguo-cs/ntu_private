@@ -105,6 +105,24 @@ class SMARTAgentDecoder(nn.Module):
 
 
             self.use_gnn=False
+            self.r_a2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_a2a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
+            self.a2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
             if self.use_gnn:
                 self.r_t_emb = FourierEmbedding(
@@ -113,11 +131,6 @@ class SMARTAgentDecoder(nn.Module):
                     num_freq_bands=num_freq_bands,
                 )
 
-                self.r_a2a_emb = FourierEmbedding(
-                    input_dim=input_dim_r_a2a,
-                    hidden_dim=hidden_dim,
-                    num_freq_bands=num_freq_bands,
-                )
                 self.r_pt2a_emb = FourierEmbedding(
                     input_dim=input_dim_r_pt2a,
                     hidden_dim=hidden_dim,
@@ -150,25 +163,12 @@ class SMARTAgentDecoder(nn.Module):
                         for _ in range(num_layers)
                     ]
                 )
-                self.a2a_attn_layers = nn.ModuleList(
-                    [
-                        AttentionLayer(
-                            hidden_dim=hidden_dim,
-                            num_heads=num_heads,
-                            head_dim=head_dim,
-                            dropout=dropout,
-                            bipartite=False,
-                            has_pos_emb=True,
-                        )
-                        for _ in range(num_layers)
-                    ]
-                )
 
             else:
                 self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
 
                 self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
-                self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                #self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
 
             self.token_predict_head = MLPLayer(
@@ -540,20 +540,20 @@ class SMARTAgentDecoder(nn.Module):
         padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,self.hidden_dim).flatten(0,1)
 
 
-        #feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]#.transpose(0, 1).flatten(0, 1)
+        feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask].transpose(0, 1).flatten(0, 1)
 
-        padd_pos=padd_pos.flatten(0,1)
+        # padd_pos=padd_pos.flatten(0,1)
 
-        a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,self.a2a_radius)
+        # a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,self.a2a_radius)
 
-        a2a_mask = padding_agent_mask[:,None] | a2a_dist_mask #(a2a_dist>self.a2a_radius) | (a2a_dist==0)
+        # a2a_mask = padding_agent_mask[:,None] | a2a_dist_mask #(a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
-        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.flatten(0, 1))
+        # padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.flatten(0, 1))
 
-        feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
+        # feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask].reshape( -1, n_step,self.hidden_dim)
 
 
-        return feat_a.reshape( -1, n_step,self.hidden_dim)
+        return feat_a
 
 
 
@@ -651,6 +651,21 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
+        batch_s = torch.cat(
+            [
+                tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
+                for t in range(n_step)
+            ],
+            dim=0,
+        )  # [n_agent*n_step]
+
+        edge_index_a2a, r_a2a = self.build_interaction_edge(
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            batch_s=batch_s,  # [n_agent*n_step]
+            mask=mask,  # [n_agent, n_step]
+        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
 
         if self.use_gnn:
@@ -662,13 +677,6 @@ class SMARTAgentDecoder(nn.Module):
                 mask=mask,  # [n_agent, n_step]
             )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
-            batch_s = torch.cat(
-                [
-                    tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
-                    for t in range(n_step)
-                ],
-                dim=0,
-            )  # [n_agent*n_step]
             batch_pl = torch.cat(
                 [
                     map_feature["batch"] + tokenized_agent["num_graphs"] * t
@@ -677,13 +685,6 @@ class SMARTAgentDecoder(nn.Module):
                 dim=0,
             )  # [n_pl*n_step]
 
-            edge_index_a2a, r_a2a = self.build_interaction_edge(
-                pos_a=pos_a,  # [n_agent, n_step, 2]
-                head_a=head_a,  # [n_agent, n_step]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                batch_s=batch_s,  # [n_agent*n_step]
-                mask=mask,  # [n_agent, n_step]
-            )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
             edge_index_pl2a, r_pl2a = self.build_map2agent_edge(
                 pos_pl=map_feature["position"],  # [n_pl, 2]
@@ -736,13 +737,14 @@ class SMARTAgentDecoder(nn.Module):
                 #     route_embedding = self.route_embedding(route_idx)
                 #     feat_a = feat_a + route_embedding.view(-1, feat_a.shape[-1])
 
-                feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
-                feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
             else:
                 feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, 0, self.agent_hist, ~mask)
 
                 feat_a=self.map2_agent(feat_a,pos_a,head_a,mask,tokenized_agent,map_feature,n_step)
+
+            feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
+            feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
@@ -959,47 +961,45 @@ class SMARTAgentDecoder(nn.Module):
             t_now = step_current_2hz - 1 + t  # 1 -> 16
             n_step = t_now + 1  # 2 -> 17
 
+            if t == 0:  # init
+                hist_step = step_current_2hz
+                batch_s = torch.cat(
+                    [
+                        tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
+                        for t in range(hist_step)
+                    ],
+                    dim=0,
+                )
+                batch_pl = torch.cat(
+                    [
+                        map_feature["batch"] + tokenized_agent["num_graphs"] * t
+                        for t in range(hist_step)
+                    ],
+                    dim=0,
+                )
+                inference_mask = pred_valid[:, :n_step]
+                # edge_index_t, r_t = self.build_temporal_edge(
+                #     pos_a=pos_a,
+                #     head_a=head_a,
+                #     head_vector_a=head_vector_a,
+                #     mask=pred_valid[:, :n_step],
+                # )
+            else:
+                hist_step = 1
+                batch_s = tokenized_agent["batch"]
+                batch_pl = map_feature["batch"]
+                inference_mask = pred_valid[:, :n_step].clone()
+                inference_mask[:, :-1] = False
+                # edge_index_t, r_t = self.build_temporal_edge(
+                #     pos_a=pos_a,
+                #     head_a=head_a,
+                #     head_vector_a=head_vector_a,
+                #     mask=pred_valid[:, :n_step],
+                #     inference_mask=inference_mask,
+                # )
 
-            # In the inference stage, we only infer the current stage for recurrent
             if self.use_gnn:
-
-                if t == 0:  # init
-                    hist_step = step_current_2hz
-                    batch_s = torch.cat(
-                        [
-                            tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
-                            for t in range(hist_step)
-                        ],
-                        dim=0,
-                    )
-                    batch_pl = torch.cat(
-                        [
-                            map_feature["batch"] + tokenized_agent["num_graphs"] * t
-                            for t in range(hist_step)
-                        ],
-                        dim=0,
-                    )
-                    inference_mask = pred_valid[:, :n_step]
-                    edge_index_t, r_t = self.build_temporal_edge(
-                        pos_a=pos_a,
-                        head_a=head_a,
-                        head_vector_a=head_vector_a,
-                        mask=pred_valid[:, :n_step],
-                    )
-                else:
-                    hist_step = 1
-                    batch_s = tokenized_agent["batch"]
-                    batch_pl = map_feature["batch"]
-                    inference_mask = pred_valid[:, :n_step].clone()
-                    inference_mask[:, :-1] = False
-                    edge_index_t, r_t = self.build_temporal_edge(
-                        pos_a=pos_a,
-                        head_a=head_a,
-                        head_vector_a=head_vector_a,
-                        mask=pred_valid[:, :n_step],
-                        inference_mask=inference_mask,
-                    )
-
+                # In the inference stage, we only infer the current stage for recurrent               
                 edge_index_t[1] = (edge_index_t[1] + 1) // n_step - 1
                 edge_index_pl2a, r_pl2a = self.build_map2agent_edge(
                     pos_pl=map_feature["position"],  # [n_pl, 2]
@@ -1011,13 +1011,13 @@ class SMARTAgentDecoder(nn.Module):
                     batch_s=batch_s,  # [n_agent*hist_step]
                     batch_pl=batch_pl,  # [n_pl*hist_step]
                 )
-                edge_index_a2a, r_a2a = self.build_interaction_edge(
-                    pos_a=pos_a[:, -hist_step:],  # [n_agent, hist_step, 2]
-                    head_a=head_a[:, -hist_step:],  # [n_agent, hist_step]
-                    head_vector_a=head_vector_a[:, -hist_step:],  # [n_agent, hist_step, 2]
-                    batch_s=batch_s,  # [n_agent*hist_step]
-                    mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
-                )
+            edge_index_a2a, r_a2a = self.build_interaction_edge(
+                pos_a=pos_a[:, -hist_step:],  # [n_agent, hist_step, 2]
+                head_a=head_a[:, -hist_step:],  # [n_agent, hist_step]
+                head_vector_a=head_vector_a[:, -hist_step:],  # [n_agent, hist_step, 2]
+                batch_s=batch_s,  # [n_agent*hist_step]
+                mask=inference_mask[:, -hist_step:],  # [n_agent, hist_step]
+            )
 
             if self.pred_light:
                 batch_lg = map_feature["batch_lg"]
@@ -1078,18 +1078,17 @@ class SMARTAgentDecoder(nn.Module):
                             route_embedding = self.route_embedding(route_idx)
                             _feat_temporal = _feat_temporal + route_embedding.view(-1, self.hidden_dim)
 
-                        _feat_temporal = self.a2a_attn_layers[i](
-                            _feat_temporal, r_a2a, edge_index_a2a
-                        )
-                        _feat_temporal = _feat_temporal.view(n_step, n_agent, -1).transpose(
-                            0, 1
-                        )
-
                     else:
                         _feat_temporal = self.temporal_embed(_feat_temporal, self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step])
 
                         _feat_temporal=self.map2_agent(_feat_temporal,pos_a[:,-n_step:],head_a[:,-n_step:],pred_valid[:, :n_step],tokenized_agent,map_feature,n_step)
-
+                   
+                    _feat_temporal = self.a2a_attn_layers[i](
+                        _feat_temporal, r_a2a, edge_index_a2a
+                    )
+                    _feat_temporal = _feat_temporal.view(n_step, n_agent, -1).transpose(
+                        0, 1
+                    )
 
                     feat_a_now = _feat_temporal[:, -1]  # [n_agent, hidden_dim]
 
@@ -1126,17 +1125,18 @@ class SMARTAgentDecoder(nn.Module):
                             route_embedding = self.route_embedding(route_idx)
                             feat_a_now = feat_a_now + route_embedding
 
-                        feat_a_now = self.a2a_attn_layers[i](
-                            feat_a_now, r_a2a, edge_index_a2a
-                        )
                     else:
 
                         feat_a_now = self.temporal_embed(_feat_temporal, self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step])
 
                         feat_a_now=_feat_temporal[:,-1]
 
-                        feat_a_now=self.map2_agent(feat_a_now[:,None],pos_a[:,-1:],head_a[:,-1:],pred_valid[:, n_step-1:n_step],tokenized_agent,map_feature,1)[:,-1]
+                        feat_a_now=self.map2_agent(feat_a_now[:,None],pos_a[:,-1:],head_a[:,-1:],pred_valid[:, n_step-1:n_step],tokenized_agent,map_feature,1)
+                       # feat_a_now=feat_a_now[:,-1]
 
+                    feat_a_now = self.a2a_attn_layers[i](
+                        feat_a_now, r_a2a, edge_index_a2a
+                    )
 
 
                     # [n_agent, n_step, hidden_dim]
