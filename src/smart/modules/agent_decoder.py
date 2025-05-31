@@ -494,10 +494,10 @@ class SMARTAgentDecoder(nn.Module):
 
     def map2_agent(self,feat_a,pos_a,head_a,mask,tokenized_agent,map_feature,n_step):
 
-        pt_feature=map_feature["pt_token"].repeat_interleave(n_step,dim=0)
-        map_mask=map_feature["map_mask"].repeat_interleave(n_step,dim=0)
-        map_sinusoidal=map_feature["map_sinusoidal"].repeat_interleave(n_step,dim=0)
-        pt_pos=map_feature["padd_pos"].repeat_interleave(n_step,dim=0)
+        pt_feature=map_feature["pt_token"]#.repeat_interleave(n_step,dim=0)
+        map_mask=map_feature["map_mask"]#.repeat_interleave(n_step,dim=0)
+        map_sinusoidal=map_feature["map_sinusoidal"]#.repeat_interleave(n_step,dim=0)
+        pt_pos=map_feature["padd_pos"]#.repeat_interleave(n_step,dim=0)
         mask_a=~mask
 
         sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
@@ -505,27 +505,32 @@ class SMARTAgentDecoder(nn.Module):
         lengths_a=torch.bincount(tokenized_agent["batch"] ).tolist()
 
         padded_a_feature = padding(feat_a, lengths_a)
-        agent_sinusoidal = padding(sinusoidal_a, lengths_a).swapaxes(1,2).flatten(0, 1)
+        agent_sinusoidal = padding(sinusoidal_a, lengths_a).swapaxes(1,2)
         padding_agent_mask= padding(mask_a[:,-n_step:], lengths_a,padding_value=True).swapaxes(1,2).flatten(0, 1)
-        padd_pos=padding(pos_a, lengths_a).swapaxes(1,2).flatten(0, 1)
+        padd_pos=padding(pos_a, lengths_a).swapaxes(1,2)
 
         feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)
 
-        padded_a_feature = padded_a_feature.swapaxes(1,2).flatten(0, 1)
+        padded_a_feature = padded_a_feature.swapaxes(1,2).flatten(1, 2)
 
-        pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos[:,:,None],dim=-1)
+        pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos.flatten(1, 2)[:,:,None],dim=-1)
 
         pt2a_mask= map_mask | (pt2a_dist>self.pl2a_radius)
 
-        padded_a_feature = self.pt2a_roformer(padded_a_feature, pt2a_mask[:,None], agent_sinusoidal,    pt_feature, map_sinusoidal )
+        padded_a_feature = self.pt2a_roformer(padded_a_feature, pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
         
+        padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,self.hidden_dim).flatten(0,1)
+
+
         #feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]#.transpose(0, 1).flatten(0, 1)
+
+        padd_pos=padd_pos.flatten(0,1)
 
         a2a_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
 
         a2a_mask = padding_agent_mask[:,None] | (a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
-        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal)
+        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.flatten(0, 1))
 
         feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 
