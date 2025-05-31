@@ -88,9 +88,11 @@ class SMARTMapDecoder(nn.Module):
 
         map_mask = (padded_pt_feature == 0).all(-1)[:, None]
 
-        
+        centering_pos = scatter_mean(pos_pt, batch, dim=0)
 
-        sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)
+        centering_heading = scatter_mean(orient_pt, batch, dim=0)
+
+        sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt,centering_pos,centering_heading,batch)
 
         map_sinusoidal = self.padding(sinusoidal_pos, lengths)
 
@@ -120,9 +122,12 @@ class SMARTMapDecoder(nn.Module):
         # x_pt1 = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal1)
 
 
+
         return {
             "pt_token": x_pt,
             "position": padd_pos,
+            "centering_pos":centering_pos,
+            "centering_heading":centering_heading,
             # "orientation": orient_pt,
              "batch": batch,
              "map_mask": map_mask ,

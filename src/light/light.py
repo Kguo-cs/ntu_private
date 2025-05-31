@@ -13,7 +13,7 @@ output_path = "/home/ke/code/catk/src/waymo_data/full/training_1000_light/"
 
 raw_data="/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 
-files = os.listdir(data_directory)
+files = os.listdir(data_directory)[250000:]
 
 data_dict={}
 

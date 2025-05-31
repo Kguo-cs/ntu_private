@@ -236,14 +236,39 @@ class RoFormerSelfAttention(nn.Module):
         return torch.stack([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1).flatten(-2, -1)
 
 
-def general_rope(positions, dim,theta=None):
+def scene_centric(pos,heading,centering_pos,centering_heading,batch):
+
+
+    heading = heading - centering_heading[batch]
+
+    pos = pos - centering_pos[batch]
+
+    cos_a = torch.cos(centering_heading)[batch]
+    sin_a = torch.sin(centering_heading)[batch]
+
+    x, y = pos[..., 0], pos[..., 1]
+    x_rot = cos_a * x + sin_a * y
+    y_rot = -sin_a * x + cos_a * y
+
+    pos = torch.stack([x_rot, y_rot], dim=-1)
+
+    return  pos,heading
+
+
+
+
+def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None):
+
+    if batch is not None:
+        positions,heading=scene_centric(positions,heading,centering_pos,centering_heading,batch)
+
     device = positions.device
 
     div_dim=dim//positions.shape[-1]
 
     positions = positions
 
-    if theta is not None:
+    if heading is not None:
         div_dim=div_dim-2
 
     div_term = torch.exp(
@@ -253,8 +278,8 @@ def general_rope(positions, dim,theta=None):
     sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
     cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
 
-    if theta is not None:
-        theta=theta[...,None].repeat_interleave(2,dim=-1)
+    if heading is not None:
+        theta=heading[...,None].repeat_interleave(2,dim=-1)
 
         sin_theta=torch.sin(theta)
         cos_theta=torch.cos(theta)

@@ -271,7 +271,10 @@ class SMARTAgentDecoder(nn.Module):
     def predict_agent(self, sampled_idx, mask_a ,pos_a,head_a,tokenized_agent, map_feature,feat_lg, n_current=0):
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
-        sinusoidal = general_rope(pos_a, self.head_dim, head_a)
+
+        batch_a=tokenized_agent["batch"]
+
+        sinusoidal_a = general_rope(pos_a, self.head_dim, head_a,map_feature["centering_pos"][:,None],map_feature["centering_heading"][:,None],batch_a)
 
         n_agent, n_step = head_a.shape
 
@@ -295,10 +298,10 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
 
-        lengths_a=tokenized_agent["lengths_a"]
+        lengths_a=torch.bincount(batch_a).tolist()
 
         padded_a_feature = self.padding(feat_a, lengths_a)
-        agent_sinusoidal = self.padding(sinusoidal, lengths_a).swapaxes(1,2).flatten(0, 1)
+        agent_sinusoidal = self.padding(sinusoidal_a, lengths_a).swapaxes(1,2).flatten(0, 1)
         padding_agent_mask= self.padding(mask_a[:,-n_step:], lengths_a,padding_value=True).swapaxes(1,2).flatten(0, 1)
         padd_pos=self.padding(pos_a, lengths_a).swapaxes(1,2).flatten(0, 1)
 
@@ -359,7 +362,6 @@ class SMARTAgentDecoder(nn.Module):
             feat_lg, next_light_logits = self.predict_light(noised_light_idx,sinusoidal_lg, lengths_lg)
         else:
             feat_lg=None
-            sinusoidal_lg=None
 
         if not self.pred_agent:
             tokenized_agent["next_light_logits"] = next_light_logits
@@ -368,7 +370,6 @@ class SMARTAgentDecoder(nn.Module):
             return {
                 "q_value": next_light_logits[:, 1:]
             }
-        
 
         sampled_idx=tokenized_agent["sampled_idx"]
         mask = tokenized_agent["valid_mask"]
@@ -461,7 +462,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
-              #  self.a_t_roformer.attn.kv_caching(self.agent_hist)
+                self.a_t_roformer.attn.kv_caching(self.agent_hist)
    
             else:
                 if lg_features is not None:
@@ -469,8 +470,8 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     lg_feat=None
 
-                #next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
-                next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
+                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
+                #next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
 
@@ -506,7 +507,7 @@ class SMARTAgentDecoder(nn.Module):
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
             mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
 
-       # self.a_t_roformer.attn.kv_caching(0)
+        self.a_t_roformer.attn.kv_caching(0)
 
         out_dict = {
             "type": tokenized_agent["type"],

@@ -235,11 +235,11 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/repeat_light_acc", repeat_light_acc.item(), on_step=True, batch_size=1)
 
-            real_relation=self.compute_consistence(real_light,batch_mask)
+            real_relation=real_light[:,None]==real_light[None][batch_mask]
 
             real_relation_mask=(real_light_mask[:,None] & real_light_mask[None]) [batch_mask]
 
-            repeat_relation=self.compute_consistence(repeat_pred,batch_mask)
+            repeat_relation=repeat_pred[:,None]==repeat_pred[None][batch_mask]
 
             repeat_relation_acc=(real_relation==repeat_relation)[real_relation_mask].float().mean()
 
@@ -258,10 +258,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_light_acc", (light_acc-repeat_light_acc).item(), on_step=True, batch_size=1)
 
-                agent_relation = self.compute_consistence(light_rollout, batch_mask)
-
-                # self.log("train/real_light_same", real_same.float().mean().item(), on_step=True, batch_size=1)
-                # self.log("train/agent_light_same", agent_light_same.float().mean().item(), on_step=True, batch_size=1)
+                agent_relation = light_rollout[:,None]==light_rollout[None][batch_mask]
 
                 agent_relation_acc = (real_relation == agent_relation)[real_relation_mask].float().mean()
 
@@ -269,7 +266,6 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward, agent_value_loss, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
-
 
             div = 'rkl'
             alpha = 1
@@ -306,25 +302,11 @@ class IQ_SoftQ(LightningModule):
 
             constraint_loss=expert_V_diff.square().mean()#
 
-            constraint_ratio=critic_loss/constraint_loss
-
-            self.log("train/constraint_ratio", constraint_ratio.item(), on_step=True, batch_size=1)
-
-            # constraint_loss=constraint_ratio.detach()*0.02*constraint_loss
-
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             loss = expert_nll #+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
-
-    def compute_consistence(self,light,batch_mask):
-
-        light_relation=light[:,None]==light[None]
-
-        light_relation=light_relation[batch_mask]
-
-        return light_relation
 
     def process_data(self,data):
 
@@ -349,9 +331,6 @@ class IQ_SoftQ(LightningModule):
 
             tokenized_agent['sampled_idx'] = agent["sampled_idx"].long()
             tokenized_agent["valid_mask"] = agent["valid_mask"]
-            # tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
-            # tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
-            # tokenized_agent["gt_idx"] = tokenized_agent['sampled_idx']
 
             agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
                 agent['type']
