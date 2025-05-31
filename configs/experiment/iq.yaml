@@ -37,8 +37,8 @@ trainer:
  # val_check_interval: 0.00002
   max_epochs: 64
 
-data:
-  train_batch_size: 32
+data: 
+  train_batch_size: 48
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 32
