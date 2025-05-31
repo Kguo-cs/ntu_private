@@ -31,7 +31,7 @@ from src.smart.utils import (
 )
 from .kl_loss import DiagGaussian
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from .build_edge import radiusGraphNearest, radiusGraphNearest2
+from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope,padding
 
@@ -526,7 +526,7 @@ class SMARTAgentDecoder(nn.Module):
 
         padd_pos=padd_pos.flatten(0,1)
 
-        a2a_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+        a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,self.a2a_radius)
 
         a2a_mask = padding_agent_mask[:,None] | (a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
