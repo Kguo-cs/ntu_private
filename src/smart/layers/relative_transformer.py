@@ -77,9 +77,9 @@ class RoFormerSelfAttention(nn.Module):
         # only used during inference
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
-        self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
-
-        self.key_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
+        # self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
+        #
+        # self.key_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
 
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (
@@ -112,9 +112,9 @@ class RoFormerSelfAttention(nn.Module):
         # such that the encoder's padding tokens are not attended to.
         is_cross_attention = encoder_hidden_states is not None
         
-        query_layer1 = self.transpose_for_scores(self.query_pos(hidden_states))
-
-        query_layer1 = self.apply_rotary(query_layer1, sinusoidal_pos)
+        # query_layer1 = self.transpose_for_scores(self.query_pos(hidden_states))
+        #
+        # query_layer1 = self.apply_rotary(query_layer1, sinusoidal_pos)
 
         if is_cross_attention:
             key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
@@ -122,20 +122,21 @@ class RoFormerSelfAttention(nn.Module):
             key_layer = self.apply_rotary(key_layer,encoder_sinusoidal_pos)
 
 
-            key_layer1 = self.transpose_for_scores(self.key_pos(encoder_hidden_states))
+            # key_layer1 = self.transpose_for_scores(self.key_pos(encoder_hidden_states))
+            #
+            # key_layer1 = self.apply_rotary(key_layer1, encoder_sinusoidal_pos)
 
-            key_layer1 = self.apply_rotary(key_layer1, encoder_sinusoidal_pos)
-
-            #value_layer=self.apply_rotary(value_layer,encoder_sinusoidal_pos)
+            value_layer=self.apply_rotary(value_layer,encoder_sinusoidal_pos)
         else:
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
             key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
 
-            key_layer1 = self.transpose_for_scores(self.key_pos(hidden_states))
+            value_layer=self.apply_rotary(value_layer,sinusoidal_pos)
 
-            key_layer1 = self.apply_rotary(key_layer1, sinusoidal_pos)
-
+            # key_layer1 = self.transpose_for_scores(self.key_pos(hidden_states))
+            #
+            # key_layer1 = self.apply_rotary(key_layer1, sinusoidal_pos)
 
             # value_layer=self.apply(value_layer,sinusoidal_pos)
         # if self.is_decoder:
@@ -327,3 +328,5 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
             device=self.weight.device,
         )
         return super().forward(positions)
+
+

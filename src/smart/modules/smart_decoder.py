@@ -21,6 +21,7 @@ from torch import Tensor
 from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
 from .kl_loss import  BalancedKL
+from torch_scatter import scatter_mean,scatter_max
 
 class SMARTDecoder(nn.Module):
 
@@ -79,12 +80,63 @@ class SMARTDecoder(nn.Module):
             use_latent=use_latent
         )
 
+    def scene_centric(self,pos,heading,centering_pos,centering_heading,batch):
+
+
+        heading = heading - centering_heading[batch]
+
+        pos = pos - centering_pos[batch]
+
+        cos_a = torch.cos(centering_heading)[batch]
+        sin_a = torch.sin(centering_heading)[batch]
+
+        x, y = pos[..., 0], pos[..., 1]
+        x_rot = cos_a * x + sin_a * y
+        y_rot = -sin_a * x + cos_a * y
+
+        pos = torch.stack([x_rot, y_rot], dim=-1)
+
+        return  pos,heading
+
+    def preprocess(self,tokenized_map,tokenized_agent):
+        batch = tokenized_map["batch"]
+
+        pos = tokenized_map["position"]
+
+        heading = tokenized_map["orientation"]
+
+        centering_pos = scatter_mean(pos, batch, dim=0)
+
+        centering_heading = scatter_mean(heading, batch, dim=0)
+
+        pos, heading = self.scene_centric(pos, heading, centering_pos, centering_heading, batch)
+
+        tokenized_map["position"] = pos
+        tokenized_map["heading"] = heading
+
+        pos = tokenized_agent["sampled_pos"]
+        heading = tokenized_agent["sampled_heading"]
+        batch = tokenized_agent["batch"]
+
+        pos, heading = self.scene_centric(pos, heading, centering_pos[:,None], centering_heading[:,None], batch)
+
+        tokenized_agent["sampled_pos"] = pos
+
+        tokenized_agent["sampled_heading"] = heading
+
+
+        tokenized_agent["lengths_a"] = torch.bincount(batch).tolist()
+
+        return tokenized_map,tokenized_agent
+
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],kl_loss=True
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
         else:
+            tokenized_map,tokenized_agent = self.preprocess(tokenized_map, tokenized_agent)
+
             map_feature = self.map_encoder(tokenized_map)
             tokenized_map["map_feature"] = map_feature
 

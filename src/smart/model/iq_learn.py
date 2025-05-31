@@ -316,9 +316,6 @@ class IQ_SoftQ(LightningModule):
 
             loss = expert_nll #+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
-
-            #print(critic_loss)
-
         return loss
 
     def compute_consistence(self,light,batch_mask):
@@ -328,27 +325,6 @@ class IQ_SoftQ(LightningModule):
         light_relation=light_relation[batch_mask]
 
         return light_relation
-
-    def rotate(self,pos,heading,batch):
-
-        centering_pos = scatter_mean(pos, batch, dim=0)
-
-        centering_heading = scatter_mean(heading, batch, dim=0)
-
-        heading = heading - centering_heading[batch]
-
-        pos = pos - centering_pos[batch]
-
-        cos_a = torch.cos(centering_heading)[batch]
-        sin_a = torch.sin(centering_heading)[batch]
-
-        x, y = pos[:, 0], pos[:, 1]
-        x_rot = cos_a * x + sin_a * y
-        y_rot = -sin_a * x + cos_a * y
-
-        pos = torch.stack([x_rot, y_rot], dim=-1)
-
-        return  pos,heading
 
     def process_data(self,data):
 
@@ -360,14 +336,22 @@ class IQ_SoftQ(LightningModule):
             map=data["tokenized_map"]
             agent=data["tokenized_agent"]
 
+            for key in ["position", "orientation", "batch"]:
+                tokenized_map[key] = map[key]
+
+            for key in ["token_idx", "type", "pl_type","light_type"]:
+                tokenized_map[key] = map[key].long()
+
+            tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
+
             for key in ["sampled_pos", "sampled_heading", "type","batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
             tokenized_agent['sampled_idx'] = agent["sampled_idx"].long()
             tokenized_agent["valid_mask"] = agent["valid_mask"]
-            tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
-            tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
-            tokenized_agent["gt_idx"] = tokenized_agent['sampled_idx']
+            # tokenized_agent["gt_pos"] = tokenized_agent["sampled_pos"]
+            # tokenized_agent["gt_heading"]  =tokenized_agent["sampled_heading"]
+            # tokenized_agent["gt_idx"] = tokenized_agent['sampled_idx']
 
             agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
                 agent['type']
@@ -378,20 +362,6 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent['trajectory_token_veh'] = self.token_processor.trajectory_token_veh
             tokenized_agent['trajectory_token_ped'] = self.token_processor.trajectory_token_ped
             tokenized_agent['trajectory_token_cyc'] = self.token_processor.trajectory_token_cyc
-
-            for key in ["position", "orientation", "batch"]:
-                tokenized_map[key] = map[key]
-
-            for key in ["token_idx", "type", "pl_type","light_type"]:
-                tokenized_map[key] = map[key].long()
-
-            tokenized_map["token_traj_src"]=self.token_processor.map_token_traj_src
-
-            lengths = torch.bincount(tokenized_agent["batch"])
-
-            tokenized_agent["lengths_a"]=lengths.tolist()
-
-            # pos, heading=self.rotate(tokenized_agent["sampled_pos"], tokenized_agent["sampled_heading"], tokenized_agent["batch"])
 
         if self.encoder.agent_encoder.pred_light:
 
