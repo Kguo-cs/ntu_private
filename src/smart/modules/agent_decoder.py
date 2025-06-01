@@ -104,7 +104,7 @@ class SMARTAgentDecoder(nn.Module):
             )
 
 
-            self.use_gnn=True
+            self.use_gnn=False
             self.r_a2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_a2a,
                 hidden_dim=hidden_dim,
@@ -669,12 +669,14 @@ class SMARTAgentDecoder(nn.Module):
             mask=mask,  # [n_agent, n_step]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
         # ! build temporal, interaction and map2agent edges
-        edge_index_t, r_t = self.build_temporal_edge(
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_a=head_a,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            mask=mask,  # [n_agent, n_step]
-        )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
+
+        if self.use_gnn:
+            edge_index_t, r_t = self.build_temporal_edge(
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask=mask,  # [n_agent, n_step]
+            )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
 
         #if self.use_gnn:
@@ -981,27 +983,33 @@ class SMARTAgentDecoder(nn.Module):
                     dim=0,
                 )
                 inference_mask = pred_valid[:, :n_step]
-                edge_index_t, r_t = self.build_temporal_edge(
-                    pos_a=pos_a,
-                    head_a=head_a,
-                    head_vector_a=head_vector_a,
-                    mask=pred_valid[:, :n_step],
-                )
+                if self.use_gnn:
+
+                    edge_index_t, r_t = self.build_temporal_edge(
+                        pos_a=pos_a,
+                        head_a=head_a,
+                        head_vector_a=head_vector_a,
+                        mask=pred_valid[:, :n_step],
+                    )
             else:
                 hist_step = 1
                 batch_s = tokenized_agent["batch"]
                 batch_pl = map_feature["batch"]
                 inference_mask = pred_valid[:, :n_step].clone()
                 inference_mask[:, :-1] = False
-                edge_index_t, r_t = self.build_temporal_edge(
-                    pos_a=pos_a,
-                    head_a=head_a,
-                    head_vector_a=head_vector_a,
-                    mask=pred_valid[:, :n_step],
-                    inference_mask=inference_mask,
-                )
 
-            edge_index_t[1] = (edge_index_t[1] + 1) // n_step - 1
+                if self.use_gnn:
+
+                    edge_index_t, r_t = self.build_temporal_edge(
+                        pos_a=pos_a,
+                        head_a=head_a,
+                        head_vector_a=head_vector_a,
+                        mask=pred_valid[:, :n_step],
+                        inference_mask=inference_mask,
+                    )
+
+            if self.use_gnn:
+                edge_index_t[1] = (edge_index_t[1] + 1) // n_step - 1
 
             #if self.use_gnn:
                 # In the inference stage, we only infer the current stage for recurrent               
@@ -1038,7 +1046,7 @@ class SMARTAgentDecoder(nn.Module):
                                 _feat_temporal.flatten(0, 1), r_t, edge_index_t
                             ).view(n_agent, n_step, -1)
                     else:
-                       _feat_temporal = self.temporal_embed(_feat_temporal, pos_a[:,-n_step:],head_a[:,-n_step:],self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step])
+                       _feat_temporal = self.temporal_embed(_feat_temporal, pos_a,head_a,self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step])
 
                         # _feat_temporal=self.map2_agent(_feat_temporal,pos_a[:,-n_step:],head_a[:,-n_step:],pred_valid[:, :n_step],tokenized_agent,map_feature,n_step)
                     _feat_temporal = _feat_temporal.transpose(0, 1).flatten(0, 1)
@@ -1084,7 +1092,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     else:
 
-                        feat_a_now = self.temporal_embed(_feat_temporal, pos_a[:,-n_step:],head_a[:,-n_step:],self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step])
+                        _feat_temporal = self.temporal_embed(_feat_temporal, pos_a,head_a,self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step])
 
                         feat_a_now=_feat_temporal[:,-1]
 
