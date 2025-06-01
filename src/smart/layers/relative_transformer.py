@@ -382,15 +382,15 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         #
         # sinusoidal_pos = torch.cat([sin, cos], dim=-1)
 
-        return sinusoidal_pos
+#        return sinusoidal_pos
 
 
-sin_embedding=RoFormerSinusoidalPositionalEmbedding(128,8)
-
-position=torch.zeros([10,2])
-
-sin_embedding(position)
-
+# sin_embedding=RoFormerSinusoidalPositionalEmbedding(128,8)
+#
+# position=torch.zeros([10,2])
+#
+# sin_embedding(position)
+#
 def padding(tensor,lengths,padding_value=0 ):
     padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
 
