@@ -30,6 +30,33 @@ def nearest_mask(padd_pos,nearest_k,max_dist):
 
     return a2a_mask
 
+def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist):
+    # padd_pos: [B, N, D]
+    B, N, D = padd_pos.shape
+    B, N1, D = padd_pos1.shape
+
+    # Compute squared distances (faster than full norm)
+    diff = padd_pos[:, :, None, :] - padd_pos1[:, None, :, :]  # [B, N, N1, D]
+    sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
+
+    # Mask self-distance with large value (in-place)
+    inf = float('inf')
+
+    # Optional: mask out distances greater than max_dist
+    sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
+
+    # Get indices of 10 nearest (squared) distances
+    topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False).indices  # [B, N, 10]
+
+    # Build nearest-10 mask efficiently (all True except topk)
+    a2a_mask = torch.ones((B, N, N1), dtype=torch.bool, device=padd_pos.device)
+    batch = torch.arange(B, device=padd_pos.device)[:, None, None]
+    rows = torch.arange(N, device=padd_pos.device)[None, :, None]
+    a2a_mask[batch, rows, topk_idx] = False
+
+    return a2a_mask
+
+
 
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)

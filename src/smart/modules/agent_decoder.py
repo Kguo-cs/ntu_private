@@ -31,7 +31,7 @@ from src.smart.utils import (
 )
 from .kl_loss import DiagGaussian
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask
+from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope,padding
 
@@ -66,7 +66,7 @@ class SMARTAgentDecoder(nn.Module):
         self.num_layers = num_layers
         self.shift = 5
         self.hist_drop_prob = hist_drop_prob
-        self.pt2a_neighbor = pt2a_neighbor
+        self.pl2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
 
         input_dim_x_a = 2
@@ -531,9 +531,10 @@ class SMARTAgentDecoder(nn.Module):
 
         padded_a_feature = padded_a_feature.swapaxes(1,2).flatten(1, 2)
 
-        pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos.flatten(1, 2)[:,:,None],dim=-1)
+       # pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos[:,:,None],dim=-1)
+        pt2a_dist_mask=nearest_mask2(padd_pos.flatten(1, 2),pt_pos,self.pl2a_neighbor,self.pl2a_radius)
 
-        pt2a_mask= map_mask | (pt2a_dist>self.pl2a_radius)
+        pt2a_mask= map_mask | pt2a_dist_mask
 
         padded_a_feature = self.pt2a_roformer(padded_a_feature, pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
         
