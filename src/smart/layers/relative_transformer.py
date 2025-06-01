@@ -228,7 +228,7 @@ class RoFormerSelfAttention(nn.Module):
 
     @staticmethod
     def apply_rotary(x, sinusoidal_pos):
-        sin, cos = sinusoidal_pos[:,None].chunk(2, dim=-1)
+        sin, cos = sinusoidal_pos.swapaxes(1,2).chunk(2, dim=-1)#[:,None]
         #sin, cos = sinusoidal_pos
         x1, x2 = x[..., 0::2], x[..., 1::2]
         # 如果是旋转query key的话，下面这个直接cat就行，因为要进行矩阵乘法，最终会在这个维度求和。（只要保持query和key的最后一个dim的每一个位置对应上就可以）
@@ -317,7 +317,7 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
 class RoFormerSinusoidalPositionalEmbedding(nn.Module):
     """This module produces sinusoidal positional embeddings of any length."""
 
-    def __init__(self, embed_dim,num_heads ):
+    def __init__(self, hidden_dim,num_heads ):
         super().__init__()
 
         # d_k=head_dim//4-1
@@ -327,15 +327,16 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         # )
         # self.freq_x=nn.Parameter(freq)
         # self.freq_y=nn.Parameter(freq)
-        freqs = self.init_random_2d_freqs(dim=embed_dim // num_heads, num_heads=num_heads, theta=100)
+        freqs_x,freqs_y = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
 
-        self.freqs = nn.Parameter(freqs.clone(), requires_grad=True)[:,None].view(2, 1, -1)
+        self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
+        self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
         self.num_heads=num_heads
-
 
     def init_random_2d_freqs(self,dim: int, num_heads: int, theta: float = 10.0, rotate: bool = True):
         freqs_x = []
         freqs_y = []
+        freqs_t=[]
         mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
         for i in range(num_heads):
             angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
@@ -345,23 +346,23 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
             freqs_y.append(fy)
         freqs_x = torch.stack(freqs_x, dim=0)
         freqs_y = torch.stack(freqs_y, dim=0)
-        freqs = torch.stack([freqs_x, freqs_y], dim=0)
 
-        return freqs
+        return freqs_x,freqs_y
 
-    def forward(self,positions):
+    def forward(self,positions,heading):
+
+        t_x, t_y = positions[...,0], positions[...,1]
+
+        #N = t_x.shape[0]
 
 
-        t_x, t_y = positions[:,0], positions[:,1]
+        freqs_x = t_x[...,None,None] * self.freqs_x
+        freqs_y = t_y[...,None,None] * self.freqs_y
 
-        N = t_x.shape[0]
-        depth = 1 #freqs.shape[1]
-        # No float 16 for this range
-        freqs_x = (t_x.unsqueeze(-1) @ self.freqs[0].unsqueeze(-2)).view(depth, N, self.num_heads, -1).permute(0, 2, 1, 3)
-        freqs_y = (t_y.unsqueeze(-1) @ self.freqs[1].unsqueeze(-2)).view(depth, N, self.num_heads, -1).permute(0, 2, 1, 3)
-        freqs_cis = freqs_x + freqs_y
+        freqs_cis = freqs_x + freqs_y+heading[:,None,None] #N,L,Head, dim
 
-        print(1)
+        cos=torch.cos(freqs_cis)
+        sin=torch.sin(freqs_cis)
 
         # div_term=torch.pow(10000, 2 * (j // 2) / div_dim)
         #
@@ -380,14 +381,14 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         #     sin = torch.cat([sin, sin_theta], dim=-1)
         #     cos = torch.cat([cos, cos_theta], dim=-1)
         #
-        # sinusoidal_pos = torch.cat([sin, cos], dim=-1)
+        sinusoidal_pos = torch.cat([sin, cos], dim=-1)
 
-#        return sinusoidal_pos
+        return sinusoidal_pos
 
 
 # sin_embedding=RoFormerSinusoidalPositionalEmbedding(128,8)
 #
-# position=torch.zeros([10,2])
+# position=torch.zeros([10,18,2])
 #
 # sin_embedding(position)
 #

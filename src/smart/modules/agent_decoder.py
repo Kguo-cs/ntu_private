@@ -508,7 +508,7 @@ class SMARTAgentDecoder(nn.Module):
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 
-        feature = network(feature, causal_mask, sinusoidal_pos)
+        feature = network(feature, causal_mask, sinusoidal_pos[:,None].swapaxes(1,2))
 
         return feature
 

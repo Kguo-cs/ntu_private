@@ -79,6 +79,8 @@ class SMARTMapDecoder(nn.Module):
             else:
                 self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
+                self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
+
             self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict):
@@ -151,7 +153,9 @@ class SMARTMapDecoder(nn.Module):
 
             #centering_heading = scatter_mean(orient_pt, batch, dim=0)
 
-            sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
+            #sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
+
+            sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
 
             map_sinusoidal = padding(sinusoidal_pos, lengths)
 
@@ -173,6 +177,7 @@ class SMARTMapDecoder(nn.Module):
                 "padd_pos": padd_pos,
                # "centering_pos":centering_pos,
               #  "centering_heading":centering_heading,
+                "rotary_embedding":self.rotary_embedding,
                 "batch": batch,
                 "map_mask": map_mask,
                 "map_sinusoidal": map_sinusoidal
