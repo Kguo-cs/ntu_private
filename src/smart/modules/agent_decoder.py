@@ -496,13 +496,15 @@ class SMARTAgentDecoder(nn.Module):
 
         return r_t, edge_index_t
 
-    def temporal_embed(self, feature, network, n_step, n_current, hist_len, mask):
+    def temporal_embed(self, feature,pos,heading, network, n_step, n_current, hist_len, mask):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
 
-        positions = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
+        positions = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None].repeat(pos.shape[0],1,1)
 
-        sinusoidal_pos = general_rope(positions, self.head_dim)
+        positions=torch.concat([pos,positions],dim=-1)
+
+        sinusoidal_pos = general_rope(positions, self.head_dim,heading)
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 
@@ -734,7 +736,7 @@ class SMARTAgentDecoder(nn.Module):
 
 
             else:
-                feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, 0, self.agent_hist, ~mask)
+                feat_a = self.temporal_embed(feat_a,pos_a,head_a, self.a_t_roformer, n_step, 0, self.agent_hist, ~mask)
 
                 # feat_a=self.map2_agent(feat_a,pos_a,head_a,mask,tokenized_agent,map_feature,n_step)
 

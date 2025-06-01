@@ -265,12 +265,16 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
 
     device = positions.device
 
-    div_dim=dim//positions.shape[-1]
+    dim=dim//2
 
-    positions = positions
+    theta_dim=dim%positions.shape[-1]
 
-    if heading is not None:
-        div_dim=div_dim-2
+    if theta_dim==0:
+        theta_dim=positions.shape[-1]
+
+    position_dim=(dim-theta_dim)//positions.shape[-1]
+
+    div_dim=position_dim*2
 
     div_term = torch.exp(
         torch.arange(0, div_dim, 2, dtype=torch.float32, device=device) * (-torch.log(torch.tensor(10000.0)) / div_dim)
@@ -280,7 +284,7 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
     cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
 
     if heading is not None:
-        theta=heading[...,None].repeat_interleave(2,dim=-1)
+        theta=heading[...,None].repeat_interleave(theta_dim,dim=-1)
 
         sin_theta=torch.sin(theta)
         cos_theta=torch.cos(theta)
