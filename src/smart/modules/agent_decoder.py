@@ -547,7 +547,7 @@ class SMARTAgentDecoder(nn.Module):
 #
         padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
-        padd_pos=padd_pos.flatten(0,1)
+        padd_pos=padd_pos.swapaxes(1,2).flatten(0,1)
 
         a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,self.a2a_radius)
         
@@ -555,7 +555,7 @@ class SMARTAgentDecoder(nn.Module):
 
         a2a_mask = padding_agent_mask[:,None] | a2a_dist_mask #(a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
-        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.flatten(0, 1))
+        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1))
 
         feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask].reshape( -1, n_step,self.hidden_dim)
 
