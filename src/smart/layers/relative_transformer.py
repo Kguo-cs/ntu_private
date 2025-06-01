@@ -256,20 +256,6 @@ def scene_centric(pos,heading,centering_pos,centering_heading,batch):
 
 
 
-# def init_random_2d_freqs(dim: int, num_heads: int, theta: float = 100.0, rotate: bool = True):
-#     freqs_x = []
-#     freqs_y = []
-#     mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
-#     for i in range(num_heads):
-#         angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
-#         fx = torch.cat([mag * torch.cos(angles), mag * torch.cos(torch.pi/2 + angles)], dim=-1)
-#         fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi/2 + angles)], dim=-1)
-#         freqs_x.append(fx)
-#         freqs_y.append(fy)
-#     freqs_x = torch.stack(freqs_x, dim=0)
-#     freqs_y = torch.stack(freqs_y, dim=0)
-#     freqs = torch.stack([freqs_x, freqs_y], dim=0)
-#     return freqs
 
 def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None):
 
@@ -290,8 +276,6 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
     div_term = torch.exp(
         torch.arange(d_k, dtype=torch.float32, device=device) * (-math.log(10000.0) / d_k)
     )
-
-    # div_term=torch.pow(10000, 2 * (j // 2) / div_dim)
 
     sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
     cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
