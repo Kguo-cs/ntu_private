@@ -39,9 +39,6 @@ def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist):
     diff = padd_pos[:, :, None, :] - padd_pos1[:, None, :, :]  # [B, N, N1, D]
     sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
 
-    # Mask self-distance with large value (in-place)
-    inf = float('inf')
-
     # Optional: mask out distances greater than max_dist
     sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
 

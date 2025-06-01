@@ -340,20 +340,24 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
 
     def forward(self,positions,heading,time=None):
 
-        t_x, t_y = positions[...,0], positions[...,1]
 
         #N = t_x.shape[0]
-
-
-        freqs_x = t_x[...,None,None] * self.freqs_x
-        freqs_y = t_y[...,None,None] * self.freqs_y
-
-        freqs_cis = freqs_x + freqs_y+heading[...,None,None] #N,L,Head, dim
-
         if time is not None:
             freqs_t = time[..., None, None] * self.freqs_t
+        else:
+            freqs_t= 0
+            
+        if positions is not None:
+            t_x, t_y = positions[...,0], positions[...,1]
 
-            freqs_cis = freqs_cis+freqs_t
+            freqs_x = t_x[...,None,None] * self.freqs_x
+            freqs_y = t_y[...,None,None] * self.freqs_y
+            
+            freqs_xyh=freqs_x + freqs_y+heading[...,None,None]
+        else:
+            freqs_xyh=0
+
+        freqs_cis = freqs_xyh +freqs_t
 
         cos=torch.cos(freqs_cis)
         sin=torch.sin(freqs_cis)

@@ -507,7 +507,7 @@ class SMARTAgentDecoder(nn.Module):
         # positions=torch.concat([pos,time[None,:, None].repeat(pos.shape[0],1,1)],dim=-1)
         #
         # sinusoidal_pos = general_rope(positions, self.head_dim,heading)[:,None].swapaxes(1,2)
-        sinusoidal_pos=rotary_embedding(pos,heading,time)
+        sinusoidal_pos=rotary_embedding(time)
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 
@@ -529,13 +529,13 @@ class SMARTAgentDecoder(nn.Module):
         lengths_a=torch.bincount(tokenized_agent["batch"] ).tolist()
 
         padded_a_feature = padding(feat_a, lengths_a)
-        agent_sinusoidal = padding(sinusoidal_a, lengths_a).swapaxes(1,2)
+        agent_sinusoidal = padding(sinusoidal_a, lengths_a)#.swapaxes(1,2)
         #padding_agent_mask= padding(mask_a[:,-n_step:], lengths_a,padding_value=True).swapaxes(1,2).flatten(0, 1)
-        padd_pos=padding(pos_a, lengths_a).swapaxes(1,2)
+        padd_pos=padding(pos_a, lengths_a)#.swapaxes(1,2)
 
         feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)
 
-        padded_a_feature = padded_a_feature.swapaxes(1,2).flatten(1, 2)
+        padded_a_feature = padded_a_feature.flatten(1, 2)#.swapaxes(1,2)
 
        # pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos[:,:,None],dim=-1)
         pt2a_dist_mask=nearest_mask2(padd_pos.flatten(1, 2),pt_pos,100,self.pl2a_radius)
@@ -544,8 +544,8 @@ class SMARTAgentDecoder(nn.Module):
 
         padded_a_feature = self.pt2a_roformer(padded_a_feature, pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
 
-        feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,self.hidden_dim).swapaxes(1,2)[feature_mask].transpose(0, 1).flatten(0, 1)
-
+        feat_a = padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim)[feature_mask].transpose(0, 1).flatten(0, 1)
+#.swapaxes(1,2)
         # padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,self.hidden_dim).flatten(0,1)
 
         # padd_pos=padd_pos.flatten(0,1)
