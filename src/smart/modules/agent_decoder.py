@@ -507,7 +507,7 @@ class SMARTAgentDecoder(nn.Module):
         # positions=torch.concat([pos,time[None,:, None].repeat(pos.shape[0],1,1)],dim=-1)
         #
         # sinusoidal_pos = general_rope(positions, self.head_dim,heading)[:,None].swapaxes(1,2)
-        sinusoidal_pos=rotary_embedding(time)
+        sinusoidal_pos=rotary_embedding(time=time)
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 

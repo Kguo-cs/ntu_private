@@ -338,7 +338,7 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
 
         return freqs_x,freqs_y,freqs_t
 
-    def forward(self,positions,heading,time=None):
+    def forward(self,positions=None,heading=None,time=None):
 
 
         #N = t_x.shape[0]
