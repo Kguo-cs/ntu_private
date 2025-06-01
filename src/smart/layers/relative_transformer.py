@@ -257,6 +257,20 @@ def scene_centric(pos,heading,centering_pos,centering_heading,batch):
 
 
 
+# def init_random_2d_freqs(dim: int, num_heads: int, theta: float = 100.0, rotate: bool = True):
+#     freqs_x = []
+#     freqs_y = []
+#     mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
+#     for i in range(num_heads):
+#         angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
+#         fx = torch.cat([mag * torch.cos(angles), mag * torch.cos(torch.pi/2 + angles)], dim=-1)
+#         fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi/2 + angles)], dim=-1)
+#         freqs_x.append(fx)
+#         freqs_y.append(fy)
+#     freqs_x = torch.stack(freqs_x, dim=0)
+#     freqs_y = torch.stack(freqs_y, dim=0)
+#     freqs = torch.stack([freqs_x, freqs_y], dim=0)
+#     return freqs
 
 def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None):
 
@@ -300,46 +314,82 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
 
 
 # Copied from transformers.models.marian.modeling_marian.MarianSinusoidalPositionalEmbedding with Marian->RoFormer
-class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
+class RoFormerSinusoidalPositionalEmbedding(nn.Module):
     """This module produces sinusoidal positional embeddings of any length."""
 
-    def __init__(
-        self, num_positions: int, embedding_dim: int, padding_idx: Optional[int] = None
-    ):
-        super().__init__(num_positions, embedding_dim)
-        self.weight = self._init_weight(self.weight)
+    def __init__(self, embed_dim,num_heads ):
+        super().__init__()
 
-    @staticmethod
-    def _init_weight(out: nn.Parameter):
-        """
-        Identical to the XLM create_sinusoidal_embeddings except features are not interleaved. The cos features are in
-        the 2nd half of the vector. [dim // 2:]
-        """
-        n_pos, dim = out.shape
-        position_enc = np.array(
-            [
-                [pos / np.power(10000, 2 * (j // 2) / dim) for j in range(dim)]
-                for pos in range(n_pos)
-            ]
-        )
-        out.requires_grad = False  # set early to avoid an error in pytorch-1.8+
-        sentinel = dim // 2 if dim % 2 == 0 else (dim // 2) + 1
-        out[:, 0:sentinel] = torch.FloatTensor(np.sin(position_enc[:, 0::2]))
-        out[:, sentinel:] = torch.FloatTensor(np.cos(position_enc[:, 1::2]))
-        out.detach_()
-        return out
+        # d_k=head_dim//4-1
+        #
+        # freq=torch.exp(
+        #     torch.arange(d_k, dtype=torch.float32) * (-math.log(10000.0) / d_k)
+        # )
+        # self.freq_x=nn.Parameter(freq)
+        # self.freq_y=nn.Parameter(freq)
+        freqs = self.init_random_2d_freqs(dim=embed_dim // num_heads, num_heads=num_heads, theta=100)
 
-    @torch.no_grad()
-    def forward(self, seq_len: int, past_key_values_length: int = 0):
-        """`input_ids_shape` is expected to be [bsz x seqlen]."""
-        positions = torch.arange(
-            past_key_values_length,
-            past_key_values_length + seq_len,
-            dtype=torch.long,
-            device=self.weight.device,
-        )
-        return super().forward(positions)
+        self.freqs = nn.Parameter(freqs.clone(), requires_grad=True)[:,None].view(2, 1, -1)
+        self.num_heads=num_heads
 
+
+    def init_random_2d_freqs(self,dim: int, num_heads: int, theta: float = 10.0, rotate: bool = True):
+        freqs_x = []
+        freqs_y = []
+        mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
+        for i in range(num_heads):
+            angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
+            fx = torch.cat([mag * torch.cos(angles), mag * torch.cos(torch.pi / 2 + angles)], dim=-1)
+            fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi / 2 + angles)], dim=-1)
+            freqs_x.append(fx)
+            freqs_y.append(fy)
+        freqs_x = torch.stack(freqs_x, dim=0)
+        freqs_y = torch.stack(freqs_y, dim=0)
+        freqs = torch.stack([freqs_x, freqs_y], dim=0)
+
+        return freqs
+
+    def forward(self,positions):
+
+
+        t_x, t_y = positions[:,0], positions[:,1]
+
+        N = t_x.shape[0]
+        depth = 1 #freqs.shape[1]
+        # No float 16 for this range
+        freqs_x = (t_x.unsqueeze(-1) @ self.freqs[0].unsqueeze(-2)).view(depth, N, self.num_heads, -1).permute(0, 2, 1, 3)
+        freqs_y = (t_y.unsqueeze(-1) @ self.freqs[1].unsqueeze(-2)).view(depth, N, self.num_heads, -1).permute(0, 2, 1, 3)
+        freqs_cis = freqs_x + freqs_y
+
+        print(1)
+
+        # div_term=torch.pow(10000, 2 * (j // 2) / div_dim)
+        #
+        # sin_x = torch.sin(positions[...,0, None] * self.freq_x).flatten(-2, -1)
+        # cos_x = torch.cos(positions[...,0, None] * self.freq_x).flatten(-2, -1)
+        #
+        # sin_x = torch.sin(positions[...,1, None] * self.freq_y).flatten(-2, -1)
+        # cos_x = torch.cos(positions[...,1, None] * self.freq_y).flatten(-2, -1)
+        #
+        # if heading is not None:
+        #     theta = heading[..., None].repeat_interleave(theta_dim, dim=-1)
+        #
+        #     sin_theta = torch.sin(theta)
+        #     cos_theta = torch.cos(theta)
+        #
+        #     sin = torch.cat([sin, sin_theta], dim=-1)
+        #     cos = torch.cat([cos, cos_theta], dim=-1)
+        #
+        # sinusoidal_pos = torch.cat([sin, cos], dim=-1)
+
+        return sinusoidal_pos
+
+
+sin_embedding=RoFormerSinusoidalPositionalEmbedding(128,8)
+
+position=torch.zeros([10,2])
+
+sin_embedding(position)
 
 def padding(tensor,lengths,padding_value=0 ):
     padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
