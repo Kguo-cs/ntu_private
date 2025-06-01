@@ -1001,7 +1001,7 @@ class SMARTAgentDecoder(nn.Module):
                     inference_mask=inference_mask,
                 )
 
-            # edge_index_t[1] = (edge_index_t[1] + 1) // n_step - 1
+            edge_index_t[1] = (edge_index_t[1] + 1) // n_step - 1
 
             #if self.use_gnn:
                 # In the inference stage, we only infer the current stage for recurrent               
