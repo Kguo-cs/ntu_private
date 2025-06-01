@@ -1038,7 +1038,7 @@ class SMARTAgentDecoder(nn.Module):
                                 _feat_temporal.flatten(0, 1), r_t, edge_index_t
                             ).view(n_agent, n_step, -1)
                     else:
-                       _feat_temporal = self.temporal_embed(_feat_temporal, self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step])
+                       _feat_temporal = self.temporal_embed(_feat_temporal, pos_a[:,-n_step:],head_a[:,-n_step:],self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step])
 
                         # _feat_temporal=self.map2_agent(_feat_temporal,pos_a[:,-n_step:],head_a[:,-n_step:],pred_valid[:, :n_step],tokenized_agent,map_feature,n_step)
                     _feat_temporal = _feat_temporal.transpose(0, 1).flatten(0, 1)
@@ -1084,7 +1084,7 @@ class SMARTAgentDecoder(nn.Module):
   
                     else:
 
-                        feat_a_now = self.temporal_embed(_feat_temporal, self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step])
+                        feat_a_now = self.temporal_embed(_feat_temporal, pos_a[:,-n_step:],head_a[:,-n_step:],self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step])
 
                         feat_a_now=_feat_temporal[:,-1]
 
