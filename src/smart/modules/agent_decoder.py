@@ -165,8 +165,8 @@ class SMARTAgentDecoder(nn.Module):
                 )
 
             else:
-                self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=4, dropout=hist_drop_prob)
-                self.head_dim = hidden_dim // 4
+                self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
+                self.head_dim = hidden_dim // num_heads
 
                 #self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
                 #self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
@@ -502,9 +502,9 @@ class SMARTAgentDecoder(nn.Module):
 
         positions = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None].repeat(pos.shape[0],1,1)
 
-        positions=torch.concat([pos,positions],dim=-1)
+        #positions=torch.concat([pos,positions],dim=-1)
 
-        sinusoidal_pos = general_rope(positions, self.head_dim,heading)
+        sinusoidal_pos = general_rope(positions, self.head_dim)#,heading
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 

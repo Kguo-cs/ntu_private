@@ -269,7 +269,7 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
 
     theta_dim=dim%positions.shape[-1]
 
-    if theta_dim==0:
+    if theta_dim==0 and heading is not None:
         theta_dim=positions.shape[-1]
 
     d_k=(dim-theta_dim)//positions.shape[-1]
