@@ -539,7 +539,7 @@ class SMARTAgentDecoder(nn.Module):
         pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos.flatten(1, 2)[:,:,None],dim=-1)
         #pt2a_dist_mask=nearest_mask2(padd_pos.flatten(1, 2),pt_pos,100,self.pl2a_radius)
 
-        pt2a_mask= map_mask | (pt2a_dist>60)
+        pt2a_mask= map_mask | (pt2a_dist>self.pl2a_radius)
 
         padded_a_feature = self.pt2a_roformer(padded_a_feature, pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
 
@@ -549,7 +549,7 @@ class SMARTAgentDecoder(nn.Module):
 
         padd_pos=padd_pos.swapaxes(1,2).flatten(0,1)
 
-        a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,self.a2a_radius)
+        a2a_dist_mask=nearest_mask(padd_pos,self.a2a_neighbor,100)
         
         padding_agent_mask= padding(mask_a[:,-n_step:], lengths_a,padding_value=True).swapaxes(1,2).flatten(0, 1)
 
