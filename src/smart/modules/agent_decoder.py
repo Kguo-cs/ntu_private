@@ -165,7 +165,8 @@ class SMARTAgentDecoder(nn.Module):
                 )
 
             else:
-                self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
+                self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=4, dropout=hist_drop_prob)
+                self.head_dim = hidden_dim // 4
 
                 #self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
                 #self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
@@ -176,7 +177,6 @@ class SMARTAgentDecoder(nn.Module):
             )
 
         self.pred_light = False
-        self.head_dim = hidden_dim // num_heads
 
         if self.pred_light:
 

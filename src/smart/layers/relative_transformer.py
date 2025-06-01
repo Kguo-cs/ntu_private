@@ -272,13 +272,13 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
     if theta_dim==0:
         theta_dim=positions.shape[-1]
 
-    position_dim=(dim-theta_dim)//positions.shape[-1]
-
-    div_dim=position_dim*2
+    d_k=(dim-theta_dim)//positions.shape[-1]
 
     div_term = torch.exp(
-        torch.arange(0, div_dim, 2, dtype=torch.float32, device=device) * (-torch.log(torch.tensor(10000.0)) / div_dim)
+        torch.arange(d_k, dtype=torch.float32, device=device) * (-math.log(10000.0) / d_k)
     )
+
+    # div_term=torch.pow(10000, 2 * (j // 2) / div_dim)
 
     sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
     cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
@@ -297,25 +297,6 @@ def general_rope(positions, dim,heading=None,centering_pos=None,centering_headin
     return sinusoidal_pos
 
 
-class RoFormerBlock(nn.Module):
-    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(hidden_dim)
-        self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout)
-        self.norm2 = nn.LayerNorm(hidden_dim)
-        self.attention_head_size=hidden_dim // num_heads
-        self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim, int(hidden_dim * mlp_ratio)),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(int(hidden_dim * mlp_ratio), hidden_dim),
-            nn.Dropout(dropout)
-        )
-
-    def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None):
-        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos)
-        x = x + self.mlp(self.norm2(x))
-        return x
 
 
 # Copied from transformers.models.marian.modeling_marian.MarianSinusoidalPositionalEmbedding with Marian->RoFormer
@@ -364,3 +345,23 @@ def padding(tensor,lengths,padding_value=0 ):
     padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
 
     return padded_tensor
+
+class RoFormerBlock(nn.Module):
+    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout)
+        self.norm2 = nn.LayerNorm(hidden_dim)
+        self.attention_head_size=hidden_dim // num_heads
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_dim, int(hidden_dim * mlp_ratio)),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(int(hidden_dim * mlp_ratio), hidden_dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None):
+        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos)
+        x = x + self.mlp(self.norm2(x))
+        return x
