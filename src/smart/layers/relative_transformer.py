@@ -239,7 +239,6 @@ class RoFormerSelfAttention(nn.Module):
 
 def scene_centric(pos,heading,centering_pos,centering_heading,batch):
 
-
     heading = heading - centering_heading[batch]
 
     pos = pos - centering_pos[batch]
@@ -327,16 +326,18 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         # )
         # self.freq_x=nn.Parameter(freq)
         # self.freq_y=nn.Parameter(freq)
-        freqs_x,freqs_y = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
+        freqs_x,freqs_y,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
 
         self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
         self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
+        self.freqs_t = nn.Parameter(freqs_t.clone(), requires_grad=True)
+
         self.num_heads=num_heads
 
     def init_random_2d_freqs(self,dim: int, num_heads: int, theta: float = 10.0, rotate: bool = True):
         freqs_x = []
         freqs_y = []
-        freqs_t=[]
+        freqs_t = []
         mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
         for i in range(num_heads):
             angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
@@ -344,12 +345,16 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
             fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi / 2 + angles)], dim=-1)
             freqs_x.append(fx)
             freqs_y.append(fy)
+            ft = torch.cat([mag , mag ], dim=-1)
+
+            freqs_t.append(ft)
         freqs_x = torch.stack(freqs_x, dim=0)
         freqs_y = torch.stack(freqs_y, dim=0)
+        freqs_t=torch.stack(freqs_t, dim=0)
 
-        return freqs_x,freqs_y
+        return freqs_x,freqs_y,freqs_t
 
-    def forward(self,positions,heading):
+    def forward(self,positions,heading,time=None):
 
         t_x, t_y = positions[...,0], positions[...,1]
 
@@ -359,7 +364,12 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         freqs_x = t_x[...,None,None] * self.freqs_x
         freqs_y = t_y[...,None,None] * self.freqs_y
 
-        freqs_cis = freqs_x + freqs_y+heading[:,None,None] #N,L,Head, dim
+        freqs_cis = freqs_x + freqs_y+heading[...,None,None] #N,L,Head, dim
+
+        if time is not None:
+            freqs_t = time[..., None, None] * self.freqs_t
+
+            freqs_cis = freqs_cis+freqs_t
 
         cos=torch.cos(freqs_cis)
         sin=torch.sin(freqs_cis)

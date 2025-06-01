@@ -496,19 +496,20 @@ class SMARTAgentDecoder(nn.Module):
 
         return r_t, edge_index_t
 
-    def temporal_embed(self, feature,pos,heading, network, n_step, n_current, hist_len, mask):
+    def temporal_embed(self, feature,pos,heading, network, n_step, n_current, hist_len, mask,rotary_embedding):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
 
-        positions = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None].repeat(pos.shape[0],1,1)
+        time = torch.arange(n_current, n_step + n_current, device=feature.device)[None]
 
-        positions=torch.concat([pos,positions],dim=-1)
-
-        sinusoidal_pos = general_rope(positions, self.head_dim,heading)
+        # positions=torch.concat([pos,time[None,:, None].repeat(pos.shape[0],1,1)],dim=-1)
+        #
+        # sinusoidal_pos = general_rope(positions, self.head_dim,heading)[:,None].swapaxes(1,2)
+        sinusoidal_pos=rotary_embedding(pos,heading,time)
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 
-        feature = network(feature, causal_mask, sinusoidal_pos[:,None].swapaxes(1,2))
+        feature = network(feature, causal_mask, sinusoidal_pos)
 
         return feature
 
@@ -716,6 +717,8 @@ class SMARTAgentDecoder(nn.Module):
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100
             )
+
+        rotary_embedding=map_feature["rotary_embedding"]
         for i in range(self.num_layers):
 
 
@@ -738,7 +741,7 @@ class SMARTAgentDecoder(nn.Module):
 
 
             else:
-                feat_a = self.temporal_embed(feat_a,pos_a,head_a, self.a_t_roformer, n_step, 0, self.agent_hist, ~mask)
+                feat_a = self.temporal_embed(feat_a,pos_a,head_a, self.a_t_roformer, n_step, 0, self.agent_hist, ~mask,rotary_embedding)
 
                 # feat_a=self.map2_agent(feat_a,pos_a,head_a,mask,tokenized_agent,map_feature,n_step)
 
@@ -961,6 +964,7 @@ class SMARTAgentDecoder(nn.Module):
         next_token_logits_list = []
         next_token_action_list = []
         feat_a_t_dict = {}
+        rotary_embedding=map_feature["rotary_embedding"]
 
         for t in range(n_step_future_2hz):  # 0 -> 15
             t_now = step_current_2hz - 1 + t  # 1 -> 16
@@ -1046,7 +1050,7 @@ class SMARTAgentDecoder(nn.Module):
                                 _feat_temporal.flatten(0, 1), r_t, edge_index_t
                             ).view(n_agent, n_step, -1)
                     else:
-                       _feat_temporal = self.temporal_embed(_feat_temporal, pos_a,head_a,self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step])
+                       _feat_temporal = self.temporal_embed(_feat_temporal, pos_a,head_a,self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:, :n_step],rotary_embedding)
 
                         # _feat_temporal=self.map2_agent(_feat_temporal,pos_a[:,-n_step:],head_a[:,-n_step:],pred_valid[:, :n_step],tokenized_agent,map_feature,n_step)
                     _feat_temporal = _feat_temporal.transpose(0, 1).flatten(0, 1)
@@ -1092,7 +1096,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     else:
 
-                        _feat_temporal = self.temporal_embed(_feat_temporal, pos_a,head_a,self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step])
+                        _feat_temporal = self.temporal_embed(_feat_temporal, pos_a,head_a,self.a_t_roformer, n_step, 0, self.agent_hist, ~pred_valid[:,:n_step],rotary_embedding)
 
                         feat_a_now=_feat_temporal[:,-1]
 
