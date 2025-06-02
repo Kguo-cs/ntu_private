@@ -32,8 +32,7 @@ from src.smart.utils import (
 )
 from .kl_loss import DiagGaussian
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from .build_edge import radiusGraphNearest, radiusGraphNearest2, positionalencoding1d, generate_causal_mask, \
-    generate_limited_causal_mask
+from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
 
@@ -108,7 +107,7 @@ class SMARTAgentDecoder(nn.Module):
             
             self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-            self.use_gnn=True
+            self.use_gnn=False
 
             if self.use_gnn:
                 input_dim_r_a2a = 3
@@ -403,13 +402,15 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         else:
-            padding_agent_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True).flatten(1, 2)
+            padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
-            a2a_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+            padding_agent_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True).swapaxes(1,2).flatten(0, 1)
 
-            a2a_mask = padding_agent_mask[:,None] | (a2a_dist>self.a2a_radius) | (a2a_dist==0)
+            dist_mask=nearest_mask(padd_pos.swapaxes(1,2).flatten(0,1), self.a2a_neighbor,60)
 
-            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal)
+            a2a_mask = padding_agent_mask[:,None] | dist_mask
+
+            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1))
 
             feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 
@@ -516,6 +517,8 @@ class SMARTAgentDecoder(nn.Module):
         head_a = tokenized_agent["sampled_heading"][:, :current_len].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
+        #mask=torch.ones_like(mask)
+
         if "gt_z_raw" in tokenized_agent.keys():
             n_agent=sampled_idx.shape[0]
             pred_traj_10hz = torch.zeros(
@@ -524,6 +527,8 @@ class SMARTAgentDecoder(nn.Module):
             pred_head_10hz = torch.zeros(
                 [n_agent, 0], dtype=pos_a.dtype, device=pos_a.device
             )
+
+        logit_list=[]
 
         for t in range(current_len, max_len + current_len):
             if t == current_len:
@@ -539,6 +544,7 @@ class SMARTAgentDecoder(nn.Module):
                         lg_feat=None
 
                     next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
+                    logit_list.append(next_token_logits)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
    
@@ -550,6 +556,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
                 #next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
+                logit_list.append(next_token_logits[:, -1:])
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
 
@@ -605,6 +612,12 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["gt_pos_raw"] = tokenized_agent["gt_pos_raw"]  # [n_agent, 18, 2]
             out_dict["gt_head_raw"] = tokenized_agent["gt_head_raw"]  # [n_agent, 18]
             out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
+
+        next_token_logits=torch.cat(logit_list, dim=1)
+
+        next_token_logits1 = self.predict_agent(sampled_idx, mask, pos_a, head_a, tokenized_agent, map_feature, None)
+
+        print((next_token_logits1[:,:-1]-next_token_logits).max())
 
         return out_dict
 
