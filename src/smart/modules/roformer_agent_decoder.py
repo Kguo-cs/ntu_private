@@ -318,7 +318,7 @@ class SMARTAgentDecoder(nn.Module):
         r_a2a = torch.stack([dist, ang, rel_head], dim=-1)[~mask]
 
         # Apply embedding
-        r_a2a = self.r_a2a_emb(r_a2a, categorical_embs=None)  # [B, N, N, d_emb]
+        r_a2a = self.r_a2a_emb(r_a2a)  # [B, N, N, d_emb]
 
         return r_a2a
 
