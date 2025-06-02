@@ -526,8 +526,6 @@ class SMARTAgentDecoder(nn.Module):
         head_a = tokenized_agent["sampled_heading"][:, :current_len].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
-        #mask=torch.ones_like(mask)
-
         if "gt_z_raw" in tokenized_agent.keys():
             n_agent=sampled_idx.shape[0]
             pred_traj_10hz = torch.zeros(
@@ -537,7 +535,7 @@ class SMARTAgentDecoder(nn.Module):
                 [n_agent, 0], dtype=pos_a.dtype, device=pos_a.device
             )
 
-        # logit_list=[]
+        logit_list=[]
         for t in range(current_len, max_len + current_len):
             if t == current_len:
                 if "next_token_logits" in tokenized_agent.keys():
@@ -552,7 +550,7 @@ class SMARTAgentDecoder(nn.Module):
                         lg_feat=None
 
                     next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
-                    #logit_list.append(next_token_logits)
+                    logit_list.append(next_token_logits)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
    
@@ -563,7 +561,7 @@ class SMARTAgentDecoder(nn.Module):
                     lg_feat=None
 
                 next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
-                #logit_list.append(next_token_logits[:, -1:])
+                logit_list.append(next_token_logits[:, -1:])
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
 
@@ -625,19 +623,6 @@ class SMARTAgentDecoder(nn.Module):
         #next_token_logits1 = self.predict_agent(sampled_idx[:,:-1], mask[:,:-1], pos_a[:,:-1], head_a[:,:-1], tokenized_agent, map_feature, None)
 
         #print((next_token_logits1-next_token_logits).max())
-        # head_vector_a = torch.stack([head_a[:,2:3].cos(), head_a[:,2:3].sin()], dim=-1)
-        # # ! get agent token embeddings
-        # feat_a_token4 = self.agent_token_embedding(
-        #     agent_token_index=sampled_idx[:,2:3],  # [n_ag, n_step]
-        #     trajectory_token_veh=tokenized_agent["trajectory_token_veh"],
-        #     trajectory_token_ped=tokenized_agent["trajectory_token_ped"],
-        #     trajectory_token_cyc=tokenized_agent["trajectory_token_cyc"],
-        #     pos_a=pos_a[:,2:3],  # [n_agent, n_step, 2]
-        #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-        #     agent_type=tokenized_agent["type"],  # [n_agent]
-        #     agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
-        # )  # feat_a: [n_agent, n_step, hidden_dim]
-
 
         return out_dict
 
