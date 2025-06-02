@@ -107,10 +107,10 @@ class SMARTAgentDecoder(nn.Module):
             
             self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-            self.use_gnn=True
+            self.use_gnn=False
+            input_dim_r_a2a = 3
 
             if self.use_gnn:
-                input_dim_r_a2a = 3
 
                 self.r_a2a_emb = FourierEmbedding(
                     input_dim=input_dim_r_a2a,
@@ -131,7 +131,13 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
             else:
-                self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                self.r_a2a_emb = FourierEmbedding(
+                    input_dim=input_dim_r_a2a,
+                    hidden_dim=hidden_dim,
+                    num_freq_bands=num_freq_bands,
+                )
+
+                self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
 
             self.token_predict_head = MLPLayer(
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -281,6 +287,38 @@ class SMARTAgentDecoder(nn.Module):
 
         return edge_index_a2a, r_a2a
 
+    def build_full_interaction_r_a2a(
+            self,
+            pos_s,  # [B, N, 2]
+            head_s,  # [B, N,]
+            head_vector_s,  # [B, N,2]
+            mask
+    ):
+        B, N, _ = pos_s.shape
+
+        # Compute pairwise relative positions: [B, N, N, 2]
+        rel_pos = pos_s[:, :, None, :] - pos_s[:, None, :, :]  # [B, N, N, 2]
+
+        # Relative heading difference
+        rel_head = wrap_angle(head_s[:, :, None] - head_s[:, None, :])  # [B, N, N]
+
+        # Pairwise distance
+        dist = torch.norm(rel_pos, dim=-1)  # [B, N, N]
+
+        # Angle between head_vector of neighbor and vector to target
+        ang = angle_between_2d_vectors(
+            ctr_vector=head_vector_s[:, None, :, :].expand(-1, N, -1, -1),  # [B, N, N, 2]
+            nbr_vector=rel_pos  # [B, N, N, 2]
+        )  # [B, N, N]
+
+        # Stack into r_a2a feature: [B, N, N, 3]
+        r_a2a = torch.stack([dist, ang, rel_head], dim=-1)[~mask]
+
+        # Apply embedding
+        r_a2a = self.r_a2a_emb(r_a2a, categorical_embs=None)  # [B, N, N, d_emb]
+
+        return r_a2a
+
     def temporal_embed(self, feature,rotary_embedding,pos,heading, network, n_step, n_current, hist_len, mask):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
@@ -415,11 +453,17 @@ class SMARTAgentDecoder(nn.Module):
 
             padding_agent_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True).swapaxes(1,2).flatten(0, 1)
 
-            dist_mask=nearest_mask(padd_pos.swapaxes(1,2).flatten(0,1), self.a2a_neighbor,60)
+            padd_pos=padd_pos.swapaxes(1,2).flatten(0,1)
+            padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
+            padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
+
+            dist_mask=nearest_mask(padd_pos, self.a2a_neighbor,60)
 
             a2a_mask = padding_agent_mask[:,None] | dist_mask
 
-            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1))
+            r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
+
+            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1),pos_embeding=r_a2a)
 
             feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 

@@ -54,7 +54,8 @@ class RoFormerSelfAttention(nn.Module):
                  dropout,
                  use_bias=True,
                  is_decoder=False,
-                 rotary_value=False
+                 rotary_value=False,
+                 pos_emb=False,
                  ):
         super().__init__()
 
@@ -77,6 +78,9 @@ class RoFormerSelfAttention(nn.Module):
 
         # only used during inference
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
+
+        if pos_emb is True:
+            self.attention_proj=nn.Linear(hidden_dim+num_heads, num_heads, bias=True)
 
         # self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         #
@@ -103,6 +107,7 @@ class RoFormerSelfAttention(nn.Module):
         sinusoidal_pos=None,
         encoder_hidden_states=None,
         encoder_sinusoidal_pos=None,
+        pos_embeding=None,
     ):
         mixed_query_layer = self.query(hidden_states)
         query_layer = self.transpose_for_scores(mixed_query_layer)
@@ -194,6 +199,15 @@ class RoFormerSelfAttention(nn.Module):
 
         B, L, C = hidden_states.shape
         attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL
+
+        if pos_embeding is not None:
+            attn = attn.permute(0,2,3,1)
+            mask=~attention_mask[:,0]
+            attn_rel = torch.cat((attn[mask], pos_embeding), dim=-1)
+            attn_rel = self.attention_proj(attn_rel)
+            attn[mask]=attn_rel
+            attn=attn.permute(0,3,1,2)
+
         if attention_mask is not None:
             attn_bias = torch.where(attention_mask, -1e9, 0.)
             attn.add_(attn_bias)
@@ -430,10 +444,10 @@ def padding(tensor,lengths,padding_value=0 ):
     return padded_tensor
 
 class RoFormerBlock(nn.Module):
-    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1):
+    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=True):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_dim)
-        self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout)
+        self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb)
         self.norm2 = nn.LayerNorm(hidden_dim)
         self.attention_head_size=hidden_dim // num_heads
         self.mlp = nn.Sequential(
@@ -444,7 +458,7 @@ class RoFormerBlock(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None):
-        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos)
+    def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None,pos_embeding=None):
+        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding)
         x = x + self.mlp(self.norm2(x))
         return x
