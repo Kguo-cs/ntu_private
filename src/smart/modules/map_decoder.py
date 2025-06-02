@@ -43,7 +43,6 @@ class SMARTMapDecoder(nn.Module):
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
         self.use_map=True
-        self.pt2pt_neighbor=pt2pt_neighbor
 
         self.gnn=False
 
@@ -162,11 +161,9 @@ class SMARTMapDecoder(nn.Module):
 
             padd_pos=padding(pos_pt, lengths)
 
-            # pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
-            # pt2pt_mask=(pt2pt_dist>20) | (pt2pt_dist==0)
-            pt2pt_mask=nearest_mask(padd_pos, self.pt2pt_neighbor,40)
+            pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
 
-            pt2pt_mask = map_mask | pt2pt_mask
+            pt2pt_mask = map_mask | (pt2pt_dist>20) | (pt2pt_dist==0)
 
             x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
 
