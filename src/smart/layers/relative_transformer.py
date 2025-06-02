@@ -228,7 +228,10 @@ class RoFormerSelfAttention(nn.Module):
 
     @staticmethod
     def apply_rotary(x, sinusoidal_pos):
-        sin, cos = sinusoidal_pos.swapaxes(1,2).chunk(2, dim=-1)#[:,None]
+        if len(sinusoidal_pos.shape) == 3:
+            sin, cos = sinusoidal_pos[:,None].chunk(2, dim=-1)
+        else:
+            sin, cos = sinusoidal_pos.swapaxes(1,2).chunk(2, dim=-1)
         #sin, cos = sinusoidal_pos
         x1, x2 = x[..., 0::2], x[..., 1::2]
         # 如果是旋转query key的话，下面这个直接cat就行，因为要进行矩阵乘法，最终会在这个维度求和。（只要保持query和key的最后一个dim的每一个位置对应上就可以）

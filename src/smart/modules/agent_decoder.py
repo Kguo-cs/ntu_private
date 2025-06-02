@@ -555,9 +555,20 @@ class SMARTAgentDecoder(nn.Module):
 
         a2a_mask = padding_agent_mask[:,None] | a2a_dist_mask #(a2a_dist>self.a2a_radius) | (a2a_dist==0)
 
-        padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1))
+        padded_a_feature1 = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1))
 
-        feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask].reshape( -1, n_step,self.hidden_dim)
+        # pos_a[:,0]+=1
+        # pos_a[:,1]+2
+        # head_a+=np.pi*2
+        # a2a_dist_mask1=nearest_mask(padd_pos,self.a2a_neighbor,100)
+        #
+        # sinusoidal_a=rotary_embedding(pos_a,head_a)
+        #
+        # agent_sinusoidal = padding(sinusoidal_a, lengths_a)#.swapaxes(1,2)
+        #
+        # padded_a_feature2 = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1))
+
+        feat_a = padded_a_feature1.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask].reshape( -1, n_step,self.hidden_dim)
 
 
         return feat_a
@@ -743,7 +754,20 @@ class SMARTAgentDecoder(nn.Module):
 
                 feat_a=self.map2_agent(feat_a,rotary_embedding,pos_a,head_a,mask,tokenized_agent,map_feature,n_step)
 
-
+                # pos_a[:,0]+=1
+                # pos_a[:,1]+=2
+                #
+                # sinusoidal_pos = rotary_embedding(pos_pt, orient_pt)
+                #
+                # map_sinusoidal = padding(sinusoidal_pos, lengths)
+                #
+                # padd_pos = padding(pos_pt, lengths)
+                # map_sinusoidal = map_feature["map_sinusoidal"]  # .repeat_interleave(n_step,dim=0)
+                # pt_pos = map_feature["padd_pos"]  # .repeat_interleave(n_step,dim=0)
+                #
+                # feat_a2=self.map2_agent(feat_a,rotary_embedding,pos_a,head_a,mask,tokenized_agent,map_feature,n_step)
+                #
+                # print(1)
 
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
