@@ -79,8 +79,8 @@ class RoFormerSelfAttention(nn.Module):
         # only used during inference
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
-        if pos_emb is True:
-            self.attention_proj=nn.Linear(hidden_dim+num_heads, num_heads, bias=True)
+        # if pos_emb is True:
+        #     self.attention_proj=nn.Linear(hidden_dim+num_heads, num_heads, bias=True)
 
         # self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         #
@@ -203,8 +203,8 @@ class RoFormerSelfAttention(nn.Module):
         if pos_embeding is not None:
             attn = attn.permute(0,2,3,1)
             mask=~attention_mask[:,0]
-            attn_rel = torch.cat((attn[mask], pos_embeding), dim=-1)
-            attn_rel = self.attention_proj(attn_rel)
+            attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
+            # attn_rel = self.attention_proj(attn_rel)
             attn[mask]=attn_rel
             attn=attn.permute(0,3,1,2)
 
