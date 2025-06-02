@@ -526,8 +526,8 @@ class SMARTAgentDecoder(nn.Module):
         map_sinusoidal=map_feature["map_sinusoidal"]#.repeat_interleave(n_step,dim=0)
         pt_pos=map_feature["padd_pos"]#.repeat_interleave(n_step,dim=0)
 
-        # sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
-        sinusoidal_a=rotary_embedding(pos_a,head_a)
+        sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
+        #sinusoidal_a=rotary_embedding(pos_a,head_a)
 
         lengths_a=torch.bincount(tokenized_agent["batch"] ).tolist()
 
