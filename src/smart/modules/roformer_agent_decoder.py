@@ -131,12 +131,12 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
             else:
-                # self.r_a2a_emb = FourierEmbedding(
-                #     input_dim=input_dim_r_a2a,
-                #     hidden_dim=hidden_dim,
-                #     num_freq_bands=num_freq_bands,
-                #     out_dim=num_heads
-                # )
+                self.r_a2a_emb = FourierEmbedding(
+                    input_dim=input_dim_r_a2a,
+                    hidden_dim=hidden_dim,
+                    num_freq_bands=num_freq_bands,
+                    out_dim=num_heads
+                )
                 #self.r_a2a_emb=MLPLayer(input_dim=input_dim_r_a2a, hidden_dim=hidden_dim, output_dim=num_heads)
 
                 self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
