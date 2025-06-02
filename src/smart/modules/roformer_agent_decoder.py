@@ -107,7 +107,7 @@ class SMARTAgentDecoder(nn.Module):
             
             self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-            self.use_gnn=False
+            self.use_gnn=True
             input_dim_r_a2a = 3
 
             if self.use_gnn:
