@@ -469,7 +469,7 @@ class SMARTAgentDecoder(nn.Module):
             # sinusoidal_a = self.rotary_embedding(pos_a, head_a)
             # agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
 
-            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1),pos_embeding=r_a2a)
+            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1),pos_embeding=None)
 
             feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 
