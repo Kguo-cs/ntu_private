@@ -79,8 +79,15 @@ class RoFormerSelfAttention(nn.Module):
         # only used during inference
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
-        # if pos_emb is True:
-        #     self.attention_proj=nn.Linear(hidden_dim+num_heads, num_heads, bias=True)
+        if pos_emb is True:
+            self.mlp = nn.Sequential(
+                nn.Linear(num_heads, hidden_dim),
+                nn.LayerNorm(hidden_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden_dim, num_heads),
+            )
+
+        self.pos_emb = pos_emb
 
         # self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         #
@@ -200,12 +207,14 @@ class RoFormerSelfAttention(nn.Module):
         B, L, C = hidden_states.shape
         attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL
 
-        if pos_embeding is not None:
+        if self.pos_emb:
             attn = attn.permute(0,2,3,1)
             mask=~attention_mask[:,0]
-            attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
-            # attn_rel = self.attention_proj(attn_rel)
-            attn[mask]=attn_rel
+
+            attn[mask]=self.mlp(attn[mask])
+            # attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
+            # # attn_rel = self.attention_proj(attn_rel)
+            # attn[mask]=attn_rel
             attn=attn.permute(0,3,1,2)
 
         if attention_mask is not None:
