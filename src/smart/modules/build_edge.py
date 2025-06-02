@@ -31,7 +31,7 @@ def nearest_mask(padd_pos,nearest_k,max_dist):
     
     return a2a_mask
 
-def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist):
+def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist=1000):
     # padd_pos: [B, N, D]
     B, N, D = padd_pos.shape
     B, N1, D = padd_pos1.shape
@@ -41,7 +41,7 @@ def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist):
     sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
 
     # Optional: mask out distances greater than max_dist
-    sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
+    #sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
 
     # Get indices of 10 nearest (squared) distances
     topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False).indices  # [B, N, 10]
