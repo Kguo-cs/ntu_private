@@ -502,15 +502,15 @@ class SMARTAgentDecoder(nn.Module):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
 
-        #time = torch.arange(n_current, n_step + n_current, device=feature.device)[None]
+        time = torch.arange(n_current, n_step + n_current, device=feature.device)[None]
 
-        # positions=torch.concat([pos,time[None,:, None].repeat(pos.shape[0],1,1)],dim=-1)
-        #
-        # sinusoidal_pos = general_rope(positions, self.head_dim,heading)[:,None].swapaxes(1,2)
+        positions=torch.concat([pos,time[:,:, None].repeat_interleave(len(pos),dim=0)],dim=-1)
+
+        sinusoidal_pos = general_rope(positions, self.head_dim,heading)#[:,None].swapaxes(1,2)
         # sinusoidal_pos=rotary_embedding(pos,heading,time)
-        time = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
+        #time = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
 
-        sinusoidal_pos = general_rope(time, self.head_dim)
+        #sinusoidal_pos = general_rope(time, self.head_dim)
 
         causal_mask = causal_mask[None,None] | mask[:,None,None,:]
 

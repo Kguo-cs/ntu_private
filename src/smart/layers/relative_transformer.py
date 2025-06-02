@@ -260,44 +260,78 @@ def scene_centric(pos,heading,centering_pos,centering_heading,batch):
 
 
 
-def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None):
+# def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None):
+#
+#     if batch is not None:
+#         positions,heading=scene_centric(positions,heading,centering_pos,centering_heading,batch)
+#
+#     device = positions.device
+#
+#     dim=dim//2
+#
+#     theta_dim=dim%positions.shape[-1]
+#
+#     if theta_dim==0 and heading is not None:
+#         theta_dim=positions.shape[-1]
+#
+#     d_k=(dim-theta_dim)//positions.shape[-1]
+#
+#     div_term = torch.exp(
+#         torch.arange(d_k, dtype=torch.float32, device=device) * (-math.log(10000.0) / d_k)
+#     )
+#
+#     sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
+#     cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
+#
+#     if heading is not None:
+#         theta=heading[...,None].repeat_interleave(theta_dim,dim=-1)
+#
+#         sin_theta=torch.sin(theta)
+#         cos_theta=torch.cos(theta)
+#
+#         sin=torch.cat([sin, sin_theta],dim=-1)
+#         cos=torch.cat([cos, cos_theta],dim=-1)
+#
+#     sinusoidal_pos=torch.cat([sin,cos],dim=-1)
+#
+#     return sinusoidal_pos
+
+
+def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None,head_dim=8):
 
     if batch is not None:
         positions,heading=scene_centric(positions,heading,centering_pos,centering_heading,batch)
 
     device = positions.device
 
-    dim=dim//2
-
-    theta_dim=dim%positions.shape[-1]
-
-    if theta_dim==0 and heading is not None:
-        theta_dim=positions.shape[-1]
-
-    d_k=(dim-theta_dim)//positions.shape[-1]
+    d_k=dim//2
 
     div_term = torch.exp(
         torch.arange(d_k, dtype=torch.float32, device=device) * (-math.log(10000.0) / d_k)
     )
 
-    sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
-    cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
+    sin = torch.sin(positions[...,None] * div_term)
+    cos = torch.cos(positions[...,None] * div_term)
 
     if heading is not None:
-        theta=heading[...,None].repeat_interleave(theta_dim,dim=-1)
+        theta=heading[...,None,None].repeat_interleave(d_k,dim=-1)
 
         sin_theta=torch.sin(theta)
         cos_theta=torch.cos(theta)
 
-        sin=torch.cat([sin, sin_theta],dim=-1)
-        cos=torch.cat([cos, cos_theta],dim=-1)
+        sin=sin.repeat_interleave(2,dim=-2)
+        cos=cos.repeat_interleave(2,dim=-2)
+
+        sin_theta=sin_theta.repeat_interleave(head_dim-sin.shape[-2],dim=-2)
+        cos_theta=cos_theta.repeat_interleave(head_dim-sin.shape[-2],dim=-2)
+
+        sin=torch.cat([sin,sin_theta],dim=-2)
+        cos=torch.cat([cos,cos_theta],dim=-2)
+
 
     sinusoidal_pos=torch.cat([sin,cos],dim=-1)
 
     return sinusoidal_pos
-
-
-
 
 # Copied from transformers.models.marian.modeling_marian.MarianSinusoidalPositionalEmbedding with Marian->RoFormer
 class RoFormerSinusoidalPositionalEmbedding(nn.Module):
