@@ -449,7 +449,7 @@ def padding(tensor,lengths,padding_value=0 ):
     return padded_tensor
 
 class RoFormerBlock(nn.Module):
-    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=True):
+    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_dim)
         self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb)
