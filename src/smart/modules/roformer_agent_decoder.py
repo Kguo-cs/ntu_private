@@ -460,9 +460,9 @@ class SMARTAgentDecoder(nn.Module):
             padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
             padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
 
-            dist_mask=nearest_mask(padd_pos, self.a2a_neighbor,60)
+            a2a_mask=padding_agent_mask[:,None] | padding_agent_mask[:,:,None]
 
-            a2a_mask = padding_agent_mask[:,None] | dist_mask
+            a2a_mask=nearest_mask(padd_pos, self.a2a_neighbor,self.a2a_radius,a2a_mask)
 
             r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
 
