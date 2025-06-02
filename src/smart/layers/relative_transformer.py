@@ -45,6 +45,7 @@ except ImportError:
         if attn_mask is not None: attn.add_(attn_mask)
         return (F.dropout(attn.softmax(dim=-1), p=dropout_p, inplace=True) if dropout_p > 0 else attn.softmax(dim=-1)) @ value
 
+from src.smart.layers import MLPLayer
 
 
 class RoFormerSelfAttention(nn.Module):
@@ -80,12 +81,7 @@ class RoFormerSelfAttention(nn.Module):
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
         if pos_emb is True:
-            self.mlp = nn.Sequential(
-                nn.Linear(num_heads, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, num_heads),
-            )
+            self.mlp = MLPLayer(num_heads,hidden_dim,num_heads)
 
         self.pos_emb = pos_emb
 
