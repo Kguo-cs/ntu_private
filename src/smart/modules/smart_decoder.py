@@ -18,7 +18,7 @@ import torch.nn as nn
 from omegaconf import DictConfig
 from torch import Tensor
 
-from .agent_decoder import SMARTAgentDecoder
+from .roformer_agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
 from .kl_loss import  BalancedKL
 from torch_scatter import scatter_mean,scatter_max

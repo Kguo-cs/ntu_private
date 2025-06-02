@@ -153,9 +153,9 @@ class SMARTMapDecoder(nn.Module):
 
             #centering_heading = scatter_mean(orient_pt, batch, dim=0)
 
-            sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
+            #sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
 
-            #sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
+            sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
 
             map_sinusoidal = padding(sinusoidal_pos, lengths)
 
