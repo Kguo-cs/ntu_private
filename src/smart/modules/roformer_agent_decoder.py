@@ -282,13 +282,14 @@ class SMARTAgentDecoder(nn.Module):
 
         return edge_index_a2a, r_a2a
 
-    def temporal_embed(self, feature, network, n_step, n_current, hist_len, mask):
+    def temporal_embed(self, feature,rotary_embedding,pos,heading, network, n_step, n_current, hist_len, mask):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
 
         time = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
 
-        sinusoidal_pos = general_rope(time, self.head_dim)
+        # sinusoidal_pos = general_rope(time, self.head_dim)
+        sinusoidal_pos=rotary_embedding(pos,heading,time)
 
         if mask is not None:
             causal_mask = causal_mask[None,None] | mask[:,None,None,:]
@@ -348,9 +349,12 @@ class SMARTAgentDecoder(nn.Module):
         )  # feat_a: [n_agent, n_step, hidden_dim]
         mask_a=~mask
 
-        feat_a = self.temporal_embed(feat_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
+        rotary_embedding=map_feature["rotary_embedding"]
 
-        sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
+        feat_a = self.temporal_embed(feat_a,rotary_embedding,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
+
+        # sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
+        sinusoidal_a=rotary_embedding(pos_a,head_a)
 
         pt_feature=map_feature["pt_token"]
         map_mask=map_feature["map_mask"]
@@ -544,7 +548,7 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     lg_feat=None
 
-                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -min(t,self.agent_hist):], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
+                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -1:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
                 #next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
