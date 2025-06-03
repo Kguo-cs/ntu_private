@@ -529,7 +529,6 @@ class SMARTAgentDecoder(nn.Module):
             padd_pos = self.padding(pos_a, lengths_a)
             padding_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
 
-
             pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
 
             pt2a_mask = nearest_mask2(padd_pos.flatten(1, 2),pt_pos, self.pt2a_neighbor, self.pl2a_radius, pt2a_mask)
