@@ -23,7 +23,7 @@ class FourierEmbedding(nn.Module):
                 nn.Linear((num_freq_bands * 2 + 1)*input_dim, hidden_dim),
                 nn.LayerNorm(hidden_dim),
                 nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, out_dim),
+                nn.Linear(hidden_dim, hidden_dim),
             )
         else:
             self.mlps = nn.ModuleList(
@@ -37,11 +37,11 @@ class FourierEmbedding(nn.Module):
                     for _ in range(input_dim)
                 ]
             )
-            self.to_out = nn.Sequential(
-                nn.LayerNorm(hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, out_dim),
-            )
+        self.to_out = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, out_dim),
+        )
         self.apply(weight_init)
 
     def forward(
@@ -69,7 +69,7 @@ class FourierEmbedding(nn.Module):
                 x = torch.stack(continuous_embs).sum(dim=0)
                 if categorical_embs is not None:
                     x = x + torch.stack(categorical_embs).sum(dim=0)
-                x=self.to_out(x)
+            x=self.to_out(x)
         return x
 
 
