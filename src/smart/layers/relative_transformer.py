@@ -83,14 +83,14 @@ class RoFormerSelfAttention(nn.Module):
 
         if pos_emb is True:
             # self.mlp = MLPLayer(num_heads,hidden_dim,num_heads)
-            num_freq_bands=8
+            num_freq_bands=64
             input_dim_r_a2a=3
             self.r_a2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_a2a+num_heads,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
                 out_dim=num_heads,
-                share=True
+                share=False
             )
 
             #self.r_a2a_emb=MLPLayer(input_dim_r_a2a+num_heads,hidden_dim,num_heads)
@@ -223,7 +223,8 @@ class RoFormerSelfAttention(nn.Module):
             # attn[mask]=self.mlp(attn[mask])
             #attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
             # attn_rel = self.attention_proj(attn_rel)
-            attn[mask]=self.r_a2a_emb(torch.cat([attn[mask],pos_embeding],dim=-1))
+            attn[mask]+=self.r_a2a_emb(pos_embeding)
+            # attn[mask]=self.r_a2a_emb(torch.cat([attn[mask],pos_embeding],dim=-1))
             attn=attn.permute(0,3,1,2)
 
         if attention_mask is not None:
