@@ -81,6 +81,9 @@ class SMARTDecoder(nn.Module):
             use_latent=use_latent
         )
 
+        self.pl2a_radius=pl2a_radius
+        self.pt2a_neighbor=pt2a_neighbor
+
     def scene_centric(self,pos,heading,centering_pos,centering_heading,batch):
 
 
@@ -129,7 +132,7 @@ class SMARTDecoder(nn.Module):
 
         return tokenized_map,tokenized_agent
 
-    def filter_map(self,tokenized_map,tokenized_agent,pl2a_radius=40,pl2a_neighbor=10):
+    def filter_map(self,tokenized_map,tokenized_agent):
 
         pos_a=tokenized_agent["sampled_pos"]
         n_step = pos_a.shape[1]
@@ -158,10 +161,10 @@ class SMARTDecoder(nn.Module):
         pos_pl = pos_pl.repeat(n_step, 1)
         edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
                                               y=pos_pl[:, :2],
-                                              r=pl2a_radius,
+                                              r=self.pl2a_radius,
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
-                                              max_num_neighbors=pl2a_neighbor)
+                                              max_num_neighbors=self.pt2a_neighbor)
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         used_point=torch.unique(edge_index_pl2a[0]%map_point_num)
 
