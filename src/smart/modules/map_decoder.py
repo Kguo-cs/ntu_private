@@ -166,13 +166,13 @@ class SMARTMapDecoder(nn.Module):
             # pt2pt_mask = map_mask | (pt2pt_dist>20) | (pt2pt_dist==0)
 
             #x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
-            x_pt=padded_pt_feature
+            # x_pt=padded_pt_feature
 
             #x_pt = x_pt[~feature_mask]
 
             return {
                 "pt_token": x_pt,
-                # "orientation": orient_pt,
+                "padded_pt": padded_pt_feature,
                 "position": pos_pt,
                 "orientation": orient_pt,
                 "padd_pos": padd_pos,

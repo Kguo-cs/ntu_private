@@ -104,10 +104,39 @@ class SMARTAgentDecoder(nn.Module):
             self.agent_hist = self.time_span // self.shift
 
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
-            
-            self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-            self.use_gnn=False
+
+            self.use_pt_gnn=True
+            input_dim_x_a = 2
+            input_dim_r_t = 4
+            input_dim_r_pt2a = 3
+            input_dim_r_a2a = 3
+            input_dim_token = 8
+
+            if self.use_pt_gnn:
+                self.r_pt2a_emb = FourierEmbedding(
+                    input_dim=input_dim_r_pt2a,
+                    hidden_dim=hidden_dim,
+                    num_freq_bands=num_freq_bands,
+                    )
+
+                self.pt2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+                )
+            else:
+                self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+
+            self.use_gnn=True
             input_dim_r_a2a = 3
 
             if self.use_gnn:
@@ -322,6 +351,53 @@ class SMARTAgentDecoder(nn.Module):
 
         return r_a2a
 
+    def build_map2agent_edge(
+            self,
+            pos_pl,  # [n_pl, 2]
+            orient_pl,  # [n_pl]
+            pos_a,  # [n_agent, n_step, 2]
+            head_a,  # [n_agent, n_step]
+            head_vector_a,  # [n_agent, n_step, 2]
+            mask,  # [n_agent, n_step]
+            batch_s,  # [n_agent*n_step]
+            batch_pl,  # [n_pl*n_step]
+            pl2a_radius=40
+    ):
+        n_step = pos_a.shape[1]
+        mask_pl2a = mask.transpose(0, 1).reshape(-1)
+        pos_s = pos_a.transpose(0, 1).flatten(0, 1)
+        head_s = head_a.transpose(0, 1).reshape(-1)
+        head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
+        pos_pl = pos_pl.repeat(n_step, 1)
+        orient_pl = orient_pl.repeat(n_step)
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
+                                              y=pos_pl[:, :2],
+                                              r=pl2a_radius,
+                                              batch_x=batch_s,
+                                              batch_y=batch_pl,
+                                              max_num_neighbors=self.pt2a_neighbor)
+
+        edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
+        rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
+        rel_orient_pl2a = wrap_angle(
+            orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
+        )
+        r_pl2a = torch.stack(
+            [
+                torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
+                    nbr_vector=rel_pos_pl2a[:, :2],
+                ),
+                rel_orient_pl2a,
+            ],
+            dim=-1,
+        )
+
+        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+
+        return edge_index_pl2a, r_pl2a
+
     def temporal_embed(self, feature,rotary_embedding,pos,heading, network, n_step, n_current, hist_len, mask):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
@@ -401,7 +477,7 @@ class SMARTAgentDecoder(nn.Module):
         #sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
         sinusoidal_a=rotary_embedding(pos_a,head_a)
 
-        pt_feature=map_feature["pt_token"]
+        pt_feature=map_feature["padded_pt"]
         map_mask=map_feature["map_mask"]
         map_sinusoidal=map_feature["map_sinusoidal"]
         pt_pos=map_feature["padd_pos"]
@@ -411,18 +487,55 @@ class SMARTAgentDecoder(nn.Module):
         padded_a_feature = self.padding(feat_a, lengths_a)
         agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
         padd_pos=self.padding(pos_a, lengths_a)
+        padding_mask=self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
 
         feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)
 
-        pt2a_dist_mask=nearest_mask2(padd_pos.flatten(1, 2),pt_pos,100)#,self.pl2a_radius
+        if self.use_pt_gnn:
+            batch_s = torch.cat(
+                [
+                    tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
+                    for t in range(n_step)
+                ],
+                dim=0,
+            )  # [n_agent*n_step]
 
-        pt2a_mask= map_mask | pt2a_dist_mask
+            batch_pl = torch.cat(
+                [
+                    map_feature["batch"] + tokenized_agent["num_graphs"] * t
+                    for t in range(n_step)
+                ],
+                dim=0,
+            )  # [n_pl*n_step]
 
-        # pt2a_dist = torch.linalg.norm(pt_pos[:,None]-padd_pos.flatten(1, 2)[:,:,None],dim=-1)
-        #
-        # pt2a_mask= map_mask | (pt2a_dist>60)
+            edge_index_pl2a, r_pl2a = self.build_map2agent_edge(
+                pos_pl=map_feature["position"],  # [n_pl, 2]
+                orient_pl=map_feature["orientation"],  # [n_pl]
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask=mask,  # [n_agent, n_step]
+                batch_s=batch_s,  # [n_agent*n_step]
+                batch_pl=batch_pl,  # [n_pl*n_step]
+            )
+            feat_a = feat_a.transpose(0, 1).flatten(0, 1)
+            feat_map = (
+                map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+            )
 
-        padded_a_feature = self.pt2a_roformer(padded_a_feature.flatten(1, 2), pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
+            feat_a = self.pt2a_attn_layers[0](
+                (feat_map, feat_a), r_pl2a, edge_index_pl2a
+            )
+            feat_a = feat_a.reshape(n_step,n_agent,-1).transpose(0, 1)
+            padded_a_feature = self.padding(feat_a, lengths_a)
+
+        else:
+
+            pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
+
+            pt2a_mask = nearest_mask2(padd_pos.flatten(1, 2),pt_pos, self.pt2a_neighbor, self.pl2a_radius, pt2a_mask)
+
+            padded_a_feature = self.pt2a_roformer(padded_a_feature.flatten(1, 2), pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
 
         if feat_lg is not None:
             sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
@@ -454,13 +567,14 @@ class SMARTAgentDecoder(nn.Module):
         else:
             padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
-            padding_agent_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True).swapaxes(1,2).flatten(0, 1)
+            padding_agent_mask = padding_mask.swapaxes(1,2).flatten(0, 1)
 
             padd_pos=padd_pos.swapaxes(1,2).flatten(0,1)
 
             a2a_mask=padding_agent_mask[:,None] | padding_agent_mask[:,:,None]
 
             a2a_mask=nearest_mask(padd_pos, self.a2a_neighbor,self.a2a_radius,a2a_mask)
+
             #padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
            # padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
 

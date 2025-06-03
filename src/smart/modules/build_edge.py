@@ -4,58 +4,136 @@ import torch
 import  math
 
 
-def nearest_mask(padd_pos,nearest_k,max_dist,mask):
+# def nearest_mask(padd_pos,nearest_k,max_dist,mask):
+#     # padd_pos: [B, N, D]
+#     B, N, D = padd_pos.shape
+#
+#     # Compute squared distances (faster than full norm)
+#     diff = padd_pos[:, :, None, :] - padd_pos[:, None, :, :]  # [B, N, N, D]
+#     sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
+#
+#     # Mask self-distance with large value (in-place)
+#     inf = float('inf')
+#     sq_dist.diagonal(dim1=1, dim2=2).fill_(inf)
+#
+#     sq_dist[mask]=inf
+#
+#     # Get indices of 10 nearest (squared) distances
+#     top_dist,topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False)  # [B, N, 10]
+#
+#     # Build nearest-10 mask efficiently (all True except topk)
+#     a2a_mask = torch.ones((B, N, N), dtype=torch.bool, device=padd_pos.device)
+#
+#     dist_mask= top_dist < max_dist ** 2
+#
+#     batch = torch.arange(B, device=padd_pos.device)[:, None, None]
+#     rows = torch.arange(N, device=padd_pos.device)[None, :, None]
+#     a2a_mask[batch.expand_as(topk_idx)[dist_mask],
+#              rows.expand_as(topk_idx)[dist_mask],
+#              topk_idx[dist_mask]] = False
+#
+#     return a2a_mask
+
+def nearest_mask(padd_pos, nearest_k, max_dist, mask):
     # padd_pos: [B, N, D]
     B, N, D = padd_pos.shape
 
-    # Compute squared distances (faster than full norm)
+    # Compute pairwise squared distances: [B, N, N]
     diff = padd_pos[:, :, None, :] - padd_pos[:, None, :, :]  # [B, N, N, D]
-    sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
+    sq_dist = (diff ** 2).sum(-1)
 
-    # Mask self-distance with large value (in-place)
-    inf = float('inf')
-    sq_dist.diagonal(dim1=1, dim2=2).fill_(inf)
+    # Mask self-distances
+    idx = torch.arange(N, device=padd_pos.device)
+    sq_dist[:, idx, idx] = float('inf')  # More efficient than diagonal().fill_()
 
-    sq_dist[mask]=inf
+    # Apply custom mask
+    sq_dist = sq_dist.masked_fill(mask, float('inf'))
 
-    # Get indices of 10 nearest (squared) distances
-    top_dist,topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False)  # [B, N, 10]
+    # Find nearest_k neighbors within max_dist
+    top_dist, topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False)  # [B, N, k]
+    dist_mask = top_dist < max_dist ** 2
 
-    # Build nearest-10 mask efficiently (all True except topk)
+    # Create full attention mask: default to True
     a2a_mask = torch.ones((B, N, N), dtype=torch.bool, device=padd_pos.device)
 
-    dist_mask= top_dist < max_dist ** 2
+    # Set allowed (nearest) entries to False
+    b_idx, n_idx = torch.meshgrid(
+        torch.arange(B, device=padd_pos.device),
+        torch.arange(N, device=padd_pos.device),
+        indexing='ij'
+    )
+    b_idx = b_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
+    n_idx = n_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
+    k_idx = topk_idx[dist_mask]
 
-    batch = torch.arange(B, device=padd_pos.device)[:, None, None]
-    rows = torch.arange(N, device=padd_pos.device)[None, :, None]
-    a2a_mask[batch.expand_as(topk_idx)[dist_mask],
-             rows.expand_as(topk_idx)[dist_mask],
-             topk_idx[dist_mask]] = False
-    
+    a2a_mask[b_idx, n_idx, k_idx] = False
     return a2a_mask
 
-def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist=1000):
-    # padd_pos: [B, N, D]
-    B, N, D = padd_pos.shape
-    B, N1, D = padd_pos1.shape
+def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
+    """
+    Args:
+        padd_pos:   [B, Nq, D]  - Query positions
+        padd_pos1:  [B, Nk, D]  - Key positions
+        nearest_k:  int         - Number of nearest neighbors to allow
+        max_dist:   float       - Maximum distance threshold
+        mask:       [B, Nq, Nk] - Predefined mask (True = ignore)
 
-    # Compute squared distances (faster than full norm)
-    diff = padd_pos[:, :, None, :] - padd_pos1[:, None, :, :]  # [B, N, N1, D]
-    sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
+    Returns:
+        a2a_mask:   [B, Nq, Nk] - True means masked (not a valid connection)
+    """
+    B, Nq, D = padd_pos.shape
+    Nk = padd_pos1.shape[1]
 
-    # Optional: mask out distances greater than max_dist
-    #sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
+    # Compute squared distances between padd_pos (query) and padd_pos1 (key)
+    diff = padd_pos[:, :, None, :] - padd_pos1[:, None, :, :]  # [B, Nq, Nk, D]
+    sq_dist = (diff ** 2).sum(-1)  # [B, Nq, Nk]
 
-    # Get indices of 10 nearest (squared) distances
-    topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False).indices  # [B, N, 10]
+    # Apply input mask
+    sq_dist = sq_dist.masked_fill(mask, float('inf'))
 
-    # Build nearest-10 mask efficiently (all True except topk)
-    a2a_mask = torch.ones((B, N, N1), dtype=torch.bool, device=padd_pos.device)
-    batch = torch.arange(B, device=padd_pos.device)[:, None, None]
-    rows = torch.arange(N, device=padd_pos.device)[None, :, None]
-    a2a_mask[batch, rows, topk_idx] = False
+    # Get top-k smallest distances (nearest neighbors)
+    top_dist, topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False)  # [B, Nq, k]
 
+    # Apply distance threshold
+    dist_mask = top_dist < max_dist ** 2  # [B, Nq, k]
+
+    # Initialize mask as fully masked (True)
+    a2a_mask = torch.ones((B, Nq, Nk), dtype=torch.bool, device=padd_pos.device)
+
+    # Index updates: set allowed neighbors to False
+    b_idx, nq_idx = torch.meshgrid(
+        torch.arange(B, device=padd_pos.device),
+        torch.arange(Nq, device=padd_pos.device),
+        indexing='ij'
+    )
+    b_idx = b_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
+    nq_idx = nq_idx.unsqueeze(-1).expand(-1, -1, nearest_k)[dist_mask]
+    nk_idx = topk_idx[dist_mask]  # indices in padd_pos1 (key set)
+
+    a2a_mask[b_idx, nq_idx, nk_idx] = False
     return a2a_mask
+# def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist,mask):
+#     # padd_pos: [B, N, D]
+#     B, N, D = padd_pos.shape
+#     B, N1, D = padd_pos1.shape
+#
+#     # Compute squared distances (faster than full norm)
+#     diff = padd_pos[:, :, None, :] - padd_pos1[:, None, :, :]  # [B, N, N1, D]
+#     sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
+#
+#     # Optional: mask out distances greater than max_dist
+#     #sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
+#
+#     # Get indices of 10 nearest (squared) distances
+#     topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False).indices  # [B, N, 10]
+#
+#     # Build nearest-10 mask efficiently (all True except topk)
+#     a2a_mask = torch.ones((B, N, N1), dtype=torch.bool, device=padd_pos.device)
+#     batch = torch.arange(B, device=padd_pos.device)[:, None, None]
+#     rows = torch.arange(N, device=padd_pos.device)[None, :, None]
+#     a2a_mask[batch, rows, topk_idx] = False
+#
+#     return a2a_mask
 
 
 
