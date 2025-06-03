@@ -466,30 +466,13 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a=pos_a[:,-n_step:]
 
-        #mask=torch.ones_like(mask).to(torch.bool)
-
         mask_a=~mask
 
         rotary_embedding=map_feature["rotary_embedding"]
 
         feat_a = self.temporal_embed(feat_a_token,rotary_embedding,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
 
-        #sinusoidal_a = general_rope(pos_a, self.head_dim, head_a)
-        sinusoidal_a=rotary_embedding(pos_a,head_a)
-
-        pt_feature=map_feature["padded_pt"]
-        map_mask=map_feature["map_mask"]
-        map_sinusoidal=map_feature["map_sinusoidal"]
-        pt_pos=map_feature["padd_pos"]
-
-        lengths_a=torch.bincount(tokenized_agent["batch"]).tolist()
-
-        padded_a_feature = self.padding(feat_a, lengths_a)
-        agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
-        padd_pos=self.padding(pos_a, lengths_a)
-        padding_mask=self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
-
-        feature_mask = (padded_a_feature[:,:,0]!=0).any(-1)
+        lengths_a = torch.bincount(tokenized_agent["batch"]).tolist()
 
         if self.use_pt_gnn:
             batch_s = torch.cat(
@@ -533,6 +516,19 @@ class SMARTAgentDecoder(nn.Module):
             padded_a_feature = self.padding(feat_a, lengths_a)
 
         else:
+            sinusoidal_a = rotary_embedding(pos_a, head_a)
+
+            pt_feature = map_feature["padded_pt"]
+            map_mask = map_feature["map_mask"]
+            map_sinusoidal = map_feature["map_sinusoidal"]
+            pt_pos = map_feature["padd_pos"]
+
+            padded_a_feature = self.padding(feat_a, lengths_a)
+            agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
+            padd_pos = self.padding(pos_a, lengths_a)
+            padding_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
+
+            feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
 
             pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
 
