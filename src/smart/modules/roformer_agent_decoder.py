@@ -107,7 +107,7 @@ class SMARTAgentDecoder(nn.Module):
             
             self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-            self.use_gnn=False
+            self.use_gnn=True
             input_dim_r_a2a = 3
 
             if self.use_gnn:
@@ -668,11 +668,11 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["gt_head_raw"] = tokenized_agent["gt_head_raw"]  # [n_agent, 18]
             out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
 
-        #next_token_logits=torch.cat(logit_list, dim=1)
-
-        #next_token_logits1 = self.predict_agent(sampled_idx[:,:-1], mask[:,:-1], pos_a[:,:-1], head_a[:,:-1], tokenized_agent, map_feature, None)
-
-        #print((next_token_logits1-next_token_logits).max())
+        # next_token_logits=torch.cat(logit_list, dim=1)
+        #
+        # next_token_logits1 = self.predict_agent(sampled_idx[:,:-1], mask[:,:-1], pos_a[:,:-1], head_a[:,:-1], tokenized_agent, map_feature, None)
+        #
+        # print((next_token_logits1-next_token_logits).max())
 
         return out_dict
 
