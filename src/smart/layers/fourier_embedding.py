@@ -20,10 +20,10 @@ class FourierEmbedding(nn.Module):
 
         if share:
             self.mlp = nn.Sequential(
-                nn.Linear(num_freq_bands * 2 + 1, hidden_dim),
+                nn.Linear((num_freq_bands * 2 + 1)*input_dim, hidden_dim),
                 nn.LayerNorm(hidden_dim),
                 nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, hidden_dim),
+                nn.Linear(hidden_dim, out_dim),
             )
         else:
             self.mlps = nn.ModuleList(
@@ -37,11 +37,11 @@ class FourierEmbedding(nn.Module):
                     for _ in range(input_dim)
                 ]
             )
-        self.to_out = nn.Sequential(
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, out_dim),
-        )
+            self.to_out = nn.Sequential(
+                nn.LayerNorm(hidden_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden_dim, out_dim),
+            )
         self.apply(weight_init)
 
     def forward(
@@ -61,16 +61,16 @@ class FourierEmbedding(nn.Module):
 
             if self.share:
                 # Apply shared MLP across all dims
-                x = self.mlp(x)  # [B, D, H]
-                x = x.sum(dim=1)  # [B, H]
+                x = self.mlp(x.reshape(x.shape[0],-1))  # [B, D, H]
             else:
                 continuous_embs: List[Optional[torch.Tensor]] = [None] * self.input_dim
                 for i in range(self.input_dim):
                     continuous_embs[i] = self.mlps[i](x[:, i])
                 x = torch.stack(continuous_embs).sum(dim=0)
-            if categorical_embs is not None:
-                x = x + torch.stack(categorical_embs).sum(dim=0)
-        return self.to_out(x)
+                if categorical_embs is not None:
+                    x = x + torch.stack(categorical_embs).sum(dim=0)
+                x=self.to_out(x)
+        return x
 
 
 class MLPEmbedding(nn.Module):

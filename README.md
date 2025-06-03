@@ -29,11 +29,11 @@ rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
 ssh ke.guo@aspire2antu.nscc.sg
+Gk@1402862912
 
 source ~/miniconda3/bin/activate
 cd ~/scratch/sim/src
 conda activate catk
-Gk@1402862912
 
 qsub -I -l select=1:ngpus=1 -l walltime=96:00:00 -P personal-zhangshu
 
