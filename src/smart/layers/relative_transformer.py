@@ -45,7 +45,7 @@ except ImportError:
         if attn_mask is not None: attn.add_(attn_mask)
         return (F.dropout(attn.softmax(dim=-1), p=dropout_p, inplace=True) if dropout_p > 0 else attn.softmax(dim=-1)) @ value
 
-from src.smart.layers import MLPLayer
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 
 
 class RoFormerSelfAttention(nn.Module):
@@ -81,7 +81,15 @@ class RoFormerSelfAttention(nn.Module):
         self.caching_len, self.cached_k, self.cached_v = 0, None, None
 
         if pos_emb is True:
-            self.mlp = MLPLayer(num_heads,hidden_dim,num_heads)
+            # self.mlp = MLPLayer(num_heads,hidden_dim,num_heads)
+            num_freq_bands=64
+            input_dim_r_a2a=3
+            self.r_a2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_a2a+num_heads,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                out_dim=num_heads
+            )
 
         self.pos_emb = pos_emb
 
@@ -206,11 +214,11 @@ class RoFormerSelfAttention(nn.Module):
         if self.pos_emb:
             attn = attn.permute(0,2,3,1)
             mask=~attention_mask[:,0]
-
+            #self.r_a2a_emb(torch.cat([attn[mask],pos_embeding],dim=-1))
             # attn[mask]=self.mlp(attn[mask])
-            attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
+            #attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
             # attn_rel = self.attention_proj(attn_rel)
-            attn[mask]=attn_rel
+            attn[mask]=self.r_a2a_emb(torch.cat([attn[mask],pos_embeding],dim=-1))
             attn=attn.permute(0,3,1,2)
 
         if attention_mask is not None:
@@ -397,8 +405,6 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         return freqs_x,freqs_y,freqs_t
 
     def forward(self,positions=None,heading=None,time=None):
-
-
 
         # repeat_position=positions.repeat_interleave(3,dim=-1)
         #
