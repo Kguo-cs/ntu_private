@@ -85,14 +85,14 @@ class RoFormerSelfAttention(nn.Module):
             # self.mlp = MLPLayer(num_heads,hidden_dim,num_heads)
             num_freq_bands=64
             input_dim_r_a2a=3
-            # self.r_a2a_emb = FourierEmbedding(
-            #     input_dim=input_dim_r_a2a+num_heads,
-            #     hidden_dim=hidden_dim,
-            #     num_freq_bands=num_freq_bands,
-            #     out_dim=num_heads
-            # )
+            self.r_a2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_a2a+num_heads,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                out_dim=num_heads
+            )
 
-            self.r_a2a_emb=MLPLayer(input_dim_r_a2a+num_heads,hidden_dim,num_heads)
+            #self.r_a2a_emb=MLPLayer(input_dim_r_a2a+num_heads,hidden_dim,num_heads)
 
         self.pos_emb = pos_emb
 
