@@ -89,7 +89,8 @@ class RoFormerSelfAttention(nn.Module):
                 input_dim=input_dim_r_a2a+num_heads,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
-                out_dim=num_heads
+                out_dim=num_heads,
+                share=True
             )
 
             #self.r_a2a_emb=MLPLayer(input_dim_r_a2a+num_heads,hidden_dim,num_heads)
