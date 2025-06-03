@@ -46,6 +46,7 @@ except ImportError:
         return (F.dropout(attn.softmax(dim=-1), p=dropout_p, inplace=True) if dropout_p > 0 else attn.softmax(dim=-1)) @ value
 
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
+from src.smart.layers import MLPLayer
 
 
 class RoFormerSelfAttention(nn.Module):
@@ -84,12 +85,14 @@ class RoFormerSelfAttention(nn.Module):
             # self.mlp = MLPLayer(num_heads,hidden_dim,num_heads)
             num_freq_bands=64
             input_dim_r_a2a=3
-            self.r_a2a_emb = FourierEmbedding(
-                input_dim=input_dim_r_a2a+num_heads,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-                out_dim=num_heads
-            )
+            # self.r_a2a_emb = FourierEmbedding(
+            #     input_dim=input_dim_r_a2a+num_heads,
+            #     hidden_dim=hidden_dim,
+            #     num_freq_bands=num_freq_bands,
+            #     out_dim=num_heads
+            # )
+
+            self.r_a2a_emb=MLPLayer(input_dim_r_a2a+num_heads,hidden_dim,num_heads)
 
         self.pos_emb = pos_emb
 
@@ -123,8 +126,8 @@ class RoFormerSelfAttention(nn.Module):
         mixed_query_layer = self.query(hidden_states)
         query_layer = self.transpose_for_scores(mixed_query_layer)
         # rotary query
-        if not self.pos_emb:
-           query_layer = self.apply_rotary(query_layer, sinusoidal_pos)
+       # if not self.pos_emb:
+        query_layer = self.apply_rotary(query_layer, sinusoidal_pos)
         # If this is instantiated as a cross-attention module, the keys
         # and values come from an encoder; the attention mask needs to be
         # such that the encoder's padding tokens are not attended to.
@@ -137,8 +140,8 @@ class RoFormerSelfAttention(nn.Module):
         if is_cross_attention:
             key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
             value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
-            if not self.pos_emb:
-                key_layer = self.apply_rotary(key_layer, encoder_sinusoidal_pos)
+            #if not self.pos_emb:
+            key_layer = self.apply_rotary(key_layer, encoder_sinusoidal_pos)
 
             # key_layer1 = self.transpose_for_scores(self.key_pos(encoder_hidden_states))
             #
