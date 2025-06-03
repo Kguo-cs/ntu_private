@@ -147,13 +147,13 @@ def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     return final_edge_index
 
 def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
-    edge_index = knn(x, y, max_num_neighbors, batch_x=batch_x, batch_y=batch_y)
+    edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x)
     row, col = edge_index
-    distances = (x[col] - y[row]).norm(dim=1)
+    distances = (x[row] - y[col]).norm(dim=1)
     mask = distances <= r
     final_edge_index = edge_index[:, mask]
 
-    return final_edge_index
+    return final_edge_index.flip(0)
 
 
 def positionalencoding1d(d_model, length):

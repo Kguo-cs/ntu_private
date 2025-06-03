@@ -137,8 +137,6 @@ class SMARTAgentDecoder(nn.Module):
                 self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
             self.use_gnn=True
-            input_dim_r_a2a = 3
-
             if self.use_gnn:
 
                 self.r_a2a_emb = FourierEmbedding(
@@ -468,6 +466,8 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a=pos_a[:,-n_step:]
 
+        #mask=torch.ones_like(mask).to(torch.bool)
+
         mask_a=~mask
 
         rotary_embedding=map_feature["rotary_embedding"]
@@ -522,6 +522,9 @@ class SMARTAgentDecoder(nn.Module):
             feat_map = (
                 map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
             )
+            # pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
+            #
+            # pt2a_mask = nearest_mask2(padd_pos.flatten(1, 2),pt_pos, self.pt2a_neighbor, self.pl2a_radius, pt2a_mask)
 
             feat_a = self.pt2a_attn_layers[0](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
