@@ -44,7 +44,7 @@ class SMARTMapDecoder(nn.Module):
         self.num_layers = num_layers
         self.use_map=True
 
-        self.gnn=False
+        self.gnn=True
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -76,10 +76,10 @@ class SMARTMapDecoder(nn.Module):
                         for _ in range(num_layers)
                     ]
                 )
-            else:
+            #else:
                 #self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-                self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
+            self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
 
             self.apply(weight_init)
 
@@ -132,57 +132,57 @@ class SMARTMapDecoder(nn.Module):
             for i in range(self.num_layers):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-            return {
-                "pt_token": x_pt,
-                "position": pos_pt,
-                "orientation": orient_pt,
-                "batch": batch
-            }
-        else:
+        #     return {
+        #         "pt_token": x_pt,
+        #         "position": pos_pt,
+        #         "orientation": orient_pt,
+        #         "batch": batch
+        #     }
+        # else:
 
 
-            lengths = torch.bincount(batch).tolist()
+        lengths = torch.bincount(batch).tolist()
 
-            padded_pt_feature = padding(x_pt, lengths)
+        padded_pt_feature = padding(x_pt, lengths)
 
-            feature_mask=(padded_pt_feature == 0).all(-1)
+        feature_mask=(padded_pt_feature == 0).all(-1)
 
-            map_mask = feature_mask[:, None]
+        map_mask = feature_mask[:, None]
 
-            #centering_pos = scatter_mean(pos_pt, batch, dim=0)
+        #centering_pos = scatter_mean(pos_pt, batch, dim=0)
 
-            #centering_heading = scatter_mean(orient_pt, batch, dim=0)
+        #centering_heading = scatter_mean(orient_pt, batch, dim=0)
 
-            #sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
+        #sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
 
-            sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
+        sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
 
-            map_sinusoidal = padding(sinusoidal_pos, lengths)
+        map_sinusoidal = padding(sinusoidal_pos, lengths)
 
-            padd_pos=padding(pos_pt, lengths)
+        padd_pos=padding(pos_pt, lengths)
 
-            # pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
-            #
-            # pt2pt_mask = map_mask | (pt2pt_dist>20) | (pt2pt_dist==0)
+        # pt2pt_dist=torch.linalg.norm(padd_pos[:,None]-padd_pos[:,:,None],dim=-1)
+        #
+        # pt2pt_mask = map_mask | (pt2pt_dist>20) | (pt2pt_dist==0)
 
-            #x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
-            # x_pt=padded_pt_feature
+        #x_pt = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+        # x_pt=padded_pt_feature
 
-            #x_pt = x_pt[~feature_mask]
+        #x_pt = x_pt[~feature_mask]
 
-            return {
-                "pt_token": x_pt,
-                "padded_pt": padded_pt_feature,
-                "position": pos_pt,
-                "orientation": orient_pt,
-                "padd_pos": padd_pos,
-               # "centering_pos":centering_pos,
-              #  "centering_heading":centering_heading,
-                "rotary_embedding":self.rotary_embedding,
-                "batch": batch,
-                "map_mask": map_mask,
-                "map_sinusoidal": map_sinusoidal
-            }
+        return {
+            "pt_token": x_pt,
+            "padded_pt": padded_pt_feature,
+            "position": pos_pt,
+            "orientation": orient_pt,
+            "padd_pos": padd_pos,
+           # "centering_pos":centering_pos,
+          #  "centering_heading":centering_heading,
+            "rotary_embedding":self.rotary_embedding,
+            "batch": batch,
+            "map_mask": map_mask,
+            "map_sinusoidal": map_sinusoidal
+        }
 
         #pos_pt1=pos_pt+torch.tensor(np.array([[10,100]])).to(device=x_pt.device)
 
