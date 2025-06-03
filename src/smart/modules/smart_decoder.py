@@ -22,6 +22,7 @@ from .roformer_agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
 from .kl_loss import  BalancedKL
 from torch_scatter import scatter_mean,scatter_max
+from .build_edge import  radiusGraphNearest2
 
 class SMARTDecoder(nn.Module):
 
@@ -128,6 +129,49 @@ class SMARTDecoder(nn.Module):
 
         return tokenized_map,tokenized_agent
 
+    def filter_map(self,tokenized_map,tokenized_agent,pl2a_radius=40,pl2a_neighbor=10):
+
+        pos_a=tokenized_agent["sampled_pos"]
+        n_step = pos_a.shape[1]
+
+        pos_pl=tokenized_map["position"]
+        mask=tokenized_agent["valid_mask"]
+        batch_s = torch.cat(
+            [
+                tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
+                for t in range(n_step)
+            ],
+            dim=0,
+        )  # [n_agent*n_step]
+
+        batch_pl = torch.cat(
+            [
+                tokenized_map["batch"] + tokenized_agent["num_graphs"] * t
+                for t in range(n_step)
+            ],
+            dim=0,
+        )  # [n_pl*n_step]
+
+        mask_pl2a = mask.transpose(0, 1).reshape(-1)
+        pos_s = pos_a.transpose(0, 1).flatten(0, 1)
+        map_point_num=len(pos_pl)
+        pos_pl = pos_pl.repeat(n_step, 1)
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
+                                              y=pos_pl[:, :2],
+                                              r=pl2a_radius,
+                                              batch_x=batch_s,
+                                              batch_y=batch_pl,
+                                              max_num_neighbors=pl2a_neighbor)
+        edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
+        used_point=torch.unique(edge_index_pl2a[0]%map_point_num)
+
+        used_mask=torch.isin(torch.arange(map_point_num,device=pos_s.device),used_point)
+
+        for key in tokenized_map.keys():
+            if key is not 'token_traj_src':
+                tokenized_map[key] = tokenized_map[key][used_mask]
+        return  tokenized_map
+
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],kl_loss=True
     ) -> Dict[str, Tensor]:
@@ -135,6 +179,7 @@ class SMARTDecoder(nn.Module):
             map_feature = tokenized_map["map_feature"]
         else:
            # tokenized_map,tokenized_agent = self.preprocess(tokenized_map, tokenized_agent)
+            tokenized_map=self.filter_map(tokenized_map, tokenized_agent)
 
             map_feature = self.map_encoder(tokenized_map)
             tokenized_map["map_feature"] = map_feature

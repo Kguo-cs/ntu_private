@@ -375,7 +375,7 @@ class SMARTAgentDecoder(nn.Module):
                                               batch_y=batch_pl,
                                               max_num_neighbors=self.pt2a_neighbor)
 
-        edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
+        edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]#torch.Size([2, 156149])
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
