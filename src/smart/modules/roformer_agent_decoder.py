@@ -473,6 +473,8 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = self.temporal_embed(feat_a_token,rotary_embedding,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
 
         lengths_a = torch.bincount(tokenized_agent["batch"]).tolist()
+        padded_a_feature = self.padding(feat_a, lengths_a)
+        feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
 
         if self.use_pt_gnn:
             batch_s = torch.cat(
@@ -523,12 +525,10 @@ class SMARTAgentDecoder(nn.Module):
             map_sinusoidal = map_feature["map_sinusoidal"]
             pt_pos = map_feature["padd_pos"]
 
-            padded_a_feature = self.padding(feat_a, lengths_a)
             agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
             padd_pos = self.padding(pos_a, lengths_a)
             padding_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
 
-            feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
 
             pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
 
