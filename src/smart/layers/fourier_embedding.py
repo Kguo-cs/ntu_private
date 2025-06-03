@@ -26,6 +26,7 @@ class FourierEmbedding(nn.Module):
                 nn.Linear(hidden_dim, out_dim),
             )
         else:
+            out_dim=hidden_dim
             self.mlps = nn.ModuleList(
                 [
                     nn.Sequential(
