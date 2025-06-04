@@ -137,7 +137,7 @@ class SMARTAgentDecoder(nn.Module):
                 # self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
                 self.pt2a_roformer =nn.ModuleList(
                     [
-                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
                         for _ in range(self.num_layers)
                     ]
                 )
@@ -333,27 +333,36 @@ class SMARTAgentDecoder(nn.Module):
             pos_s,  # [B, N, 2]
             head_s,  # [B, N,]
             head_vector_s,  # [B, N,2]
+            pos_s1,
+            head_s1,
             mask
     ):
         B, N, _ = pos_s.shape
+        B, N1, _ = pos_s1.shape
+
+        mask=~mask
 
         # Compute pairwise relative positions: [B, N, N, 2]
-        rel_pos = pos_s[:, :, None, :] - pos_s[:, None, :, :]  # [B, N, N, 2]
+        rel_pos = pos_s[:, :, None, :] - pos_s1[:, None, :, :]  # [B, N, N, 2]
 
-        # Relative heading difference
-        rel_head = wrap_angle(head_s[:, :, None] - head_s[:, None, :])  # [B, N, N]
+        rel_pos=rel_pos[mask]
 
         # Pairwise distance
         dist = torch.norm(rel_pos, dim=-1)  # [B, N, N]
 
+        # Relative heading difference
+        rel_head = wrap_angle(head_s[:, :, None] - head_s1[:, None, :])[mask]  # [B, N, N]
+
+        head_vector_s=head_vector_s[:,  :, None,:].expand(-1, -1, N1, -1)[mask]
+
         # Angle between head_vector of neighbor and vector to target
         ang = angle_between_2d_vectors(
-            ctr_vector=head_vector_s[:, None, :, :].expand(-1, N, -1, -1),  # [B, N, N, 2]
+            ctr_vector=head_vector_s,  # [B, N, N, 2]
             nbr_vector=rel_pos  # [B, N, N, 2]
         )  # [B, N, N]
 
         # Stack into r_a2a feature: [B, N, N, 3]
-        r_a2a = torch.stack([dist, ang, rel_head], dim=-1)[~mask]
+        r_a2a = torch.stack([dist, ang, rel_head], dim=-1)
 
         # Apply embedding
         #r_a2a = self.r_a2a_emb(r_a2a)  # [B, N, N, d_emb]
@@ -535,10 +544,14 @@ class SMARTAgentDecoder(nn.Module):
             map_mask = map_feature["map_mask"]
             map_sinusoidal = map_feature["map_sinusoidal"]
             pt_pos = map_feature["padd_pos"]
+            pt_heading = map_feature["padd_heading"]
 
             agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
             padd_pos = self.padding(pos_a, lengths_a)
             padding_mask = self.padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
+            padd_head = self.padding(head_a, lengths_a)
+            padd_head_vector = self.padding(head_vector_a, lengths_a)
+
 
             pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
 
@@ -578,6 +591,10 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         else:
+
+            r_a2pt = self.build_full_interaction_r_a2a(padd_pos.flatten(1, 2), padd_head.flatten(1, 2), padd_head_vector.flatten(1, 2),pt_pos, pt_heading,
+                                                      pt2a_mask)
+
             padding_agent_mask = padding_mask.swapaxes(1, 2).flatten(0, 1)
 
             padd_pos = padd_pos.swapaxes(1, 2).flatten(0, 1)
@@ -586,22 +603,24 @@ class SMARTAgentDecoder(nn.Module):
 
             a2a_mask = nearest_mask(padd_pos, self.a2a_neighbor, self.a2a_radius, a2a_mask)
 
+            padd_head = padd_head.swapaxes(1, 2).flatten(0, 1)
+            padd_head_vector = padd_head_vector.swapaxes(1, 2).flatten(0, 1)
+
+            r_a2a = self.build_full_interaction_r_a2a(padd_pos, padd_head, padd_head_vector, padd_pos, padd_head,
+                                                      a2a_mask)
+
             for i in range(len(self.pt2a_roformer)):
                 padded_a_feature=padded_a_feature.flatten(1, 2)
                 sinusoidal_a=agent_sinusoidal.flatten(1, 2)
 
                 #for i in range(len(self.pt2a_roformer)):
-                padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], sinusoidal_a,    pt_feature, map_sinusoidal )
+                padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], sinusoidal_a,    pt_feature, map_sinusoidal,r_a2pt )
 
                 padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
 
                 sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
 
-                padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
-                padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
-
-                r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
 
 
                 # for i in range(len(self.a2a_roformer)):

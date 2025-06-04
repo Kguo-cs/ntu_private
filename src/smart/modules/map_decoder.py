@@ -148,6 +148,7 @@ class SMARTMapDecoder(nn.Module):
         map_sinusoidal = padding(sinusoidal_pos, lengths)
 
         padd_pos=padding(pos_pt, lengths)
+        padd_heading=padding(orient_pt, lengths)
 
         # if not self.gnn:
         #
@@ -165,7 +166,9 @@ class SMARTMapDecoder(nn.Module):
             "position": pos_pt,
             "orientation": orient_pt,
             "padd_pos": padd_pos,
-           # "centering_pos":centering_pos,
+            "padd_heading": padd_heading,
+
+            # "centering_pos":centering_pos,
           #  "centering_heading":centering_heading,
             "rotary_embedding":self.rotary_embedding,
             "batch": batch,
