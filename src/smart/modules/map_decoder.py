@@ -44,7 +44,7 @@ class SMARTMapDecoder(nn.Module):
         self.num_layers = num_layers
         self.use_map=True
 
-        self.gnn=False
+        self.gnn=True
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -132,15 +132,6 @@ class SMARTMapDecoder(nn.Module):
             for i in range(self.num_layers):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        #     return {
-        #         "pt_token": x_pt,
-        #         "position": pos_pt,
-        #         "orientation": orient_pt,
-        #         "batch": batch
-        #     }
-        # else:
-
-
         lengths = torch.bincount(batch).tolist()
 
         padded_pt_feature = padding(x_pt, lengths)
@@ -161,13 +152,15 @@ class SMARTMapDecoder(nn.Module):
 
         padd_pos=padding(pos_pt, lengths)
 
-        pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
+        if not self.gnn:
 
-        pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
+            pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
 
-        padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+            pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
 
-        x_pt = padded_pt_feature[~feature_mask]
+            padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+
+            x_pt = padded_pt_feature[~feature_mask]
 
         return {
             "pt_token": x_pt,
