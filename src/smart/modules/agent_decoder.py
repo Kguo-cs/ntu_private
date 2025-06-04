@@ -106,7 +106,7 @@ class SMARTAgentDecoder(nn.Module):
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
 
 
-            self.use_pt_gnn=True
+            self.use_pt_gnn=False
             input_dim_x_a = 2
             input_dim_r_t = 4
             input_dim_r_pt2a = 3
@@ -138,11 +138,11 @@ class SMARTAgentDecoder(nn.Module):
                 self.pt2a_roformer =nn.ModuleList(
                     [
                         RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
-                        for _ in range(num_layers)
+                        for _ in range(2)
                     ]
                 )
 
-            self.use_gnn=True
+            self.use_gnn=False
             if self.use_gnn:
 
                 self.r_a2a_emb = FourierEmbedding(
@@ -175,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
                 self.a2a_roformer =nn.ModuleList(
                     [
                         RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
-                        for _ in range(num_layers)
+                        for _ in range(2)
                     ]
                 )
                 #self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
@@ -547,7 +547,7 @@ class SMARTAgentDecoder(nn.Module):
             padded_a_feature=padded_a_feature.flatten(1, 2)
             agent_sinusoidal_flatten=agent_sinusoidal.flatten(1, 2)
 
-            for i in range(1):
+            for i in range(len(self.pt2a_roformer)):
                 padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], agent_sinusoidal_flatten,    pt_feature, map_sinusoidal )
 
         if feat_lg is not None:
