@@ -163,7 +163,7 @@ class SMARTAgentDecoder(nn.Module):
                         for _ in range(num_layers)
                     ]
                 )
-            else:
+            # else:
                 # self.r_a2a_emb = FourierEmbedding(
                 #     input_dim=input_dim_r_a2a,
                 #     hidden_dim=hidden_dim,
@@ -172,12 +172,12 @@ class SMARTAgentDecoder(nn.Module):
                 # )
                 #self.r_a2a_emb=MLPLayer(input_dim=input_dim_r_a2a, hidden_dim=hidden_dim, output_dim=num_heads)
 
-                self.a2a_roformer =nn.ModuleList(
-                    [
-                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
-                        for _ in range(self.num_layers)
-                    ]
-                )
+                # self.a2a_roformer =nn.ModuleList(
+                #     [
+                #         RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
+                #         for _ in range(self.num_layers)
+                #     ]
+                # )
                 #self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
 
             self.token_predict_head = MLPLayer(
@@ -595,19 +595,19 @@ class SMARTAgentDecoder(nn.Module):
             r_a2pt = self.build_full_interaction_r_a2a(padd_pos.flatten(1, 2), padd_head.flatten(1, 2), padd_head_vector.flatten(1, 2),pt_pos, pt_heading,
                                                       pt2a_mask)
 
-            padding_agent_mask = padding_mask.swapaxes(1, 2).flatten(0, 1)
+            # padding_agent_mask = padding_mask.swapaxes(1, 2).flatten(0, 1)
+            #
+            # padd_pos = padd_pos.swapaxes(1, 2).flatten(0, 1)
 
-            padd_pos = padd_pos.swapaxes(1, 2).flatten(0, 1)
-
-            a2a_mask = padding_agent_mask[:, None] | padding_agent_mask[:, :, None]
-
-            a2a_mask = nearest_mask(padd_pos, self.a2a_neighbor, self.a2a_radius, a2a_mask)
-
-            padd_head = padd_head.swapaxes(1, 2).flatten(0, 1)
-            padd_head_vector = padd_head_vector.swapaxes(1, 2).flatten(0, 1)
-
-            r_a2a = self.build_full_interaction_r_a2a(padd_pos, padd_head, padd_head_vector, padd_pos, padd_head,
-                                                      a2a_mask)
+            # a2a_mask = padding_agent_mask[:, None] | padding_agent_mask[:, :, None]
+            #
+            # a2a_mask = nearest_mask(padd_pos, self.a2a_neighbor, self.a2a_radius, a2a_mask)
+            #
+            # padd_head = padd_head.swapaxes(1, 2).flatten(0, 1)
+            # padd_head_vector = padd_head_vector.swapaxes(1, 2).flatten(0, 1)
+            #
+            # r_a2a = self.build_full_interaction_r_a2a(padd_pos, padd_head, padd_head_vector, padd_pos, padd_head,
+            #                                           a2a_mask)
 
             for i in range(len(self.pt2a_roformer)):
                 padded_a_feature=padded_a_feature.flatten(1, 2)
@@ -619,12 +619,12 @@ class SMARTAgentDecoder(nn.Module):
                 padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
 
-                sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
+               # sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
 
 
 
                 # for i in range(len(self.a2a_roformer)):
-                padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=r_a2a)
+                #padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=r_a2a)
 
                 padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)
 
