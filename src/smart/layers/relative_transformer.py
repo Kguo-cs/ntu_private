@@ -229,7 +229,7 @@ class RoFormerSelfAttention(nn.Module):
             # attn[mask]=self.mlp(attn[mask])
             #attn_rel = attn[mask]+pos_embeding#torch.cat((attn[mask], pos_embeding), dim=-1)
             # attn_rel = self.attention_proj(attn_rel)
-            attn[mask]=self.proj(torch.cat([attn[mask],self.r_a2a_emb(pos_embeding)],dim=-1))
+            attn[mask]+=self.proj(torch.cat([attn[mask],self.r_a2a_emb(pos_embeding)],dim=-1))
             # attn[mask]=self.r_a2a_emb(torch.cat([attn[mask],pos_embeding],dim=-1))
             attn=attn.permute(0,3,1,2)
 
