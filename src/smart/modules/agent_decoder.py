@@ -544,11 +544,11 @@ class SMARTAgentDecoder(nn.Module):
 
             pt2a_mask = nearest_mask2(padd_pos.flatten(1, 2),pt_pos, self.pt2a_neighbor, self.pl2a_radius, pt2a_mask)
 
-            padded_a_feature=padded_a_feature.flatten(1, 2)
-            agent_sinusoidal_flatten=agent_sinusoidal.flatten(1, 2)
-
-            for i in range(len(self.pt2a_roformer)):
-                padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], agent_sinusoidal_flatten,    pt_feature, map_sinusoidal )
+            # padded_a_feature=padded_a_feature.flatten(1, 2)
+            # agent_sinusoidal_flatten=agent_sinusoidal.flatten(1, 2)
+            #
+            # for i in range(len(self.pt2a_roformer)):
+            #     padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], agent_sinusoidal_flatten,    pt_feature, map_sinusoidal )
 
         if feat_lg is not None:
             sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
@@ -578,30 +578,40 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         else:
-            padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
-            padding_agent_mask = padding_mask.swapaxes(1,2).flatten(0, 1)
+            for i in range(len(self.pt2a_roformer)):
+                padded_a_feature=padded_a_feature.flatten(1, 2)
+                agent_sinusoidal_flatten=agent_sinusoidal.flatten(1, 2)
 
-            padd_pos=padd_pos.swapaxes(1,2).flatten(0,1)
+                #for i in range(len(self.pt2a_roformer)):
+                padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], agent_sinusoidal_flatten,    pt_feature, map_sinusoidal )
 
-            a2a_mask=padding_agent_mask[:,None] | padding_agent_mask[:,:,None]
+                padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
-            a2a_mask=nearest_mask(padd_pos, self.a2a_neighbor,self.a2a_radius,a2a_mask)
+                padding_agent_mask = padding_mask.swapaxes(1,2).flatten(0, 1)
 
-            agent_sinusoidal=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
+                padd_pos=padd_pos.swapaxes(1,2).flatten(0,1)
 
-            #padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
-           # padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
+                a2a_mask=padding_agent_mask[:,None] | padding_agent_mask[:,:,None]
 
-            #r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
+                a2a_mask=nearest_mask(padd_pos, self.a2a_neighbor,self.a2a_radius,a2a_mask)
 
-            # sinusoidal_a = self.rotary_embedding(pos_a, head_a)
-            # agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
+                agent_sinusoidal=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
 
-            for i in range(len(self.a2a_roformer)):
+                #padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
+               # padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
+
+                #r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
+
+                # sinusoidal_a = self.rotary_embedding(pos_a, head_a)
+                # agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
+
+                # for i in range(len(self.a2a_roformer)):
                 padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], agent_sinusoidal,pos_embeding=None)
 
-            feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
+                padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)
+
+            feat_a = padded_a_feature[feature_mask]
 
         next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
 
