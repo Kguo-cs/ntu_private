@@ -598,16 +598,14 @@ class SMARTAgentDecoder(nn.Module):
 
                 sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
 
-                #padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
-               # padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
+                padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
+                padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
 
-                #r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
+                r_a2a = self.build_full_interaction_r_a2a( padd_pos,   padd_head,    padd_head_vector,a2a_mask)
 
-                # sinusoidal_a = self.rotary_embedding(pos_a, head_a)
-                # agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
 
                 # for i in range(len(self.a2a_roformer)):
-                padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=None)
+                padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=r_a2a)
 
                 padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)
 
