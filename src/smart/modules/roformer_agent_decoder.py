@@ -790,6 +790,25 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+
+            if 'centering_pos' in tokenized_agent.keys():
+                batch=tokenized_agent["batch"]
+                centering_heading=tokenized_agent['centering_heading'][batch]
+                centering_pos=tokenized_agent["centering_pos"][batch]
+
+
+                cos_a = torch.cos(-centering_heading)[:,None]
+                sin_a = torch.sin(-centering_heading)[:,None]
+
+                x, y = pred_traj_10hz[..., 0], pred_traj_10hz[..., 1]
+                x_rot = cos_a * x + sin_a * y
+                y_rot = -sin_a * x + cos_a * y
+
+                pred_traj_10hz=torch.stack([x_rot, y_rot], dim=-1)+centering_pos[:,None]
+
+                pred_head_10hz=pred_head_10hz+ centering_heading[:,None]
+
+
             out_dict["pred_traj_10hz"] = pred_traj_10hz
             out_dict["pred_head_10hz"] = pred_head_10hz
             pred_z = tokenized_agent["gt_z_raw"].unsqueeze(1)  # [n_agent, 1]
