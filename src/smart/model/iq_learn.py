@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -62,7 +62,6 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout[key] = pred[key]
 
             tokenized_agent_rollout['batch'] = tokenized_agent['batch']
-            tokenized_agent_rollout['lengths_a'] = tokenized_agent['lengths_a']
             tokenized_agent_rollout["trajectory_token_veh"]=self.token_processor.trajectory_token_veh
             tokenized_agent_rollout["trajectory_token_ped"]=self.token_processor.trajectory_token_ped
             tokenized_agent_rollout["trajectory_token_cyc"]=self.token_processor.trajectory_token_cyc
@@ -280,7 +279,7 @@ class IQ_SoftQ(LightningModule):
             elif div=='exp':
                 critic_loss = (-expert_reward ).exp().mean()+ agent_reward.exp().mean()
             elif div=='rkl':
-                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+(agent_value_loss.mean()+expert_value_loss.mean())/2
+                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_value_loss.mean()/2#(agent_value_loss.mean()+expert_value_loss.mean())
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
@@ -304,7 +303,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = expert_nll #+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
         return loss
 
