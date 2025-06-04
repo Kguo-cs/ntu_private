@@ -76,8 +76,8 @@ class SMARTMapDecoder(nn.Module):
                         for _ in range(num_layers)
                     ]
                 )
-            else:
-                self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+            # else:
+            #     self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
             self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
 
@@ -152,15 +152,15 @@ class SMARTMapDecoder(nn.Module):
 
         padd_pos=padding(pos_pt, lengths)
 
-        if not self.gnn:
-
-            pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
-
-            pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
-
-            padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
-
-            x_pt = padded_pt_feature[~feature_mask]
+        # if not self.gnn:
+        #
+        #     pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
+        #
+        #     pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
+        #
+        #     padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+        #
+        #     x_pt = padded_pt_feature[~feature_mask]
 
         return {
             "pt_token": x_pt,

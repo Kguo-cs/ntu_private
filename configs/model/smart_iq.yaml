@@ -9,8 +9,8 @@ model_config:
   n_vis_scenario: 1
   n_vis_rollout: 1
   decoder:
-    hidden_dim: 256
-    num_freq_bands: 128
+#    hidden_dim: 256
+#    num_freq_bands: 128
 #    num_heads: 16
     num_map_layers: 1
     num_agent_layers: 1
@@ -20,5 +20,5 @@ model_config:
     dropout: 0
     hist_drop_prob: 0
     pt2pt_neighbor: 10
-    pt2a_neighbor: 30
+    pt2a_neighbor: 40
     a2a_neighbor: 10
