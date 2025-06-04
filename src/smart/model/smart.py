@@ -125,7 +125,7 @@ class SMART(LightningModule):
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
             pred_traj, pred_z, pred_head = [], [], []
-            #tokenized_map,tokenized_agent = self.encoder.preprocess(tokenized_map, tokenized_agent)
+            tokenized_map,tokenized_agent = self.encoder.preprocess(tokenized_map, tokenized_agent)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
             for _ in range(self.n_rollout_closed_val):

@@ -134,7 +134,13 @@ class SMARTAgentDecoder(nn.Module):
                 ]
                 )
             else:
-                self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                # self.pt2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                self.pt2a_roformer =nn.ModuleList(
+                    [
+                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                        for _ in range(num_layers)
+                    ]
+                )
 
             self.use_gnn=False
             if self.use_gnn:
@@ -166,7 +172,12 @@ class SMARTAgentDecoder(nn.Module):
                 # )
                 #self.r_a2a_emb=MLPLayer(input_dim=input_dim_r_a2a, hidden_dim=hidden_dim, output_dim=num_heads)
 
-                self.a2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=False)
+                self.a2a_roformer =nn.ModuleList(
+                    [
+                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                        for _ in range(num_layers)
+                    ]
+                )
                 #self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
 
             self.token_predict_head = MLPLayer(
@@ -533,7 +544,11 @@ class SMARTAgentDecoder(nn.Module):
 
             pt2a_mask = nearest_mask2(padd_pos.flatten(1, 2),pt_pos, self.pt2a_neighbor, self.pl2a_radius, pt2a_mask)
 
-            padded_a_feature = self.pt2a_roformer(padded_a_feature.flatten(1, 2), pt2a_mask[:,None], agent_sinusoidal.flatten(1, 2),    pt_feature, map_sinusoidal )
+            padded_a_feature=padded_a_feature.flatten(1, 2)
+            agent_sinusoidal_flatten=agent_sinusoidal.flatten(1, 2)
+
+            for i in range(1):
+                padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], agent_sinusoidal_flatten,    pt_feature, map_sinusoidal )
 
         if feat_lg is not None:
             sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
@@ -573,6 +588,8 @@ class SMARTAgentDecoder(nn.Module):
 
             a2a_mask=nearest_mask(padd_pos, self.a2a_neighbor,self.a2a_radius,a2a_mask)
 
+            agent_sinusoidal=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
+
             #padd_head = self.padding(head_a, lengths_a).swapaxes(1,2).flatten(0,1)
            # padd_head_vector = self.padding(head_vector_a, lengths_a).swapaxes(1,2).flatten(0,1)
 
@@ -581,7 +598,8 @@ class SMARTAgentDecoder(nn.Module):
             # sinusoidal_a = self.rotary_embedding(pos_a, head_a)
             # agent_sinusoidal = self.padding(sinusoidal_a, lengths_a)
 
-            padded_a_feature = self.a2a_roformer(padded_a_feature, a2a_mask[:,None], agent_sinusoidal.swapaxes(1,2).flatten(0, 1),pos_embeding=None)
+            for i in range(len(self.a2a_roformer)):
+                padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], agent_sinusoidal,pos_embeding=None)
 
             feat_a = padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)[feature_mask]
 

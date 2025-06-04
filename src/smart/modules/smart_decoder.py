@@ -128,8 +128,6 @@ class SMARTDecoder(nn.Module):
 
         tokenized_agent["sampled_heading"] = heading
 
-        tokenized_agent["lengths_a"] = torch.bincount(batch).tolist()
-
         return tokenized_map,tokenized_agent
 
     def filter_map(self,tokenized_map,tokenized_agent):
@@ -192,7 +190,7 @@ class SMARTDecoder(nn.Module):
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
         else:
-           # tokenized_map,tokenized_agent = self.preprocess(tokenized_map, tokenized_agent)
+            tokenized_map,tokenized_agent = self.preprocess(tokenized_map, tokenized_agent)
             tokenized_map=self.filter_map(tokenized_map, tokenized_agent)
 
             map_feature = self.map_encoder(tokenized_map)
