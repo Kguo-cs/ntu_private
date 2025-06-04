@@ -279,11 +279,11 @@ class IQ_SoftQ(LightningModule):
             elif div=='exp':
                 critic_loss = (-expert_reward ).exp().mean()+ agent_reward.exp().mean()
             elif div=='rkl':
-                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_value_loss.mean()/2#(agent_value_loss.mean()+expert_value_loss.mean())
+                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_value_loss.mean()#/2#(agent_value_loss.mean()+expert_value_loss.mean())
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
-                critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()+agent_value_loss.mean()
+                critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()+(agent_value_loss.mean()/2+expert_value_loss.mean()/2)#agent_value_loss.mean()
             elif div=='kl':
                 expert_reward = torch.clamp_min(expert_reward, min=alpha * eps)
                 critic_loss = -alpha * ((expert_reward / alpha).log().mean() + 1)+agent_reward.mean()
