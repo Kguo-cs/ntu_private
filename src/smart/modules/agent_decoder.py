@@ -142,7 +142,7 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.use_gnn=True
+            self.use_gnn=False
             if self.use_gnn:
 
                 self.r_a2a_emb = FourierEmbedding(
