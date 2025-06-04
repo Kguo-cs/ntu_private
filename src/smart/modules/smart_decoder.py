@@ -182,7 +182,7 @@ class SMARTDecoder(nn.Module):
 
 
         for key in tokenized_map.keys():
-            if key is not 'token_traj_src':
+            if key != 'token_traj_src':
                 tokenized_map[key] = tokenized_map[key][used_mask]
         return  tokenized_map
 
