@@ -174,7 +174,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 self.a2a_roformer =nn.ModuleList(
                     [
-                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
                         for _ in range(self.num_layers)
                     ]
                 )
