@@ -169,16 +169,16 @@ class SMARTDecoder(nn.Module):
         used_point=torch.unique(edge_index_pl2a[0]%map_point_num)
 
 
-        edge_index_pl2pl = radiusGraphNearest2(x=pos_pl[used_point],
-                                              y=pos_pl,
-                                              r=20,
-                                              batch_x=tokenized_map["batch"][used_point],
-                                              batch_y=tokenized_map["batch"],
-                                              max_num_neighbors=10)
+        # edge_index_pl2pl = radiusGraphNearest2(x=pos_pl[used_point],
+        #                                       y=pos_pl,
+        #                                       r=20,
+        #                                       batch_x=tokenized_map["batch"][used_point],
+        #                                       batch_y=tokenized_map["batch"],
+        #                                       max_num_neighbors=10)
+        #
+        # used_point=torch.unique(edge_index_pl2pl[0])
 
-        used_point1=torch.unique(edge_index_pl2pl[0])
-
-        used_mask=torch.isin(torch.arange(map_point_num,device=pos_s.device),used_point1)
+        used_mask=torch.isin(torch.arange(map_point_num,device=pos_s.device),used_point)
 
 
         for key in tokenized_map.keys():
