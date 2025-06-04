@@ -106,7 +106,7 @@ class SMARTAgentDecoder(nn.Module):
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
 
 
-            self.use_pt_gnn=False
+            self.use_pt_gnn=True
             input_dim_x_a = 2
             input_dim_r_t = 4
             input_dim_r_pt2a = 3
@@ -142,7 +142,7 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.use_gnn=False
+            self.use_gnn=True
             if self.use_gnn:
 
                 self.r_a2a_emb = FourierEmbedding(
@@ -570,25 +570,26 @@ class SMARTAgentDecoder(nn.Module):
             padded_a_feature = self.lg2a_roformer(padded_a_feature, None, agent_sinusoidal,    feat_lg, sinusoidal_lg )
 
         if self.use_gnn:
-            feat_a = padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim)[feature_mask].transpose(0, 1).flatten(0, 1)
-            batch_s = torch.cat(
-                [
-                    tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
-                    for t in range(n_step)
-                ],
-                dim=0,
-            )  # [n_agent*n_step]
-
-            edge_index_a2a, r_a2a = self.build_interaction_edge(
-                pos_a=pos_a,  # [n_agent, n_step, 2]
-                head_a=head_a,  # [n_agent, n_step]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                batch_s=batch_s,  # [n_agent*n_step]
-                mask=mask,  # [n_agent, n_step]
-            )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
-
-            feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
-            feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
+            feat_a=feat_a
+            # feat_a = padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim)[feature_mask].transpose(0, 1).flatten(0, 1)
+            # batch_s = torch.cat(
+            #     [
+            #         tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
+            #         for t in range(n_step)
+            #     ],
+            #     dim=0,
+            # )  # [n_agent*n_step]
+            #
+            # edge_index_a2a, r_a2a = self.build_interaction_edge(
+            #     pos_a=pos_a,  # [n_agent, n_step, 2]
+            #     head_a=head_a,  # [n_agent, n_step]
+            #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            #     batch_s=batch_s,  # [n_agent*n_step]
+            #     mask=mask,  # [n_agent, n_step]
+            # )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+            #
+            # feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
+            # feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         else:
 
