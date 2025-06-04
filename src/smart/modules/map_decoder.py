@@ -15,16 +15,13 @@ from typing import Dict
 
 import torch
 import torch.nn as nn
-from torch_cluster import radius_graph
 
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
-from torch_scatter import scatter_mean,scatter_max
-from .agent_decoder import  radiusGraphNearest
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope,padding
-from torch.nn.utils.rnn import pad_sequence
-from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, padding
+from .build_edge import radiusGraphNearest
+
 
 class SMARTMapDecoder(nn.Module):
 
