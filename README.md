@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=1:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=3:00:00 -P 12002486
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
@@ -45,6 +45,8 @@ Spyder1@
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
+export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
+export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
 
 conda create -y -n catk python=3.11.9
 conda activate catk
@@ -58,5 +60,3 @@ pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 nohup python run.py > 1.txt 2>&1 &
 
 
-export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
-export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
