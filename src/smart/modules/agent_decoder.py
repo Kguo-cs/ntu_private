@@ -160,12 +160,12 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-                self.a2a_roformer =nn.ModuleList(
-                    [
-                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
-                        for _ in range(self.num_layers)
-                    ]
-                )
+                # self.a2a_roformer =nn.ModuleList(
+                #     [
+                #         RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
+                #         for _ in range(self.num_layers)
+                #     ]
+                # )
 
             self.token_predict_head = MLPLayer(
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -589,9 +589,9 @@ class SMARTAgentDecoder(nn.Module):
 
                 padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
 
-                sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
-
-                padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=r_a2a)
+                # sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
+                #
+                # padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=r_a2a)
 
                 padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)
 
