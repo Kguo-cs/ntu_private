@@ -175,12 +175,17 @@ class IQ_SoftQ(LightningModule):
 
         current_returns=returns[:,:-1]
 
-        if self.use_target_q and key=="expert":
+        if self.use_target_q:
             with torch.no_grad():
-                target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,cumulative_mask)
+                target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,action_mask)
+
+            reward = current_Q - self.gamma * target_next_V
+            value_loss=(current_V-self.gamma *target_next_V)[all_valid_mask]
+
         else:
             target_V = 0 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
+            value_loss=(current_V-self.gamma *next_V)[all_valid_mask]
 
         reward = reward[all_valid_mask]#use agent mask 1020 8.726
 
@@ -191,8 +196,6 @@ class IQ_SoftQ(LightningModule):
         last_V=V[:,-1][valid_mask[:,-1]]
 
         V_diff=(V-target_V)[all_valid_mask]
-
-        value_loss=(current_V-self.gamma *next_V)[all_valid_mask]
 
         current_V=current_V[all_valid_mask]
 

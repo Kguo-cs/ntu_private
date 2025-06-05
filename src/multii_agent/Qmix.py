@@ -59,7 +59,7 @@ class QMixer(nn.Module):
         b1 = self.hyper_b_1(states)
         w1 = w1.view(-1, self.n_agents, self.embed_dim)
         b1 = b1.view(-1, 1, self.embed_dim)
-        hidden = F.elu(torch.bmm(agent_qs, w1) + b1)
+        hidden = F.elu(torch.bmm(agent_qs, w1) + b1)   #q_total=MLP(q) +MLP(states)
         # Second layer
         w_final = torch.abs(self.hyper_w_final(states))
         w_final = w_final.view(-1, self.embed_dim, 1)
