@@ -136,7 +136,7 @@ class IQ_SoftQ(LightningModule):
         action=action.reshape(-1)
         action_mask= valid_mask[:, 1:]
 
-        state_action_mask = action_mask & state_mask
+        state_action_mask = all_valid_mask#action_mask & state_mask
 
         q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,action_mask)
 
