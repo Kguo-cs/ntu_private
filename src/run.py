@@ -23,6 +23,20 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 import sys
 import os
+import torch
+import numpy as np
+import random
+
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.cuda.synchronize()
 
 os.environ["WANDB_SILENT"] = "true"
 
@@ -49,7 +63,7 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-# torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("high")
 
 def run(cfg: DictConfig) -> None:
     if cfg.get("seed"):
