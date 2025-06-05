@@ -155,7 +155,7 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 self.pt2a_roformer =nn.ModuleList(
                     [
-                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=True)
+                        RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout,pos_emb=False)
                         for _ in range(self.num_layers)
                     ]
                 )
@@ -563,8 +563,9 @@ class SMARTAgentDecoder(nn.Module):
                 feat_lg=feat_lg.flatten(1, 2)
                 padded_a_feature = self.lg2a_roformer(padded_a_feature, None, agent_sinusoidal,    feat_lg, sinusoidal_lg )
 
-            r_a2pt = self.build_full_interaction_r_a2a(padd_pos.flatten(1, 2), padd_head.flatten(1, 2), padd_head_vector.flatten(1, 2),pt_pos, pt_heading,
-                                                      pt2a_mask)
+            # r_a2pt = self.build_full_interaction_r_a2a(padd_pos.flatten(1, 2), padd_head.flatten(1, 2), padd_head_vector.flatten(1, 2),pt_pos, pt_heading,
+            #                                           pt2a_mask)
+            r_a2pt=None
 
             padding_agent_mask = padding_mask.swapaxes(1, 2).flatten(0, 1)
 
