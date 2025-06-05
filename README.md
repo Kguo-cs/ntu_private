@@ -61,3 +61,4 @@ nohup python run.py > 1.txt 2>&1 &
 
 
 Epoch 0:  11%|█▏        | 2775/24350 [14:06<1:49:43,  3.28it/s, v_num=n2sh]
+Epoch 0:  23%|██▎       | 5629/24350 [28:46<1:35:42,  3.26it/s, v_num=oydb]
