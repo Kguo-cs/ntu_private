@@ -88,7 +88,7 @@ class IQ_SoftQ(LightningModule):
 
         dones = torch.zeros_like(next_V)
 
-        #dones[:, -1] = 1
+        dones[:, -1] = 1
 
         next_V=(1 - dones) * next_V
 
@@ -267,7 +267,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
             div = 'x2'
-            alpha = 1
+            alpha = 0.5
             eps = 1e-3
 
             if div == "lsif":
