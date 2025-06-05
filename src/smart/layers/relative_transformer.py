@@ -133,8 +133,8 @@ class RoFormerSelfAttention(nn.Module):
         mixed_query_layer = self.query(hidden_states)
         query_layer = self.transpose_for_scores(mixed_query_layer)
         # rotary query
-       # if not self.pos_emb:
-        query_layer = self.apply_rotary(query_layer, sinusoidal_pos)
+        if not self.pos_emb:
+           query_layer = self.apply_rotary(query_layer, sinusoidal_pos)
         # If this is instantiated as a cross-attention module, the keys
         # and values come from an encoder; the attention mask needs to be
         # such that the encoder's padding tokens are not attended to.
@@ -158,8 +158,8 @@ class RoFormerSelfAttention(nn.Module):
         else:
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
-           # if not self.pos_emb:
-            key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
+            if not self.pos_emb:
+               key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
 
             #value_layer=self.apply_rotary(value_layer,sinusoidal_pos)
 
