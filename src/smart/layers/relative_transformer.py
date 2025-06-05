@@ -147,8 +147,8 @@ class RoFormerSelfAttention(nn.Module):
         if is_cross_attention:
             key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
             value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
-           # if not self.pos_emb:
-            key_layer = self.apply_rotary(key_layer, encoder_sinusoidal_pos)
+            if not self.pos_emb:
+                key_layer = self.apply_rotary(key_layer, encoder_sinusoidal_pos)
 
             # key_layer1 = self.transpose_for_scores(self.key_pos(encoder_hidden_states))
             #
