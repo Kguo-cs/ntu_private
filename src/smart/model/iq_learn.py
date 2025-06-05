@@ -285,7 +285,7 @@ class IQ_SoftQ(LightningModule):
             elif div=='x2':
                 value_loss=(agent_value_loss.mean()+expert_value_loss.mean())/2
 
-                chi2_loss=(expert_reward.square().mean()+agent_reward.square().mean()) / (4 * alpha)/2
+                chi2_loss=(expert_reward.square().mean()/ (4 * alpha)+agent_reward.square().mean()/ (4 * alpha)) /2
 
                 critic_loss= -expert_reward.mean()+value_loss +chi2_loss
 
