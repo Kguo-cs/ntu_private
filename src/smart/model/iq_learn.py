@@ -139,7 +139,7 @@ class IQ_SoftQ(LightningModule):
 
         # cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
 
-        state_action_mask = valid_mask.all(-1)#action_mask & state_mask
+        state_action_mask = action_mask & state_mask
 
         q,current_Q,V,current_V,next_V,reward,dones=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,action_mask)
 
@@ -185,9 +185,9 @@ class IQ_SoftQ(LightningModule):
         else:
             target_V = 0 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
-            value_loss=(current_V-self.gamma *next_V)[all_valid_mask]
+            value_loss=(current_V-self.gamma *next_V)[state_action_mask]
 
-        reward = reward[all_valid_mask]#use agent mask 1020 8.726
+        reward = reward[state_action_mask]#use agent mask 1020 8.726
 
         current_Q_diff=(current_Q-current_returns)[all_valid_mask]
 
