@@ -103,7 +103,7 @@ class IQ_SoftQ(LightningModule):
             valid_mask = tokenized_agent["valid_mask"][:, 1:]
             action = tokenized_agent["sampled_idx"][:, 2:]
             state_mask = valid_mask[:, :-1]
-            all_valid_mask=tokenized_agent["valid_mask"].all(-1)
+            all_valid_mask=valid_mask.all(-1)
 
         if self.encoder.agent_encoder.pred_route:
             action = torch.cat([action,tokenized_agent["route_idx"][:, 1:-1]])
@@ -132,12 +132,9 @@ class IQ_SoftQ(LightningModule):
                 state_mask = light_valid_mask[:, 1:-1]
                 agent_num=0
 
-           # action[action > 2] = 0
 
         action=action.reshape(-1)
         action_mask= valid_mask[:, 1:]
-
-        # cumulative_mask = valid_mask.float().cumsum(dim=1) == torch.arange(1, valid_mask.shape[1] + 1,device=valid_mask.device).float()
 
         state_action_mask = action_mask & state_mask
 
@@ -185,9 +182,9 @@ class IQ_SoftQ(LightningModule):
         else:
             target_V = 0 #returns#cannot .detach()
             #reward= current_Q - self.gamma * next_returns
-            value_loss=(current_V-self.gamma *next_V)[state_action_mask]
+            value_loss=(current_V-self.gamma *next_V)[all_valid_mask]
 
-        reward = reward[state_action_mask]#use agent mask 1020 8.726
+        reward = reward[all_valid_mask]#use agent mask 1020 8.726
 
         current_Q_diff=(current_Q-current_returns)[all_valid_mask]
 
@@ -286,7 +283,7 @@ class IQ_SoftQ(LightningModule):
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
-                critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()+agent_value_loss.mean() #(agent_value_loss.mean()/2+expert_value_loss.mean()/2)#agent_value_loss.mean()
+                critic_loss= (-expert_reward +expert_reward.square()/ (4 * alpha)).mean()+(agent_value_loss.mean()/2+expert_value_loss.mean()/2)#agent_value_loss.mean() #agent_value_loss.mean()
             elif div=='kl':
                 expert_reward = torch.clamp_min(expert_reward, min=alpha * eps)
                 critic_loss = -alpha * ((expert_reward / alpha).log().mean() + 1)+agent_reward.mean()
