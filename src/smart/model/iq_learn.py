@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -267,7 +267,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
             div = 'x2'
-            alpha = 1
+            alpha = 0.5
             eps = 1e-3
 
             if div == "lsif":
@@ -285,9 +285,9 @@ class IQ_SoftQ(LightningModule):
             elif div=='x2':
                 value_loss=(agent_value_loss.mean()+expert_value_loss.mean())/2
 
-                chi2_loss=(expert_reward.square().mean()/ (4 * alpha)+agent_reward.square().mean()/ (4 * alpha)) /2
+                #chi2_loss=(expert_reward.square().mean()/ (4 * alpha)+agent_reward.square().mean()/ (4 * alpha)) /2
 
-                #chi2_loss =expert_reward.square().mean()/ (4 * alpha)
+                chi2_loss =expert_reward.square().mean()/ (4 * alpha)
                 critic_loss= -expert_reward.mean()+value_loss +chi2_loss
 
                 #(agent_value_loss.mean()/2+expert_value_loss.mean()/2)#agent_value_loss.mean()

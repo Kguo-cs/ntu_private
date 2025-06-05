@@ -515,14 +515,6 @@ class SMARTAgentDecoder(nn.Module):
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
 
-            batch_s = torch.cat(
-                [
-                    tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
-                    for t in range(n_step)
-                ],
-                dim=0,
-            )  # [n_agent*n_step]
-
             edge_index_a2a, r_a2a = self.build_interaction_edge(
                 pos_a=pos_a,  # [n_agent, n_step, 2]
                 head_a=head_a,  # [n_agent, n_step]

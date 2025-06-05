@@ -60,3 +60,4 @@ pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 nohup python run.py > 1.txt 2>&1 &
 
 
+Epoch 0:  11%|█▏        | 2775/24350 [14:06<1:49:43,  3.28it/s, v_num=n2sh]

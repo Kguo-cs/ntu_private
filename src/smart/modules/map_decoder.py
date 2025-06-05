@@ -129,52 +129,55 @@ class SMARTMapDecoder(nn.Module):
             for i in range(self.num_layers):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        lengths = torch.bincount(batch).tolist()
-
-        padded_pt_feature = padding(x_pt, lengths)
-
-        feature_mask=(padded_pt_feature == 0).all(-1)
-
-        map_mask = feature_mask[:, None]
-
-        #centering_pos = scatter_mean(pos_pt, batch, dim=0)
-
-        #centering_heading = scatter_mean(orient_pt, batch, dim=0)
-
-        #sinusoidal_pos = general_rope(pos_pt, self.head_dim, orient_pt)#,centering_pos,centering_heading,batch
-
-        sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
-
-        map_sinusoidal = padding(sinusoidal_pos, lengths)
-
-        padd_pos=padding(pos_pt, lengths)
-        padd_heading=padding(orient_pt, lengths)
-
-        # if not self.gnn:
-        #
-        #     pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
-        #
-        #     pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
-        #
-        #     padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
-        #
-        #     x_pt = padded_pt_feature[~feature_mask]
-
         return {
             "pt_token": x_pt,
-            "padded_pt": padded_pt_feature,
             "position": pos_pt,
             "orientation": orient_pt,
-            "padd_pos": padd_pos,
-            "padd_heading": padd_heading,
-
-            # "centering_pos":centering_pos,
-          #  "centering_heading":centering_heading,
             "rotary_embedding":self.rotary_embedding,
             "batch": batch,
-            "map_mask": map_mask,
-            "map_sinusoidal": map_sinusoidal
         }
+        #
+        #
+        # lengths = torch.bincount(batch).tolist()
+        #
+        # padded_pt_feature = padding(x_pt, lengths)
+        #
+        # feature_mask=(padded_pt_feature == 0).all(-1)
+        #
+        # map_mask = feature_mask[:, None]
+        #
+        # sinusoidal_pos=self.rotary_embedding(pos_pt, orient_pt)
+        #
+        # map_sinusoidal = padding(sinusoidal_pos, lengths)
+        #
+        # padd_pos=padding(pos_pt, lengths)
+        # padd_heading=padding(orient_pt, lengths)
+        #
+        # # if not self.gnn:
+        # #
+        # #     pt2pt_mask = feature_mask[:, :, None] | feature_mask[:, None]
+        # #
+        # #     pt2pt_mask=nearest_mask(padd_pos,10,self.pl2pl_radius,pt2pt_mask)
+        # #
+        # #     padded_pt_feature = self.pt2pt_roformer(padded_pt_feature, pt2pt_mask[:,None], map_sinusoidal)
+        # #
+        # #     x_pt = padded_pt_feature[~feature_mask]
+        #
+        # return {
+        #     "pt_token": x_pt,
+        #     "padded_pt": padded_pt_feature,
+        #     "position": pos_pt,
+        #     "orientation": orient_pt,
+        #     "padd_pos": padd_pos,
+        #     "padd_heading": padd_heading,
+        #
+        #     # "centering_pos":centering_pos,
+        #   #  "centering_heading":centering_heading,
+        #     "rotary_embedding":self.rotary_embedding,
+        #     "batch": batch,
+        #     "map_mask": map_mask,
+        #     "map_sinusoidal": map_sinusoidal
+        # }
 
         #pos_pt1=pos_pt+torch.tensor(np.array([[10,100]])).to(device=x_pt.device)
 
