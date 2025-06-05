@@ -352,7 +352,7 @@ class SMARTAgentDecoder(nn.Module):
         r_a2a = torch.stack([dist, ang, rel_head], dim=-1)
 
         # Apply embedding
-        #r_a2a = self.r_a2a_emb(r_a2a)  # [B, N, N, d_emb]
+        r_a2a = self.r_a2a_emb(r_a2a)  # [B, N, N, d_emb]
 
         return r_a2a
 
@@ -505,6 +505,19 @@ class SMARTAgentDecoder(nn.Module):
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_pl,  # [n_pl*n_step]
             )
+            edge_index_a2a, r_a2a = self.build_interaction_edge(
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                batch_s=batch_s,  # [n_agent*n_step]
+                mask=mask,  # [n_agent, n_step]
+            )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+            # r_pl2a_a2a = self.r_pt2a_emb(continuous_inputs=torch.cat([r_pl2a,r_a2a]), categorical_embs=None)
+            #
+            # r_pl2a=r_pl2a_a2a[:len(r_pl2a)]
+            # r_a2a=r_pl2a_a2a[len(r_pl2a):]
+
             feat_a = feat_a.transpose(0, 1).flatten(0, 1)
             feat_map = (
                 map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
@@ -514,13 +527,6 @@ class SMARTAgentDecoder(nn.Module):
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
 
-            edge_index_a2a, r_a2a = self.build_interaction_edge(
-                pos_a=pos_a,  # [n_agent, n_step, 2]
-                head_a=head_a,  # [n_agent, n_step]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                batch_s=batch_s,  # [n_agent*n_step]
-                mask=mask,  # [n_agent, n_step]
-            )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
             feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
