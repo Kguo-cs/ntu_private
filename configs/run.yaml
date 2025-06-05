@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc64_expertmask_done_mix2x2 #_stateactionmask #_gnn #_noa2a # _noposembed   #ra2a_ra2pt_layer1_projadd #mix #x2mix_former #a2ar40 #rkl #_pregnn_nearest30gnn #_nomap_map #_filter #_map #_gnnroformermlpnoshare_nopos_nomap_evalnomask #_toout         #_sharepotionlearnedheadromaptlearnedpost_plaadist60_a2a100 #4 #post #1agent #_t #_valuerotary #_spatial    #01_predallacc_light4_noattnmask #_nospatilattnmaskfill #01bc01_map1000_agentspatial60_map20_a2pt40  #mask_dist100_256 #_mix_value_rotateposhead #rot #_noise01 #_expertV0 #tv_noise01_initV1 #_noline_nodone128 #no_noise01X2_initv0_noagent_0_initVmean0
+task_name: bc40_expertmask_done_mixx2 #_gnn #_stateactionmask #_gnn #_noa2a # _noposembed   #ra2a_ra2pt_layer1_projadd #mix #x2mix_former #a2ar40 #rkl #_pregnn_nearest30gnn #_nomap_map #_filter #_map #_gnnroformermlpnoshare_nopos_nomap_evalnomask #_toout         #_sharepotionlearnedheadromaptlearnedpost_plaadist60_a2a100 #4 #post #1agent #_t #_valuerotary #_spatial    #01_predallacc_light4_noattnmask #_nospatilattnmaskfill #01bc01_map1000_agentspatial60_map20_a2pt40  #mask_dist100_256 #_mix_value_rotateposhead #rot #_noise01 #_expertV0 #tv_noise01_initV1 #_noline_nodone128 #no_noise01X2_initv0_noagent_0_initVmean0
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
