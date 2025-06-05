@@ -772,10 +772,10 @@ class SMARTAgentDecoder(nn.Module):
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
-            if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-                mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
-            else:
-                mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+            #if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+            mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
+           # else:
+            #    mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
 
