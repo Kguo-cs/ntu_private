@@ -41,7 +41,7 @@ class SMARTMapDecoder(nn.Module):
         self.num_layers = num_layers
         self.use_map=True
 
-        self.gnn=True
+        self.gnn=False
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
