@@ -266,8 +266,8 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_value_loss, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'x2'
-            alpha = 0.25
+            div = 'rkl'
+            alpha = 1
             eps = 1e-3
 
             if div == "lsif":
@@ -279,7 +279,10 @@ class IQ_SoftQ(LightningModule):
             elif div=='exp':
                 critic_loss = (-expert_reward ).exp().mean()+ agent_reward.exp().mean()
             elif div=='rkl':
-                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+agent_value_loss.mean()#/2#(agent_value_loss.mean()+expert_value_loss.mean())
+                value_loss=(agent_value_loss.mean()+expert_value_loss.mean())/2
+
+                critic_loss= alpha *(-expert_reward / alpha  ).exp().mean()+value_loss
+
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
