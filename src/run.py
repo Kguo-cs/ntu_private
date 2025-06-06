@@ -67,7 +67,7 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-torch.set_float32_matmul_precision("highest")
+torch.set_float32_matmul_precision("high")
 
 def run(cfg: DictConfig) -> None:
     if cfg.get("seed"):
