@@ -4,9 +4,6 @@ Lyuchen2018!
 qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 
 
-source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
-cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim/src
-conda activate catk
 export PBS_JOBID=10522712.pbs101
 
 
@@ -35,7 +32,7 @@ source ~/miniconda3/bin/activate
 cd ~/scratch/sim/src
 conda activate catk
 
-qsub -I -l select=1:ngpus=1 -l walltime=96:00:00 -P personal-zhangshu
+qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-zhangshu
 
 ssh zhangshu@aspire2antu.nscc.sg
 Gk@140286
@@ -47,6 +44,11 @@ cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
+export NVIDIA_TF32_OVERRIDE=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export CUDA_LAUNCH_BLOCKING=1
+
+
 
 conda create -y -n catk python=3.11.9
 conda activate catk

@@ -37,10 +37,10 @@ import random
 # torch.backends.cudnn.deterministic = True
 # torch.backends.cudnn.benchmark = False
 # torch.cuda.synchronize()
-print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-torch.backends.cuda.matmul.allow_tf32 = False
-torch.backends.cuda.allow_tf32 = False
-print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
+# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
+# torch.backends.cuda.matmul.allow_tf32 = False
+# torch.backends.cuda.allow_tf32 = False
+# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
 
 os.environ["WANDB_SILENT"] = "true"
 
@@ -67,7 +67,7 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("highest")
 
 def run(cfg: DictConfig) -> None:
     if cfg.get("seed"):
