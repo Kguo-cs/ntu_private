@@ -271,7 +271,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
             div = 'x2'
-            alpha = 0.5
+            alpha = 0.25
             eps = 1e-3
 
             if div == "lsif":
@@ -290,9 +290,9 @@ class IQ_SoftQ(LightningModule):
             elif div=='tv':
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
-                #value_loss=(agent_value_loss.mean()+expert_value_loss.mean())/2
+                value_loss=(agent_value_loss.mean()+expert_value_loss.mean())/2
 
-                value_loss=agent_value_loss.mean()
+                #value_loss=agent_value_loss.mean()
 
                 #chi2_loss=(expert_reward.square().mean()/ (4 * alpha)+agent_reward.square().mean()/ (4 * alpha)) /2
 
