@@ -7,7 +7,7 @@ qsub -I -l select=1:ngpus=1 -l walltime=3:00:00 -P 12002486
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim/src
 conda activate catk
-export PBS_JOBID=10494268.pbs101
+export PBS_JOBID=10522712.pbs101
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
