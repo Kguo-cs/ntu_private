@@ -80,3 +80,11 @@ share + map encoder + a30
 
 Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 
+
+# bc20_pt8_share_map_tv diverge
+
+# bc20_pt8_share_map_reward05x2 diverge
+
+# bc20_pt8_share_map_05mixx2_nodone diverge 
+
+# bc20_pt8_share_map_05mixx2_sa diverge 
