@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=3:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 
 
 source "/home/users/ntu/lyuchen/miniconda3/bin/activate"
@@ -35,7 +35,7 @@ source ~/miniconda3/bin/activate
 cd ~/scratch/sim/src
 conda activate catk
 
-qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-zhangshu
+qsub -I -l select=1:ngpus=1 -l walltime=96:00:00 -P personal-zhangshu
 
 ssh zhangshu@aspire2antu.nscc.sg
 Gk@140286
