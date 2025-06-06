@@ -266,7 +266,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_value_loss, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
-            div = 'rkl'
+            div = 'x2'
             alpha = 0.5
             eps = 1e-3
 
