@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=10:00:00 -P 12002486
 
 
 export PBS_JOBID=53662.pbs111
@@ -62,13 +62,21 @@ pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 nohup python run.py > 1.txt 2>&1 &
 
 
-Epoch 0:  11%|█▏        | 2775/24350 [14:06<1:49:43,  3.28it/s, v_num=n2sh]
-Epoch 0:  23%|██▎       | 5629/24350 [28:46<1:35:42,  3.26it/s, v_num=oydb]
-Epoch 0:   1%|          | 228/24350 [01:14<2:11:30,  3.06it/s, v_num=4snh]
-
 
 
 pt8 1  1.6 M
 Epoch 0:   0%|          | 83/24350 [00:22<1:50:22,  3.66it/s, v_num=fktv]
 
+share 
+Epoch 0:   2%|▏         | 584/24350 [02:11<1:29:05,  4.45it/s, v_num=8-02]
+
+
+share + map encoder
+
+Epoch 0:   2%|▏         | 417/24350 [01:35<1:31:42,  4.35it/s, v_num=7-50]
+
+
+share + map encoder + a30
+
+Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 
