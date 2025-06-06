@@ -186,9 +186,9 @@ class IQ_SoftQ(LightningModule):
 
         reward = reward[state_action_mask]
 
-        batch_valid=tokenized_agent["batch"][all_valid_mask]
-        value_loss=scatter_mean(value_loss,batch_valid,dim=0)
-        reward = scatter_mean(reward, batch_valid, dim=0)
+        #batch_valid=tokenized_agent["batch"][all_valid_mask]
+        # value_loss=scatter_mean(value_loss,batch_valid,dim=0)
+        # reward = scatter_mean(reward, batch_valid, dim=0)
 
         current_Q_diff = (current_Q - current_returns)[all_valid_mask]
 
