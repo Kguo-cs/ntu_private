@@ -271,7 +271,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, key='agent')
 
             div = 'x2'
-            alpha = 0.25
+            alpha = 1
             eps = 1e-3
 
             if div == "lsif":
