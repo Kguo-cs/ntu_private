@@ -162,7 +162,7 @@ def radiusGraphNearest_inv(x,y,r, batch_x,batch_y,  max_num_neighbors):
     mask = (distances <= r)
     final_edge_index = edge_index[:, mask]
 
-    return final_edge_index.flip(0)
+    return final_edge_index
 
 def positionalencoding1d(d_model, length):
     """
