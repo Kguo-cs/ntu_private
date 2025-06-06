@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -291,6 +291,8 @@ class IQ_SoftQ(LightningModule):
                 critic_loss= (-expert_reward ).mean()+agent_reward.mean()
             elif div=='x2':
                 value_loss=(agent_value_loss.mean()+expert_value_loss.mean())/2
+
+                #value_loss=agent_value_loss.mean()
 
                 #chi2_loss=(expert_reward.square().mean()/ (4 * alpha)+agent_reward.square().mean()/ (4 * alpha)) /2
 
