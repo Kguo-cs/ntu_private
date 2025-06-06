@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from src.smart.modules.smart_decoder import SMARTDecoder
 import pickle
-from torch_scatter import scatter_mean,scatter_max
+from torch_scatter import scatter_mean,scatter_max,scatter_sum
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding,RoFormerBlock,general_rope
 
@@ -184,9 +184,13 @@ class IQ_SoftQ(LightningModule):
             #reward= current_Q - self.gamma * next_returns
             value_loss=(current_V-self.gamma *next_V)[state_action_mask]
 
-        reward = reward[state_action_mask]#use agent mask 1020 8.726
+        reward = reward[state_action_mask]
 
-        current_Q_diff=(current_Q-current_returns)[all_valid_mask]
+        batch_valid=tokenized_agent["batch"][all_valid_mask]
+        value_loss=scatter_mean(value_loss,batch_valid,dim=0)
+        reward = scatter_mean(reward, batch_valid, dim=0)
+
+        current_Q_diff = (current_Q - current_returns)[all_valid_mask]
 
         current_V_diff=(current_V-current_returns)[all_valid_mask]
 
