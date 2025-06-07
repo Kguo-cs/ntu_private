@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc40_pt30_share_map_mix10x2_vdn #qatten     #_trainmask_rangea2aflip #_05mixx2 #_rewa #_batchmean_map #_map_expert_mixrkl_gnn_nofilter_share
+task_name: bc48_pt30_share_map_mix10x2_vdn #qatten     #_trainmask_rangea2aflip #_05mixx2 #_rewa #_batchmean_map #_map_expert_mixrkl_gnn_nofilter_share
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
