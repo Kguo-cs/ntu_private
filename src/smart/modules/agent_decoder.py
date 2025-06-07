@@ -35,6 +35,8 @@ from torch.distributions import Categorical, Independent, MixtureSameFamily, Nor
 from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2,radiusGraphNearest_inv,radiusGraphNearest_head
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
+from src.multi_agent.Qatten import QattenMixer
+from torch_scatter import scatter_mean,scatter_max
 
 
 class SMARTAgentDecoder(nn.Module):
@@ -194,6 +196,11 @@ class SMARTAgentDecoder(nn.Module):
                 self.lg2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
         self.pred_route = False
+
+        self.mixing=False
+
+        if self.mixing:
+            self.mixer = QattenMixer(hidden_dim, num_heads)
 
         self.apply(weight_init)
 
@@ -607,7 +614,7 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
 
-        return next_token_logits
+        return next_token_logits,feat_a
 
     def forward(
             self,
@@ -647,7 +654,7 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
 
-        next_token_logits= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,feat_lg)
+        next_token_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,feat_lg)
 
         tokenized_agent["next_token_logits"] = next_token_logits
 
@@ -659,6 +666,28 @@ class SMARTAgentDecoder(nn.Module):
                                             device=next_light_logits.device)], dim=-1)
     
             next_token_logits = torch.cat([next_token_logits, next_light_logits], dim=0)
+
+        if self.mixing:
+            batch=tokenized_agent["batch"]
+
+            q_value= next_token_logits[:, 1:]
+
+            q = q_value[:, :-1]
+
+            action = tokenized_agent["sampled_idx"][:, 2:]
+
+            agent_qs = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+
+            states=scatter_max(feat_a,batch)
+
+            lengths_a = torch.bincount(batch).tolist()
+
+            agent_states=self.padding(feat_a,lengths_a)
+
+            agent_states=self.mixer(agent_qs, states,agent_states)
+
+            print(1)
+
 
         return {
              "q_value": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
@@ -731,7 +760,7 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         lg_feat=None
 
-                    next_token_logits = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
+                    next_token_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
                 logit_list.append(next_token_logits)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
@@ -742,7 +771,7 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     lg_feat=None
 
-                next_token_logits = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
+                next_token_logits,feat_a = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
                 logit_list.append(next_token_logits[:, -1:])
 
             cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
@@ -778,10 +807,10 @@ class SMARTAgentDecoder(nn.Module):
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
-            # if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-            mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
-            # else:
-            #mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+            if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+                mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
+            else:
+                mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
 

@@ -84,6 +84,7 @@ class SMARTDecoder(nn.Module):
         self.pl2a_radius=pl2a_radius
         self.pt2a_neighbor=pt2a_neighbor
 
+
     def scene_centric(self,pos,heading,centering_pos,centering_heading,batch):
 
 
