@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
