@@ -137,14 +137,38 @@ def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
 
 
 
-def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
+def radiusGraphNearest(x,x_heading, batch, r, loop, max_num_neighbors):
     edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
     row, col = edge_index
-    distances = (x[col] - x[row]).norm(dim=1)
-    mask = distances <= r
+    #distances = (x[col] - x[row]).norm(dim=1)
+    #mask = distances <= r
+    # Step 2: Get relative vectors: y - x (N_edges, 2)
+    rel = x[col]-x[row]
+
+    # Step 3: Rotate into x-frame (heading[col])
+    theta = x_heading[row]
+
+    mask = get_mask(rel,theta,forward=r,back=r//2,width=r//2)
+
     final_edge_index = edge_index[:, mask]
 
     return final_edge_index
+
+def get_mask(rel,theta,forward=40,back=20,width=20):
+    cos_theta = torch.cos(theta)
+    sin_theta = torch.sin(theta)
+
+    # Rotation matrix: inverse of heading
+    # [cos, sin; -sin, cos] applied to (dx, dy)
+    rel_x = rel[:, 0] * cos_theta + rel[:, 1] * sin_theta
+    rel_y = -rel[:, 0] * sin_theta + rel[:, 1] * cos_theta
+
+    # Step 4: Spatial filtering in local x-frame
+    in_front = (rel_x >= -back) & (rel_x <= forward)
+    in_width = (rel_y >= -width ) & (rel_y <= width)
+    mask = in_front & in_width
+
+    return mask
 
 def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
     edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x)
@@ -157,22 +181,8 @@ def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
 
     # Step 3: Rotate into x-frame (heading[col])
     theta = x_heading[row]
-    cos_theta = torch.cos(theta)
-    sin_theta = torch.sin(theta)
 
-    # Rotation matrix: inverse of heading
-    # [cos, sin; -sin, cos] applied to (dx, dy)
-    rel_x = rel[:, 0] * cos_theta + rel[:, 1] * sin_theta
-    rel_y = -rel[:, 0] * sin_theta + rel[:, 1] * cos_theta
-
-    forward = 40.0
-    back = 20.0
-    width = 20.0
-
-    # Step 4: Spatial filtering in local x-frame
-    in_front = (rel_x >= -back) & (rel_x <= forward)
-    in_width = (rel_y >= -width ) & (rel_y <= width)
-    mask = in_front & in_width
+    mask = get_mask(rel,theta,forward=r,back=r//2,width=r//2)
 
     final_edge_index = edge_index[:, mask]
 
