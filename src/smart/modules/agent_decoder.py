@@ -197,14 +197,15 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_route = False
 
-        self.mixing=False
+        self.mixing=True
 
-        if self.mixing:
-            self.mixer = QattenMixer(hidden_dim, num_heads)
+        # if self.mixing:
+        #     self.Q_mixer = QattenMixer(hidden_dim, 4)
+        #     self.V_mixer = QattenMixer(hidden_dim, 4)
 
         self.apply(weight_init)
 
-    def padding(self,tensor,lengths,padding_value=0 ):
+    def padding(self,tensor,lengths,padding_value=0.0 ):
         padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
 
         return padded_tensor
@@ -670,26 +671,44 @@ class SMARTAgentDecoder(nn.Module):
         if self.mixing:
             batch=tokenized_agent["batch"]
 
-            q_value= next_token_logits[:, 1:]
+            q_value=next_token_logits[:, 1:]
 
             q = q_value[:, :-1]
 
-            action = tokenized_agent["sampled_idx"][:, 2:]
+            action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
 
-            agent_qs = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-
-            states=scatter_max(feat_a,batch)
+            Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
             lengths_a = torch.bincount(batch).tolist()
 
-            agent_states=self.padding(feat_a,lengths_a)
+            agent_qs=self.padding(Q,lengths_a).swapaxes(1,2)
 
-            agent_states=self.mixer(agent_qs, states,agent_states)
+            agent_states=self.padding(feat_a[:,1:],lengths_a,padding_value=-1e10).swapaxes(1,2)
 
-            print(1)
+            state_mask = self.padding(~mask[:,1:],lengths_a,padding_value=True).swapaxes(1,2)
 
+            states=agent_states.amax(dim=2)
+
+            agent_mask=(~state_mask).all(1)[:,None]
+
+            total_q=(agent_qs*agent_mask).sum(dim=2)
+
+            #total_q=self.Q_mixer(agent_qs.flatten(0,1), states[:,:-1].flatten(0,1),agent_states[:,:-1].flatten(0,1),state_mask[:,:-1].flatten(0,1)).reshape(-1,Q.shape[1])
+
+            V = self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+
+            agent_value=self.padding(V,lengths_a).swapaxes(1,2)
+
+            total_v=(agent_value*agent_mask).sum(dim=2)
+
+            #total_v=self.V_mixer(agent_value.flatten(0,1),states.flatten(0,1),agent_states.flatten(0,1),state_mask.flatten(0,1)).reshape(-1,V.shape[1])
+        else:
+            total_q=0
+            total_v=0
 
         return {
+            "total_q": total_q,
+            "total_v":total_v,
              "q_value": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
          }
 

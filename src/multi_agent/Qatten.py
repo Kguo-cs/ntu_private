@@ -1,11 +1,11 @@
-import torch as th
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
 
 class QattenMixer(nn.Module):
-    def __init__(self, hidden_dim,num_heads):
+    def __init__(self, hidden_dim,num_heads=4):
         super(QattenMixer, self).__init__()
 
         # self.args = args
@@ -17,13 +17,13 @@ class QattenMixer(nn.Module):
 
         self.u_dim = hidden_dim #local state dim
 
-        self.n_query_embedding_layer1 = hidden_dim
-        self.n_query_embedding_layer2 = hidden_dim
-        self.n_key_embedding_layer1 = hidden_dim
-        self.n_head_embedding_layer1 = hidden_dim
-        self.n_head_embedding_layer2 = hidden_dim
+        self.n_query_embedding_layer1 = 64
+        self.n_query_embedding_layer2 = 32
+        self.n_key_embedding_layer1 = 32
+        self.n_head_embedding_layer1 = 64
+        self.n_head_embedding_layer2 = num_heads
         self.n_attention_head = num_heads
-        self.n_constrant_value = hidden_dim
+        self.n_constrant_value = 32
 
         self.query_embedding_layers = nn.ModuleList()
         for i in range(self.n_attention_head):
@@ -48,7 +48,7 @@ class QattenMixer(nn.Module):
 
         self.type="weighted"
 
-    def forward(self, agent_qs, states,agent_states):
+    def forward(self, agent_qs, states,agent_states,attention_mask):
         bs = agent_qs.size(0)
         n_agents=agent_qs.size(1)
         states = states.reshape(-1, self.state_dim) #batch_size,state_dim
@@ -67,27 +67,35 @@ class QattenMixer(nn.Module):
             u_embedding = u_embedding.permute(0, 2, 1)
 
             # shape: [-1, 1, n_agent]
-            raw_lambda = th.matmul(state_embedding, u_embedding) / self.scaled_product_value
-            q_lambda = F.softmax(raw_lambda, dim=-1)
+            attn = torch.matmul(state_embedding, u_embedding) / self.scaled_product_value
 
-            q_lambda_list.append(q_lambda)
+            if attention_mask is not None:
+                attn_bias = torch.where(attention_mask[:,None], -1e9, 0.)
+                attn.add_(attn_bias)
+
+            attn = F.softmax(attn, dim=-1)
+
+            if attention_mask is not None:
+                attn = attn.masked_fill(attention_mask[:,None], 0)
+
+            q_lambda_list.append(attn)
 
         # shape: [-1, n_attention_head, n_agent]
-        q_lambda_list = th.stack(q_lambda_list, dim=1).squeeze(-2)
+        q_lambda_list = torch.stack(q_lambda_list, dim=1).squeeze(-2)
 
         # shape: [-1, n_agent, n_attention_head]
         q_lambda_list = q_lambda_list.permute(0, 2, 1)
 
         # shape: [-1, 1, n_attention_head]
-        q_h = th.matmul(agent_qs, q_lambda_list)
+        q_h = torch.matmul(agent_qs, q_lambda_list)
 
         if self.type == 'weighted':
             # shape: [-1, n_attention_head, 1]
-            w_h = th.abs(self.head_embedding_layer(states))
+            w_h = torch.abs(self.head_embedding_layer(states))
             w_h = w_h.reshape(-1, self.n_head_embedding_layer2, 1)
 
             # shape: [-1, 1]
-            sum_q_h = th.matmul(q_h, w_h)
+            sum_q_h = torch.matmul(q_h, w_h)
             sum_q_h = sum_q_h.reshape(-1, 1)
         else:
             # shape: [-1, 1]
@@ -101,6 +109,6 @@ class QattenMixer(nn.Module):
 
     def _get_us(self, states):
         agent_own_state_size = self.args.agent_own_state_size
-        with th.no_grad():
+        with torch.no_grad():
             us = states[:, :agent_own_state_size * self.n_agents].reshape(-1, agent_own_state_size)
         return us
