@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True#model_config.finetune
+        self.finetune = False#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -222,8 +222,18 @@ class IQ_SoftQ(LightningModule):
         valid_mask= tokenized_agent["valid_mask"][:, 1:]
         # action_mask= valid_mask[:, 1:]
         # state_mask= valid_mask[:, :-1]
+        # valid_mask[:,-2]=True
+        # valid_mask[:,-1]=True
+
+        # fut_valid=torch.cumsum(valid_mask.flip(1), dim=1)>torch.arange(valid_mask.shape[1],device=valid_mask.device)[None]
+        #
+        # fut_valid=fut_valid.flip(1)[:,:-1]
+        #
+        # print(torch.all(fut_valid[:,0]==fut_valid[:,-1]))
 
         train_mask=valid_mask.all(-1)#valid_mask.all(-1)
+
+        #train_mask=fut_valid
 
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent,train_mask)

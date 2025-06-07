@@ -7,21 +7,13 @@ qsub -I -l select=1:ngpus=1 -l walltime=10:00:00 -P 12002486
 export PBS_JOBID=53662.pbs111
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light.zip lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training_a.zip /home/ke/code/catk/src/waymo_data/full/training_a.zip 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light_inter10 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/sim/logs/js1_pred_valid_token/2025-04-13_10-17-49/checkpoints/epoch_006.ckpt /home/ke/code/catk/src/logs/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light_inter10 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_share_shareagentt_nobuffer_onlyinitego/05.10_00.41/pad/upw5aleq/checkpoints/epoch=15-step=49184.ckpt ./
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light_inter10 zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/waymo_data/full/training.zip /home/ke/code/catk/src/waymo_data/full/ 
-
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
-
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/
-
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc_shareaptemp100_pt10_layer24_35_fine/2025-05-23_11-48-49/wosac_submission.tar.gz ./
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo

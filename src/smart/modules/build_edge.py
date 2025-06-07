@@ -146,11 +146,34 @@ def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
 
     return final_edge_index
 
-def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
+def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
     edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x)
-    row, col = edge_index
-    distances = (x[row] - y[col]).norm(dim=1)
-    mask = (distances <= r)
+    row, col = edge_index# row is
+    # distances = (x[row] - y[col]).norm(dim=1)
+    # mask = (distances <= r)
+
+    # Step 2: Get relative vectors: y - x (N_edges, 2)
+    rel = y[col]-x[row]
+
+    # Step 3: Rotate into x-frame (heading[col])
+    theta = x_heading[row]
+    cos_theta = torch.cos(theta)
+    sin_theta = torch.sin(theta)
+
+    # Rotation matrix: inverse of heading
+    # [cos, sin; -sin, cos] applied to (dx, dy)
+    rel_x = rel[:, 0] * cos_theta + rel[:, 1] * sin_theta
+    rel_y = -rel[:, 0] * sin_theta + rel[:, 1] * cos_theta
+
+    forward = 40.0
+    back = 20.0
+    width = 20.0
+
+    # Step 4: Spatial filtering in local x-frame
+    in_front = (rel_x >= -back) & (rel_x <= forward)
+    in_width = (rel_y >= -width ) & (rel_y <= width)
+    mask = in_front & in_width
+
     final_edge_index = edge_index[:, mask]
 
     return final_edge_index.flip(0)

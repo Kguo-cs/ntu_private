@@ -9,11 +9,11 @@ import numpy as np
 
 
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_1000_light/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_light_inter10/"
 
 raw_data="/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 
-files = os.listdir(data_directory)[250000:]
+files = os.listdir(data_directory)
 
 data_dict={}
 
@@ -58,26 +58,26 @@ for filename in tqdm(files):
     data1["tokenized_light"]["num_nodes"]=len(tokenized_agent["orient_lg"])
 
     #del data["light"]
-
-    position=data1["tokenized_map"]["position"]
-
-    if data1['tokenized_map']['num_nodes']>1000:
-
-        centering=torch.mean(position,dim=0)
-
-        dist=torch.linalg.norm(position-centering,dim=-1)
-
-        sort_idx=torch.argsort(dist)
-
-        mask=sort_idx<1000
-
-        data1["tokenized_map"]["position"]=data1["tokenized_map"]["position"][mask]
-        data1["tokenized_map"]["orientation"]=data1["tokenized_map"]["orientation"][mask]
-        data1["tokenized_map"]['token_idx']=data1["tokenized_map"]['token_idx'][mask]
-        data1["tokenized_map"]['type']=data1["tokenized_map"]['type'][mask]
-        data1["tokenized_map"]['pl_type']=data1["tokenized_map"]['pl_type'][mask]
-        data1["tokenized_map"]['light_type']=data1["tokenized_map"]['light_type'][mask]
-        data1['tokenized_map']['num_nodes']=len(data1["tokenized_map"]["position"])
+    #
+    # position=data1["tokenized_map"]["position"]
+    #
+    # if data1['tokenized_map']['num_nodes']>1000:
+    #
+    #     centering=torch.mean(position,dim=0)
+    #
+    #     dist=torch.linalg.norm(position-centering,dim=-1)
+    #
+    #     sort_idx=torch.argsort(dist)
+    #
+    #     mask=sort_idx<1000
+    #
+    #     data1["tokenized_map"]["position"]=data1["tokenized_map"]["position"][mask]
+    #     data1["tokenized_map"]["orientation"]=data1["tokenized_map"]["orientation"][mask]
+    #     data1["tokenized_map"]['token_idx']=data1["tokenized_map"]['token_idx'][mask]
+    #     data1["tokenized_map"]['type']=data1["tokenized_map"]['type'][mask]
+    #     data1["tokenized_map"]['pl_type']=data1["tokenized_map"]['pl_type'][mask]
+    #     data1["tokenized_map"]['light_type']=data1["tokenized_map"]['light_type'][mask]
+    #     data1['tokenized_map']['num_nodes']=len(data1["tokenized_map"]["position"])
 
     output_file=output_path+filename
 
