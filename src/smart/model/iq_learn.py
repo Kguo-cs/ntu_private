@@ -24,7 +24,7 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=50)
+            self.replay_buffer = deque(maxlen=100)
 
         self.finetune = True#model_config.finetune
         self.use_target_q=False
@@ -288,7 +288,8 @@ class IQ_SoftQ(LightningModule):
             if len(self.replay_buffer)==0 or self.global_step % self.rollout_freq== 0:
                 tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
 
-            tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
+            if len(self.replay_buffer)>1:
+                tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
 
 
             if self.encoder.agent_encoder.pred_light:
