@@ -19,6 +19,7 @@ import torch
 from lightning import LightningModule
 from torch.optim.lr_scheduler import LambdaLR
 
+from src.my_token_preprocess import token_processor
 from src.smart.metrics import (
     CrossEntropy,
     TokenCls,
@@ -49,7 +50,7 @@ class SMART(LightningModule):
         self.token_processor = TokenProcessor(**model_config.token_processor)
 
         self.encoder = SMARTDecoder(
-            **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
+            **model_config.decoder,token_processor=self.token_processor, n_token_agent=self.token_processor.n_token_agent
         )
         set_model_for_finetuning(self.encoder, model_config.finetune)
 

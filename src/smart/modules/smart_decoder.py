@@ -46,7 +46,7 @@ class SMARTDecoder(nn.Module):
         pt2pt_neighbor:int,
         pt2a_neighbor: int,
         a2a_neighbor: int,
-        state_action=False,
+        token_processor=None,
         use_latent=False
     ) -> None:
         super(SMARTDecoder, self).__init__()
@@ -60,6 +60,7 @@ class SMARTDecoder(nn.Module):
             head_dim=head_dim,
             dropout=dropout,
             pt2pt_neighbor=pt2pt_neighbor,
+            token_processor=token_processor
         )
 
         self.agent_encoder = SMARTAgentDecoder(
@@ -78,7 +79,7 @@ class SMARTDecoder(nn.Module):
             n_token_agent=n_token_agent,
             pt2a_neighbor=pt2a_neighbor,
             a2a_neighbor=a2a_neighbor,
-            use_latent=use_latent
+            token_processor=token_processor
         )
 
         self.pl2a_radius=pl2a_radius
@@ -198,6 +199,8 @@ class SMARTDecoder(nn.Module):
             #tokenized_map=self.filter_map(tokenized_map, tokenized_agent)
 
             map_feature = self.map_encoder(tokenized_map)
+            for key in map_feature.keys():
+                map_feature[key] = map_feature[key].detach()
             tokenized_map["map_feature"] = map_feature
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature)

@@ -34,14 +34,17 @@ class SMARTMapDecoder(nn.Module):
         num_heads: int,
         head_dim: int,
         dropout: float,
-        pt2pt_neighbor:int
+        pt2pt_neighbor:int,
+        token_processor
     ) -> None:
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
         self.use_map=True
+        self.pt2pt_neighbor=pt2pt_neighbor
 
-        self.gnn=True
+        self.gnn=False
+        self.token_processor=token_processor
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
@@ -76,7 +79,6 @@ class SMARTMapDecoder(nn.Module):
             # else:
             #     self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
-            self.rotary_embedding=RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim,num_heads=num_heads)
 
             self.apply(weight_init)
 
@@ -88,13 +90,13 @@ class SMARTMapDecoder(nn.Module):
         pos_pt = tokenized_map["position"]
 
         orient_pt = tokenized_map["orientation"]#[mask]
-        pt_token_emb_src = self.token_emb(tokenized_map["token_traj_src"])
-        x_pt = pt_token_emb_src[tokenized_map["token_idx"]]#[mask]
+        pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
+        x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]#[mask]
 
         x_pt_categorical_embs = [
-            self.type_pt_emb(tokenized_map["type"]),#[mask]
-            self.polygon_type_emb(tokenized_map["pl_type"]),#[mask]
-            self.light_pl_emb(tokenized_map["light_type"]),#[mask]
+            self.type_pt_emb(tokenized_map["type"].long()),#[mask]
+            self.polygon_type_emb(tokenized_map["pl_type"].long()),#[mask]
+            self.light_pl_emb(tokenized_map["light_type"].long()),#[mask]
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
@@ -108,7 +110,7 @@ class SMARTMapDecoder(nn.Module):
                 r=self.pl2pl_radius,
                 batch=batch,
                 loop=False,
-                max_num_neighbors=10,
+                max_num_neighbors=self.pt2pt_neighbor,
             )
             rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
             rel_orient_pt2pt = wrap_angle(
@@ -133,7 +135,6 @@ class SMARTMapDecoder(nn.Module):
             "pt_token": x_pt,
             "position": pos_pt,
             "orientation": orient_pt,
-            "rotary_embedding":self.rotary_embedding,
             "batch": batch,
         }
         #

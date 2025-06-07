@@ -57,7 +57,7 @@ class SMARTAgentDecoder(nn.Module):
             n_token_agent: int,
             pt2a_neighbor: int,
             a2a_neighbor: int,
-            use_latent: bool = False
+            token_processor
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -197,13 +197,16 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_route = False
 
-        self.mixing=True
+        self.mixing=False
 
         # if self.mixing:
         #     self.Q_mixer = QattenMixer(hidden_dim, 4)
             #self.V_mixer = QattenMixer(hidden_dim, 4)
+        self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
+        self.token_processor= token_processor
 
         self.apply(weight_init)
+
 
     def padding(self,tensor,lengths,padding_value=0.0 ):
         padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
@@ -383,20 +386,20 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
-        # edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
-        #                                       y=pos_pl[:, :2],
-        #                                       x_heading=head_s,
-        #                                       r=self.pl2a_radius,
-        #                                       batch_x=batch_s,
-        #                                       batch_y=batch_pl,
-        #                                       max_num_neighbors=30)
-
-        edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
                                               y=pos_pl[:, :2],
+                                              x_heading=head_s,
                                               r=self.pl2a_radius,
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
-                                              max_num_neighbors=self.pt2a_neighbor)
+                                              max_num_neighbors=30)
+
+        # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
+        #                                       y=pos_pl[:, :2],
+        #                                       r=self.pl2a_radius,
+        #                                       batch_x=batch_s,
+        #                                       batch_y=batch_pl,
+        #                                       max_num_neighbors=self.pt2a_neighbor)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
@@ -419,7 +422,7 @@ class SMARTAgentDecoder(nn.Module):
 
         return edge_index_pl2a, r_pl2a
 
-    def temporal_embed(self, feature,rotary_embedding,pos,heading, network, n_step, n_current, hist_len, mask):
+    def temporal_embed(self, feature,pos,heading, network, n_step, n_current, hist_len, mask):
 
         causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
 
@@ -428,7 +431,7 @@ class SMARTAgentDecoder(nn.Module):
         #positions=torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
 
         #sinusoidal_pos = general_rope(positions, self.head_dim,heading)
-        sinusoidal_pos=rotary_embedding(pos,heading,time)
+        sinusoidal_pos=self.rotary_embedding(pos,heading,time)
 
         if mask is not None:
             causal_mask = causal_mask[None,None] | mask[:,None,None,:]
@@ -478,9 +481,9 @@ class SMARTAgentDecoder(nn.Module):
         # ! get agent token embeddings
         feat_a_token = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
-            trajectory_token_veh=tokenized_agent["trajectory_token_veh"],
-            trajectory_token_ped=tokenized_agent["trajectory_token_ped"],
-            trajectory_token_cyc=tokenized_agent["trajectory_token_cyc"],
+            trajectory_token_veh=self.token_processor.trajectory_token_veh,
+            trajectory_token_ped=self.token_processor.trajectory_token_ped,
+            trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             agent_type=tokenized_agent["type"],  # [n_agent]
@@ -491,9 +494,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_a=~mask
 
-        rotary_embedding=map_feature["rotary_embedding"]
-
-        feat_a = self.temporal_embed(feat_a_token,rotary_embedding,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
+        feat_a = self.temporal_embed(feat_a_token,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
 
         if self.use_gnn:
             batch_s = torch.cat(
@@ -550,7 +551,7 @@ class SMARTAgentDecoder(nn.Module):
 
 
         else:
-            sinusoidal_a = rotary_embedding(pos_a, head_a)
+            sinusoidal_a = self.rotary_embedding(pos_a, head_a)
             lengths_a = torch.bincount(tokenized_agent["batch"]).tolist()
             padded_a_feature = self.padding(feat_a, lengths_a)
             feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
