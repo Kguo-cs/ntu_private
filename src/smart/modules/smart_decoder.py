@@ -206,7 +206,7 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature_new={}
                 for key in map_feature.keys():
-                    map_feature_new[key] = map_feature_new[key].detach()
+                    map_feature_new[key] = map_feature[key].detach()
                 tokenized_map["map_feature"] = map_feature_new
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature)
