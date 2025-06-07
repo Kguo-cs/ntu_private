@@ -291,7 +291,7 @@ class SMARTAgentDecoder(nn.Module):
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
 
-        edge_index_a2a = radiusGraphNearest(x=pos_s[:, :2],
+        edge_index_a2a = radiusGraphNearest_head(x=pos_s[:, :2],
                                             x_heading=head_s,
                                             r=self.a2a_radius,
                                             batch=batch_s,
