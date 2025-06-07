@@ -201,7 +201,7 @@ class SMARTAgentDecoder(nn.Module):
 
         # if self.mixing:
         #     self.Q_mixer = QattenMixer(hidden_dim, 4)
-        #     self.V_mixer = QattenMixer(hidden_dim, 4)
+            #self.V_mixer = QattenMixer(hidden_dim, 4)
 
         self.apply(weight_init)
 
@@ -691,6 +691,8 @@ class SMARTAgentDecoder(nn.Module):
 
             agent_mask=(~state_mask).all(1)[:,None]
 
+            state_mask=~agent_mask.repeat(1,state_mask.shape[1],1)
+
             total_q=(agent_qs*agent_mask).sum(dim=2)
 
             #total_q=self.Q_mixer(agent_qs.flatten(0,1), states[:,:-1].flatten(0,1),agent_states[:,:-1].flatten(0,1),state_mask[:,:-1].flatten(0,1)).reshape(-1,Q.shape[1])
@@ -701,7 +703,7 @@ class SMARTAgentDecoder(nn.Module):
 
             total_v=(agent_value*agent_mask).sum(dim=2)
 
-            #total_v=self.V_mixer(agent_value.flatten(0,1),states.flatten(0,1),agent_states.flatten(0,1),state_mask.flatten(0,1)).reshape(-1,V.shape[1])
+            #total_v=self.Q_mixer(agent_value.flatten(0,1),states.flatten(0,1),agent_states.flatten(0,1),state_mask.flatten(0,1)).reshape(-1,V.shape[1])
         else:
             total_q=0
             total_v=0

@@ -38,7 +38,11 @@ class QattenMixer(nn.Module):
 
         self.scaled_product_value = np.sqrt(self.n_query_embedding_layer2)
 
-        self.head_embedding_layer = nn.Sequential(nn.Linear(self.state_dim, self.n_head_embedding_layer1),
+        self.type="weigthed"
+
+        if self.type=="weigthed":
+
+            self.head_embedding_layer = nn.Sequential(nn.Linear(self.state_dim, self.n_head_embedding_layer1),
                                                   nn.ReLU(),
                                                   nn.Linear(self.n_head_embedding_layer1, self.n_head_embedding_layer2))
 
@@ -46,7 +50,6 @@ class QattenMixer(nn.Module):
                                                    nn.ReLU(),
                                                    nn.Linear(self.n_constrant_value, 1))
 
-        self.type="weighted"
 
     def forward(self, agent_qs, states,agent_states,attention_mask):
         bs = agent_qs.size(0)
@@ -69,6 +72,8 @@ class QattenMixer(nn.Module):
             # shape: [-1, 1, n_agent]
             attn = torch.matmul(state_embedding, u_embedding) / self.scaled_product_value
 
+            #attn=torch.ones_like(attn)
+
             if attention_mask is not None:
                 attn_bias = torch.where(attention_mask[:,None], -1e9, 0.)
                 attn.add_(attn_bias)
@@ -89,7 +94,7 @@ class QattenMixer(nn.Module):
         # shape: [-1, 1, n_attention_head]
         q_h = torch.matmul(agent_qs, q_lambda_list)
 
-        if self.type == 'weighted':
+        if self.type == 'weigthed':
             # shape: [-1, n_attention_head, 1]
             w_h = torch.abs(self.head_embedding_layer(states))
             w_h = w_h.reshape(-1, self.n_head_embedding_layer2, 1)
@@ -102,7 +107,7 @@ class QattenMixer(nn.Module):
             sum_q_h = q_h.sum(-1)
             sum_q_h = sum_q_h.reshape(-1, 1)
 
-        c = self.constrant_value_layer(states)
+        c = 0#self.constrant_value_layer(states)
         q_tot = sum_q_h + c
         q_tot = q_tot.view(bs, -1, 1)
         return q_tot
