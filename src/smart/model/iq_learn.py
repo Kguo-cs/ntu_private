@@ -285,11 +285,10 @@ class IQ_SoftQ(LightningModule):
         if not self.finetune:
             loss =expert_nll
         else:
-            if len(self.replay_buffer)==0 or self.global_step % self.rollout_freq== 0:
+            if self.global_step % self.rollout_freq== 0:
                 tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
 
-            if len(self.replay_buffer)>1:
-                tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
+            tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
 
 
             if self.encoder.agent_encoder.pred_light:
