@@ -199,10 +199,15 @@ class SMARTDecoder(nn.Module):
             #tokenized_map=self.filter_map(tokenized_map, tokenized_agent)
 
             map_feature = self.map_encoder(tokenized_map)
-            map_feature_dict={}
-            for key in map_feature.keys():
-                map_feature_dict[key] = map_feature[key].detach()
-            tokenized_map["map_feature"] = map_feature_dict
+
+            if "token_traj_all" not in tokenized_agent.keys():
+                for key in map_feature.keys():
+                    map_feature[key] = map_feature[key].detach()
+            else:
+                map_feature_new={}
+                for key in map_feature.keys():
+                    map_feature_new[key] = map_feature_new[key].detach()
+                tokenized_map["map_feature"] = map_feature_new
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 
