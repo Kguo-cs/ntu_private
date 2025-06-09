@@ -24,7 +24,7 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=100)
+            self.replay_buffer = deque(maxlen=40)
 
         self.finetune = True#model_config.finetune
         self.use_target_q=False
@@ -58,10 +58,10 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
 
         if "sampled_idx" in pred.keys():
-            for key in ["sampled_pos", "sampled_heading", "sampled_idx", "valid_mask", "type", "shape"]:
+            for key in ["sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
                 tokenized_agent_rollout[key] = pred[key]
 
-            tokenized_agent_rollout['batch'] = tokenized_agent['batch']
+            tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
 
         if "light_idx" in pred.keys():
             tokenized_agent_rollout['light_idx'] = pred['light_idx']
@@ -169,7 +169,7 @@ class IQ_SoftQ(LightningModule):
                 state_mask = light_valid_mask[:, 1:-1]
                 agent_num=0
 
-        action=action.reshape(-1)
+        action=action.reshape(-1).long()
         action_mask= valid_mask[:, 1:]
         all_valid_mask=valid_mask.all(-1)
         train_mask=all_valid_mask
@@ -309,7 +309,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
             div = 'x2'
-            alpha = 0.5
+            alpha = 1
             eps = 1e-3
 
             if div == "lsif":
@@ -374,11 +374,12 @@ class IQ_SoftQ(LightningModule):
             for key in ["position", "orientation", "batch","token_idx", "type", "pl_type","light_type"]:
                 tokenized_map[key] = map[key]
 
-            for key in ["sampled_pos", "sampled_heading", "type","batch", "shape"]:
+            tokenized_map['batch'] = tokenized_map['batch'].to(torch.int8)
+
+            for key in ["sampled_pos", "sampled_heading", "type","batch", "shape","sampled_idx","valid_mask"]:
                 tokenized_agent[key] = agent[key]
 
-            tokenized_agent['sampled_idx'] = agent["sampled_idx"].long()
-            tokenized_agent["valid_mask"] = agent["valid_mask"]
+            tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int8)
 
             agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
                 agent['type']

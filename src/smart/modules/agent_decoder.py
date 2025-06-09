@@ -651,7 +651,7 @@ class SMARTAgentDecoder(nn.Module):
                 "q_value": next_light_logits[:, 1:]
             }
 
-        sampled_idx=tokenized_agent["sampled_idx"]
+        sampled_idx=tokenized_agent["sampled_idx"].long()
         mask = tokenized_agent["valid_mask"]
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
@@ -753,7 +753,7 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,lg_features,current_len,max_len):
 
-        sampled_idx=tokenized_agent["sampled_idx"][:, :current_len].clone()
+        sampled_idx=tokenized_agent["sampled_idx"][:, :current_len].clone().long()
         mask = tokenized_agent["valid_mask"][:, :current_len].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_len].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_len].clone()
@@ -839,6 +839,7 @@ class SMARTAgentDecoder(nn.Module):
         out_dict = {
             "type": tokenized_agent["type"],
             "shape": tokenized_agent["shape"],
+            "batch":tokenized_agent["batch"],
             "sampled_pos": pos_a,  # [n_agent, 18, 2]
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
