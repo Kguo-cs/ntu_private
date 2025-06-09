@@ -63,7 +63,7 @@ if __name__ == "__main__":
     n_trajs = 2048 * 100  # 2e5
     load_data_from_file = False
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_555_s2.pkl"
+    out_file_name = "agent_vocab_555_s2_train.pkl"
     tol_dist = [0.05, 0.05, 0.05]  # veh, ped, cyc
 
     # ! don't change these params
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         ]
         dataloader = DataLoader(
             dataset=MultiDataset(
-                raw_dir=data_cache_path / "full/validation", transform=lambda x: HeteroData(x)
+                raw_dir=data_cache_path / "full/training_a", transform=lambda x: HeteroData(x)
             ),
             batch_size=32,
             shuffle=False,
