@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -309,7 +309,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
             div = 'x2'
-            alpha = 2
+            alpha = 1
             eps = 1e-3
 
             if div == "lsif":

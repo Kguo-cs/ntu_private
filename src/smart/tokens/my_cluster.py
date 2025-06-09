@@ -60,17 +60,17 @@ def Kdisk_cluster(
 
 if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
-    n_trajs = 2048 * 100  # 2e5
-    load_data_from_file = True
+    n_trajs = 2048 * 1000  # 2e5
+    load_data_from_file = False
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_555_s2_4096.pkl"
+    out_file_name = "agent_vocab_555_s2_4096_1000.pkl"
     tol_dist = [0.05, 0.05, 0.05]  # veh, ped, cyc
 
     # ! don't change these params
     shift = 5  # motion token time dimension
     num_cluster = 4096  # vocabulary size
     n_step = 91
-    data_file_path = data_cache_path / "kdisk_trajs.pkl"
+    data_file_path = data_cache_path / "kdisk_trajs1000.pkl"
     if load_data_from_file:
         with open(data_file_path, "rb") as f:
             data = pickle.load(f)
@@ -84,9 +84,9 @@ if __name__ == "__main__":
             dataset=MultiDataset(
                 raw_dir=data_cache_path / "full/training_a", transform=lambda x: HeteroData(x)
             ),
-            batch_size=32,
+            batch_size=1,
             shuffle=False,
-            num_workers=32,
+            #num_workers=32,
             drop_last=False,
         )
 

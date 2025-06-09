@@ -12,7 +12,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_4096 shanhelo
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_4096 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light_inter10 zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_4096 zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_a /home/ke/code/catk/src/waymo_data/full/
 
