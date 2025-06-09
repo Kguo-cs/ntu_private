@@ -24,13 +24,13 @@ class IQ_SoftQ(LightningModule):
         if self.batch_replay:
             self.replay_buffer = deque(maxlen=4000)
         else:
-            self.replay_buffer = deque(maxlen=100)
+            self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
-        self.rollout_freq=10
+        self.rollout_freq=1
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -68,13 +68,14 @@ class IQ_SoftQ(LightningModule):
             for key in ["lengths_lg", "sinusoidal_lg", "batch_lg"]:
                 tokenized_agent_rollout[key] = tokenized_agent[key]
 
-        tokenized_map_rollout = {}
+        if self.rollout_freq > 1:
+            tokenized_map_rollout = {}
 
-        for key in tokenized_map.keys():
-            if key !="map_feature":
-                tokenized_map_rollout[key]=tokenized_map[key]
+            for key in tokenized_map.keys():
+                if key !="map_feature":
+                    tokenized_map_rollout[key]=tokenized_map[key]
 
-        self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
+            self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
         return tokenized_map,tokenized_agent_rollout
 
@@ -287,9 +288,8 @@ class IQ_SoftQ(LightningModule):
         else:
             if self.global_step % self.rollout_freq== 0:
                 tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
-
-            tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
-
+            else:
+                tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
 
             if self.encoder.agent_encoder.pred_light:
 

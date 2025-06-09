@@ -14,6 +14,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light_inter10 ke@10.8
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_light_inter10 zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
+rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_a /home/ke/code/catk/src/waymo_data/full/
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
