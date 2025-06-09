@@ -374,12 +374,12 @@ class IQ_SoftQ(LightningModule):
             for key in ["position", "orientation", "batch","token_idx", "type", "pl_type","light_type"]:
                 tokenized_map[key] = map[key]
 
-            tokenized_map['batch'] = tokenized_map['batch'].to(torch.int8)
+            tokenized_map['batch'] = tokenized_map['batch'].to(torch.int16)
 
             for key in ["sampled_pos", "sampled_heading", "type","batch", "shape","sampled_idx","valid_mask"]:
                 tokenized_agent[key] = agent[key]
 
-            tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int8)
+            tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int16)
 
             agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
                 agent['type']
