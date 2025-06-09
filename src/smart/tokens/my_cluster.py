@@ -61,14 +61,14 @@ def Kdisk_cluster(
 if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
     n_trajs = 2048 * 100  # 2e5
-    load_data_from_file = False
+    load_data_from_file = True
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_555_s2_train.pkl"
+    out_file_name = "agent_vocab_555_s2_4096.pkl"
     tol_dist = [0.05, 0.05, 0.05]  # veh, ped, cyc
 
     # ! don't change these params
     shift = 5  # motion token time dimension
-    num_cluster = 2048  # vocabulary size
+    num_cluster = 4096  # vocabulary size
     n_step = 91
     data_file_path = data_cache_path / "kdisk_trajs.pkl"
     if load_data_from_file:
