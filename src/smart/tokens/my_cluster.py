@@ -64,12 +64,12 @@ if __name__ == "__main__":
     n_trajs = 2048 * 100  # 2e5
     load_data_from_file = True
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_323_s2_8192.pkl"
-    tol_dist = [0.03, 0.02, 0.03]  # veh, ped, cyc
+    out_file_name = "agent_vocab_444_s2_4096.pkl"
+    tol_dist = [0.04, 0.04, 0.04]  # veh, ped, cyc
 
     # ! don't change these params
     shift = 5  # motion token time dimension
-    num_cluster = 8192  # vocabulary size
+    num_cluster = 4096  # vocabulary size
     n_step = 91
     data_file_path = data_cache_path / "kdisk_trajs.pkl"
     if load_data_from_file:
@@ -184,3 +184,19 @@ if __name__ == "__main__":
 
     with open(Path(__file__).resolve().parent / out_file_name, "wb") as f:
         pickle.dump(res, f)
+
+
+# veh 0.05
+# veh i=2047, remain=5.84%, n_inside=1
+# ped 0.05
+# ped i=2047, remain=1.49%, n_inside=4
+# cyc 0.05
+# cyc i=2047, remain=3.26%, n_inside=13
+
+
+# veh 0.04
+# veh i=4095, remain=4.89%, n_inside=1
+# ped 0.04
+# ped i=4095, remain=0.89%, n_inside=2
+# cyc 0.04
+# cyc i=4095, remain=2.58%, n_inside=1

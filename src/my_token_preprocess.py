@@ -21,14 +21,14 @@ from src.smart.tokens.my_token_processor import TokenProcessor
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
     map_token_file="map_traj_token5.pkl",
-    agent_token_file="agent_vocab_555_s2_4096.pkl",
+    agent_token_file="agent_vocab_323_s2_8192.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0}
 ).cuda()
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_4096/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_8192/"
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
 agent_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"#_light
