@@ -72,7 +72,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
 
-        self.alpha = 0.05
+        self.alpha = 0.1
 
         self.head_dim = hidden_dim // num_heads
 
