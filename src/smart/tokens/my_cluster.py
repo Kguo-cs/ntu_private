@@ -30,6 +30,7 @@ def Kdisk_cluster(
     N,  # int
     tol,  # float
     a_pos,  # [n_trajs, 6, 3], the complete segment
+    k,
     cal_mean_heading=True,
 ):
     n_total = X.shape[0]
@@ -53,24 +54,24 @@ def Kdisk_cluster(
 
         remain = X.shape[0] * 100.0 / n_total
         n_inside = (~res_mask).sum().item()
-        print(f"{i=}, {remain=:.2f}%, {n_inside=}")
+    print(k,f"{i=}, {remain=:.2f}%, {n_inside=}")
 
     return torch.cat(ret_traj_list, dim=0)  # [N, 6, 3]
 
 
 if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
-    n_trajs = 2048 * 1000  # 2e5
-    load_data_from_file = False
+    n_trajs = 2048 * 100  # 2e5
+    load_data_from_file = True
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_555_s2_4096_1000.pkl"
-    tol_dist = [0.05, 0.05, 0.05]  # veh, ped, cyc
+    out_file_name = "agent_vocab_323_s2_8192.pkl"
+    tol_dist = [0.03, 0.02, 0.03]  # veh, ped, cyc
 
     # ! don't change these params
     shift = 5  # motion token time dimension
-    num_cluster = 4096  # vocabulary size
+    num_cluster = 8192  # vocabulary size
     n_step = 91
-    data_file_path = data_cache_path / "kdisk_trajs1000.pkl"
+    data_file_path = data_cache_path / "kdisk_trajs.pkl"
     if load_data_from_file:
         with open(data_file_path, "rb") as f:
             data = pickle.load(f)
@@ -171,7 +172,7 @@ if __name__ == "__main__":
         elif k == "cyc":
             tol = tol_dist[2]
         print(k, tol)
-        ret_traj = Kdisk_cluster(X=contour, N=num_cluster, tol=tol, a_pos=v)
+        ret_traj = Kdisk_cluster(X=contour, N=num_cluster, tol=tol, a_pos=v,k=k)
         ret_traj[:, :, -1] = wrap_angle(ret_traj[:, :, -1])
 
         contour = cal_polygon_contour(
