@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc64_pt20_map_share_head #_mixx2 #
+task_name: bc64_pt20_map_share_head_mixx2_alpha1 #
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
