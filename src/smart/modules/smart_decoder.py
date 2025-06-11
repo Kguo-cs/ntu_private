@@ -53,7 +53,7 @@ class SMARTDecoder(nn.Module):
     ) -> None:
         super(SMARTDecoder, self).__init__()
 
-        self.tokenizer_training=True
+        self.tokenizer_training=False
 
         self.alpha = 0.1
 
