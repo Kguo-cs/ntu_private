@@ -23,6 +23,8 @@ from .map_decoder import SMARTMapDecoder
 from .kl_loss import  BalancedKL
 from torch_scatter import scatter_mean,scatter_max
 from .build_edge import  radiusGraphNearest2
+from .vq_vae import  VQVAE
+
 
 class SMARTDecoder(nn.Module):
 
@@ -51,39 +53,48 @@ class SMARTDecoder(nn.Module):
     ) -> None:
         super(SMARTDecoder, self).__init__()
 
-        self.map_encoder = SMARTMapDecoder(
-            hidden_dim=hidden_dim,
-            pl2pl_radius=pl2pl_radius,
-            num_freq_bands=num_freq_bands,
-            num_layers=num_map_layers,
-            num_heads=num_heads,
-            head_dim=head_dim,
-            dropout=dropout,
-            pt2pt_neighbor=pt2pt_neighbor,
-            token_processor=token_processor
-        )
+        self.tokenizer_training=True
 
-        self.agent_encoder = SMARTAgentDecoder(
-            hidden_dim=hidden_dim,
-            num_historical_steps=num_historical_steps,
-            num_future_steps=num_future_steps,
-            time_span=time_span,
-            pl2a_radius=pl2a_radius,
-            a2a_radius=a2a_radius,
-            num_freq_bands=num_freq_bands,
-            num_layers=num_agent_layers,
-            num_heads=num_heads,
-            head_dim=head_dim,
-            dropout=dropout,
-            hist_drop_prob=hist_drop_prob,
-            n_token_agent=n_token_agent,
-            pt2a_neighbor=pt2a_neighbor,
-            a2a_neighbor=a2a_neighbor,
-            token_processor=token_processor
-        )
+        self.alpha = 0.1
 
-        self.pl2a_radius=pl2a_radius
-        self.pt2a_neighbor=pt2a_neighbor
+        if self.tokenizer_training:
+            self.vq_vae=VQVAE(token_processor)
+
+        else:
+            self.map_encoder = SMARTMapDecoder(
+                hidden_dim=hidden_dim,
+                pl2pl_radius=pl2pl_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_map_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                pt2pt_neighbor=pt2pt_neighbor,
+                token_processor=token_processor
+            )
+
+            self.agent_encoder = SMARTAgentDecoder(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=time_span,
+                pl2a_radius=pl2a_radius,
+                a2a_radius=a2a_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_agent_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                hist_drop_prob=hist_drop_prob,
+                n_token_agent=n_token_agent,
+                pt2a_neighbor=pt2a_neighbor,
+                a2a_neighbor=a2a_neighbor,
+                token_processor=token_processor,
+                alpha=self.alpha
+            )
+
+            self.pl2a_radius=pl2a_radius
+            self.pt2a_neighbor=pt2a_neighbor
 
 
     def scene_centric(self,pos,heading,centering_pos,centering_heading,batch):
@@ -188,6 +199,7 @@ class SMARTDecoder(nn.Module):
             if key != 'token_traj_src':
                 tokenized_map[key] = tokenized_map[key][used_mask]
         return  tokenized_map
+
 
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],kl_loss=True

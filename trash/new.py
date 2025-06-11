@@ -30,12 +30,12 @@ from src.smart.utils import (
     weight_init,
     wrap_angle,
 )
-from .kl_loss import DiagGaussian
+from src.smart.modules.kl_loss import DiagGaussian
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from .build_edge import radiusGraphNearest, radiusGraphNearest2, positionalencoding1d, generate_causal_mask, \
+from src.smart.modules.build_edge import radiusGraphNearest, radiusGraphNearest2, positionalencoding1d, generate_causal_mask, \
     generate_limited_causal_mask
 from torch.nn.utils.rnn import pad_sequence
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope, \
+from src.smart.layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope, \
     general_rope1
 
 

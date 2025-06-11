@@ -8,7 +8,7 @@ vq = VectorQuantize(
     commitment_weight = 1.   # the weight on the commitment loss
 )
 
-x = torch.randn(1, 1024, 256)
+x = torch.randn(1, 1024, 256) # encoded
 
 x.requires_grad_()
 

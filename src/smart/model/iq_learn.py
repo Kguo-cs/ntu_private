@@ -1,4 +1,6 @@
 import copy
+
+from keras.integration_test.models.bert import loss_fn
 from lightning import LightningModule
 import random
 from collections import deque
@@ -17,7 +19,7 @@ class IQ_SoftQ(LightningModule):
         super(IQ_SoftQ, self).__init__(model_config)
 
         self.gamma = 0.99
-        self.alpha = self.encoder.agent_encoder.alpha
+        self.alpha = self.encoder.alpha
 
         self.batch_replay=False
 
@@ -425,6 +427,19 @@ class IQ_SoftQ(LightningModule):
         return tokenized_map, tokenized_agent
 
     def training_step(self, data, batch_idx):
+
+        if self.encoder.tokenizer_training:
+
+            commit_loss,rec_loss,dist=self.encoder.vq_vae(data)
+
+            loss=commit_loss+rec_loss
+
+            self.log("train/loss", loss, on_step=True, batch_size=1)
+            self.log("train/commit_loss", commit_loss, on_step=True, batch_size=1)
+            self.log("train/rec_loss", rec_loss, on_step=True, batch_size=1)
+            self.log("train/dist", dist, on_step=True, batch_size=1)
+
+            return loss
 
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
