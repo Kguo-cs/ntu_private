@@ -16,14 +16,14 @@ class FourierEmbedding(nn.Module):
 
         self.freqs = nn.Embedding(input_dim, num_freq_bands) if input_dim != 0 else None
 
-        self.share=False
+        self.share=True
 
         if self.share:
             self.mlp = nn.Sequential(
-                nn.Linear((num_freq_bands * 2 + 1)*input_dim, hidden_dim*input_dim),
-                nn.LayerNorm(hidden_dim*input_dim),
+                nn.Linear((num_freq_bands * 2 + 1)*input_dim, hidden_dim),
+                nn.LayerNorm(hidden_dim),
                 nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim*input_dim, hidden_dim),
+                nn.Linear(hidden_dim, hidden_dim),
             )
         else:
             self.mlps = nn.ModuleList(
