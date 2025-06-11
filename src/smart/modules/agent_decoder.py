@@ -201,7 +201,7 @@ class SMARTAgentDecoder(nn.Module):
         # if self.mixing:
         #     self.Q_mixer = QattenMixer(hidden_dim, 4)
             #self.V_mixer = QattenMixer(hidden_dim, 4)
-        self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
+        #self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
         self.token_processor= token_processor
 
         self.apply(weight_init)
@@ -427,10 +427,10 @@ class SMARTAgentDecoder(nn.Module):
 
         time = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
 
-        # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
-        #
-        # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
-        sinusoidal_pos=self.rotary_embedding(pos,heading,time)
+        pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
+
+        sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
+        #sinusoidal_pos=self.rotary_embedding(pos,heading,time)
 
         if mask is not None:
             causal_mask = causal_mask[None,None] | mask[:,None,None,:]
