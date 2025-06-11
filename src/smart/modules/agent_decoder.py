@@ -72,7 +72,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
 
-        self.alpha = 1 #0.1
+        self.alpha = 0.1
 
         self.head_dim = hidden_dim // num_heads
 
@@ -392,7 +392,7 @@ class SMARTAgentDecoder(nn.Module):
                                               r=self.pl2a_radius,
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
-                                              max_num_neighbors=30)
+                                              max_num_neighbors=20)
 
         # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
         #                                       y=pos_pl[:, :2],
