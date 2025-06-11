@@ -9,6 +9,9 @@ vq = VectorQuantize(
 )
 
 x = torch.randn(1, 1024, 256)
+
+x.requires_grad_()
+
 quantized, indices, commit_loss = vq(x) # (1, 1024, 256), (1, 1024), (1)
 
 print(quantized, indices, commit_loss)

@@ -18,7 +18,6 @@ import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 from torch_geometric.utils import dense_to_sparse, subgraph
-from torch_scatter import scatter_mean
 
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer
@@ -428,9 +427,9 @@ class SMARTAgentDecoder(nn.Module):
 
         time = torch.arange(n_current, n_step + n_current, device=feature.device)[None,:, None]
 
-        #positions=torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
-
-        #sinusoidal_pos = general_rope(positions, self.head_dim,heading)
+        # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
+        #
+        # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
         sinusoidal_pos=self.rotary_embedding(pos,heading,time)
 
         if mask is not None:
