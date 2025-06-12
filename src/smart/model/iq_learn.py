@@ -256,33 +256,35 @@ class IQ_SoftQ(LightningModule):
         #valid_mask=valid_mask & col_mask
 
         # Convert bool to int for cumulative sum
-        #valid_int = valid_mask.int()
+        valid_int = valid_mask.int()
 
-        # H=6
-        #
-        # # Compute rolling sum over past H steps using cumsum
-        # cumsum = torch.cumsum(valid_int, dim=1)  # [N, T]
-        # # Initialize past_valid as all False
-        # past_valid = torch.zeros_like(valid_mask, dtype=torch.bool)
-        #
-        # # For t < H → past is valid if all [0:t+1] are valid → cumsum[:, t] == t+1
-        # for t in range(H):
-        #     past_valid[:, t] = cumsum[:, t] == (t + 1)
-        #
-        # # For t >= H → past H steps must be valid → cumsum[:, t] - cumsum[:, t - H] == H
-        # past_valid[:, H:] = (cumsum[:, H:] - cumsum[:, :-H]) == H
+        H=6
+
+        # Compute rolling sum over past H steps using cumsum
+        cumsum = torch.cumsum(valid_int, dim=1)  # [N, T]
+        # Initialize past_valid as all False
+        past_valid = torch.zeros_like(valid_mask, dtype=torch.bool)
+
+        # For t < H → past is valid if all [0:t+1] are valid → cumsum[:, t] == t+1
+        for t in range(H):
+            past_valid[:, t] = cumsum[:, t] == (t + 1)
+
+        # For t >= H → past H steps must be valid → cumsum[:, t] - cumsum[:, t - H] == H
+        past_valid[:, H:] = (cumsum[:, H:] - cumsum[:, :-H]) == H
         #
         # # ---- Step 2: Future validity using cumulative product from right ----
         # # Compute cumulative AND from right to left
-        future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
+        # future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
+        #
+        # hist_valid=valid_mask.cumprod(dim=1)
+        #
+        # begin_mask = hist_valid[:, :6] &  future_valid[:,:6]
+        #
+        # fut_mask= future_valid[:,:-7]
+        #
+        # train_mask=torch.cat([begin_mask,fut_mask],dim=1)
 
-        hist_valid=valid_mask.cumprod(dim=1)
-
-        begin_mask = hist_valid[:, :6] &  future_valid[:,:6]
-
-        fut_mask= future_valid[:,:-7]
-
-        train_mask=torch.cat([begin_mask,fut_mask],dim=1)
+        train_mask = past_valid[:,:-1] & valid_mask[:, 1:]
 
         #train_mask=valid_mask.all(-1)
 
