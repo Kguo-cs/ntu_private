@@ -257,31 +257,31 @@ class IQ_SoftQ(LightningModule):
         valid_mask=valid_mask & col_mask
 
         # Convert bool to int for cumulative sum
-        valid_int = valid_mask.int()
+        #valid_int = valid_mask.int()
 
-        H=6
-
-        # Compute rolling sum over past H steps using cumsum
-        cumsum = torch.cumsum(valid_int, dim=1)  # [N, T]
-        # Initialize past_valid as all False
-        past_valid = torch.zeros_like(valid_mask, dtype=torch.bool)
-
-        # For t < H → past is valid if all [0:t+1] are valid → cumsum[:, t] == t+1
-        for t in range(H):
-            past_valid[:, t] = cumsum[:, t] == (t + 1)
-
-        # For t >= H → past H steps must be valid → cumsum[:, t] - cumsum[:, t - H] == H
-        past_valid[:, H:] = (cumsum[:, H:] - cumsum[:, :-H]) == H
-
-        # ---- Step 2: Future validity using cumulative product from right ----
-        # Compute cumulative AND from right to left
-        future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
-        # Shift right by 1: valid only if all future steps strictly after t are True
-        future_valid[:, :-1] = future_valid[:, 1:]
-        future_valid[:, -1] = True  # No future after last step
+        # H=6
+        #
+        # # Compute rolling sum over past H steps using cumsum
+        # cumsum = torch.cumsum(valid_int, dim=1)  # [N, T]
+        # # Initialize past_valid as all False
+        # past_valid = torch.zeros_like(valid_mask, dtype=torch.bool)
+        #
+        # # For t < H → past is valid if all [0:t+1] are valid → cumsum[:, t] == t+1
+        # for t in range(H):
+        #     past_valid[:, t] = cumsum[:, t] == (t + 1)
+        #
+        # # For t >= H → past H steps must be valid → cumsum[:, t] - cumsum[:, t - H] == H
+        # past_valid[:, H:] = (cumsum[:, H:] - cumsum[:, :-H]) == H
+        #
+        # # ---- Step 2: Future validity using cumulative product from right ----
+        # # Compute cumulative AND from right to left
+        # future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
+        # # Shift right by 1: valid only if all future steps strictly after t are True
+        # future_valid[:, :-1] = future_valid[:, 1:]
+        # future_valid[:, -1] = True  # No future after last step
 
         # ---- Final step mask ----
-        train_mask = past_valid & future_valid  # [N, T]
+        train_mask =valid_mask.all(-1) #past_valid & future_valid  # [N, T]
 
         #train_mask=valid_mask.all(-1)
 
