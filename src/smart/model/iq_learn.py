@@ -281,7 +281,7 @@ class IQ_SoftQ(LightningModule):
         # future_valid[:, -1] = True  # No future after last step
 
         # ---- Final step mask ----
-        train_mask =future_valid #valid_mask.all(-1) #past_valid & future_valid  # [N, T]
+        train_mask =future_valid.to(bool) #valid_mask.all(-1) #past_valid & future_valid  # [N, T]
 
         #train_mask=valid_mask.all(-1)
 
