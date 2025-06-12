@@ -209,7 +209,6 @@ class IQ_SoftQ(LightningModule):
 
         self.get_return(reward,log_prob,current_Q,V,all_valid_mask,key)
 
-
         reward = reward[train_mask]
 
         value_loss=value_loss[train_mask]
@@ -252,9 +251,9 @@ class IQ_SoftQ(LightningModule):
         # fut_valid=fut_valid.flip(1)[:,:-1]
         #
         # print(torch.all(fut_valid[:,0]==fut_valid[:,-1]))
-        col_mask= ~tokenized_agent["col_mask"][:,1:]
+      #  col_mask= ~tokenized_agent["col_mask"][:,1:]
 
-        valid_mask=valid_mask & col_mask
+        #valid_mask=valid_mask & col_mask
 
         # Convert bool to int for cumulative sum
         #valid_int = valid_mask.int()
