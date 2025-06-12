@@ -28,7 +28,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -276,14 +276,9 @@ class IQ_SoftQ(LightningModule):
         # # ---- Step 2: Future validity using cumulative product from right ----
         # # Compute cumulative AND from right to left
         future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
-        # Shift right by 1: valid only if all future steps strictly after t are True
-        future_valid[:, :-1] = future_valid[:, 1:]
-        future_valid[:, -1] = True  # No future after last step
 
-        # ---- Final step mask ----
-        train_mask = future_valid.to(bool) & valid_mask #valid_mask.all(-1) #past_valid & future_valid  # [N, T]
 
-        train_mask= train_mask[:,1:] & train_mask[:,:-1]
+        train_mask= future_valid[:,:-1]
 
         #train_mask=valid_mask.all(-1)
 
