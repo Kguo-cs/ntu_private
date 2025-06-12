@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 
 from src.smart.utils import weight_init
+from torch.func import vmap
 
 
 class FourierEmbedding(nn.Module):
@@ -63,9 +64,18 @@ class FourierEmbedding(nn.Module):
                 # Apply shared MLP across all dims
                 x = self.mlp(x.reshape(x.shape[0],-1))# [B, D, H]
             else:
-                continuous_embs: List[Optional[torch.Tensor]] = [None] * self.input_dim
-                for i in range(self.input_dim):
-                    continuous_embs[i] = self.mlps[i](x[:, i])
+
+                x_split = [x[:, i] for i in range(self.input_dim)]  # list of [B, F]
+
+                # Apply each mlp to its slice using vmap
+                def apply_mlp(mlp, x_i):
+                    return mlp(x_i)  # [B, H]
+
+                # vmap over mlps and inputs: returns [D, B, H]
+                continuous_embs = vmap(apply_mlp)(self.mlps, x_split)
+                #continuous_embs: List[Optional[torch.Tensor]] = [None] * self.input_dim
+                # for i in range(self.input_dim):
+                #     continuous_embs[i] = self.mlps[i](x[:, i])
                 x = torch.stack(continuous_embs).sum(dim=0)
             if categorical_embs is not None:
                 x = x + torch.stack(categorical_embs).sum(dim=0)
