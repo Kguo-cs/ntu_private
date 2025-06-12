@@ -23,7 +23,6 @@ from .map_decoder import SMARTMapDecoder
 from .kl_loss import  BalancedKL
 from torch_scatter import scatter_mean,scatter_max
 from .build_edge import  radiusGraphNearest2
-from .vq_vae import  VQVAE
 
 
 class SMARTDecoder(nn.Module):
@@ -58,6 +57,8 @@ class SMARTDecoder(nn.Module):
         self.alpha = 0.1
 
         if self.tokenizer_training:
+            from .vq_vae import VQVAE
+
             self.vq_vae=VQVAE(token_processor)
 
         else:

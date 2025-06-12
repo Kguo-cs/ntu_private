@@ -426,6 +426,7 @@ class IQ_SoftQ(LightningModule):
 
         return tokenized_map, tokenized_agent
 
+
     def training_step(self, data, batch_idx):
 
         if self.encoder.tokenizer_training:
