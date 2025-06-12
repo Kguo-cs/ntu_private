@@ -5,8 +5,6 @@ import torch
 import torch.nn as nn
 
 from src.smart.utils import weight_init
-from torch.func import vmap
-
 
 class FourierEmbedding(nn.Module):
 
@@ -74,7 +72,9 @@ class FourierEmbedding(nn.Module):
                 # # vmap over mlps and inputs: returns [D, B, H]
                 # continuous_embs = vmap(apply_mlp)(self.mlps, x_split)
                 #continuous_embs: List[Optional[torch.Tensor]] = [None] * self.input_dim
-                continuous_embs = [self.mlps[i](x[:,i]) for i in range(self.input_dim)]
+                #continuous_embs = [self.mlps[i](x[:,i]) for i in range(self.input_dim)]
+                x_unpacked = torch.unbind(x, dim=1)  # List of [B, in_features] tensors
+                continuous_embs = [mlp(xi) for mlp, xi in zip(self.mlps, x_unpacked)]
 
                 # for i in range(self.input_dim):
                 #     continuous_embs[i] = self.mlps[i](x[:, i])
