@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=6:00:00 -P 12002486
 
 
 export PBS_JOBID=53662.pbs111
@@ -10,9 +10,9 @@ export PBS_JOBID=53662.pbs111
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_col shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_4096_444 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_col ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_4096_444 zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_col zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_a /home/ke/code/catk/src/waymo_data/full/
 
