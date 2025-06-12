@@ -175,7 +175,7 @@ class IQ_SoftQ(LightningModule):
         action=action.reshape(-1).long()
         action_mask= valid_mask[:, 1:]
         all_valid_mask=valid_mask.all(-1)
-        train_mask=all_valid_mask
+        #train_mask=all_valid_mask
 
         q, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,action_mask)
 
@@ -258,6 +258,7 @@ class IQ_SoftQ(LightningModule):
 
         # Convert bool to int for cumulative sum
         valid_int = valid_mask.int()
+
         H=6
 
         # Compute rolling sum over past H steps using cumsum
