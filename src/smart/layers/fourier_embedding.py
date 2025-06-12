@@ -65,15 +65,17 @@ class FourierEmbedding(nn.Module):
                 x = self.mlp(x.reshape(x.shape[0],-1))# [B, D, H]
             else:
 
-                x_split = [x[:, i] for i in range(self.input_dim)]  # list of [B, F]
-
-                # Apply each mlp to its slice using vmap
-                def apply_mlp(mlp, x_i):
-                    return mlp(x_i)  # [B, H]
-
-                # vmap over mlps and inputs: returns [D, B, H]
-                continuous_embs = vmap(apply_mlp)(self.mlps, x_split)
+                # x_split = [x[:, i] for i in range(self.input_dim)]  # list of [B, F]
+                #
+                # # Apply each mlp to its slice using vmap
+                # def apply_mlp(mlp, x_i):
+                #     return mlp(x_i)  # [B, H]
+                #
+                # # vmap over mlps and inputs: returns [D, B, H]
+                # continuous_embs = vmap(apply_mlp)(self.mlps, x_split)
                 #continuous_embs: List[Optional[torch.Tensor]] = [None] * self.input_dim
+                continuous_embs = [self.mlps[i](x[:,i]) for i in range(self.input_dim)]
+
                 # for i in range(self.input_dim):
                 #     continuous_embs[i] = self.mlps[i](x[:, i])
                 x = torch.stack(continuous_embs).sum(dim=0)
