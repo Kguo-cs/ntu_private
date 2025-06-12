@@ -276,8 +276,13 @@ class IQ_SoftQ(LightningModule):
         # # Compute cumulative AND from right to left
         future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
 
+        hist_valid=valid_mask.cumprod(dim=1)
 
-        train_mask= future_valid[:,:-1]
+        begin_mask = hist_valid[:, :6] &  future_valid[:,:6]
+
+        fut_mask= future_valid[:,:-7]
+
+        train_mask=torch.cat([begin_mask,fut_mask],dim=1)
 
         #train_mask=valid_mask.all(-1)
 
