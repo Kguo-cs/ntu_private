@@ -87,7 +87,7 @@ class VectorQuantizer(nn.Module):
 
 
 class VQVAE(nn.Module):
-    def __init__(self, token_processor,  n_embeddings=256, hidden_dim=128, beta=0.25):
+    def __init__(self, token_processor,   hidden_dim=128, beta=0.25):
         super(VQVAE, self).__init__()
 
         num_heads=8
@@ -106,11 +106,13 @@ class VQVAE(nn.Module):
 
         self.out_proj=nn.Linear(hidden_dim,3*self.shift)
 
-        # self.vector_quantization = VectorQuantizer(
+        n_embeddings=2048
+
+        # self.vq = VectorQuantizer(
         #     n_embeddings, hidden_dim, beta)
         self.vq = VectorQuantize(
             dim=hidden_dim,
-            codebook_size=512,  # codebook size
+            codebook_size=n_embeddings,  # codebook size
             decay=0.8,  # the exponential moving average decay, lower means the dictionary will change faster
             commitment_weight=1.  # the weight on the commitment loss
         )
@@ -149,20 +151,81 @@ class VQVAE(nn.Module):
         agent_type=data["agent"]["type"]
         agent_shape=data["agent"]["shape"]
 
+
         heading = self.token_processor._clean_heading(valid, heading)
 
         valid, pos, heading, vel = self.token_processor._extrapolate_agent_to_prev_token_step(
             valid, pos, heading, vel
         )
+        # token_agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
+        #     data["agent"]["type"]
+        # )
+        #
+        # token_dict = self.token_processor._match_agent_token(
+        #     valid=valid,
+        #     pos=pos,
+        #     heading=heading,
+        #     agent_shape=token_agent_shape,
+        #     token_traj=token_traj,
+        # )
+        #
+        # sampled_pos=token_dict["sampled_pos"]
+        # sampled_heading=token_dict["sampled_heading"]
+        #
+        # sampled_idx=token_dict["sampled_idx"]
+        #
+        # traj=token_traj_all[np.arange(len(sampled_idx))[:,None],sampled_idx]
+        #
+        # traj1=traj.reshape(len(traj)*18,-1,2)
+        #
+        # prev_pos=torch.concat([pos[:,:1],sampled_pos[:,:-1]],dim=1).reshape(-1,2)
+        # prev_head=torch.concat([heading[:,:1],sampled_heading[:,:-1]],dim=1).reshape(-1)
+        # #valid 0 & 5
+        # token_world_gt = transform_to_global(
+        #     pos_local=traj1,  # [n_agent, n_token*4, 2]
+        #     head_local=None,
+        #     pos_now=prev_pos,  # [n_agent, 2]
+        #     head_now=prev_head,  # [n_agent]
+        # )[0].view(traj.shape)
+        # #0,5,10
+        #
+        # prev_valid=torch.cat([valid[:,:1],token_dict["valid_mask"][:,:-1] ],dim=1)
+        #
+        # token_valid=prev_valid & token_dict["valid_mask"]
+        #
+        # sampled_contour=token_world_gt[:,:,1:].reshape(-1,90,4,2)
+        # sampled_valid=token_valid[:,:,None].repeat(1,1,5).reshape(-1,90)
+        # pred_pos=sampled_contour.mean(-2)
+        # diff_xy = sampled_contour[:, :, 0] - sampled_contour[:, :, 3]
+        # pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+        # sampled_pose=torch.cat([pred_pos,pred_head[...,None]],dim=-1)
+
+        # smapled_dist=torch.linalg.norm(gt_contour-sampled_contour,dim=-1)[sampled_valid].mean()
+        #smapled_dist=0
+
+        # smapled_pos1=sampled_contour.mean(-2)
+        #
+        # x=smapled_pos1[:,4::5]-sampled_pos#10 is avaliable
+
+        # last_pos=traj[:,:,-1].mean(-2)
+        
+        # relative_pos=sampled_pos[:,1:]-sampled_pos[:,:-1]
+        
+        
+        # traj1=token_traj[np.arange(len(sampled_idx))[:,None],sampled_idx]
+        
+        # last_pos1=traj1.mean(-2)
+
         pose = torch.cat([pos, heading.unsqueeze(-1)], dim=-1)
+
         rel_valid = valid[:, 1:] & valid[:, :-1]
 
-        mask = rel_valid.reshape(-1, 18, self.shift).all(dim=-1)
+        mask = rel_valid.reshape(-1, 18, self.shift).any(dim=-1)
 
         type_embedding = 0#self.type_a_emb(agent_type.long())[:,None]
         shape_embedding = 0 #self.shape_emb(agent_shape)[:,None]
 
-        z_q, mask_indices, commit_loss=self.tokenize(pose,mask,type_embedding,shape_embedding)
+        z_q,  commit_loss=self.tokenize(pose,mask,type_embedding,shape_embedding)
 
         z_q=z_q+type_embedding+shape_embedding
 
@@ -178,19 +241,21 @@ class VQVAE(nn.Module):
 
         out_pose=torch.cumsum(out_vel, dim=1)+pose[torch.arange(len(first_valid_step)),first_valid_step][:,None]
 
-        out_pose=torch.cat([pose[:,:1],out_pose], dim=1)
+        agent_shape=agent_shape[:,None].repeat(1,pos.shape[1]-1,1)#[:,:,None][:,0]
 
-        agent_shape=agent_shape[:,None].repeat(1,pos.shape[1],1)#[:,:,None][:,0]
-
-        gt_contour = cal_polygon_contour(pos, heading, agent_shape)
+        gt_contour = cal_polygon_contour(pos[:,1:], heading[:,1:], agent_shape)
 
         out_contour = cal_polygon_contour(out_pose[:,:,:2], out_pose[:,:,2], agent_shape)
 
-        rec_loss=torch.linalg.norm(out_pose-pose,ord=1,dim=-1)[valid].mean()
+        #sampled_contour=cal_polygon_contour(sampled_pose[:,:,:2], sampled_pose[:,:,2], agent_shape)
 
-        dist=torch.linalg.norm(gt_contour-out_contour,dim=-1)[valid].mean()
+        rec_loss=torch.linalg.norm(out_pose-pose[:,1:],ord=1,dim=-1)[valid[:,1:]].mean()
 
-        return commit_loss,rec_loss,dist
+        dist=torch.linalg.norm(gt_contour-out_contour,dim=-1)[valid[:,1:]].mean()
+
+        smapled_dist=0#torch.linalg.norm(gt_contour-sampled_contour,dim=-1)[sampled_valid].mean()
+
+        return commit_loss,rec_loss,dist,smapled_dist
 
     def tokenize(self,pose,mask,type_embedding,shape_embedding):
 
@@ -203,13 +268,14 @@ class VQVAE(nn.Module):
         z_e = self.temporal_embed(x, self.encoder, n_step=x.shape[1], n_current=0, hist_len=6, mask=~mask)
 
         z_q_mask, mask_indices, commit_loss = self.vq(z_e[mask])
-
-        embedding=self.vq.get_codes_from_indices(mask_indices)
+        
+        #embedding=self.vq.get_codes_from_indices(mask_indices)
+        #commit_loss, embedding, perplexity, min_encodings, min_encoding_indices=self.vq(z_e[mask])
 
         z_q=torch.zeros_like(z_e)
-        z_q[mask]=embedding
+        z_q[mask]=z_q_mask
 
-        return z_q, mask_indices, commit_loss
+        return z_q,  commit_loss
 
     def recontruct(self,indices):
         z_q=self.vq.get_output_from_indices(indices)

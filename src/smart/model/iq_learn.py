@@ -28,7 +28,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True#model_config.finetune
+        self.finetune = False#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -430,7 +430,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.tokenizer_training:
 
-            commit_loss,rec_loss,dist=self.encoder.vq_vae(data)
+            commit_loss,rec_loss,dist,smapled_dist=self.encoder.vq_vae(data)
 
             loss=commit_loss+rec_loss
 
@@ -438,6 +438,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/commit_loss", commit_loss, on_step=True, batch_size=1)
             self.log("train/rec_loss", rec_loss, on_step=True, batch_size=1)
             self.log("train/dist", dist, on_step=True, batch_size=1)
+            self.log("train/smapled_dist", smapled_dist, on_step=True, batch_size=1)
 
             return loss
 

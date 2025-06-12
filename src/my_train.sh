@@ -2,7 +2,7 @@
 #PBS -N std
 
 #PBS -l select=1:ncpus=112:ngpus=1:mem=320gb:container_engine=enroot
-#PBS -l walltime=6:00:00
+#PBS -l walltime=12:00:00
 #PBS -q normal
 #PBS -P 12002486
 #PBS -j oe
