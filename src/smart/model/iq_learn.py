@@ -277,11 +277,11 @@ class IQ_SoftQ(LightningModule):
         # # Compute cumulative AND from right to left
         future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
         # Shift right by 1: valid only if all future steps strictly after t are True
-        # future_valid[:, :-1] = future_valid[:, 1:]
-        # future_valid[:, -1] = True  # No future after last step
+        future_valid[:, :-1] = future_valid[:, 1:]
+        future_valid[:, -1] = True  # No future after last step
 
         # ---- Final step mask ----
-        train_mask =future_valid.to(bool) #valid_mask.all(-1) #past_valid & future_valid  # [N, T]
+        train_mask =future_valid.to(bool) & valid_mask #valid_mask.all(-1) #past_valid & future_valid  # [N, T]
 
         #train_mask=valid_mask.all(-1)
 
