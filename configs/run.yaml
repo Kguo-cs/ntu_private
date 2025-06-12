@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc48_pt30_map_x2 #_alpha1 #_head_
+task_name: bc48_pt8_map_x2 #_alpha1 #_head_
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
