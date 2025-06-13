@@ -28,7 +28,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False#model_config.finetune
+        self.finetune = True#model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -268,8 +268,9 @@ class IQ_SoftQ(LightningModule):
         # fut_mask=future_valid.bool()
         #
         # train_mask = past_valid[:,:-1] & fut_mask[:, 1:]
+        train_mask=valid_mask.all(-1)
 
-        train_mask=valid_mask[:,1:] & valid_mask[:,:-1]#valid_mask.all(-1)
+        #train_mask=valid_mask[:,1:] & valid_mask[:,:-1]#
         #x = valid_mask.to(int).cpu().numpy()
         #train_mask=fut_valid
 
