@@ -12,7 +12,7 @@
 # its affiliates is strictly prohibited.
 
 
-from src.waymo_data.trash.gail import GAIL
+# from src.waymo_data.trash.gail import GAIL
 from src.smart.model.iq_learn import IQ_SoftQ
 from src.smart.model.smart import SMART
 from src.smart.modules.smart_decoder import SMARTDecoder
@@ -21,17 +21,17 @@ from src.smart.model.ego_gmm_smart import EgoGMMSMART
 from src.smart.modules.ego_gmm_smart_decoder import EgoGMMSMARTDecoder
 
 
-class SMART_GAIL(GAIL, SMART):
-    def __init__(self, model_config) -> None:
-        SMART.__init__(self, model_config)  # Explicit call
-        GAIL.__init__(self, model_config)  # Explicit call
-
-        model_config.decoder.hidden_dim=model_config.decoder.hidden_dim//2
-
-        self.discriminator=SMARTDecoder(
-            **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
-            state_action=True
-        )
+# class SMART_GAIL(GAIL, SMART):
+#     def __init__(self, model_config) -> None:
+#         SMART.__init__(self, model_config)  # Explicit call
+#         GAIL.__init__(self, model_config)  # Explicit call
+#
+#         model_config.decoder.hidden_dim=model_config.decoder.hidden_dim//2
+#
+#         self.discriminator=SMARTDecoder(
+#             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
+#             state_action=True
+#         )
 
 class SMART_IQ(IQ_SoftQ, SMART):
     def __init__(self, model_config) -> None:
