@@ -18,7 +18,7 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.gamma = 0.99
+        self.gamma = 0.95
         self.alpha = self.encoder.alpha
 
         self.batch_replay=False
@@ -223,7 +223,6 @@ class IQ_SoftQ(LightningModule):
 
         last_V=last_V[valid_mask[:,-1]]
 
-
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
@@ -330,7 +329,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_value_loss, agent_V_diff, _, agent_entropy = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
-            div = 'js'
+            div = 'x2'
             alpha = 1
             eps = 1e-3
 

@@ -144,7 +144,7 @@ class SimulationManager:
         with open(config_path, 'r') as config_file:
             return yaml.safe_load(config_file)
 
-    def initialize_simulation(self,map_data):
+    def initialize_simulation(self,map_data,scenario):
         # Initialising models, planners, maps etc
         self.model = Model(map_data)
 
@@ -152,7 +152,7 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        self.renderer = WaymoRenderer()
+        self.renderer = WaymoRenderer(scenario)
         self.timestamp = 10
         self.MAX_SIM_TIME = 91
 
@@ -201,24 +201,28 @@ class SimulationManager:
 
         return bev_map,gt_vecs_pts_loc
 
-    def process_frame(self,map_feature,tokenized_agent):
-        print(self.timestamp)
+    def process_frame(self,map_infos,map_feature,tokenized_agent):
 
         if self.timestamp % 5 == 0:
-            self.timestamp += 5
             if self.timestamp >= self.MAX_SIM_TIME:
                 print("Simulation time end.")
                 return False
 
             pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
-
-            pred_traj_10hz=pred_dict["pred_traj_10hz"]
-            pred_head_10hz=pred_dict["pred_head_10hz"]
+            tokenized_agent["pred_traj_10hz"]=pred_dict["pred_traj_10hz"]
+            tokenized_agent["pred_head_10hz"]=pred_dict["pred_head_10hz"]
             tokenized_agent["sampled_idx"] = pred_dict["sampled_idx"]
             tokenized_agent["valid_mask"] = pred_dict["valid_mask"]
             tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
             tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
+
+            # self.model.putRenderData()
+            # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
+            # self.renderQueue.put((roadgraphRenderData, VRDDict))
+
+        self.renderer.render( map_infos, tokenized_agent,self.timestamp-10)
+        self.timestamp += 1
 
         return True
 
@@ -238,21 +242,21 @@ class SimulationManager:
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
 
-                self.track_infos = decode_tracks_from_proto(scenario)
-                self.map_infos = decode_map_features_from_proto(scenario.map_features)
-                self.dynamic_map_infos = decode_dynamic_map_states_from_proto(
+                track_infos = decode_tracks_from_proto(scenario)
+                map_infos = decode_map_features_from_proto(scenario.map_features)
+                dynamic_map_infos = decode_dynamic_map_states_from_proto(
                     scenario.dynamic_map_states
                 )
                 current_time_index = scenario.current_time_index
 
-                tf_lights = process_dynamic_map(self.dynamic_map_infos)
+                tf_lights = process_dynamic_map(dynamic_map_infos)
                 tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-                map_data = get_map_features(self.map_infos, tf_current_light)
+                map_data = get_map_features(map_infos, tf_current_light)
 
                 data = preprocess_map(map_data)
 
                 data["agent"] = get_agent_features(
-                    self.track_infos,
+                    track_infos,
                     split="validation",
                     num_historical_steps=current_time_index + 1,
                     num_steps=91,
@@ -267,11 +271,12 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                self.initialize_simulation(map_data)
+                self.initialize_simulation(map_data,scenario)
 
                 try:
                     while True:
-                        self.process_frame(map_feature,tokenized_agent)
+                        if not self.process_frame((map_infos,dynamic_map_infos),map_feature,tokenized_agent):
+                            break
                 finally:
                     self.cleanup()
 
@@ -279,7 +284,7 @@ class SimulationManager:
         print("Simulation ends")
         # if self.scorer:
         #     self.scorer.save()
-        self.model.destroy()
+        # self.model.destroy()
         self.gui.terminate()
         self.gui.join()
 
