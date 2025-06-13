@@ -56,8 +56,8 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData) :
-        tokenized_light =None# self.tokenized_light(data)
-        tokenized_map = None#self.tokenize_map(data)
+        tokenized_light =self.tokenized_light(data)
+        tokenized_map = self.tokenize_map(data)
         tokenized_agent = self.tokenize_agent(data)
 
         return tokenized_map, tokenized_agent,tokenized_light

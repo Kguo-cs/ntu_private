@@ -54,17 +54,17 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_lane=False
 
-        # light_token_all=torch.IntTensor(np.load("./initial_tokenizer/light_cluster.npy"))#261
-        #
-        # self.register_buffer(f"light_token_all", light_token_all, persistent=False)
-        #
-        # light_token_last=light_token_all[:,-1].long()
-        #
-        # map_tensor=torch.tensor([3,4,0,1,2])
-        #
-        # light_token_last=map_tensor[light_token_last]
-        #
-        # self.register_buffer(f"light_token_last", light_token_last, persistent=False)
+        light_token_all=torch.IntTensor(np.load(os.path.join(module_dir, "light_cluster.npy") ))#261
+
+        self.register_buffer(f"light_token_all", light_token_all, persistent=False)
+
+        light_token_last=light_token_all[:,-1].long()
+
+        map_tensor=torch.tensor([3,4,0,1,2])
+
+        light_token_last=map_tensor[light_token_last]
+
+        self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -360,13 +360,6 @@ class TokenProcessor(torch.nn.Module):
             agent_shape=agent_shape,
             token_traj=token_traj,
         )
-        # token_dict = self.my_match_agent_token(
-        #     valid=valid,
-        #     pos=pos,
-        #     heading=heading,
-        #     agent_shape=agent_shape,
-        #     token_traj=token_traj,
-        # )
 
         tokenized_agent.update(token_dict)
         return tokenized_agent

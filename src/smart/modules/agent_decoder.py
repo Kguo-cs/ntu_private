@@ -715,19 +715,19 @@ class SMARTAgentDecoder(nn.Module):
              "q_value": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
          }
 
-    def autoregressive_light_predict(self,  tokenized_agent, current_len,max_len):
-        predicted_tokens = tokenized_agent["light_idx"][:, :current_len].clone()
+    def autoregressive_light_predict(self,  tokenized_agent, current_step,max_step):
+        predicted_tokens = tokenized_agent["light_idx"][:, :current_step].clone()
         lengths_lg = tokenized_agent["lengths_lg"]
         sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
 
-        for t in range(current_len, max_len + current_len):
-            if t == current_len:
+        for t in range(current_step, max_step + current_step):
+            if t == current_step:
                 if "feat_lg" in tokenized_agent.keys():
-                    lg_features = tokenized_agent["feat_lg"][:, :current_len]
-                    next_light_logits = tokenized_agent["next_light_logits"][:, :current_len]
+                    lg_features = tokenized_agent["feat_lg"][:, :current_step]
+                    next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
 
-                    self.lg_t_roformer.attn.cached_k = self.lg_t_roformer.attn.cached_k[:, :, :current_len]
-                    self.lg_t_roformer.attn.cached_v = self.lg_t_roformer.attn.cached_v[:, :, :current_len]
+                    self.lg_t_roformer.attn.cached_k = self.lg_t_roformer.attn.cached_k[:, :, :current_step]
+                    self.lg_t_roformer.attn.cached_v = self.lg_t_roformer.attn.cached_v[:, :, :current_step]
                 else:
                     lg_features, next_light_logits = self.predict_light(predicted_tokens, sinusoidal_lg,
                                                                                  lengths_lg)
@@ -751,12 +751,12 @@ class SMARTAgentDecoder(nn.Module):
 
         return out_dict,lg_features
 
-    def autoregressive_agent(self, tokenized_agent, map_feature,lg_features,current_len,max_len):
+    def autoregressive_agent(self, tokenized_agent, map_feature,lg_features,current_step,max_step):
 
-        sampled_idx=tokenized_agent["sampled_idx"][:, :current_len].clone().long()
-        mask = tokenized_agent["valid_mask"][:, :current_len].clone()
-        pos_a = tokenized_agent["sampled_pos"][:, :current_len].clone()
-        head_a = tokenized_agent["sampled_heading"][:, :current_len].clone()
+        sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone().long()
+        mask = tokenized_agent["valid_mask"][:, :current_step].clone()
+        pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
+        head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
         if "gt_z_raw" in tokenized_agent.keys():
@@ -769,13 +769,13 @@ class SMARTAgentDecoder(nn.Module):
             )
 
         logit_list=[]
-        for t in range(current_len, max_len + current_len):
-            if t == current_len:
+        for t in range(current_step, max_step + current_step):
+            if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys():
-                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_len]
+                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
 
-                    self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_len]
-                    self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_len]
+                    self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
+                    self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
                 else:
                     if lg_features is not None:
                         lg_feat=lg_features[:,:t]
@@ -783,6 +783,7 @@ class SMARTAgentDecoder(nn.Module):
                         lg_feat=None
 
                     next_token_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
+
                 logit_list.append(next_token_logits)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
@@ -887,11 +888,15 @@ class SMARTAgentDecoder(nn.Module):
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
-            sampling_scheme: DictConfig
+            step_current_10hz=None,
+            n_step_future_10hz=None,
     ) -> Dict[str, torch.Tensor]:
-        n_step_future_10hz = self.num_future_steps  # 80
+        if n_step_future_10hz is None:
+            n_step_future_10hz = self.num_future_steps  # 80
+        if step_current_10hz is None:
+            step_current_10hz = self.num_historical_steps - 1  # 10
+
         n_step_future_2hz = n_step_future_10hz // self.shift  # 16
-        step_current_10hz = self.num_historical_steps - 1  # 10
         step_current_2hz = step_current_10hz // self.shift  # 2
 
         if self.pred_light:

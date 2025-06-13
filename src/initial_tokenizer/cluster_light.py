@@ -7,4 +7,4 @@ num_unique_rows = unique_rows.shape[0]
 
 print("Number of different rows:", num_unique_rows)
 
-np.save("light_cluster.npy",unique_rows)
+np.save("../../initial_tokenizer/light_cluster.npy", unique_rows)

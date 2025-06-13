@@ -4,7 +4,7 @@ from typing import Dict, List
 from math import cos, pi, sin
 
 
-class MatplotlibRenderer:
+class WaymoRenderer:
     def __init__(self):
         self.fig, self.ax = plt.subplots(figsize=(12, 12))
         self.ax.set_aspect('equal')

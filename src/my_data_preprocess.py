@@ -247,7 +247,6 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         dynamic_map_infos = decode_dynamic_map_states_from_proto(
             scenario.dynamic_map_states
         )
-       # print(time.time()-time1)
 
         current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id

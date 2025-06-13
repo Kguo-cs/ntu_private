@@ -3,7 +3,7 @@ import os
 import pickle
 from tqdm import tqdm
 import torch
-import datetime
+from pathlib import Path
 from torch_geometric.data import HeteroData
 torch.set_float32_matmul_precision("high")
 import sys

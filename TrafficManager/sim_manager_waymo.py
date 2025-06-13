@@ -26,8 +26,8 @@ from LimSim.utils.trajectory import Trajectory, State
 from LimSim.trafficManager.traffic_manager import TrafficManager
 from LimSim.simModel.MPGUI import GUI
 from LimSim.simModel.DataQueue import CameraImages
-from LimSim.simInfo.CustomExceptions import CollisionChecker, OffRoadChecker
-from TrafficManager.utils.scorer import Scorer
+from torch_geometric.data import HeteroData
+from pathlib import Path
 
 from TrafficManager.utils.map_utils import (
     LiDARInstanceLines,
@@ -40,9 +40,9 @@ from TrafficManager.utils.map_utils import (
 import hydra
 from waymo_open_dataset.protos import scenario_pb2
 import tensorflow as tf
-from src.data_preprocess import decode_tracks_from_proto,decode_map_features_from_proto,decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,_polygon_types,_polygon_light_type
+from src.data_preprocess import decode_tracks_from_proto,decode_map_features_from_proto,decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,_polygon_types,_polygon_light_type,preprocess_map
 
-from waymo.waymo_render import MatplotlibRenderer
+from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
 
 class SimulationManager:
@@ -144,17 +144,17 @@ class SimulationManager:
         with open(config_path, 'r') as config_file:
             return yaml.safe_load(config_file)
 
-    def initialize_simulation(self):
+    def initialize_simulation(self,map_data):
         # Initialising models, planners, maps etc
-        self.model = Model()
-        self.model.start()
+        self.model = Model(map_data)
 
         self.gui = GUI(self.model)
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        self.renderer = MatplotlibRenderer()
-        self.timestamp = 0
+        self.renderer = WaymoRenderer()
+        self.timestamp = 10
+        self.MAX_SIM_TIME = 91
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
 
@@ -201,93 +201,31 @@ class SimulationManager:
 
         return bev_map,gt_vecs_pts_loc
 
-    def process_frame(self):
-        drivable_mask = None
+    def process_frame(self,map_feature,tokenized_agent):
+        print(self.timestamp)
 
-        if self.model.timeStep % 5 == 0:
-            self.timestamp += 0.5
+        if self.timestamp % 5 == 0:
+            self.timestamp += 5
             if self.timestamp >= self.MAX_SIM_TIME:
                 print("Simulation time end.")
                 return False
 
-            limsim_trajectories = self.planner.plan(
-                self.model.timeStep * 0.1, self.roadgraph, self.vehicles)
-            if not limsim_trajectories[self.EGO_ID].states:
-                return True
+            pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,self.timestamp,5 )
 
-            traj_len = min(
-                len(limsim_trajectories[self.EGO_ID].states) - 1, 25)
-            local_x, local_y, local_yaw = transform_to_ego_frame(
-                limsim_trajectories[self.EGO_ID].states[0], limsim_trajectories[self.EGO_ID].states[traj_len])
-            self.agent_command = 2 if local_x <= 5.0 else (
-                1 if local_y > 4.0 else 0 if local_y < -4.0 else 2)
-            print("Agent command:", self.agent_command)
 
-            diffusion_data = limsim2diffusion(
-                self.vehicles, self.data_template, self.vectorized_map, self.MAP_NAME, self.agent_command, self.last_pose, drivable_mask,
-                self.accel, self.rotation_rate, self.vel,
-                gen_location=self.MAP_NAME,
-                gen_prompts=self.GEN_PROMPT,
-            )
-            #dict_keys(['metas', 'gt_bboxes_3d', 'gt_labels_3d', 'gt_vecs_label', 'gt_lines_instance', 'relative_pose', 'drivable_mask', 'agent_command'])
-
-            gt_vecs_label=diffusion_data["gt_vecs_label"]
-            gt_lines_instance=diffusion_data["gt_lines_instance"]
-
-            bev_map,gt_vecs_pts_loc=self.vectormap_pipeline(gt_vecs_label, gt_lines_instance,drivable_mask)
-
-            gt_bboxes_3d=diffusion_data["gt_bboxes_3d"]
-            gt_labels_3d=diffusion_data["gt_labels_3d"]
-
-            gen_images=self.project_bev2img(drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d)
-
-            if gen_images is not None:
-                front_left_image, front_image, front_right_image = [
-                    Image.fromarray(img*255).convert('RGBA') for img in gen_images[:3]]
-            else:
-                raise ValueError("No images generated!")
-
-            new_width, new_height = self.TARGET_SIZE[0], int(
-                (self.TARGET_SIZE[0] / front_image.width) * front_image.height)
-            resized_images = [img.resize((new_width, new_height), Image.Resampling.LANCZOS) for img in [
-                front_left_image, front_image, front_right_image]]
-
-            ci = CameraImages()
-            ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
-                np.array(img) for img in resized_images]
-
-            pred_bev_img=Image.fromarray(bev_map*255)
-            pred_bev_img = pred_bev_img.convert('RGBA')
-            pred_bev_img = pred_bev_img.resize(
-                (800, 800), Image.Resampling.LANCZOS)
-            ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
-
-            self.model.imageQueue.put(ci)
-
-            self.model.putRenderData()
-            roadgraphRenderData, VRDDict = self.model.renderQueue.get()
-            self.renderer.render(roadgraphRenderData, VRDDict,
-                                 f'{self.img_save_path}bev_{str(int(self.timestamp*2)).zfill(3)}.png')
-
-            # self.scorer.record_frame(drivable_mask, is_planning_frame=True,
-            #                          planned_traj=ego_traj, ref_traj=limsim_trajectories[self.EGO_ID])
-
-            # limsim_trajectories = {}
-            # if self.USE_AGENT_PATH and self.timestamp > 1.0:
-            #     ## Because first two frames, drive agents may not ready
-            #     print(f"Use agent path to drive.")
-            #     limsim_trajectories[self.EGO_ID] = ego_traj
-            self.model.setTrajectories(limsim_trajectories)
-        else:
-            if self.scorer is not None:
-                self.scorer.record_frame(
-                    drivable_mask, is_planning_frame=False)
+            pred_traj_10hz=pred_dict["pred_traj_10hz"]
+            pred_head_10hz=pred_dict["pred_head_10hz"]
+            tokenized_agent["sampled_idx"] = pred_dict["sampled_idx"]
+            tokenized_agent["valid_mask"] = pred_dict["valid_mask"]
+            tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
+            tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
 
         return True
 
     def run_simulation(self):
+        input_dir = Path(self.config["data_path"])
 
-        packages = sorted([p.as_posix() for p in self.config["data_path"].glob("*")])
+        packages = sorted([p.as_posix() for p in input_dir.glob("*")])
 
         for scenario_path in packages:
 
@@ -305,24 +243,42 @@ class SimulationManager:
                 self.dynamic_map_infos = decode_dynamic_map_states_from_proto(
                     scenario.dynamic_map_states
                 )
+                current_time_index = scenario.current_time_index
 
+                tf_lights = process_dynamic_map(self.dynamic_map_infos)
+                tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+                map_data = get_map_features(self.map_infos, tf_current_light)
 
-                self.initialize_simulation()
+                data = preprocess_map(map_data)
+
+                data["agent"] = get_agent_features(
+                    self.track_infos,
+                    split="validation",
+                    num_historical_steps=current_time_index + 1,
+                    num_steps=91,
+                )
+                data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"])
+                data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"])
+
+                batch_data = HeteroData(data).cuda()
+                batch_data.num_graphs=1
+
+                tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
+
+                map_feature = self.planner.encoder.map_encoder(tokenized_map)
+
+                self.initialize_simulation(map_data)
+
                 try:
-                    while not self.model.tpEnd:
-                        self.model.moveStep()
-                        self.roadgraph, self.vehicles = self.model.exportSce()
-                        if self.vehicles and 'egoCar' in self.vehicles:
-                            if not self.process_frame():
-                                break
-                        self.model.updateVeh()
+                    while True:
+                        self.process_frame(map_feature,tokenized_agent)
                 finally:
                     self.cleanup()
 
     def cleanup(self):
         print("Simulation ends")
-        if self.scorer:
-            self.scorer.save()
+        # if self.scorer:
+        #     self.scorer.save()
         self.model.destroy()
         self.gui.terminate()
         self.gui.join()
