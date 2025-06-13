@@ -888,6 +888,7 @@ class SMARTAgentDecoder(nn.Module):
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
+            sampling_scheme=None,
             step_current_10hz=None,
             n_step_future_10hz=None,
     ) -> Dict[str, torch.Tensor]:

@@ -210,7 +210,7 @@ class SimulationManager:
                 print("Simulation time end.")
                 return False
 
-            pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,self.timestamp,5 )
+            pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
 
             pred_traj_10hz=pred_dict["pred_traj_10hz"]
