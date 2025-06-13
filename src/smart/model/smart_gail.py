@@ -12,7 +12,7 @@
 # its affiliates is strictly prohibited.
 
 
-from trash.gail import GAIL
+from src.waymo_data.trash.gail import GAIL
 from src.smart.model.iq_learn import IQ_SoftQ
 from src.smart.model.smart import SMART
 from src.smart.modules.smart_decoder import SMARTDecoder
