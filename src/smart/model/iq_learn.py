@@ -254,43 +254,27 @@ class IQ_SoftQ(LightningModule):
         #col_mask= ~tokenized_agent["col_mask"][:,1:]
 
         #valid_mask=valid_mask & col_mask
-
-        # Convert bool to int for cumulative sum
-        valid_int = valid_mask.int()
+        # H=6
+        # cumsum = torch.cumsum(valid_mask.int(), dim=1)  # [N, T]
+        # past_valid = torch.zeros_like(valid_mask, dtype=torch.bool)
         #
-        H=6
-
-        # Compute rolling sum over past H steps using cumsum
-        cumsum = torch.cumsum(valid_int, dim=1)  # [N, T]
-        # Initialize past_valid as all False
-        past_valid = torch.zeros_like(valid_mask, dtype=torch.bool)
-
-        # For t < H → past is valid if all [0:t+1] are valid → cumsum[:, t] == t+1
-        for t in range(H):
-            past_valid[:, t] = cumsum[:, t] == (t + 1)
-
-        # For t >= H → past H steps must be valid → cumsum[:, t] - cumsum[:, t - H] == H
-        past_valid[:, H:] = (cumsum[:, H:] - cumsum[:, :-H]) == H
+        # for t in range(H):
+        #     past_valid[:, t] = cumsum[:, t] == (t + 1)
         #
-        # # ---- Step 2: Future validity using cumulative product from right ----
-        # # Compute cumulative AND from right to left
-        future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  # [N, T]
-
-        fut_mask=future_valid.bool()
-
-        # hist_valid=valid_mask.cumprod(dim=1)
+        # past_valid[:, H:] = (cumsum[:, H:] - cumsum[:, :-H]) == H
         #
-        # begin_mask = hist_valid[:, :6] &  future_valid[:,:6]
+        # future_valid = valid_mask.flip(dims=[1]).cumprod(dim=1).flip(dims=[1])  #current and future valid
         #
-        # fut_mask= future_valid[:,:-7]
+        # fut_mask=future_valid.bool()
         #
-        # train_mask=torch.cat([begin_mask,fut_mask],dim=1)
+        # train_mask = past_valid[:,:-1] & fut_mask[:, 1:]
 
-        train_mask = past_valid[:,:-1] & fut_mask[:, 1:]
-
-        # train_mask=valid_mask.all(-1)
-
+        train_mask=valid_mask[:,1:] & valid_mask[:,:-1]#valid_mask.all(-1)
+        #x = valid_mask.to(int).cpu().numpy()
         #train_mask=fut_valid
+
+        #@print(train_mask.float().mean()-valid_mask.all(-1).float().mean())
+
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
