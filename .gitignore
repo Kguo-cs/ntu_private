@@ -23,3 +23,5 @@
 **/waymo_data
 exp/
 nuplan_data/
+TrafficManager/outputs/
+TrafficManager/results/
