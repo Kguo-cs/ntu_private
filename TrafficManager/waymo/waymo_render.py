@@ -19,8 +19,19 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from waymo_open_dataset.protos import scenario_pb2, sim_agents_submission_pb2
+import torch
 
 from src.utils.video_recorder import ImageEncoder
+import matplotlib.pyplot as plt
+from typing import Dict, List
+from math import cos, pi, sin
+import matplotlib.pyplot as plt
+import torch
+import numpy as np
+from copy import deepcopy
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from PIL import Image
+import io
 
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (255, 255, 255)
@@ -102,9 +113,9 @@ class WaymoRenderer:
         # self.save_dir.mkdir(exist_ok=True, parents=True)
 
         # draw gt
-        mp_xyz, mp_id, mp_type = get_map_features(scenario.map_features)
+        self.mp_xyz, self.mp_id, mp_type = get_map_features(scenario.map_features)
 
-        tl_lane_state, tl_lane_id = get_traffic_light_features(
+        self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
             scenario.dynamic_map_states
         )
         ag_valid, ag_xy, ag_yaw, ag_size, ag_role, ag_id = get_agent_features(
@@ -113,37 +124,48 @@ class WaymoRenderer:
         self.ag_id2size = dict(zip(ag_id, ag_size))
         self.ag_id2role = dict(zip(ag_id, ag_role))
 
-        raster_map, self.top_left_px = self._register_map(mp_xyz, self.px_per_m)
-        self._draw_map(raster_map, mp_xyz, mp_type)
+        raster_map, self.top_left_px = self._register_map(self.mp_xyz, self.px_per_m)
+        self._draw_map(raster_map, self.mp_xyz, mp_type)
 
-        self.interval=1
 
-        im_gt_maps = [raster_map.copy() for _ in range(0,n_step,self.interval)]
-        self._draw_traffic_lights(im_gt_maps, tl_lane_state[::self.interval], tl_lane_id[::self.interval], mp_xyz, mp_id)
+        self.raster_map = raster_map
 
-        # save gt video and get paths for wandb logging
-        im_gt = deepcopy(im_gt_maps)
-        self._draw_agents(im_gt, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
+        self.fig, self.ax = plt.subplots(figsize=(12, 12))
+        self.ax.set_aspect('equal')
+        self.view_range = 50  # View range in metres
 
-        # gt_video_path = (self.save_dir / "gt.mp4").as_posix()
-        # #save_images_to_mp4(im_gt, gt_video_path)
-        # self.video_paths = [gt_video_path]
+        self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
+            scenario.dynamic_map_states
+        )
 
-        # prepare images for drawing prediction on top
-        self.im_gt_blended = []
-        if self.vis_ghost_gt:
-            im_gt_agents = [np.zeros_like(raster_map) for _ in range(0,n_step,self.interval)]
-            self._draw_agents(im_gt_agents, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
-            for i in range(len(im_gt_agents)):
-                self.im_gt_blended.append(
-                    cv2.addWeighted(im_gt_agents[i], 0.6, im_gt_maps[i], 1, 0)
-                )
-        else:
-            for i in range(n_step):
-                if i <= 10:
-                    self.im_gt_blended.append(deepcopy(im_gt[i]))
-                else:
-                    self.im_gt_blended.append(deepcopy(im_gt_maps[i]))
+        # self.interval=1
+        #
+        # im_gt_maps = [raster_map.copy() for _ in range(0,n_step,self.interval)]
+        # self._draw_traffic_lights(im_gt_maps, tl_lane_state[::self.interval], tl_lane_id[::self.interval], mp_xyz, mp_id)
+        #
+        # # save gt video and get paths for wandb logging
+        # im_gt = deepcopy(im_gt_maps)
+        # self._draw_agents(im_gt, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
+        #
+        # # gt_video_path = (self.save_dir / "gt.mp4").as_posix()
+        # # #save_images_to_mp4(im_gt, gt_video_path)
+        # # self.video_paths = [gt_video_path]
+        #
+        # # prepare images for drawing prediction on top
+        # self.im_gt_blended = []
+        # if self.vis_ghost_gt:
+        #     im_gt_agents = [np.zeros_like(raster_map) for _ in range(0,n_step,self.interval)]
+        #     self._draw_agents(im_gt_agents, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
+        #     for i in range(len(im_gt_agents)):
+        #         self.im_gt_blended.append(
+        #             cv2.addWeighted(im_gt_agents[i], 0.6, im_gt_maps[i], 1, 0)
+        #         )
+        # else:
+        #     for i in range(n_step):
+        #         if i <= 10:
+        #             self.im_gt_blended.append(deepcopy(im_gt[i]))
+        #         else:
+        #             self.im_gt_blended.append(deepcopy(im_gt_maps[i]))
 
     @staticmethod
     def _register_map(
@@ -271,53 +293,6 @@ class WaymoRenderer:
                         tipLength=0.6,
                     )
 
-    def save_video_scenario_rollout(
-        self,
-        scenario_rollout: sim_agents_submission_pb2.ScenarioRollouts,
-        n_vis_rollout: int,
-    ):
-        for i_rollout in range(n_vis_rollout):
-            images = deepcopy(self.im_gt_blended)
-            ag_valid, ag_xy, ag_yaw, ag_size, ag_role = self._get_features_from_trajs(
-                scenario_rollout.joint_scenes[i_rollout].simulated_trajectories
-            )
-            self._draw_agents(
-                images[self.step_current//self.interval + 1 :],
-                ag_valid[:,::self.interval],
-                ag_xy[:,::self.interval],
-                ag_yaw[:,::self.interval],
-                ag_size,
-                ag_role,
-            )
-            _video_path = (self.save_dir / f"rollout_{i_rollout:02d}.mp4").as_posix()
-            self.video_paths.append(_video_path)
-            save_images_to_mp4(images, _video_path,fps=10//self.interval)
-
-    def _get_features_from_trajs(
-        self, trajs: List[sim_agents_submission_pb2.SimulatedTrajectory]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        ag_valid: [n_ag, n_step], bool
-        ag_xy: [n_ag, n_step, 2], (x,y)
-        ag_yaw: [n_ag, n_step, 1], [-pi, pi]
-        ag_size: [n_ag, 3], [length, width, height]
-        ag_role: [n_ag, 3], one_hot [sdc=0, interest=1, predict=2]
-        """
-        n_ag = len(trajs)
-        n_step = len(trajs[0].center_x)
-        ag_valid = np.ones([n_ag, n_step], dtype=bool)
-        ag_xy = np.zeros([n_ag, n_step, 2], dtype=np.float32)
-        ag_yaw = np.zeros([n_ag, n_step, 1], dtype=np.float32)
-        ag_size = np.zeros([n_ag, 3], dtype=np.float32)
-        ag_role = np.zeros([n_ag, 3], dtype=bool)
-
-        for i_ag, _traj in enumerate(trajs):
-            ag_xy[i_ag] = np.stack([_traj.center_x, _traj.center_y], axis=-1)
-            ag_yaw[i_ag, :, 0] = _traj.heading
-            ag_size[i_ag] = self.ag_id2size[_traj.object_id]
-            ag_role[i_ag] = self.ag_id2role[_traj.object_id]
-
-        return ag_valid, ag_xy, ag_yaw, ag_size, ag_role
 
     def _to_pixel(self, pos: np.ndarray) -> np.ndarray:
         pos = pos * self.px_per_m
@@ -354,6 +329,52 @@ class WaymoRenderer:
         agent_pos = agent_pos[agent_valid]
         bbox = agent_pos[:, None, :].repeat(4, 1) + vertex_offset  # n,4,2
         return bbox
+
+
+    def render(self,scenario, tokenized_agent,t):
+        self.ax.clear()
+
+        ego_idx = torch.where(tokenized_agent["ego_mask"])[0][0]
+
+        sampled_pos=tokenized_agent["pred_traj_10hz"] [:,t%5]
+        sampled_heading= tokenized_agent["pred_head_10hz"] [:,t%5]
+
+        ex=sampled_pos[ego_idx][0]
+        ey=sampled_pos[ego_idx][1]
+        ego_yaw=sampled_heading[ego_idx]
+
+        raster_map = deepcopy(self.raster_map)
+
+        self._draw_traffic_lights([raster_map], [self.tl_lane_state[t]], [self.tl_lane_id[t]], self.mp_xyz, self.mp_id)
+
+        #self._draw_agents([raster_map], ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
+
+        self.ax.imshow(raster_map)
+
+        # self.ax.set_xlim(-self.view_range, self.view_range)
+        # self.ax.set_ylim(-self.view_range, self.view_range)
+
+        # self.ax.set_xlabel("X (meters)")
+        # self.ax.set_ylabel("Y (meters)")
+        # self.ax.set_title("Ego-Centered View")
+
+        self.ax.grid(True, linestyle='--', alpha=0.5)
+
+        # self.ax.plot(0, 0, 'ro', markersize=10)  # ego position
+        # self.ax.arrow(0, 0, 0, 5, head_width=2, head_length=2, fc='r', ec='r')  # ego heading
+
+        plt.tight_layout()
+        #plt.savefig(filename, dpi=300)
+        # Convert Matplotlib figure to a PIL Image
+        canvas = FigureCanvas(self.fig)
+        canvas.draw()
+        buf = canvas.buffer_rgba()
+        image = np.asarray(buf)
+        image = Image.fromarray(image).convert("RGBA")
+
+        return image
+
+
 
 
 def save_images_to_mp4(images: List[np.ndarray], out_path: str, fps=20) -> None:

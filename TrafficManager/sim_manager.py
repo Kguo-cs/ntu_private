@@ -235,7 +235,7 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        self.renderer = MatplotlibRenderer()
+        #self.renderer = MatplotlibRenderer()
         self.checkers = [OffRoadChecker(), CollisionChecker()]
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
@@ -404,10 +404,10 @@ class SimulationManager:
             # print("Accel:", self.accel, "\nRotation rate:",
             #       self.rotation_rate, "\nVel:", self.vel)
 
-            self.model.putRenderData()
-            roadgraphRenderData, VRDDict = self.model.renderQueue.get()
-            self.renderer.render(roadgraphRenderData, VRDDict,
-                                 f'{self.img_save_path}bev_{str(int(self.timestamp*2)).zfill(3)}.png')
+            #self.model.putRenderData()
+            #roadgraphRenderData, VRDDict = self.model.renderQueue.get()
+            # self.renderer.render(roadgraphRenderData, VRDDict,
+            #                      f'{self.img_save_path}bev_{str(int(self.timestamp*2)).zfill(3)}.png')
 
             # self.scorer.record_frame(drivable_mask, is_planning_frame=True,
             #                          planned_traj=ego_traj, ref_traj=limsim_trajectories[self.EGO_ID])

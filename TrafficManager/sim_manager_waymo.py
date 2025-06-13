@@ -24,7 +24,6 @@ from TrafficManager.utils.sim_utils import limsim2diffusion, normalize_angle, tr
 from TrafficManager.utils.map_utils import VectorizedLocalMap
 from LimSim.utils.trajectory import Trajectory, State
 from LimSim.trafficManager.traffic_manager import TrafficManager
-from LimSim.simModel.MPGUI import GUI
 from LimSim.simModel.DataQueue import CameraImages
 from torch_geometric.data import HeteroData
 from pathlib import Path
@@ -44,6 +43,7 @@ from src.data_preprocess import decode_tracks_from_proto,decode_map_features_fro
 
 from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
+from waymo.waymo_gui import GUI
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -201,12 +201,12 @@ class SimulationManager:
 
         return bev_map,gt_vecs_pts_loc
 
-    def process_frame(self,map_infos,map_feature,tokenized_agent):
+    def process_frame(self,scenario,map_feature,tokenized_agent):
+        if self.timestamp >= self.MAX_SIM_TIME:
+            print("Simulation time end.")
+            return False
 
         if self.timestamp % 5 == 0:
-            if self.timestamp >= self.MAX_SIM_TIME:
-                print("Simulation time end.")
-                return False
 
             pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
@@ -221,7 +221,11 @@ class SimulationManager:
             # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
             # self.renderQueue.put((roadgraphRenderData, VRDDict))
 
-        self.renderer.render( map_infos, tokenized_agent,self.timestamp-10)
+        print(self.timestamp)
+
+        rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
+        self.model.renderQueue.put(rendered_image)
+
         self.timestamp += 1
 
         return True
@@ -275,7 +279,7 @@ class SimulationManager:
 
                 try:
                     while True:
-                        if not self.process_frame((map_infos,dynamic_map_infos),map_feature,tokenized_agent):
+                        if not self.process_frame(scenario,map_feature,tokenized_agent):
                             break
                 finally:
                     self.cleanup()
