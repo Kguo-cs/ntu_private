@@ -50,9 +50,9 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
 
-        light_token_all=torch.IntTensor(np.load("./initial_tokenizer/light_cluster.npy"))#261
-
-        self.register_buffer(f"light_token_all", light_token_all, persistent=False)
+        # light_token_all=torch.IntTensor(np.load("./initial_tokenizer/light_cluster.npy"))#261
+        #
+        # self.register_buffer(f"light_token_all", light_token_all, persistent=False)
 
     @torch.no_grad()
     def forward(self, data: HeteroData) :

@@ -54,7 +54,7 @@ class SMARTDecoder(nn.Module):
 
         self.tokenizer_training=False
 
-        self.alpha = 1
+        self.alpha = 0.1
 
         if self.tokenizer_training:
             from .vq_vae import VQVAE
