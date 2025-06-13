@@ -47,12 +47,12 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
 
 
-class EGO_GMM_GAIL(GAIL, EgoGMMSMART):
-    def __init__(self, model_config) -> None:
-        EgoGMMSMART.__init__(self, model_config)  # Explicit call
-        GAIL.__init__(self, model_config)  # Explicit call
-
-        self.discriminator = EgoGMMSMARTDecoder(**model_config.decoder)
+# class EGO_GMM_GAIL(GAIL, EgoGMMSMART):
+#     def __init__(self, model_config) -> None:
+#         EgoGMMSMART.__init__(self, model_config)  # Explicit call
+#         GAIL.__init__(self, model_config)  # Explicit call
+#
+#         self.discriminator = EgoGMMSMARTDecoder(**model_config.decoder)
 
     # def compute_dist(self):
     #     ego_pose_topk = torch.cat(
