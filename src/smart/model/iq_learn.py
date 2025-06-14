@@ -259,10 +259,8 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.agent_encoder.use_gmm:
             pred = self.encoder(tokenized_map, tokenized_agent)
             gmm =GMM_Dist(pred["next_logits"], pred["next_poses"], pred["next_cov"])
-            target=tokenized_agent["target"]
-            log_prob=gmm.log_prob(target).clamp_min(np.log(1e-10))
+            log_prob = gmm.log_prob(tokenized_agent["target"]).clamp_min(np.log(1e-10))
             expert_nll = -log_prob[train_mask].mean()
-
         else:
             expert_reward,expert_value_loss,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -398,6 +396,11 @@ class IQ_SoftQ(LightningModule):
             if "gt_pos_raw" in agent.keys():
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
                     tokenized_agent[key] = agent[key]
+                if self.encoder.agent_encoder.use_GT:
+                    tokenized_agent["sampled_pos"]=agent["gt_pos_raw"]
+                    tokenized_agent["sampled_heading"]=agent["gt_head_raw"]
+                    tokenized_agent["valid_mask"]=agent["gt_valid_raw"]
+
                 target, target_valid = get_euclidean_targets(
                     pred_pos=tokenized_agent["sampled_pos"],
                     pred_head=tokenized_agent["sampled_heading"],
@@ -456,7 +459,6 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["route_valid_mask"]=route_idx!=self.encoder.agent_encoder.route_type
 
         return tokenized_map, tokenized_agent
-
 
     def training_step(self, data, batch_idx):
 

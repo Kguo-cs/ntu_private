@@ -176,6 +176,7 @@ class SMARTAgentDecoder(nn.Module):
                 k_ego_gmm=16
                 cov_ego_gmm=[1.0, 0.1]
                 cov_learnable=False
+                self.use_GT=True
 
                 self.gmm_logits_head = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm
