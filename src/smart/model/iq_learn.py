@@ -398,9 +398,10 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map[key] = map[key]
 
             #tokenized_map['batch'] = tokenized_map['batch'].to(torch.int16)
-
-            for key in ["sampled_pos", "sampled_heading", "type","batch", "shape","sampled_idx","valid_mask"]:
-                tokenized_agent[key] = agent[key]
+            agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
+                agent['type']
+            )
+            tokenized_agent['token_traj_all'] = token_traj_all
 
             if "col_mask" in agent.keys():
                 tokenized_agent["col_mask"] = agent["col_mask"]
@@ -408,24 +409,30 @@ class IQ_SoftQ(LightningModule):
 
             #tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int16)
 
-            agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
-                agent['type']
-            )
-            tokenized_agent['token_traj_all'] = token_traj_all
             if "gt_pos_raw" in agent.keys():
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
                     tokenized_agent[key] = agent[key]
                 if self.encoder.agent_encoder.use_GT:
-                    tokenized_agent["sampled_pos"]=agent["gt_pos_raw"]
-                    tokenized_agent["sampled_heading"]=agent["gt_head_raw"]
-                    # pred=self.token_processor.openloop_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
-                    #                                                 agent["gt_head_raw"],
-                    #                                                 agent_shape,token_traj
-                    #                                                 )
-                    #tokenized_agent["valid_mask"]=pred["valid_mask"]
-                    # tokenized_agent["sampled_idx"]=pred["sampled_idx"]
+                    #tokenized_agent["sampled_pos"]=agent["gt_pos_raw"]
+                    #tokenized_agent["sampled_heading"]=agent["gt_head_raw"]
+                    pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
+                                                                    agent["gt_head_raw"],
+                                                                    agent_shape,token_traj
+                                                                    )
+                    tokenized_agent["valid_mask"]=pred["valid_mask"]
+                    tokenized_agent["sampled_idx"]=pred["sampled_idx"]
+                    tokenized_agent["sampled_pos"]=pred["sampled_pos"]
+                    tokenized_agent["sampled_heading"]=pred["sampled_heading"]
+                    tokenized_agent["gt_pos_raw"]=pred["sampled_pos"]
+                    tokenized_agent["gt_head_raw"]=pred["sampled_heading"]
+                    tokenized_agent["gt_valid_raw"]=pred["valid_mask"]
 
+                for key in [ "type", "batch", "shape"]:
+                    tokenized_agent[key] = agent[key]
 
+            else:
+                for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "sampled_idx", "valid_mask"]:
+                    tokenized_agent[key] = agent[key]
 
         if self.encoder.agent_encoder.pred_light:
 

@@ -236,20 +236,20 @@ class TokenProcessor(torch.nn.Module):
         # )
         # tokenized_agent.update(initial_token_dict)
 
-        token_dict = self._match_agent_token(
-            valid=valid,
-            pos=pos,
-            heading=heading,
-            agent_shape=agent_shape,
-            token_traj=token_traj,
-        )
-        # token_dict = self.my_match_agent_token(
+        # token_dict = self._match_agent_token(
         #     valid=valid,
         #     pos=pos,
         #     heading=heading,
         #     agent_shape=agent_shape,
         #     token_traj=token_traj,
         # )
+        token_dict = self.my_match_agent_token(
+            valid=valid,
+            pos=pos,
+            heading=heading,
+            agent_shape=agent_shape,
+            token_traj=token_traj,
+        )
 
         tokenized_agent.update(token_dict)
         return tokenized_agent
@@ -388,32 +388,32 @@ class TokenProcessor(torch.nn.Module):
 
         heading= heading[:, ::self.shift]
 
-        cur_pos,cur_heading=pos[:,1:],heading[:,1:]
+        pos_now,head_now=pos[:,1:],heading[:,1:]
 
         prev_pos, prev_head = pos[:, :-1], heading[:, :-1]  # [n_agent, 2], [n_agent]
 
-        gt_contour = cal_polygon_contour(cur_pos,cur_heading, agent_shape[:,None])
-
-        cos, sin = prev_head.cos(), prev_head.sin()
-        rot_mat = torch.zeros((prev_head.shape[0],prev_head.shape[1],  2, 2), device=prev_head.device)
-        rot_mat[..., 0, 0] = cos
-        rot_mat[..., 0, 1] = sin
-        rot_mat[..., 1, 0] = -sin
-        rot_mat[..., 1, 1] = cos
-
-        pos_global = torch.einsum('npqx,ntxy->ntpqy',token_traj, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
-        token_world_gt = pos_global + prev_pos[:,:,None,None]
-
-        token_idx_gt = torch.argmin(
-            torch.norm(token_world_gt - gt_contour[:,:,None], dim=-1).sum(-1), dim=-1
+        target_pos, target_head = transform_to_local(
+            pos_global=prev_pos.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
+            head_global=prev_head.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
+            pos_now=pos_now.flatten(0, 1),  # [n_agent*18, 2]
+            head_now=head_now.flatten(0, 1),  # [n_agent*18]
         )
+        target_pos = target_pos.view(pos_now.shape)  # n_agent, 18, 2]
+        target_head = wrap_angle(target_head)  # [n_agent, 18]
+        target_head = target_head.view(head_now.shape)
+
+        contour_local = cal_polygon_contour(target_pos[:,:,None],target_head[:,:,None], agent_shape[:,None,None])
+
+        dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
+
+        token_idx_gt = dist.argmin(-1)
 
         valid = valid[:, ::self.shift] # [n_agent]
         _valid_mask = valid[:,1:] & valid[:,:-1]
         _invalid_mask = ~_valid_mask
 
-        gt_pos=prev_pos.masked_fill(_invalid_mask.unsqueeze(-1), 0)
-        gt_heading=prev_head.masked_fill(_invalid_mask, 0)
+        gt_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
+        gt_heading=head_now.masked_fill(_invalid_mask, 0)
 
         out_dict = {
             "valid_mask":_valid_mask,
