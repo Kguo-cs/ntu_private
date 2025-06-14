@@ -236,7 +236,14 @@ class TokenProcessor(torch.nn.Module):
         # )
         # tokenized_agent.update(initial_token_dict)
 
-        token_dict = self._match_agent_token(
+        # token_dict = self._match_agent_token(
+        #     valid=valid,
+        #     pos=pos,
+        #     heading=heading,
+        #     agent_shape=agent_shape,
+        #     token_traj=token_traj,
+        # )
+        token_dict = self.my_match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
@@ -364,6 +371,60 @@ class TokenProcessor(torch.nn.Module):
                     prev_head_sample.masked_fill(_invalid_mask, 0.0)
                 )
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
+        return out_dict
+
+
+
+    def my_match_agent_token(
+        self,
+        valid: Tensor,  # [n_agent, n_step]
+        pos: Tensor,  # [n_agent, n_step, 2]
+        heading: Tensor,  # [n_agent, n_step]
+        agent_shape: Tensor,  # [n_agent, 2]
+        token_traj: Tensor,  # [n_agent, n_token, 4, 2]
+    ) -> Dict[str, Tensor]:
+
+        pos= pos[:, ::self.shift]
+
+        heading= heading[:, ::self.shift]
+
+        cur_pos,cur_heading=pos[:,1:],heading[:,1:]
+
+        prev_pos, prev_head = pos[:, :-1], heading[:, :-1]  # [n_agent, 2], [n_agent]
+
+        gt_contour = cal_polygon_contour(cur_pos,cur_heading, agent_shape[:,None])
+
+        cos, sin = prev_head.cos(), prev_head.sin()
+        rot_mat = torch.zeros((prev_head.shape[0],prev_head.shape[1],  2, 2), device=prev_head.device)
+        rot_mat[..., 0, 0] = cos
+        rot_mat[..., 0, 1] = sin
+        rot_mat[..., 1, 0] = -sin
+        rot_mat[..., 1, 1] = cos
+
+        pos_global = torch.einsum('npqx,ntxy->ntpqy',token_traj, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
+        token_world_gt = pos_global + prev_pos[:,:,None,None]
+
+        token_idx_gt = torch.argmin(
+            torch.norm(token_world_gt - gt_contour[:,:,None], dim=-1).sum(-1), dim=-1
+        )
+
+        valid = valid[:, ::self.shift] # [n_agent]
+        _valid_mask = valid[:,1:] & valid[:,:-1]
+        _invalid_mask = ~_valid_mask
+
+        gt_pos=prev_pos.masked_fill(_invalid_mask.unsqueeze(-1), 0)
+        gt_heading=prev_head.masked_fill(_invalid_mask, 0)
+
+        out_dict = {
+            "valid_mask":_valid_mask,
+            "gt_idx": token_idx_gt,
+            "gt_pos": gt_pos,
+            "gt_heading": gt_heading,
+            "sampled_idx": token_idx_gt,
+            "sampled_pos": gt_pos,
+            "sampled_heading": gt_heading,
+        }
+
         return out_dict
 
     @staticmethod

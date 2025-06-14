@@ -257,9 +257,21 @@ class IQ_SoftQ(LightningModule):
         train_mask=valid_mask.all(-1)
 
         if self.encoder.agent_encoder.use_gmm:
+            target, target_valid = get_euclidean_targets(
+                pred_pos=tokenized_agent["sampled_pos"],
+                pred_head=tokenized_agent["sampled_heading"],
+                pred_valid=tokenized_agent["valid_mask"],
+                gt_pos=tokenized_agent["gt_pos_raw"],
+                gt_head=tokenized_agent["gt_head_raw"],
+                gt_valid=tokenized_agent["gt_valid_raw"],
+            )
+            target = torch.cat(
+                [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
+            )  # [n_batch, n_step, 4]
+
             pred = self.encoder(tokenized_map, tokenized_agent)
             gmm =GMM_Dist(pred["next_logits"], pred["next_poses"], pred["next_cov"])
-            log_prob = gmm.log_prob(tokenized_agent["target"]).clamp_min(np.log(1e-10))
+            log_prob = gmm.log_prob(target).clamp_min(np.log(1e-10))
             expert_nll = -log_prob[train_mask].mean()
         else:
             expert_reward,expert_value_loss,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent,train_mask)
@@ -393,27 +405,6 @@ class IQ_SoftQ(LightningModule):
             if "col_mask" in agent.keys():
                 tokenized_agent["col_mask"] = agent["col_mask"]
 
-            if "gt_pos_raw" in agent.keys():
-                for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
-                    tokenized_agent[key] = agent[key]
-                if self.encoder.agent_encoder.use_GT:
-                    tokenized_agent["sampled_pos"]=agent["gt_pos_raw"]
-                    tokenized_agent["sampled_heading"]=agent["gt_head_raw"]
-                    tokenized_agent["valid_mask"]=agent["gt_valid_raw"]
-
-                target, target_valid = get_euclidean_targets(
-                    pred_pos=tokenized_agent["sampled_pos"],
-                    pred_head=tokenized_agent["sampled_heading"],
-                    pred_valid=tokenized_agent["valid_mask"],
-                    gt_pos=tokenized_agent["gt_pos_raw"],
-                    gt_head=tokenized_agent["gt_head_raw"],
-                    gt_valid=tokenized_agent["gt_valid_raw"],
-                )
-                target = torch.cat(
-                    [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
-                )  # [n_batch, n_step, 4]
-
-                tokenized_agent["target"]=target
 
             #tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int16)
 
@@ -421,6 +412,20 @@ class IQ_SoftQ(LightningModule):
                 agent['type']
             )
             tokenized_agent['token_traj_all'] = token_traj_all
+            if "gt_pos_raw" in agent.keys():
+                for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
+                    tokenized_agent[key] = agent[key]
+                if self.encoder.agent_encoder.use_GT:
+                    tokenized_agent["sampled_pos"]=agent["gt_pos_raw"]
+                    tokenized_agent["sampled_heading"]=agent["gt_head_raw"]
+                #     pred=self.token_processor.openloop_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
+                #                                                     agent["gt_head_raw"],
+                #                                                     agent_shape,token_traj
+                #                                                     )
+                    #tokenized_agent["valid_mask"]=pred["valid_mask"]
+                    # tokenized_agent["sampled_idx"]=pred["sampled_idx"]
+
+
 
         if self.encoder.agent_encoder.pred_light:
 

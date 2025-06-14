@@ -22,7 +22,7 @@ from omegaconf import DictConfig
 from torch import Tensor
 
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_inter10_a/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_inter10_a91/"
 
 raw_data = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 
@@ -95,12 +95,17 @@ for filename in tqdm(files):
     # "gt_head_raw": heading[:, self.shift:: self.shift],  # [n_agent, n_step=18]
     # "gt_valid_raw": valid[:, self.shift:: self.shift],  # [n_agent, n_step=18]
 
-    data1["tokenized_agent"]["gt_pos_raw"]= pos[:, 5:: 5]
-    data1["tokenized_agent"]["gt_head_raw"]=heading[:, 5:: 5]
-    data1["tokenized_agent"]["gt_valid_raw"]=valid[:, 5:: 5]
+    data1["tokenized_agent"]["gt_pos_raw"]= pos#[:, 5:: 5]
+    data1["tokenized_agent"]["gt_head_raw"]=heading#[:, 5:: 5]
+    data1["tokenized_agent"]["gt_valid_raw"]=valid#[:, 5:: 5]
     # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
     # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
     # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+
+    del data1["tokenized_agent"]["sampled_pos"]
+    del data1["tokenized_agent"]["valid_mask"]
+    del data1["tokenized_agent"]["sampled_idx"]
+    del data1["tokenized_agent"]["sampled_heading"]
 
     output_file = output_path + filename
 
