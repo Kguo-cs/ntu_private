@@ -28,7 +28,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True#model_config.finetune
+        self.finetune = False #model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -193,7 +193,13 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/"+key+"_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-        action_nll = -log_prob[train_mask].mean()
+        nll=-log_prob[train_mask]
+
+        batch=tokenized_agent['batch'][train_mask]
+
+        action_nll=scatter_max(nll,batch,dim=0)[0].mean()
+
+        #action_nll = -log_prob[train_mask].mean()
 
         entropy = -torch.sum(pi * logpi, dim=-1)
 
@@ -398,7 +404,7 @@ class IQ_SoftQ(LightningModule):
             for key in ["position", "orientation", "batch","token_idx", "type", "pl_type","light_type"]:
                 tokenized_map[key] = map[key]
 
-            tokenized_map['batch'] = tokenized_map['batch'].to(torch.int16)
+            #tokenized_map['batch'] = tokenized_map['batch'].to(torch.int16)
 
             for key in ["sampled_pos", "sampled_heading", "type","batch", "shape","sampled_idx","valid_mask"]:
                 tokenized_agent[key] = agent[key]
@@ -406,7 +412,7 @@ class IQ_SoftQ(LightningModule):
             if "col_mask" in agent.keys():
                 tokenized_agent["col_mask"] = agent["col_mask"]
 
-            tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int16)
+            #tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int16)
 
             agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
                 agent['type']
