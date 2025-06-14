@@ -383,15 +383,15 @@ class TokenProcessor(torch.nn.Module):
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         training=True
-
     ) -> Dict[str, Tensor]:
 
         pos= pos[:, ::self.shift].clone()
 
         heading= heading[:, ::self.shift].clone()
 
-        pos+=0.1*torch.randn_like(pos)
-        heading+=0.1*torch.randn_like(heading)
+        if training:
+            pos+=0.1*torch.randn_like(pos)
+            heading+=0.1*torch.randn_like(heading)
 
         pos_now,head_now=pos[:,1:],heading[:,1:]
 
