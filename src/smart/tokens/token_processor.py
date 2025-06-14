@@ -243,7 +243,7 @@ class TokenProcessor(torch.nn.Module):
         #     agent_shape=agent_shape,
         #     token_traj=token_traj,
         # )
-        token_dict = self.my_match_agent_token(
+        token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
@@ -384,13 +384,16 @@ class TokenProcessor(torch.nn.Module):
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
     ) -> Dict[str, Tensor]:
 
-        pos= pos[:, ::self.shift]
+        pos= pos[:, ::self.shift].clone()
 
         heading= heading[:, ::self.shift]
 
         pos_now,head_now=pos[:,1:],heading[:,1:]
 
-        prev_pos, prev_head = pos[:, :-1], heading[:, :-1]  # [n_agent, 2], [n_agent]
+        prev_pos, prev_head = pos[:, :-1].clone(), heading[:, :-1].clone()  # [n_agent, 2], [n_agent]
+
+        prev_pos+=0.1*torch.randn_like(prev_pos)
+        prev_head+=0.1*torch.randn_like(prev_head)
 
         target_pos, target_head = transform_to_local(
             pos_global=prev_pos.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
@@ -414,6 +417,9 @@ class TokenProcessor(torch.nn.Module):
 
         gt_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
         gt_heading=head_now.masked_fill(_invalid_mask, 0)
+
+        gt_pos[:,:-1]=prev_pos[:,1:]
+        gt_heading[:,:-1]=prev_head[:,1:]
 
         out_dict = {
             "valid_mask":_valid_mask,

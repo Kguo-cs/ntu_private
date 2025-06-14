@@ -265,9 +265,11 @@ class IQ_SoftQ(LightningModule):
                 gt_head=tokenized_agent["gt_head_raw"],
                 gt_valid=tokenized_agent["gt_valid_raw"],
             )
-            target = torch.cat(
-                [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
-            )  # [n_batch, n_step, 4]
+
+            if self.encoder.agent_encoder.output_dim==4:
+                target = torch.cat(
+                    [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
+                )  # [n_batch, n_step, 4]
 
             pred = self.encoder(tokenized_map, tokenized_agent)
             gmm =GMM_Dist(pred["next_logits"], pred["next_poses"], pred["next_cov"])
@@ -413,7 +415,7 @@ class IQ_SoftQ(LightningModule):
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
                     tokenized_agent[key] = agent[key]
                 if self.encoder.agent_encoder.use_GT:
-                    pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
+                    pred=self.token_processor._match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
                                                                     agent["gt_head_raw"],
                                                                     agent_shape,token_traj
                                                                     )
@@ -421,9 +423,9 @@ class IQ_SoftQ(LightningModule):
                     tokenized_agent["sampled_idx"]=pred["sampled_idx"]
                     tokenized_agent["sampled_pos"]=pred["sampled_pos"]
                     tokenized_agent["sampled_heading"]=pred["sampled_heading"]
-                    tokenized_agent["gt_pos_raw"]=pred["sampled_pos"]
-                    tokenized_agent["gt_head_raw"]=pred["sampled_heading"]
-                    tokenized_agent["gt_valid_raw"]=pred["valid_mask"]
+                    tokenized_agent["gt_pos_raw"]=agent["gt_pos_raw"][:,5::5]
+                    tokenized_agent["gt_head_raw"]=agent["gt_head_raw"][:,5::5]
+                    tokenized_agent["gt_valid_raw"]=agent["gt_valid_raw"][:,5::5]
 
                 for key in [ "type", "batch", "shape"]:
                     tokenized_agent[key] = agent[key]

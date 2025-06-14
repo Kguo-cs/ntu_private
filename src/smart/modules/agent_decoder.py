@@ -184,14 +184,15 @@ class SMARTAgentDecoder(nn.Module):
                 self.gmm_pose_head = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
                 )
-                # self.gmm_cov_head = MLPLayer(
-                #     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
-                # )
-                self.output_dim=4
+                self.output_dim=3
 
-                self.cholesky_head = nn.Linear(
-                    hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
+                self.gmm_cov_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * self.output_dim
                 )
+
+                # self.cholesky_head = nn.Linear(
+                #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
+                # )
 
                 # self.gmm_cov = torch.nn.Parameter(
                 #     torch.tensor(cov_ego_gmm, dtype=torch.float32), requires_grad=cov_learnable
@@ -646,20 +647,20 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-            #next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()+1e-3
-            raw_L = self.cholesky_head(feat_a).view( *next_logits.shape, -1 )  # [B, M, 6] for 3x3 lower triangle
+            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()+1e-3
+            #raw_L = self.cholesky_head(feat_a).view( *next_logits.shape, -1 )  # [B, M, 6] for 3x3 lower triangle
 
-
-            tril_indices = torch.tril_indices(self.output_dim, self.output_dim, device=raw_L.device)
-            L = torch.zeros(*raw_L.shape[:-1], self.output_dim, self.output_dim, device=raw_L.device)
-            L[..., tril_indices[0], tril_indices[1]] = raw_L
-            diag_idx = torch.arange(self.output_dim, device=raw_L.device)
-            L[..., diag_idx, diag_idx] = torch.exp(L[..., diag_idx, diag_idx])
-
-            next_cov = L @ L.transpose(-1, -2)  # [B, T, M, 3, 3]
-            eye = torch.eye(self.output_dim, device=next_cov.device).expand(next_cov.shape[:-2] + (self.output_dim, self.output_dim))
-            next_cov = next_cov + eye * 1e-3
-
+            #
+            # tril_indices = torch.tril_indices(self.output_dim, self.output_dim, device=raw_L.device)
+            # L = torch.zeros(*raw_L.shape[:-1], self.output_dim, self.output_dim, device=raw_L.device)
+            # L[..., tril_indices[0], tril_indices[1]] = raw_L
+            # diag_idx = torch.arange(self.output_dim, device=raw_L.device)
+            # L[..., diag_idx, diag_idx] = torch.exp(L[..., diag_idx, diag_idx])
+            #
+            # next_cov = L @ L.transpose(-1, -2)  # [B, T, M, 3, 3]
+            # eye = torch.eye(self.output_dim, device=next_cov.device).expand(next_cov.shape[:-2] + (self.output_dim, self.output_dim))
+            # next_cov = next_cov + eye * 1e-3
+            #
             next_token_logits=(next_logits,next_poses,next_cov)
         else:
             next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
@@ -866,10 +867,14 @@ class SMARTAgentDecoder(nn.Module):
 
                 sample = gmm.sample()  # [n_batch, 4]
 
+                if self.output_dim==4:
+                    head=torch.arctan2(sample[..., -1], sample[..., -2])
+                else:
+                    head=sample[..., 2]
+
                 contour_local = cal_polygon_contour(
                     sample[..., :2],  # [n_batch, 2]
-                    #sample[...,2],
-                    torch.arctan2(sample[..., -1], sample[..., -2]),  # [n_batch]
+                    head,# [n_batch]
                     token_agent_shape,  # [n_batch, 2]
                 )  # [n_batch, 4, 2] in local coord
                 token_traj=token_traj_all[:,:,-1]
