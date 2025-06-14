@@ -684,16 +684,16 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,feat_lg)
 
-        tokenized_agent["next_token_logits"] = next_token_logits
 
         if self.use_gmm:
             next_logits, next_poses=next_token_logits
             return {
             "next_logits": next_logits[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm]
             "next_poses": next_poses[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm, 3]
-            "next_valid": tokenized_agent["valid_mask"][:, 1:-1],
             "next_cov": self.gmm_cov,  # [2], one for pos, one for heading.
             }
+        else:
+            tokenized_agent["next_token_logits"] = next_token_logits
 
         if self.pred_light:
             next_light_logits = torch.cat(
