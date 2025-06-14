@@ -193,13 +193,13 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/"+key+"_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
-        nll=-log_prob[train_mask]
+        #nll=-log_prob[train_mask]
 
-        batch=tokenized_agent['batch'][train_mask]
+        #batch=tokenized_agent['batch'][train_mask]
 
-        action_nll=scatter_max(nll,batch,dim=0)[0].mean()
+        #action_nll=scatter_max(nll,batch,dim=0)[0].mean()
 
-        #action_nll = -log_prob[train_mask].mean()
+        action_nll = -log_prob[train_mask].mean()
 
         entropy = -torch.sum(pi * logpi, dim=-1)
 
