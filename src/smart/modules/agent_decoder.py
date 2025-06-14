@@ -184,10 +184,13 @@ class SMARTAgentDecoder(nn.Module):
                 self.gmm_pose_head = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
                 )
-
-                self.gmm_cov = torch.nn.Parameter(
-                    torch.tensor(cov_ego_gmm, dtype=torch.float32), requires_grad=cov_learnable
+                self.gmm_cov_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 4
                 )
+
+                # self.gmm_cov = torch.nn.Parameter(
+                #     torch.tensor(cov_ego_gmm, dtype=torch.float32), requires_grad=cov_learnable
+                # )
 
             else:
                 self.token_predict_head = MLPLayer(
@@ -638,8 +641,9 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
+            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, 4).exp()+1e-3
 
-            next_token_logits=(next_logits,next_poses)
+            next_token_logits=(next_logits,next_poses,next_cov)
         else:
             next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
 
@@ -687,11 +691,11 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if self.use_gmm:
-            next_logits, next_poses=next_token_logits
+            next_logits,next_poses,next_cov=next_token_logits
             return {
             "next_logits": next_logits[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm]
             "next_poses": next_poses[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm, 3]
-            "next_cov": self.gmm_cov,  # [2], one for pos, one for heading.
+            "next_cov": next_cov[:, 1:-1],  # [2], one for pos, one for heading.
             }
         else:
             tokenized_agent["next_token_logits"] = next_token_logits
@@ -839,9 +843,9 @@ class SMARTAgentDecoder(nn.Module):
                 temp_cov=1 #1e-3
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
 
-                next_logits, next_poses = next_token_logits
+                next_logits, next_poses ,next_cov = next_token_logits
 
-                gmm= GMM_Dist(next_logits[:, -1] , next_poses[:, -1] , self.gmm_cov)
+                gmm= GMM_Dist(next_logits[:, -1] , next_poses[:, -1] , next_cov[:,-1])
 
                 sample = gmm.sample()  # [n_batch, 4]
 

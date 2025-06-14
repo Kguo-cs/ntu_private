@@ -8,7 +8,7 @@ from torch.distributions import Categorical, Independent, MixtureSameFamily, Nor
 
 
 
-def GMM_Dist(next_logits, next_poses,gmm_cov,temp_mode=1,temp_cov=1):
+def GMM_Dist(next_logits, next_poses,cov,temp_mode=1,temp_cov=1):
     next_logits = next_logits / temp_mode
     next_poses = torch.cat(
         [
@@ -19,11 +19,11 @@ def GMM_Dist(next_logits, next_poses,gmm_cov,temp_mode=1,temp_cov=1):
         dim=-1,
     )
 
-    cov = (
-        (gmm_cov * temp_cov)
-        .repeat_interleave(2)[None, None, :]
-        .expand(*next_poses.shape)
-    )  # [n_batch, k, 4]
+    # cov = (
+    #     (gmm_cov * temp_cov)
+    #     .repeat_interleave(2)[None, None, :]
+    #     .expand(*next_poses.shape)
+    # )  # [n_batch, k, 4]
     gmm = MixtureSameFamily(
         Categorical(logits=next_logits), Independent(Normal(next_poses, cov), 1)
     )
