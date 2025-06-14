@@ -148,7 +148,7 @@ class SimulationManager:
         # Initialising models, planners, maps etc
         self.model = Model(map_data)
 
-        self.gui = GUI(self.model)
+        self.gui = GUI(self.model,scenario)
         if self.GUI_DISPLAY:
             self.gui.start()
 

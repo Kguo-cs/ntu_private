@@ -13,7 +13,48 @@ from TrafficManager.LimSim.simModel.DataQueue import (
 )
 from TrafficManager.LimSim.simModel.Model import Model
 from TrafficManager.LimSim.utils.simBase import CoordTF
+from copy import deepcopy
+from pathlib import Path
+from typing import List, Tuple
 
+import cv2
+import numpy as np
+import tensorflow as tf
+from waymo_open_dataset.protos import scenario_pb2, sim_agents_submission_pb2
+import torch
+
+from src.utils.video_recorder import ImageEncoder
+import matplotlib.pyplot as plt
+from typing import Dict, List
+from math import cos, pi, sin
+import matplotlib.pyplot as plt
+import torch
+import numpy as np
+from copy import deepcopy
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from PIL import Image
+import io
+from .waymo_render import get_map_features,get_traffic_light_features
+
+COLOR_BLACK = (0, 0, 0)
+COLOR_WHITE = (255, 255, 255)
+COLOR_RED = (255, 0, 0)
+COLOR_GREEN = (0, 255, 0)
+COLOR_CYAN = (0, 255, 255)
+COLOR_MAGENTA = (255, 0, 255)
+COLOR_YELLOW = (255, 255, 0)
+COLOR_VIOLET = (170, 0, 255)
+COLOR_BUTTER = (252, 233, 79)
+COLOR_ORANGE = (209, 92, 0)
+COLOR_CHOCOLATE = (143, 89, 2)
+COLOR_CHAMELEON = (78, 154, 6)
+COLOR_SKY_BLUE_0 = (114, 159, 207)
+COLOR_SKY_BLUE_1 = (32, 74, 135)
+COLOR_PLUM = (92, 53, 102)
+COLOR_SCARLET_RED = (164, 0, 0)
+COLOR_ALUMINIUM_0 = (238, 238, 236)
+COLOR_ALUMINIUM_1 = (211, 215, 207)
+COLOR_ALUMINIUM_2 = (66, 62, 64)
 
 class SequenceError(Exception):
     def __init__(self, errorInfo: str) -> None:
@@ -54,7 +95,7 @@ def generateDefaultImage(
 
 class GUI(Process):
     def __init__(
-            self, model: Model,
+            self, model: Model,scenario
     ) -> None:
         super().__init__()
         self.renderQueue = model.renderQueue
@@ -70,6 +111,88 @@ class GUI(Process):
         self.zoom_speed: float = 1.0
         self.is_dragging: bool = False
         self.old_offset = (0, 0)
+
+        # self.px_per_m = px_per_m
+        # self.video_size = video_size
+        # self.n_step = n_step
+        # self.step_current = step_current
+        # self.px_agent2bottom = video_size // 2
+        # self.vis_ghost_gt = vis_ghost_gt
+
+        # colors
+        #
+        # self.lane_style = [
+        #     ((220, 220, 220, 255), 2),  # 0: FREEWAY → light grey
+        #     ((200, 200, 200, 255), 2),  # 1: SURFACE_STREET → softer grey
+        #     ((212, 193, 158, 255), 2),  # 2: STOP_SIGN → beige, matching walkways
+        #     ((185, 211, 180, 255), 2),  # 3: BIKE_LANE → carpark green
+        #     ((130, 200, 255, 180), 2),  # 4: ROAD_EDGE_BOUNDARY → semi-transparent blue
+        #     ((175, 117, 167, 180), 2),  # 5: ROAD_EDGE_MEDIAN → translucent lavender
+        #     ((255, 220, 0, 200), 1),  # 6: BROKEN → soft yellow
+        #     ((200, 150, 200, 180), 1),  # 7: SOLID_SINGLE → gentle pink-purple
+        #     ((255, 80, 80, 200), 2),  # 8: DOUBLE → not pure red, softened
+        #     ((0, 120, 100, 180), 2),  # 9: SPEED_BUMP → muted teal
+        #     ((180, 220, 255, 100), 2),  # 10: CROSSWALK → very light, almost overlay
+        # ]
+
+        # self.lane_style = [
+        #     ((230, 230, 230, 255), 3),  # 0: FREEWAY – bright soft grey, clean and clear
+        #     ((200, 200, 200, 255), 2),  # 1: SURFACE_STREET – lighter grey, slightly thinner
+        #     ((255, 170, 120, 230), 2),  # 2: STOP_SIGN – elegant warm orange-pink
+        #     ((180, 220, 180, 230), 2),  # 3: BIKE_LANE – mint green for clarity on grey roads
+        #     ((150, 220, 255, 200), 2),  # 4: ROAD_EDGE_BOUNDARY – fresh sky blue
+        #     ((200, 160, 220, 200), 2),  # 5: ROAD_EDGE_MEDIAN – lavender blend
+        #     ((255, 230, 150, 220), 2),  # 6: BROKEN – soft gold-yellow, non-aggressive
+        #     ((220, 160, 240, 220), 2),  # 7: SOLID_SINGLE – pastel purple-magenta
+        #     ((240, 80, 80, 240), 3),  # 8: DOUBLE – softened coral red, more aesthetic than harsh red
+        #     ((100, 190, 160, 220), 2),  # 9: SPEED_BUMP – seafoam green
+        #     ((200, 240, 255, 160), 2),  # 10: CROSSWALK – pale blue, gently visible as overlay
+        # ]
+        self.lane_style = [
+            ((230, 230, 230, 255), 3),  # 0: FREEWAY – clean soft white-grey
+            ((200, 200, 200, 255), 2),  # 1: SURFACE_STREET – neutral light grey
+            ((255, 190, 130, 230), 2),  # 2: STOP_SIGN – warm beige-orange (not red)
+            ((180, 210, 200, 230), 2),  # 3: BIKE_LANE – desaturated cyan-grey (no green tint)
+            ((160, 210, 255, 200), 2),  # 4: ROAD_EDGE_BOUNDARY – sky blue
+            ((200, 170, 230, 200), 2),  # 5: ROAD_EDGE_MEDIAN – soft lavender
+            ((255, 235, 160, 220), 2),  # 6: BROKEN – muted gold
+            ((210, 170, 240, 220), 2),  # 7: SOLID_SINGLE – dusty purple
+            ((190, 130, 200, 240), 3),  # 8: DOUBLE – elegant muted violet (no red)
+            ((130, 180, 200, 220), 2),  # 9: SPEED_BUMP – soft cyan steel
+            ((200, 235, 255, 150), 2),  # 10: CROSSWALK – pale blue (translucent)
+        ]
+        self.tl_style = [
+            COLOR_ALUMINIUM_1,  # STATE_UNKNOWN = 0;
+            COLOR_RED,  # STOP = 1;
+            COLOR_YELLOW,  # CAUTION = 2;
+            COLOR_GREEN,  # GO = 3;
+            COLOR_VIOLET,  # FLASHING = 4;
+        ]
+        # sdc=0, interest=1, predict=2
+        self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
+
+        self.agent_cmd_txt = [
+            "STATIONARY",  # STATIONARY = 0;
+            "STRAIGHT",  # STRAIGHT = 1;
+            "STRAIGHT_LEFT",  # STRAIGHT_LEFT = 2;
+            "STRAIGHT_RIGHT",  # STRAIGHT_RIGHT = 3;
+            "LEFT_U_TURN",  # LEFT_U_TURN = 4;
+            "LEFT_TURN",  # LEFT_TURN = 5;
+            "RIGHT_U_TURN",  # RIGHT_U_TURN = 6;
+            "RIGHT_TURN",  # RIGHT_TURN = 7;
+        ]
+
+        # make output dir
+        # self.save_dir = save_dir
+        # self.save_dir.mkdir(exist_ok=True, parents=True)
+
+        # draw gt
+        self.mp_xyz, self.mp_id, self.mp_type = get_map_features(scenario.map_features)
+
+        self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
+            scenario.dynamic_map_states
+        )
+
 
     def setup(self):
         dpg.create_context()
@@ -201,11 +324,11 @@ class GUI(Process):
 
     def drawMainWindowWhiteBG(self):
         pmin, pmax = self.netBoundary
-        centerx = (pmin[0] + pmax[0]) / 2
-        centery = (pmin[1] + pmax[1]) / 2
+        self.centerx = (pmin[0] + pmax[0]) / 2
+        self.centery = (pmin[1] + pmax[1]) / 2
         dpg.draw_rectangle(
-            self.ctf.dpgCoord(pmin[0], pmin[1], centerx, centery),
-            self.ctf.dpgCoord(pmax[0], pmax[1], centerx, centery),
+            self.ctf.dpgCoord(pmin[0], pmin[1], self.centerx, self.centery),
+            self.ctf.dpgCoord(pmax[0], pmax[1], self.centerx, self.centery),
             thickness=0,
             fill=(255, 255, 255),
             parent="CanvasBG"
@@ -323,61 +446,21 @@ class GUI(Process):
             self.ctf.dpgCoord(wp[0], wp[1], ex, ey) for wp in line
         ]
 
-    def drawLane(self, node, lrd: LRD, ex, ey, flag: int):
-        if flag & 0b10:
-            return
-        else:
-            left_bound_tf = self.get_line_tf(lrd.left_bound, ex, ey)
+    def drawRoadgraph(self, node):
+
+        for i, _type in enumerate(self.mp_type):
+            color, thickness = self.lane_style[_type]
+            polyline = self.mp_xyz[i][:, :2]
+
+            polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
+
             dpg.draw_polyline(
-                left_bound_tf, color=(0, 0, 0, 100),
-                thickness=2, parent=node
+                points=polyline_tf,
+                color= color,  # RGBA
+                thickness=thickness,
+                parent=node
             )
 
-    def drawEdge(self, node, erd: ERD, rgrd: RGRD, ex, ey):
-        for lane_index in range(erd.num_lanes):
-            lane_id = erd.id + '_' + str(lane_index)
-            lrd = rgrd.get_lane_by_id(lane_id)
-            flag = 0b00
-            if lane_index == 0:
-                flag += 1
-                right_bound_tf = self.get_line_tf(lrd.right_bound, ex, ey)
-            if lane_index == erd.num_lanes - 1:
-                flag += 2
-                left_bound_tf = self.get_line_tf(lrd.left_bound, ex, ey)
-            self.drawLane(node, lrd, ex, ey, flag)
-
-        left_bound_tf.reverse()
-        right_bound_tf.extend(left_bound_tf)
-        right_bound_tf.append(right_bound_tf[0])
-        dpg.draw_polygon(
-            right_bound_tf, color=(0, 0, 0),
-            thickness=2, fill=(0, 0, 0, 30), parent=node
-        )
-
-    def drawJunctionLane(self, node, jlrd: JLRD, ex, ey):
-        if jlrd.center_line:
-            center_line_tf = self.get_line_tf(jlrd.center_line, ex, ey)
-            if jlrd.currTlState:
-                if jlrd.currTlState == 'r':
-                    # jlColor = (232, 65, 24)
-                    jlColor = (255, 107, 129, 100)
-                elif jlrd.currTlState == 'y':
-                    jlColor = (251, 197, 49, 100)
-                elif jlrd.currTlState == 'g' or jlrd.currTlState == 'G':
-                    jlColor = (39, 174, 96, 50)
-            else:
-                jlColor = (0, 0, 0, 30)
-            dpg.draw_polyline(
-                center_line_tf, color=jlColor,
-                thickness=17, parent=node
-            )
-
-    def drawRoadgraph(self, node, rgrd: RGRD, ex, ey):
-        for erd in rgrd.edges.values():
-            self.drawEdge(node, erd, rgrd, ex, ey)
-
-        for jlrd in rgrd.junction_lanes.values():
-            self.drawJunctionLane(node, jlrd, ex, ey)
 
     def showImage(self, cameraImages: CameraImages):
         front_left_image = cameraImages.CAM_FRONT_LEFT / 255
@@ -453,42 +536,28 @@ class GUI(Process):
 
     def render_loop(self):
         self.update_inertial_zoom()
+        dpg.delete_item("Canvas", children_only=True)
+        canvasNode = dpg.add_draw_node(parent="Canvas")
+        try:
+            # scenario,data = self.renderQueue.get()
+            # egoVRD = VRDDict['egoCar'][0]
+            # ex = egoVRD.x
+            # ey = egoVRD.y
+            self.drawRoadgraph(canvasNode)
+            # self.drawVehicles(canvasNode, VRDDict, ex, ey)
+            # self.drawMovingSce(movingSceNode, egoVRD)
+        except TypeError:
+            return
 
-        pil_image = self.renderQueue.get()
-        if pil_image is None:
-            return  # no image to show
-
-        image = pil_image.convert("RGBA")
-        width, height = image.size
-        data = np.array(image).astype(np.float32) / 255.0
-        data = data.flatten()
-
-        # Create texture if it doesn't exist, else update texture data
-        if not dpg.does_item_exist("my_texture"):
-            with dpg.texture_registry(show=False):
-                dpg.add_static_texture(width, height, data, tag="my_texture")
-        else:
-            dpg.set_value("my_texture", data)
-
-        # Create main window + canvas once if not exists
-        if not dpg.does_item_exist("MainWindow"):
-            with dpg.window(label="Main Window", tag="MainWindow"):
-                with dpg.drawlist(width=width, height=height, tag="Canvas"):
-                    dpg.draw_image("my_texture", (0, 0), (width, height))
-        else:
-            # Update the canvas by deleting previous drawings and drawing new image
-            dpg.delete_item("Canvas", children_only=True)
-            dpg.draw_image("my_texture", (0, 0), (width, height), parent="Canvas")
+        # Handle camera images
+        try:
+            cameraImagesList = self.imageQueue.get()
+            if cameraImagesList:
+                self.showImage(cameraImagesList[0])
+        except :
+            pass
 
         dpg.render_dearpygui_frame()
-
-        # try:
-        #     cameraImagesList = self.imageQueue.get(1)
-        #     if cameraImagesList:
-        #         self.showImage(cameraImagesList[0])
-        # except TypeError:
-        #     return
-
         # try:
         #     QA = self.QAQ.get()
         #     if QA:
