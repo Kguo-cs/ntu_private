@@ -265,9 +265,9 @@ class IQ_SoftQ(LightningModule):
                 gt_head=tokenized_agent["gt_head_raw"],
                 gt_valid=tokenized_agent["gt_valid_raw"],
             )
-            # target = torch.cat(
-            #     [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
-            # )  # [n_batch, n_step, 4]
+            target = torch.cat(
+                [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
+            )  # [n_batch, n_step, 4]
 
             pred = self.encoder(tokenized_map, tokenized_agent)
             gmm =GMM_Dist(pred["next_logits"], pred["next_poses"], pred["next_cov"])

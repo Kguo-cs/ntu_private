@@ -187,7 +187,7 @@ class SMARTAgentDecoder(nn.Module):
                 # self.gmm_cov_head = MLPLayer(
                 #     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
                 # )
-                self.output_dim=3
+                self.output_dim=4
 
                 self.cholesky_head = nn.Linear(
                     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
@@ -649,14 +649,15 @@ class SMARTAgentDecoder(nn.Module):
             #next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()+1e-3
             raw_L = self.cholesky_head(feat_a).view( *next_logits.shape, -1 )  # [B, M, 6] for 3x3 lower triangle
 
-            tril_indices = torch.tril_indices(3, 3, device=raw_L.device)
-            L = torch.zeros(*raw_L.shape[:-1], 3, 3, device=raw_L.device)
+
+            tril_indices = torch.tril_indices(self.output_dim, self.output_dim, device=raw_L.device)
+            L = torch.zeros(*raw_L.shape[:-1], self.output_dim, self.output_dim, device=raw_L.device)
             L[..., tril_indices[0], tril_indices[1]] = raw_L
-            diag_idx = torch.arange(3, device=raw_L.device)
+            diag_idx = torch.arange(self.output_dim, device=raw_L.device)
             L[..., diag_idx, diag_idx] = torch.exp(L[..., diag_idx, diag_idx])
 
             next_cov = L @ L.transpose(-1, -2)  # [B, T, M, 3, 3]
-            eye = torch.eye(3, device=next_cov.device).expand(next_cov.shape[:-2] + (3, 3))
+            eye = torch.eye(self.output_dim, device=next_cov.device).expand(next_cov.shape[:-2] + (self.output_dim, self.output_dim))
             next_cov = next_cov + eye * 1e-3
 
             next_token_logits=(next_logits,next_poses,next_cov)
@@ -867,8 +868,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 contour_local = cal_polygon_contour(
                     sample[..., :2],  # [n_batch, 2]
-                    sample[...,2],
-                    #torch.arctan2(sample[..., -1], sample[..., -2]),  # [n_batch]
+                    #sample[...,2],
+                    torch.arctan2(sample[..., -1], sample[..., -2]),  # [n_batch]
                     token_agent_shape,  # [n_batch, 2]
                 )  # [n_batch, 4, 2] in local coord
                 token_traj=token_traj_all[:,:,-1]
