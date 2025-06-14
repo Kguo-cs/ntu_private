@@ -243,7 +243,7 @@ class TokenProcessor(torch.nn.Module):
         #     agent_shape=agent_shape,
         #     token_traj=token_traj,
         # )
-        token_dict = self._match_agent_token(
+        token_dict = self.my_match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
@@ -382,18 +382,23 @@ class TokenProcessor(torch.nn.Module):
         heading: Tensor,  # [n_agent, n_step]
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
+        training=True
+
     ) -> Dict[str, Tensor]:
 
         pos= pos[:, ::self.shift].clone()
 
-        heading= heading[:, ::self.shift]
+        heading= heading[:, ::self.shift].clone()
+
+        pos+=0.1*torch.randn_like(pos)
+        heading+=0.1*torch.randn_like(heading)
 
         pos_now,head_now=pos[:,1:],heading[:,1:]
 
-        prev_pos, prev_head = pos[:, :-1].clone(), heading[:, :-1].clone()  # [n_agent, 2], [n_agent]
+        prev_pos, prev_head = pos[:, :-1], heading[:, :-1] # [n_agent, 2], [n_agent]
 
-        prev_pos+=0.1*torch.randn_like(prev_pos)
-        prev_head+=0.1*torch.randn_like(prev_head)
+        # prev_pos+=0.1*torch.randn_like(prev_pos)
+        # prev_head+=0.1*torch.randn_like(prev_head)
 
         target_pos, target_head = transform_to_local(
             pos_global=prev_pos.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]

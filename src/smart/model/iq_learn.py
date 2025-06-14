@@ -415,9 +415,9 @@ class IQ_SoftQ(LightningModule):
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
                     tokenized_agent[key] = agent[key]
                 if self.encoder.agent_encoder.use_GT:
-                    pred=self.token_processor._match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
+                    pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
                                                                     agent["gt_head_raw"],
-                                                                    agent_shape,token_traj
+                                                                    agent_shape,token_traj,True
                                                                     )
                     tokenized_agent["valid_mask"]=pred["valid_mask"]
                     tokenized_agent["sampled_idx"]=pred["sampled_idx"]
