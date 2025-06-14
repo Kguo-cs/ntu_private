@@ -37,7 +37,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False #model_config.finetune
+        self.finetune = True #model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
             reward=total_reward
             value_loss=total_value_loss
 
-        return  reward,value_loss,init_V,action_nll,entropy
+        return  reward,value_loss,init_V-1,action_nll,entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
 

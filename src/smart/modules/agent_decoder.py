@@ -170,7 +170,7 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.use_gmm=True
+            self.use_gmm=False
 
             if self.use_gmm:
                 k_ego_gmm=16
@@ -816,7 +816,6 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
-        token_agent_shape = tokenized_agent["token_agent_shape"]  # [n_token, 2]
 
         if "gt_z_raw" in tokenized_agent.keys():
             n_agent=sampled_idx.shape[0]
@@ -860,6 +859,7 @@ class SMARTAgentDecoder(nn.Module):
                 temp_mode=1 #1e-3
                 temp_cov=1 #1e-3
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
+                token_agent_shape = tokenized_agent["token_agent_shape"]  # [n_token, 2]
 
                 next_logits, next_poses ,next_cov = next_token_logits
 
