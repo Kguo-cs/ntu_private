@@ -185,7 +185,7 @@ class SMARTAgentDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
                 )
                 self.gmm_cov_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 4
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
                 )
 
                 # self.gmm_cov = torch.nn.Parameter(
@@ -641,7 +641,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, 4).exp()+1e-3
+            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()+1e-3
 
             next_token_logits=(next_logits,next_poses,next_cov)
         else:
@@ -851,7 +851,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 contour_local = cal_polygon_contour(
                     sample[..., :2],  # [n_batch, 2]
-                    torch.arctan2(sample[..., -1], sample[..., -2]),  # [n_batch]
+                    sample[...,2],
+                    #torch.arctan2(sample[..., -1], sample[..., -2]),  # [n_batch]
                     token_agent_shape,  # [n_batch, 2]
                 )  # [n_batch, 4, 2] in local coord
                 token_traj=token_traj_all[:,:,-1]
