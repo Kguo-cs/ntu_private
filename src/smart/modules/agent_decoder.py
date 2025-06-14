@@ -36,7 +36,8 @@ from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
 from src.multi_agent.Qatten import QattenMixer
 from torch_scatter import scatter_mean,scatter_max
-
+from src.smart.utils.rollout import cal_polygon_contour
+from .gmm_dist import  GMM_Dist
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -169,9 +170,28 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
+            self.use_gmm=True
+
+            if self.use_gmm:
+                k_ego_gmm=16
+                cov_ego_gmm=[1.0, 0.1]
+                cov_learnable=False
+
+                self.gmm_logits_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm
+                )
+                self.gmm_pose_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
+                )
+
+                self.gmm_cov = torch.nn.Parameter(
+                    torch.tensor(cov_ego_gmm, dtype=torch.float32), requires_grad=cov_learnable
+                )
+
+            else:
+                self.token_predict_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
 
         self.pred_light = False
 
@@ -614,7 +634,13 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_a = padded_a_feature[feature_mask]
 
-        next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
+        if self.use_gmm:
+            next_logits = self.gmm_logits_head(feat_a)
+            next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
+
+            next_token_logits=(next_logits,next_poses)
+        else:
+            next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
 
         return next_token_logits,feat_a
 
@@ -659,6 +685,15 @@ class SMARTAgentDecoder(nn.Module):
         next_token_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,feat_lg)
 
         tokenized_agent["next_token_logits"] = next_token_logits
+
+        if self.use_gmm:
+            next_logits, next_poses=next_token_logits
+            return {
+            "next_logits": next_logits[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm]
+            "next_poses": next_poses[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm, 3]
+            "next_valid": tokenized_agent["valid_mask"][:, 1:-1],
+            "next_cov": self.gmm_cov,  # [2], one for pos, one for heading.
+            }
 
         if self.pred_light:
             next_light_logits = torch.cat(
@@ -758,6 +793,7 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
+        token_agent_shape = tokenized_agent["token_agent_shape"]  # [n_token, 2]
 
         if "gt_z_raw" in tokenized_agent.keys():
             n_agent=sampled_idx.shape[0]
@@ -784,7 +820,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     next_token_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,lg_feat)
 
-                logit_list.append(next_token_logits)
+                #logit_list.append(next_token_logits)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
    
@@ -795,17 +831,48 @@ class SMARTAgentDecoder(nn.Module):
                     lg_feat=None
 
                 next_token_logits,feat_a = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
-                logit_list.append(next_token_logits[:, -1:])
+                #logit_list.append(next_token_logits[:, -1:])
 
-            cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
+            if self.use_gmm:
+                temp_mode=1 #1e-3
+                temp_cov=1 #1e-3
+                # next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
 
-            next_token_idx = cat_dist.sample()
+                next_logits, next_poses = next_token_logits
+
+                gmm= GMM_Dist(next_logits[:, -1] , next_poses[:, -1] , self.gmm_cov)
+                sample = gmm.sample()  # [n_batch, 4]
+
+                contour_local = cal_polygon_contour(
+                    sample[..., :2],  # [n_batch, 2]
+                    torch.arctan2(sample[..., -1], sample[..., -2]),  # [n_batch]
+                    token_agent_shape,  # [n_batch, 2]
+                )  # [n_batch, 4, 2] in local coord
+                token_traj=token_traj_all[:,:,-1]
+                dist = torch.norm(contour_local.unsqueeze(1) - token_traj, dim=-1).mean(  -1  )  # [n_batch, n_token]
+
+                next_token_idx = dist.argmin(-1)
+
+                next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+
+                countour_start = next_token_traj_all[:, 0]  # [n_batch, 4, 2]
+                n_step = next_token_traj_all.shape[1]
+                diff = (contour_local - countour_start) / (n_step - 1)
+                ego_token_interp = [countour_start + diff * i for i in range(n_step)]
+                # [n_batch, 6, 4, 2]
+                next_token_traj_all  = torch.stack(ego_token_interp, dim=1)
+
+            else:
+
+                cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
+
+                next_token_idx = cat_dist.sample()
+
+                range_a = torch.arange(next_token_idx.shape[0])
+
+                next_token_traj_all = token_traj_all[range_a, next_token_idx]
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
-
-            range_a = torch.arange(next_token_idx.shape[0])
-
-            next_token_traj_all = token_traj_all[range_a, next_token_idx]
 
             token_traj_global = transform_to_global(
                 pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]

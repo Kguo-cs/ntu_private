@@ -43,7 +43,7 @@ class SMARTMapDecoder(nn.Module):
         self.use_map=True
         self.pt2pt_neighbor=pt2pt_neighbor
 
-        self.gnn=False
+        self.gnn= True
         self.token_processor=token_processor
 
         if self.use_map:

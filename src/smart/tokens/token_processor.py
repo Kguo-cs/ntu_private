@@ -131,55 +131,12 @@ class TokenProcessor(torch.nn.Module):
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
-        if "ln_id" in data["pt_token"].keys():
-            sample_interval = 10
-
-            ln_id = data["pt_token"]["ln_id"]
-            batch = data["pt_token"]["batch"]
-
-            ln_id_max = ln_id[torch.where(ln_id[1:] < ln_id[:-1])]
-            offsets = torch.zeros([data.num_graphs], device=ln_id_max.device).long()
-            offsets[1:] = torch.cumsum(ln_id_max + 1, dim=0)
-            lane_ids = ln_id + offsets[batch]
-
-            # Get unique lane IDs
-            pt_idx=torch.arange(len(lane_ids),device=ln_id.device)
-
-            change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
-            starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
-            ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
-            lengths = ends - starts
-
-            # Create global index mask for sampling
-            max_len = lengths.max()
-            grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
-            mask = grid < lengths.unsqueeze(1)
-            sampling_mask = (grid % sample_interval == 0) & mask
-
-            # Flattened index positions per group
-            base = starts.unsqueeze(1) + grid
-            valid_idx = base[sampling_mask]
-
-            # Recover sampled original indices
-            sample_list = pt_idx[valid_idx]
-
-            # sample_list=torch.cat([sample_list,ends-1])
-            #
-            # sample_list=torch.unique(sample_list)
-
-            traj_pos = data["map_save"]["traj_pos"][sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
-            traj_theta = data["map_save"]["traj_theta"][sample_list] #[::sample_interval]##  # [n_pl]
-            type= data["pt_token"]["type"][sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
-            pl_type= data["pt_token"]["pl_type"][sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
-            light_type= data["pt_token"]["light_type"][sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
-            batch = data["pt_token"]["batch"][sample_list]#[::sample_interval] # #
-        else:
-            traj_pos = data["map_save"]["traj_pos"] ## # [n_pl, 3, 2]
-            traj_theta = data["map_save"]["traj_theta"]##  # [n_pl]
-            type= data["pt_token"]["type"]#.long()#[::sample_interval]  # [n_pl]
-            pl_type= data["pt_token"]["pl_type"]##[::sample_interval]  # [n_pl]
-            light_type= data["pt_token"]["light_type"] ##[::sample_interval]  # [n_pl]
-            batch = data["pt_token"]["batch"]
+        traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"] # [n_pl]
+        type = data["pt_token"]["type"]  # [n_pl]
+        pl_type = data["pt_token"]["pl_type"]  # [n_pl]
+        light_type= data["pt_token"]["light_type"]   # [n_pl]
+        batch = data["pt_token"]["batch"]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -197,90 +154,16 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
-        if self.use_lane:
-
-            # # Identify lane change points
-            lane_change = torch.ones_like(lane_ids, dtype=torch.bool, device=ln_id.device)
-            lane_change[1:] = lane_ids[1:] != lane_ids[:-1]
-
-            # Get start indices of each lane
-            start_indices = lane_change.nonzero(as_tuple=False).squeeze()
-
-            # Get end indices of each lane
-            end_indices = torch.cat([start_indices[1:] - 1, torch.tensor([len(ln_id) - 1], device=ln_id.device)])
-
-            # Compute middle indices
-            mid_indices = ((start_indices + end_indices) // 2)
-
-            lane_position=position[mid_indices]#scatter_mean(position,batch_ln_id,dim=0)
-
-            lane_theta=traj_theta[mid_indices] #scatter_mean(traj_theta,batch_ln_id,dim=0)
-            batch=batch[mid_indices]#scatter_mean(batch,batch_ln_id,dim=0)
-            type=type[mid_indices]#scatter_mean(type,batch_ln_id,dim=0)
-            pl_type=pl_type[mid_indices]#scatter_mean(pl_type,batch_ln_id,dim=0)
-            light_type=light_type[mid_indices]#scatter_mean(light_type,batch_ln_id,dim=0)
-
-            rel_position = position - lane_position[lane_ids]  # [n_pl, 2]
-            rel_theta= traj_theta - lane_theta[lane_ids]  # [n_pl, 2]
-            rel_pose=torch.cat([rel_position,rel_theta[:,None]],dim=-1)
-
-            # token_idx=token_idx[mid_indices]
-
-            tokenized_map = {
-                "position": lane_position,  # [n_pl, 2]
-                "orientation": lane_theta,  # [n_pl]
-                "token_idx": token_idx,  # [n_pl]
-                "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-                "type": type.long() ,  # [n_pl]
-                "pl_type": pl_type.long() ,  # [n_pl]
-                "light_type": light_type.long() ,  # [n_pl]
-                "batch": batch ,  # [n_pl]
-                "ln_id": lane_ids,
-                "rel_pose":rel_pose
-            }
-        else:
-
-            # pos_pt=position
-            # N = pos_pt.size(0)
-            # max_k = 500
-            #
-            # # Step 1: Compute per-batch centroids
-            # centroid = scatter_mean(pos_pt, batch, dim=0)  # shape: (B, D)
-            #
-            # # Step 2: Compute distance of each point to its batch centroid
-            # centroid_per_point = centroid[batch]  # shape: (N, D)
-            # distances = torch.norm(pos_pt - centroid_per_point, dim=1)  # shape: (N,)
-            #
-            # max_dist = distances.max() + 1  # ensure batch shift won't change intra-batch order
-            # sort_key = distances + batch.to(distances.dtype) * max_dist
-            # sorted_indices = torch.argsort(sort_key)  # global sort, but grouped by batch
-            #
-            # # Step 4: Count how many elements per batch
-            # batch_sizes = torch.bincount(batch)  # shape: (B,)
-            # cumsum = torch.cumsum(batch_sizes, dim=0)
-            # start = torch.zeros_like(cumsum)
-            # start[1:] = cumsum[:-1]
-            #
-            # # Step 5: Create rank per item in sorted list
-            # rank = torch.empty_like(batch, dtype=torch.long)
-            # rank[sorted_indices] = torch.arange(N, device=batch.device) - start[batch[sorted_indices]]
-            #
-            # # Step 6: Keep only top-k (rank < 500)
-            # mask = rank < max_k
-
-            mask=torch.ones_like(traj_theta).to(torch.bool)
-
-            tokenized_map = {
-                "position": position[mask],  # [n_pl, 2]
-                "orientation": traj_theta[mask],  # [n_pl]
-                "token_idx": token_idx[mask],  # [n_pl]
-                "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-                "type": type.long()[mask] ,  # [n_pl]
-                "pl_type": pl_type.long()[mask] ,  # [n_pl]
-                "light_type": light_type.long()[mask] ,  # [n_pl]
-                "batch": batch[mask] ,  # [n_pl]
-            }
-
+        tokenized_map = {
+            "position": position,  # [n_pl, 2]
+            "orientation": traj_theta,  # [n_pl]
+            "token_idx": token_idx,  # [n_pl]
+            "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
+            "type": type.long(),  # [n_pl]
+            "pl_type": pl_type.long(),  # [n_pl]
+            "light_type": light_type.long(),  # [n_pl]
+            "batch": batch,  # [n_pl]
+        }
 
         return tokenized_map
 

@@ -12,6 +12,15 @@ import pickle
 from torch_scatter import scatter_mean,scatter_max,scatter_sum
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding,RoFormerBlock,general_rope
+from typing import Optional
+
+import torch
+from torch import Tensor, tensor
+from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
+from torchmetrics.metric import Metric
+
+from src.smart.metrics.utils import get_euclidean_targets
+from ..modules.gmm_dist import  GMM_Dist
 
 class IQ_SoftQ(LightningModule):
 
@@ -28,7 +37,7 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = False #model_config.finetune
+        self.finetune = True #model_config.finetune
         self.use_target_q=False
         self.soft_update=True
 
@@ -412,6 +421,10 @@ class IQ_SoftQ(LightningModule):
             if "col_mask" in agent.keys():
                 tokenized_agent["col_mask"] = agent["col_mask"]
 
+            if "gt_pos_raw" in agent.keys():
+                for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
+                    tokenized_agent[key] = agent[key]
+
             #tokenized_agent['batch'] = tokenized_agent['batch'].to(torch.int16)
 
             agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
@@ -479,7 +492,36 @@ class IQ_SoftQ(LightningModule):
         else:
             tokenized_map, tokenized_agent = self.process_data(data)
 
-        loss = self.iq_update(tokenized_map, tokenized_agent)
+        if self.encoder.agent_encoder.use_gmm:
+            pred = self.encoder(tokenized_map, tokenized_agent)
+
+            target, target_valid = get_euclidean_targets(
+                pred_pos=tokenized_agent["sampled_pos"],
+                pred_head=tokenized_agent["sampled_heading"],
+                pred_valid=tokenized_agent["valid_mask"],
+                gt_pos=tokenized_agent["gt_pos_raw"],
+                gt_head=tokenized_agent["gt_head_raw"],
+                gt_valid=tokenized_agent["gt_valid_raw"],
+            )
+
+            next_logits=pred["next_logits"]
+            next_poses=pred["next_poses"]
+            next_valid=pred["next_valid"]
+            next_cov=pred["next_cov"]
+
+            gmm =GMM_Dist(next_logits, next_poses, next_cov)
+
+            target = torch.cat(
+                [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
+            )  # [n_batch, n_step, 4]
+            loss=-gmm.log_prob(target)
+
+            loss_weighting_mask = target_valid & next_valid  # [n_batch, n_step]
+
+            loss=loss[loss_weighting_mask].mean()
+
+        else:
+            loss = self.iq_update(tokenized_map, tokenized_agent)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
