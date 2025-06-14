@@ -837,7 +837,7 @@ class SMARTAgentDecoder(nn.Module):
             if self.use_gmm:
                 temp_mode=1 #1e-3
                 temp_cov=1 #1e-3
-                next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
+                #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
 
                 next_logits, next_poses = next_token_logits
 
@@ -855,7 +855,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 next_token_idx = dist.argmin(-1)
 
-                # next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+                next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
 
                 countour_start = next_token_traj_all[:, 0]  # [n_batch, 4, 2]
                 n_step = next_token_traj_all.shape[1]
