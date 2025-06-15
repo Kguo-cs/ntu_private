@@ -647,7 +647,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()+1e-3
+            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()#+1e-3
             #raw_L = self.cholesky_head(feat_a).view( *next_logits.shape, -1 )  # [B, M, 6] for 3x3 lower triangle
 
             #
