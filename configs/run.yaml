@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc24_gmm_cov_x2Init0_nll #01_clipmin1e3 #_pt20_mapmax1e5_noclip_x2_init1 #_gmm91_cov_sampled_my001 #4joint_mymatch #_map #_max #_x2_1_expertinit1 #_x2histfut #_x2 #_x2 #6fut #_x2 #_alpha1 #_head_vqe_navie #
+task_name: bc24_gmm_cov_x2V0_nll #01_clipmin1e3 #_pt20_mapmax1e5_noclip_x2_init1 #_gmm91_cov_sampled_my001 #4joint_mymatch #_map #_max #_x2_1_expertinit1 #_x2histfut #_x2 #_x2 #6fut #_x2 #_alpha1 #_head_vqe_navie #
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
