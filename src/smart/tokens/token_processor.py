@@ -423,9 +423,6 @@ class TokenProcessor(torch.nn.Module):
         gt_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
         gt_heading=head_now.masked_fill(_invalid_mask, 0)
 
-        gt_pos[:,:-1]=prev_pos[:,1:]
-        gt_heading[:,:-1]=prev_head[:,1:]
-
         out_dict = {
             "valid_mask":_valid_mask,
             "gt_idx": token_idx_gt,
