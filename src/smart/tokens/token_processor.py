@@ -389,9 +389,9 @@ class TokenProcessor(torch.nn.Module):
 
         heading= heading[:, ::self.shift].clone()
 
-        # if training:
-        #     pos+=0.01*torch.randn_like(pos)
-        #     heading+=0.01*torch.randn_like(heading)
+        if training:
+            pos+=0.1*torch.randn_like(pos)
+            heading+=0.1*torch.randn_like(heading)
 
         pos_now,head_now=pos[:,1:],heading[:,1:]
 
