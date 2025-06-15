@@ -43,10 +43,10 @@ class SMARTDecoder(nn.Module):
         head_dim: int,
         dropout: float,
         hist_drop_prob: float,
-        n_token_agent: int,
         pt2pt_neighbor:int,
         pt2a_neighbor: int,
         a2a_neighbor: int,
+        n_token_agent: int,
         token_processor=None,
     ) -> None:
         super(SMARTDecoder, self).__init__()
@@ -54,6 +54,8 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
+        self.iq_learn=False
+        self.output_gmm=True
 
         if self.tokenizer_training:
             from .vq_vae import VQVAE
@@ -61,7 +63,6 @@ class SMARTDecoder(nn.Module):
             self.vq_vae=VQVAE(token_processor)
 
         else:
-            self.use_gmm=True
 
             self.map_encoder = SMARTMapDecoder(
                 hidden_dim=hidden_dim,
@@ -75,7 +76,7 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor
             )
 
-            if self.use_gmm:
+            if self.iq_learn and self.output_gmm:
                 self.alpha = 0.01
 
                 self.critic = SMARTAgentDecoder(
@@ -96,7 +97,7 @@ class SMARTDecoder(nn.Module):
                     a2a_neighbor=a2a_neighbor,
                     token_processor=token_processor,
                     alpha=self.alpha,
-                    use_gmm=False
+                    output_gmm=False
                 )
             else:
                 self.alpha = 0.1
@@ -119,10 +120,8 @@ class SMARTDecoder(nn.Module):
                 a2a_neighbor=a2a_neighbor,
                 token_processor=token_processor,
                 alpha=self.alpha,
-                use_gmm=self.use_gmm
+                output_gmm=self.output_gmm
             )
-
-
 
     def scene_centric(self,pos,heading,centering_pos,centering_heading,batch):
 

@@ -20,6 +20,8 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.model.ego_gmm_smart import EgoGMMSMART
 from src.smart.modules.ego_gmm_smart_decoder import EgoGMMSMARTDecoder
 import torch
+import math
+from torch.optim.lr_scheduler import LambdaLR
 
 
 # class SMART_GAIL(GAIL, SMART):
@@ -41,10 +43,37 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
 
     def configure_optimizers(self):
-        actor_optimizer = torch.optim.Adam(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), lr=self.lr)
-        critic_optimizer = torch.optim.Adam(self.encoder.critic.parameters(), lr=self.lr)
+        if  self.automatic_optimization:
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-        return [actor_optimizer, critic_optimizer]
+            def lr_lambda(current_step):
+                current_step = self.current_epoch + 1
+                if current_step < self.lr_warmup_steps:
+                    return (
+                            self.lr_min_ratio
+                            + (1 - self.lr_min_ratio) * current_step / self.lr_warmup_steps
+                    )
+                return self.lr_min_ratio + 0.5 * (1 - self.lr_min_ratio) * (
+                        1.0
+                        + math.cos(
+                    math.pi
+                    * min(
+                        1.0,
+                        (current_step - self.lr_warmup_steps)
+                        / (self.lr_total_steps - self.lr_warmup_steps),
+                    )
+                )
+                )
+
+            lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+            return [optimizer], [lr_scheduler]
+
+        else:
+            actor_optimizer = torch.optim.Adam(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), lr=self.lr)
+            critic_optimizer = torch.optim.Adam(self.encoder.critic.parameters(), lr=self.lr)
+
+            return [actor_optimizer, critic_optimizer]
+
 
 
 

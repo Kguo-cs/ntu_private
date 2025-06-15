@@ -59,7 +59,7 @@ class SMARTAgentDecoder(nn.Module):
             a2a_neighbor: int,
             token_processor,
             alpha,
-            use_gmm
+            output_gmm
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -111,11 +111,8 @@ class SMARTAgentDecoder(nn.Module):
 
 
             self.use_gnn=True
-            input_dim_x_a = 2
-            input_dim_r_t = 4
             input_dim_r_pt2a = 3
             input_dim_r_a2a = 3
-            input_dim_token = 8
 
             if self.use_gnn:
                 self.r_pt2a_emb = FourierEmbedding(
@@ -171,10 +168,10 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.use_gmm=use_gmm
+            self.output_gmm=output_gmm
             self.n_token_agent = n_token_agent
 
-            if self.use_gmm:
+            if self.output_gmm:
                 k_ego_gmm=16
                 cov_ego_gmm=[1.0, 0.1]
                 cov_learnable=False
@@ -647,7 +644,7 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_a = padded_a_feature[feature_mask]
 
-        if self.use_gmm:
+        if self.output_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
             next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()#+1e-3
@@ -857,7 +854,7 @@ class SMARTAgentDecoder(nn.Module):
                 next_token_logits,feat_a = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,lg_feat,t - 1)
                 #logit_list.append(next_token_logits[:, -1:])
 
-            if self.use_gmm:
+            if self.output_gmm:
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
                 token_agent_shape = tokenized_agent["token_agent_shape"]  # [n_token, 2]
 

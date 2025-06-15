@@ -41,12 +41,9 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.finetune = True #model_config.finetune
         self.use_target_q=False
-        self.soft_update=True
-
-        self.rollout_freq=1
-        if self.finetune and self.encoder.use_gmm:
+        
+        if self.encoder.iq_learn and self.encoder.output_gmm:
             self.automatic_optimization = False
 
         if  self.use_target_q:
@@ -96,25 +93,10 @@ class IQ_SoftQ(LightningModule):
 
         q_value = pred["q_value"]
 
-        if self.encoder.use_gmm:
+        if self.encoder.output_gmm:
             dist =  GMM_Dist(q_value)
+
             entropy=get_entropy(q_value)
-
-            sampled_action=dist.sample([2])
-
-            sampled_log_prob=dist.log_prob(sampled_action)
-
-            pred=network(tokenized_map, tokenized_agent,True)
-
-            Q=network.get_Q(pred["feat_a"],sampled_action[0])
-
-            v_value=Q-self.alpha*sampled_log_prob[0].detach()
-
-            actor_loss=self.alpha * sampled_log_prob[0][:,:-1] - Q[:,:-1].detach()
-
-            current_V= v_value[:,:-1]
-
-            next_V = network.get_Q(pred["feat_a"][:,1:],sampled_action[1][:,1:])-self.alpha*sampled_log_prob[1][:,1:].detach()
 
             if "gt_pos_raw" in tokenized_agent.keys():
                 gt_pos=tokenized_agent["gt_pos_raw"]
@@ -133,16 +115,40 @@ class IQ_SoftQ(LightningModule):
                 gt_head=gt_head,
                 gt_valid=gt_valid
             )
-
-            current_Q=network.get_Q(pred["feat_a"][:,:-1],target)
-
             if self.encoder.agent_encoder.output_dim == 4:
                 target = torch.cat(
                     [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
                 )  # [n_batch, n_step, 4]
 
-            log_prob = dist.log_prob(torch.cat([target, torch.zeros_like(target[:,:1])],dim=1))[:,:-1]#sampled_action log_prob
+            target1=torch.cat([target, torch.zeros_like(target[:,:1])],dim=1)
 
+            log_prob = dist.log_prob(target1)[:,:-1].clamp_min(min=np.log(1e-5))
+
+            if self.encoder.iq_learn:
+
+                sampled_action=dist.sample([2])
+
+                sampled_log_prob=dist.log_prob(sampled_action)
+
+                pred=network(tokenized_map, tokenized_agent,True)
+
+                Q=network.get_Q(pred["feat_a"],sampled_action[0])
+
+                v_value=Q-self.alpha*sampled_log_prob[0].detach()
+
+                actor_loss=self.alpha * sampled_log_prob[0][:,:-1] - Q[:,:-1].detach()
+
+                current_V= v_value[:,:-1]
+
+                next_V = network.get_Q(pred["feat_a"][:,1:],sampled_action[1][:,1:])-self.alpha*sampled_log_prob[1][:,1:].detach()
+
+                current_Q = network.get_Q(pred["feat_a"][:, :-1], target)
+            else:
+                next_V = torch.zeros_like(log_prob)
+                current_V = torch.zeros_like(log_prob)
+                current_Q = torch.zeros_like(log_prob)
+                actor_loss = torch.zeros_like(log_prob)
+                v_value = torch.zeros_like(torch.cat([log_prob, torch.zeros_like(log_prob[:,:1])],dim=1))
         else:
 
             q = q_value[:, :-1]
@@ -208,12 +214,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
-        if self.encoder.use_gmm and not self.finetune:
-            pred = self.encoder(tokenized_map, tokenized_agent)
-            gmm =GMM_Dist(pred)
-            log_prob = gmm.log_prob(tokenized_agent["target"])#.clamp(min=np.log(1e-5),max=np.log(1e5))
-            expert_nll = -log_prob[train_mask].mean()
-            return 0,0,0,expert_nll
 
         if self.encoder.agent_encoder.pred_agent:
             valid_mask = tokenized_agent["valid_mask"][:, 1:]
@@ -334,7 +334,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/repeat_relation_acc", repeat_relation_acc.item(), on_step=True, batch_size=1)
 
-        if not self.finetune:
+        if not self.encoder.iq_learn:
             loss =expert_nll
         else:
             if self.global_step % self.rollout_freq== 0:
@@ -409,19 +409,19 @@ class IQ_SoftQ(LightningModule):
             if "gt_pos_raw" in agent.keys():
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
                     tokenized_agent[key] = agent[key]
-                if self.encoder.agent_encoder.use_GT:
-                    pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
-                                                                    agent["gt_head_raw"],
-                                                                    agent_shape,token_traj,True
-                                                                    )
+                #if self.encoder.agent_encoder.use_GT:
+                pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
+                                                                agent["gt_head_raw"],
+                                                                agent_shape,token_traj,not self.encoder.iq_learn
+                                                                )
 
-                    tokenized_agent["valid_mask"]=pred["valid_mask"]
-                    tokenized_agent["sampled_idx"]=pred["sampled_idx"]
-                    tokenized_agent["sampled_pos"]=pred["sampled_pos"]
-                    tokenized_agent["sampled_heading"]=pred["sampled_heading"]
-                    tokenized_agent["gt_pos_raw"]=agent["gt_pos_raw"][:,5::5]
-                    tokenized_agent["gt_head_raw"]=agent["gt_head_raw"][:,5::5]
-                    tokenized_agent["gt_valid_raw"]=agent["gt_valid_raw"][:,5::5]
+                tokenized_agent["valid_mask"]=pred["valid_mask"]
+                tokenized_agent["sampled_idx"]=pred["sampled_idx"]
+                tokenized_agent["sampled_pos"]=pred["sampled_pos"]
+                tokenized_agent["sampled_heading"]=pred["sampled_heading"]
+                tokenized_agent["gt_pos_raw"]=agent["gt_pos_raw"][:,5::5]
+                tokenized_agent["gt_head_raw"]=agent["gt_head_raw"][:,5::5]
+                tokenized_agent["gt_valid_raw"]=agent["gt_valid_raw"][:,5::5]
 
                 for key in [ "type", "batch", "shape"]:
                     tokenized_agent[key] = agent[key]
