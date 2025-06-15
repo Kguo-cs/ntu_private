@@ -408,7 +408,7 @@ class IQ_SoftQ(LightningModule):
                     tokenized_agent[key] = agent[key]
                 pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
                                                                 agent["gt_head_raw"],
-                                                                agent_shape,token_traj,not self.encoder.iq_learn
+                                                                agent_shape,token_traj,True
                                                                 )
 
                 tokenized_agent["valid_mask"]=pred["valid_mask"]
