@@ -243,7 +243,7 @@ class TokenProcessor(torch.nn.Module):
         #     agent_shape=agent_shape,
         #     token_traj=token_traj,
         # )
-        token_dict = self._match_agent_token(
+        token_dict = self.my_match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
@@ -389,9 +389,9 @@ class TokenProcessor(torch.nn.Module):
 
         heading= heading[:, ::self.shift].clone()
 
-        if training:
-            pos+=0.01*torch.randn_like(pos)
-            heading+=0.01*torch.randn_like(heading)
+        # if training:
+        #     pos+=0.01*torch.randn_like(pos)
+        #     heading+=0.01*torch.randn_like(heading)
 
         pos_now,head_now=pos[:,1:],heading[:,1:]
 

@@ -170,7 +170,7 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.use_gmm=False
+            self.use_gmm=True
 
             if self.use_gmm:
                 k_ego_gmm=16
