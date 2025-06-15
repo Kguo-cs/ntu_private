@@ -145,10 +145,7 @@ class IQ_SoftQ(LightningModule):
 
                 current_Q = network.get_Q(pred["feat_a"][:, :-1], target)
             else:
-                next_V = torch.zeros_like(log_prob)
-                current_V = torch.zeros_like(log_prob)
-                current_Q = torch.zeros_like(log_prob)
-                actor_loss = torch.zeros_like(log_prob)
+                next_V =current_Q=current_V=actor_loss= torch.zeros_like(log_prob)
                 v_value = torch.zeros_like(torch.cat([log_prob, torch.zeros_like(log_prob[:,:1])],dim=1))
         else:
 
@@ -376,7 +373,7 @@ class IQ_SoftQ(LightningModule):
                 critic_loss.backward()
                 critic_optimizer.step()
 
-                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+                actor_loss=expert_nll#expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
 
                 actor_optimizer.zero_grad()
                 actor_loss.backward()
