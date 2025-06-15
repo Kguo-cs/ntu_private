@@ -300,7 +300,7 @@ class IQ_SoftQ(LightningModule):
             reward=total_reward
             value_loss=total_value_loss
 
-        return  reward,value_loss,init_V-1,action_nll,actor_loss
+        return  reward,value_loss,init_V,action_nll,actor_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         train_mask= tokenized_agent["valid_mask"][:, 1:].all(-1)
@@ -367,7 +367,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
