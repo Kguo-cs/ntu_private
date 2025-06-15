@@ -171,7 +171,7 @@ class IQ_SoftQ(LightningModule):
 
             entropy = -torch.sum(pi * logpi, dim=-1)
 
-            actor_loss=self.alpha * log_prob - current_Q.detach()
+            actor_loss=self.alpha * log_prob - current_Q
 
         dones = torch.zeros_like(next_V)
 
