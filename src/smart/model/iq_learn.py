@@ -42,6 +42,7 @@ class IQ_SoftQ(LightningModule):
             self.replay_buffer = deque(maxlen=1)
 
         self.use_target_q=False
+        self.rollout_freq=1
         
         if self.encoder.iq_learn and self.encoder.output_gmm:
             self.automatic_optimization = False
@@ -122,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
             target1=torch.cat([target, torch.zeros_like(target[:,:1])],dim=1)
 
-            log_prob = dist.log_prob(target1)[:,:-1].clamp_min(min=np.log(1e-3))
+            log_prob = dist.log_prob(target1)[:,:-1]#.clamp_min(min=np.log(1e-3))
 
             if self.encoder.iq_learn:
 
