@@ -287,7 +287,6 @@ class IQ_SoftQ(LightningModule):
 
         last_V=last_V[valid_mask[:,-1]]
 
-
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
@@ -377,7 +376,7 @@ class IQ_SoftQ(LightningModule):
                 critic_loss.backward()
                 critic_optimizer.step()
 
-                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+                actor_loss=expert_nll#expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
 
                 actor_optimizer.zero_grad()
                 actor_loss.backward()
@@ -410,7 +409,6 @@ class IQ_SoftQ(LightningModule):
             if "gt_pos_raw" in agent.keys():
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
                     tokenized_agent[key] = agent[key]
-                #if self.encoder.agent_encoder.use_GT:
                 pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
                                                                 agent["gt_head_raw"],
                                                                 agent_shape,token_traj,not self.encoder.iq_learn
