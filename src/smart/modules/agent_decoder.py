@@ -172,7 +172,7 @@ class SMARTAgentDecoder(nn.Module):
             self.n_token_agent = n_token_agent
 
             if self.output_gmm:
-                k_ego_gmm=16
+                k_ego_gmm=1
                 cov_ego_gmm=[1.0, 0.1]
                 cov_learnable=False
                 self.use_GT=True

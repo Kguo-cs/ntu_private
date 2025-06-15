@@ -99,22 +99,22 @@ class IQ_SoftQ(LightningModule):
 
             entropy=get_entropy(q_value)
 
-            if "gt_pos_raw" in tokenized_agent.keys():
-                gt_pos=tokenized_agent["gt_pos_raw"]
-                gt_head=tokenized_agent["gt_head_raw"]
-                gt_valid=tokenized_agent["gt_valid_raw"]
-            else:
-                gt_pos=tokenized_agent["sampled_pos"]
-                gt_head=tokenized_agent["sampled_heading"]
-                gt_valid=tokenized_agent["valid_mask"]
+            # if "gt_pos_raw" in tokenized_agent.keys():
+            #     gt_pos=tokenized_agent["gt_pos_raw"]
+            #     gt_head=tokenized_agent["gt_head_raw"]
+            #     gt_valid=tokenized_agent["gt_valid_raw"]
+            # else:
+            #     gt_pos=tokenized_agent["sampled_pos"]
+            #     gt_head=tokenized_agent["sampled_heading"]
+            #     gt_valid=tokenized_agent["valid_mask"]
 
             target, target_valid = get_euclidean_targets(
                 pred_pos=tokenized_agent["sampled_pos"],
                 pred_head=tokenized_agent["sampled_heading"],
                 pred_valid=tokenized_agent["valid_mask"],
-                gt_pos=gt_pos,
-                gt_head=gt_head,
-                gt_valid=gt_valid
+                gt_pos=tokenized_agent["sampled_pos"],
+                gt_head=tokenized_agent["sampled_heading"],
+                gt_valid=tokenized_agent["valid_mask"]
             )
             if self.encoder.agent_encoder.output_dim == 4:
                 target = torch.cat(
@@ -137,13 +137,17 @@ class IQ_SoftQ(LightningModule):
 
                 v_value=Q-self.alpha*sampled_log_prob[0].detach()
 
-                actor_loss=self.alpha * sampled_log_prob[0][:,:-1] - Q[:,:-1].detach()
-
                 current_V= v_value[:,:-1]
 
                 next_V = network.get_Q(pred["feat_a"][:,1:],sampled_action[1][:,1:])-self.alpha*sampled_log_prob[1][:,1:].detach()
 
                 current_Q = network.get_Q(pred["feat_a"][:, :-1], target)
+
+                rsampled_action=dist.rsample()
+                rsampled_log_prob=dist.log_prob(rsampled_action)
+
+                actor_loss=self.alpha * rsampled_log_prob[:,:-1] - network.get_Q(pred["feat_a"][:, :-1], rsampled_action[:,:-1])
+
             else:
                 next_V =current_Q=current_V=actor_loss= torch.zeros_like(log_prob)
                 v_value = torch.zeros_like(torch.cat([log_prob, torch.zeros_like(log_prob[:,:1])],dim=1))
@@ -369,15 +373,16 @@ class IQ_SoftQ(LightningModule):
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
 
+                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+
+                actor_optimizer.zero_grad()
+                actor_loss.backward(retain_graph=True)
+                actor_optimizer.step()
+                
                 critic_optimizer.zero_grad()
                 critic_loss.backward()
                 critic_optimizer.step()
 
-                actor_loss=expert_nll#expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
-
-                actor_optimizer.zero_grad()
-                actor_loss.backward()
-                actor_optimizer.step()
 
         return loss
 

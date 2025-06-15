@@ -16,13 +16,13 @@ def GMM_Dist(pred):
             ],
             dim=-1,
         )
-
+    gmm=Independent(Normal(next_poses[:,:,0], next_cov[:,:,0]),1)
     # gmm = MixtureSameFamily(
     #     Categorical(logits=next_logits),MultivariateNormal(loc=next_poses, covariance_matrix=cov) )
 
-    gmm = MixtureSameFamily(
-        Categorical(logits=next_logits), Independent(Normal(next_poses, next_cov), 1)
-    )
+    # gmm = MixtureSameFamily(
+    #     Categorical(logits=next_logits), Independent(Normal(next_poses, next_cov), 1)
+    # )
     # cov = (
     #     (gmm_cov * temp_cov)
     #     .repeat_interleave(2)[None, None, :]
