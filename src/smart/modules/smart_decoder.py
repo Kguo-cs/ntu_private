@@ -241,11 +241,11 @@ class SMARTDecoder(nn.Module):
             #     for key in map_feature.keys():
             #         map_feature[key] = map_feature[key].detach()
             # else:
-            map_feature_new={}
-            for key in map_feature.keys():
-                map_feature_new[key] = map_feature[key].detach()
+            # map_feature_new={}
+            # for key in map_feature.keys():
+            #     map_feature_new[key] = map_feature[key].detach()
 
-            tokenized_map["map_feature"] = map_feature_new
+            tokenized_map["map_feature"] = map_feature
 
         if use_critic:
             pred_dict = self.critic(tokenized_agent, map_feature)
