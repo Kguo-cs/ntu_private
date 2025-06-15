@@ -181,7 +181,7 @@ class IQ_SoftQ(LightningModule):
                 state_mask = light_valid_mask[:, 1:-1]
                 agent_num=0
 
-        action=action.reshape(-1).long()
+        action = action.reshape(-1).long()
         action_mask= valid_mask[:, 1:]
         all_valid_mask=valid_mask.all(-1)
         #train_mask=all_valid_mask
@@ -273,7 +273,7 @@ class IQ_SoftQ(LightningModule):
 
             pred = self.encoder(tokenized_map, tokenized_agent)
             gmm =GMM_Dist(pred["next_logits"], pred["next_poses"], pred["next_cov"])
-            log_prob = gmm.log_prob(target).clamp(min=np.log(1e-5),max=np.log(1e5))
+            log_prob = gmm.log_prob(target)#.clamp(min=np.log(1e-5),max=np.log(1e5))
             expert_nll = -log_prob[train_mask].mean()
         else:
             expert_reward,expert_value_loss,expert_V_diff,expert_nll,_= self.get_QV(tokenized_map, tokenized_agent,train_mask)
