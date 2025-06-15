@@ -122,7 +122,7 @@ class IQ_SoftQ(LightningModule):
 
             target1=torch.cat([target, torch.zeros_like(target[:,:1])],dim=1)
 
-            log_prob = dist.log_prob(target1)[:,:-1].clamp_max(min=np.log(1e5))
+            log_prob = dist.log_prob(target1)[:,:-1].clamp_max(max=np.log(1e5))
 
             if self.encoder.iq_learn:
 
