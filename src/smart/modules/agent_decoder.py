@@ -58,7 +58,8 @@ class SMARTAgentDecoder(nn.Module):
             pt2a_neighbor: int,
             a2a_neighbor: int,
             token_processor,
-            alpha
+            alpha,
+            use_gmm
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -170,7 +171,8 @@ class SMARTAgentDecoder(nn.Module):
                     ]
                 )
 
-            self.use_gmm=True
+            self.use_gmm=use_gmm
+            self.n_token_agent = n_token_agent
 
             if self.use_gmm:
                 k_ego_gmm=16
@@ -193,15 +195,16 @@ class SMARTAgentDecoder(nn.Module):
                 # self.cholesky_head = nn.Linear(
                 #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
                 # )
-
-                # self.gmm_cov = torch.nn.Parameter(
-                #     torch.tensor(cov_ego_gmm, dtype=torch.float32), requires_grad=cov_learnable
-                # )
-
             else:
-                self.token_predict_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                )
+
+                if n_token_agent>1:
+                    self.token_predict_head = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
+                else:
+                    self.token_predict_head = MLPLayer(
+                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
 
         self.pred_light = False
 
@@ -660,10 +663,17 @@ class SMARTAgentDecoder(nn.Module):
             # next_cov = L @ L.transpose(-1, -2)  # [B, T, M, 3, 3]
             # eye = torch.eye(self.output_dim, device=next_cov.device).expand(next_cov.shape[:-2] + (self.output_dim, self.output_dim))
             # next_cov = next_cov + eye * 1e-3
-            #
-            next_token_logits=(next_logits,next_poses,next_cov)
+            next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
+            # next_token_logits={
+            # "next_logits": next_logits,  # [n_batch, 16, n_k_ego_gmm]
+            # "next_poses": next_poses,  # [n_batch, 16, n_k_ego_gmm, 3]
+            # "next_cov": next_cov,  # [2], one for pos, one for heading.
+            # }
         else:
-            next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
+            if self.n_token_agent>1:
+                next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
+            else:
+                next_token_logits=feat_a
 
         return next_token_logits,feat_a
 
@@ -695,7 +705,6 @@ class SMARTAgentDecoder(nn.Module):
         if not self.pred_agent:
             tokenized_agent["next_light_logits"] = next_light_logits
             tokenized_agent["feat_lg"] = feat_lg
-
             return {
                 "q_value": next_light_logits[:, 1:]
             }
@@ -707,15 +716,7 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,feat_lg)
 
-
-        if self.use_gmm:
-            next_logits,next_poses,next_cov=next_token_logits
-            return {
-            "next_logits": next_logits[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm]
-            "next_poses": next_poses[:, 1:-1],  # [n_batch, 16, n_k_ego_gmm, 3]
-            "next_cov": next_cov[:, 1:-1],  # [2], one for pos, one for heading.
-            }
-        else:
+        if self.n_token_agent>1:
             tokenized_agent["next_token_logits"] = next_token_logits
 
         if self.pred_light:
@@ -770,6 +771,7 @@ class SMARTAgentDecoder(nn.Module):
         return {
             "total_q": total_q,
             "total_v":total_v,
+            "feat_a": feat_a[:,1:],
              "q_value": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
          }
 
@@ -816,9 +818,9 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
+        n_agent = sampled_idx.shape[0]
 
         if "gt_z_raw" in tokenized_agent.keys():
-            n_agent=sampled_idx.shape[0]
             pred_traj_10hz = torch.zeros(
                 [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device
             )
@@ -856,16 +858,12 @@ class SMARTAgentDecoder(nn.Module):
                 #logit_list.append(next_token_logits[:, -1:])
 
             if self.use_gmm:
-                temp_mode=1 #1e-3
-                temp_cov=1 #1e-3
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
                 token_agent_shape = tokenized_agent["token_agent_shape"]  # [n_token, 2]
 
-                next_logits, next_poses ,next_cov = next_token_logits
+                gmm= GMM_Dist(next_token_logits)
 
-                gmm= GMM_Dist(next_logits[:, -1] , next_poses[:, -1] , next_cov[:,-1])
-
-                sample = gmm.sample()  # [n_batch, 4]
+                sample = gmm.sample()[:,-1]  # [n_batch, 4]
 
                 if self.output_dim==4:
                     head=torch.arctan2(sample[..., -1], sample[..., -2])

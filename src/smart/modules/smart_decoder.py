@@ -23,7 +23,7 @@ from .map_decoder import SMARTMapDecoder
 from .kl_loss import  BalancedKL
 from torch_scatter import scatter_mean,scatter_max
 from .build_edge import  radiusGraphNearest2
-
+import numpy as np
 
 class SMARTDecoder(nn.Module):
 
@@ -48,13 +48,12 @@ class SMARTDecoder(nn.Module):
         pt2a_neighbor: int,
         a2a_neighbor: int,
         token_processor=None,
-        use_latent=False
     ) -> None:
         super(SMARTDecoder, self).__init__()
 
         self.tokenizer_training=False
-
-        self.alpha = 0.1
+        self.pl2a_radius = pl2a_radius
+        self.pt2a_neighbor = pt2a_neighbor
 
         if self.tokenizer_training:
             from .vq_vae import VQVAE
@@ -62,6 +61,8 @@ class SMARTDecoder(nn.Module):
             self.vq_vae=VQVAE(token_processor)
 
         else:
+            self.use_gmm=True
+
             self.map_encoder = SMARTMapDecoder(
                 hidden_dim=hidden_dim,
                 pl2pl_radius=pl2pl_radius,
@@ -73,6 +74,32 @@ class SMARTDecoder(nn.Module):
                 pt2pt_neighbor=pt2pt_neighbor,
                 token_processor=token_processor
             )
+
+            if self.use_gmm:
+                self.alpha = 0.01
+
+                self.critic = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=time_span,
+                    pl2a_radius=pl2a_radius,
+                    a2a_radius=a2a_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=num_agent_layers,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    hist_drop_prob=hist_drop_prob,
+                    n_token_agent=1,
+                    pt2a_neighbor=pt2a_neighbor,
+                    a2a_neighbor=a2a_neighbor,
+                    token_processor=token_processor,
+                    alpha=self.alpha,
+                    use_gmm=False
+                )
+            else:
+                self.alpha = 0.1
 
             self.agent_encoder = SMARTAgentDecoder(
                 hidden_dim=hidden_dim,
@@ -91,11 +118,10 @@ class SMARTDecoder(nn.Module):
                 pt2a_neighbor=pt2a_neighbor,
                 a2a_neighbor=a2a_neighbor,
                 token_processor=token_processor,
-                alpha=self.alpha
+                alpha=self.alpha,
+                use_gmm=self.use_gmm
             )
 
-            self.pl2a_radius=pl2a_radius
-            self.pt2a_neighbor=pt2a_neighbor
 
 
     def scene_centric(self,pos,heading,centering_pos,centering_heading,batch):
@@ -201,9 +227,8 @@ class SMARTDecoder(nn.Module):
                 tokenized_map[key] = tokenized_map[key][used_mask]
         return  tokenized_map
 
-
     def forward(
-        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],kl_loss=True
+        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor], use_critic=False
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
@@ -217,14 +242,27 @@ class SMARTDecoder(nn.Module):
             #     for key in map_feature.keys():
             #         map_feature[key] = map_feature[key].detach()
             # else:
-            #     map_feature_new={}
-            #     for key in map_feature.keys():
-            #         map_feature_new[key] = map_feature[key].detach()
-            tokenized_map["map_feature"] = map_feature
+            map_feature_new={}
+            for key in map_feature.keys():
+                map_feature_new[key] = map_feature[key].detach()
 
-        pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+            tokenized_map["map_feature"] = map_feature_new
+
+        if use_critic:
+            pred_dict = self.critic(tokenized_agent, map_feature)
+        else:
+            pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 
         return pred_dict
+
+    def get_Q(self,feat_a,action):
+
+        state_action=torch.cat([feat_a,action],dim=-1)
+
+        current_Q = self.critic.token_predict_head(state_action)[:,:,0]
+
+        return current_Q
+
 
     def inference(
         self,

@@ -19,6 +19,7 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 
 from src.smart.model.ego_gmm_smart import EgoGMMSMART
 from src.smart.modules.ego_gmm_smart_decoder import EgoGMMSMARTDecoder
+import torch
 
 
 # class SMART_GAIL(GAIL, SMART):
@@ -39,11 +40,11 @@ class SMART_IQ(IQ_SoftQ, SMART):
         IQ_SoftQ.__init__(self, model_config)  # Explicit call
 
 
-    # def configure_optimizers(self):
-    #     optimizer1 = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
-    #     optimizer2 = torch.optim.AdamW(self.target_net.parameters(), lr=self.lr/10000)
-    #
-    #     return [optimizer1, optimizer2]
+    def configure_optimizers(self):
+        actor_optimizer = torch.optim.Adam(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), lr=self.lr)
+        critic_optimizer = torch.optim.Adam(self.encoder.critic.parameters(), lr=self.lr)
+
+        return [actor_optimizer, critic_optimizer]
 
 
 
