@@ -243,7 +243,7 @@ class TokenProcessor(torch.nn.Module):
         #     agent_shape=agent_shape,
         #     token_traj=token_traj,
         # )
-        token_dict = self.my_match_agent_token(
+        token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
