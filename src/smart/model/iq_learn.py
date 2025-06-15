@@ -376,7 +376,7 @@ class IQ_SoftQ(LightningModule):
                 critic_loss.backward()
                 critic_optimizer.step()
 
-                actor_loss=expert_nll#expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
 
                 actor_optimizer.zero_grad()
                 actor_loss.backward()
