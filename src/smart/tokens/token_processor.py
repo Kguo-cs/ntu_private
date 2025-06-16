@@ -409,8 +409,8 @@ class TokenProcessor(torch.nn.Module):
 
             #valid_now=token_dict["valid_mask"]
 
-            pos_now= pos_now+0.1*torch.randn_like(pos_now)
-            head_now= wrap_angle(head_now+0.1*torch.randn_like(head_now))
+            pos_now= pos_now+1*torch.randn_like(pos_now)
+            head_now= wrap_angle(head_now+1*torch.randn_like(head_now))
 
         pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
         heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)

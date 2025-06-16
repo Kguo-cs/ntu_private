@@ -10,7 +10,7 @@ import torch
 
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
-from src.smart.loss.iq_loss import get_iqloss,soft_update
+from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,process_data
 
 class IQ_SoftQ(LightningModule):
 
@@ -85,63 +85,46 @@ class IQ_SoftQ(LightningModule):
 
             entropy=get_entropy(q_value)
 
-            if "gt_pos_raw" in tokenized_agent.keys():
-                gt_pos=tokenized_agent["gt_pos_raw"]
-                gt_head=tokenized_agent["gt_head_raw"]
-                gt_valid=tokenized_agent["gt_valid_raw"]
-            else:
-                gt_pos=tokenized_agent["sampled_pos"]
-                gt_head=tokenized_agent["sampled_heading"]
-                gt_valid=tokenized_agent["valid_mask"]
-
-            target, target_valid = get_euclidean_targets(
+            action, action_valid = get_euclidean_targets(
                 pred_pos=tokenized_agent["sampled_pos"],
                 pred_head=tokenized_agent["sampled_heading"],
                 pred_valid=tokenized_agent["valid_mask"],
-                gt_pos=gt_pos,
-                gt_head=gt_head,
-                gt_valid=gt_valid
+                gt_pos=tokenized_agent["sampled_pos"],
+                gt_head=tokenized_agent["sampled_heading"],
+                gt_valid=tokenized_agent["valid_mask"]
             )
+            if "target" in tokenized_agent.keys():
+                expert_action=tokenized_agent["target"]
+            else:
+                expert_action=action
 
-            if self.encoder.agent_encoder.output_dim == 4:
-                target = torch.cat(
-                    [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
-                )  # [n_batch, n_step, 4]
-
-            target1=torch.cat([target, torch.zeros_like(target[:,:1])],dim=1)
-
-            log_prob = dist.log_prob(target1)[:,:-1].clamp_min(min=np.log(1e-5))
+            log_prob = dist.log_prob(expert_action)[:,:-1].clamp_min(min=np.log(1e-5))
 
             if self.encoder.iq_learn:
 
-                sampled_action=dist.sample([2])
+                sample_num=16
+
+                sampled_action=dist.sample([sample_num*2])
 
                 sampled_log_prob=dist.log_prob(sampled_action)
 
+                sampled_action=torch.cat([sampled_action,action[None]],dim=0)
+
                 pred=network(tokenized_map, tokenized_agent,True)
 
-                Q=network.get_Q(pred["feat_a"],sampled_action[0])
+                feat_a=pred["feat_a"][None].repeat_interleave(sample_num*2+1,dim=0)
 
-                v_value=Q-self.alpha*sampled_log_prob[0].detach()
+                Q=network.get_Q(feat_a,sampled_action)
 
-                current_V= v_value[:,:-1]
+                current_Q=Q[-1,:,:-1]
 
-                next_V = network.get_Q(pred["feat_a"][:,1:],sampled_action[1][:,1:])-self.alpha*sampled_log_prob[1][:,1:].detach()
+                V = Q[:sample_num*2]-self.alpha*sampled_log_prob.detach()
 
-                target, target_valid = get_euclidean_targets(
-                    pred_pos=tokenized_agent["sampled_pos"],
-                    pred_head=tokenized_agent["sampled_heading"],
-                    pred_valid=tokenized_agent["valid_mask"],
-                    gt_pos=tokenized_agent["sampled_pos"],
-                    gt_head=tokenized_agent["sampled_heading"],
-                    gt_valid=tokenized_agent["valid_mask"]
-                )
-                if self.encoder.agent_encoder.output_dim == 4:
-                    target = torch.cat(
-                        [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
-                    )  # [n_batch, n_step, 4]
+                v_value=V.mean(0)
 
-                current_Q = network.get_Q(pred["feat_a"][:, :-1], target)
+                current_V= V[:sample_num,:,:-1].mean(0)
+
+                next_V =V[sample_num:,:,1:].mean(0)
 
                 rsampled_action=dist.rsample()
                 rsampled_log_prob=dist.log_prob(rsampled_action)
@@ -200,21 +183,6 @@ class IQ_SoftQ(LightningModule):
 
         return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,total_reward,total_value_loss,pred
 
-    def get_return(self,reward,log_prob,current_Q,V,all_valid_mask,key):
-        rewards=reward - self.alpha * log_prob
-        returns = torch.zeros_like(V)
-        running_return=returns[:,-1]
-
-        for i in range(rewards.size(1)-1,-1,-1):
-            running_return = rewards[:, i] + self.gamma *running_return
-            returns[:, i] = running_return
-
-        current_Q_diff = (current_Q - returns[:,:-1])[all_valid_mask]
-        V_diff=(V[:,:-1]-returns[:,:-1])[all_valid_mask]
-
-        self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
-
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
 
         if self.encoder.agent_encoder.pred_agent:
@@ -270,7 +238,7 @@ class IQ_SoftQ(LightningModule):
         init_V = V[:, 0]
         last_V=V[:,-1]
 
-        self.get_return(reward,log_prob,current_Q,V,all_valid_mask,key)
+        current_Q_diff, V_diff=get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
         actor_loss = actor_loss[train_mask]
 
@@ -296,6 +264,8 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
         if self.encoder.agent_encoder.mixing:
             reward=total_reward
@@ -376,90 +346,17 @@ class IQ_SoftQ(LightningModule):
                 actor_loss=expert_nll #expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
 
                 actor_optimizer.zero_grad()
-                actor_loss.backward(retain_graph=True)
+                torch.nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), max_norm=0.5)
+                actor_loss.backward()
                 actor_optimizer.step()
                 
-                # critic_optimizer.zero_grad()
-                # critic_loss.backward()
-                # critic_optimizer.step()
+                critic_optimizer.zero_grad()
+                torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
+                critic_loss.backward()
+                critic_optimizer.step()
 
 
         return loss
-
-    def process_data(self,data):
-
-        tokenized_agent={}
-        tokenized_map={}
-        tokenized_agent['num_graphs'] = data.num_graphs
-
-        if self.encoder.agent_encoder.pred_agent:
-            map=data["tokenized_map"]
-            agent=data["tokenized_agent"]
-
-            for key in ["position", "orientation", "batch","token_idx", "type", "pl_type","light_type"]:
-                tokenized_map[key] = map[key]
-
-            agent_shape, token_traj_all, token_traj = self.token_processor._get_agent_shape_and_token_traj(
-                agent['type']
-            )
-            tokenized_agent['token_traj_all'] = token_traj_all
-            tokenized_agent["token_agent_shape"]=agent_shape  # [n_token, 2]
-
-            if "col_mask" in agent.keys():
-                tokenized_agent["col_mask"] = agent["col_mask"]
-
-            if "gt_pos_raw" in agent.keys():
-                for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
-                    tokenized_agent[key] = agent[key][:,5::5]
-                for key in [ "type", "batch", "shape"]:
-                    tokenized_agent[key] = agent[key]
-                token_dict=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
-                                                                agent["gt_head_raw"],
-                                                                agent_shape,token_traj,True
-                                                                )
-                tokenized_agent.update(token_dict)
-
-            else:
-                for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "sampled_idx", "valid_mask"]:
-                    tokenized_agent[key] = agent[key]
-
-        if self.encoder.agent_encoder.pred_light:
-
-            tokenized_light=data["tokenized_light"]
-
-            light_idx=tokenized_light["light_idx"]
-
-            #light_mask=light_idx<self.encoder.agent_encoder.light_type
-
-            # light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
-            #light_idx[light_idx>2]=0
-
-            #light_pred_mask=torch.ones_like(light_pred_mask)
-            #pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
-
-            tokenized_agent["light_idx"]=light_idx.long()#[light_pred_mask]
-            pos_lg=tokenized_light["pos_lg"]#[light_pred_mask]
-            orient_lg=tokenized_light["orient_lg"]#[light_pred_mask]
-            batch_lg=tokenized_light["batch"]#[light_pred_mask]
-
-            lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
-
-            sinusoidal_lg = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)    
-            sinusoidal_lg=self.encoder.agent_encoder.padding(sinusoidal_lg, lengths_lg)
-            tokenized_agent["lengths_lg"] = lengths_lg
-            tokenized_agent["batch_lg"]=batch_lg
-            tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
-
-        if self.encoder.agent_encoder.pred_route:
-            route_idx= agent["route_idx"]//(120//self.encoder.agent_encoder.route_type)
-            route_idx[:, :2] = -1
-
-            route_idx[route_idx==-1]=self.encoder.agent_encoder.route_type
-
-            tokenized_agent["route_idx"] = route_idx.long()
-            tokenized_agent["route_valid_mask"]=route_idx!=self.encoder.agent_encoder.route_type
-
-        return tokenized_map, tokenized_agent
 
     def training_step(self, data, batch_idx):
 
@@ -480,7 +377,7 @@ class IQ_SoftQ(LightningModule):
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
         else:
-            tokenized_map, tokenized_agent = self.process_data(data)
+            tokenized_map, tokenized_agent = process_data(data,self.token_processor)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

@@ -54,6 +54,7 @@ def get_euclidean_targets(
     gt_pos: Tensor,  # [n_agent, 18, 2]
     gt_head: Tensor,  # [n_agent, 18]
     gt_valid: Tensor,  # [n_agent, 18]
+    output_dim=3
 ) -> Tuple[Tensor, Tensor]:
     """
     Return: action that goes from [(10->15), ..., (85->90)]
@@ -79,6 +80,13 @@ def get_euclidean_targets(
     target = torch.cat((target_pos, target_head.unsqueeze(-1)), dim=-1)
 
     # truncate [(5->10), ..., (90->5)] to [(10->15), ..., (85->90)]
-    target = target[:, 1:-1]  # [n_agent, 16, 3], x,y,yaw
-    target_valid = target_valid[:, 1:-1]  # [n_agent, 16]
+    target = target[:, 1:]  # [n_agent, 16, 3], x,y,yaw
+    target_valid = target_valid[:, 1:]  # [n_agent, 16]
+
+    if output_dim == 4:
+        target = torch.cat(
+            [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
+        )  # [n_batch, n_step, 4]
+    # target = torch.cat([target, torch.zeros_like(target[:, :1])], dim=1)
+
     return target, target_valid

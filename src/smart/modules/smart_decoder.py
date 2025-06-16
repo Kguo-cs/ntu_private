@@ -74,8 +74,12 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor
             )
 
+            if self.output_gmm:
+                self.alpha=0.01
+            else:
+                self.alpha=0.1
+
             if self.iq_learn and self.output_gmm:
-                self.alpha = 0.01
 
                 self.critic = SMARTAgentDecoder(
                     hidden_dim=hidden_dim,
@@ -97,8 +101,6 @@ class SMARTDecoder(nn.Module):
                     alpha=self.alpha,
                     output_gmm=False
                 )
-            else:
-                self.alpha = 0.1
 
             self.agent_encoder = SMARTAgentDecoder(
                 hidden_dim=hidden_dim,
@@ -257,7 +259,7 @@ class SMARTDecoder(nn.Module):
 
         state_action=torch.cat([feat_a,action],dim=-1)
 
-        current_Q = self.critic.token_predict_head(state_action)[:,:,0]
+        current_Q = self.critic.token_predict_head(state_action)[...,0]
 
         return current_Q
 
