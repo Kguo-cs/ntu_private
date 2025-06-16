@@ -555,10 +555,6 @@ class SMARTAgentDecoder(nn.Module):
                 mask=mask,  # [n_agent, n_step]
             )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-            # r_pl2a_a2a = self.r_pt2a_emb(continuous_inputs=torch.cat([r_pl2a,r_a2a]), categorical_embs=None)
-            #
-            # r_pl2a=r_pl2a_a2a[:len(r_pl2a)]
-            # r_a2a=r_pl2a_a2a[len(r_pl2a):]
 
             feat_a = feat_a.transpose(0, 1).flatten(0, 1)
             feat_map = (
