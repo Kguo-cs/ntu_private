@@ -52,8 +52,8 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
-        self.output_gmm=True
+        self.iq_learn=True
+        self.output_gmm=False
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE

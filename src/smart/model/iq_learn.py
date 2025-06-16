@@ -17,7 +17,6 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
-        self.use_target_q=False
         self.rollout_freq=1
         self.gamma = 0.99
         self.iq_learn=self.encoder.iq_learn
@@ -34,6 +33,8 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn and self.output_gmm:
             self.automatic_optimization = False
+            
+        self.use_target_q=False
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -76,7 +77,7 @@ class IQ_SoftQ(LightningModule):
 
         return tokenized_map,tokenized_agent_rollout
 
-    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key,action_mask):
+    def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key):
 
         pred = network(tokenized_map, tokenized_agent)
 
@@ -227,7 +228,7 @@ class IQ_SoftQ(LightningModule):
         action_mask= valid_mask[:, 1:]
         all_valid_mask=valid_mask.all(-1)
 
-        actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss,pred=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key,action_mask)
+        actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss,pred=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
 
         if self.encoder.agent_encoder.pred_light and key=="expert":
             light_pred=torch.argmax(logpi[agent_num:] , dim=-1)
@@ -241,13 +242,10 @@ class IQ_SoftQ(LightningModule):
 
         if self.use_target_q:
             with torch.no_grad():
-                target_q, target_current_Q, target_V,target_current_V,target_next_V, target_reward,_ = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key,action_mask)
-
-            reward = current_Q - self.gamma * target_next_V
-            value_loss=current_V-self.gamma *target_next_V
+                target_V = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key)[4]
 
         init_V = V[:, 0]
-        last_V=V[:,-1]
+        last_V= V[:,-1]
 
         current_Q_diff, V_diff=get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
@@ -263,9 +261,9 @@ class IQ_SoftQ(LightningModule):
 
         entropy =entropy[all_valid_mask]
 
-        init_V=init_V[valid_mask[:,0]]
+        init_V=init_V[all_valid_mask]
 
-        last_V=last_V[valid_mask[:,-1]]
+        last_V=last_V[all_valid_mask]
 
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
@@ -366,19 +364,8 @@ class IQ_SoftQ(LightningModule):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
                 critic_optimizer.step()
-                #
+                
                 loss=loss+actor_loss
-
-        # actor_optimizer=self.optimizers()
-        # #print(f"[DEBUG] Optimizer param count: {sum(p.numel() for p in actor_optimizer.param_groups[0]['params'])}")
-        #
-        # actor_loss=expert_nll #expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
-        #
-        # actor_optimizer.zero_grad()
-        # actor_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), max_norm=0.5)
-        # actor_optimizer.step()
-        #
 
         return loss
 
