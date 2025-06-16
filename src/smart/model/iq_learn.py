@@ -411,22 +411,15 @@ class IQ_SoftQ(LightningModule):
 
             if "gt_pos_raw" in agent.keys():
                 for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
-                    tokenized_agent[key] = agent[key]
-                pred=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
-                                                                agent["gt_head_raw"],
-                                                                agent_shape,token_traj,True
-                                                                )
-
-                tokenized_agent["valid_mask"]=pred["valid_mask"]
-                tokenized_agent["sampled_idx"]=pred["sampled_idx"]
-                tokenized_agent["sampled_pos"]=pred["sampled_pos"]
-                tokenized_agent["sampled_heading"]=pred["sampled_heading"]
-                tokenized_agent["gt_pos_raw"]=agent["gt_pos_raw"][:,5::5]
-                tokenized_agent["gt_head_raw"]=agent["gt_head_raw"][:,5::5]
-                tokenized_agent["gt_valid_raw"]=agent["gt_valid_raw"][:,5::5]
-
+                    tokenized_agent[key] = agent[key][:,5::5]
                 for key in [ "type", "batch", "shape"]:
                     tokenized_agent[key] = agent[key]
+                token_dict=self.token_processor.my_match_agent_token(agent["gt_valid_raw"],agent["gt_pos_raw"],
+                                                                agent["gt_head_raw"],
+                                                                agent_shape,token_traj,tokenized_agent
+                                                                )
+                tokenized_agent.update(token_dict)
+
             else:
                 for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "sampled_idx", "valid_mask"]:
                     tokenized_agent[key] = agent[key]

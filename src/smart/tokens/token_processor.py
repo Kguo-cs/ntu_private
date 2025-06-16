@@ -381,20 +381,33 @@ class TokenProcessor(torch.nn.Module):
         heading: Tensor,  # [n_agent, n_step]
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-        training=True
+        training=None
     ) -> Dict[str, Tensor]:
 
-        pos= pos[:, ::self.shift].clone()
+        # pos_2hz= pos[:, ::self.shift]
+        #
+        # heading_2hz= heading[:, ::self.shift]
+        # valid_2hz = valid[:, ::self.shift] # [n_agent]
 
-        heading= heading[:, ::self.shift].clone()
+        token_dict=self._match_agent_token(
+            valid=valid,
+            pos=pos,
+            heading=heading,
+            agent_shape=agent_shape,
+            token_traj=token_traj,
+            )
 
-        if training:
-            pos+=0.1*torch.randn_like(pos)
-            heading+=0.1*torch.randn_like(heading)
+        pos_2hz=torch.cat([pos[:,:1], token_dict["sampled_pos"]], dim=1)
+        heading_2hz=torch.cat([heading[:,:1], token_dict["sampled_heading"]], dim=1)
+        valid_2hz=torch.cat([valid[:,:1], token_dict["valid_mask"]], dim=1)
 
-        pos_now,head_now=pos[:,1:],heading[:,1:]
+            #if training:
+            #pos+=0.1*torch.randn_like(pos)
+            #heading+=0.1*torch.randn_like(heading)
 
-        prev_pos, prev_head = pos[:, :-1], heading[:, :-1] # [n_agent, 2], [n_agent]
+        pos_now,head_now=pos_2hz[:,1:],heading_2hz[:,1:]
+
+        prev_pos, prev_head = pos_2hz[:, :-1], heading_2hz[:, :-1] # [n_agent, 2], [n_agent]
 
         # prev_pos+=0.1*torch.randn_like(prev_pos)
         # prev_head+=0.1*torch.randn_like(prev_head)
@@ -415,21 +428,17 @@ class TokenProcessor(torch.nn.Module):
 
         token_idx_gt = dist.argmin(-1)
 
-        valid = valid[:, ::self.shift] # [n_agent]
-        _valid_mask = valid[:,1:] & valid[:,:-1]
+        _valid_mask = valid_2hz[:,1:] & valid_2hz[:,:-1]
         _invalid_mask = ~_valid_mask
 
-        gt_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
-        gt_heading=head_now.masked_fill(_invalid_mask, 0)
+        sampled_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
+        sampled_heading=head_now.masked_fill(_invalid_mask, 0)
 
         out_dict = {
             "valid_mask":_valid_mask,
-            "gt_idx": token_idx_gt,
-            "gt_pos": gt_pos,
-            "gt_heading": gt_heading,
             "sampled_idx": token_idx_gt,
-            "sampled_pos": gt_pos,
-            "sampled_heading": gt_heading,
+            "sampled_pos": sampled_pos,
+            "sampled_heading": sampled_heading,
         }
 
         return out_dict
