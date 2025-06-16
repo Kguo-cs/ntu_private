@@ -110,26 +110,29 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
                                                                    )
             tokenized_agent.update(token_dict)
 
-            map_feature = encoder.map_encoder(tokenized_map)
-
-            detach_map_feature={}
-            for key in map_feature.keys():
-                detach_map_feature[key] = map_feature[key].detach()
-
-            tokenized_map["detach_map_feature"] = detach_map_feature
-            tokenized_map["map_feature"] = map_feature
-
-            with torch.no_grad():
-                pred_dict=encoder.agent_encoder(tokenized_agent, map_feature)
-                dist =  GMM_Dist(pred_dict["q_value"])
-
-                noised_pos=dist.sample()
-
-                token_dict = token_processor.my_match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                                       agent["gt_head_raw"],
-                                                                       agent_shape, token_traj, noised_pos
-                                                                       )
-            tokenized_agent.update(token_dict)
+            # map_feature = encoder.map_encoder(tokenized_map)
+            #
+            # detach_map_feature={}
+            # for key in map_feature.keys():
+            #     detach_map_feature[key] = map_feature[key].detach()
+            #
+            # tokenized_map["detach_map_feature"] = detach_map_feature
+            # tokenized_map["map_feature"] = map_feature
+            #
+            # with torch.no_grad():
+            #     pred_dict=encoder.agent_encoder(tokenized_agent, map_feature)
+            #     dist =  GMM_Dist(pred_dict["q_value"])
+            #
+            #     noised_pos=dist.sample()
+            #
+            #     token_dict = token_processor.my_match_agent_token(agent["gt_valid_raw"],
+            #                                                       agent["gt_pos_raw"],
+            #                                                        agent["gt_head_raw"],
+            #                                                        agent_shape,
+            #                                                        token_traj,
+            #                                                        noised_pos
+            #                                                        )
+            # tokenized_agent.update(token_dict)
 
 
             target, target_valid = get_euclidean_targets(

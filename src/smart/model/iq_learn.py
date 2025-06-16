@@ -356,10 +356,10 @@ class IQ_SoftQ(LightningModule):
                 actor_loss.backward()
                 actor_optimizer.step()
                 
-                critic_optimizer.zero_grad()
-                torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
-                critic_loss.backward()
-                critic_optimizer.step()
+                # critic_optimizer.zero_grad()
+                # torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
+                # critic_loss.backward()
+                # critic_optimizer.step()
 
 
         return loss

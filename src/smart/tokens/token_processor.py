@@ -393,19 +393,19 @@ class TokenProcessor(torch.nn.Module):
                                                                                                            self.shift::self.shift]
 
         if noise is not None:
-            # token_dict = self._match_agent_token(
-            #     valid=valid,
-            #     pos=pos,
-            #     heading=heading,
-            #     agent_shape=agent_shape,
-            #     token_traj=token_traj,
-            # )
-            #
-            # noise=token_dict["sampled_pos"]- pos_now
-            # heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
+            token_dict = self._match_agent_token(
+                valid=valid,
+                pos=pos,
+                heading=heading,
+                agent_shape=agent_shape,
+                token_traj=token_traj,
+            )
 
-            # pos_now= pos_now+noise.abs()*torch.randn_like(noise)
-            # head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise))
+            noise=token_dict["sampled_pos"]- pos_now
+            heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
+
+            pos_now= pos_now+noise.abs()*torch.randn_like(noise)*10
+            head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise)*10)
 
             #valid_now=token_dict["valid_mask"]
             # diff_xy = token_traj[:, :, 0] - token_traj[:, :, 3]
@@ -415,14 +415,16 @@ class TokenProcessor(torch.nn.Module):
             #
             # token_head=pred_head.abs().mean(1)[:,None]*0.1
 
+            #noise=noise.clamp(min=-1, max=1)
 
-            sampled_pos= pos[:, self.shift:-self.shift:self.shift]+noise[...,:2]#token_pos*torch.randn_like(pos_now)
-            sampled_head= wrap_angle(heading[:, self.shift:-self.shift:self.shift]+noise[...,2])
 
-            pos_now=torch.cat([pos_now[:,:1], sampled_pos], dim=1)
-            head_now=torch.cat([head_now[:,:1], sampled_head], dim=1)
-
-            valid_now[:,1:]=valid_now[:,1:] & valid_now[:,:-1]
+            # sampled_pos= pos[:, self.shift:-self.shift:self.shift]+noise[...,:2]#token_pos*torch.randn_like(pos_now)
+            # sampled_head= wrap_angle(heading[:, self.shift:-self.shift:self.shift]+noise[...,2])
+            #
+            # pos_now=torch.cat([pos_now[:,:1], sampled_pos], dim=1)
+            # head_now=torch.cat([head_now[:,:1], sampled_head], dim=1)
+            #
+            # valid_now[:,1:]=valid_now[:,:-1]
 
         pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
         heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)
