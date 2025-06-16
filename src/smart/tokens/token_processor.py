@@ -389,33 +389,30 @@ class TokenProcessor(torch.nn.Module):
         # heading_2hz= heading[:, ::self.shift]
         # valid_2hz = valid[:, ::self.shift] # [n_agent]
 
-        token_dict=self._match_agent_token(
-            valid=valid,
-            pos=pos,
-            heading=heading,
-            agent_shape=agent_shape,
-            token_traj=token_traj,
-            )
 
         if training:
+            token_dict = self._match_agent_token(
+                valid=valid,
+                pos=pos,
+                heading=heading,
+                agent_shape=agent_shape,
+                token_traj=token_traj,
+            )
+
             noise=token_dict["sampled_pos"]- pos[:,self.shift ::self.shift]
             heading_noise=wrap_angle(token_dict["sampled_heading"]- heading[:,self.shift ::self.shift])
 
-            token_dict["sampled_pos"]= pos[:,self.shift ::self.shift]+noise.abs()*torch.randn_like(noise)
-            token_dict["sampled_heading"]= heading[:,self.shift ::self.shift]+heading_noise.abs()*torch.randn_like(heading_noise)
+            pos_now= pos[:,self.shift ::self.shift]+noise.abs()*torch.randn_like(noise)
+            head_now= heading[:,self.shift ::self.shift]+heading_noise.abs()*torch.randn_like(heading_noise)
+
+            valid_now=token_dict["valid_mask"]
+        else:
+            pos_now, head_now ,valid_now= pos[:,self.shift ::self.shift], heading[:,self.shift ::self.shift], valid[:,self.shift ::self.shift]
 
 
-        pos_2hz=torch.cat([pos[:,:1], token_dict["sampled_pos"]], dim=1)
-        heading_2hz=torch.cat([heading[:,:1], token_dict["sampled_heading"]], dim=1)
-        valid_2hz=torch.cat([valid[:,:1], token_dict["valid_mask"]], dim=1)
-
-
-
-            # if training:
-            # pos+=0.1*torch.randn_like(pos)
-            # heading+=0.1*torch.randn_like(heading)
-
-        pos_now, head_now = pos_2hz[:, 1:], heading_2hz[:,1:]
+        pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
+        heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)
+        valid_2hz=torch.cat([valid[:,:1], valid_now], dim=1)
 
         prev_pos, prev_head = pos_2hz[:, :-1], heading_2hz[:, :-1] # [n_agent, 2], [n_agent]
 
