@@ -166,9 +166,9 @@ class SMARTAgentDecoder(nn.Module):
             self.n_token_agent = n_token_agent
 
             if self.output_gmm:
-                k_ego_gmm=2
-                cov_ego_gmm=[1.0, 0.1]
-                cov_learnable=False
+                k_ego_gmm=1
+                self.cov_gmm=0.1 #[1.0, 0.1]
+                self.cov_learnable=False
                 self.use_GT=True
 
                 self.gmm_logits_head = MLPLayer(
@@ -179,9 +179,10 @@ class SMARTAgentDecoder(nn.Module):
                 )
                 self.output_dim=3
 
-                self.gmm_cov_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * self.output_dim
-                )
+                if self.cov_learnable:
+                    self.gmm_cov_head = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * self.output_dim
+                    )
 
                 # self.cholesky_head = nn.Linear(
                 #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
@@ -637,7 +638,10 @@ class SMARTAgentDecoder(nn.Module):
         if self.output_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-            next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
+            if self.cov_learnable:
+                next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
+            else:
+                next_cov = torch.zeros_like(next_poses)+0.1
             #raw_L = self.cholesky_head(feat_a).view( *next_logits.shape, -1 )  # [B, M, 6] for 3x3 lower triangle
 
             #

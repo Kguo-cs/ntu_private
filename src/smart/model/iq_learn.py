@@ -17,7 +17,11 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
 
+        self.use_target_q=False
+        self.rollout_freq=1
         self.gamma = 0.99
+        self.iq_learn=self.encoder.iq_learn
+        self.output_gmm=self.encoder.output_gmm
         self.alpha = self.encoder.alpha
 
         self.batch_replay=False
@@ -27,13 +31,9 @@ class IQ_SoftQ(LightningModule):
         else:
             self.replay_buffer = deque(maxlen=1)
 
-        self.use_target_q=False
-        self.rollout_freq=1
-        self.iq_learn=self.encoder.iq_learn
-        self.output_gmm=self.encoder.output_gmm
 
-        #if self.iq_learn and self.output_gmm:
-        self.automatic_optimization = True
+        if self.iq_learn and self.output_gmm:
+            self.automatic_optimization = False
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -110,7 +110,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.iq_learn:
 
-                sample_num=8
+                sample_num=32
 
                 sampled_action=dist.sample([sample_num*2])
 
@@ -134,10 +134,13 @@ class IQ_SoftQ(LightningModule):
 
                 next_V =V[sample_num:,:,1:].mean(0)
 
-                rsampled_action=dist.rsample()
+                rsampled_action=dist.rsample([sample_num])
                 rsampled_log_prob=dist.log_prob(rsampled_action)
+                feat_a=pred["feat_a"][None,:,:-1].detach().repeat_interleave(sample_num,dim=0)
 
-                actor_loss=self.alpha * rsampled_log_prob[:,:-1] - network.get_Q(pred["feat_a"][:, :-1], rsampled_action[:,:-1])
+                actor_loss=self.alpha * rsampled_log_prob[:,:,:-1] - network.get_Q(feat_a, rsampled_action[:,:,:-1])
+
+                actor_loss=actor_loss.mean(0)
 
             else:
                 next_V =current_Q=current_V=actor_loss= torch.zeros_like(log_prob)
@@ -279,7 +282,7 @@ class IQ_SoftQ(LightningModule):
             reward=total_reward
             value_loss=total_value_loss
 
-        return  reward,value_loss,V,action_nll,actor_loss
+        return  reward,value_loss,init_V,action_nll,actor_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         train_mask= tokenized_agent["valid_mask"][:, 1:].all(-1)
@@ -346,32 +349,36 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
 
-                actor_loss=expert_nll #expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2#expert_nll #
+                self.log("train/actor_loss", actor_loss.item(), on_step=True, batch_size=1)
 
                 actor_optimizer.zero_grad()
+                actor_loss.backward(retain_graph=True)
                 torch.nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), max_norm=0.5)
-                actor_loss.backward()
                 actor_optimizer.step()
                 
-                # critic_optimizer.zero_grad()
-                # torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
-                # critic_loss.backward()
-                # critic_optimizer.step()
+                critic_optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
+                critic_optimizer.step()
+                #
+                loss=loss+actor_loss
+
         # actor_optimizer=self.optimizers()
-        # print(f"[DEBUG] Optimizer param count: {sum(p.numel() for p in actor_optimizer.param_groups[0]['params'])}")
+        # #print(f"[DEBUG] Optimizer param count: {sum(p.numel() for p in actor_optimizer.param_groups[0]['params'])}")
         #
         # actor_loss=expert_nll #expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
         #
         # actor_optimizer.zero_grad()
-        # #torch.nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), max_norm=0.5)
         # actor_loss.backward()
+        # torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), max_norm=0.5)
         # actor_optimizer.step()
-
+        #
 
         return loss
 
