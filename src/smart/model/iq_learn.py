@@ -83,6 +83,12 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.output_gmm:
             dist =  GMM_Dist(q_value)
 
+            cov = q_value[...,q_value.shape[-1]//2+1:].reshape(-1,3)
+
+            self.log("train/" + key + "_xCov", cov[...,0].mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_yCov", cov[...,1].mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_headingCov", cov[...,2].mean().item(), on_step=True, batch_size=1)
+
             entropy=get_entropy(q_value)
 
             action, action_valid = get_euclidean_targets(
@@ -102,7 +108,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.encoder.iq_learn:
 
-                sample_num=16
+                sample_num=8
 
                 sampled_action=dist.sample([sample_num*2])
 
@@ -377,7 +383,7 @@ class IQ_SoftQ(LightningModule):
         if "traj_pos" in data.keys():
             tokenized_map, tokenized_agent = self.token_processor(data)
         else:
-            tokenized_map, tokenized_agent = process_data(data,self.token_processor)
+            tokenized_map, tokenized_agent = process_data(data,self.token_processor,self.encoder)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

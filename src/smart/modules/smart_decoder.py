@@ -227,7 +227,8 @@ class SMARTDecoder(nn.Module):
         return  tokenized_map
 
     def forward(
-        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor], use_critic=False
+        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],
+            use_critic=False
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
