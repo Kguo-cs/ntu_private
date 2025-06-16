@@ -404,8 +404,8 @@ class TokenProcessor(torch.nn.Module):
             noise=token_dict["sampled_pos"]- pos_now
             heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
 
-            pos_now= pos[:,self.shift ::self.shift]+noise.abs()*torch.randn_like(noise)
-            head_now= wrap_angle(heading[:,self.shift ::self.shift]+heading_noise.abs()*torch.randn_like(heading_noise))
+            pos_now= pos_now+noise.abs()*torch.randn_like(noise)
+            head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise))
 
             valid_now=token_dict["valid_mask"]
 
