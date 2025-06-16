@@ -407,7 +407,7 @@ class TokenProcessor(torch.nn.Module):
             pos_now= pos_now+noise.abs()*torch.randn_like(noise)*10
             head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise)*10)
 
-            #valid_now=token_dict["valid_mask"]
+            valid_now=token_dict["valid_mask"]
             # diff_xy = token_traj[:, :, 0] - token_traj[:, :, 3]
             # pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
             #

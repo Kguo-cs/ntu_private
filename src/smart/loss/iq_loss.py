@@ -106,7 +106,7 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
 
             token_dict = token_processor.my_match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
                                                                    agent["gt_head_raw"],
-                                                                   agent_shape, token_traj
+                                                                   agent_shape, token_traj,True
                                                                    )
             tokenized_agent.update(token_dict)
 
