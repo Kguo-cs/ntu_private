@@ -393,22 +393,24 @@ class TokenProcessor(torch.nn.Module):
                                                                                                            self.shift::self.shift]
 
         if training:
-            token_dict = self._match_agent_token(
-                valid=valid,
-                pos=pos,
-                heading=heading,
-                agent_shape=agent_shape,
-                token_traj=token_traj,
-            )
+            # token_dict = self._match_agent_token(
+            #     valid=valid,
+            #     pos=pos,
+            #     heading=heading,
+            #     agent_shape=agent_shape,
+            #     token_traj=token_traj,
+            # )
+            #
+            # noise=token_dict["sampled_pos"]- pos_now
+            # heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
 
-            noise=token_dict["sampled_pos"]- pos_now
-            heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
+            # pos_now= pos_now+noise.abs()*torch.randn_like(noise)
+            # head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise))
 
-            pos_now= pos_now+noise.abs()*torch.randn_like(noise)
-            head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise))
+            #valid_now=token_dict["valid_mask"]
 
-            valid_now=token_dict["valid_mask"]
-
+            pos_now= pos_now+0.1*torch.randn_like(pos_now)
+            head_now= wrap_angle(head_now+0.1*torch.randn_like(head_now))
 
         pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
         heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)

@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 from src.smart.layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
-from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask
+from src.smart.modules.build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask
 from vector_quantize_pytorch import VectorQuantize
 from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding

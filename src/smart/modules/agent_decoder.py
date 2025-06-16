@@ -10,34 +10,28 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
-import copy
 from typing import Dict, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
-from omegaconf import DictConfig
-from torch_geometric.utils import dense_to_sparse, subgraph
+from torch_geometric.utils import subgraph
 
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     angle_between_2d_vectors,
-    sample_next_token_traj,
     transform_to_global,
     weight_init,
     wrap_angle,
 )
-from .kl_loss import DiagGaussian
-from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from .build_edge import radiusGraphNearest, radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2,radiusGraphNearest_inv,radiusGraphNearest_head
+from torch.distributions import Categorical
+from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
+    radiusGraphNearest_head
 from torch.nn.utils.rnn import pad_sequence
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
-from src.multi_agent.Qatten import QattenMixer
-from torch_scatter import scatter_mean,scatter_max
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.utils.rollout import cal_polygon_contour
-from .gmm_dist import  GMM_Dist
+from src.smart.loss.gmm_dist import  GMM_Dist
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(

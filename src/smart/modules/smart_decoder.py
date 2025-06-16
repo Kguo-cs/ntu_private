@@ -10,7 +10,6 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
-import copy
 from typing import Dict, Optional
 
 import torch
@@ -20,10 +19,9 @@ from torch import Tensor
 
 from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
-from .kl_loss import  BalancedKL
-from torch_scatter import scatter_mean,scatter_max
+from torch_scatter import scatter_mean
 from .build_edge import  radiusGraphNearest2
-import numpy as np
+
 
 class SMARTDecoder(nn.Module):
 
@@ -58,7 +56,7 @@ class SMARTDecoder(nn.Module):
         self.output_gmm=True
 
         if self.tokenizer_training:
-            from .vq_vae import VQVAE
+            from src.smart.loss.vq_vae import VQVAE
 
             self.vq_vae=VQVAE(token_processor)
 
@@ -241,14 +239,15 @@ class SMARTDecoder(nn.Module):
             #     for key in map_feature.keys():
             #         map_feature[key] = map_feature[key].detach()
             # else:
-            # map_feature_new={}
-            # for key in map_feature.keys():
-            #     map_feature_new[key] = map_feature[key].detach()
+            detach_map_feature={}
+            for key in map_feature.keys():
+                detach_map_feature[key] = map_feature[key].detach()
 
+            tokenized_map["detach_map_feature"] = detach_map_feature
             tokenized_map["map_feature"] = map_feature
 
         if use_critic:
-            pred_dict = self.critic(tokenized_agent, map_feature)
+            pred_dict = self.critic(tokenized_agent, tokenized_map["detach_map_feature"])
         else:
             pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 
@@ -270,7 +269,7 @@ class SMARTDecoder(nn.Module):
         sampling_scheme: DictConfig,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
-            map_feature = tokenized_map["map_feature"]
+            map_feature = tokenized_map["detach_map_feature"]
         else:
             map_feature = self.map_encoder(tokenized_map)
 

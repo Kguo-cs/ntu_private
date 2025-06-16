@@ -1,30 +1,16 @@
-import copy
-
-from keras.integration_test.models.bert import loss_fn
 from lightning import LightningModule
 import random
 from collections import deque
-import torch.nn as nn
-import torch
 import numpy as np
-from tensorflow_probability.substrates.jax.distributions.student_t import log_prob
-from tensorflow_probability.substrates.numpy.distributions.student_t import entropy
 
 from src.smart.modules.smart_decoder import SMARTDecoder
-import pickle
-from torch_scatter import scatter_mean,scatter_max,scatter_sum
-from torch.nn.utils.rnn import pad_sequence
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding,RoFormerBlock,general_rope
-from typing import Optional
+from ..layers.relative_transformer import general_rope
 
 import torch
-from torch import Tensor, tensor
-from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
-from torchmetrics.metric import Metric
 
 from src.smart.metrics.utils import get_euclidean_targets
-from ..modules.gmm_dist import  GMM_Dist,get_entropy
-from .iq_loss import get_iqloss,soft_update
+from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
+from src.smart.loss.iq_loss import get_iqloss,soft_update
 
 class IQ_SoftQ(LightningModule):
 
@@ -141,6 +127,19 @@ class IQ_SoftQ(LightningModule):
                 current_V= v_value[:,:-1]
 
                 next_V = network.get_Q(pred["feat_a"][:,1:],sampled_action[1][:,1:])-self.alpha*sampled_log_prob[1][:,1:].detach()
+
+                target, target_valid = get_euclidean_targets(
+                    pred_pos=tokenized_agent["sampled_pos"],
+                    pred_head=tokenized_agent["sampled_heading"],
+                    pred_valid=tokenized_agent["valid_mask"],
+                    gt_pos=tokenized_agent["sampled_pos"],
+                    gt_head=tokenized_agent["sampled_heading"],
+                    gt_valid=tokenized_agent["valid_mask"]
+                )
+                if self.encoder.agent_encoder.output_dim == 4:
+                    target = torch.cat(
+                        [target[..., :2], target[..., [-1]].cos(), target[..., [-1]].sin()], dim=-1
+                    )  # [n_batch, n_step, 4]
 
                 current_Q = network.get_Q(pred["feat_a"][:, :-1], target)
 
@@ -369,20 +368,20 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
 
-                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+                actor_loss=expert_nll #expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
 
                 actor_optimizer.zero_grad()
                 actor_loss.backward(retain_graph=True)
                 actor_optimizer.step()
                 
-                critic_optimizer.zero_grad()
-                critic_loss.backward()
-                critic_optimizer.step()
+                # critic_optimizer.zero_grad()
+                # critic_loss.backward()
+                # critic_optimizer.step()
 
 
         return loss
