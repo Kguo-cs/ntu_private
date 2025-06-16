@@ -381,7 +381,7 @@ class TokenProcessor(torch.nn.Module):
         heading: Tensor,  # [n_agent, n_step]
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-        training=None
+        training=False
     ) -> Dict[str, Tensor]:
 
         # pos_2hz= pos[:, ::self.shift]
@@ -389,6 +389,8 @@ class TokenProcessor(torch.nn.Module):
         # heading_2hz= heading[:, ::self.shift]
         # valid_2hz = valid[:, ::self.shift] # [n_agent]
 
+        pos_now, head_now, valid_now = pos[:, self.shift::self.shift], heading[:, self.shift::self.shift], valid[:,
+                                                                                                           self.shift::self.shift]
 
         if training:
             token_dict = self._match_agent_token(
@@ -399,15 +401,13 @@ class TokenProcessor(torch.nn.Module):
                 token_traj=token_traj,
             )
 
-            noise=token_dict["sampled_pos"]- pos[:,self.shift ::self.shift]
-            heading_noise=wrap_angle(token_dict["sampled_heading"]- heading[:,self.shift ::self.shift])
+            noise=token_dict["sampled_pos"]- pos_now
+            heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
 
             pos_now= pos[:,self.shift ::self.shift]+noise.abs()*torch.randn_like(noise)
-            head_now= heading[:,self.shift ::self.shift]+heading_noise.abs()*torch.randn_like(heading_noise)
+            head_now= wrap_angle(heading[:,self.shift ::self.shift]+heading_noise.abs()*torch.randn_like(heading_noise))
 
             valid_now=token_dict["valid_mask"]
-        else:
-            pos_now, head_now ,valid_now= pos[:,self.shift ::self.shift], heading[:,self.shift ::self.shift], valid[:,self.shift ::self.shift]
 
 
         pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
