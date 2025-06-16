@@ -425,8 +425,8 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent["gt_head_raw"]=agent["gt_head_raw"][:,5::5]
                 tokenized_agent["gt_valid_raw"]=agent["gt_valid_raw"][:,5::5]
 
-            for key in [ "type", "batch", "shape"]:
-                tokenized_agent[key] = agent[key]
+                for key in [ "type", "batch", "shape"]:
+                    tokenized_agent[key] = agent[key]
             else:
                 for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "sampled_idx", "valid_mask"]:
                     tokenized_agent[key] = agent[key]
