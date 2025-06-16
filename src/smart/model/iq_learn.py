@@ -99,22 +99,22 @@ class IQ_SoftQ(LightningModule):
 
             entropy=get_entropy(q_value)
 
-            # if "gt_pos_raw" in tokenized_agent.keys():
-            #     gt_pos=tokenized_agent["gt_pos_raw"]
-            #     gt_head=tokenized_agent["gt_head_raw"]
-            #     gt_valid=tokenized_agent["gt_valid_raw"]
-            # else:
-            #     gt_pos=tokenized_agent["sampled_pos"]
-            #     gt_head=tokenized_agent["sampled_heading"]
-            #     gt_valid=tokenized_agent["valid_mask"]
+            if "gt_pos_raw" in tokenized_agent.keys():
+                gt_pos=tokenized_agent["gt_pos_raw"]
+                gt_head=tokenized_agent["gt_head_raw"]
+                gt_valid=tokenized_agent["gt_valid_raw"]
+            else:
+                gt_pos=tokenized_agent["sampled_pos"]
+                gt_head=tokenized_agent["sampled_heading"]
+                gt_valid=tokenized_agent["valid_mask"]
 
             target, target_valid = get_euclidean_targets(
                 pred_pos=tokenized_agent["sampled_pos"],
                 pred_head=tokenized_agent["sampled_heading"],
                 pred_valid=tokenized_agent["valid_mask"],
-                gt_pos=tokenized_agent["sampled_pos"],
-                gt_head=tokenized_agent["sampled_heading"],
-                gt_valid=tokenized_agent["valid_mask"]
+                gt_pos=gt_pos,
+                gt_head=gt_head,
+                gt_valid=gt_valid
             )
             if self.encoder.agent_encoder.output_dim == 4:
                 target = torch.cat(
@@ -123,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
             target1=torch.cat([target, torch.zeros_like(target[:,:1])],dim=1)
 
-            log_prob = dist.log_prob(target1)[:,:-1]#.clamp_min(min=np.log(1e-3))
+            log_prob = dist.log_prob(target1)[:,:-1].clamp_min(min=np.log(1e-5))
 
             if self.encoder.iq_learn:
 
