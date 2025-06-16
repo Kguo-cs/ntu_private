@@ -29,9 +29,11 @@ class IQ_SoftQ(LightningModule):
 
         self.use_target_q=False
         self.rollout_freq=1
-        
-        if self.encoder.iq_learn and self.encoder.output_gmm:
-            self.automatic_optimization = False
+        self.iq_learn=self.encoder.iq_learn
+        self.output_gmm=self.encoder.output_gmm
+
+        #if self.iq_learn and self.output_gmm:
+        self.automatic_optimization = True
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -80,7 +82,7 @@ class IQ_SoftQ(LightningModule):
 
         q_value = pred["q_value"]
 
-        if self.encoder.output_gmm:
+        if self.output_gmm:
             dist =  GMM_Dist(q_value)
 
             cov = q_value[...,q_value.shape[-1]//2+1:].reshape(-1,3)
@@ -106,7 +108,7 @@ class IQ_SoftQ(LightningModule):
 
             log_prob = dist.log_prob(expert_action)[:,:-1].clamp_min(min=np.log(1e-5))
 
-            if self.encoder.iq_learn:
+            if self.iq_learn:
 
                 sample_num=8
 
@@ -311,7 +313,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/repeat_relation_acc", repeat_relation_acc.item(), on_step=True, batch_size=1)
 
-        if not self.encoder.iq_learn:
+        if not self.iq_learn:
             loss =expert_nll
         else:
             if self.global_step % self.rollout_freq== 0:
@@ -360,6 +362,15 @@ class IQ_SoftQ(LightningModule):
                 # torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
                 # critic_loss.backward()
                 # critic_optimizer.step()
+        # actor_optimizer=self.optimizers()
+        # print(f"[DEBUG] Optimizer param count: {sum(p.numel() for p in actor_optimizer.param_groups[0]['params'])}")
+        #
+        # actor_loss=expert_nll #expert_actor_loss.mean()/2+agent_actor_loss.mean()/2
+        #
+        # actor_optimizer.zero_grad()
+        # #torch.nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), max_norm=0.5)
+        # actor_loss.backward()
+        # actor_optimizer.step()
 
 
         return loss

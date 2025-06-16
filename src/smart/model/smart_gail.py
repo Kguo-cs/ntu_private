@@ -70,9 +70,9 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
         else:
             actor_optimizer = torch.optim.Adam(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), lr=self.lr)
-            critic_optimizer = torch.optim.Adam(self.encoder.critic.parameters(), lr=self.lr)
+            #critic_optimizer = torch.optim.Adam(self.encoder.critic.parameters(), lr=self.lr)
 
-            return [actor_optimizer, critic_optimizer]
+            return actor_optimizer #[actor_optimizer, critic_optimizer]
 
 
 
