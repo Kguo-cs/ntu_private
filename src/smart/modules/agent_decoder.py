@@ -164,6 +164,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.output_gmm=output_gmm
             self.n_token_agent = n_token_agent
+            self.pred_res = False
 
             if self.output_gmm:
                 k_ego_gmm=1
@@ -194,7 +195,6 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-                    self.pred_res=True
 
                     if self.pred_res:
                         self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3*self.shift)

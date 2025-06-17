@@ -436,10 +436,10 @@ class TokenProcessor(torch.nn.Module):
         # prev_head+=0.1*torch.randn_like(prev_head)
 
         target_pos, target_head = transform_to_local(
-            pos_global=prev_pos.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
-            head_global=prev_head.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
-            pos_now=pos_now.flatten(0, 1),  # [n_agent*18, 2]
-            head_now=head_now.flatten(0, 1),  # [n_agent*18]
+            pos_global=pos_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
+            head_global=head_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
+            pos_now=prev_pos.flatten(0, 1),  # [n_agent*18, 2]
+            head_now=prev_head.flatten(0, 1),  # [n_agent*18]
         )
         target_pos = target_pos.view(pos_now.shape)  # n_agent, 18, 2]
         target_head = wrap_angle(target_head)  # [n_agent, 18]
