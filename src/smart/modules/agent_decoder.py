@@ -197,7 +197,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.pred_res = True
 
                     if self.pred_res:
-                        self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3)
+                        self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=8)
 
                 else:
                     self.token_predict_head = MLPLayer(
@@ -945,19 +945,31 @@ class SMARTAgentDecoder(nn.Module):
                     agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
                 )
 
-                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(n_agent,-1,3)
+                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(-1,4,2)#.reshape(n_agent,-1,3)
 
-                pos_global, head_global = transform_to_global(
-                        pos_local=res_traj[:,:,:2],
-                        head_local=res_traj[:,:,2],
-                        pos_now=pos_a[:, -1],  # [n_agent, 2]
-                        head_now=head_a[:, -1],  # [n_agent]
-                    )
+                # pos_global, head_global = transform_to_global(
+                #         pos_local=res_traj[:,:,:2],
+                #         head_local=res_traj[:,:,2],
+                #         pos_now=pos_a[:, -1],  # [n_agent, 2]
+                #         head_now=head_a[:, -1],  # [n_agent]
+                #     )
+                res_traj_global = transform_to_global(
+                    pos_local=res_traj,  # [n_agent, 6*4, 2]
+                    head_local=None,
+                    pos_now=pos_a[:, -1],  # [n_agent, 2]
+                    head_now=head_a[:, -1],  # [n_agent]
+                )[0]
 
-                head_global=wrap_angle(head_global)
+                pos_a_next = res_traj_global.mean(dim=1)
+                diff_xy_next = res_traj_global[:, 0] - res_traj_global[:, 3]
+                head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
-                pos_a[:,-1]=pos_global[:,-1]
-                head_a[:,-1]=head_global[:,-1]
+                # head_global=wrap_angle(head_global)
+                #
+                pos_a[:,-1]=pos_a_next#pos_global[:,-1]
+                head_a[:,-1]=head_a_next#head_global[:,-1]
+
+                #print(1)
 
                 # pred_traj_10hz[:,-5:]=pos_global
                 # pred_head_10hz[:,-5:]=head_global
