@@ -144,18 +144,19 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
             #     gt_head=tokenized_agent["gt_head_raw"],
             #     gt_valid=tokenized_agent["gt_valid_raw"]
             # )
+            gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,5,2)
+            gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,5)
 
             target_pos, target_head = transform_to_local(
-                pos_global=tokenized_agent["sampled_pos"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
-                head_global=tokenized_agent["sampled_heading"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
-                pos_now=tokenized_agent["gt_pos_raw"].flatten(0, 1),  # [n_agent*18, 2]
-                head_now=tokenized_agent["gt_head_raw"].flatten(0, 1),  # [n_agent*18]
+                pos_global=gt_pos_raw,  # [n_agent*18, 1, 2]
+                head_global=gt_head_raw,  # [n_agent*18, 1]
+                pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
+                head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
             )
 
             target_head=wrap_angle(target_head)
 
-            target=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(-1,18,3)
-
+            target=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(-1,18,15)
 
             tokenized_agent["target"] = target
 

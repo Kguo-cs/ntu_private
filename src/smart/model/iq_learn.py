@@ -23,7 +23,7 @@ class IQ_SoftQ(LightningModule):
         self.iq_learn=self.encoder.iq_learn
         self.output_gmm=self.encoder.output_gmm
         self.alpha = self.encoder.alpha
-
+        self.n_token_agent=self.encoder.agent_encoder.n_token_agent
         self.batch_replay=False
 
         # if self.batch_replay:
@@ -118,8 +118,8 @@ class IQ_SoftQ(LightningModule):
             q = q_value[:, :-1]
 
             if self.encoder.agent_encoder.pred_res:
-                traj=q[:,:,-3:]
-                q=q[:,:,:-3]
+                traj=q[:,:,self.n_token_agent:]
+                q=q[:,:,:self.n_token_agent]
 
             current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
@@ -138,7 +138,7 @@ class IQ_SoftQ(LightningModule):
             entropy = -torch.sum(pi * logpi, dim=-1)
 
             if self.encoder.agent_encoder.pred_res and key=="expert":
-                actor_loss = torch.linalg.norm(traj-tokenized_agent["target"][:,2:],dim=-1)
+                actor_loss = torch.abs(traj-tokenized_agent["target"][:,2:]).mean(-1)
             else:
                 actor_loss=self.alpha * log_prob - current_Q
 

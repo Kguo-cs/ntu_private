@@ -197,7 +197,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.pred_res=True
 
                     if self.pred_res:
-                        self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3)
+                        self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3*self.shift)
 
                 else:
                     self.token_predict_head = MLPLayer(
@@ -943,23 +943,22 @@ class SMARTAgentDecoder(nn.Module):
                     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
                     agent_type=tokenized_agent["type"],  # [n_agent]
                     agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
-
                 )
 
-                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1))
+                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(-1,5,3)
 
                 pos_global, head_global = transform_to_global(
-                        pos_local=res_traj[:,None,:2],
-                        head_local=res_traj[:,None,2],
+                        pos_local=res_traj[:,:,:2],
+                        head_local=res_traj[:,:,2],
                         pos_now=pos_a[:, -1],  # [n_agent, 2]
                         head_now=head_a[:, -1],  # [n_agent]
                     )
 
-                pos_a[:,-1]=pos_global[:,0]
-                head_a[:,-1]=head_global[:,0]
+                pos_a[:,-1]=pos_global[:,-1]
+                head_a[:,-1]=head_global[:,-1]
 
-                #pred_traj_10hz[:,-1:]=pos_global
-                #pred_head_10hz[:,-1:]=head_global
+                pred_traj_10hz[:,-5:]=pos_global
+                pred_head_10hz[:,-5:]=head_global
 
             if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
                 mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
