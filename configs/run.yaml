@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc128_countor #_x01y001gmm_pos01_head001 #actorlossR_res5_wr_my #gmm1_covfix01 #bc128_gmm1_covfix01 #iq_initV_sample1e3 #actor #_sample8 #tokennoise10  #sampled# 8 #cov01token #nll01_sample16 #2_clipmin1e5_a91_noisetoken #x2expertV0 #_k1 #01_gmm_cov01_clipmin1e3 #_pt20_mapmax1e5_noclip_x2_init1 #_gmm91_cov_sampled_my001 #4joint_mymatch #_map #_max #_x2_1_expertinit1 #_x2histfut #_x2 #_x2 #6fut #_x2 #_alpha1 #_head_vqe_navie #
+task_name: bc128_countor_pos01_head001 #_x01y001gmm #actorlossR_res5_wr_my #gmm1_covfix01 #bc128_gmm1_covfix01 #iq_initV_sample1e3 #actor #_sample8 #tokennoise10  #sampled# 8 #cov01token #nll01_sample16 #2_clipmin1e5_a91_noisetoken #x2expertV0 #_k1 #01_gmm_cov01_clipmin1e3 #_pt20_mapmax1e5_noclip_x2_init1 #_gmm91_cov_sampled_my001 #4joint_mymatch #_map #_max #_x2_1_expertinit1 #_x2histfut #_x2 #_x2 #6fut #_x2 #_alpha1 #_head_vqe_navie #
 #bc48_expertinit0_allvalid
 # simply provide checkpoint path to resume training
 ckpt_path: null
