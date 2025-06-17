@@ -327,9 +327,21 @@ class TokenProcessor(torch.nn.Module):
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
-            prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
+
+            next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+
+            if self.training:
+                next_head=wrap_angle(next_head+torch.randn_like(next_head)*0.01)
+
+            prev_head[_valid_mask] = next_head[_valid_mask]
             prev_pos = pos[:, i].clone()
-            prev_pos[_valid_mask] = token_contour_gt.mean(1)[_valid_mask]
+
+            next_pos = token_contour_gt.mean(1)
+
+            if self.training:
+                next_pos =next_pos+torch.randn_like(next_pos)*0.01
+
+            prev_pos[_valid_mask] = next_pos[_valid_mask]
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
             out_dict["gt_pos"].append(
