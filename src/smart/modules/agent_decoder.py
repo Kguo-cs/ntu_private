@@ -194,7 +194,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                    self.pred_res = True
+                    self.pred_res = False
 
                     if self.pred_res:
                         self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3)
@@ -976,10 +976,10 @@ class SMARTAgentDecoder(nn.Module):
                 # pred_traj_10hz[:,-5:]=pos_global
                 # pred_head_10hz[:,-5:]=head_global
 
-            if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-                mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
-            else:
-                mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+           # if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+            mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
+            # else:
+            #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
 
