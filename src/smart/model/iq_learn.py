@@ -138,7 +138,7 @@ class IQ_SoftQ(LightningModule):
             entropy = -torch.sum(pi * logpi, dim=-1)
 
             if self.encoder.agent_encoder.pred_res and key=="expert":
-                actor_loss = torch.linalg.norm(traj-tokenized_agent["target"][:,2:],dim=-1)-log_prob
+                actor_loss = torch.linalg.norm(traj-tokenized_agent["target"][:,2:],dim=-1)
             else:
                 actor_loss=self.alpha * log_prob - current_Q
 
@@ -223,7 +223,7 @@ class IQ_SoftQ(LightningModule):
 
         current_Q_diff, V_diff=get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
-        actor_loss = actor_loss[train_mask]
+        actor_loss = actor_loss[train_mask].mean()
 
         reward = reward[train_mask]
 
@@ -290,7 +290,7 @@ class IQ_SoftQ(LightningModule):
 
         if not self.iq_learn:
             if self.encoder.agent_encoder.pred_res:
-                loss=expert_actor_loss.mean()
+                loss=expert_actor_loss+expert_nll
             else:
                 loss =expert_nll
         else:
