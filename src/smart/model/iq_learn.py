@@ -11,6 +11,7 @@ import torch
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
 from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,process_data
+from src.smart.loss.rollout_buffer import rollout
 
 class IQ_SoftQ(LightningModule):
 
@@ -25,10 +26,10 @@ class IQ_SoftQ(LightningModule):
 
         self.batch_replay=False
 
-        if self.batch_replay:
-            self.replay_buffer = deque(maxlen=4000)
-        else:
-            self.replay_buffer = deque(maxlen=1)
+        # if self.batch_replay:
+        #     self.replay_buffer = deque(maxlen=4000)
+        # else:
+        #     self.replay_buffer = deque(maxlen=1)
 
 
         if self.iq_learn and self.output_gmm:
@@ -42,40 +43,6 @@ class IQ_SoftQ(LightningModule):
             )
             self.target_net.load_state_dict(self.encoder.state_dict())
 
-    def rollout(self, tokenized_map, tokenized_agent):
-        self.encoder.eval()
-        with torch.no_grad():
-            pred = self.encoder.inference(
-                tokenized_map,
-                tokenized_agent,
-                sampling_scheme=self.validation_rollout_sampling,
-            )
-        self.encoder.train()
-
-        tokenized_agent_rollout = {}
-        tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
-
-        if "sampled_idx" in pred.keys():
-            for key in ["sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
-                tokenized_agent_rollout[key] = pred[key]
-
-            tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
-
-        if "light_idx" in pred.keys():
-            tokenized_agent_rollout['light_idx'] = pred['light_idx']
-            for key in ["lengths_lg", "sinusoidal_lg", "batch_lg"]:
-                tokenized_agent_rollout[key] = tokenized_agent[key]
-
-        if self.rollout_freq > 1:
-            tokenized_map_rollout = {}
-
-            for key in tokenized_map.keys():
-                if key !="map_feature":
-                    tokenized_map_rollout[key]=tokenized_map[key]
-
-            self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
-
-        return tokenized_map,tokenized_agent_rollout
 
     def get_network_QV(self,network,tokenized_map, tokenized_agent,action,key):
 
@@ -318,7 +285,7 @@ class IQ_SoftQ(LightningModule):
             loss =expert_nll
         else:
             if self.global_step % self.rollout_freq== 0:
-                tokenized_map_rollout, tokenized_agent_rollout = self.rollout(tokenized_map, tokenized_agent)
+                tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder,tokenized_map, tokenized_agent)
             else:
                 tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
 

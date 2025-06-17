@@ -76,3 +76,43 @@ class ReplayBuffer:
         advantages = self.returns - self.value_preds[:,:-1]
         # Normalize the advantages
         self.advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
+
+
+
+
+
+def rollout(encoder, tokenized_map, tokenized_agent):
+    encoder.eval()
+    with torch.no_grad():
+        pred = encoder.inference(
+            tokenized_map,
+            tokenized_agent,
+            None
+        )
+    encoder.train()
+
+    tokenized_agent_rollout = {}
+    tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
+
+    if "sampled_idx" in pred.keys():
+        for key in ["sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
+            tokenized_agent_rollout[key] = pred[key]
+
+        tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
+
+    if "light_idx" in pred.keys():
+        tokenized_agent_rollout['light_idx'] = pred['light_idx']
+        for key in ["lengths_lg", "sinusoidal_lg", "batch_lg"]:
+            tokenized_agent_rollout[key] = tokenized_agent[key]
+
+    # if self.rollout_freq > 1:
+    #     tokenized_map_rollout = {}
+    #
+    #     for key in tokenized_map.keys():
+    #         if key !="map_feature":
+    #             tokenized_map_rollout[key]=tokenized_map[key]
+    #
+    #     self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
+
+    return tokenized_map,tokenized_agent_rollout
+

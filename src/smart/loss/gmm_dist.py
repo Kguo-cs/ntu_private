@@ -1,7 +1,7 @@
 
 import torch
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal,MultivariateNormal
-
+from torch.distributions.von_mises import  VonMises
 
 def GMM_Dist(pred):
     next_logits, next_poses,next_cov=pred[...,0],pred[...,1:pred.shape[-1]//2+1],pred[...,pred.shape[-1]//2+1:]
