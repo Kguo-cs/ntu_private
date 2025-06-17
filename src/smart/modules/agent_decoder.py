@@ -318,7 +318,7 @@ class SMARTAgentDecoder(nn.Module):
                 categorical_embs,  # List of len=2, shape [n_agent, hidden_dim]
             )
         else:
-            return feat_a ,agent_token_emb # [n_agent, n_step, hidden_dim]
+            return feat_a # [n_agent, n_step, hidden_dim]
 
     def build_interaction_edge(
             self,
@@ -510,7 +510,7 @@ class SMARTAgentDecoder(nn.Module):
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
         # ! get agent token embeddings
-        feat_a_token ,agent_token_emb= self.agent_token_embedding(
+        feat_a_token = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             trajectory_token_veh=self.token_processor.trajectory_token_veh,
             trajectory_token_ped=self.token_processor.trajectory_token_ped,
@@ -672,7 +672,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 if self.pred_res and self.training:
 
-                    res_traj=self.res_head(torch.cat([feat_a[:,:-1],agent_token_emb[:,1:]],dim=-1))
+                    res_traj=self.res_head(torch.cat([feat_a[:,:-1],feat_a_token[:,1:]],dim=-1))
 
                     res_traj=torch.cat([res_traj,res_traj[:,:1]],dim=1)
 
@@ -905,10 +905,6 @@ class SMARTAgentDecoder(nn.Module):
 
                 next_token_traj_all = token_traj_all[range_a, next_token_idx]
 
-            # if self.pred_res:
-            #     next_res = next_token_logits[:, -1, self.n_token_agent:]
-            #
-            #     pos_a_next +=1
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
@@ -934,6 +930,36 @@ class SMARTAgentDecoder(nn.Module):
 
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
+
+            if self.pred_res:
+                head_vector_a = torch.stack([head_a[:, -1:].cos(), head_a[:, -1:].sin()], dim=-1)
+
+                feat_a_token=self.agent_token_embedding(
+                    agent_token_index=sampled_idx[:, -1:],  # [n_ag, n_step]
+                    trajectory_token_veh=self.token_processor.trajectory_token_veh,
+                    trajectory_token_ped=self.token_processor.trajectory_token_ped,
+                    trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
+                    pos_a=pos_a[:, -2:],  # [n_agent, n_step, 2]
+                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                    agent_type=tokenized_agent["type"],  # [n_agent]
+                    agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
+
+                )
+
+                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1))
+
+                pos_global, head_global = transform_to_global(
+                        pos_local=res_traj[:,None,:2],
+                        head_local=res_traj[:,None,2],
+                        pos_now=pos_a[:, -1],  # [n_agent, 2]
+                        head_now=head_a[:, -1],  # [n_agent]
+                    )
+
+                pos_a[:,-1]=pos_global[:,0]
+                head_a[:,-1]=head_global[:,0]
+
+                #pred_traj_10hz[:,-1:]=pos_global
+                #pred_head_10hz[:,-1:]=head_global
 
             if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
                 mask =torch.cat([mask,torch.ones_like(head_a_next).to(torch.bool).unsqueeze(1)], dim=1)
