@@ -193,6 +193,12 @@ class SMARTAgentDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
+
+                    self.pred_res=True
+
+                    if self.pred_res:
+                        self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3)
+
                 else:
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -312,7 +318,7 @@ class SMARTAgentDecoder(nn.Module):
                 categorical_embs,  # List of len=2, shape [n_agent, hidden_dim]
             )
         else:
-            return feat_a  # [n_agent, n_step, hidden_dim]
+            return feat_a ,agent_token_emb # [n_agent, n_step, hidden_dim]
 
     def build_interaction_edge(
             self,
@@ -504,7 +510,7 @@ class SMARTAgentDecoder(nn.Module):
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
         # ! get agent token embeddings
-        feat_a_token = self.agent_token_embedding(
+        feat_a_token ,agent_token_emb= self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             trajectory_token_veh=self.token_processor.trajectory_token_veh,
             trajectory_token_ped=self.token_processor.trajectory_token_ped,
@@ -663,6 +669,14 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.n_token_agent>1:
                 next_token_logits = self.token_predict_head(feat_a).reshape( n_agent, n_step,-1)
+
+                if self.pred_res and self.training:
+
+                    res_traj=self.res_head(torch.cat([feat_a[:,:-1],agent_token_emb[:,1:]],dim=-1))
+
+                    res_traj=torch.cat([res_traj,res_traj[:,:1]],dim=1)
+
+                    next_token_logits=torch.cat([next_token_logits,res_traj],dim=-1)
             else:
                 next_token_logits=feat_a
 
@@ -823,7 +837,7 @@ class SMARTAgentDecoder(nn.Module):
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys():
-                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
+                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_step,:self.n_token_agent]
 
                     self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]

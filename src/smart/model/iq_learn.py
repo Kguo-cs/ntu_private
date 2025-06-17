@@ -117,6 +117,10 @@ class IQ_SoftQ(LightningModule):
 
             q = q_value[:, :-1]
 
+            if self.encoder.agent_encoder.pred_res:
+                traj=q[:,:,-3:]
+                q=q[:,:,:-3]
+
             current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
 
             v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
@@ -133,7 +137,10 @@ class IQ_SoftQ(LightningModule):
 
             entropy = -torch.sum(pi * logpi, dim=-1)
 
-            actor_loss=self.alpha * log_prob - current_Q
+            if self.encoder.agent_encoder.pred_res and key=="expert":
+                actor_loss = torch.linalg.norm(traj-tokenized_agent["target"][:,2:],dim=-1)-log_prob
+            else:
+                actor_loss=self.alpha * log_prob - current_Q
 
         dones = torch.zeros_like(next_V)
 
@@ -252,7 +259,7 @@ class IQ_SoftQ(LightningModule):
     def iq_update(self, tokenized_map, tokenized_agent):
         train_mask= tokenized_agent["valid_mask"][:, 1:].all(-1)
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss= self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -282,10 +289,13 @@ class IQ_SoftQ(LightningModule):
             self.log("train/repeat_relation_acc", repeat_relation_acc.item(), on_step=True, batch_size=1)
 
         if not self.iq_learn:
-            loss =expert_nll
+            if self.encoder.agent_encoder.pred_res:
+                loss=expert_actor_loss.mean()
+            else:
+                loss =expert_nll
         else:
             if self.global_step % self.rollout_freq== 0:
-                tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder,tokenized_map, tokenized_agent)
+                tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
             else:
                 tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
 

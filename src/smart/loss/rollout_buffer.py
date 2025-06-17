@@ -95,10 +95,10 @@ def rollout(encoder, tokenized_map, tokenized_agent):
     tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
 
     if "sampled_idx" in pred.keys():
-        for key in ["sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
+        for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
             tokenized_agent_rollout[key] = pred[key]
 
-        tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
+        #tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
 
     if "light_idx" in pred.keys():
         tokenized_agent_rollout['light_idx'] = pred['light_idx']

@@ -2,6 +2,7 @@ import torch
 from src.smart.metrics.utils import get_euclidean_targets
 
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
+from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 
 def soft_update( net, target_net, tau):
@@ -104,7 +105,7 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
             for key in ["type", "batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
-            token_dict = token_processor.my_match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+            token_dict = token_processor._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
                                                                    agent["gt_head_raw"],
                                                                    agent_shape, token_traj#,True
                                                                    )
@@ -135,14 +136,26 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
             # tokenized_agent.update(token_dict)
 
 
-            target, target_valid = get_euclidean_targets(
-                pred_pos=tokenized_agent["sampled_pos"],
-                pred_head=tokenized_agent["sampled_heading"],
-                pred_valid=tokenized_agent["valid_mask"],
-                gt_pos=tokenized_agent["gt_pos_raw"],
-                gt_head=tokenized_agent["gt_head_raw"],
-                gt_valid=tokenized_agent["gt_valid_raw"]
+            # target, target_valid = get_euclidean_targets(
+            #     pred_pos=tokenized_agent["sampled_pos"],
+            #     pred_head=tokenized_agent["sampled_heading"],
+            #     pred_valid=tokenized_agent["valid_mask"],
+            #     gt_pos=tokenized_agent["gt_pos_raw"],
+            #     gt_head=tokenized_agent["gt_head_raw"],
+            #     gt_valid=tokenized_agent["gt_valid_raw"]
+            # )
+
+            target_pos, target_head = transform_to_local(
+                pos_global=tokenized_agent["gt_pos_raw"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
+                head_global=tokenized_agent["gt_head_raw"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
+                pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
+                head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
             )
+
+            target_head=wrap_angle(target_head)
+
+            target=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(-1,18,3)
+
 
             tokenized_agent["target"] = target
 
