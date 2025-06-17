@@ -66,7 +66,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
-        self.use_my=True
+        self.use_my=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
