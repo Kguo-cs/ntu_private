@@ -147,33 +147,33 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
             #gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,5,2)
             #gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,5)
 
-            # gt_pos_raw = tokenized_agent["gt_pos_raw"].flatten(0, 1)[:,None]
-            # gt_head_raw  = tokenized_agent["gt_head_raw"].flatten(0, 1)[:,None]
-            #
-            # target_pos, target_head = transform_to_local(
-            #     pos_global=gt_pos_raw,  # [n_agent*18, 1, 2]
-            #     head_global=gt_head_raw,  # [n_agent*18, 1]
-            #     pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
-            #     head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
-            # )
-            #
-            # target_head=wrap_angle(target_head)
-            #
-            # target=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(len(tokenized_agent["gt_pos_raw"]),18,-1)
-            gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,18,5,2)
-            gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,18,5)
+            gt_pos_raw = tokenized_agent["gt_pos_raw"].flatten(0, 1)[:,None]
+            gt_head_raw  = tokenized_agent["gt_head_raw"].flatten(0, 1)[:,None]
 
-            contour=cal_polygon_contour(pos=gt_pos_raw,
-                                head=gt_head_raw,
-                                width_length=agent["shape"][:,None,None],
-                                )[:,:,0]
-
-            target = transform_to_local(
-                pos_global=contour.flatten(0, 1),  # [n_agent*18, 1, 2]
-                head_global=None,  # [n_agent*18, 1]
+            target_pos, target_head = transform_to_local(
+                pos_global=gt_pos_raw,  # [n_agent*18, 1, 2]
+                head_global=gt_head_raw,  # [n_agent*18, 1]
                 pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
                 head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
-            )[0].view(contour.shape)
+            )
+
+            target_head=wrap_angle(target_head)
+
+            target=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(len(tokenized_agent["gt_pos_raw"]),18,-1)
+            # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,18,5,2)
+            # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,18,5)
+            #
+            # contour=cal_polygon_contour(pos=gt_pos_raw,
+            #                     head=gt_head_raw,
+            #                     width_length=agent["shape"][:,None,None],
+            #                     )[:,:,0]
+            #
+            # target = transform_to_local(
+            #     pos_global=contour.flatten(0, 1),  # [n_agent*18, 1, 2]
+            #     head_global=None,  # [n_agent*18, 1]
+            #     pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
+            #     head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
+            # )[0].view(contour.shape)
 
             tokenized_agent["target"] = target
 
