@@ -66,6 +66,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
+        self.use_my=True
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         tokenized_map = self.tokenize_map(data)
@@ -236,6 +238,8 @@ class TokenProcessor(torch.nn.Module):
         # )
         # tokenized_agent.update(initial_token_dict)
 
+
+
         token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
@@ -277,6 +281,10 @@ class TokenProcessor(torch.nn.Module):
             "sampled_pos": [n_agent, n_step_token, 2]
             "sampled_heading": [n_agent, n_step_token]
         """
+
+        if self.use_my:
+            return self.my_match_agent_token(valid, pos, heading,agent_shape, token_traj)
+
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
         range_a = torch.arange(n_agent)

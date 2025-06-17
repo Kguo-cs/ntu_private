@@ -105,7 +105,7 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
             for key in ["type", "batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
-            token_dict = token_processor.my_match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+            token_dict = token_processor._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
                                                                    agent["gt_head_raw"],
                                                                    agent_shape, token_traj#,True
                                                                    )
