@@ -321,8 +321,21 @@ class TokenProcessor(torch.nn.Module):
             token_idx_gt = torch.argmin(
                 torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
             )  # [n_agent]
-            # [n_agent, 4, 2]
-            token_contour_gt = token_world_gt[range_a, token_idx_gt]
+            if self.training:
+                token_contour_local =token_traj[range_a, token_idx_gt]
+
+                token_contour_local[:,:,0]+=0.1*torch.randn_like(token_contour_local[:,:,0])
+                token_contour_local[:,:,1]+=0.01*torch.randn_like(token_contour_local[:,:,1])
+                token_contour_gt = transform_to_global(
+                    pos_local=token_contour_local,  # [n_agent, n_token*4, 2]
+                    head_local=None,
+                    pos_now=prev_pos,  # [n_agent, 2]
+                    head_now=prev_head,  # [n_agent]
+                )[0]
+            else:
+                # [n_agent, 4, 2]
+                token_contour_gt = token_world_gt[range_a, token_idx_gt]
+
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -330,16 +343,16 @@ class TokenProcessor(torch.nn.Module):
 
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-            if self.training:
-                next_head=wrap_angle(next_head+torch.randn_like(next_head)*0.01)
+            # if self.training:
+            #     next_head=wrap_angle(next_head+torch.randn_like(next_head)*0.01)
 
             prev_head[_valid_mask] = next_head[_valid_mask]
             prev_pos = pos[:, i].clone()
 
             next_pos = token_contour_gt.mean(1)
 
-            if self.training:
-                next_pos =next_pos+torch.randn_like(next_pos)*0.01
+            # if self.training:
+            #     next_pos =next_pos+torch.randn_like(next_pos)*0.01
 
             prev_pos[_valid_mask] = next_pos[_valid_mask]
             # add to output dict
