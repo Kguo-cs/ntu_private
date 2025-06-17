@@ -246,7 +246,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_actor_loss", actor_loss.item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
