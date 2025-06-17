@@ -954,6 +954,8 @@ class SMARTAgentDecoder(nn.Module):
                         head_now=head_a[:, -1],  # [n_agent]
                     )
 
+                head_global=wrap_angle(head_global)
+
                 pos_a[:,-1]=pos_global[:,-1]
                 head_a[:,-1]=head_global[:,-1]
 
