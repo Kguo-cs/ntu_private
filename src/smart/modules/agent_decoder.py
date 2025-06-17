@@ -168,7 +168,7 @@ class SMARTAgentDecoder(nn.Module):
             if self.output_gmm:
                 k_ego_gmm=1
                 self.cov_gmm=0.1 #[1.0, 0.1]
-                self.cov_learnable=False
+                self.cov_learnable=True
                 self.use_GT=True
 
                 self.gmm_logits_head = MLPLayer(
@@ -183,6 +183,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.gmm_cov_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * self.output_dim
                     )
+                self.pred_res = False
 
                 # self.cholesky_head = nn.Linear(
                 #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
