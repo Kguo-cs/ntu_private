@@ -359,7 +359,7 @@ class TokenProcessor(torch.nn.Module):
             #next_pos = token_contour_gt.mean(1)
 
             if self.training:
-                prev_pos =prev_pos+torch.randn_like(prev_pos)*0.1
+                prev_pos =prev_pos+torch.randn_like(prev_pos)*0.01
 
             #prev_pos[_valid_mask] = next_pos[_valid_mask]
             # add to output dict
