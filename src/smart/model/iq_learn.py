@@ -280,7 +280,7 @@ class IQ_SoftQ(LightningModule):
             reward=total_reward
             value_loss=total_value_loss
 
-        return  reward,value_loss,init_V,action_nll,actor_loss
+        return  reward,value_loss,init_V-1,action_nll,actor_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         train_mask= tokenized_agent["valid_mask"][:, 1:].all(-1)
