@@ -837,10 +837,11 @@ class SMARTAgentDecoder(nn.Module):
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys():
-                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_step,:self.n_token_agent]
+                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
 
                     self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
+
                 else:
                     if lg_features is not None:
                         lg_feat=lg_features[:,:t]
@@ -896,13 +897,18 @@ class SMARTAgentDecoder(nn.Module):
 
             else:
 
-                cat_dist = Categorical(logits=next_token_logits[:, -1] / self.alpha)
+                cat_dist = Categorical(logits=next_token_logits[:, -1,:self.n_token_agent] / self.alpha)
 
                 next_token_idx = cat_dist.sample()
 
                 range_a = torch.arange(next_token_idx.shape[0])
 
                 next_token_traj_all = token_traj_all[range_a, next_token_idx]
+
+            # if self.pred_res:
+            #     next_res = next_token_logits[:, -1, self.n_token_agent:]
+            #
+            #     pos_a_next +=1
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 

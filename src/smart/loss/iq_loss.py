@@ -146,10 +146,10 @@ def process_data( data,token_processor,encoder,pred_agent=True,pred_light=False)
             # )
 
             target_pos, target_head = transform_to_local(
-                pos_global=tokenized_agent["gt_pos_raw"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
-                head_global=tokenized_agent["gt_head_raw"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
-                pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
-                head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
+                pos_global=tokenized_agent["sampled_pos"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
+                head_global=tokenized_agent["sampled_heading"].flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
+                pos_now=tokenized_agent["gt_pos_raw"].flatten(0, 1),  # [n_agent*18, 2]
+                head_now=tokenized_agent["gt_head_raw"].flatten(0, 1),  # [n_agent*18]
             )
 
             target_head=wrap_angle(target_head)

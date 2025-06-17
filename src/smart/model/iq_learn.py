@@ -223,7 +223,7 @@ class IQ_SoftQ(LightningModule):
 
         current_Q_diff, V_diff=get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
-        actor_loss = actor_loss[train_mask].mean()
+        actor_loss = actor_loss[train_mask]
 
         reward = reward[train_mask]
 
@@ -246,7 +246,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_actor_loss", actor_loss.item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
@@ -290,7 +290,7 @@ class IQ_SoftQ(LightningModule):
 
         if not self.iq_learn:
             if self.encoder.agent_encoder.pred_res:
-                loss=expert_actor_loss+expert_nll
+                loss=expert_actor_loss.mean()+expert_nll
             else:
                 loss =expert_nll
         else:
