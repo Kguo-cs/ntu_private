@@ -34,7 +34,7 @@ from copy import deepcopy
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from PIL import Image
 import io
-from .waymo_render import get_map_features,get_traffic_light_features
+from .waymo_render import get_map_features,get_traffic_light_features,get_agent_features
 
 COLOR_BLACK = (0, 0, 0, 255)
 COLOR_WHITE = (255, 255, 255, 255)
@@ -145,16 +145,8 @@ class GUI(Process):
         # sdc=0, interest=1, predict=2
         self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
 
-        self.agent_cmd_txt = [
-            "STATIONARY",  # STATIONARY = 0;
-            "STRAIGHT",  # STRAIGHT = 1;
-            "STRAIGHT_LEFT",  # STRAIGHT_LEFT = 2;
-            "STRAIGHT_RIGHT",  # STRAIGHT_RIGHT = 3;
-            "LEFT_U_TURN",  # LEFT_U_TURN = 4;
-            "LEFT_TURN",  # LEFT_TURN = 5;
-            "RIGHT_U_TURN",  # RIGHT_U_TURN = 6;
-            "RIGHT_TURN",  # RIGHT_TURN = 7;
-        ]
+        #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+        self.agent_type_style = [COLOR_ALUMINIUM_0, COLOR_CHAMELEON, COLOR_MAGENTA]
 
         # make output dir
         # self.save_dir = save_dir
@@ -166,6 +158,13 @@ class GUI(Process):
         self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
             scenario.dynamic_map_states
         )
+
+        ag_valid, ag_xy, ag_yaw, self.ag_size, self.ag_role, ag_id = get_agent_features(
+            scenario, step_current=10
+        )
+        # self.ag_id2size = dict(zip(ag_id, ag_size))
+        # self.ag_id2role = dict(zip(ag_id, ag_role))
+        self.ego_idx=np.where(self.ag_role==0)[0][0]
 
 
     def setup(self):
@@ -335,85 +334,99 @@ class GUI(Process):
         if abs(self.zoom_speed - 1) < clip:
             self.zoom_speed = 1
 
-    def plotVehicle(self, node, ex: float, ey: float, vtag: str, vrd: VRD):
-        rotateMat = np.array(
-            [
-                [cos(vrd.yaw), -sin(vrd.yaw)],
-                [sin(vrd.yaw), cos(vrd.yaw)]
-            ]
-        )
-        vertexes = [
-            np.array([[vrd.length / 2], [vrd.width / 2]]),
-            np.array([[vrd.length / 2], [-vrd.width / 2]]),
-            np.array([[-vrd.length / 2], [-vrd.width / 2]]),
-            np.array([[-vrd.length / 2], [vrd.width / 2]])
-        ]
-        rotVertexes = [np.dot(rotateMat, vex) for vex in vertexes]
-        relativeVex = [
-            [vrd.x + rv[0] - ex, vrd.y + rv[1] - ey] for rv in rotVertexes
-        ]
-        drawVex = [
-            [
-                self.ctf.zoomScale * (self.ctf.drawCenter + rev[0] + self.ctf.offset[0]),
-                self.ctf.zoomScale * (self.ctf.drawCenter - rev[1] + self.ctf.offset[1])
-            ] for rev in relativeVex
-        ]
-        if vtag == 'ego':
-            vcolor = (211, 84, 0)
-        elif vtag == 'AoI':
-            vcolor = (41, 128, 185)
-        else:
-            vcolor = (99, 110, 114)
+    @staticmethod
+    def _get_agent_bbox(
+        agent_valid: np.ndarray,
+        agent_pos: np.ndarray,
+        agent_yaw: np.ndarray,
+        agent_size: np.ndarray,
+    ) -> np.ndarray:
+        yaw = agent_yaw[agent_valid]  # n, 1
+        cos_yaw = np.cos(yaw)
+        sin_yaw = np.sin(yaw)
+        v_forward = np.concatenate([cos_yaw, sin_yaw], axis=-1)  # n,2
+        v_right = np.concatenate([sin_yaw, -cos_yaw], axis=-1)
 
-        dpg.draw_polygon(drawVex, color=vcolor, fill=vcolor, parent=node)
-        dpg.draw_text(
-            self.ctf.dpgCoord(vrd.x, vrd.y, ex, ey),
-            vrd.id,
-            color=(0, 0, 0),
-            size=20,
-            parent=node
+        offset_forward = 0.5 * agent_size[agent_valid, 0:1] * v_forward  # [n, 2]
+        offset_right = 0.5 * agent_size[agent_valid, 1:2] * v_right  # [n, 2]
+
+        vertex_offset = np.stack(
+            [
+                -offset_forward + offset_right,
+                offset_forward + offset_right,
+                offset_forward - offset_right,
+                -offset_forward - offset_right,
+            ],
+            axis=1,
+        )  # n,4,2
+
+        agent_pos = agent_pos[agent_valid]
+        bbox = agent_pos[:, None, :].repeat(4, 1) + vertex_offset  # n,4,2
+        return bbox
+
+    def draw_arrow(self,start, end, color, thickness=1, tip_length=0.2, parent=None):
+        # Shaft
+        dpg.draw_line(p1=start, p2=end, color=color, thickness=thickness, parent=parent)
+
+        # Arrowhead
+        start_np = np.array(start, dtype=np.float32)
+        end_np = np.array(end, dtype=np.float32)
+        direction = end_np - start_np
+        length = np.linalg.norm(direction)
+        if length < 1e-6:
+            return  # Too short to draw
+        unit_dir = direction / length
+        ortho = np.array([-unit_dir[1], unit_dir[0]])
+
+        tip_len = tip_length * length
+        base = end_np - tip_len * unit_dir
+        width = tip_len * 0.5
+
+        left = base + ortho * width
+        right = base - ortho * width
+
+        dpg.draw_triangle(
+            p1=tuple(left),
+            p2=tuple(right),
+            p3=tuple(end),
+            color=color,
+            fill=color,
+            parent=parent
         )
 
-    def plotdeArea(self, node, egoVRD: VRD, ex: float, ey: float):
-        cx, cy = self.ctf.dpgCoord(egoVRD.x, egoVRD.y, ex, ey)
-        try:
-            dpg.draw_circle(
-                (cx, cy),
-                self.ctf.zoomScale * egoVRD.deArea,
-                thickness=2,
-                fill=(243, 156, 18),
-                parent=node
+    def drawVehicles(self, node,_pos,_yaw,ag_type):
+
+        _valid=np.ones_like(_yaw).astype(bool)
+
+        _yaw=_yaw[:,None]
+
+        bbox_gt = self._get_agent_bbox(_valid, _pos, _yaw, self.ag_size)
+        heading_start = self.get_line_tf(_pos[_valid], self.centerx, self.centery)
+
+        _yaw = _yaw[:, 0][_valid]
+        heading_end = self.get_line_tf( _pos[_valid] + 1.5 * np.stack([np.cos(_yaw), np.sin(_yaw)],axis=-1), self.centerx, self.centery)
+
+
+        _role = self.ag_role[_valid]
+        _type=ag_type[_valid]
+        for i in range(_role.shape[0]):
+            if i==self.ego_idx:#[0]
+                color=COLOR_CYAN
+            else:
+                print(color)
+                color=self.agent_type_style[_type[i]]
+            bbox_gt1=self.get_line_tf( bbox_gt[i], self.centerx, self.centery)
+
+            dpg.draw_polygon(
+                points=bbox_gt1,  # ensure each pt is (x, y)
+                color=color,  # RGBA tuple, e.g., (255, 0, 0, 255)
+                fill=color,  # fill with the same color
+                thickness=1,  # outline thickness
+                parent=node  # your drawing layer
             )
-        except Exception as e:
-            raise e
 
-    def plotTrajectory(self, node, ex: float, ey: float, vrd: VRD):
-        tps = [
-            self.ctf.dpgCoord(
-                vrd.trajectoryXQ[i],
-                vrd.trajectoryYQ[i],
-                ex, ey
-            ) for i in range(len(vrd.trajectoryXQ))
-        ]
-        dpg.draw_polyline(
-            tps, color=(205, 132, 241),
-            parent=node, thickness=2
-        )
-
-    def drawVehicles(
-            self, node, VRDDict: Dict[str, List[VRD]], ex: float, ey: float
-    ):
-        egoVRD = VRDDict['egoCar'][0]
-        self.plotVehicle(node, ex, ey, 'ego', egoVRD)
-        # self.plotdeArea(node, egoVRD, ex, ey)
-        if egoVRD.trajectoryXQ:
-            self.plotTrajectory(node, ex, ey, egoVRD)
-        for avrd in VRDDict['carInAoI']:
-            self.plotVehicle(node, ex, ey, 'AoI', avrd)
-            if avrd.trajectoryXQ:
-                self.plotTrajectory(node, ex, ey, avrd)
-        for svrd in VRDDict['outOfAoI']:
-            self.plotVehicle(node, ex, ey, 'other', svrd)
+            # # Draw shaft of the arrow
+            self.draw_arrow(heading_start[i], heading_end[i], COLOR_BLACK, thickness=1, tip_length=1.0, parent=node)
 
     def get_line_tf(self, line: List[float], ex, ey) -> List[float]:
         return [
@@ -443,7 +456,7 @@ class GUI(Process):
         for i_tl, _state in enumerate(self.tl_lane_state[step_t]):
             _lane_id = self.tl_lane_id[step_t][i_tl]
             _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
-            print(step_t,_lane_idx)
+          # print(step_t,_lane_idx)
 
             polyline = self.mp_xyz[_lane_idx][:, :2]
 
@@ -453,12 +466,11 @@ class GUI(Process):
             dpg.draw_polyline(
                 points=polyline_tf,
                 color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
-                thickness=8,
+                thickness=3,
                 parent=node
             )
 
-
-            # # If traffic light state indicates active (1 to 3), draw a marker at the end
+            # If traffic light state indicates active (1 to 3), draw a marker at the end
             # if 1 <= _state <= 3:
             #     x, y = polyline_tf[-1]
             #     offset = 10
@@ -467,27 +479,6 @@ class GUI(Process):
             #                   thickness=6,parent=node)
             #     dpg.draw_line((x - offset, y + offset), (x + offset, y - offset), color=self.tl_style[_state],
             #                   thickness=6,parent=node )
-            # #
-            # cv2.polylines(
-            #     step_image,
-            #     [pos],
-            #     isClosed=False,
-            #     color=self.tl_style[_state],
-            #     thickness=8,
-            #     lineType=cv2.LINE_AA,
-            # )
-            # if _state >= 1 and _state <= 3:
-            #     cv2.drawMarker(
-            #         step_image,
-            #         pos[-1],
-            #         color=self.tl_style[_state],
-            #         markerType=cv2.MARKER_TILTED_CROSS,
-            #         markerSize=10,
-            #         thickness=6,
-            #     )
-
-
-
 
     def showImage(self, cameraImages: CameraImages):
         front_left_image = cameraImages.CAM_FRONT_LEFT / 255
@@ -515,9 +506,13 @@ class GUI(Process):
         canvasNode = dpg.add_draw_node(parent="Canvas")
        # try:
        # scenario,data = self.renderQueue.get()
-        time_step=self.renderQueue.get()
+        agent_pos,agent_head,agent_type,time_step=self.renderQueue.get()
 
-       # print(time_step)
+        ego_position=agent_pos[self.ego_idx]
+
+        self.centerx=ego_position[0]
+        self.centery=ego_position[1]
+
 
         # egoVRD = VRDDict['egoCar'][0]
         # ex = egoVRD.x
@@ -525,7 +520,7 @@ class GUI(Process):
         if time_step is not None:
             self.drawRoadgraph(canvasNode)
             self.draw_traffic_light(canvasNode,time_step)
-        # self.drawVehicles(canvasNode, VRDDict, ex, ey)
+            self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
         # self.drawMovingSce(movingSceNode, egoVRD)
         # except TypeError:
         #     return

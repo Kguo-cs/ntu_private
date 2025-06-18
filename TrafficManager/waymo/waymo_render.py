@@ -426,9 +426,9 @@ def get_agent_features(
             )
 
             ag_role.append([False, False, False])
-            if i in track_index_predict:
+            if i in track_index_predict[0]:
                 ag_role[-1][2] = True
-            if _track.id in object_id_interest:
+            if _track.id in object_id_interest[0]:
                 ag_role[-1][1] = True
             if i == sdc_track_index:
                 ag_role[-1][0] = True

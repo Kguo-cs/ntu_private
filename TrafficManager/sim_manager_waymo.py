@@ -44,6 +44,7 @@ from src.data_preprocess import decode_tracks_from_proto,decode_map_features_fro
 from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
+from time import sleep
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -220,7 +221,13 @@ class SimulationManager:
             # self.model.putRenderData()
             # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
             # self.renderQueue.put((roadgraphRenderData, VRDDict))
-        self.model.renderQueue.put(self.timestamp)
+
+        pos = tokenized_agent["pred_traj_10hz"]
+        heading = tokenized_agent["pred_head_10hz"]
+        agent_type=tokenized_agent["type"].cpu().numpy()
+        agent_pos=pos[:,self.timestamp%5].cpu().numpy()
+        agent_head=heading[:,self.timestamp%5].cpu().numpy()
+        self.model.renderQueue.put((agent_pos,agent_head,agent_type,self.timestamp))
 
        # print(self.timestamp)
 
@@ -228,6 +235,8 @@ class SimulationManager:
         #self.model.renderQueue.put(self.timestamp)
 
         self.timestamp += 1
+
+        #sleep(1000)
 
         return True
 
