@@ -181,21 +181,25 @@ class SMART(LightningModule):
                 )
 
                 # WOSAC metrics
-                #t1=time.time()
-                if batch_idx < self.n_batch_wosac_metric:
-                    device = pred_traj.device
-                    scenario_rollouts = get_scenario_rollouts(
-                        scenario_id=get_scenario_id_int_tensor(
-                            data["scenario_id"], device
-                        ),
-                        agent_id=data["agent"]["id"],
-                        agent_batch=data["agent"]["batch"],
-                        pred_traj=pred_traj,
-                        pred_z=pred_z,
-                        pred_head=pred_head,
-                    )
-                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
-                    # print(time.time() - time1)
+                #if batch_idx < self.n_batch_wosac_metric:
+                device = pred_traj.device
+                scenario_rollouts = get_scenario_rollouts(
+                    scenario_id=get_scenario_id_int_tensor(
+                        data["scenario_id"], device
+                    ),
+                    agent_id=data["agent"]["id"],
+                    agent_batch=data["agent"]["batch"],
+                    pred_traj=pred_traj,
+                    pred_z=pred_z,
+                    pred_head=pred_head,
+                )
+                self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                # print(time.time() - time1)
+                epoch_wosac_metrics = self.wosac_metrics.compute()
+                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
+
+                for key, value in epoch_wosac_metrics.items():
+                    self.log(key, value, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True)
 
                 #print(time.time()-t1)
 

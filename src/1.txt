@@ -1,46 +1,0 @@
-nohup: ignoring input
-False
-[[36m2025-06-17 21:46:54,586[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Printing config tree with Rich! <cfg.extras.print_config=True>[0m
-Seed set to 817
-[[36m2025-06-17 21:46:54,587[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Instantiating datamodule <src.smart.datamodules.MultiDataModule>[0m
-[[36m2025-06-17 21:46:54,755[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Instantiating model <src.smart.model.smart_gail.SMART_IQ>[0m
-2025-06-17 21:46:54.870213: I tensorflow/core/util/port.cc:110] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2025-06-17 21:46:54.884892: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-[[36m2025-06-17 21:46:56,043[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Instantiating callbacks...[0m
-[[36m2025-06-17 21:46:56,043[0m][[34msrc.utils.instantiators[0m][[32mINFO[0m] - [rank: 0] Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
-[[36m2025-06-17 21:46:56,044[0m][[34msrc.utils.instantiators[0m][[32mINFO[0m] - [rank: 0] Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>[0m
-[[36m2025-06-17 21:46:56,045[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Instantiating loggers...[0m
-[[36m2025-06-17 21:46:56,045[0m][[34msrc.utils.instantiators[0m][[32mINFO[0m] - [rank: 0] Instantiating logger <lightning.pytorch.loggers.wandb.WandbLogger>[0m
-[[36m2025-06-17 21:46:58,305[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Instantiating trainer <lightning.pytorch.trainer.Trainer>[0m
-GPU available: True (cuda), used: True
-TPU available: False, using: 0 TPU cores
-HPU available: False, using: 0 HPUs
-`Trainer(limit_train_batches=1.0)` was configured so 100% of the batches per epoch will be used..
-`Trainer(limit_val_batches=1)` was configured so 1 batch will be used.
-`Trainer(limit_test_batches=1.0)` was configured so 100% of the batches will be used..
-[[36m2025-06-17 21:46:58,311[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Logging hyperparameters![0m
-[[36m2025-06-17 21:46:58,312[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Resuming from ckpt: cfg.ckpt_path=None[0m
-[[36m2025-06-17 21:46:58,312[0m][[34m__main__[0m][[32mINFO[0m] - [rank: 0] Starting training![0m
-[[36m2025-06-17 21:47:00,866[0m][[34msrc.smart.datasets.scalable_dataset[0m][[32mINFO[0m] - [rank: 0] Length of /home/ke/code/catk/src/waymo_data/full/training_inter10 dataset is 486995[0m
-[[36m2025-06-17 21:47:00,998[0m][[34msrc.smart.datasets.scalable_dataset[0m][[32mINFO[0m] - [rank: 0] Length of /home/ke/code/catk/src/waymo_data/full/validation dataset is 44097[0m
-LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
-
-  | Name             | Type            | Params | Mode 
--------------------------------------------------------------
-0 | token_processor  | TokenProcessor  | 0      | train
-1 | encoder          | SMARTDecoder    | 2.0 M  | train
-2 | minADE           | minADE          | 0      | train
-3 | TokenCls         | TokenCls        | 0      | train
-4 | wosac_metrics    | WOSACMetrics    | 0      | train
-5 | wosac_submission | WOSACSubmission | 0      | train
-6 | training_loss    | CrossEntropy    | 0      | train
--------------------------------------------------------------
-2.0 M     Trainable params
-0         Non-trainable params
-2.0 M     Total params
-7.943     Total estimated model params size (MB)
-236       Modules in train mode
-0         Modules in eval mode
-/home/ke/miniconda3/envs/catk/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:424: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
-Training: |          | 0/? [00:00<?, ?it/s]Training:   0%|          | 0/15219 [00:00<?, ?it/s]Epoch 0:   0%|          | 0/15219 [00:00<?, ?it/s] Epoch 0:   0%|          | 1/15219 [00:00<3:57:42,  1.07it/s]Epoch 0:   0%|          | 1/15219 [00:00<3:57:47,  1.07it/s, v_num=3fdo]Epoch 0:   0%|          | 2/15219 [00:01<2:43:27,  1.55it/s, v_num=3fdo]Epoch 0:   0%|          | 2/15219 [00:01<2:43:29,  1.55it/s, v_num=3fdo]Epoch 0:   0%|          | 3/15219 [00:01<2:16:19,  1.86it/s, v_num=3fdo]Epoch 0:   0%|          | 3/15219 [00:01<2:16:20,  1.86it/s, v_num=3fdo]Epoch 0:   0%|          | 4/15219 [00:01<2:03:29,  2.05it/s, v_num=3fdo]Epoch 0:   0%|          | 4/15219 [00:01<2:03:30,  2.05it/s, v_num=3fdo]Epoch 0:   0%|          | 5/15219 [00:02<1:56:21,  2.18it/s, v_num=3fdo]Epoch 0:   0%|          | 5/15219 [00:02<1:56:21,  2.18it/s, v_num=3fdo]Epoch 0:   0%|          | 6/15219 [00:02<1:49:18,  2.32it/s, v_num=3fdo]Epoch 0:   0%|          | 6/15219 [00:02<1:49:19,  2.32it/s, v_num=3fdo]Epoch 0:   0%|          | 7/15219 [00:02<1:46:01,  2.39it/s, v_num=3fdo]Epoch 0:   0%|          | 7/15219 [00:02<1:46:02,  2.39it/s, v_num=3fdo]Epoch 0:   0%|          | 8/15219 [00:03<1:44:53,  2.42it/s, v_num=3fdo]Epoch 0:   0%|          | 8/15219 [00:03<1:44:53,  2.42it/s, v_num=3fdo]Epoch 0:   0%|          | 9/15219 [00:03<1:42:20,  2.48it/s, v_num=3fdo]Epoch 0:   0%|          | 9/15219 [00:03<1:42:20,  2.48it/s, v_num=3fdo]Epoch 0:   0%|          | 10/15219 [00:03<1:40:35,  2.52it/s, v_num=3fdo]Epoch 0:   0%|          | 10/15219 [00:03<1:40:35,  2.52it/s, v_num=3fdo]Epoch 0:   0%|          | 11/15219 [00:04<1:39:25,  2.55it/s, v_num=3fdo]Epoch 0:   0%|          | 11/15219 [00:04<1:39:26,  2.55it/s, v_num=3fdo]Epoch 0:   0%|          | 12/15219 [00:04<1:37:45,  2.59it/s, v_num=3fdo]Epoch 0:   0%|          | 12/15219 [00:04<1:37:46,  2.59it/s, v_num=3fdo]Epoch 0:   0%|          | 13/15219 [00:04<1:36:10,  2.64it/s, v_num=3fdo]Epoch 0:   0%|          | 13/15219 [00:04<1:36:10,  2.64it/s, v_num=3fdo]Epoch 0:   0%|          | 14/15219 [00:05<1:34:59,  2.67it/s, v_num=3fdo]Epoch 0:   0%|          | 14/15219 [00:05<1:35:00,  2.67it/s, v_num=3fdo]Epoch 0:   0%|          | 15/15219 [00:05<1:34:37,  2.68it/s, v_num=3fdo]Epoch 0:   0%|          | 15/15219 [00:05<1:34:37,  2.68it/s, v_num=3fdo]Epoch 0:   0%|          | 16/15219 [00:05<1:34:17,  2.69it/s, v_num=3fdo]Epoch 0:   0%|          | 16/15219 [00:05<1:34:17,  2.69it/s, v_num=3fdo]Epoch 0:   0%|          | 17/15219 [00:06<1:32:35,  2.74it/s, v_num=3fdo]Epoch 0:   0%|          | 17/15219 [00:06<1:32:35,  2.74it/s, v_num=3fdo]Epoch 0:   0%|          | 18/15219 [00:06<1:31:53,  2.76it/s, v_num=3fdo]Epoch 0:   0%|          | 18/15219 [00:06<1:31:53,  2.76it/s, v_num=3fdo]Epoch 0:   0%|          | 19/15219 [00:06<1:31:59,  2.75it/s, v_num=3fdo]Epoch 0:   0%|          | 19/15219 [00:06<1:31:59,  2.75it/s, v_num=3fdo]Epoch 0:   0%|          | 20/15219 [00:07<1:31:34,  2.77it/s, v_num=3fdo]Epoch 0:   0%|          | 20/15219 [00:07<1:31:35,  2.77it/s, v_num=3fdo]Epoch 0:   0%|          | 21/15219 [00:07<1:31:32,  2.77it/s, v_num=3fdo]Epoch 0:   0%|          | 21/15219 [00:07<1:31:32,  2.77it/s, v_num=3fdo]Epoch 0:   0%|          | 22/15219 [00:07<1:31:13,  2.78it/s, v_num=3fdo]Epoch 0:   0%|          | 22/15219 [00:07<1:31:13,  2.78it/s, v_num=3fdo]
