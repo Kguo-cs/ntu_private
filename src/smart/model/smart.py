@@ -196,11 +196,11 @@ class SMART(LightningModule):
                 )
                 self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
 
-                epoch_wosac_metrics = self.wosac_metrics.compute()
-                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
-
-                for key, value in epoch_wosac_metrics.items():
-                    self.log('all'+key, value, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True)
+                # epoch_wosac_metrics = self.wosac_metrics.compute()
+                # epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
+                #
+                # for key, value in epoch_wosac_metrics.items():
+                #     self.log('all'+key, value, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True)
 
 
             # ! visualization

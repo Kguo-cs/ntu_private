@@ -86,7 +86,7 @@ class SMARTMapDecoder(nn.Module):
         if not self.use_map:
             return {}
 
-        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,10]).to(tokenized_map["type"].device))
+        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,9,10]).to(tokenized_map["type"].device))
 
         batch = tokenized_map["batch"][mask]
         pos_pt = tokenized_map["position"][mask]
