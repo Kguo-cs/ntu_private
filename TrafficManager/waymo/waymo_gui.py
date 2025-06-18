@@ -36,25 +36,25 @@ from PIL import Image
 import io
 from .waymo_render import get_map_features,get_traffic_light_features
 
-COLOR_BLACK = (0, 0, 0)
-COLOR_WHITE = (255, 255, 255)
-COLOR_RED = (255, 0, 0)
-COLOR_GREEN = (0, 255, 0)
-COLOR_CYAN = (0, 255, 255)
-COLOR_MAGENTA = (255, 0, 255)
-COLOR_YELLOW = (255, 255, 0)
-COLOR_VIOLET = (170, 0, 255)
-COLOR_BUTTER = (252, 233, 79)
-COLOR_ORANGE = (209, 92, 0)
-COLOR_CHOCOLATE = (143, 89, 2)
-COLOR_CHAMELEON = (78, 154, 6)
-COLOR_SKY_BLUE_0 = (114, 159, 207)
-COLOR_SKY_BLUE_1 = (32, 74, 135)
-COLOR_PLUM = (92, 53, 102)
-COLOR_SCARLET_RED = (164, 0, 0)
-COLOR_ALUMINIUM_0 = (238, 238, 236)
-COLOR_ALUMINIUM_1 = (211, 215, 207)
-COLOR_ALUMINIUM_2 = (66, 62, 64)
+COLOR_BLACK = (0, 0, 0, 255)
+COLOR_WHITE = (255, 255, 255, 255)
+COLOR_RED = (255, 0, 0, 255)
+COLOR_GREEN = (0, 255, 0, 255)
+COLOR_CYAN = (0, 255, 255, 255)
+COLOR_MAGENTA = (255, 0, 255, 255)
+COLOR_YELLOW = (255, 255, 0, 255)
+COLOR_VIOLET = (170, 0, 255, 255)
+COLOR_BUTTER = (252, 233, 79, 255)
+COLOR_ORANGE = (209, 92, 0, 255)
+COLOR_CHOCOLATE = (143, 89, 2, 255)
+COLOR_CHAMELEON = (78, 154, 6, 255)
+COLOR_SKY_BLUE_0 = (114, 159, 207, 255)
+COLOR_SKY_BLUE_1 = (32, 74, 135, 255)
+COLOR_PLUM = (92, 53, 102, 255)
+COLOR_SCARLET_RED = (164, 0, 0, 255)
+COLOR_ALUMINIUM_0 = (238, 238, 236, 255)
+COLOR_ALUMINIUM_1 = (211, 215, 207, 255)
+COLOR_ALUMINIUM_2 = (66, 62, 64, 255)
 
 class SequenceError(Exception):
     def __init__(self, errorInfo: str) -> None:
@@ -120,47 +120,21 @@ class GUI(Process):
         # self.vis_ghost_gt = vis_ghost_gt
 
         # colors
-        #
-        # self.lane_style = [
-        #     ((220, 220, 220, 255), 2),  # 0: FREEWAY → light grey
-        #     ((200, 200, 200, 255), 2),  # 1: SURFACE_STREET → softer grey
-        #     ((212, 193, 158, 255), 2),  # 2: STOP_SIGN → beige, matching walkways
-        #     ((185, 211, 180, 255), 2),  # 3: BIKE_LANE → carpark green
-        #     ((130, 200, 255, 180), 2),  # 4: ROAD_EDGE_BOUNDARY → semi-transparent blue
-        #     ((175, 117, 167, 180), 2),  # 5: ROAD_EDGE_MEDIAN → translucent lavender
-        #     ((255, 220, 0, 200), 1),  # 6: BROKEN → soft yellow
-        #     ((200, 150, 200, 180), 1),  # 7: SOLID_SINGLE → gentle pink-purple
-        #     ((255, 80, 80, 200), 2),  # 8: DOUBLE → not pure red, softened
-        #     ((0, 120, 100, 180), 2),  # 9: SPEED_BUMP → muted teal
-        #     ((180, 220, 255, 100), 2),  # 10: CROSSWALK → very light, almost overlay
-        # ]
 
-        # self.lane_style = [
-        #     ((230, 230, 230, 255), 3),  # 0: FREEWAY – bright soft grey, clean and clear
-        #     ((200, 200, 200, 255), 2),  # 1: SURFACE_STREET – lighter grey, slightly thinner
-        #     ((255, 170, 120, 230), 2),  # 2: STOP_SIGN – elegant warm orange-pink
-        #     ((180, 220, 180, 230), 2),  # 3: BIKE_LANE – mint green for clarity on grey roads
-        #     ((150, 220, 255, 200), 2),  # 4: ROAD_EDGE_BOUNDARY – fresh sky blue
-        #     ((200, 160, 220, 200), 2),  # 5: ROAD_EDGE_MEDIAN – lavender blend
-        #     ((255, 230, 150, 220), 2),  # 6: BROKEN – soft gold-yellow, non-aggressive
-        #     ((220, 160, 240, 220), 2),  # 7: SOLID_SINGLE – pastel purple-magenta
-        #     ((240, 80, 80, 240), 3),  # 8: DOUBLE – softened coral red, more aesthetic than harsh red
-        #     ((100, 190, 160, 220), 2),  # 9: SPEED_BUMP – seafoam green
-        #     ((200, 240, 255, 160), 2),  # 10: CROSSWALK – pale blue, gently visible as overlay
-        # ]
         self.lane_style = [
-            ((230, 230, 230, 255), 3),  # 0: FREEWAY – clean soft white-grey
-            ((200, 200, 200, 255), 2),  # 1: SURFACE_STREET – neutral light grey
-            ((255, 190, 130, 230), 2),  # 2: STOP_SIGN – warm beige-orange (not red)
-            ((180, 210, 200, 230), 2),  # 3: BIKE_LANE – desaturated cyan-grey (no green tint)
-            ((160, 210, 255, 200), 2),  # 4: ROAD_EDGE_BOUNDARY – sky blue
-            ((200, 170, 230, 200), 2),  # 5: ROAD_EDGE_MEDIAN – soft lavender
-            ((255, 235, 160, 220), 2),  # 6: BROKEN – muted gold
-            ((210, 170, 240, 220), 2),  # 7: SOLID_SINGLE – dusty purple
-            ((190, 130, 200, 240), 3),  # 8: DOUBLE – elegant muted violet (no red)
-            ((130, 180, 200, 220), 2),  # 9: SPEED_BUMP – soft cyan steel
-            ((200, 235, 255, 150), 2),  # 10: CROSSWALK – pale blue (translucent)
+            (COLOR_WHITE, 6),  # FREEWAY = 0
+            (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
+            (COLOR_ORANGE, 6),  # STOP_SIGN = 2
+            (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
+            (COLOR_SKY_BLUE_1, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
+            (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
+            (COLOR_BUTTER, 2),  # BROKEN = 6
+            (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
+            (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
+            (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
+            (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
         ]
+
         self.tl_style = [
             COLOR_ALUMINIUM_1,  # STATE_UNKNOWN = 0;
             COLOR_RED,  # STOP = 1;
@@ -330,7 +304,7 @@ class GUI(Process):
             self.ctf.dpgCoord(pmin[0], pmin[1], self.centerx, self.centery),
             self.ctf.dpgCoord(pmax[0], pmax[1], self.centerx, self.centery),
             thickness=0,
-            fill=(255, 255, 255),
+            fill=(0, 0, 0),
             parent="CanvasBG"
         )
 
@@ -449,17 +423,18 @@ class GUI(Process):
     def drawRoadgraph(self, node):
 
         for i, _type in enumerate(self.mp_type):
-            color, thickness = self.lane_style[_type]
-            polyline = self.mp_xyz[i][:, :2]
+            if _type in [0,10]:
+                color, thickness = self.lane_style[_type]
+                polyline = self.mp_xyz[i][:, :2]
 
-            polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
+                polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
 
-            dpg.draw_polyline(
-                points=polyline_tf,
-                color= color,  # RGBA
-                thickness=thickness,
-                parent=node
-            )
+                dpg.draw_polyline(
+                    points=polyline_tf,
+                    color= color,  # RGBA
+                    thickness=thickness,
+                    parent=node
+                )
 
 
     def showImage(self, cameraImages: CameraImages):

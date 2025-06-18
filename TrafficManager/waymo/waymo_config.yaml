@@ -32,4 +32,4 @@ image:
 
 data_path: "/media/ke/Windows/waymo_data/validation"
 
-planner_path: "/home/ke/code/catk/src/waymo_data/epoch=5-step=60876-val_closed_wosac=0.7605.ckpt"
+planner_path: "/home/ke/code/catk/src/ckpts/bc64_pt20_map_epoch=19-step=152200-val_closed_wosac=0.7689.ckpt"

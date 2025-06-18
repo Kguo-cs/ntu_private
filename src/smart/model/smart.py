@@ -194,14 +194,13 @@ class SMART(LightningModule):
                     pred_head=pred_head,
                 )
                 self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
-                # print(time.time() - time1)
+
                 epoch_wosac_metrics = self.wosac_metrics.compute()
                 epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
 
                 for key, value in epoch_wosac_metrics.items():
-                    self.log(key, value, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True)
+                    self.log('all'+key, value, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True)
 
-                #print(time.time()-t1)
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
