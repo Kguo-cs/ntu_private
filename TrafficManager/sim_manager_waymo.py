@@ -208,7 +208,14 @@ class SimulationManager:
             return False
 
         if self.timestamp % 5 == 0:
-            self.gui.draw_input(data)
+            current_pos=tokenized_agent['sampled_pos'][:,self.timestamp//5].cpu().numpy()
+            ci = CameraImages()
+            bev_map=self.gui.draw_input(data,current_pos)
+
+            ci.PRED_BEV =bev_map
+
+            self.model.imageQueue.put(ci)
+
 
             pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
@@ -218,6 +225,7 @@ class SimulationManager:
             tokenized_agent["valid_mask"] = pred_dict["valid_mask"]
             tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
             tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
+
 
             # self.model.putRenderData()
             # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
@@ -238,7 +246,7 @@ class SimulationManager:
 
         self.timestamp += 1
 
-        sleep(1000)
+        #sleep(1000)
 
         return True
 

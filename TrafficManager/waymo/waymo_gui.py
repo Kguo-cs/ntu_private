@@ -538,30 +538,66 @@ class GUI(Process):
             self.render_loop()
             dpg.render_dearpygui_frame()
 
-    def draw_input(self,data,ego_position,theta):
+    def draw_input(self,data,current_pos):
 
-        traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"].cpu().numpy() # [n_pl, 3, 2]
+        #traj_theta = data["map_save"]["traj_theta"] # [n_pl]
         type = data["pt_token"]["type"]  # [n_pl]
-        pl_type = data["pt_token"]["pl_type"]  # [n_pl]
-        light_type= data["pt_token"]["light_type"]   # [n_pl]
-        batch = data["pt_token"]["batch"]
+        # pl_type = data["pt_token"]["pl_type"]  # [n_pl]
+        # light_type= data["pt_token"]["light_type"]   # [n_pl]
+        # batch = data["pt_token"]["batch"]
+
+        ego_position=current_pos[self.ego_idx][None]
+
+        dist=np.linalg.norm(traj_pos[:,0] - ego_position,axis=-1)
+
+        # Mask for dist < 40
+        valid_mask = dist < 40
+
+        # Apply mask
+        valid_indices = np.where(valid_mask)[0]
+        valid_distances = dist[valid_mask]
+
+        # Get top-20 nearest among the valid ones
+        if len(valid_distances) > 0:
+            sorted_indices = np.argsort(valid_distances)
+            top_k = sorted_indices[:20]  # up to 20 closest
+
+            # Map back to original indices in traj_pos
+            topk_indices = valid_indices[top_k]
+        else:
+            topk_indices = np.array([], dtype=int)
+
+        image_size = (800, 800)
+        image = np.zeros((image_size[1], image_size[0], 4), dtype=np.uint8)  # RGBA
+
+        center = np.array([image_size[0] // 2, image_size[1] // 2])
 
         for i, _type in enumerate(type):
-            #if _type in [0,1,2,3,4,10]:
-            color, thickness = self.lane_style[_type]
-            polyline = traj_pos[i][:, :2]
+            if i in topk_indices:
+                color, thickness = self.lane_style[_type]  # color: (R,G,B,A)
+                polyline = (traj_pos[i][:, :2] - ego_position)*10  # shape [3, 2]
 
-            #polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
-            # Separate x and y from polyline_tf
-            # x_vals = [pt[0] for pt in polyline_tf]
-            # y_vals = [pt[1] for pt in polyline_tf]
-            rgba = tuple(c / 255 for c in color)
+                # Flip y-axis and shift origin to center
+                polyline_img = polyline.copy()
+                polyline_img[:, 1] *= -1  # Flip Y
+                polyline_img = polyline_img + center
 
-            plt.plot(polyline[:,0], polyline[:,1], color=rgba, linewidth=thickness)
+                polyline_int = np.round(polyline_img).astype(np.int32).reshape((-1, 1, 2))
 
-        plt.show()
+                overlay = image.copy()
+                cv2.polylines(
+                    overlay,
+                    [polyline_int],
+                    isClosed=False,
+                    color=color,  # RGBA
+                    thickness=thickness,
+                    lineType=cv2.LINE_AA
+                )
 
+                alpha = color[3] / 255.0
+                cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, dst=image)
+        return image
 
         # map_token=token_traj_src[map_token_idx]
         #
