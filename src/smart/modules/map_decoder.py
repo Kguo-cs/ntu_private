@@ -132,7 +132,21 @@ class SMARTMapDecoder(nn.Module):
             for i in range(self.num_layers):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
+        # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
+        mask=tokenized_map["type"]<9
+        # self.lane_style = [
+        #     (COLOR_WHITE, 6),  # FREEWAY = 0
+        #     (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
+        #     (COLOR_ORANGE, 6),  # STOP_SIGN = 2
+        #     (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
+        #     (COLOR_SKY_BLUE_1, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
+        #     (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
+        #     (COLOR_BUTTER, 2),  # BROKEN = 6
+        #     (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
+        #     (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
+        #     (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
+        #     (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
+        # ]
 
         return {
             "pt_token": x_pt[mask],
