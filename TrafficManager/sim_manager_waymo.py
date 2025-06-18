@@ -20,7 +20,6 @@ from src.smart.model.smart import SMART
 
 # Add LimSim to sys.path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "LimSim"))  # noqa
-from TrafficManager.utils.sim_utils import limsim2diffusion, normalize_angle, transform_to_ego_frame, interpolate_traj
 from TrafficManager.utils.map_utils import VectorizedLocalMap
 from LimSim.utils.trajectory import Trajectory, State
 from LimSim.trafficManager.traffic_manager import TrafficManager
@@ -45,6 +44,7 @@ from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
 from time import sleep
+from waymo.waymo_utils import  limsim2diffusion
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -153,6 +153,13 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
+        print(f"Testing connection to WorldDreamer & Driver servers...")
+        ##requests.get(self.DIFFUSION_SERVER + "dreamer-clean/")
+        ##requests.get(self.DRIVER_SERVER + "driver-clean/")
+        self.ego_idx = self.gui.ego_idx
+
+        self.data_template = torch.load(self.DATA_TEMPLATE_PATH)
+
         self.renderer = WaymoRenderer(scenario)
         self.timestamp = 10
         self.MAX_SIM_TIME = 91
@@ -225,6 +232,14 @@ class SimulationManager:
             tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
             tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
 
+            vectorized_map=self.gui.get_vectorized_map()
+
+
+            diffusion_data = limsim2diffusion(
+                tokenized_agent,self.ego_idx, vectorized_map, self.data_template
+            )
+
+
 
             # self.model.putRenderData()
             # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
@@ -236,9 +251,6 @@ class SimulationManager:
         agent_pos=pos[:,self.timestamp%5].cpu().numpy()
         agent_head=heading[:,self.timestamp%5].cpu().numpy()
         self.model.renderQueue.put((agent_pos,agent_head,agent_type,self.timestamp))
-
-       # print(self.timestamp)
-
 
         rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
         #self.model.renderQueue.put(self.timestamp)
