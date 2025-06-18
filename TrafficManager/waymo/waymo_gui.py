@@ -542,10 +542,15 @@ class GUI(Process):
 
         traj_pos = data["map_save"]["traj_pos"].cpu().numpy() # [n_pl, 3, 2]
         #traj_theta = data["map_save"]["traj_theta"] # [n_pl]
-        type = data["pt_token"]["type"]  # [n_pl]
+        type = data["pt_token"]["type"] .cpu().numpy()  # [n_pl]
         # pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         # light_type= data["pt_token"]["light_type"]   # [n_pl]
         # batch = data["pt_token"]["batch"]
+
+        mask=np.isin(type,np.array([0,1,2,3,4]))
+
+        type=type[mask]
+        traj_pos=traj_pos[mask]
 
         ego_position=current_pos[self.ego_idx][None]
 

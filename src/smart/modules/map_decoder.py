@@ -132,7 +132,7 @@ class SMARTMapDecoder(nn.Module):
             for i in range(self.num_layers):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4]).to(batch.device))#9,,10
+        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,10]).to(batch.device))#9,,10
 
         return {
             "pt_token": x_pt[mask],

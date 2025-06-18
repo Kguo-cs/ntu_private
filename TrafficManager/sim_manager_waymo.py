@@ -216,7 +216,6 @@ class SimulationManager:
 
             self.model.imageQueue.put(ci)
 
-
             pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
             tokenized_agent["pred_traj_10hz"]=pred_dict["pred_traj_10hz"]
