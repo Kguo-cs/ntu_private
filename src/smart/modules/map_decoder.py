@@ -86,20 +86,18 @@ class SMARTMapDecoder(nn.Module):
         if not self.use_map:
             return {}
 
-        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,9,10]).to(tokenized_map["type"].device))
 
-        batch = tokenized_map["batch"][mask]
-        pos_pt = tokenized_map["position"][mask]
+        batch = tokenized_map["batch"]
+        pos_pt = tokenized_map["position"]
 
-
-        orient_pt = tokenized_map["orientation"][mask]
+        orient_pt = tokenized_map["orientation"]
         pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
-        x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()[mask]]
+        x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]
 
         x_pt_categorical_embs = [
-            self.type_pt_emb(tokenized_map["type"].long()[mask]),#
-            self.polygon_type_emb(tokenized_map["pl_type"].long()[mask]),#
-            self.light_pl_emb(tokenized_map["light_type"].long()[mask]),#
+            self.type_pt_emb(tokenized_map["type"].long()),#
+            self.polygon_type_emb(tokenized_map["pl_type"].long()),#
+            self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
@@ -134,10 +132,12 @@ class SMARTMapDecoder(nn.Module):
             for i in range(self.num_layers):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
+        mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4]).to(batch.device))#9,,10
+
         return {
-            "pt_token": x_pt,
-            "position": pos_pt,
-            "orientation": orient_pt,
+            "pt_token": x_pt[mask],
+            "position": pos_pt[mask],
+            "orientation": orient_pt[mask],
             "batch": batch,
         }
         #
