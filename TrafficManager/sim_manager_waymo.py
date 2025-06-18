@@ -220,9 +220,9 @@ class SimulationManager:
             # self.model.putRenderData()
             # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
             # self.renderQueue.put((roadgraphRenderData, VRDDict))
-            self.model.renderQueue.put(self.timestamp)
+        self.model.renderQueue.put(self.timestamp)
 
-        print(self.timestamp)
+       # print(self.timestamp)
 
         rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
         #self.model.renderQueue.put(self.timestamp)

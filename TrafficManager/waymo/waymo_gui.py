@@ -443,20 +443,20 @@ class GUI(Process):
         for i_tl, _state in enumerate(self.tl_lane_state[step_t]):
             _lane_id = self.tl_lane_id[step_t][i_tl]
             _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
+            print(step_t,_lane_idx)
+
             polyline = self.mp_xyz[_lane_idx][:, :2]
 
             polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
-            color, thickness = self.lane_style[0]
 
             # Draw polyline in DPG
             dpg.draw_polyline(
                 points=polyline_tf,
-                color=color,  # should be an RGBA tuple (r, g, b, a)
-                thickness=thickness,
+                color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
+                thickness=8,
                 parent=node
             )
 
-            print(_state)
 
             # # If traffic light state indicates active (1 to 3), draw a marker at the end
             # if 1 <= _state <= 3:
@@ -517,13 +517,13 @@ class GUI(Process):
        # scenario,data = self.renderQueue.get()
         time_step=self.renderQueue.get()
 
-        print(time_step)
+       # print(time_step)
 
         # egoVRD = VRDDict['egoCar'][0]
         # ex = egoVRD.x
         # ey = egoVRD.y
         if time_step is not None:
-            #self.drawRoadgraph(canvasNode)
+            self.drawRoadgraph(canvasNode)
             self.draw_traffic_light(canvasNode,time_step)
         # self.drawVehicles(canvasNode, VRDDict, ex, ey)
         # self.drawMovingSce(movingSceNode, egoVRD)
