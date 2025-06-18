@@ -30,8 +30,8 @@ def limsim2diffusion(
     ego_idx,
     map_info,
     data_template,
-    # vectorized_map: VectorizedLocalMap,
-    # map_name,
+    gt_vecs_label,
+    gt_map_pts,
     agent_command=2,
     last_pose=torch.eye(4),
     drivable_mask=np.ones((200, 200), dtype=np.uint8),
@@ -131,25 +131,25 @@ def limsim2diffusion(
         send_data["gt_labels_3d"] = torch.empty(0)
 
     # ------------ HDMap ------------ #
-    anns_results = vectorized_map.gen_vectorized_samples(
-        map_name, [ego_x, ego_y], np.deg2rad(ego_yaw_deg - 90)
-    )
-
-    gt_vecs_label = to_tensor(anns_results["gt_vecs_label"])
-    if isinstance(anns_results["gt_vecs_pts_loc"], LiDARInstanceLines):
-        gt_vecs_pts_loc = anns_results["gt_vecs_pts_loc"]
-    else:
-        gt_vecs_pts_loc = to_tensor(anns_results["gt_vecs_pts_loc"])
-        try:
-            gt_vecs_pts_loc = gt_vecs_pts_loc.flatten(1).to(dtype=torch.float32)
-        except:
-            gt_vecs_pts_loc = gt_vecs_pts_loc
+    # anns_results = vectorized_map.gen_vectorized_samples(
+    #     map_name, [ego_x, ego_y], np.deg2rad(ego_yaw_deg - 90)
+    # )
+    #
+    # gt_vecs_label = to_tensor(anns_results["gt_vecs_label"])
+    # if isinstance(anns_results["gt_vecs_pts_loc"], LiDARInstanceLines):
+    #     gt_vecs_pts_loc = anns_results["gt_vecs_pts_loc"]
+    # else:
+    #     gt_vecs_pts_loc = to_tensor(anns_results["gt_vecs_pts_loc"])
+    #     try:
+    #         gt_vecs_pts_loc = gt_vecs_pts_loc.flatten(1).to(dtype=torch.float32)
+    #     except:
+    #         gt_vecs_pts_loc = gt_vecs_pts_loc
     send_data["gt_vecs_label"] = gt_vecs_label
-    gt_lines_instance = gt_vecs_pts_loc.instance_list
-    gt_map_pts = []
-    for i in range(len(gt_lines_instance)):
-        pts = np.array(list(gt_lines_instance[i].coords))
-        gt_map_pts.append(pts.tolist())
+    # gt_lines_instance = gt_vecs_pts_loc.instance_list
+    # gt_map_pts = []
+    # for i in range(len(gt_lines_instance)):
+    #     pts = np.array(list(gt_lines_instance[i].coords))
+    #     gt_map_pts.append(pts.tolist())
     send_data["gt_lines_instance"] = gt_map_pts
 
     # ---------------ref pose------------------#

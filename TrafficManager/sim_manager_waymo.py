@@ -44,7 +44,6 @@ from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
 from time import sleep
-from waymo.waymo_utils import  limsim2diffusion
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -180,7 +179,7 @@ class SimulationManager:
 
             #map_layout_canvas[key]=map_canvas
            # box_layout_canvas[key]=box_canvas
-            print(map_canvas.max(),box_canvas.max())
+           #  print(map_canvas.max(),box_canvas.max())
         layout_canvas = np.stack(layout_canvas, axis=0)
        # layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
         return layout_canvas
@@ -214,12 +213,51 @@ class SimulationManager:
             print("Simulation time end.")
             return False
 
-        if self.timestamp % 5 == 0:
-            current_pos=tokenized_agent['sampled_pos'][:,self.timestamp//5-1].cpu().numpy()
-            ci = CameraImages()
-            bev_map=self.gui.draw_input(data,current_pos)
+        agent_type=tokenized_agent["type"].cpu().numpy()
 
-            ci.PRED_BEV =bev_map
+        if self.timestamp % 5 == 0:
+            agent_pos=tokenized_agent['sampled_pos'][:,self.timestamp//5-1].cpu().numpy()
+            agent_heading=tokenized_agent['sampled_heading'][:,self.timestamp//5-1].cpu().numpy()
+            #ci = CameraImages()
+            #bev_map=self.gui.draw_input(data,agent_pos)
+
+            #ci.PRED_BEV =bev_map
+
+
+            diffusion_data = self.gui.limsim2diffusion(
+                agent_pos,agent_heading,agent_type,self.data_template
+            )
+
+            gt_vecs_label=diffusion_data["gt_vecs_label"]
+            gt_lines_instance=diffusion_data["gt_lines_instance"]
+            drivable_mask=diffusion_data["drivable_mask"]
+
+            bev_map,gt_vecs_pts_loc=self.vectormap_pipeline(gt_vecs_label, gt_lines_instance,drivable_mask)
+
+            gt_bboxes_3d=diffusion_data["gt_bboxes_3d"]
+            gt_labels_3d=diffusion_data["gt_labels_3d"]
+
+            gen_images=self.project_bev2img(drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d)
+
+            front_left_image, front_image, front_right_image = [
+                Image.fromarray(img * 255).convert('RGBA') for img in gen_images[:3]]
+
+            new_width, new_height = self.TARGET_SIZE[0], int(
+                (self.TARGET_SIZE[0] / front_image.width) * front_image.height)
+            resized_images = [img.resize((new_width, new_height), Image.Resampling.LANCZOS) for img in [
+                front_left_image, front_image, front_right_image]]
+
+            ci = CameraImages()
+
+            ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
+                np.array(img) for img in resized_images]
+
+
+            pred_bev_img=Image.fromarray(bev_map*255)
+            pred_bev_img = pred_bev_img.convert('RGBA')
+            pred_bev_img = pred_bev_img.resize(
+                (800, 800), Image.Resampling.LANCZOS)
+            ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
 
             self.model.imageQueue.put(ci)
 
@@ -232,12 +270,6 @@ class SimulationManager:
             tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
             tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
 
-            vectorized_map=self.gui.get_vectorized_map()
-
-
-            diffusion_data = limsim2diffusion(
-                tokenized_agent,self.ego_idx, vectorized_map, self.data_template
-            )
 
 
 
@@ -247,7 +279,6 @@ class SimulationManager:
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
-        agent_type=tokenized_agent["type"].cpu().numpy()
         agent_pos=pos[:,self.timestamp%5].cpu().numpy()
         agent_head=heading[:,self.timestamp%5].cpu().numpy()
         self.model.renderQueue.put((agent_pos,agent_head,agent_type,self.timestamp))
@@ -277,8 +308,6 @@ class SimulationManager:
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
-
-                #print(scenario.scenario_id)
 
                 track_infos = decode_tracks_from_proto(scenario)
                 map_infos = decode_map_features_from_proto(scenario.map_features)

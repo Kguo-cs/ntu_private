@@ -473,18 +473,18 @@ class GUI(Process):
             #                   thickness=6,parent=node )
 
     def showImage(self, cameraImages: CameraImages):
-        # front_left_image = cameraImages.CAM_FRONT_LEFT / 255
-        # dpg.set_value(
-        #     'CAM_FRONT_LEFT_TT', front_left_image.flatten().tolist()
-        # )
-        # front_image = cameraImages.CAM_FRONT / 255
-        # dpg.set_value(
-        #     'CAM_FRONT_TT', front_image.flatten().tolist()
-        # )
-        # front_right_image = cameraImages.CAM_FRONT_RIGHT / 255
-        # dpg.set_value(
-        #     'CAM_FRONT_RIGHT_TT', front_right_image.flatten().tolist()
-        # )
+        front_left_image = cameraImages.CAM_FRONT_LEFT / 255
+        dpg.set_value(
+            'CAM_FRONT_LEFT_TT', front_left_image.flatten().tolist()
+        )
+        front_image = cameraImages.CAM_FRONT / 255
+        dpg.set_value(
+            'CAM_FRONT_TT', front_image.flatten().tolist()
+        )
+        front_right_image = cameraImages.CAM_FRONT_RIGHT / 255
+        dpg.set_value(
+            'CAM_FRONT_RIGHT_TT', front_right_image.flatten().tolist()
+        )
         if hasattr(cameraImages, 'PRED_BEV') and getattr(cameraImages, 'PRED_BEV') is not None:
             pred_bev_img_array = cameraImages.PRED_BEV / 255
             dpg.set_value(
@@ -604,3 +604,155 @@ class GUI(Process):
                 cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, dst=image)
 
         return image
+
+    def limsim2diffusion(
+            self,
+            agent_pos,
+            agent_heading,
+            agent_type,
+            data_template,
+            agent_command=2,
+            last_pose=torch.eye(4),
+            drivable_mask=np.ones((200, 200), dtype=np.uint8),
+            accel=[0, 0, 9.81],
+            rotation_rate=[0, 0, 0],
+            vel=[5, 0, 0],
+            gen_location="singapore-onenorth",
+            gen_prompts="daytime, cloudy, downtown, gray buildings, white cars",
+    ):
+
+        ego_pos=agent_pos[self.ego_idx]
+        ego_yaw=agent_heading[self.ego_idx]
+
+        ego_x=ego_pos[0]
+        ego_y=ego_pos[1]
+
+
+        bbox_list = []
+        label_list = []
+
+        def transform(pos, origin):
+            # pos is the coordinate and orientation to be transformed, origin is the coordinate and orientation of the new origin
+            # Returns the transformed coordinate and orientation
+            x, y, yaw = pos
+            x0, y0, yaw0 = origin
+            # Calculate the displacement and angle relative to the new origin
+            dx = x - x0
+            dy = y - y0
+            dtheta = yaw - yaw0
+            # Calculate the coordinates and orientation in the new coordinate system
+            x_new = dx * np.cos(yaw0) + dy * np.sin(yaw0)
+            y_new = -dx * np.sin(yaw0) + dy * np.cos(yaw0)
+            yaw_new = dtheta
+            return x_new, y_new, yaw_new
+
+        for i in range(len(agent_pos)):
+
+            if i != self.ego_idx and agent_type[i]==0:
+                sur_x = agent_pos[i,0]
+                sur_y = agent_pos[i,1]
+                sur_yaw = agent_heading[i]
+
+                shape=self.ag_size[i]#length, width, height
+
+                tran_x, tran_y, tran_yaw = transform(
+                    (sur_x, sur_y, sur_yaw), (ego_x, ego_y, ego_yaw)
+                )
+                tran_x, tran_y, tran_yaw = transform(
+                    (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
+                )
+                # print(sur_veh['id'], tran_x, tran_y, tran_yaw,  tran_yaw+np.pi/2)
+                bbox_list.append(
+                    [
+                        tran_x,
+                        tran_y,
+                        -0.8,
+                        shape[1],
+                        shape[0],
+                        shape[2],
+                        -(tran_yaw + np.pi / 2),
+                        0,
+                        0,
+                    ]
+                )
+
+                # plot_vehicle((tran_x, tran_y, tran_yaw), color='blue')
+                label_list.append(0)  # 0 for vehicle
+
+        send_data = {}
+        # ------------ meta ------------ #
+        send_data["metas"] = data_template["metas"]
+        send_data["metas"]["location"] = gen_location
+        send_data["metas"]["description"] = gen_prompts
+        print(
+            f"location: {send_data['metas']['location']}\ndescription: {send_data['metas']['description']}")
+        send_data["metas"]["ego_pos"] = torch.Tensor(
+            [
+                [np.cos(ego_yaw), -np.sin(ego_yaw), 0, ego_x],
+                [np.sin(ego_yaw), np.cos(ego_yaw), 0, ego_y],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+            ]
+        )
+        send_data["metas"]["accel"] = accel
+        send_data["metas"]["rotation_rate"] = rotation_rate
+        send_data["metas"]["vel"] = vel
+
+        # ------------ bboxes ------------ #
+        if len(bbox_list) != 0:
+            gt_bboxes_3d = torch.tensor(bbox_list)
+            send_data["gt_bboxes_3d"] = gt_bboxes_3d
+            send_data["gt_labels_3d"] = torch.tensor(label_list)
+        else:
+            gt_bboxes_3d = torch.empty(0, 9)
+            send_data["gt_bboxes_3d"] = gt_bboxes_3d
+            send_data["gt_labels_3d"] = torch.empty(0)
+
+        gt_vecs_label=[]
+        gt_map_pts=[]
+        type_dict={1:0,10:1,4:2}
+
+        self.patch_size=[100, 100]
+
+        for i, _type in enumerate(self.mp_type):
+            if _type in [1,4,10]:#['divider', 'ped_crossing', 'boundary']
+                polyline = self.mp_xyz[i][:, :2]
+
+                dx = polyline[:,0] - ego_x
+                dy = polyline[:,1] - ego_y
+
+                x_new = dx * np.cos(ego_yaw) + dy * np.sin(ego_yaw)
+                y_new = -dx * np.sin(ego_yaw) + dy * np.cos(ego_yaw)
+
+                x_mask=(x_new>-self.patch_size[0]//2) & (x_new<self.patch_size[0]//2)
+                y_mask=(y_new>-self.patch_size[1]//2) & (y_new<self.patch_size[1]//2)
+
+                mask=x_mask & y_mask
+
+                if mask.any():#any point intersect
+                    pts=np.stack([x_new, y_new], axis=-1)
+
+                    gt_map_pts.append(pts)
+                    gt_vecs_label.append(type_dict[_type])
+
+
+        send_data["gt_vecs_label"] = gt_vecs_label#type [0,1,2]
+        # gt_lines_instance = gt_vecs_pts_loc.instance_list
+        # gt_map_pts = []
+        # for i in range(x_new(gt_lines_instance)):
+        #     pts = np.array(list(gt_lines_instance[i].coords))
+        #     gt_map_pts.append(pts.tolist())
+        send_data["gt_lines_instance"] = gt_map_pts#list of list 2
+
+        # ---------------ref pose------------------#
+        send_data["relative_pose"] = torch.matmul(
+            torch.inverse(send_data["metas"]["ego_pos"]), last_pose
+        )
+
+        # ---------------drivable mask- -----------------#
+        send_data["drivable_mask"] = drivable_mask
+
+        # ---------------Agent command-----------------#
+        send_data["agent_command"] = agent_command
+
+        return send_data

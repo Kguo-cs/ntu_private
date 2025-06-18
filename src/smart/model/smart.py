@@ -147,7 +147,7 @@ class SMART(LightningModule):
             pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
 
             #print(time.time()-t1)
-            self.wosac_metrics = WOSACMetrics("val_closed")
+            #self.wosac_metrics = WOSACMetrics("val_closed")
 
             # ! WOSAC
             scenario_rollouts = None
@@ -182,19 +182,19 @@ class SMART(LightningModule):
                 )
 
                 # WOSAC metrics
-                #if batch_idx < self.n_batch_wosac_metric:
-                device = pred_traj.device
-                scenario_rollouts = get_scenario_rollouts(
-                    scenario_id=get_scenario_id_int_tensor(
-                        data["scenario_id"], device
-                    ),
-                    agent_id=data["agent"]["id"],
-                    agent_batch=data["agent"]["batch"],
-                    pred_traj=pred_traj,
-                    pred_z=pred_z,
-                    pred_head=pred_head,
-                )
-                self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                if batch_idx < self.n_batch_wosac_metric:
+                    device = pred_traj.device
+                    scenario_rollouts = get_scenario_rollouts(
+                        scenario_id=get_scenario_id_int_tensor(
+                            data["scenario_id"], device
+                        ),
+                        agent_id=data["agent"]["id"],
+                        agent_batch=data["agent"]["batch"],
+                        pred_traj=pred_traj,
+                        pred_z=pred_z,
+                        pred_head=pred_head,
+                    )
+                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
 
                 # epoch_wosac_metrics = self.wosac_metrics.compute()
                 # epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
