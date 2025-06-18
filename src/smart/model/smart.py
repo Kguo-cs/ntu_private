@@ -147,6 +147,7 @@ class SMART(LightningModule):
             pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
 
             #print(time.time()-t1)
+            self.wosac_metrics = WOSACMetrics("val_closed")
 
             # ! WOSAC
             scenario_rollouts = None

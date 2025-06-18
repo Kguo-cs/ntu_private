@@ -220,11 +220,12 @@ class SimulationManager:
             # self.model.putRenderData()
             # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
             # self.renderQueue.put((roadgraphRenderData, VRDDict))
+            self.model.renderQueue.put(self.timestamp)
 
         print(self.timestamp)
 
         rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
-        self.model.renderQueue.put(rendered_image)
+        #self.model.renderQueue.put(self.timestamp)
 
         self.timestamp += 1
 
@@ -233,18 +234,21 @@ class SimulationManager:
     def run_simulation(self):
         input_dir = Path(self.config["data_path"])
 
-        packages = sorted([p.as_posix() for p in input_dir.glob("*")])
-
-        for scenario_path in packages:
-
+        # packages = sorted([p.as_posix() for p in input_dir.glob("*")])
+        all_scenarios=os.listdir("/home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted")
+        all_scenarios.sort()
+        # for scenario_path in packages:
+        for scenario in all_scenarios:
             dataset = tf.data.TFRecordDataset(
-                scenario_path, compression_type="", num_parallel_reads=3
+                ["/home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted/"+scenario], compression_type="", num_parallel_reads=3
             )
 
             for tf_data in dataset:
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
+
+                #print(scenario.scenario_id)
 
                 track_infos = decode_tracks_from_proto(scenario)
                 map_infos = decode_map_features_from_proto(scenario.map_features)
@@ -346,3 +350,36 @@ def main(cfg):
 
 if __name__ == '__main__':
     main()
+
+
+# /home/ke/code/catk/src/waymo_data/full/validation/1001824289d8eed3.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1001ebb6d3905d92.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1002fdc9826fc6d1.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10040e572b831a04.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10042b19381bfbcd.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10067cf7cc2506c7.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1006b706483b11f9.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10071ee58db4bd92.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10083669957ee5f8.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10089d1384111b08.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1008aa4114dbc237.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1008b7b63e2d60.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1008f05c233dd975.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/100b939eefa4a0de.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/100bbbc583f55cbd.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/100cf5864d3bfbed.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/100d033b60683a9f.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/100f370df1797a88.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/100f9b9f8af6036f.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1010cc7e3a91ebc5.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1015e9446e86cfa0.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/1016c21f14ba11e2.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/10195df1c4a2c3ad.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101a844960d63c3f.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101aa4d1dc71df5e.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101acf02f749093f.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101b00dd28e01037.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101ba4c98d705f0.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101c25888a0fcf63.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101d7af08d9b56ae.pkl
+# /home/ke/code/catk/src/waymo_data/full/validation/101f37bb58da79c.pkl

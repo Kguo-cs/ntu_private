@@ -423,7 +423,9 @@ class GUI(Process):
     def drawRoadgraph(self, node):
 
         for i, _type in enumerate(self.mp_type):
-            if _type in [0,10]:
+            # if _type==0:
+            #     print("freeway")
+            if _type in [0,1,2,3,4,10]:
                 color, thickness = self.lane_style[_type]
                 polyline = self.mp_xyz[i][:, :2]
 
@@ -435,6 +437,56 @@ class GUI(Process):
                     thickness=thickness,
                     parent=node
                 )
+
+    def draw_traffic_light(self,node,step_t):
+
+        for i_tl, _state in enumerate(self.tl_lane_state[step_t]):
+            _lane_id = self.tl_lane_id[step_t][i_tl]
+            _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
+            polyline = self.mp_xyz[_lane_idx][:, :2]
+
+            polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
+            color, thickness = self.lane_style[0]
+
+            # Draw polyline in DPG
+            dpg.draw_polyline(
+                points=polyline_tf,
+                color=color,  # should be an RGBA tuple (r, g, b, a)
+                thickness=thickness,
+                parent=node
+            )
+
+            print(_state)
+
+            # # If traffic light state indicates active (1 to 3), draw a marker at the end
+            # if 1 <= _state <= 3:
+            #     x, y = polyline_tf[-1]
+            #     offset = 10
+            #     # Draw tilted cross manually using lines
+            #     dpg.draw_line((x - offset, y - offset), (x + offset, y + offset), color=self.tl_style[_state],
+            #                   thickness=6,parent=node)
+            #     dpg.draw_line((x - offset, y + offset), (x + offset, y - offset), color=self.tl_style[_state],
+            #                   thickness=6,parent=node )
+            # #
+            # cv2.polylines(
+            #     step_image,
+            #     [pos],
+            #     isClosed=False,
+            #     color=self.tl_style[_state],
+            #     thickness=8,
+            #     lineType=cv2.LINE_AA,
+            # )
+            # if _state >= 1 and _state <= 3:
+            #     cv2.drawMarker(
+            #         step_image,
+            #         pos[-1],
+            #         color=self.tl_style[_state],
+            #         markerType=cv2.MARKER_TILTED_CROSS,
+            #         markerSize=10,
+            #         thickness=6,
+            #     )
+
+
 
 
     def showImage(self, cameraImages: CameraImages):
@@ -456,73 +508,27 @@ class GUI(Process):
                 'PRED_BEV_TT', pred_bev_img_array.flatten().tolist()
             )
 
-    def showPrompts(self, prompts: str):
-        dpg.delete_item('descriptionTitle')
-        dpg.delete_item('navigationTitle')
-        dpg.delete_item('actionsTitle')
-        dpg.delete_item('description')
-        dpg.delete_item('navigation')
-        dpg.delete_item('actions')
-        a1 = dpg.add_text("## Description:\n", parent='PromptsWindow',
-                          tag='descriptionTitle', wrap=455, color=(0, 191, 255))
-
-        dpg.add_text(
-            prompts["description"].replace("### ", "\n").strip("\n"), parent='PromptsWindow',
-            tag='description', wrap=455)
-
-        a2 = dpg.add_text("## Navigation:\n", parent='PromptsWindow',
-                          tag='navigationTitle', wrap=455, color=(0, 191, 255))
-        dpg.add_text(
-            prompts["navigation"], parent='PromptsWindow',
-            tag='navigation', wrap=455)
-
-        a3 = dpg.add_text("## Actions:\n", parent='PromptsWindow',
-                          tag='actionsTitle', wrap=455, color=(0, 191, 255))
-        dpg.add_text(
-            prompts["actions"], parent='PromptsWindow',
-            tag='actions', wrap=455)
-
-        dpg.bind_item_font(a1, self.font2)
-        dpg.bind_item_font(a2, self.font2)
-        dpg.bind_item_font(a3, self.font2)
-
-    def showResponse(self, response: str):
-        dpg.delete_item('response')
-        dpg.delete_item('result')
-        dpg.add_text(
-            response.replace(response.strip("\n").split("\n")[-1], ""), parent='ResponseWindow',
-            tag='response', wrap=460, show=True
-        )
-        result = dpg.add_text(
-            response.strip("\n").split("\n")[-1], parent='ResponseWindow',
-            tag='result', wrap=460, show=True, color=(255, 215, 0)
-        )
-        dpg.bind_item_font(result, self.font2)
-
-    def showQA(self, QA: QuestionAndAnswer):
-        prompts = {
-            "description": QA.description,
-            "navigation": QA.navigation,
-            "actions": QA.actions
-        }
-        response = QA.response
-        self.showPrompts(prompts)
-        self.showResponse(response)
 
     def render_loop(self):
         self.update_inertial_zoom()
         dpg.delete_item("Canvas", children_only=True)
         canvasNode = dpg.add_draw_node(parent="Canvas")
-        try:
-            # scenario,data = self.renderQueue.get()
-            # egoVRD = VRDDict['egoCar'][0]
-            # ex = egoVRD.x
-            # ey = egoVRD.y
-            self.drawRoadgraph(canvasNode)
-            # self.drawVehicles(canvasNode, VRDDict, ex, ey)
-            # self.drawMovingSce(movingSceNode, egoVRD)
-        except TypeError:
-            return
+       # try:
+       # scenario,data = self.renderQueue.get()
+        time_step=self.renderQueue.get()
+
+        print(time_step)
+
+        # egoVRD = VRDDict['egoCar'][0]
+        # ex = egoVRD.x
+        # ey = egoVRD.y
+        if time_step is not None:
+            #self.drawRoadgraph(canvasNode)
+            self.draw_traffic_light(canvasNode,time_step)
+        # self.drawVehicles(canvasNode, VRDDict, ex, ey)
+        # self.drawMovingSce(movingSceNode, egoVRD)
+        # except TypeError:
+        #     return
 
         # Handle camera images
         try:
