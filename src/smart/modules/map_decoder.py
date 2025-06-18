@@ -138,7 +138,7 @@ class SMARTMapDecoder(nn.Module):
             "pt_token": x_pt[mask],
             "position": pos_pt[mask],
             "orientation": orient_pt[mask],
-            "batch": batch,
+            "batch": batch[mask],
         }
         #
         #
