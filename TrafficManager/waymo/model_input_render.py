@@ -95,7 +95,7 @@ def generateDefaultImage(
 
 class GUI(Process):
     def __init__(
-            self, model: Model,scenario
+            self, model ,scenario
     ) -> None:
         super().__init__()
         self.renderQueue = model.renderQueue
@@ -406,6 +406,7 @@ class GUI(Process):
             if i==self.ego_idx:#[0]
                 color=COLOR_CYAN
             else:
+                print(color)
                 color=self.agent_type_style[_type[i]]
             bbox_gt1=self.get_line_tf( bbox_gt[i], self.centerx, self.centery)
 
@@ -495,20 +496,26 @@ class GUI(Process):
         self.update_inertial_zoom()
         dpg.delete_item("Canvas", children_only=True)
         canvasNode = dpg.add_draw_node(parent="Canvas")
-        try:
-            agent_pos,agent_head,agent_type,time_step=self.renderQueue.get()
+       # try:
+       # scenario,data = self.renderQueue.get()
+        agent_pos,agent_head,agent_type,time_step=self.renderQueue.get()
 
-            ego_position=agent_pos[self.ego_idx]
+        ego_position=agent_pos[self.ego_idx]
 
-            self.centerx=ego_position[0]
-            self.centery=ego_position[1]
+        self.centerx=ego_position[0]
+        self.centery=ego_position[1]
 
-            if time_step is not None:
-                self.drawRoadgraph(canvasNode)
-                self.draw_traffic_light(canvasNode,time_step)
-                self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
-        except TypeError:
-            return
+
+        # egoVRD = VRDDict['egoCar'][0]
+        # ex = egoVRD.x
+        # ey = egoVRD.y
+        if time_step is not None:
+            self.drawRoadgraph(canvasNode)
+            self.draw_traffic_light(canvasNode,time_step)
+            self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
+        # self.drawMovingSce(movingSceNode, egoVRD)
+        # except TypeError:
+        #     return
 
         # Handle camera images
         try:
@@ -537,39 +544,3 @@ class GUI(Process):
         while dpg.is_dearpygui_running():
             self.render_loop()
             dpg.render_dearpygui_frame()
-
-    def draw_input(self,data,ego_position,theta):
-
-        traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] # [n_pl]
-        type = data["pt_token"]["type"]  # [n_pl]
-        pl_type = data["pt_token"]["pl_type"]  # [n_pl]
-        light_type= data["pt_token"]["light_type"]   # [n_pl]
-        batch = data["pt_token"]["batch"]
-
-        for i, _type in enumerate(type):
-            #if _type in [0,1,2,3,4,10]:
-            color, thickness = self.lane_style[_type]
-            polyline = traj_pos[i][:, :2]
-
-            #polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
-            # Separate x and y from polyline_tf
-            # x_vals = [pt[0] for pt in polyline_tf]
-            # y_vals = [pt[1] for pt in polyline_tf]
-            rgba = tuple(c / 255 for c in color)
-
-            plt.plot(polyline[:,0], polyline[:,1], color=rgba, linewidth=thickness)
-
-        plt.show()
-
-
-        # map_token=token_traj_src[map_token_idx]
-        #
-        # traj_pos_local, _ = transform_to_local(
-        #     pos_global=traj_pos,  # [n_pl, 3, 2]
-        #     head_global=None,  # [n_pl, 1]
-        #     pos_now=traj_pos[:, 0],  # [n_pl, 2]
-        #     head_now=traj_theta,  # [n_pl]
-        # )
-
-        return 1

@@ -202,12 +202,13 @@ class SimulationManager:
 
         return bev_map,gt_vecs_pts_loc
 
-    def process_frame(self,scenario,map_feature,tokenized_agent):
+    def process_frame(self,scenario,data,map_feature,tokenized_agent):
         if self.timestamp >= self.MAX_SIM_TIME:
             print("Simulation time end.")
             return False
 
         if self.timestamp % 5 == 0:
+            self.gui.draw_input(data)
 
             pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
@@ -231,12 +232,13 @@ class SimulationManager:
 
        # print(self.timestamp)
 
+
         rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
         #self.model.renderQueue.put(self.timestamp)
 
         self.timestamp += 1
 
-        #sleep(1000)
+        sleep(1000)
 
         return True
 
@@ -292,7 +294,7 @@ class SimulationManager:
 
                 try:
                     while True:
-                        if not self.process_frame(scenario,map_feature,tokenized_agent):
+                        if not self.process_frame(scenario,data,map_feature,tokenized_agent):
                             break
                 finally:
                     self.cleanup()
@@ -359,36 +361,3 @@ def main(cfg):
 
 if __name__ == '__main__':
     main()
-
-
-# /home/ke/code/catk/src/waymo_data/full/validation/1001824289d8eed3.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1001ebb6d3905d92.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1002fdc9826fc6d1.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10040e572b831a04.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10042b19381bfbcd.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10067cf7cc2506c7.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1006b706483b11f9.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10071ee58db4bd92.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10083669957ee5f8.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10089d1384111b08.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1008aa4114dbc237.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1008b7b63e2d60.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1008f05c233dd975.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/100b939eefa4a0de.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/100bbbc583f55cbd.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/100cf5864d3bfbed.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/100d033b60683a9f.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/100f370df1797a88.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/100f9b9f8af6036f.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1010cc7e3a91ebc5.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1015e9446e86cfa0.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/1016c21f14ba11e2.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/10195df1c4a2c3ad.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101a844960d63c3f.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101aa4d1dc71df5e.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101acf02f749093f.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101b00dd28e01037.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101ba4c98d705f0.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101c25888a0fcf63.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101d7af08d9b56ae.pkl
-# /home/ke/code/catk/src/waymo_data/full/validation/101f37bb58da79c.pkl
