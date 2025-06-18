@@ -27,7 +27,7 @@ from src.smart.utils import (
 )
 from torch.distributions import Categorical
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest_head
+    radiusGraphNearest_head,radiusGraphNearest_inv
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.utils.rollout import cal_polygon_contour
@@ -417,20 +417,20 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
-        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
-                                              y=pos_pl[:, :2],
-                                              x_heading=head_s,
-                                              r=self.pl2a_radius,
-                                              batch_x=batch_s,
-                                              batch_y=batch_pl,
-                                              max_num_neighbors=20)
-
-        # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
+        # edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
         #                                       y=pos_pl[:, :2],
+        #                                       x_heading=head_s,
         #                                       r=self.pl2a_radius,
         #                                       batch_x=batch_s,
         #                                       batch_y=batch_pl,
-        #                                       max_num_neighbors=self.pt2a_neighbor)
+        #                                       max_num_neighbors=20)
+
+        edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
+                                              y=pos_pl[:, :2],
+                                              r=self.pl2a_radius,
+                                              batch_x=batch_s,
+                                              batch_y=batch_pl,
+                                              max_num_neighbors=self.pt2a_neighbor)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
