@@ -350,18 +350,18 @@ class TokenProcessor(torch.nn.Module):
 
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-            if self.training:
-                prev_head=wrap_angle(prev_head+torch.randn_like(prev_head)*0.001)
+            # if self.training:
+            #     prev_head=wrap_angle(prev_head+torch.randn_like(prev_head)*0.001)
 
-            #prev_head[_valid_mask] = next_head[_valid_mask]
+            prev_head[_valid_mask] = next_head[_valid_mask]
             prev_pos = pos[:, i].clone()
 
-            #next_pos = token_contour_gt.mean(1)
+            next_pos = token_contour_gt.mean(1)
 
-            if self.training:
-                prev_pos =prev_pos+torch.randn_like(prev_pos)*0.01
+            # if self.training:
+            #     prev_pos =prev_pos+torch.randn_like(prev_pos)*0.01
 
-            #prev_pos[_valid_mask] = next_pos[_valid_mask]
+            prev_pos[_valid_mask] = next_pos[_valid_mask]
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
             out_dict["gt_pos"].append(
