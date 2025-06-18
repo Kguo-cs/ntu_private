@@ -54,7 +54,7 @@ pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.6.0+
 pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 
 
-nohup python run.py > 1.txt 2>&1 &
+nohup python run.py >  1.log 2>&1 &
 
 
 
