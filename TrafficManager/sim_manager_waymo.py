@@ -208,7 +208,7 @@ class SimulationManager:
             return False
 
         if self.timestamp % 5 == 0:
-            current_pos=tokenized_agent['sampled_pos'][:,self.timestamp//5].cpu().numpy()
+            current_pos=tokenized_agent['sampled_pos'][:,self.timestamp//5-1].cpu().numpy()
             ci = CameraImages()
             bev_map=self.gui.draw_input(data,current_pos)
 

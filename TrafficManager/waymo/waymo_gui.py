@@ -157,7 +157,7 @@ class GUI(Process):
         )
         # self.ag_id2size = dict(zip(ag_id, ag_size))
         # self.ag_id2role = dict(zip(ag_id, ag_role))
-        self.ego_idx=np.where(self.ag_role==0)[0][0]
+        self.ego_idx=np.where(self.ag_role[:,0])[0][0]
 
 
     def setup(self):
@@ -473,18 +473,18 @@ class GUI(Process):
             #                   thickness=6,parent=node )
 
     def showImage(self, cameraImages: CameraImages):
-        front_left_image = cameraImages.CAM_FRONT_LEFT / 255
-        dpg.set_value(
-            'CAM_FRONT_LEFT_TT', front_left_image.flatten().tolist()
-        )
-        front_image = cameraImages.CAM_FRONT / 255
-        dpg.set_value(
-            'CAM_FRONT_TT', front_image.flatten().tolist()
-        )
-        front_right_image = cameraImages.CAM_FRONT_RIGHT / 255
-        dpg.set_value(
-            'CAM_FRONT_RIGHT_TT', front_right_image.flatten().tolist()
-        )
+        # front_left_image = cameraImages.CAM_FRONT_LEFT / 255
+        # dpg.set_value(
+        #     'CAM_FRONT_LEFT_TT', front_left_image.flatten().tolist()
+        # )
+        # front_image = cameraImages.CAM_FRONT / 255
+        # dpg.set_value(
+        #     'CAM_FRONT_TT', front_image.flatten().tolist()
+        # )
+        # front_right_image = cameraImages.CAM_FRONT_RIGHT / 255
+        # dpg.set_value(
+        #     'CAM_FRONT_RIGHT_TT', front_right_image.flatten().tolist()
+        # )
         if hasattr(cameraImages, 'PRED_BEV') and getattr(cameraImages, 'PRED_BEV') is not None:
             pred_bev_img_array = cameraImages.PRED_BEV / 255
             dpg.set_value(
@@ -511,12 +511,12 @@ class GUI(Process):
             return
 
         # Handle camera images
-        try:
-            cameraImagesList = self.imageQueue.get()
-            if cameraImagesList:
-                self.showImage(cameraImagesList[0])
-        except :
-            pass
+      #  try:
+        cameraImagesList = self.imageQueue.get(1)
+        if cameraImagesList:
+            self.showImage(cameraImagesList[0])
+        # except :
+        #     pass
 
         dpg.render_dearpygui_frame()
         # try:
@@ -597,15 +597,5 @@ class GUI(Process):
 
                 alpha = color[3] / 255.0
                 cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, dst=image)
+
         return image
-
-        # map_token=token_traj_src[map_token_idx]
-        #
-        # traj_pos_local, _ = transform_to_local(
-        #     pos_global=traj_pos,  # [n_pl, 3, 2]
-        #     head_global=None,  # [n_pl, 1]
-        #     pos_now=traj_pos[:, 0],  # [n_pl, 2]
-        #     head_now=traj_theta,  # [n_pl]
-        # )
-
-        return 1
