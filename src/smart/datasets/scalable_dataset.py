@@ -31,7 +31,8 @@ class MultiDataset(Dataset):
         tfrecord_dir: Optional[str] = None,
     ) -> None:
         raw_dir = Path(raw_dir)
-        self._raw_paths = shuffle([p.as_posix() for p in sorted(raw_dir.glob("*"))])#[::1600]
+        self._raw_paths = [p.as_posix() for p in sorted(raw_dir.glob("*"))]#[::1600]
+        shuffle(self._raw_paths)
         self._num_samples = len(self._raw_paths)
 
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
