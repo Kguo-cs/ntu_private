@@ -49,7 +49,7 @@ class SMARTMapDecoder(nn.Module):
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
-            self.light_pl_emb = nn.Embedding(5, hidden_dim)
+          #  self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
             self.head_dim=head_dim
 
@@ -97,7 +97,7 @@ class SMARTMapDecoder(nn.Module):
         x_pt_categorical_embs = [
             self.type_pt_emb(tokenized_map["type"].long()),#
             self.polygon_type_emb(tokenized_map["pl_type"].long()),#
-            self.light_pl_emb(tokenized_map["light_type"].long()),#
+           # self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
@@ -133,7 +133,7 @@ class SMARTMapDecoder(nn.Module):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
         # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
-        mask=(tokenized_map["type"]!=9) #& (tokenized_map["type"]!=4)#tensor([  589, 29076,  1180,  2036,  8661,  1502,  3782,  4237,  1011,  7563],
+        mask=(tokenized_map["type"]!=90) #& (tokenized_map["type"]!=4)#tensor([  589, 29076,  1180,  2036,  8661,  1502,  3782,  4237,  1011,  7563],
         #tensor([0.010, 0.488, 0.020, 0.034, 0.145, 0.025, 0.063, 0.071, 0.017, 0.127],
         # self.lane_style = [
         #     (COLOR_WHITE, 6),  # FREEWAY = 0
