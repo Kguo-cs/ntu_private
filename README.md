@@ -4,7 +4,7 @@ Lyuchen2018!
 qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 
 
-export PBS_JOBID=53662.pbs111
+export PBS_JOBID=10693013.pbs101
 
 
 
