@@ -61,7 +61,6 @@ class SMARTDecoder(nn.Module):
             self.vq_vae=VQVAE(token_processor)
 
         else:
-
             self.map_encoder = SMARTMapDecoder(
                 hidden_dim=hidden_dim,
                 pl2pl_radius=pl2pl_radius,

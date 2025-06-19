@@ -741,9 +741,9 @@ class SMARTAgentDecoder(nn.Module):
             # }
         else:
             if self.n_token_agent>1:
-                next_token_logits = self.token_predict_head(feat_a[:-pos_lg.shape[0]])#.reshape( -1, n_step,self.n_token_agent)
+                next_token_logits = self.token_predict_head(feat_a[:sampled_idx.shape[0]])#.reshape( -1, n_step,self.n_token_agent)
 
-                next_light_logits = self.light_token_predict_head(feat_a[-pos_lg.shape[0]:])#.reshape( -1, n_step,self.light_type)
+                next_light_logits = self.light_token_predict_head(feat_a[sampled_idx.shape[0]:])#.reshape( -1, n_step,self.light_type)
 
                 if self.pred_res and self.training:
 
@@ -774,13 +774,13 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx = light_idx.clone()
 
-            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+            # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
 
-            random_mask = torch.rand_like(light_idx.float()) > 0.9
+            # random_mask = torch.rand_like(light_idx.float()) > 0.9
 
-            random_mask[:, :2] = False
+            # random_mask[:, :2] = False
 
-            noised_light_idx[random_mask] = random_light[random_mask]
+            # noised_light_idx[random_mask] = random_light[random_mask]
         #
         #     # feat_lg, next_light_logits = self.predict_light(noised_light_idx,lg_sinusoidal, lengths_lg)
         # else:
@@ -813,6 +813,7 @@ class SMARTAgentDecoder(nn.Module):
 #
         if self.n_token_agent>1:
             tokenized_agent["next_token_logits"] = next_token_logits
+            tokenized_agent["next_light_logits"] = next_light_logits
 
         if self.pred_light:
             next_light_logits = torch.cat(
@@ -948,6 +949,7 @@ class SMARTAgentDecoder(nn.Module):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys():
                     next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
+                    next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
 
                     self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
@@ -1105,6 +1107,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
+            "light_idx": light_idx
         }
 
 
