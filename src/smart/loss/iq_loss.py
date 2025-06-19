@@ -16,7 +16,7 @@ def hard_update(source, target):
 
 def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss):
     div = 'x2'
-    alpha = 1
+    alpha = 0.5
     eps = 1e-3
     if div == "lsif":
         critic_loss = -expert_reward.exp().mean() + 1 / 2 * (2 * agent_reward).exp().mean()

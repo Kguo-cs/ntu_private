@@ -897,12 +897,7 @@ class SMARTAgentDecoder(nn.Module):
 
             else:
 
-                if "gt_z_raw" in tokenized_agent.keys():
-                    alpha=self.alpha
-                else:
-                    alpha=1
-
-                cat_dist = Categorical(logits=next_token_logits[:, -1,:self.n_token_agent] / alpha)
+                cat_dist = Categorical(logits=next_token_logits[:, -1,:self.n_token_agent] / self.alpha)
 
                 next_token_idx = cat_dist.sample()
 
