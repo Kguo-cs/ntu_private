@@ -4,13 +4,12 @@ from collections import deque
 import numpy as np
 
 from src.smart.modules.smart_decoder import SMARTDecoder
-from ..layers.relative_transformer import general_rope
 
 import torch
 
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
-from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,process_data
+from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return
 from src.smart.loss.rollout_buffer import rollout
 
 class IQ_SoftQ(LightningModule):
@@ -30,7 +29,6 @@ class IQ_SoftQ(LightningModule):
         #     self.replay_buffer = deque(maxlen=4000)
         # else:
         #     self.replay_buffer = deque(maxlen=1)
-
 
         if self.iq_learn and self.output_gmm:
             self.automatic_optimization = False
@@ -173,49 +171,39 @@ class IQ_SoftQ(LightningModule):
         return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,total_reward,total_value_loss,pred
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
+        action = tokenized_agent["sampled_idx"][:, 2:]
 
         if self.encoder.agent_encoder.pred_agent:
             valid_mask = tokenized_agent["valid_mask"][:, 1:]
             action = tokenized_agent["sampled_idx"][:, 2:]
-            state_mask = valid_mask[:, :-1]
 
         if self.encoder.agent_encoder.pred_light:
             light_valid_mask = tokenized_agent["light_idx"] < self.encoder.agent_encoder.light_type
-
-            light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=2)
+            light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.encoder.agent_encoder.light_type-1)
 
             if self.encoder.agent_encoder.pred_agent:
                 agent_num=len(valid_mask)
-
-                action = torch.cat([action,light_action])#tokenized_agent["light_idx"][:, 2:] #
-
+                action = torch.cat([action,light_action])
                 valid_mask =  torch.cat([valid_mask, light_valid_mask[:,1:]])#light_valid_mask[:,1:] #
-                state_mask= torch.cat([state_mask,light_valid_mask[:,1:-1]])#light_valid_mask[:,1:-1]#
-
-                all_valid_mask=torch.cat([tokenized_agent["valid_mask"].all(-1) ,light_valid_mask.all(-1)])
             else:
-                action = light_action
-                all_valid_mask=light_valid_mask.all(-1)
-
-                valid_mask = light_valid_mask[:, 1:]
-                state_mask = light_valid_mask[:, 1:-1]
                 agent_num=0
+                action = light_action
+                valid_mask = light_valid_mask[:, 1:]
 
         action = action.reshape(-1).long()
-        action_mask= valid_mask[:, 1:]
-        all_valid_mask=valid_mask.all(-1)
+        all_valid_mask=valid_mask.all(-1)#train_mask #
 
         actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss,pred=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
 
-        if self.encoder.agent_encoder.pred_light and key=="expert":
-            light_pred=torch.argmax(logpi[agent_num:] , dim=-1)
-            real_light=tokenized_agent["light_idx"][:, 2:]
-
-            light_acc=(light_pred==real_light)[state_action_mask[agent_num:]]
-
-            self.log("train/"+key+"_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-
         action_nll = -log_prob[train_mask].mean()
+
+        if self.encoder.agent_encoder.pred_light and key == "expert":
+            light_pred = torch.argmax(log_prob[agent_num:], dim=-1)
+            real_light = tokenized_agent["light_idx"][:, 2:]
+
+            light_acc = (light_pred == real_light)[state_action_mask[agent_num:]]
+
+            self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
         if self.use_target_q:
             with torch.no_grad():
@@ -260,13 +248,20 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,init_V-1,action_nll,actor_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
-        train_mask= tokenized_agent["valid_mask"][:, 1:].all(-1)
+        valid_mask= tokenized_agent["valid_mask"][:, 1:]
+
+        if self.encoder.agent_encoder.pred_light:
+            light_valid_mask = tokenized_agent["light_idx"] < self.encoder.agent_encoder.light_type
+            valid_mask = torch.cat([valid_mask, light_valid_mask[:, 1:]])  # light_valid_mask[:,1:] #
+
+        train_mask=valid_mask.all(-1)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
         if self.encoder.agent_encoder.pred_light:
+
             real_light=tokenized_agent["light_idx"][:, 2:]
 
             batch_lg=tokenized_agent["batch_lg"]
@@ -365,10 +360,7 @@ class IQ_SoftQ(LightningModule):
 
             return loss
 
-        if "traj_pos" in data.keys():
-            tokenized_map, tokenized_agent = self.token_processor(data)
-        else:
-            tokenized_map, tokenized_agent = process_data(data,self.token_processor,self.encoder)
+        tokenized_map, tokenized_agent = self.token_processor(data)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

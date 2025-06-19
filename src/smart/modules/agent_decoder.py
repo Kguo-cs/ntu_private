@@ -103,7 +103,6 @@ class SMARTAgentDecoder(nn.Module):
 
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
 
-
             self.use_gnn=True
             input_dim_r_pt2a = 3
             input_dim_r_a2a = 3
@@ -223,8 +222,23 @@ class SMARTAgentDecoder(nn.Module):
             self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.light_type)
 
             if self.pred_agent:
-                
-                self.lg2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                if self.use_gnn:
+                    self.lg2a_attn_layers = nn.ModuleList(
+                        [
+                            AttentionLayer(
+                                hidden_dim=hidden_dim,
+                                num_heads=num_heads,
+                                head_dim=head_dim,
+                                dropout=self.light_dropout,
+                                bipartite=True,
+                                has_pos_emb=True,
+                            )
+                            for _ in range(num_layers)
+                        ]
+                    )
+
+                else:
+                    self.lg2a_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
 
         self.pred_route = False
 
@@ -409,6 +423,7 @@ class SMARTAgentDecoder(nn.Module):
             mask,  # [n_agent, n_step]
             batch_s,  # [n_agent*n_step]
             batch_pl,  # [n_pl*n_step]
+            pl2a_radius=40
     ):
         n_step = pos_a.shape[1]
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
@@ -420,7 +435,7 @@ class SMARTAgentDecoder(nn.Module):
         edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
                                               y=pos_pl[:, :2],
                                               x_heading=head_s,
-                                              r=self.pl2a_radius,
+                                              r=pl2a_radius,
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
                                               max_num_neighbors=20)
@@ -475,13 +490,11 @@ class SMARTAgentDecoder(nn.Module):
         
         n_step = light_idx.shape[1]
         
-        mask_lg=light_idx>2
-
-        # print(torch.any(mask_lg))
+        mask_lg=light_idx>=self.light_type
 
         feat_lg = self.light_embedding(light_idx)
 
-        feat_lg = self.temporal_embed(feat_lg, self.lg_t_roformer, n_step, n_current, self.light_hist,mask_lg)
+        feat_lg = self.temporal_embed(feat_lg,None,None, self.lg_t_roformer, n_step, n_current, self.light_hist,mask_lg)
 
         padded_lg_feature = self.padding(feat_lg, lengths)
 
@@ -503,7 +516,7 @@ class SMARTAgentDecoder(nn.Module):
 
         next_light_logits = self.light_token_predict_head(feat_lg)
 
-        return padded_lg_feature, next_light_logits
+        return feat_lg, next_light_logits
 
     def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,feat_lg, n_current=0):
         n_agent, n_step = head_a.shape
@@ -568,10 +581,39 @@ class SMARTAgentDecoder(nn.Module):
                 map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
             )
 
+
             feat_a = self.pt2a_attn_layers[0](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
 
+            if feat_lg is not None:#  # [B, L, D]
+                pos_lg = tokenized_agent["pos_lg"]
+                head_lg = tokenized_agent["orient_lg"]
+                batch_lg = tokenized_agent["batch_lg"]
+
+                batch_lg = torch.cat(
+                    [
+                        batch_lg + tokenized_agent["num_graphs"] * t
+                        for t in range(n_step)
+                    ],
+                    dim=0,
+                )
+
+                edge_index_lg2a, r_lg2a = self.build_map2agent_edge(
+                    pos_pl=pos_lg,  # [n_pl, 2]
+                    orient_pl=head_lg,  # [n_pl]
+                    pos_a=pos_a,  # [n_agent, n_step, 2]
+                    head_a=head_a,  # [n_agent, n_step]
+                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                    mask=mask,  # [n_agent, n_step]
+                    batch_s=batch_s,  # [n_agent*n_step]
+                    batch_pl=batch_lg,  # [n_pl*n_step]
+                    pl2a_radius=100
+                )
+
+                feat_a = self.lg2a_attn_layers[0](
+                    (feat_lg.swapaxes(0,1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
+                )
 
             feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
@@ -691,7 +733,11 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"]
             lengths_lg = tokenized_agent["lengths_lg"]
-            sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
+            pos_lg = tokenized_agent["pos_lg"]
+            orient_lg = tokenized_agent["orient_lg"]
+
+            lg_sinusoidal = self.rotary_embedding(pos_lg, orient_lg)
+            lg_sinusoidal = self.padding(lg_sinusoidal, lengths_lg)
 
             noised_light_idx = light_idx.clone()
 
@@ -703,7 +749,7 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx[random_mask] = random_light[random_mask]
 
-            feat_lg, next_light_logits = self.predict_light(noised_light_idx,sinusoidal_lg, lengths_lg)
+            feat_lg, next_light_logits = self.predict_light(noised_light_idx,lg_sinusoidal, lengths_lg)
         else:
             feat_lg=None
 
