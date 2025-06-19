@@ -100,7 +100,7 @@ def rollout(encoder, tokenized_map, tokenized_agent):
 
         #tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
 
-    if "light_idx" in pred.keys():
+    if "light_idx" in tokenized_agent.keys():
         tokenized_agent_rollout['light_idx'] = pred['light_idx']
         for key in ["lengths_lg", "pos_lg","orient_lg", "batch_lg"]:
             tokenized_agent_rollout[key] = tokenized_agent[key]

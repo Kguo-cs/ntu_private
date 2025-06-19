@@ -495,10 +495,13 @@ class SMARTAgentDecoder(nn.Module):
             # pos_a=pos_a[:len(sampled_idx)]
             # head_a=head_a[:len(sampled_idx)]
             # feat_a=feat_a[:len(sampled_idx)]
+            #feat_lg,next_light_logits=self.light_encoder(feat_lg, lg_sinusoidal, lengths ,mask_lg ,n_step)
 
             feat_lg,next_light_logits=self.light_encoder.predict_light(light_idx, lg_sinusoidal, lengths, n_current)
+        else:
+            feat_lg = None
+            next_light_logits = None
 
-            #feat_lg,next_light_logits=self.light_encoder(feat_lg, lg_sinusoidal, lengths ,mask_lg ,n_step)
 
         if self.use_gnn:
             batch_s = torch.cat(
@@ -708,6 +711,9 @@ class SMARTAgentDecoder(nn.Module):
             random_mask[:, :2] = False
 
             noised_light_idx[random_mask] = random_light[random_mask]
+        else:
+            noised_light_idx = None
+            lg_sinusoidal = None
 
         sampled_idx=tokenized_agent["sampled_idx"].long()
         mask = tokenized_agent["valid_mask"]
@@ -808,7 +814,7 @@ class SMARTAgentDecoder(nn.Module):
             # sampled_idx=torch.cat([sampled_idx,light_idx],dim=1)
         else:
             lg_sinusoidal = None
-            light_idx = None
+            light_idx = torch.zeros([1,1])
 
 
         if "gt_z_raw" in tokenized_agent.keys():
@@ -823,17 +829,21 @@ class SMARTAgentDecoder(nn.Module):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys():
                     next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
-                    next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
 
                     self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
-                    self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
-                    self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
+                    if self.pred_light:
+                        next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
+                        self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
+                        self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
+                    else:
+                        next_light_logits = None
                 else:
                     next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx,lg_sinusoidal)#,lg_feat
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
-                self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_encoder.light_hist)
+                if self.pred_light:
+                    self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_encoder.light_hist)
    
             else:
                 next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:,-1:],lg_sinusoidal,t - 1)
@@ -878,12 +888,14 @@ class SMARTAgentDecoder(nn.Module):
                 range_a = torch.arange(next_token_idx.shape[0])
 
                 next_token_traj_all = token_traj_all[range_a, next_token_idx]
+                
+            if next_light_logits is not None:
 
                 cat_dist = Categorical(logits=next_light_logits[:, -1] / self.alpha)
 
                 next_light_idx=   cat_dist.sample()
 
-            light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
+                light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
@@ -961,7 +973,8 @@ class SMARTAgentDecoder(nn.Module):
             #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
-        self.light_encoder.lg_t_roformer.attn.kv_caching(0)
+        if self.pred_light:
+            self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
         out_dict = {
             "type": tokenized_agent["type"],
