@@ -19,6 +19,8 @@ import torch
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
+import sys
+sys.path.append('/home/ke/code/catk')
 
 from src.smart.datasets import MultiDataset
 from src.smart.tokens.token_processor import TokenProcessor
@@ -62,24 +64,24 @@ def Kdisk_cluster(
 if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
     n_trajs = 2048 * 100  # 2e5
-    load_data_from_file = True
+    load_data_from_file = False
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
     out_file_name = "agent_vocab_444_s2_4096.pkl"
     tol_dist = [0.04, 0.04, 0.04]  # veh, ped, cyc
 
     # ! don't change these params
-    shift = 5  # motion token time dimension
+    shift = 20 #5  # motion token time dimension
     num_cluster = 4096  # vocabulary size
     n_step = 91
-    data_file_path = data_cache_path / "kdisk_trajs.pkl"
+    data_file_path = data_cache_path / "kdisk_trajs20.pkl"
     if load_data_from_file:
         with open(data_file_path, "rb") as f:
             data = pickle.load(f)
     else:
         trajs = [
-            torch.zeros([1, 6, 3], dtype=torch.float32),  # veh
-            torch.zeros([1, 6, 3], dtype=torch.float32),  # ped
-            torch.zeros([1, 6, 3], dtype=torch.float32),  # cyc
+            torch.zeros([1, shift + 1, 3], dtype=torch.float32),  # veh
+            torch.zeros([1, shift + 1, 3], dtype=torch.float32),  # ped
+            torch.zeros([1, shift + 1, 3], dtype=torch.float32),  # cyc
         ]
         dataloader = DataLoader(
             dataset=MultiDataset(
