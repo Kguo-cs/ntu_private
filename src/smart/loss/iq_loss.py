@@ -3,6 +3,7 @@ from src.smart.metrics.utils import get_euclidean_targets
 
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
 from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
+from torch.nn.utils.rnn import pad_sequence
 
 
 def soft_update( net, target_net, tau):
@@ -114,3 +115,10 @@ def eval_light(tokenized_agent,tokenized_agent_rollout,logger,light_type):
     agent_relation_acc = (real_relation == agent_relation)[real_relation_mask].float().mean()
 
     logger("train/agent_relation_acc", (agent_relation_acc - repeat_relation_acc).item(), on_step=True, batch_size=1)
+
+
+
+def padding(tensor,lengths,padding_value=0.0 ):
+    padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
+
+    return padded_tensor

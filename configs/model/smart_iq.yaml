@@ -21,4 +21,4 @@ model_config:
     hist_drop_prob: 0
     pt2pt_neighbor: 10
     pt2a_neighbor: 8
-    a2a_neighbor: 15
+    a2a_neighbor: 10
