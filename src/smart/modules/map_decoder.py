@@ -156,7 +156,6 @@ class SMARTMapDecoder(nn.Module):
             "batch": batch[mask],
         }
         #
-        #
         # lengths = torch.bincount(batch).tolist()
         #
         # padded_pt_feature = padding(x_pt, lengths)
