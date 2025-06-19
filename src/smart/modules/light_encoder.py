@@ -56,7 +56,7 @@ class LightEncoder(nn.Module):
 
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
-        #self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
+        self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
         self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type)
@@ -74,6 +74,7 @@ class LightEncoder(nn.Module):
                 for _ in range(1)
             ]
         )
+        self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
 
 
 
@@ -99,7 +100,7 @@ class LightEncoder(nn.Module):
     #
     #     sinusoidal_a = self.rotary_embedding(pos_a, head_a)
     #     lengths_a = torch.bincount(tokenized_agent["batch"]).tolist()
-    #     padded_a_feature = self.padding(feat_a, lengths_a)
+    #     padded_a_feature = padding(feat_a, lengths_a)
     #     feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
     #
     #     sinusoidal_lg = sinusoidal_lg.repeat_interleave(n_step, dim=0)
@@ -121,13 +122,13 @@ class LightEncoder(nn.Module):
         feat_lg = self.temporal_embed(feat_lg, None, None, self.lg_t_roformer, n_step, n_current, self.light_hist,
                                       mask_lg)
 
-        padded_lg_feature = self.padding(feat_lg, lengths)
+        padded_lg_feature = padding(feat_lg, lengths)
 
         feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
 
         padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
 
-        padding_light_mask = self.padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0,
+        padding_light_mask = padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0,
                                                                                                                     1)
 
         lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
@@ -207,7 +208,7 @@ class LightEncoder(nn.Module):
         orient_lg = tokenized_agent["orient_lg"]
 
         lg_sinusoidal = self.rotary_embedding(pos_lg, orient_lg)
-        lg_sinusoidal = self.padding(lg_sinusoidal, lengths_lg)
+        lg_sinusoidal = padding(lg_sinusoidal, lengths_lg)
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:

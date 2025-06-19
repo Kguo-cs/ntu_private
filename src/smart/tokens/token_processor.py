@@ -96,8 +96,8 @@ class TokenProcessor(torch.nn.Module):
                 batch_lg=light["batch"]
                 lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
 
-                pos_lg = pos_lg[:, None].repeat(1, light_idx.shape[1], 1)
-                orient_lg = orient_lg[:, None].repeat(1, light_idx.shape[1])
+                # pos_lg = pos_lg[:, None].repeat(1, light_idx.shape[1], 1)
+                # orient_lg = orient_lg[:, None].repeat(1, light_idx.shape[1])
                 # tokenized_agent["batch"] = torch.cat([tokenized_agent["batch"], batch_lg])
 
                 tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
@@ -734,8 +734,8 @@ class TokenProcessor(torch.nn.Module):
 
             lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
 
-            pos_lg=pos_lg[:,None].repeat(1,light_idx.shape[1],1)
-            orient_lg=orient_lg[:,None].repeat(1,light_idx.shape[1])
+            # pos_lg=pos_lg[:,None].repeat(1,light_idx.shape[1],1)
+            # orient_lg=orient_lg[:,None].repeat(1,light_idx.shape[1])
             # tokenized_agent["batch"]=torch.cat([tokenized_agent["batch"],batch_lg])
             tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type],
                                                       dim=0)
