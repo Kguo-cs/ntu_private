@@ -94,13 +94,11 @@ class TokenProcessor(torch.nn.Module):
                 batch_lg=light["batch"]
                 lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
 
-                sinusoidal_lg = general_rope(pos_lg, 16, orient_lg)
-
-                sinusoidal_lg = pad_sequence(list(torch.split(sinusoidal_lg, lengths_lg)), batch_first=True, padding_value=0)
 
                 tokenized_agent["lengths_lg"] = lengths_lg
                 tokenized_agent["batch_lg"]=batch_lg
-                tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
+                tokenized_agent["pos_lg"] = pos_lg
+                tokenized_agent["orient_lg"] = orient_lg
 
         else:
             tokenized_map, tokenized_agent=self.process_data(data)

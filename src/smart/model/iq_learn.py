@@ -9,7 +9,7 @@ import torch
 
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
-from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return
+from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,eval_light
 from src.smart.loss.rollout_buffer import rollout
 
 class IQ_SoftQ(LightningModule):
@@ -168,7 +168,7 @@ class IQ_SoftQ(LightningModule):
             total_reward=0
             total_value_loss=0
 
-        return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,total_reward,total_value_loss,pred
+        return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,total_reward,total_value_loss,logpi
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
         action = tokenized_agent["sampled_idx"][:, 2:]
@@ -193,15 +193,15 @@ class IQ_SoftQ(LightningModule):
         action = action.reshape(-1).long()
         all_valid_mask=valid_mask.all(-1)#train_mask #
 
-        actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss,pred=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
+        actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss,logpi=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
 
         action_nll = -log_prob[train_mask].mean()
 
         if self.encoder.agent_encoder.pred_light and key == "expert":
-            light_pred = torch.argmax(log_prob[agent_num:], dim=-1)
+            light_pred = torch.argmax(logpi[agent_num:], dim=-1)
             real_light = tokenized_agent["light_idx"][:, 2:]
 
-            light_acc = (light_pred == real_light)[state_action_mask[agent_num:]]
+            light_acc = (light_pred == real_light)[train_mask[agent_num:]]
 
             self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
 
@@ -260,32 +260,6 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
-        if self.encoder.agent_encoder.pred_light:
-
-            real_light=tokenized_agent["light_idx"][:, 2:]
-
-            batch_lg=tokenized_agent["batch_lg"]
-
-            batch_mask=batch_lg[:,None]==batch_lg[None]
-
-            real_light_mask=(real_light<self.encoder.agent_encoder.light_type).all(-1)#[:,None].repeat(1,real_light.shape[1])#torch.ones_like(tokenized_agent["light_mask"][:, 2:]).to(bool)
-
-            repeat_pred=tokenized_agent["light_idx"][:, 1:2].repeat(1,real_light.shape[1])
-
-            repeat_light_acc=(repeat_pred==real_light)[real_light_mask].float().mean()
-
-            self.log("train/repeat_light_acc", repeat_light_acc.item(), on_step=True, batch_size=1)
-
-            real_relation=real_light[:,None]==real_light[None][batch_mask]
-
-            real_relation_mask=(real_light_mask[:,None] & real_light_mask[None]) [batch_mask]
-
-            repeat_relation=repeat_pred[:,None]==repeat_pred[None][batch_mask]
-
-            repeat_relation_acc=(real_relation==repeat_relation)[real_relation_mask].float().mean()
-
-            self.log("train/repeat_relation_acc", repeat_relation_acc.item(), on_step=True, batch_size=1)
-
         if not self.iq_learn:
             if self.encoder.agent_encoder.pred_res:
                 loss=expert_actor_loss.mean()+expert_nll
@@ -298,18 +272,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
 
             if self.encoder.agent_encoder.pred_light:
-
-                light_rollout = tokenized_agent_rollout["light_idx"][:, 2:]
-
-                light_acc = (light_rollout == real_light)[real_light_mask].float().mean()
-
-                self.log("train/agent_light_acc", (light_acc-repeat_light_acc).item(), on_step=True, batch_size=1)
-
-                agent_relation = light_rollout[:,None]==light_rollout[None][batch_mask]
-
-                agent_relation_acc = (real_relation == agent_relation)[real_relation_mask].float().mean()
-
-                self.log("train/agent_relation_acc",(agent_relation_acc-repeat_relation_acc).item(), on_step=True, batch_size=1)
+                eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             agent_reward, agent_value_loss, agent_V_diff, _,agent_actor_loss = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')

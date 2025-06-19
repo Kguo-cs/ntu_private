@@ -102,7 +102,7 @@ def rollout(encoder, tokenized_map, tokenized_agent):
 
     if "light_idx" in pred.keys():
         tokenized_agent_rollout['light_idx'] = pred['light_idx']
-        for key in ["lengths_lg", "sinusoidal_lg", "batch_lg"]:
+        for key in ["lengths_lg", "pos_lg","orient_lg", "batch_lg"]:
             tokenized_agent_rollout[key] = tokenized_agent[key]
 
     # if self.rollout_freq > 1:

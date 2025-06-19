@@ -76,3 +76,41 @@ def get_return(reward,log_prob,current_Q,V,all_valid_mask,alpha,gamma):
     V_diff=(V[:,:-1]-returns[:,:-1])[all_valid_mask]
 
     return current_Q_diff, V_diff
+
+def eval_light(tokenized_agent,tokenized_agent_rollout,logger,light_type):
+    real_light = tokenized_agent["light_idx"][:, 2:]
+
+    batch_lg = tokenized_agent["batch_lg"]
+
+    batch_mask = batch_lg[:, None] == batch_lg[None]
+
+    real_light_mask = (real_light < light_type).all(
+        -1)
+
+    repeat_pred = tokenized_agent["light_idx"][:, 1:2].repeat(1, real_light.shape[1])
+
+    repeat_light_acc = (repeat_pred == real_light)[real_light_mask].float().mean()
+
+    logger("train/repeat_light_acc", repeat_light_acc.item(), on_step=True, batch_size=1)
+
+    real_relation = (real_light[:, None] == real_light[None])[batch_mask]
+
+    real_relation_mask = (real_light_mask[:, None] & real_light_mask[None])[batch_mask]
+
+    repeat_relation = (repeat_pred[:, None] == repeat_pred[None])[batch_mask]
+
+    repeat_relation_acc = (real_relation == repeat_relation)[real_relation_mask].float().mean()
+
+    logger("train/repeat_relation_acc", repeat_relation_acc.item(), on_step=True, batch_size=1)
+
+    light_rollout = tokenized_agent_rollout["light_idx"][:, 2:]
+
+    light_acc = (light_rollout == real_light)[real_light_mask].float().mean()
+
+    logger("train/agent_light_acc", (light_acc - repeat_light_acc).item(), on_step=True, batch_size=1)
+
+    agent_relation = (light_rollout[:, None] == light_rollout[None])[batch_mask]
+
+    agent_relation_acc = (real_relation == agent_relation)[real_relation_mask].float().mean()
+
+    logger("train/agent_relation_acc", (agent_relation_acc - repeat_relation_acc).item(), on_step=True, batch_size=1)

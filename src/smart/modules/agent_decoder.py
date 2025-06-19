@@ -203,7 +203,7 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-        self.pred_light = False
+        self.pred_light = True
 
         if self.pred_light:
             self.lg_time_span = time_span
@@ -829,7 +829,11 @@ class SMARTAgentDecoder(nn.Module):
     def autoregressive_light_predict(self,  tokenized_agent, current_step,max_step):
         predicted_tokens = tokenized_agent["light_idx"][:, :current_step].clone()
         lengths_lg = tokenized_agent["lengths_lg"]
-        sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
+        pos_lg = tokenized_agent["pos_lg"]
+        orient_lg = tokenized_agent["orient_lg"]
+
+        lg_sinusoidal = self.rotary_embedding(pos_lg, orient_lg)
+        lg_sinusoidal = self.padding(lg_sinusoidal, lengths_lg)
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -840,12 +844,12 @@ class SMARTAgentDecoder(nn.Module):
                     self.lg_t_roformer.attn.cached_k = self.lg_t_roformer.attn.cached_k[:, :, :current_step]
                     self.lg_t_roformer.attn.cached_v = self.lg_t_roformer.attn.cached_v[:, :, :current_step]
                 else:
-                    lg_features, next_light_logits = self.predict_light(predicted_tokens, sinusoidal_lg,
+                    lg_features, next_light_logits = self.predict_light(predicted_tokens, lg_sinusoidal,
                                                                                  lengths_lg)
                 self.lg_t_roformer.attn.kv_caching(self.light_hist)
             else:
                 feat_lg, next_light_logits = self.predict_light(predicted_tokens[:, -1:],
-                                                                 sinusoidal_lg, lengths_lg, t - 1)
+                                                                 lg_sinusoidal, lengths_lg, t - 1)
 
                 lg_features = torch.cat([lg_features, feat_lg[:, -1:]], dim=1)
 
@@ -1097,10 +1101,11 @@ class SMARTAgentDecoder(nn.Module):
                                                                                n_step_future_2hz)
         else:
             lg_features=None
+            out_dict={}
 
         if not self.pred_agent:
             return out_dict
         
-        out_dict =self.autoregressive_agent(tokenized_agent, map_feature,lg_features,step_current_2hz, n_step_future_2hz)
+        out_dict.update(self.autoregressive_agent(tokenized_agent, map_feature,lg_features,step_current_2hz, n_step_future_2hz))
 
         return out_dict
