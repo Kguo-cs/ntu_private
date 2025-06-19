@@ -172,23 +172,12 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
         action = tokenized_agent["sampled_idx"][:, 2:]
-
-        if self.encoder.agent_encoder.pred_agent:
-            valid_mask = tokenized_agent["valid_mask"][:, 1:]
-            action = tokenized_agent["sampled_idx"][:, 2:]
+        valid_mask = tokenized_agent["valid_mask"][:, 1:]
+        agent_num = len(action)
 
         if self.encoder.agent_encoder.pred_light:
-            light_valid_mask = tokenized_agent["light_idx"] < self.encoder.agent_encoder.light_type
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.encoder.agent_encoder.light_type-1)
-
-            if self.encoder.agent_encoder.pred_agent:
-                agent_num=len(valid_mask)
-                action = torch.cat([action,light_action])
-                valid_mask =  torch.cat([valid_mask, light_valid_mask[:,1:]])#light_valid_mask[:,1:] #
-            else:
-                agent_num=0
-                action = light_action
-                valid_mask = light_valid_mask[:, 1:]
+            action = torch.cat([action, light_action])
 
         action = action.reshape(-1).long()
         all_valid_mask=valid_mask.all(-1)#train_mask #
@@ -249,10 +238,6 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, 1:]
-
-        if self.encoder.agent_encoder.pred_light:
-            light_valid_mask = tokenized_agent["light_idx"] < self.encoder.agent_encoder.light_type
-            valid_mask = torch.cat([valid_mask, light_valid_mask[:, 1:]])  # light_valid_mask[:,1:] #
 
         train_mask=valid_mask.all(-1)
 
