@@ -205,7 +205,7 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-        self.pred_light = True
+        self.pred_light = False
 
         if self.pred_light:
             self.light_type = 4
@@ -708,17 +708,6 @@ class SMARTAgentDecoder(nn.Module):
             random_mask[:, :2] = False
 
             noised_light_idx[random_mask] = random_light[random_mask]
-        #
-        #     # feat_lg, next_light_logits = self.predict_light(noised_light_idx,lg_sinusoidal, lengths_lg)
-        # else:
-        #     feat_lg=None
-
-        # if not self.pred_agent:
-        #     tokenized_agent["next_light_logits"] = next_light_logits
-        #     tokenized_agent["feat_lg"] = feat_lg
-        #     return {
-        #         "q_value": next_light_logits[:, 1:]
-        #     }
 
         sampled_idx=tokenized_agent["sampled_idx"].long()
         mask = tokenized_agent["valid_mask"]
@@ -817,7 +806,6 @@ class SMARTAgentDecoder(nn.Module):
             lg_sinusoidal = padding(lg_sinusoidal, lengths_lg)
 
             # sampled_idx=torch.cat([sampled_idx,light_idx],dim=1)
-
         else:
             lg_sinusoidal = None
             light_idx = None
@@ -831,7 +819,6 @@ class SMARTAgentDecoder(nn.Module):
                 [n_agent, 0], dtype=pos_a.dtype, device=pos_a.device
             )
 
-        # logit_list=[]
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys():
@@ -840,28 +827,16 @@ class SMARTAgentDecoder(nn.Module):
 
                     self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
-
+                    self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
+                    self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
                 else:
-                    # if lg_features is not None:
-                    #     lg_feat=lg_features[:,:t]
-                    # else:
-                    #     lg_feat=None
-
                     next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx,lg_sinusoidal)#,lg_feat
-
-                #logit_list.append(next_token_logits)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
                 self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_encoder.light_hist)
    
             else:
-                # if lg_features is not None:
-                #     lg_feat=lg_features[:,-1:]
-                # else:
-                #     lg_feat=None
-
                 next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:], pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:,-1:],lg_sinusoidal,t - 1)
-                #logit_list.append(next_token_logits[:, -1:])
 
             if self.output_gmm:
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
@@ -1052,16 +1027,6 @@ class SMARTAgentDecoder(nn.Module):
         n_step_future_2hz = n_step_future_10hz // self.shift  # 16
         step_current_2hz = step_current_10hz // self.shift  # 2
 
-        # if self.pred_light:
-        #     out_dict,lg_features = self.autoregressive_light_predict(tokenized_agent,step_current_2hz,
-        #                                                                        n_step_future_2hz)
-        # else:
-        #     lg_features=None
-        #     out_dict={}
-        #
-        # if not self.pred_agent:
-        #     return out_dict
-        
         out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz)
 
         return out_dict
