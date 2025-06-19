@@ -8,7 +8,7 @@ from src.smart.utils import weight_init
 
 class FourierEmbedding(nn.Module):
 
-    def __init__(self, input_dim: int, hidden_dim: int, num_freq_bands: int,out_dim=128,share=False) -> None:
+    def __init__(self, input_dim: int, hidden_dim: int, num_freq_bands: int) -> None:
         super(FourierEmbedding, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -39,7 +39,7 @@ class FourierEmbedding(nn.Module):
         self.to_out = nn.Sequential(
             nn.LayerNorm(hidden_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, out_dim),
+            nn.Linear(hidden_dim, hidden_dim),
         )
         self.apply(weight_init)
 
