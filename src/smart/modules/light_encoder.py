@@ -122,11 +122,9 @@ class LightEncoder(nn.Module):
 
         return lg_sinusoidal
 
-    def predict_light(self, light_idx, lg_sinusoidal, lengths, n_current=0):
+    def predict_light(self, light_idx,mask_lg, lg_sinusoidal, lengths, n_current=0):
 
         n_step = light_idx.shape[1]
-
-        mask_lg = light_idx >= self.light_type
 
         feat_lg = self.light_embedding(light_idx)
 
