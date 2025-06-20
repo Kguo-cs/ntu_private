@@ -46,7 +46,7 @@ class IQ_SoftQ(LightningModule):
 
         pred = network(tokenized_map, tokenized_agent)
 
-        q_value = pred["q_value"]
+        q_value = pred["q_value"][:,:,0]
 
         if self.output_gmm:
             dist =  GMM_Dist(q_value)
@@ -131,7 +131,16 @@ class IQ_SoftQ(LightningModule):
 
             logpi= torch.log(pi + 1e-10)
 
-            log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+            log_pi_stack=torch.log_softmax(pred["q_value"][:, :-1], dim=-1)
+            log_prob=torch.zeros_like(log_pi_stack[:,:,:,0])
+
+            for i  in range(log_pi_stack.shape[2]):
+                a=action.reshape(log_prob.shape[0], log_prob.shape[1])[:,i:]
+                act=a.reshape(-1)
+                log_prob[:, :log_prob.shape[1] - i, i]=log_pi_stack[:,:log_prob.shape[1]-i,i].reshape(len(act), -1)[torch.arange(len(act)), act].reshape(a.shape[0], a.shape[1])
+
+            #log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+            log_prob=log_prob.sum(-1)/(log_prob!=0).sum(-1)#.shape[2]
 
             entropy = -torch.sum(pi * logpi, dim=-1)
 
@@ -152,23 +161,23 @@ class IQ_SoftQ(LightningModule):
         reward = current_Q - y
         value_loss = current_V - y
 
-        if self.encoder.agent_encoder.mixing:
-            total_q=result["total_q"]
-            total_v=result["total_v"]
+        # if self.encoder.agent_encoder.mixing:
+        #     total_q=result["total_q"]
+        #     total_v=result["total_v"]
+        #
+        #     dones = torch.zeros_like(total_v[:, 1:])
+        #
+        #     dones[:, -1] = 1
+        #
+        #     y = self.gamma * (1 - dones) *  total_v[:, 1:]
+        #     total_reward=total_q-y
+        #
+        #     total_value_loss= total_v[:, :-1]-y
+        # else:
+        #     total_reward=0
+        #     total_value_loss=0
 
-            dones = torch.zeros_like(total_v[:, 1:])
-
-            dones[:, -1] = 1
-
-            y = self.gamma * (1 - dones) *  total_v[:, 1:]
-            total_reward=total_q-y
-
-            total_value_loss= total_v[:, :-1]-y
-        else:
-            total_reward=0
-            total_value_loss=0
-
-        return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,total_reward,total_value_loss,logpi
+        return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,logpi
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
         action = tokenized_agent["sampled_idx"][:, 2:]
@@ -182,7 +191,7 @@ class IQ_SoftQ(LightningModule):
         action = action.reshape(-1).long()
         all_valid_mask=valid_mask.all(-1)#train_mask #
 
-        actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,total_reward,total_value_loss,logpi=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
+        actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,logpi=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)
 
         action_nll = -log_prob[train_mask].mean()
 
@@ -230,9 +239,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
-        if self.encoder.agent_encoder.mixing:
-            reward=total_reward
-            value_loss=total_value_loss
 
         return  reward,value_loss,init_V,action_nll,actor_loss
 

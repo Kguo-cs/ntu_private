@@ -100,7 +100,7 @@ class TokenProcessor(torch.nn.Module):
                 # orient_lg = orient_lg[:, None].repeat(1, light_idx.shape[1])
                 # tokenized_agent["batch"] = torch.cat([tokenized_agent["batch"], batch_lg])
 
-                #tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
+                tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
 
                 tokenized_agent["lengths_lg"] = lengths_lg
                 tokenized_agent["batch_lg"]=batch_lg

@@ -41,8 +41,9 @@ class LightEncoder(nn.Module):
             time_span: Optional[int],
             num_heads: int,
             light_type,
-            shift
-    ) -> None:
+            shift,
+            predict_step,
+        ) -> None:
         super(LightEncoder, self).__init__()
 
         self.head_dim = hidden_dim // num_heads
@@ -53,13 +54,12 @@ class LightEncoder(nn.Module):
         self.light_type = light_type
         self.shift = shift
         self.light_dropout = 0
+        self.predict_step=predict_step
 
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
         self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
         self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
-        self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                                 output_dim=self.light_type)
 
         self.lg2a_attn_layers = nn.ModuleList(
             [
@@ -76,7 +76,12 @@ class LightEncoder(nn.Module):
         )
         self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
 
+        # self.predict_feature = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
+        #                             output_dim=hidden_dim * self.predict_step)
 
+
+        self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
+                                                 output_dim=self.light_type* self.predict_step)
 
     def temporal_embed(self, feature, pos, heading, network, n_step, n_current, hist_len, mask):
 
@@ -124,7 +129,7 @@ class LightEncoder(nn.Module):
 
     def predict_light(self, light_idx,mask_lg, lg_sinusoidal, lengths, n_current=0):
 
-        n_step = light_idx.shape[1]
+        n_light,n_step =light_idx.shape[0], light_idx.shape[1]
 
         feat_lg = self.light_embedding(light_idx)
 
@@ -150,7 +155,9 @@ class LightEncoder(nn.Module):
 
         feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 
-        next_light_logits = self.light_token_predict_head(feat_lg)
+#        feat_lg=self.predict_feature(feat_lg)
+
+        next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light,n_step,self.predict_step,-1)
 
         return feat_lg, next_light_logits
 
