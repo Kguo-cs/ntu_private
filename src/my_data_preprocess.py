@@ -141,7 +141,6 @@ def interpolate_polyline(polyline: torch.Tensor, num_points: int = 10) -> torch.
 
     return torch.stack(points)  # (num_points, 2)
 
-
 def process_light(map_infos,tf_lights,tf_current_light):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]#189
     polyline_index = [x["polyline_index"] for k in _polygon_types for x in map_infos[k]]#189
@@ -201,7 +200,6 @@ def process_light(map_infos,tf_lights,tf_current_light):
         state_to_index = {state: idx for idx, state in enumerate(_polygon_light_type)}
         tf_lights_filtered["state_idx"] = tf_lights_filtered["state"].map(state_to_index)
 
-
         # Use .itertuples() for faster iteration and assign to tensor
         for row in tf_lights_filtered.itertuples(index=False):
             i = row.row_idx
@@ -210,14 +208,15 @@ def process_light(map_infos,tf_lights,tf_current_light):
             if pd.notna(i) and pd.notna(s):
                 light_idx[i, t] = s
 
-    # light_idx=light_all[:,1::]
+    map_tensor=torch.tensor([3,4,0,1,2])
+    light_idx = map_tensor[light_idx[:,5::5].long()]
 
     light_polyline=torch.FloatTensor(light_polyline).reshape(-1,20)
 
     light_orient=torch.atan2(light_polyline[:, -1], light_polyline[:, -2])
 
     light={
-        "light_idx": light_idx,
+        "light_idx": light_idx.to(torch.int8),
         "light_pos": torch.FloatTensor(light_pos),
         "light_orient": torch.FloatTensor(light_orient),
         "num_nodes": light_idx.shape[0]
@@ -230,7 +229,6 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         file_path, compression_type="", num_parallel_reads=3
     )
     for tf_data in dataset:
-       # time1=time.time()
 
         tf_data = tf_data.numpy()
         scenario = scenario_pb2.Scenario()
@@ -256,8 +254,6 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             num_historical_steps=current_time_index + 1,
             num_steps=91,
         )
-
-        # data={}
 
         data["light"]=process_light(map_infos,tf_lights,tf_current_light)
 
@@ -302,7 +298,7 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/new"
     )
     parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
