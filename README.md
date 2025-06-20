@@ -4,13 +4,13 @@ Lyuchen2018!
 qsub -I -l select=1:ngpus=1 -l walltime=3:00:00 -P 12002486
 
 
-export PBS_JOBID=10693013.pbs101
+export PBS_JOBID=61324.pbs111
 
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/new/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/validation_light 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_a91 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/new/validation zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
