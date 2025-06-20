@@ -131,7 +131,7 @@ class IQ_SoftQ(LightningModule):
 
             logpi= torch.log(pi+ 1e-10 )
 
-            log_pi_stack=torch.log(torch.softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1)+ 1e-10 )#.clamp_min(min=np.log(1e-10))
+            log_pi_stack=torch.log(torch.softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1)+ 1e-8 )#.clamp_min(min=np.log(1e-10))
 
             rolling_action = torch.stack([
                         torch.roll(action, shifts=-i, dims=1)
@@ -171,7 +171,7 @@ class IQ_SoftQ(LightningModule):
         agent_num = len(action)
 
         if self.encoder.agent_encoder.pred_light:
-            light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.encoder.agent_encoder.light_type-1)
+            light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
             action = torch.cat([action, light_action])
 
         action = action.unsqueeze(-1) #.reshape(-1).long()
