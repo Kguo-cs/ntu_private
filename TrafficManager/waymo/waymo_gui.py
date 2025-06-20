@@ -35,6 +35,9 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from PIL import Image
 import io
 from src.utils.vis_waymo import get_map_features,get_traffic_light_features,get_agent_features
+from TrafficManager.LimSim.simModel.DataQueue import (
+    CameraImages, ImageQueue, QAQueue, QuestionAndAnswer, RenderQueue,
+)
 
 COLOR_BLACK = (0, 0, 0, 255)
 COLOR_WHITE = (255, 255, 255, 255)
@@ -95,18 +98,11 @@ def generateDefaultImage(
 
 class GUI(Process):
     def __init__(
-            self, model: Model,scenario
+            self, scenario,step_current=10
     ) -> None:
         super().__init__()
-        self.renderQueue = model.renderQueue
-        self.imageQueue = model.imageQueue
-        self.QAQ = model.QAQ
-        if model.netBoundary:
-            self.netBoundary = model.netBoundary
-        else:
-            raise SequenceError(
-                'Class `GUI` must be initialized after `model.start()`.'
-            )
+        self.renderQueue = RenderQueue(5)
+        self.imageQueue = ImageQueue(50)
 
         self.zoom_speed: float = 1.0
         self.is_dragging: bool = False
@@ -129,11 +125,11 @@ class GUI(Process):
         ]
 
         self.tl_style = [
-            COLOR_ALUMINIUM_1,  # STATE_UNKNOWN = 0;
-            COLOR_RED,  # STOP = 1;
+            COLOR_RED,  # STOP = 0;
+            COLOR_GREEN,  # GO = 1;
             COLOR_YELLOW,  # CAUTION = 2;
-            COLOR_GREEN,  # GO = 3;
-            COLOR_VIOLET,  # FLASHING = 4;
+            COLOR_ALUMINIUM_1,  # NO_LANE_STATE = 3;
+ #           COLOR_VIOLET,  # LANE_STATE_UNKNOWN = 4;
         ]
         # sdc=0, interest=1, predict=2
         self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
@@ -148,12 +144,19 @@ class GUI(Process):
         # draw gt
         self.mp_xyz, self.mp_id, self.mp_type = get_map_features(scenario.map_features)
 
+        position=np.concatenate(self.mp_xyz, axis=0)
+
+        self.netBoundary = ((position[:,0].min(), position[:,1].min()), (position[:,0].max(), position[:,1].max()))
+
         self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
             scenario.dynamic_map_states
         )
+        self.tl_lane_id =self.tl_lane_id[step_current]
+
+        #tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
 
         ag_valid, ag_xy, ag_yaw, self.ag_size, self.ag_role, ag_id = get_agent_features(
-            scenario, step_current=10
+            scenario, step_current=step_current
         )
         # self.ag_id2size = dict(zip(ag_id, ag_size))
         # self.ag_id2role = dict(zip(ag_id, ag_role))
@@ -443,10 +446,11 @@ class GUI(Process):
                     parent=node
                 )
 
-    def draw_traffic_light(self,node,step_t):
+    def draw_traffic_light(self,node,light_idx):
 
-        for i_tl, _state in enumerate(self.tl_lane_state[step_t]):
-            _lane_id = self.tl_lane_id[step_t][i_tl]
+        for i_tl, _state in enumerate(light_idx):#self.tl_lane_state[step_t]
+            _lane_id=self.tl_lane_id[i_tl]#
+            # _lane_id = self.tl_lane_id[step_t][i_tl]
             _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
           # print(step_t,_lane_idx)
 
@@ -496,7 +500,7 @@ class GUI(Process):
         dpg.delete_item("Canvas", children_only=True)
         canvasNode = dpg.add_draw_node(parent="Canvas")
         try:
-            agent_pos,agent_head,agent_type,time_step=self.renderQueue.get()
+            agent_pos,agent_head,agent_type,light_idx,time_step=self.renderQueue.get()
 
             ego_position=agent_pos[self.ego_idx]
 
@@ -505,7 +509,7 @@ class GUI(Process):
 
             if time_step is not None:
                 self.drawRoadgraph(canvasNode)
-                self.draw_traffic_light(canvasNode,time_step)
+                self.draw_traffic_light(canvasNode,light_idx)
                 self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
         except TypeError:
             return

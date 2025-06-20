@@ -228,7 +228,7 @@ class SMARTAgentDecoder(nn.Module):
             (feat_map, feat_a), r_pl2a, edge_index_pl2a
         )
 
-        if self.pred_light:
+        if self.pred_light and len(light_idx):
             mask_lg=~mask[len(sampled_idx):]
 
             feat_lg, next_light_logits = self.light_encoder(light_idx, mask_lg, lg_sinusoidal,  tokenized_agent["lengths_lg"], n_current)
@@ -289,7 +289,6 @@ class SMARTAgentDecoder(nn.Module):
 
                 if not self.training:
                     next_token_logits=next_token_logits[:,:,0]
-                    next_light_logits=next_light_logits[:,:,0]
 
                 if self.pred_res and self.training:
 
@@ -364,7 +363,7 @@ class SMARTAgentDecoder(nn.Module):
             lg_sinusoidal = self.light_encoder.get_lg_sinusoidal(tokenized_agent)
         else:
             lg_sinusoidal = None
-            light_idx = torch.zeros([1,1])
+            light_idx = torch.zeros([0,2])
 
         if "gt_z_raw" in tokenized_agent.keys():
             pred_traj_10hz = torch.zeros(
@@ -439,7 +438,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 next_token_traj_all = token_traj_all[range_a, next_token_idx]
                 
-            if next_light_logits is not None:
+            if next_light_logits is not None and len(next_light_logits):
 
                 cat_dist = Categorical(logits=next_light_logits[:, -1] / self.alpha)
 

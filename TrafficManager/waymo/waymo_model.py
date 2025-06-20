@@ -49,7 +49,6 @@ class Model:
 
         self.QAQ=None
 
-
         self.allvTypes = None
 
         position=map_data["map_point"]["position"]

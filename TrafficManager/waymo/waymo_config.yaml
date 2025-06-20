@@ -30,6 +30,6 @@ image:
   target_size: [560, 315]
 
 
-data_path: "/media/ke/Windows/waymo_data/validation"
+data_path: "/home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted"
 
 planner_path: "/home/ke/code/catk/src/ckpts/bc64_pt20_map_epoch=19-step=152200-val_closed_wosac=0.7689.ckpt"

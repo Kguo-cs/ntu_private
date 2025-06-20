@@ -88,7 +88,7 @@ def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classe
         canvas = np.concatenate([canvas, drivable_mask], 0)
     canvas = np.transpose(canvas, (2, 1, 0))    # H, W, C
     
-    cv2.imwrite('./GT_polyline_pts_MAP.png', canvas[:,:,:3]*255)    
+   # cv2.imwrite('./GT_polyline_pts_MAP.png', canvas[:,:,:3]*255)
     return canvas
 
 

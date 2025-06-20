@@ -139,28 +139,28 @@ class SimulationManager:
             for cam in self.lidar2cam
         }
 
+        self.initial_step=10
+
     @staticmethod
     def load_config(config_path: str) -> Dict:
         with open(config_path, 'r') as config_file:
             return yaml.safe_load(config_file)
 
-    def initialize_simulation(self,map_data,scenario):
+    def initialize_simulation(self,scenario):
         # Initialising models, planners, maps etc
-        self.model = Model(map_data)
 
-        self.gui = GUI(self.model,scenario)
+        self.gui = GUI(scenario,self.initial_step)
         if self.GUI_DISPLAY:
             self.gui.start()
 
         print(f"Testing connection to WorldDreamer & Driver servers...")
         ##requests.get(self.DIFFUSION_SERVER + "dreamer-clean/")
         ##requests.get(self.DRIVER_SERVER + "driver-clean/")
-        self.ego_idx = self.gui.ego_idx
 
         self.data_template = torch.load(self.DATA_TEMPLATE_PATH)
 
-        self.renderer = WaymoRenderer(scenario)
-        self.timestamp = 10
+        # self.renderer = WaymoRenderer(scenario)
+        self.timestamp = self.initial_step
         self.MAX_SIM_TIME = 91
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
@@ -223,7 +223,6 @@ class SimulationManager:
 
             #ci.PRED_BEV =bev_map
 
-
             diffusion_data = self.gui.limsim2diffusion(
                 agent_pos,agent_heading,agent_type,self.data_template
             )
@@ -259,7 +258,7 @@ class SimulationManager:
                 (800, 800), Image.Resampling.LANCZOS)
             ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
 
-            self.model.imageQueue.put(ci)
+            self.gui.imageQueue.put(ci)
 
             pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
@@ -272,42 +271,37 @@ class SimulationManager:
 
             tokenized_agent["light_idx"] = pred_dict["light_idx"]
 
-
-
-
-            # self.model.putRenderData()
-            # roadgraphRenderData, VRDDict = self.ms.exportRenderData()
-            # self.renderQueue.put((roadgraphRenderData, VRDDict))
-
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
-        light_idx = tokenized_agent["light_idx"]
+        light_idx = tokenized_agent["light_idx"][:,-1].cpu().numpy()
         agent_pos=pos[:,self.timestamp%5].cpu().numpy()
         agent_head=heading[:,self.timestamp%5].cpu().numpy()
-        self.model.renderQueue.put((agent_pos,agent_head,agent_type,light_idx,self.timestamp))
 
-        rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
-        #self.model.renderQueue.put(self.timestamp)
+        self.gui.renderQueue.put((agent_pos,agent_head,agent_type,light_idx,self.timestamp))
+
+        #rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
 
         self.timestamp += 1
 
-        #sleep(1000)
+        sleep(0.1)
 
         return True
 
     def run_simulation(self):
-        input_dir = Path(self.config["data_path"])
-
-        # packages = sorted([p.as_posix() for p in input_dir.glob("*")])
-        all_scenarios=os.listdir("/home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted")
+        input_dir =self.config["data_path"]
+        all_scenarios=os.listdir(input_dir)
         all_scenarios.sort()
-        # for scenario_path in packages:
+        i=-1
         for scenario in all_scenarios:
             dataset = tf.data.TFRecordDataset(
-                ["/home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted/"+scenario], compression_type="", num_parallel_reads=3
+                [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
             )
 
             for tf_data in dataset:
+                i+=1
+                if i==0:
+                    continue
+
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
@@ -344,7 +338,7 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                self.initialize_simulation(map_data,scenario)
+                self.initialize_simulation(scenario)
 
                 try:
                     while True:
@@ -357,7 +351,6 @@ class SimulationManager:
         print("Simulation ends")
         # if self.scorer:
         #     self.scorer.save()
-        # self.model.destroy()
         self.gui.terminate()
         self.gui.join()
 
@@ -397,10 +390,10 @@ class SimulationManager:
     def setup_planner(self,cfg):
         self.planner = SMART(cfg.model.model_config)
 
-        if torch.cuda.is_available():
-            state_dict = torch.load(self.config["planner_path"])["state_dict"]
-        else:
-            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
+        # if torch.cuda.is_available():
+        #     state_dict = torch.load(self.config["planner_path"])["state_dict"]
+        # else:
+        #     state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
 
         # self.planner.load_state_dict(state_dict)
         self.planner.cuda()

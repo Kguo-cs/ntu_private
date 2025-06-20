@@ -214,6 +214,9 @@ class LightEncoder(nn.Module):
 
         next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step, self.predict_step, self.light_type)
 
+        if not self.training:
+            next_light_logits = next_light_logits[:, :, 0]
+
         return feat_lg, next_light_logits
 
     def autoregressive_light_predict(self, tokenized_agent, current_step, max_step):
