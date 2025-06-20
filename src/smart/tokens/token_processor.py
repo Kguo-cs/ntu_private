@@ -106,7 +106,33 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["batch_lg"]=batch_lg
                 tokenized_agent["pos_lg"] = pos_lg
                 tokenized_agent["orient_lg"] = orient_lg
+            else:
+                light=data["light"]
 
+                light_idx=light["type"]
+
+                light_match=torch.all(light_idx[None]==self.light_token_all[:,None,None],dim=-1)
+
+                light_idx=torch.argmax(light_match.to(torch.int),dim=0)
+
+                light_idx=self.light_token_last[light_idx]
+
+                tokenized_agent["light_idx"]=light_idx
+                pos_lg=light["pos"]
+                orient_lg=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])#light["light_orient"]#
+                batch_lg=light["batch"]
+                lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
+
+                # pos_lg = pos_lg[:, None].repeat(1, light_idx.shape[1], 1)
+                # orient_lg = orient_lg[:, None].repeat(1, light_idx.shape[1])
+                # tokenized_agent["batch"] = torch.cat([tokenized_agent["batch"], batch_lg])
+
+                tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
+
+                tokenized_agent["lengths_lg"] = lengths_lg
+                tokenized_agent["batch_lg"]=batch_lg
+                tokenized_agent["pos_lg"] = pos_lg
+                tokenized_agent["orient_lg"] = orient_lg
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
