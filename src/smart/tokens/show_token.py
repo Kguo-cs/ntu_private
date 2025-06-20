@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pickle
 import torch
 
-agent_token_path="/home/ke/code/catk/src/smart/tokens/agent_vocab_555_s2.pkl"
+agent_token_path="/home/ke/code/catk/src/smart/tokens/agent_vocab_321_s2_20.pkl"
 
 agent_token_data = pickle.load(open(agent_token_path, "rb"))
 
@@ -18,8 +18,8 @@ plt.figure(figsize=(8, 8))
 # Plot each trajectory type with different color
 # for traj in veh_traj:
 #     plt.plot(traj[:, 0], traj[:, 1], color='blue', alpha=0.5, label='Vehicle')
-# for traj in ped_traj:
-#     plt.plot(traj[:, 0], traj[:, 1], color='green', alpha=0.5, label='Pedestrian')
+for traj in ped_traj:
+    plt.plot(traj[:, 0], traj[:, 1], color='green', alpha=0.5, label='Pedestrian')
 for traj in cyc_traj:
     plt.plot(traj[:, 0], traj[:, 1], color='red', alpha=0.5, label='Cyclist')
 #

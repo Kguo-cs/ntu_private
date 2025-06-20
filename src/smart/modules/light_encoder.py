@@ -115,7 +115,7 @@ class LightEncoder(nn.Module):
         if "lg_sinusoidal" in tokenized_agent.keys():
             lg_sinusoidal=tokenized_agent["lg_sinusoidal"]
         else:
-            pos_lg, orient_lg, lengths_lg= tokenized_agent["pos_lg"], tokenized_agent["lengths_lg"], tokenized_agent["lengths_lg"]
+            pos_lg, orient_lg, lengths_lg= tokenized_agent["pos_lg"], tokenized_agent["orient_lg"], tokenized_agent["lengths_lg"]
             lg_sinusoidal = self.rotary_embedding(pos_lg, orient_lg)
             lg_sinusoidal = padding(lg_sinusoidal, lengths_lg)
             tokenized_agent["lg_sinusoidal"]=lg_sinusoidal

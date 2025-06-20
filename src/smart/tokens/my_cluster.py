@@ -64,14 +64,14 @@ def Kdisk_cluster(
 if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
     n_trajs = 2048 * 100  # 2e5
-    load_data_from_file = False
+    load_data_from_file = True
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_444_s2_4096.pkl"
-    tol_dist = [0.04, 0.04, 0.04]  # veh, ped, cyc
+    out_file_name = "agent_vocab_321_s2_20.pkl"
+    tol_dist = [0.3, 0.1, 0.2]  # veh, ped, cyc
 
     # ! don't change these params
     shift = 20 #5  # motion token time dimension
-    num_cluster = 4096  # vocabulary size
+    num_cluster = 2048  # vocabulary size
     n_step = 91
     data_file_path = data_cache_path / "kdisk_trajs20.pkl"
     if load_data_from_file:
@@ -202,3 +202,12 @@ if __name__ == "__main__":
 # ped i=4095, remain=0.89%, n_inside=2
 # cyc 0.04
 # cyc i=4095, remain=2.58%, n_inside=1
+
+
+#agent_vocab_321_s2_20
+# veh 0.3
+# veh i=2047, remain=4.14%, n_inside=13
+# ped 0.1
+# ped i=2047, remain=6.58%, n_inside=11
+# cyc 0.2
+# cyc i=2047, remain=7.00%, n_inside=1

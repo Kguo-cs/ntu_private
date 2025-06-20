@@ -1,7 +1,7 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=7:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 
 
 export PBS_JOBID=10693013.pbs101
@@ -37,6 +37,8 @@ Spyder1@
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
+git pull
+
 export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
 export NVIDIA_TF32_OVERRIDE=0
