@@ -231,7 +231,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light:
             mask_lg=~mask[len(sampled_idx):]
 
-            feat_lg, next_light_logits = self.light_encoder.predict_light(light_idx, mask_lg, lg_sinusoidal,  tokenized_agent["lengths_lg"], n_current)
+            feat_lg, next_light_logits = self.light_encoder(light_idx, mask_lg, lg_sinusoidal,  tokenized_agent["lengths_lg"], n_current)
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 

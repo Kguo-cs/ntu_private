@@ -482,6 +482,8 @@ class RoFormerBlock(nn.Module):
             nn.Dropout(dropout)
         )
 
+        self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
+
     def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None,pos_embeding=None):
         x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding)
         x = x + self.mlp(self.norm2(x))
