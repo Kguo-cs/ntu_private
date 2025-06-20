@@ -695,12 +695,8 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"]
-            lengths_lg = tokenized_agent["lengths_lg"]
-            pos_lg = tokenized_agent["pos_lg"]
-            orient_lg = tokenized_agent["orient_lg"]
 
-            lg_sinusoidal = self.rotary_embedding(pos_lg, orient_lg)
-            lg_sinusoidal = padding(lg_sinusoidal, lengths_lg)
+            lg_sinusoidal=self.light_encoder.get_lg_sinusoidal(tokenized_agent)
 
             noised_light_idx = light_idx.clone()
 
@@ -732,7 +728,7 @@ class SMARTAgentDecoder(nn.Module):
             # mask=torch.cat([mask,light_mask],dim=0)
 
         next_token_logits,next_light_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,lg_sinusoidal)#,feat_lg,lg_sinusoidal
-#
+
         if self.n_token_agent>1:
             tokenized_agent["next_token_logits"] = next_token_logits
             tokenized_agent["next_light_logits"] = next_light_logits
@@ -804,14 +800,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
-            lengths_lg = tokenized_agent["lengths_lg"]
-            pos_lg = tokenized_agent["pos_lg"]
-            orient_lg = tokenized_agent["orient_lg"]
-
-            lg_sinusoidal = self.rotary_embedding(pos_lg, orient_lg)
-            lg_sinusoidal = padding(lg_sinusoidal, lengths_lg)
-
-            # sampled_idx=torch.cat([sampled_idx,light_idx],dim=1)
+            lg_sinusoidal = self.light_encoder.get_lg_sinusoidal(tokenized_agent)
         else:
             lg_sinusoidal = None
             light_idx = torch.zeros([1,1])
