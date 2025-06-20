@@ -143,9 +143,9 @@ class IQ_SoftQ(LightningModule):
             for i in range(log_pi_stack.shape[2]):
                 log_prob1[:,rolling_action.shape[1]-i:,i]=0
 
-            log_prob2=log_prob1.sum(-1)/(log_prob1!=0).sum(-1)
+            log_prob=log_prob1.sum(-1)/(log_prob1!=0).sum(-1)
 
-            log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+            # log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
 
 
             #log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
