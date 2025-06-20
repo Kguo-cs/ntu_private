@@ -33,6 +33,17 @@ import  math
 #              topk_idx[dist_mask]] = False
 #
 #     return a2a_mask
+def build_batch( batch, num_graphs, n_step):
+    batch = torch.cat(
+        [
+            batch + num_graphs * t
+            for t in range(n_step)
+        ],
+        dim=0,
+    )  # [n_agent*n_step]
+
+    return batch
+
 
 def nearest_mask(padd_pos, nearest_k, max_dist, mask):
     # padd_pos: [B, N, D]

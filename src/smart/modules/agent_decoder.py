@@ -27,7 +27,7 @@ from src.smart.utils import (
 )
 from torch.distributions import Categorical
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest_head,radiusGraphNearest_inv
+    radiusGraphNearest_head,radiusGraphNearest_inv,build_batch
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.utils.rollout import cal_polygon_contour
 from src.smart.loss.gmm_dist import  GMM_Dist
@@ -213,156 +213,69 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_a = self.light_encoder.temporal_embed(feat_a_token,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
 
-        if self.use_gnn:
-            batch_s = torch.cat(
-                [
-                    tokenized_agent["batch"] + tokenized_agent["num_graphs"] * t
-                    for t in range(n_step)
-                ],
-                dim=0,
-            )  # [n_agent*n_step]
+        batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 
-            batch_pl = torch.cat(
-                [
-                    map_feature["batch"] + tokenized_agent["num_graphs"] * t
-                    for t in range(n_step)
-                ],
-                dim=0,
-            )  # [n_pl*n_step]
+        batch_pl = build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
 
-            edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-                pos_pl=map_feature["position"],  # [n_pl, 2]
-                orient_pl=map_feature["orientation"],  # [n_pl]
+        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+            pos_pl=map_feature["position"],  # [n_pl, 2]
+            orient_pl=map_feature["orientation"],  # [n_pl]
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask,  # [n_agent, n_step]
+            batch_s=batch_s,  # [n_agent*n_step]
+            batch_pl=batch_pl,  # [n_pl*n_step]
+            pl2a_radius=self.pl2a_radius,
+            max_num_neighbors=self.pt2a_neighbor
+        )
+
+        edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            batch_s=batch_s,  # [n_agent*n_step]
+            mask=mask,  # [n_agent, n_step]
+            max_radius=self.a2a_radius,
+            max_num_neighbors=self.a2a_neighbor
+        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+        feat_a = feat_a.transpose(0, 1).flatten(0, 1)
+        feat_map = (
+            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        )
+
+        feat_a = self.pt2a_attn_layers[0](
+            (feat_map, feat_a), r_pl2a, edge_index_pl2a
+        )
+
+        if self.pred_light:
+            feat_lg, next_light_logits = self.light_encoder.predict_light(light_idx, lg_sinusoidal,  tokenized_agent["lengths_lg"], n_current)
+
+            batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
+
+            edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
+                pos_pl= tokenized_agent["pos_lg"],  # [n_pl, 2]
+                orient_pl=tokenized_agent["orient_lg"],  # [n_pl]
                 pos_a=pos_a,  # [n_agent, n_step, 2]
                 head_a=head_a,  # [n_agent, n_step]
                 head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
                 mask=mask,  # [n_agent, n_step]
                 batch_s=batch_s,  # [n_agent*n_step]
-                batch_pl=batch_pl,  # [n_pl*n_step]
-                pl2a_radius=self.pl2a_radius,
-                max_num_neighbors=self.pt2a_neighbor
+                batch_pl=batch_lg,  # [n_pl*n_step]
+                pl2a_radius=100,
+                max_num_neighbors=10
             )
-
-            edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
-                pos_a=pos_a,  # [n_agent, n_step, 2]
-                head_a=head_a,  # [n_agent, n_step]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                batch_s=batch_s,  # [n_agent*n_step]
-                mask=mask,  # [n_agent, n_step]
-                max_radius=self.a2a_radius,
-                max_num_neighbors=self.a2a_neighbor
-            )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
-
-            feat_a = feat_a.transpose(0, 1).flatten(0, 1)
-            feat_map = (
-                map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+            feat_a = self.light_encoder.lg2a_attn_layers[0](
+                (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
             )
-
-            feat_a = self.pt2a_attn_layers[0](
-                (feat_map, feat_a), r_pl2a, edge_index_pl2a
-            )
-
-            if self.pred_light:
-                feat_lg, next_light_logits = self.light_encoder.predict_light(light_idx, lg_sinusoidal,
-                                                                              tokenized_agent["lengths_lg"], n_current)
-
-                pos_lg = tokenized_agent["pos_lg"]
-                head_lg = tokenized_agent["orient_lg"]
-                batch_lg = tokenized_agent["batch_lg"]
-
-                batch_lg = torch.cat(
-                    [
-                        batch_lg + tokenized_agent["num_graphs"] * t
-                        for t in range(n_step)
-                    ],
-                    dim=0,
-                )
-
-                edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
-                    pos_pl=pos_lg,  # [n_pl, 2]
-                    orient_pl=head_lg,  # [n_pl]
-                    pos_a=pos_a,  # [n_agent, n_step, 2]
-                    head_a=head_a,  # [n_agent, n_step]
-                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                    mask=mask,  # [n_agent, n_step]
-                    batch_s=batch_s,  # [n_agent*n_step]
-                    batch_pl=batch_lg,  # [n_pl*n_step]
-                    pl2a_radius=100,
-                    max_num_neighbors=10
-                )
-                feat_a = self.light_encoder.lg2a_attn_layers[0](
-                    (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
-                )
-            else:
-                next_light_logits=None
-
-                # feat_a=self.light_encoder.light2agent(tokenized_agent,feat_a,feat_lg, n_step,pos_a,head_a,head_vector_a,mask,batch_s)
-
-            feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
-            feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
         else:
-            sinusoidal_a = self.rotary_embedding(pos_a, head_a)
-            lengths_a = torch.bincount(tokenized_agent["batch"]).tolist()
-            padded_a_feature = padding(feat_a, lengths_a)
-            feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
+            next_light_logits = None
 
-            pt_feature = map_feature["padded_pt"]
-            map_mask = map_feature["map_mask"]
-            map_sinusoidal = map_feature["map_sinusoidal"]
-            pt_pos = map_feature["padd_pos"]
-            pt_heading = map_feature["padd_heading"]
+            # feat_a=self.light_encoder.light2agent(tokenized_agent,feat_a,feat_lg, n_step,pos_a,head_a,head_vector_a,mask,batch_s)
 
-            agent_sinusoidal = padding(sinusoidal_a, lengths_a)
-            padd_pos = padding(pos_a, lengths_a)
-            padding_mask = padding(mask_a[:, -n_step:], lengths_a, padding_value=True)
-            padd_head = padding(head_a, lengths_a)
-            padd_head_vector = padding(head_vector_a, lengths_a)
-
-            pt2a_mask= map_mask | padding_mask.flatten(1, 2)[:,:,None]
-
-            pt2a_mask = nearest_mask2(padd_pos.flatten(1, 2),pt_pos, self.pt2a_neighbor, self.pl2a_radius, pt2a_mask)
-
-            if feat_lg is not None:
-                sinusoidal_lg = tokenized_agent["sinusoidal_lg"]
-                sinusoidal_lg = sinusoidal_lg.repeat_interleave(n_step,dim=0)
-                feat_lg=feat_lg.flatten(1, 2)
-                padded_a_feature = self.lg2a_roformer(padded_a_feature, None, agent_sinusoidal,    feat_lg, sinusoidal_lg )
-
-            # r_a2pt = self.build_full_interaction_r_a2a(padd_pos.flatten(1, 2), padd_head.flatten(1, 2), padd_head_vector.flatten(1, 2),pt_pos, pt_heading,
-            #                                           pt2a_mask)
-            r_a2pt=None
-
-            padding_agent_mask = padding_mask.swapaxes(1, 2).flatten(0, 1)
-
-            padd_pos = padd_pos.swapaxes(1, 2).flatten(0, 1)
-
-            a2a_mask = padding_agent_mask[:, None] | padding_agent_mask[:, :, None]
-
-            a2a_mask = nearest_mask(padd_pos, self.a2a_neighbor, self.a2a_radius, a2a_mask)
-
-            #padd_head = padd_head.swapaxes(1, 2).flatten(0, 1)
-            #padd_head_vector = padd_head_vector.swapaxes(1, 2).flatten(0, 1)
-
-            # r_a2a = self.build_full_interaction_r_a2a(padd_pos, padd_head, padd_head_vector, padd_pos, padd_head,
-            #                                           a2a_mask)
-            r_a2a=None
-
-            for i in range(len(self.pt2a_roformer)):
-                padded_a_feature=padded_a_feature.flatten(1, 2)
-
-                sinusoidal_a=agent_sinusoidal.flatten(1, 2)
-
-                padded_a_feature = self.pt2a_roformer[i](padded_a_feature, pt2a_mask[:,None], sinusoidal_a,    pt_feature, map_sinusoidal,r_a2pt )
-
-                padded_a_feature=padded_a_feature.reshape(len(lengths_a),-1,n_step,self.hidden_dim).swapaxes(1,2).flatten(0,1)
-
-                sinusoidal_a=agent_sinusoidal.swapaxes(1,2).flatten(0, 1)
-
-                padded_a_feature = self.a2a_roformer[i](padded_a_feature, a2a_mask[:,None], sinusoidal_a,pos_embeding=r_a2a)
-
-                padded_a_feature=padded_a_feature.reshape(len(lengths_a),n_step,-1,padded_a_feature.shape[-1]).swapaxes(1,2)
-
-            feat_a = padded_a_feature[feature_mask]
+        feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
+        feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         if self.output_gmm:
             next_logits = self.gmm_logits_head(feat_a)
@@ -410,7 +323,6 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
     ) -> Dict[str, torch.Tensor]:
-
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"]
 
@@ -429,7 +341,7 @@ class SMARTAgentDecoder(nn.Module):
             noised_light_idx = None
             lg_sinusoidal = None
 
-        sampled_idx=tokenized_agent["sampled_idx"].long()
+        sampled_idx = tokenized_agent["sampled_idx"].long()
         mask = tokenized_agent["valid_mask"]
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
@@ -449,49 +361,7 @@ class SMARTAgentDecoder(nn.Module):
 
             next_token_logits = torch.cat([next_token_logits, next_light_logits], dim=0)
 
-        if self.mixing:
-            batch=tokenized_agent["batch"]
-
-            q_value=next_token_logits[:, 1:]
-
-            q = q_value[:, :-1]
-
-            action = tokenized_agent["sampled_idx"][:, 2:].reshape(-1)
-
-            Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-
-            lengths_a = torch.bincount(batch).tolist()
-
-            agent_qs=padding(Q,lengths_a).swapaxes(1,2)
-
-            agent_states=padding(feat_a[:,1:],lengths_a,padding_value=-1e10).swapaxes(1,2)
-
-            state_mask = padding(~mask[:,1:],lengths_a,padding_value=True).swapaxes(1,2)
-
-            states=agent_states.amax(dim=2)
-
-            agent_mask=(~state_mask).all(1)[:,None]
-
-            state_mask=~agent_mask.repeat(1,state_mask.shape[1],1)
-
-            total_q=(agent_qs*agent_mask).sum(dim=2)
-
-            #total_q=self.Q_mixer(agent_qs.flatten(0,1), states[:,:-1].flatten(0,1),agent_states[:,:-1].flatten(0,1),state_mask[:,:-1].flatten(0,1)).reshape(-1,Q.shape[1])
-
-            V = self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-
-            agent_value=padding(V,lengths_a).swapaxes(1,2)
-
-            total_v=(agent_value*agent_mask).sum(dim=2)
-
-            #total_v=self.Q_mixer(agent_value.flatten(0,1),states.flatten(0,1),agent_states.flatten(0,1),state_mask.flatten(0,1)).reshape(-1,V.shape[1])
-        else:
-            total_q=0
-            total_v=0
-
         return {
-            "total_q": total_q,
-            "total_v":total_v,
             "feat_a": feat_a[:,1:],
              "q_value": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
          }
