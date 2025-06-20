@@ -722,11 +722,18 @@ class GUI(Process):
             if _type in [1,4,10]:#['divider', 'ped_crossing', 'boundary']
                 polyline = self.mp_xyz[i][:, :2]
 
-                dx = polyline[:,0] - ego_x
-                dy = polyline[:,1] - ego_y
+                tran_x, tran_y, tran_yaw = transform(
+                    (polyline[:,0], polyline[:,1], 0), (ego_x, ego_y, ego_yaw)
+                )
+                x_new, y_new, tran_yaw = transform(
+                    (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
+                )
 
-                x_new = dx * np.cos(ego_yaw) + dy * np.sin(ego_yaw)
-                y_new = -dx * np.sin(ego_yaw) + dy * np.cos(ego_yaw)
+                # dx = polyline[:,0] - ego_x
+                # dy = polyline[:,1] - ego_y
+
+                # x_new = dx * np.cos(ego_yaw) + dy * np.sin(ego_yaw)
+                # y_new = -dx * np.sin(ego_yaw) + dy * np.cos(ego_yaw)
 
                 x_mask=(x_new>-self.patch_size[0]//2) & (x_new<self.patch_size[0]//2)
                 y_mask=(y_new>-self.patch_size[1]//2) & (y_new<self.patch_size[1]//2)
