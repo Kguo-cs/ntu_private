@@ -129,9 +129,9 @@ class IQ_SoftQ(LightningModule):
 
             pi = torch.softmax( q / self.alpha, dim=-1)
 
-            logpi= torch.log(pi + 1e-10)
+            logpi= torch.log(pi )#+ 1e-10
 
-            log_pi_stack=torch.log_softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1)
+            log_pi_stack=torch.log_softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1).clamp_min(min=np.log(1e-5))
 
             rolling_action = torch.stack([
                         torch.roll(action, shifts=-i, dims=1)
@@ -145,7 +145,9 @@ class IQ_SoftQ(LightningModule):
 
             log_prob=log_prob1.sum(-1)/(log_prob1!=0).sum(-1)
 
-            # log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+            # log_prob1=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+            #
+            # print(torch.all(log_prob==log_prob1))
 
 
             #log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
@@ -154,9 +156,6 @@ class IQ_SoftQ(LightningModule):
 
             if self.encoder.agent_encoder.pred_res and key=="expert":
                 actor_loss = torch.abs(traj-tokenized_agent["target"][:,2:]).mean(-1)
-
-                # actor_loss = torch.linalg.norm(traj.reshape(-1,traj.shape[1],4,2)-tokenized_agent["target"][:,2:],dim=-1).mean(-1)
-
             else:
                 actor_loss=self.alpha * log_prob - current_Q
 
@@ -168,22 +167,6 @@ class IQ_SoftQ(LightningModule):
 
         reward = current_Q - y
         value_loss = current_V - y
-
-        # if self.encoder.agent_encoder.mixing:
-        #     total_q=result["total_q"]
-        #     total_v=result["total_v"]
-        #
-        #     dones = torch.zeros_like(total_v[:, 1:])
-        #
-        #     dones[:, -1] = 1
-        #
-        #     y = self.gamma * (1 - dones) *  total_v[:, 1:]
-        #     total_reward=total_q-y
-        #
-        #     total_value_loss= total_v[:, :-1]-y
-        # else:
-        #     total_reward=0
-        #     total_value_loss=0
 
         return actor_loss,log_prob,entropy,current_Q,v_value,value_loss,reward,dones,logpi
 
