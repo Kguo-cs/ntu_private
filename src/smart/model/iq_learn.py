@@ -131,19 +131,20 @@ class IQ_SoftQ(LightningModule):
 
             logpi= torch.log(pi + 1e-10)
 
-            # log_pi_stack=torch.log_softmax(pred["q_value"][:, :-1], dim=-1)
-            #
-            # rolling_action = torch.stack([
-            #             torch.roll(action, shifts=-i, dims=1)
-            #             for i in range(log_pi_stack.shape[2])
-            #         ], dim=-2)  # [B, Tm1, T_a]
-            #
-            # log_prob=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
-            #
-            # for i in range(log_pi_stack.shape[2]):
-            #     log_prob[:,rolling_action.shape[1]-i:,i]=0
-            #
-            # log_prob=log_prob.sum(-1)/(log_prob!=0).sum(-1)
+            log_pi_stack=torch.log_softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1)
+
+            rolling_action = torch.stack([
+                        torch.roll(action, shifts=-i, dims=1)
+                        for i in range(log_pi_stack.shape[2])
+                    ], dim=-2)  # [B, Tm1, T_a]
+
+            log_prob1=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
+
+            for i in range(log_pi_stack.shape[2]):
+                log_prob1[:,rolling_action.shape[1]-i:,i]=0
+
+            log_prob2=log_prob1.sum(-1)/(log_prob1!=0).sum(-1)
+
             log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
 
 
