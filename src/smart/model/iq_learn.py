@@ -119,7 +119,7 @@ class IQ_SoftQ(LightningModule):
                 traj=q[:,:,self.n_token_agent:]
                 q=q[:,:,:self.n_token_agent]
 
-            current_Q = q.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
+            current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
             v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
@@ -132,15 +132,20 @@ class IQ_SoftQ(LightningModule):
             logpi= torch.log(pi + 1e-10)
 
             log_pi_stack=torch.log_softmax(pred["q_value"][:, :-1], dim=-1)
-            log_prob=torch.zeros_like(log_pi_stack[:,:,:,0])
 
-            for i  in range(log_pi_stack.shape[2]):
-                a=action.reshape(log_prob.shape[0], log_prob.shape[1])[:,i:]
-                act=a.reshape(-1)
-                log_prob[:, :log_prob.shape[1] - i, i]=log_pi_stack[:,:log_prob.shape[1]-i,i].reshape(len(act), -1)[torch.arange(len(act)), act].reshape(a.shape[0], a.shape[1])
+            rolling_action = torch.stack([
+                        torch.roll(action, shifts=-i, dims=1)
+                        for i in range(log_pi_stack.shape[2])
+                    ], dim=-2)  # [B, Tm1, T_a]
+
+            log_prob=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
+
+            for i in range(log_pi_stack.shape[2]):
+                log_prob[:,rolling_action.shape[1]-i:,i]=0
+
+            log_prob=log_prob.sum(-1)/(log_prob!=0).sum(-1)
 
             #log_prob=logpi.reshape(len(action), -1)[torch.arange(len(action)), action].reshape(q.shape[0], q.shape[1])
-            log_prob=log_prob.sum(-1)/(log_prob!=0).sum(-1)#.shape[2]
 
             entropy = -torch.sum(pi * logpi, dim=-1)
 
@@ -188,7 +193,7 @@ class IQ_SoftQ(LightningModule):
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.encoder.agent_encoder.light_type-1)
             action = torch.cat([action, light_action])
 
-        action = action.reshape(-1).long()
+        action = action.unsqueeze(-1) #.reshape(-1).long()
         all_valid_mask=valid_mask.all(-1)#train_mask #
 
         actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,logpi=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)

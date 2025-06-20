@@ -117,7 +117,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.output_gmm = output_gmm
             self.n_token_agent = n_token_agent
-            self.predict_step = 2
+            self.predict_step = 1
 
             if self.output_gmm:
                 k_ego_gmm=1
@@ -285,7 +285,6 @@ class SMARTAgentDecoder(nn.Module):
             if self.n_token_agent>1:
 
                 #feat_a=self.fut_feature(feat_a)
-
                 next_token_logits = self.token_predict_head(feat_a).reshape(n_agent,n_step,self.predict_step,-1)
 
                 if not self.training:
