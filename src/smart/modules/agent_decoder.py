@@ -177,7 +177,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_light = True
 
         if self.pred_light:
-            self.light_type = 4
+            self.light_type = token_processor.light_type
 
             self.light_encoder = LightEncoder(hidden_dim,time_span,num_heads,self.light_type,self.shift)
 
@@ -272,8 +272,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits = None
 
-            # feat_a=self.light_encoder.light2agent(tokenized_agent,feat_a,feat_lg, n_step,pos_a,head_a,head_vector_a,mask,batch_s)
-
         feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
@@ -338,8 +336,7 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx[random_mask] = random_light[random_mask]
         else:
-            noised_light_idx = None
-            lg_sinusoidal = None
+            noised_light_idx =lg_sinusoidal = None
 
         sampled_idx = tokenized_agent["sampled_idx"].long()
         mask = tokenized_agent["valid_mask"]
