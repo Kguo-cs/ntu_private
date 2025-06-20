@@ -79,10 +79,10 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent = self.tokenize_agent(data)
 
-            if "light_idx" in data.keys():
+            if "light_polyline" in data.keys():
                 light=data["light"]
 
-                light_idx=light["light_idx"]
+                light_idx=light["type"]
 
                 light_match=torch.all(light_idx[None]==self.light_token_all[:,None,None],dim=-1)
 
@@ -91,7 +91,7 @@ class TokenProcessor(torch.nn.Module):
                 light_idx=self.light_token_last[light_idx]
 
                 tokenized_agent["light_idx"]=light_idx
-                pos_lg=light["light_pos"]
+                pos_lg=light["pos"]
                 orient_lg=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])#light["light_orient"]#
                 batch_lg=light["batch"]
                 lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()

@@ -131,7 +131,7 @@ class IQ_SoftQ(LightningModule):
 
             logpi= torch.log(pi+ 1e-10 )
 
-            log_pi_stack=torch.log(torch.softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1)+ 1e-8 )#.clamp_min(min=np.log(1e-10))
+            log_pi_stack=torch.log(torch.softmax(pred["q_value"][:, :-1]/ self.alpha, dim=-1)+ 1e-10 )#.clamp_min(min=np.log(1e-10))
 
             rolling_action = torch.stack([
                         torch.roll(action, shifts=-i, dims=1)
@@ -140,13 +140,15 @@ class IQ_SoftQ(LightningModule):
 
             log_prob1=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
 
+            valid_mask=torch.ones_like(log_prob1)
             for i in range(log_pi_stack.shape[2]):
                 log_prob1[:,rolling_action.shape[1]-i:,i]=0
+                valid_mask[:,rolling_action.shape[1]-i:,i]=0
 
-            log_prob=log_prob1.sum(-1)/(log_prob1!=0).sum(-1)
+            log_prob=log_prob1.sum(-1)/valid_mask.sum(-1)
 
-            # log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
-
+            # log_prob1=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+            #print(torch.all(log_prob1==log_prob))
             entropy = -torch.sum(pi * logpi, dim=-1)
 
             if self.encoder.agent_encoder.pred_res and key=="expert":

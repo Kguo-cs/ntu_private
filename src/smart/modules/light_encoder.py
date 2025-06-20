@@ -212,7 +212,7 @@ class LightEncoder(nn.Module):
 
         #        feat_lg=self.predict_feature(feat_lg)
 
-        next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step, self.predict_step, -1)
+        next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step, self.predict_step, self.light_type)
 
         return feat_lg, next_light_logits
 
