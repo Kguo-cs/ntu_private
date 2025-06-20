@@ -331,8 +331,11 @@ class SimulationManager:
                     num_historical_steps=current_time_index + 1,
                     num_steps=91,
                 )
-                data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"])
-                data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"])
+                data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
+                data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
+
+                data["light"] = process_light(map_infos, tf_lights, tf_current_light)
+                data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1
