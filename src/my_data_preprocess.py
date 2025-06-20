@@ -109,8 +109,6 @@ def get_agent_routes(data,map_infos):
     data["agent"]["route"]=route
     data["agent"]["next_route"]=next_route
 
-
-
 def interpolate_polyline(polyline: torch.Tensor, num_points: int = 10) -> torch.Tensor:
     # Step 1: Compute segment lengths
     segment_vectors = polyline[1:] - polyline[:-1]  # (N-1, 2)
@@ -157,12 +155,12 @@ def process_light(map_infos,tf_lights,tf_current_light):
 
     light_pos=np.zeros([len(current_light_ids),2])
     light_polyline=np.zeros([len(current_light_ids),10,2])
-    light_all = torch.zeros((len(current_light_ids), 90), dtype=torch.int8)
+    light_idx = torch.zeros((len(current_light_ids), 91), dtype=torch.int8)
 
     for i, current_light_id in enumerate(current_light_ids):
-        light_idx=polygon_ids.index(current_light_id)
+        current_light_idx=polygon_ids.index(current_light_id)
 
-        polyline_range=polyline_index[light_idx]
+        polyline_range=polyline_index[current_light_idx]
 
         polylines=all_polylines[polyline_range[0]:polyline_range[1]]
         euclidean_dists = np.linalg.norm(polylines[1:, :2] - polylines[:-1, :2], axis=-1)
@@ -184,14 +182,6 @@ def process_light(map_infos,tf_lights,tf_current_light):
 
         light_polyline[i]=new_polylines-start_pos[None]
 
-    # light_all1 = torch.zeros([len(current_light_ids), 90],dtype=torch.int8)
-    #
-    # for t in range(1,91):
-    #     light_t = tf_lights.loc[tf_lights["time_step"] == t]
-    #     for i, light_id in enumerate(current_light_ids):
-    #         res = light_t[light_t["lane_id"] == light_id.item()]
-    #         if len(res):
-    #             light_all1[i][t-1] = _polygon_light_type.index(res["state"].item())
     if len(current_light_ids):
         # Create a mapping from lane_id to index in light_all
         lane_id_to_index = {lid.item(): idx for idx, lid in enumerate(current_light_ids)}
@@ -200,8 +190,8 @@ def process_light(map_infos,tf_lights,tf_current_light):
         tf_lights_filtered = tf_lights[tf_lights["lane_id"].isin(lane_id_to_index)]
 
         # Also filter to time_step in 1–90
-        tf_lights_filtered = tf_lights_filtered[
-            (tf_lights_filtered["time_step"] >= 1) & (tf_lights_filtered["time_step"] <= 90)]
+        # tf_lights_filtered = tf_lights_filtered[tf_lights_filtered["time_step"]%5==0]
+            # (tf_lights_filtered["time_step"] >= 0) & (tf_lights_filtered["time_step"] <= 90)]
 
         # Map lane_id to row index
         tf_lights_filtered = tf_lights_filtered.copy()  # to avoid SettingWithCopyWarning
@@ -215,18 +205,22 @@ def process_light(map_infos,tf_lights,tf_current_light):
         # Use .itertuples() for faster iteration and assign to tensor
         for row in tf_lights_filtered.itertuples(index=False):
             i = row.row_idx
-            t = row.time_step - 1  # convert to 0-based index
+            t = row.time_step // 5   # convert to 0-based index
             s = row.state_idx
             if pd.notna(i) and pd.notna(s):
-                light_all[i, t] = s
+                light_idx[i, t] = s
 
-    light_idx=light_all[:,4::5]
+    # light_idx=light_all[:,1::]
+
+    light_polyline=torch.FloatTensor(light_polyline).reshape(-1,20)
+
+    light_orient=torch.atan2(light_polyline[:, -1], light_polyline[:, -2])
 
     light={
         "light_idx": light_idx,
         "light_pos": torch.FloatTensor(light_pos),
-        "light_orient": torch.FloatTensor(light_polyline).reshape(-1,20),
-        "num_nodes": light_all.shape[0]
+        "light_orient": torch.FloatTensor(light_orient),
+        "num_nodes": light_idx.shape[0]
     }
     return light
 
@@ -263,41 +257,9 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             num_steps=91,
         )
 
-        data={}
+        # data={}
 
         data["light"]=process_light(map_infos,tf_lights,tf_current_light)
-
-        # data = HeteroData(data).cuda()
-        #
-        # tokenized_map, tokenized_agent = token_processor(data)
-        #
-        # tokenized_agent.pop('gt_pos_raw', None)
-        # tokenized_agent.pop("gt_head_raw", None)
-        # tokenized_agent.pop("gt_valid_raw", None)
-        # tokenized_agent.pop('gt_z_raw', None)
-        # tokenized_agent.pop('gt_idx', None)
-        # tokenized_agent.pop('gt_heading', None)
-        # tokenized_agent.pop('gt_pos', None)
-        #
-        # for key in tokenized_map.keys():
-        #     tokenized_map[key] = tokenized_map[key].cpu()
-        #
-        # for key in tokenized_agent.keys():
-        #     tokenized_agent[key] = tokenized_agent[key].cpu()
-        #
-        # tokenized_map["token_idx"] = tokenized_map["token_idx"].to(torch.int16)
-        # tokenized_agent["sampled_idx"] = tokenized_agent["sampled_idx"].to(torch.int16)
-        #
-        # tokenized_map["num_nodes"] = len(tokenized_map["position"])
-        # tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
-        #
-        # tokenized_light={}
-        # tokenized_light["light_token"] = light_token
-        # tokenized_light["light_pos"] = light_pos
-        # tokenized_light["light_polyline"] = light_polyline
-        # tokenized_light["num_nodes"] = len(light_token)
-        #
-        # data = {"tokenized_map": tokenized_map, "tokenized_agent": tokenized_agent,"tokenized_light":tokenized_light}
 
         data["scenario_id"] = scenario_id
         with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
@@ -307,10 +269,6 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
         #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
         #         file_writer.write(tf_data)
-        # print(time.time()-time1)
-
-        #print(1/0)
-
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir = Path(output_dir)
@@ -346,7 +304,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 

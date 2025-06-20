@@ -38,8 +38,8 @@ from TrafficManager.utils.map_utils import (
 import hydra
 from waymo_open_dataset.protos import scenario_pb2
 import tensorflow as tf
-from src.data_preprocess import decode_tracks_from_proto,decode_map_features_from_proto,decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,_polygon_types,_polygon_light_type,preprocess_map
-
+from src.my_data_preprocess import (decode_tracks_from_proto,decode_map_features_from_proto,
+                                    decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,process_light,preprocess_map)
 from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
@@ -270,6 +270,8 @@ class SimulationManager:
             tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
             tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
 
+            tokenized_agent["light_idx"] = pred_dict["light_idx"]
+
 
 
 
@@ -279,9 +281,10 @@ class SimulationManager:
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
+        light_idx = tokenized_agent["light_idx"]
         agent_pos=pos[:,self.timestamp%5].cpu().numpy()
         agent_head=heading[:,self.timestamp%5].cpu().numpy()
-        self.model.renderQueue.put((agent_pos,agent_head,agent_type,self.timestamp))
+        self.model.renderQueue.put((agent_pos,agent_head,agent_type,light_idx,self.timestamp))
 
         rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
         #self.model.renderQueue.put(self.timestamp)
@@ -396,7 +399,7 @@ class SimulationManager:
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
 
-        self.planner.load_state_dict(state_dict)
+        # self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 
