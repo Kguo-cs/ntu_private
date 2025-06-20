@@ -184,12 +184,7 @@ class SMARTAgentDecoder(nn.Module):
         self.mixing=False
         # self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
         self.token_processor= token_processor
-
         self.apply(weight_init)
-        # if self.mixing:
-        #     self.Q_mixer = QattenMixer(hidden_dim, 4)
-            #self.V_mixer = QattenMixer(hidden_dim, 4)
-
 
     def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,lg_sinusoidal=None, n_current=0):
         n_agent, n_step = head_a.shape
@@ -266,7 +261,7 @@ class SMARTAgentDecoder(nn.Module):
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100,
-                max_num_neighbors=10
+                max_num_neighbors=8
             )
             feat_a = self.light_encoder.lg2a_attn_layers[0](
                 (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
