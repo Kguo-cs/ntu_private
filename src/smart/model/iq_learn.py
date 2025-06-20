@@ -46,7 +46,7 @@ class IQ_SoftQ(LightningModule):
 
         pred = network(tokenized_map, tokenized_agent)
 
-        q_value = pred["q_value"]#[:,:,0]
+        q_value = pred["q_value"][:,:,0]
 
         if self.output_gmm:
             dist =  GMM_Dist(q_value)

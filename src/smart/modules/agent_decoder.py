@@ -287,9 +287,9 @@ class SMARTAgentDecoder(nn.Module):
                 #feat_a=self.fut_feature(feat_a)
                 next_token_logits = self.token_predict_head(feat_a).reshape(n_agent,n_step,self.predict_step,-1)
 
-               # if not self.training:
-                next_token_logits=next_token_logits[:,:,0]
-                next_light_logits=next_light_logits[:,:,0]
+                if not self.training:
+                    next_token_logits=next_token_logits[:,:,0]
+                    next_light_logits=next_light_logits[:,:,0]
 
                 if self.pred_res and self.training:
 
@@ -339,7 +339,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light:
             next_light_logits = torch.cat(
                 [next_light_logits,
-                    -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1], #next_light_logits.shape[2],
+                    -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],next_light_logits.shape[2],
                                             next_token_logits.shape[-1] - next_light_logits.shape[-1]],
                                             device=next_light_logits.device)], dim=-1)
 
