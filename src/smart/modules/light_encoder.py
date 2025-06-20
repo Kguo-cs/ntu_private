@@ -91,7 +91,7 @@ class LightEncoder(nn.Module):
         # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
         #
         # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
-        sinusoidal_pos = self.network.rotary_embedding(pos, heading, time)
+        sinusoidal_pos = network.rotary_embedding(pos, heading, time)
 
         if mask is not None:
             causal_mask = causal_mask[None, None] | mask[:, None, None, :]
