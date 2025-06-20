@@ -117,7 +117,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.output_gmm = output_gmm
             self.n_token_agent = n_token_agent
-            self.predict_step = 1
+            self.predict_step = 2
 
             if self.output_gmm:
                 k_ego_gmm=1
