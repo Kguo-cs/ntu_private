@@ -227,7 +227,7 @@ class LightEncoder(nn.Module):
 
             padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
 
-            padded_lg_feature = padded_lg_feature.reshape(n_light, n_step, -1, padded_lg_feature.shape[-1])
+            padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
 
             feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 

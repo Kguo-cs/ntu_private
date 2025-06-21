@@ -96,7 +96,8 @@ class EdgeEncoder(nn.Module):
             batch_s,  # [n_agent*n_step]
             batch_pl,  # [n_pl*n_step]
             pl2a_radius,
-            max_num_neighbors
+            max_num_neighbors,
+            mask_pl=None
     ):
         n_step = pos_a.shape[1]
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
@@ -121,6 +122,11 @@ class EdgeEncoder(nn.Module):
         #                                       max_num_neighbors=self.pt2a_neighbor)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
+
+        if mask_pl is not None:
+            mask_a2pl = mask_pl.transpose(0, 1).reshape(-1)
+            edge_index_pl2a=edge_index_pl2a[:,mask_a2pl[edge_index_pl2a[0]]]
+
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]

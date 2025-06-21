@@ -246,7 +246,8 @@ class SMARTAgentDecoder(nn.Module):
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100,
-                max_num_neighbors=8
+                max_num_neighbors=8,
+                mask_pl=mask_lg
             )
             feat_a = self.light_encoder.lg2a_attn_layers[0](
                 (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a

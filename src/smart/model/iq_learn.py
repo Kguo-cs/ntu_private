@@ -148,7 +148,6 @@ class IQ_SoftQ(LightningModule):
             log_prob=log_prob1.sum(-1)/valid_mask.sum(-1)
 
             # log_prob1=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
-            #print(torch.all(log_prob1==log_prob))
             entropy = -torch.sum(pi * logpi, dim=-1)
 
             if self.encoder.agent_encoder.pred_res and key=="expert":
