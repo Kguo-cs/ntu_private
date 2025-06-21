@@ -165,12 +165,12 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light:
             self.light_type = token_processor.light_type
 
-            self.light_encoder = LightEncoder(hidden_dim,time_span,num_heads,self.light_type,self.shift,self.predict_step)
+            self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,time_span,num_heads,self.light_type,self.shift,self.predict_step)
 
         self.token_processor= token_processor
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,lg_sinusoidal=None, n_current=0):
+    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0):
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -231,9 +231,10 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light and len(light_idx):
             mask_lg=mask[len(sampled_idx):]
 
-            feat_lg, next_light_logits = self.light_encoder(light_idx, mask_lg, lg_sinusoidal,  tokenized_agent, n_current)
-
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
+
+            feat_lg, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current)
+
 
             edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
                 pos_pl= tokenized_agent["pos_lg"],  # [n_pl, 2]
@@ -310,8 +311,6 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"]
 
-            lg_sinusoidal=self.light_encoder.get_lg_sinusoidal(tokenized_agent)
-
             noised_light_idx = light_idx.clone()
 
             random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
@@ -322,20 +321,20 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx[random_mask] = random_light[random_mask]
         else:
-            noised_light_idx =lg_sinusoidal = None
+            noised_light_idx  = None
 
         sampled_idx = tokenized_agent["sampled_idx"].long()
         mask = tokenized_agent["valid_mask"]
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
 
-        next_token_logits,next_light_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,lg_sinusoidal)
+        next_token_logits,next_light_logits,feat_a= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx)
 
         if self.n_token_agent>1:
             tokenized_agent["next_token_logits"] = next_token_logits
             tokenized_agent["next_light_logits"] = next_light_logits
 
-        if self.pred_light:
+        if next_light_logits is not None:
             next_light_logits = torch.cat(
                 [next_light_logits,
                     -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],next_light_logits.shape[2],
@@ -360,9 +359,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
-            lg_sinusoidal = self.light_encoder.get_lg_sinusoidal(tokenized_agent)
         else:
-            lg_sinusoidal = None
             light_idx = torch.zeros([0,2])
 
         if "gt_z_raw" in tokenized_agent.keys():
@@ -387,7 +384,7 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         next_light_logits = None
                 else:
-                    next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx,lg_sinusoidal)
+                    next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
                 if self.pred_light:
@@ -395,7 +392,7 @@ class SMARTAgentDecoder(nn.Module):
    
             else:
                 next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
-                                pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:,-1:],lg_sinusoidal,t - 1)
+                                pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:,-1:],t - 1)
 
             if self.output_gmm:
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]

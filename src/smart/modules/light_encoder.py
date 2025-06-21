@@ -35,6 +35,7 @@ from src.smart.loss.iq_loss import padding
 class LightEncoder(nn.Module):
     def __init__(
             self,
+            edge_encoder,
             hidden_dim: int,
             time_span: Optional[int],
             num_heads: int,
@@ -58,9 +59,10 @@ class LightEncoder(nn.Module):
 
         self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
 
-        self.use_gnn=False
+        self.use_gnn=True
 
         if self.use_gnn:
+            self.edge_encoder=edge_encoder
             self.lg2lg_layers = AttentionLayer(
                 hidden_dim=hidden_dim,
                 num_heads=num_heads,
@@ -93,7 +95,8 @@ class LightEncoder(nn.Module):
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type* self.predict_step)
 
-    #
+
+
     # def light2agent(self, feat_a, feat_lg, tokenized_agent, sinusoidal_lg, pos_a, head_a, n_step):
     #
     #     sinusoidal_a = self.rotary_embedding(pos_a, head_a)
@@ -177,7 +180,7 @@ class LightEncoder(nn.Module):
 
         return feat_lg,next_light_logits
 
-    def forward(self, light_idx, mask_lg, lg_sinusoidal, tokenized_agent, n_current=0):
+    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg,  n_current):
 
         n_light, n_step = light_idx.shape[0], light_idx.shape[1]
 
@@ -188,21 +191,25 @@ class LightEncoder(nn.Module):
         if self.use_gnn:
             pos_lg=tokenized_agent["pos_lg"]
             head_lg=tokenized_agent["orient_lg"]
-            batch_lg = tokenized_agent["batch_lg"]
             head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
 
-            edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
+            edge_index_lg2lg, r_lg2lg=self.edge_encoder.build_interaction_edge(
                 pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
                 head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
                 head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
                 batch_s=batch_lg,  # [n_agent*n_step]
-                mask=mask_lg  # [n_agent, n_step]
+                mask=mask_lg,  # [n_agent, n_step]
+                max_radius=60,
+                max_num_neighbors=10
             )
 
-            feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
+            feat_lg = self.lg2lg_layers(feat_lg.transpose(0, 1).flatten(0, 1), r_lg2lg, edge_index_lg2lg)
+
+            feat_lg=feat_lg.reshape( n_step, n_light, -1).swapaxes(0, 1)
 
         else:
             lengths=tokenized_agent["lengths_lg"]
+
             padded_lg_feature = padding(feat_lg, lengths)
 
             feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
@@ -212,13 +219,15 @@ class LightEncoder(nn.Module):
             padding_light_mask = padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0,
                                                                                                                    1)
 
+            lg_sinusoidal=self.get_lg_sinusoidal(tokenized_agent)
+
             lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
 
             lg2lg_mask = padding_light_mask[:, None, None]
 
             padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
 
-            padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
+            padded_lg_feature = padded_lg_feature.reshape(n_light, n_step, -1, padded_lg_feature.shape[-1])
 
             feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 
