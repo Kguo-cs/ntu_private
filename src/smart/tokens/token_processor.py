@@ -66,7 +66,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
-        self.light_type=4
+        self.light_type=5
 
         self.use_my=False
 

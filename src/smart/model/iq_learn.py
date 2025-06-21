@@ -131,7 +131,7 @@ class IQ_SoftQ(LightningModule):
 
             pi = torch.softmax( q / self.alpha, dim=-1)
 
-            logpi= torch.log(pi.clamp_min(min=1e-10) )#+ 1e-10
+            logpi= torch.log(pi)#+ 1e-10.clamp_min(min=1e-10)
 
             log_pi_stack=torch.log_softmax(all_q_value[:, :-1]/ self.alpha, dim=-1)
 
@@ -181,7 +181,7 @@ class IQ_SoftQ(LightningModule):
 
         log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
 
-        current_Q_diff, V_diff=get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
+        current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
         if self.encoder.agent_encoder.pred_light:
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
@@ -192,7 +192,6 @@ class IQ_SoftQ(LightningModule):
             real_light = tokenized_agent["light_idx"][:, 2:]
             light_acc = (light_pred == real_light)[train_mask[agent_num:]]
             self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-
             log_prob=torch.cat([log_prob,log_prob_light],dim=0)
 
         action_nll = -log_prob[train_mask].mean()
