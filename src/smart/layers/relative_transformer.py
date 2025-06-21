@@ -56,6 +56,7 @@ class RoFormerSelfAttention(nn.Module):
                  hidden_dim,
                  num_heads,
                  dropout,
+                 hist_len,
                  use_bias=True,
                  is_decoder=False,
                  rotary_value=False,
@@ -105,6 +106,8 @@ class RoFormerSelfAttention(nn.Module):
 
         self.pos_emb = pos_emb
 
+        self.hist_len=hist_len
+
         # self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         #
         # self.key_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
@@ -117,7 +120,7 @@ class RoFormerSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def kv_caching(self, caching_len):
+    def kv_caching(self,caching_len):
         self.caching_len = caching_len
         # self.cached_k=None
         # self.cached_v=None
@@ -473,7 +476,7 @@ class RoFormerBlock(nn.Module):
     def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_dim)
-        self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb)
+        self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb,hist_len=hist_len)
         self.norm2 = nn.LayerNorm(hidden_dim)
         self.attention_head_size=hidden_dim // num_heads
         self.mlp = nn.Sequential(

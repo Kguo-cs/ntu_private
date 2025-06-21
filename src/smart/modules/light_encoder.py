@@ -188,6 +188,8 @@ class LightEncoder(nn.Module):
 
         feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
 
+        mask_lg=mask_lg[:, -n_step:]
+
         if self.use_gnn:
             pos_lg=tokenized_agent["pos_lg"]
             head_lg=tokenized_agent["orient_lg"]
@@ -216,7 +218,7 @@ class LightEncoder(nn.Module):
 
             padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
 
-            padding_light_mask = padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0,
+            padding_light_mask = padding(mask_lg, lengths, padding_value=True).swapaxes(1, 2).flatten(0,
                                                                                                                    1)
 
             lg_sinusoidal=self.get_lg_sinusoidal(tokenized_agent)
