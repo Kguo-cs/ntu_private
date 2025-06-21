@@ -160,7 +160,7 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-        self.pred_light = True
+        self.pred_light = False
 
         if self.pred_light:
             self.light_type = token_processor.light_type
