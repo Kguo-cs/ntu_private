@@ -3,7 +3,7 @@ ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
 
 
-export PBS_JOBID=61330.pbs111 
+export PBS_JOBID=10806126.pbs101 
 
 
 

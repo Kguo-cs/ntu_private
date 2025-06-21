@@ -201,7 +201,7 @@ class LightEncoder(nn.Module):
                 head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
                 batch_s=batch_lg,  # [n_agent*n_step]
                 mask=mask_lg,  # [n_agent, n_step]
-                max_radius=100,
+                max_radius=60,
                 max_num_neighbors=10
             )
 
