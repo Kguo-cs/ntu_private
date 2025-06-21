@@ -26,8 +26,6 @@ from src.smart.utils import (
     wrap_angle,
 )
 from torch.distributions import Categorical
-from .build_edge import radiusGraphNearest2, nearest_mask, generate_limited_causal_mask, nearest_mask2, \
-    radiusGraphNearest_head, radiusGraphNearest_inv
 from torch.nn.utils.rnn import pad_sequence
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.loss.iq_loss import padding
@@ -82,23 +80,6 @@ class LightEncoder(nn.Module):
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type* self.predict_step)
 
-    def temporal_embed(self, feature, pos, heading, network, n_step, n_current, hist_len, mask):
-
-        causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
-
-        time = torch.arange(n_current, n_step + n_current, device=feature.device)[None, :, None]
-
-        # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
-        #
-        # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
-        sinusoidal_pos = network.rotary_embedding(pos, heading, time)
-
-        if mask is not None:
-            causal_mask = causal_mask[None, None] | mask[:, None, None, :]
-
-        feature = network(feature, causal_mask, sinusoidal_pos)
-
-        return feature
     #
     # def light2agent(self, feat_a, feat_lg, tokenized_agent, sinusoidal_lg, pos_a, head_a, n_step):
     #
@@ -188,7 +169,7 @@ class LightEncoder(nn.Module):
 
         feat_lg = self.light_embedding(light_idx)
 
-        feat_lg = self.temporal_embed(feat_lg, None, None, self.lg_t_roformer, n_step, n_current, self.light_hist,
+        feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current, self.light_hist,
                                       mask_lg)
 
         padded_lg_feature = padding(feat_lg, lengths)

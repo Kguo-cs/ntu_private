@@ -1,7 +1,6 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2018!
-qsub -I -l select=1:ngpus=1 -l walltime=3:00:00 -P 12002486
 
 
 export PBS_JOBID=61330.pbs111 
@@ -34,6 +33,9 @@ Gk@140286
 
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
+
+qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk

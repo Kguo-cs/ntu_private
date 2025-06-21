@@ -176,7 +176,7 @@ class IQ_SoftQ(LightningModule):
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
             action = torch.cat([action, light_action])
 
-        action = action.unsqueeze(-1) #.reshape(-1).long()
+        action = action.unsqueeze(-1).long() #.reshape(-1)
         all_valid_mask=valid_mask.all(-1)#train_mask #
 
         actor_loss,log_prob,entropy, current_Q, V,  value_loss, reward,dones,logpi=self.get_network_QV(self.encoder, tokenized_map, tokenized_agent,action,key)

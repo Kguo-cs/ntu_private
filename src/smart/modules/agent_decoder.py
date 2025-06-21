@@ -190,7 +190,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_a=~mask[:len(sampled_idx)]
 
-        feat_a = self.light_encoder.temporal_embed(feat_a_token,pos_a,head_a, self.a_t_roformer, n_step, n_current, self.agent_hist, mask_a)
+        feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, self.agent_hist, mask_a)
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 

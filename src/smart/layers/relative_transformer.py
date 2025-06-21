@@ -48,6 +48,8 @@ except ImportError:
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers import MLPLayer
 
+from src.smart.modules.build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
+    radiusGraphNearest_head,radiusGraphNearest_inv,build_batch
 
 class RoFormerSelfAttention(nn.Module):
     def __init__(self,
@@ -488,3 +490,21 @@ class RoFormerBlock(nn.Module):
         x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding)
         x = x + self.mlp(self.norm2(x))
         return x
+
+    def temporal_embed(self,feature, pos, heading, n_step, n_current, hist_len, mask):
+
+        causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
+
+        time = torch.arange(n_current, n_step + n_current, device=feature.device)[None, :, None]
+
+        # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
+        #
+        # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
+        sinusoidal_pos = self.rotary_embedding(pos, heading, time)
+
+        if mask is not None:
+            causal_mask = causal_mask[None, None] | mask[:, None, None, :]
+
+        feature = self.forward(feature, causal_mask, sinusoidal_pos)
+
+        return feature
