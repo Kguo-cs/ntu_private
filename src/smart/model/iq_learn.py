@@ -133,7 +133,7 @@ class IQ_SoftQ(LightningModule):
 
             logpi= torch.log(pi+ 1e-10)#.clamp_min(min=1e-10)
 
-            log_pi_stack=torch.log(torch.softmax(all_q_value[:, :-1]/ self.alpha, dim=-1)+ 1e-10)
+            log_pi_stack=torch.log_softmax(all_q_value[:, :-1]/ self.alpha, dim=-1)
 
             rolling_action = torch.stack([
                         torch.roll(action, shifts=-i, dims=1)
