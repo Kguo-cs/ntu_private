@@ -203,7 +203,7 @@ def process_light(map_infos,tf_lights,tf_current_light):
         # Use .itertuples() for faster iteration and assign to tensor
         for row in tf_lights_filtered.itertuples(index=False):
             i = row.row_idx
-            t = row.time_step // 5   # convert to 0-based index
+            t = row.time_step  # convert to 0-based index
             s = row.state_idx
             if pd.notna(i) and pd.notna(s):
                 light_idx[i, t] = s
@@ -276,7 +276,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[93:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[93:]
     # func = partial(
     #     wm2argo,
     #     split=split,

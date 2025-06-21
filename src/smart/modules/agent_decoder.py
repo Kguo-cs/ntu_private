@@ -83,7 +83,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.agent_hist = self.time_span // self.shift
 
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob)
+            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
             self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
 
@@ -160,7 +160,7 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-        self.pred_light = False
+        self.pred_light = True
 
         if self.pred_light:
             self.light_type = token_processor.light_type
@@ -188,9 +188,9 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a=pos_a[:,-n_step:]
 
-        mask_a=~mask[:len(sampled_idx)]
+        mask_a=mask[:len(sampled_idx)]
 
-        feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, self.agent_hist, mask_a)
+        feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 
@@ -202,7 +202,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_a=head_a,  # [n_agent, n_step]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            mask=mask,  # [n_agent, n_step]
+            mask=mask_a,  # [n_agent, n_step]
             batch_s=batch_s,  # [n_agent*n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
@@ -214,7 +214,7 @@ class SMARTAgentDecoder(nn.Module):
             head_a=head_a,  # [n_agent, n_step]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             batch_s=batch_s,  # [n_agent*n_step]
-            mask=mask,  # [n_agent, n_step]
+            mask=mask_a,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
@@ -229,9 +229,9 @@ class SMARTAgentDecoder(nn.Module):
         )
 
         if self.pred_light and len(light_idx):
-            mask_lg=~mask[len(sampled_idx):]
+            mask_lg=mask[len(sampled_idx):]
 
-            feat_lg, next_light_logits = self.light_encoder(light_idx, mask_lg, lg_sinusoidal,  tokenized_agent["lengths_lg"], n_current)
+            feat_lg, next_light_logits = self.light_encoder(light_idx, mask_lg, lg_sinusoidal,  tokenized_agent, n_current)
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 
@@ -241,7 +241,7 @@ class SMARTAgentDecoder(nn.Module):
                 pos_a=pos_a,  # [n_agent, n_step, 2]
                 head_a=head_a,  # [n_agent, n_step]
                 head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                mask=mask,  # [n_agent, n_step]
+                mask=mask_a,  # [n_agent, n_step]
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100,

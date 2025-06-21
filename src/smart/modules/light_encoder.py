@@ -56,8 +56,21 @@ class LightEncoder(nn.Module):
 
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
-        self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
-        self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
+        self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
+
+        self.use_gnn=False
+
+        if self.use_gnn:
+            self.lg2lg_layers = AttentionLayer(
+                hidden_dim=hidden_dim,
+                num_heads=num_heads,
+                head_dim=self.head_dim,
+                dropout=self.light_dropout,
+                bipartite=False,
+                has_pos_emb=True,
+            )
+        else:
+            self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
 
         self.lg2a_attn_layers = nn.ModuleList(
             [
@@ -164,32 +177,50 @@ class LightEncoder(nn.Module):
 
         return feat_lg,next_light_logits
 
-    def forward(self, light_idx, mask_lg, lg_sinusoidal, lengths, n_current=0):
+    def forward(self, light_idx, mask_lg, lg_sinusoidal, tokenized_agent, n_current=0):
+
         n_light, n_step = light_idx.shape[0], light_idx.shape[1]
 
         feat_lg = self.light_embedding(light_idx)
 
-        feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current, self.light_hist,
-                                      mask_lg)
+        feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
 
-        padded_lg_feature = padding(feat_lg, lengths)
+        if self.use_gnn:
+            pos_lg=tokenized_agent["pos_lg"]
+            head_lg=tokenized_agent["orient_lg"]
+            batch_lg = tokenized_agent["batch_lg"]
+            head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
 
-        feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
+            edge_index_lg2lg, r_lg2lg=self.build_interaction_edge(
+                pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
+                head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                batch_s=batch_lg,  # [n_agent*n_step]
+                mask=mask_lg  # [n_agent, n_step]
+            )
 
-        padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
+            feat_lg = self.lg2lg_layers(feat_lg, r_lg2lg, edge_index_lg2lg)
 
-        padding_light_mask = padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0,
-                                                                                                               1)
+        else:
+            lengths=tokenized_agent["lengths_lg"]
+            padded_lg_feature = padding(feat_lg, lengths)
 
-        lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
+            feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
 
-        lg2lg_mask = padding_light_mask[:, None, None]
+            padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
 
-        padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
+            padding_light_mask = padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0,
+                                                                                                                   1)
 
-        padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
+            lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
 
-        feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
+            lg2lg_mask = padding_light_mask[:, None, None]
+
+            padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
+
+            padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
+
+            feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 
         #        feat_lg=self.predict_feature(feat_lg)
 

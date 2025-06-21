@@ -470,7 +470,7 @@ def padding(tensor,lengths,padding_value=0 ):
     return padded_tensor
 
 class RoFormerBlock(nn.Module):
-    def __init__(self, hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
+    def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_dim)
         self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb)
@@ -486,14 +486,16 @@ class RoFormerBlock(nn.Module):
 
         self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
 
+        self.hist_len=hist_len
+
     def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None,pos_embeding=None):
         x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding)
         x = x + self.mlp(self.norm2(x))
         return x
 
-    def temporal_embed(self,feature, pos, heading, n_step, n_current, hist_len, mask):
+    def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask):
 
-        causal_mask = generate_limited_causal_mask(n_step, hist_len, device=feature.device)
+        causal_mask = generate_limited_causal_mask(n_step, self.hist_len, device=feature.device)
 
         time = torch.arange(n_current, n_step + n_current, device=feature.device)[None, :, None]
 
@@ -503,7 +505,7 @@ class RoFormerBlock(nn.Module):
         sinusoidal_pos = self.rotary_embedding(pos, heading, time)
 
         if mask is not None:
-            causal_mask = causal_mask[None, None] | mask[:, None, None, :]
+            causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]
 
         feature = self.forward(feature, causal_mask, sinusoidal_pos)
 
