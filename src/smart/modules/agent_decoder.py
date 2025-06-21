@@ -337,17 +337,14 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent["next_light_logits"] = next_light_logits
 
         if next_light_logits is not None:
-            next_light_logits = torch.cat(
-                [next_light_logits,
-                    -torch.inf + torch.zeros([next_light_logits.shape[0], next_light_logits.shape[1],next_light_logits.shape[2],
-                                            next_token_logits.shape[-1] - next_light_logits.shape[-1]],
-                                            device=next_light_logits.device)], dim=-1)
-
-            next_token_logits = torch.cat([next_token_logits, next_light_logits], dim=0)
+            light_q=next_light_logits[:, 1:]
+        else:
+            light_q=None
 
         return {
             "feat_a": feat_a[:,1:],
-             "q_value": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
+            "light_q": light_q,
+             "agent_q": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step):
