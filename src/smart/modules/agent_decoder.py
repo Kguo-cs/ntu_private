@@ -192,7 +192,16 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_a=mask[:len(sampled_idx)]
 
-        feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
+        if self.pred_light and len(light_idx) and self.light_encoder.share:
+            feat_lg = self.light_encoder.light_embedding(light_idx)
+            feat_a_lg=torch.cat((feat_a_token,feat_lg))
+            pos_a_lg=torch.cat([pos_a,tokenized_agent["pos_lg"][:,None].repeat(1,n_step,1)])
+            head_a_lg=torch.cat([head_a,tokenized_agent["orient_lg"][:,None].repeat(1,n_step)])
+            feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,pos_a_lg,head_a_lg, n_step, n_current, mask)
+            feat_a=feat_a_lg[:len(sampled_idx)]
+            feat_lg=feat_a_lg[len(sampled_idx):]
+        else:
+            feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
         mask_a=mask_a[:,-n_step:]
 
@@ -248,7 +257,7 @@ class SMARTAgentDecoder(nn.Module):
 
             #     noised_light_idx[random_mask] = random_light[random_mask]
 
-            feat_lg, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current)
+            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   feat_lg)
             
             feat_lg = self.light_encoder.light_embedding(light_idx)
 
@@ -393,19 +402,22 @@ class SMARTAgentDecoder(nn.Module):
                     self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
                     if self.pred_light:
                         next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
-                        self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
-                        self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
+                        if not self.light_encoder.share:
+                            self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
+                            self.light_encoder.lg_t_roformer.attn.cached_v = self.light_encoder.lg_t_roformer.attn.cached_v[:, :, :current_step]
                     else:
                         next_light_logits = None
                 else:
                     self.a_t_roformer.attn.caching=True
-                    self.light_encoder.lg_t_roformer.attn.caching = True
+                    if not self.light_encoder.share:
+                        self.light_encoder.lg_t_roformer.attn.caching = True
                     next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx)
                     self.a_t_roformer.attn.caching = False
-                    self.light_encoder.lg_t_roformer.attn.caching = False
+                    if not self.light_encoder.share:
+                        self.light_encoder.lg_t_roformer.attn.caching = False
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
-                if self.pred_light:
+                if self.pred_light and not self.light_encoder.share:
                     self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_encoder.light_hist)
    
             else:
@@ -538,7 +550,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light:
-            self.light_encoder.lg_t_roformer.attn.kv_caching(0)
+            if not self.light_encoder.share:
+                self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
         out_dict = {
             "type": tokenized_agent["type"],

@@ -159,7 +159,7 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
 
     data = {}
     if len(split_polyline_pos) == 0:  # add dummy empty map
-        data["map_save"] = {
+        data["tokenized_map"] = {
             # 6e4 such that it's within the range of float16.
             "traj_pos": torch.zeros([1, 3, 2], dtype=torch.float32) + 6e4,
             "traj_theta": torch.zeros([1], dtype=torch.float32),
@@ -168,7 +168,6 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
             "type": torch.tensor([0], dtype=torch.uint8),
             "pl_type": torch.tensor([0], dtype=torch.uint8),
             "light_type": torch.tensor([0], dtype=torch.uint8),
-            #"ln_id": torch.tensor([0], dtype=torch.uint8),
             "num_nodes": 1,
         }
     else:
@@ -180,7 +179,6 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
             "type": torch.cat(split_polyline_type, dim=0),  # [num_nodes], uint8
             "pl_type": torch.cat(split_polygon_type, dim=0),  # [num_nodes], uint8
             "light_type": torch.cat(split_light_type, dim=0),  # [num_nodes], uint8
-           # "ln_id": torch.cat(split_polyline_id, dim=0),
             "num_nodes": data["map_save"]["traj_pos"].shape[0]
         }
     return data

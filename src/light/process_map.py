@@ -29,8 +29,7 @@ for filename in tqdm(files):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    del data["map_save"]
-    del data['pt_token']
+    del data["tokenized_map"]
 
     input_path1 = os.path.join(raw_data, filename)
 

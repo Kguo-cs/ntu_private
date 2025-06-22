@@ -402,6 +402,7 @@ def decode_map_features_from_proto(map_features):
                             map_infos["lane"][_i]["type"] = 2
                 # not necessary found, some stop sign lanes are for lane with length 1
                 # assert is_found
+    map_infos["all_polylines_list"] = polylines
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)
@@ -474,10 +475,10 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
             pickle.dump(data, f)
 
-        if output_dir_tfrecords_splitted is not None:
-            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-                file_writer.write(tf_data)
+        # if output_dir_tfrecords_splitted is not None:
+        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+        #         file_writer.write(tf_data)
 
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
