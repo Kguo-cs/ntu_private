@@ -57,7 +57,7 @@ class LightEncoder(nn.Module):
 
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
-        self.share=False
+        self.share=True
         if not self.share:
             self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
 

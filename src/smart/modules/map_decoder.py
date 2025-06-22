@@ -104,7 +104,7 @@ class SMARTMapDecoder(nn.Module):
             traj_pos= tokenized_map["traj_pos"]
             pos_pt=traj_pos[:,0,:2]
             orient_pt=traj_pos[:,0,2]
-            relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2)
+            relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2).to(torch.float16).to(torch.float32)
             x_pt=self.token_emb(relative_pos)
 
         x_pt_categorical_embs = [
