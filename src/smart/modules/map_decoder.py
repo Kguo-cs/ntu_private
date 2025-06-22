@@ -48,13 +48,13 @@ class SMARTMapDecoder(nn.Module):
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
-            #self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
           #  self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
             self.head_dim=head_dim
 
             # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-            self.my_map=False
+            self.my_map=True
 
             if self.my_map:
                 self.token_emb = MLPEmbedding(input_dim=27, hidden_dim=hidden_dim)
@@ -104,12 +104,15 @@ class SMARTMapDecoder(nn.Module):
             traj_pos= tokenized_map["traj_pos"]
             pos_pt=traj_pos[:,0,:2]
             orient_pt=traj_pos[:,0,2]
-            relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2).to(torch.float16).to(torch.float32)
+            relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2)
             x_pt=self.token_emb(relative_pos)
+            
+        pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3]).to(device=pos_pt.device, dtype=torch.long)
+        pl_type=pl_type_mapping[tokenized_map["type"].long()]
 
         x_pt_categorical_embs = [
             self.type_pt_emb(tokenized_map["type"].long()),#
-            #self.polygon_type_emb(tokenized_map["pl_type"].long()),#
+            self.polygon_type_emb(pl_type),#
            # self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]
 
@@ -148,19 +151,22 @@ class SMARTMapDecoder(nn.Module):
         # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
         #mask=(tokenized_map["type"]!=90) #& (tokenized_map["type"]!=4)#tensor([  589, 29076,  1180,  2036,  8661,  1502,  3782,  4237,  1011,  7563],
         #tensor([0.010, 0.488, 0.020, 0.034, 0.145, 0.025, 0.063, 0.071, 0.017, 0.127],
-        # self.lane_style = [
-        #     (COLOR_WHITE, 6),  # FREEWAY = 0
-        #     (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
-        #     (COLOR_ORANGE, 6),  # STOP_SIGN = 2
-        #     (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
-        #     (COLOR_SKY_BLUE_1, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
-        #     (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
-        #     (COLOR_BUTTER, 2),  # BROKEN = 6
-        #     (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
-        #     (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
-        #     (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
-        #     (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
-        # ]
+        # polyline_type = {
+        #     # for lane
+        #     "TYPE_FREEWAY": 0,
+        #     "TYPE_SURFACE_STREET": 1,
+        #     "TYPE_STOP_SIGN": 2,
+        #     "TYPE_BIKE_LANE": 3,
+        #     # for roadedge
+        #     "TYPE_ROAD_EDGE_BOUNDARY": 4,
+        #     "TYPE_ROAD_EDGE_MEDIAN": 5,
+        #     # for roadline
+        #     "BROKEN": 6,
+        #     "SOLID_SINGLE": 7,
+        #     "DOUBLE": 8,
+        #     # for crosswalk, speed bump and drive way
+        #     "TYPE_CROSSWALK": 9,
+        # }
 
         return {
             "pt_token": x_pt,#[mask],

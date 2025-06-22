@@ -11,7 +11,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/new/validation shanhelo@aspire2pntu
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_map ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/new/validation_light zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_map zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_a /home/ke/code/catk/src/waymo_data/full/
 
