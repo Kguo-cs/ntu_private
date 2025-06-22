@@ -317,13 +317,13 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx = light_idx.clone()
 
-            # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
 
-            # random_mask = torch.rand_like(light_idx.float()) > 0.9
+            random_mask = torch.rand_like(light_idx.float()) > 0.9
 
-            # random_mask[:, :2] = False
+            random_mask[:, :2] = False
 
-            # noised_light_idx[random_mask] = random_light[random_mask]
+            noised_light_idx[random_mask] = random_light[random_mask]
         else:
             noised_light_idx  = None
 
