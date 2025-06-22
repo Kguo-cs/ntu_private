@@ -57,7 +57,7 @@ class LightEncoder(nn.Module):
 
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
-        self.share=True
+        self.share=False
         if not self.share:
             self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
 
@@ -180,13 +180,14 @@ class LightEncoder(nn.Module):
 
         return feat_lg,next_light_logits
 
-    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg,  feat_lg):
+    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg, n_current, feat_lg=None):
 
         n_light, n_step = light_idx.shape[0], light_idx.shape[1]
 
-        # feat_lg = self.light_embedding(light_idx)
-        #
-        # feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
+        if not self.share  :
+            feat_lg = self.light_embedding(light_idx)
+
+            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
 
         mask_lg=mask_lg[:, -n_step:]
 

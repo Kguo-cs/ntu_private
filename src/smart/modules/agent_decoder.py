@@ -203,6 +203,8 @@ class SMARTAgentDecoder(nn.Module):
         else:
             feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
+            feat_lg=None
+
         mask_a=mask_a[:,-n_step:]
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
@@ -257,8 +259,8 @@ class SMARTAgentDecoder(nn.Module):
 
             #     noised_light_idx[random_mask] = random_light[random_mask]
 
-            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   feat_lg)
-            
+            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lg)
+
             feat_lg = self.light_encoder.light_embedding(light_idx)
 
             edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
