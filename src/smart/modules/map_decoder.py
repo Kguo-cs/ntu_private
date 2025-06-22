@@ -48,13 +48,18 @@ class SMARTMapDecoder(nn.Module):
 
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
-            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+            #self.polygon_type_emb = nn.Embedding(4, hidden_dim)
           #  self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
             self.head_dim=head_dim
 
             # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-            self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+            self.my_map=True
+
+            if self.my_map:
+                self.token_emb = MLPEmbedding(input_dim=27, hidden_dim=hidden_dim)
+            else:
+                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
 
             if self.gnn:
                 input_dim_r_pt2pt = 3
@@ -88,15 +93,23 @@ class SMARTMapDecoder(nn.Module):
 
 
         batch = tokenized_map["batch"]
-        pos_pt = tokenized_map["position"]
 
-        orient_pt = tokenized_map["orientation"]
-        pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
-        x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]
+        if "orientation" in tokenized_map.keys():
+            pos_pt = tokenized_map["position"]
+            orient_pt = tokenized_map["orientation"]
+            pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
+            x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]
+
+        else:
+            traj_pos= tokenized_map["traj_pos"]
+            pos_pt=traj_pos[:,0,:2]
+            orient_pt=traj_pos[:,0,2]
+            relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2)
+            x_pt=self.token_emb(relative_pos)
 
         x_pt_categorical_embs = [
             self.type_pt_emb(tokenized_map["type"].long()),#
-            self.polygon_type_emb(tokenized_map["pl_type"].long()),#
+            #self.polygon_type_emb(tokenized_map["pl_type"].long()),#
            # self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]
 
@@ -133,7 +146,7 @@ class SMARTMapDecoder(nn.Module):
                 x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
         # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
-        mask=(tokenized_map["type"]!=90) #& (tokenized_map["type"]!=4)#tensor([  589, 29076,  1180,  2036,  8661,  1502,  3782,  4237,  1011,  7563],
+        #mask=(tokenized_map["type"]!=90) #& (tokenized_map["type"]!=4)#tensor([  589, 29076,  1180,  2036,  8661,  1502,  3782,  4237,  1011,  7563],
         #tensor([0.010, 0.488, 0.020, 0.034, 0.145, 0.025, 0.063, 0.071, 0.017, 0.127],
         # self.lane_style = [
         #     (COLOR_WHITE, 6),  # FREEWAY = 0
@@ -150,10 +163,10 @@ class SMARTMapDecoder(nn.Module):
         # ]
 
         return {
-            "pt_token": x_pt[mask],
-            "position": pos_pt[mask],
-            "orientation": orient_pt[mask],
-            "batch": batch[mask],
+            "pt_token": x_pt,#[mask],
+            "position": pos_pt,#[mask],
+            "orientation": orient_pt,#[mask],
+            "batch": batch,#[mask],
         }
         #
         # lengths = torch.bincount(batch).tolist()

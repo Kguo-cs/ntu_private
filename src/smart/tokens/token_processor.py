@@ -73,9 +73,15 @@ class TokenProcessor(torch.nn.Module):
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
-        if "traj_pos" in data.keys():
-
-            tokenized_map = self.tokenize_map(data)
+        if "sampled_idx" not in data.keys():
+            if 'traj_theta' in data.keys():
+                tokenized_map = self.tokenize_map(data)
+            else:
+                tokenized_map = {}
+                map=data["tokenized_map"]
+                tokenized_map["traj_pos"] = map["traj_pos"]
+                tokenized_map["type"] = map["type"]
+                tokenized_map["batch"] = map["batch"]
 
             tokenized_agent = self.tokenize_agent(data)
 
@@ -646,8 +652,13 @@ class TokenProcessor(torch.nn.Module):
             map = data["tokenized_map"]
             agent = data["tokenized_agent"]
 
-            for key in ["position", "orientation", "batch", "token_idx", "type", "pl_type", "light_type"]:
-                tokenized_map[key] = map[key]
+            if 'traj_pos' in map.keys():
+                tokenized_map["traj_pos"] = map["traj_pos"]
+                tokenized_map["type"] = map["type"]
+                tokenized_map["batch"] = map["batch"]
+            else:
+                for key in ["position", "orientation", "batch", "token_idx", "type", "pl_type", "light_type"]:
+                    tokenized_map[key] = map[key]
 
             agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
                 agent['type']
