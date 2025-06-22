@@ -108,6 +108,9 @@ class RoFormerSelfAttention(nn.Module):
 
         self.hist_len=hist_len
 
+
+        self.caching=False
+
         # self.query_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
         #
         # self.key_pos = nn.Linear(hidden_dim, self.all_head_size, bias=use_bias)
@@ -219,11 +222,9 @@ class RoFormerSelfAttention(nn.Module):
             key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len:]
             value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len:]
             #attention_mask=None
-        else:
+        elif self.caching:
             self.cached_k = key_layer
             self.cached_v = value_layer
-
-
 
         B, L, C = hidden_states.shape
         attn = query_layer.mul(self.scale) @ key_layer.transpose(-1, -2) # BHLc @ BHcL => BHLL
@@ -505,7 +506,7 @@ class RoFormerBlock(nn.Module):
         # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
         #
         # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
-        sinusoidal_pos = self.rotary_embedding(pos, heading, time)
+        sinusoidal_pos = self.rotary_embedding(None, None, time)
 
         if mask is not None:
             causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]

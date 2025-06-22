@@ -83,7 +83,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.agent_hist = self.time_span // self.shift
 
-            #self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
+            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
             self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
 
@@ -167,7 +167,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,time_span,num_heads,self.light_type,self.shift,self.predict_step)
             
-            self.a_t_roformer=self.light_encoder.lg_t_roformer
+            #self.a_t_roformer=self.light_encoder.lg_t_roformer
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -398,7 +398,11 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         next_light_logits = None
                 else:
+                    self.a_t_roformer.attn.caching=True
+                    self.light_encoder.lg_t_roformer.attn.caching = True
                     next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx)
+                    self.a_t_roformer.attn.caching = False
+                    self.light_encoder.lg_t_roformer.attn.caching = False
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
                 if self.pred_light:

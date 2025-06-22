@@ -95,8 +95,6 @@ class LightEncoder(nn.Module):
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type* self.predict_step)
 
-
-
     # def light2agent(self, feat_a, feat_lg, tokenized_agent, sinusoidal_lg, pos_a, head_a, n_step):
     #
     #     sinusoidal_a = self.rotary_embedding(pos_a, head_a)
@@ -218,16 +216,15 @@ class LightEncoder(nn.Module):
 
             padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
 
-            padding_light_mask = padding(mask_lg, lengths, padding_value=True).swapaxes(1, 2).flatten(0,
-                                                                                                                   1)
+            #padding_light_mask = padding(mask_lg, lengths).swapaxes(1, 2).flatten(0,1)
 
             lg_sinusoidal=self.get_lg_sinusoidal(tokenized_agent)
 
             lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
 
-            lg2lg_mask = padding_light_mask[:, None, None]
+            #lg2lg_mask = padding_light_mask[:, None, None]
 
-            padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
+            padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, None, lg_sinusoidal)
 
             padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
 
