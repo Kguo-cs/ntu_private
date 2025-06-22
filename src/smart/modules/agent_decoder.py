@@ -234,9 +234,9 @@ class SMARTAgentDecoder(nn.Module):
             mask_lg=mask[len(sampled_idx):]
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
-            
+            noised_light_idx = light_idx.clone()
+
             if self.training:
-                noised_light_idx = light_idx.clone()
 
                 random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
 
