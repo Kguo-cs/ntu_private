@@ -167,7 +167,7 @@ class SMARTAgentDecoder(nn.Module):
 
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,time_span,num_heads,self.light_type,self.shift,self.predict_step)
 
-        self.collision_cond=True
+        self.collision_cond=False
 
         if self.collision_cond:
 
@@ -217,11 +217,11 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,None,None, n_step, n_current, mask)
             feat_a=feat_a_lg[:len(sampled_idx)]
-            feat_lg=feat_a_lg[len(sampled_idx):]
+            feat_lgt=feat_a_lg[len(sampled_idx):]
         else:
             feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
-            feat_lg=None
+            feat_lgt=None
 
         mask_a=mask_a[:,-n_step:]
 
@@ -277,7 +277,7 @@ class SMARTAgentDecoder(nn.Module):
 
             #     noised_light_idx[random_mask] = random_light[random_mask]
 
-            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lg)
+            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lgt)
 
             # feat_lg = self.light_encoder.light_embedding(light_idx)
 

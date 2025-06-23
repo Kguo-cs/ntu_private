@@ -11,7 +11,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/new/validation shanhelo@aspire2pntu
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_light_col ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.67.68:/home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted ./
+rsync -avz ke@10.87.67.68:/home/ke/code/catk/src/waymo_data/full/validation_light ./
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_map zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
@@ -56,13 +56,14 @@ conda activate catk
 conda install -y -c conda-forge ffmpeg=4.3.2
 pip install -r install/requirements.txt
 pip install torch_geometric
-pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.6.0+cu124.html
+pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+cu121.html
 pip install --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 
 
 nohup python run.py >  1.log 2>&1 &
 
 
+wsl -d Ubuntu
 
 
 pt8 1  1.6 M
