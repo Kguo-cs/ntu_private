@@ -18,8 +18,6 @@ from src.smart.utils import (
 import numpy as np
 import torch
 from shapely.geometry import Polygon
-from shapely.creation import linestrings
-from shapely import Point, creation
 from shapely.strtree import STRtree
 import shapely
 import matplotlib.pyplot as plt
@@ -69,7 +67,7 @@ for filename in tqdm(files):
 
         _geometries = [Polygon(geometry) for geometry in geometries]
         _str_tree = STRtree(_geometries, node_capacity)
-        #fig, ax = plt.subplots()
+        fig, ax = plt.subplots()
 
         for i,ego_polygons in enumerate(_geometries):
 
@@ -79,21 +77,21 @@ for filename in tqdm(files):
                 k=np.arange(len(valid))[valid[:,t]][i]
                 mask[k,t]=True
 
-    data["tokenized_agent"]["col_mask"]=mask
+        data["tokenized_agent"]["col_mask"]=mask
 
-    # for geom in geometries:
-    #     polygon1 = PolygonPatch(geom, closed=True, edgecolor='blue', facecolor='lightblue')
-    #     ax.add_patch(polygon1)
-    #
-    # ax.set_xlim(580, 680)
-    # ax.set_ylim(11040, 11140)
-    #
-    # plt.show()
-    #print(len(intersecting))
+        for geom in geometries:
+            polygon1 = PolygonPatch(geom, closed=True, edgecolor='blue', facecolor='lightblue')
+            ax.add_patch(polygon1)
+
+        ax.set_xlim(580, 680)
+        ax.set_ylim(11040, 11140)
+
+        plt.show()
+        print(len(intersecting))
 
 
 
-    # sampled_idx=agent["sampled_idx"].long()
+    # sampled_idx=agent["sampled_idx"].long()bc56_light5_100_sharet_temp_poshead
     #
     # traj=token_traj_all[np.arange(len(sampled_idx))[:,None],sampled_idx]
 
@@ -125,10 +123,10 @@ for filename in tqdm(files):
     #     head_now=prev_head,  # [n_agent]
     # )[0].view(traj.shape)
 
-    output_file = output_path + filename
-
-    with open(output_file, "wb") as f:
-        pickle.dump(data, f)
-
+    # output_file = output_path + filename
+    #
+    # with open(output_file, "wb") as f:
+    #     pickle.dump(data, f)
+    #
 
 

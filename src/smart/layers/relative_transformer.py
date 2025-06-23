@@ -384,7 +384,7 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
     def __init__(self, hidden_dim,num_heads ):
         super().__init__()
 
-        freqs_x,freqs_y,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
+        freqs_x,freqs_y,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=100)
 
         self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
         self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
