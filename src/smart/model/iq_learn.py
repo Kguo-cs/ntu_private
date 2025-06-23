@@ -239,7 +239,7 @@ class IQ_SoftQ(LightningModule):
         state_mask=valid_mask[:,:-1]
         action_mask=valid_mask[:,1:] 
 
-        action_mask[col_mask.shape[0]:]=action_mask[col_mask.shape[0]:] & (~col_mask[:,1:])
+        action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask[:,1:])
 
         train_mask=state_mask & action_mask
 
