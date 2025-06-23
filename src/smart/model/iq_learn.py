@@ -237,11 +237,13 @@ class IQ_SoftQ(LightningModule):
         valid_mask= tokenized_agent["valid_mask"][:, 1:]
         col_mask = tokenized_agent["col_mask"][:, 1:]
         state_mask=valid_mask[:,:-1]
-        action_mask=valid_mask[:,1:] #& (~col_mask[:,1:])
+        action_mask=valid_mask[:,1:] 
 
-        # train_mask=state_mask & action_mask
+        action_mask[col_mask.shape[0]:]=action_mask[col_mask.shape[0]:] & (~col_mask[:,1:])
 
-        train_mask=valid_mask.all(-1) & (~col_mask[:,1:])
+        train_mask=state_mask & action_mask
+
+        #train_mask=valid_mask.all(-1) & (~col_mask[:,1:])
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
