@@ -261,7 +261,7 @@ class SMARTAgentDecoder(nn.Module):
 
             _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lg)
 
-            feat_lg = self.light_encoder.light_embedding(light_idx)
+            # feat_lg = self.light_encoder.light_embedding(light_idx)
 
             edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
                 pos_pl= tokenized_agent["pos_lg"],  # [n_pl, 2]
