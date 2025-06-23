@@ -235,9 +235,9 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, 1:]
-        col_mask = tokenized_agent["col_mask"][:, 1:]
+        #col_mask = tokenized_agent["col_mask"][:, 1:]
         state_mask=valid_mask[:,:-1]
-        action_mask=valid_mask[:,1:] & (~col_mask[:,1:])
+        action_mask=valid_mask[:,1:] #& (~col_mask[:,1:])
 
         train_mask=state_mask & action_mask
 
