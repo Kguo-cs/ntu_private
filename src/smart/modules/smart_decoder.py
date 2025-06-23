@@ -17,7 +17,7 @@ import torch.nn as nn
 from omegaconf import DictConfig
 from torch import Tensor
 
-from .agent_decoder import SMARTAgentDecoder
+from .old_agent_encoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
 from torch_scatter import scatter_mean
 from .build_edge import  radiusGraphNearest2
