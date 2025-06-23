@@ -722,7 +722,7 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_lg = self.light_embedding(predicted_tokens[:, :t])  # [B, t, D]
 
-            light_mask = light_idx < 3
+            light_mask = light_idx < self.light_type
 
             if t == current_len:
 
