@@ -160,14 +160,18 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-        self.pred_light = True
+        self.pred_light = token_processor.pred_light
 
         if self.pred_light:
             self.light_type = token_processor.light_type
 
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,time_span,num_heads,self.light_type,self.shift,self.predict_step)
-            
-            #self.a_t_roformer=self.light_encoder.lg_t_roformer
+
+        self.collision_cond=True
+
+        if self.collision_cond:
+
+            self.collision_embed=nn.Embedding(2,hidden_dim)
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -187,6 +191,15 @@ class SMARTAgentDecoder(nn.Module):
             agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
+
+        if self.collision_cond:
+            if self.training:
+                col_mask=tokenized_agent["col_mask"].long()
+                col_mask=torch.roll(col_mask,-1,dims=1)
+            else:
+                col_mask=torch.zeros_like(head_a).long()
+            col_token=self.collision_embed(col_mask)
+            feat_a_token=feat_a_token+col_token
 
         pos_a=pos_a[:,-n_step:]
 

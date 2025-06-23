@@ -49,7 +49,9 @@ class SMARTMapDecoder(nn.Module):
         if self.use_map:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
-          #  self.light_pl_emb = nn.Embedding(5, hidden_dim)
+
+            if not self.token_processor.pred_light:
+                self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
             self.head_dim=head_dim
 
@@ -110,11 +112,17 @@ class SMARTMapDecoder(nn.Module):
         pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3]).to(device=pos_pt.device, dtype=torch.long)
         pl_type=pl_type_mapping[tokenized_map["type"].long()]
 
-        x_pt_categorical_embs = [
-            self.type_pt_emb(tokenized_map["type"].long()),#
-            self.polygon_type_emb(pl_type),#
-           # self.light_pl_emb(tokenized_map["light_type"].long()),#
-        ]
+        if  self.token_processor.pred_light:
+            x_pt_categorical_embs = [
+                self.type_pt_emb(tokenized_map["type"].long()),#
+                self.polygon_type_emb(pl_type),#
+            ]
+        else:
+            x_pt_categorical_embs = [
+                self.type_pt_emb(tokenized_map["type"].long()),#
+                self.polygon_type_emb(pl_type),#
+                self.light_pl_emb(tokenized_map["light_type"].long()),#
+            ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 

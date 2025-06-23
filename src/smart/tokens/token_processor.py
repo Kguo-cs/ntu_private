@@ -68,6 +68,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
+        self.pred_light=True
+
         self.use_my=False
 
     @torch.no_grad()
@@ -657,7 +659,7 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_map["type"] = map["type"]
                 tokenized_map["batch"] = map["batch"]
             else:
-                for key in ["position", "orientation", "batch", "token_idx", "type", "pl_type", "light_type"]:
+                for key in ["position", "orientation", "batch", "token_idx", "type"]:#, "pl_type", "light_type"
                     tokenized_map[key] = map[key]
 
             agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
