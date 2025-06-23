@@ -92,13 +92,11 @@ class RoFormerSelfAttention(nn.Module):
                 input_dim=input_dim_r_a2a,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
-                out_dim=num_heads,
-                share=False
             )
 
             self.proj= nn.Sequential(
                 nn.ReLU(inplace=True),
-                nn.Linear(num_heads*2, num_heads),
+                nn.Linear(num_heads+hidden_dim, num_heads),
             )
 
 
@@ -506,7 +504,7 @@ class RoFormerBlock(nn.Module):
         # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
         #
         # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
-        sinusoidal_pos = self.rotary_embedding(None, None, time)
+        sinusoidal_pos = self.rotary_embedding(pos, heading, time)
 
         if mask is not None:
             causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]

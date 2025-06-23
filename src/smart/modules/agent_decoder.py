@@ -197,6 +197,11 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_lg=torch.cat((feat_a_token,feat_lg))
             pos_a_lg=torch.cat([pos_a,tokenized_agent["pos_lg"][:,None].repeat(1,n_step,1)])
             head_a_lg=torch.cat([head_a,tokenized_agent["orient_lg"][:,None].repeat(1,n_step)])
+            #head_vector_a_lg = torch.stack([head_a_lg.cos(), head_a_lg.sin()], dim=-1)
+
+            #r_a2a = self.edge_encoder.build_temporal_edge(pos_a_lg,head_a_lg,head_vector_a_lg,mask)
+
+
             feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,pos_a_lg,head_a_lg, n_step, n_current, mask)
             feat_a=feat_a_lg[:len(sampled_idx)]
             feat_lg=feat_a_lg[len(sampled_idx):]
@@ -341,13 +346,13 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx = light_idx.clone()
 
-            # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
-            #
-            # random_mask = torch.rand_like(light_idx.float()) > 0.9
-            #
-            # random_mask[:, :2] = False
-            #
-            # noised_light_idx[random_mask] = random_light[random_mask]
+            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+
+            random_mask = torch.rand_like(light_idx.float()) > 0.9
+
+            random_mask[:, :2] = False
+
+            noised_light_idx[random_mask] = random_light[random_mask]
         else:
             noised_light_idx  = None
 

@@ -2,10 +2,6 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
-from torch_geometric.utils import subgraph
-
-from src.smart.layers import MLPLayer
-from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     angle_between_2d_vectors,
@@ -13,14 +9,9 @@ from src.smart.utils import (
     weight_init,
     wrap_angle,
 )
-from torch.distributions import Categorical
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
     radiusGraphNearest_head,radiusGraphNearest_inv
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
-from src.smart.utils.rollout import cal_polygon_contour
-from src.smart.loss.gmm_dist import  GMM_Dist
-from src.smart.loss.iq_loss import padding
-from src.smart.modules.light_encoder import LightEncoder
+from torch_geometric.utils import dense_to_sparse, subgraph
 
 
 class EdgeEncoder(nn.Module):
@@ -44,6 +35,60 @@ class EdgeEncoder(nn.Module):
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
+
+        input_dim_r_t = 4
+
+        # self.r_t_emb = FourierEmbedding(
+        #     input_dim=input_dim_r_t,
+        #     hidden_dim=hidden_dim,
+        #     num_freq_bands=num_freq_bands,
+        # )
+
+
+    def build_temporal_edge(
+            self,
+            pos_a,  # [n_agent, n_step, 2]
+            head_a,  # [n_agent, n_step]
+            head_vector_a,  # [n_agent, n_step, 2],
+            mask,  # [n_agent, n_step]
+            inference_mask=None,  # [n_agent, n_step]
+    ):
+        pos_t = pos_a.flatten(0, 1)
+        head_t = head_a.flatten(0, 1)
+        head_vector_t = head_vector_a.flatten(0, 1)
+
+        if self.hist_drop_prob > 0 and self.training:
+            _mask_keep = torch.bernoulli(
+                torch.ones_like(mask) * (1 - self.hist_drop_prob)
+            ).bool()
+            mask = mask & _mask_keep
+
+        if inference_mask is not None:
+            mask_t = mask.unsqueeze(2) & inference_mask.unsqueeze(1)
+        else:
+            mask_t = mask.unsqueeze(2) & mask.unsqueeze(1)
+
+        edge_index_t = dense_to_sparse(mask_t)[0]
+        edge_index_t = edge_index_t[:, edge_index_t[1] > edge_index_t[0]]
+        edge_index_t = edge_index_t[
+                       :, edge_index_t[1] - edge_index_t[0] <= self.time_span / self.shift
+                       ]
+        rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
+        rel_pos_t = rel_pos_t[:, :2]
+        rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
+        r_t = torch.stack(
+            [
+                torch.norm(rel_pos_t, p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_t[edge_index_t[1]], nbr_vector=rel_pos_t
+                ),
+                rel_head_t,
+                edge_index_t[0] - edge_index_t[1],
+            ],
+            dim=-1,
+        )
+        r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
+        return edge_index_t, r_t
 
     def build_interaction_edge(
             self,
