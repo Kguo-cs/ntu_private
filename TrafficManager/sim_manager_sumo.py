@@ -338,7 +338,7 @@ class SimulationManager:
             #print(1)
             #self.last_pose = diffusion_data['metas']['ego_pos']
             # gen_images = self.send_request_diffusion(diffusion_data)
-            #
+
             if gen_images is not None:
                 front_left_image, front_image, front_right_image = [
                     Image.fromarray(img*255).convert('RGBA') for img in gen_images[:3]]

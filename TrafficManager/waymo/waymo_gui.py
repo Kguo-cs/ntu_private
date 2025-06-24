@@ -155,12 +155,22 @@ class GUI(Process):
 
         #tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
 
-        ag_valid, ag_xy, ag_yaw, self.ag_size, self.ag_role, ag_id = get_agent_features(
+        ag_valid, ag_xy, ag_yaw, self.ag_size, self.ag_role, self.ag_id = get_agent_features(
             scenario, step_current=step_current
         )
         # self.ag_id2size = dict(zip(ag_id, ag_size))
         # self.ag_id2role = dict(zip(ag_id, ag_role))
         self.ego_idx=np.where(self.ag_role[:,0])[0][0]
+
+    def set_ego_pose(self,tokenized_agent,rel_pos,rel_heading):
+
+
+        initial_pos=tokenized_agent["sampled_pos"][self.ego_idx,1]
+        initial_heading=tokenized_agent["sampled_heading"][self.ego_idx,1]
+
+        tokenized_agent["pred_traj_10hz"][self.ego_idx]=initial_pos+rel_pos
+        tokenized_agent["pred_head_10hz"][self.ego_idx]=initial_heading+rel_heading
+
 
 
     def setup(self):
@@ -422,6 +432,21 @@ class GUI(Process):
 
             # # Draw shaft of the arrow
             self.draw_arrow(heading_start[i], heading_end[i], COLOR_BLACK, thickness=1, tip_length=1.0, parent=node)
+
+            center=bbox_gt[i].mean(0)
+
+            x=center[0]
+            y=center[1]
+
+            id=self.ag_id[i]
+
+            dpg.draw_text(
+                self.ctf.dpgCoord(x, y, self.centerx, self.centery),
+                id,
+                color=(255, 0, 0),
+                size=20,
+                parent=node
+            )
 
     def get_line_tf(self, line: List[float], ex, ey) -> List[float]:
         return [

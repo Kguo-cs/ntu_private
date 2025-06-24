@@ -211,7 +211,7 @@ class SimulationManager:
         if self.timestamp >= self.MAX_SIM_TIME:
             print("Simulation time end.")
             return False
-
+        device=tokenized_agent["type"].device
         agent_type=tokenized_agent["type"].cpu().numpy()
 
         if self.timestamp % 5 == 0:
@@ -268,15 +268,20 @@ class SimulationManager:
             tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
             tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
 
+
             tokenized_agent["light_idx"] = pred_dict["light_idx"]
+
+        self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
+
         light_idx = tokenized_agent["light_idx"][:,-1].cpu().numpy()
         agent_pos=pos[:,self.timestamp%5].cpu().numpy()
         agent_head=heading[:,self.timestamp%5].cpu().numpy()
 
-        self.gui.renderQueue.put((agent_pos,agent_head,agent_type,light_idx,self.timestamp))
+
+        self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
 
         #rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
 
