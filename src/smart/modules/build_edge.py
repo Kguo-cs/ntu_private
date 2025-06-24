@@ -158,22 +158,6 @@ def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
 
     return final_edge_index
 
-def radiusGraphNearest_head(x,x_heading, batch, r, loop, max_num_neighbors):
-    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
-    row, col = edge_index
-    #distances = (x[col] - x[row]).norm(dim=1)
-    mask =  (x[col] - x[row]).norm(dim=1) <= r
-    # Step 2: Get relative vectors: y - x (N_edges, 2)
-    # rel = x[col]-x[row]
-    #
-    # # Step 3: Rotate into x-frame (heading[col])
-    # theta = x_heading[row]
-    #
-    # mask = get_mask(rel,theta,forward=r,back=r//2,width=r//2)#.flip(0)
-
-    final_edge_index = edge_index[:, mask]
-
-    return final_edge_index
 
 def get_mask(rel,theta,forward=40,back=20,width=20):
     cos_theta = torch.cos(theta)

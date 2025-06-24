@@ -10,8 +10,9 @@ from src.smart.utils import (
     wrap_angle,
 )
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest_head,radiusGraphNearest_inv
+    radiusGraphNearest,radiusGraphNearest_inv
 from torch_geometric.utils import dense_to_sparse, subgraph
+from torch_cluster import radius_graph
 
 
 class EdgeEncoder(nn.Module):
@@ -99,18 +100,45 @@ class EdgeEncoder(nn.Module):
             mask,  # [n_agent, n_step]
             max_num_neighbors,
             max_radius,
+            proposal,
+            shape
     ):
         mask = mask.transpose(0, 1).reshape(-1)
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
 
-        edge_index_a2a = radiusGraphNearest_head(x=pos_s[:, :2],
-                                                 x_heading=head_s,
+        if proposal is None:
+            edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                  r=max_radius,
                                                  batch=batch_s,
                                                  loop=False,
                                                  max_num_neighbors=max_num_neighbors)
+        else:
+            proposal_pos=proposal[...,::5,:2]
+            pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
+
+            full_edge_index = radius_graph(x=pos_s, r=100,max_num_neighbors=300, batch=batch_s, loop=False)
+
+            global_pos,_ = transform_to_global(
+                                        pos_local=pos_local,  # [n_agent, n_step, 2]
+                                        head_local=None,  # [n_agent, n_step]
+                                        pos_now=pos_s,  # [n_agent, 2]
+                                        head_now=head_s  # [n_agent]
+                        )
+
+            #global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2)
+
+            src, dst = full_edge_index
+
+            src_traj=global_pos[src]
+            dst_traj=global_pos[dst]
+
+            dist=torch.norm(src_traj - dst_traj, dim=-1).min(-1)
+
+            radius=torch.norm(shape[:,:2]/2,dim=-1)
+
+            intersecting=dist<radius
 
         edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]

@@ -108,7 +108,6 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
-        
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:

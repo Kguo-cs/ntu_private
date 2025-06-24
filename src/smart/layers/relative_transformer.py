@@ -48,8 +48,7 @@ except ImportError:
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers import MLPLayer
 
-from src.smart.modules.build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest_head,radiusGraphNearest_inv,build_batch
+from src.smart.modules.build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,radiusGraphNearest_inv,build_batch
 
 class RoFormerSelfAttention(nn.Module):
     def __init__(self,

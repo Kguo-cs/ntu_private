@@ -26,8 +26,7 @@ from src.smart.utils import (
     wrap_angle,
 )
 from torch.distributions import Categorical
-from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest_head,radiusGraphNearest_inv,build_batch
+from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2,radiusGraphNearest_inv,build_batch
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.utils.rollout import cal_polygon_contour
 from src.smart.loss.gmm_dist import  GMM_Dist
@@ -176,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_proposal=True
 
         if self.pred_proposal:
-            proposal_num=32
+            proposal_num=64
             self.proposal_embedding=nn.Embedding(proposal_num,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*30)#future 30 second
 
@@ -229,6 +228,12 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_lgt=None
 
+        if self.pred_proposal:
+            proposal_feature=feat_a_t[:,:,None]+self.proposal_embedding.weight[None,None]
+            proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
+        else:
+            proposal=None
+
         mask_a=mask_a[:,-n_step:]
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
@@ -255,7 +260,9 @@ class SMARTAgentDecoder(nn.Module):
             batch_s=batch_s,  # [n_agent*n_step]
             mask=mask_a,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
-            max_num_neighbors=self.a2a_neighbor
+            max_num_neighbors=self.a2a_neighbor,
+            proposal=None,
+            shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
@@ -354,11 +361,6 @@ class SMARTAgentDecoder(nn.Module):
                 next_token_logits=feat_a
 
 
-        if self.pred_proposal:
-            proposal_feature=feat_a_t[:,:,None]+self.proposal_embedding.weight[None,None]
-            proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
-        else:
-            proposal=None
 
         return next_token_logits,next_light_logits,feat_a,proposal
 
