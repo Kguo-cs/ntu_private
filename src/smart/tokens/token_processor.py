@@ -743,7 +743,7 @@ class TokenProcessor(torch.nn.Module):
 
                 tokenized_agent["target_pos"]=target_pos.reshape(-1,19,30,2)[:,1:]
                 tokenized_agent["target_head"]=target_head.reshape(-1,19,30)[:,1:]
-                tokenized_agent["target_mask"]=target_mask #& tokenized_agent["valid_mask"][:,:,None]
+                tokenized_agent["target_mask"]=target_mask[:,1:] #& tokenized_agent["valid_mask"][:,:,None]
 
                 #traj=target_traj.reshape(-1,19,30,3)[:,:-1,4]
                 # pos: Tensor,  # [n_agent, n_step, n_target, 2]
