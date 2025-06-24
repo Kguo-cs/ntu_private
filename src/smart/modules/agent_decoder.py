@@ -185,19 +185,20 @@ class SMARTAgentDecoder(nn.Module):
     def predict_agent(self, sampled_traj, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0):
         n_agent, n_step = head_a.shape
 
-        sampled_traj=sampled_traj.reshape(n_agent,n_step,5,3)
+        with torch.no_grad():
+            sampled_traj=sampled_traj.reshape(n_agent,n_step,5,3)
 
-        smapled_pos=sampled_traj[...,-1:,:2]
-        sampled_head=sampled_traj[...,-1:,2]
+            smapled_pos=sampled_traj[...,-1:,:2]
+            sampled_head=sampled_traj[...,-1:,2]
 
-        agent_shape=tokenized_agent["token_agent_shape"]
-        token_traj=tokenized_agent["token_traj"]
-        
-        contour_local = cal_polygon_contour(smapled_pos,sampled_head, agent_shape[:,None,None])
+            agent_shape=tokenized_agent["token_agent_shape"]
+            token_traj=tokenized_agent["token_traj"]
+            
+            contour_local = cal_polygon_contour(smapled_pos,sampled_head, agent_shape[:,None,None])
 
-        dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
+            dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
 
-        sampled_idx = dist.argmin(-1)
+            sampled_idx = dist.argmin(-1)
 
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
