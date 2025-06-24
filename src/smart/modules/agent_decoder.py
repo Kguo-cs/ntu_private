@@ -175,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_proposal=True
 
         if self.pred_proposal:
-            proposal_num=64
+            proposal_num=32
             self.proposal_embedding=nn.Embedding(proposal_num,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*30)#future 30 second
 
@@ -261,7 +261,7 @@ class SMARTAgentDecoder(nn.Module):
             mask=mask_a,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
-            proposal=None,
+            proposal=proposal,
             shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 

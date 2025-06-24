@@ -114,11 +114,13 @@ class EdgeEncoder(nn.Module):
                                                  batch=batch_s,
                                                  loop=False,
                                                  max_num_neighbors=max_num_neighbors)
+
+
         else:
             proposal_pos=proposal[...,::5,:2]
             pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
 
-            full_edge_index = radius_graph(x=pos_s, r=100,max_num_neighbors=300, batch=batch_s, loop=False)
+            full_edge_index = radius_graph(x=pos_s, r=60,max_num_neighbors=300, batch=batch_s, loop=False)
 
             global_pos,_ = transform_to_global(
                                         pos_local=pos_local,  # [n_agent, n_step, 2]
@@ -127,20 +129,53 @@ class EdgeEncoder(nn.Module):
                                         head_now=head_s  # [n_agent]
                         )
 
-            #global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2)
+            global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2)
 
             src, dst = full_edge_index
 
-            src_traj=global_pos[src]
-            dst_traj=global_pos[dst]
+            mask1=src<dst
 
-            dist=torch.norm(src_traj - dst_traj, dim=-1).min(-1)
+            src=src[mask1]
+            dst=dst[mask1]
 
-            radius=torch.norm(shape[:,:2]/2,dim=-1)
 
-            intersecting=dist<radius
+            src_traj=global_pos[src][:,:,None]
+            dst_traj=global_pos[dst][:,None]
 
-        edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
+            dist=torch.norm(src_traj - dst_traj,dim=-1).reshape(-1,32*32*6).amin(-1)
+
+            # # shape: (E, 32, 6, 2), unsqueezed for broadcasting
+            # src_traj = global_pos[src].transpose(1,2).flatten(0,1)  # (E, 32, 6, 2)
+            # dst_traj = global_pos[dst].transpose(1,2).flatten(0,1)  # (E, 32, 6, 2)
+            #
+            # # Compute minimum distance across all points (broadcasted)
+            # dist = torch.cdist(
+            #     src_traj.flatten(1, 2),  # (E, 192, 2)
+            #     dst_traj.flatten(1, 2),  # (E, 192, 2),
+            #     p=2
+            # ).amin(dim=1)  # (E,)
+
+            # shape: (n_batch, 2)
+            radius_single = torch.norm(shape[:, :2] / 2, dim=-1)  # (n_batch,)
+            # pos_a: (n_batch, n_agent_per_batch, ?)
+            radius = radius_single[batch_s]  # (n_agent,)
+
+            src_radius=radius[src]
+            dst_radius=radius[dst]
+
+            radius_sum=src_radius+dst_radius #+5
+
+            intersecting=dist<radius_sum
+
+            src=src[intersecting]
+            dst=dst[intersecting]
+
+            src_full = torch.cat([src, dst], dim=0)
+            dst_full = torch.cat([dst, src], dim=0)
+
+            full_edge_index=torch.stack([src_full, dst_full], dim=0)
+
+        edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
         r_a2a = torch.stack(
