@@ -182,8 +182,23 @@ class SMARTAgentDecoder(nn.Module):
         self.token_processor= token_processor
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0):
+    def predict_agent(self, sampled_traj, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0):
         n_agent, n_step = head_a.shape
+
+        sampled_traj=sampled_traj.reshape(n_agent,n_step,5,3)
+
+        smapled_pos=sampled_traj[...,:2]
+        sampled_head=sampled_traj[...,2]
+
+        agent_shape=tokenized_agent["token_agent_shape"]
+        token_traj=tokenized_agent["token_traj"]
+        
+        contour_local = cal_polygon_contour(smapled_pos,sampled_head, agent_shape[:,None,None])
+
+        dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
+
+        sampled_idx = dist.argmin(-1)
+
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
         # ! get agent token embeddings

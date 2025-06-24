@@ -420,87 +420,47 @@ class TokenProcessor(torch.nn.Module):
         noise=None
     ) -> Dict[str, Tensor]:
 
-        # pos_2hz= pos[:, ::self.shift]
-        #
-        # heading_2hz= heading[:, ::self.shift]
-        # valid_2hz = valid[:, ::self.shift] # [n_agent]
 
-        pos_now, head_now, valid_now = pos[:, self.shift::self.shift], heading[:, self.shift::self.shift], valid[:,
-                                                                                                           self.shift::self.shift]
-
-        # if self.training:
-        #     # token_dict = self._match_agent_token(
-        #     #     valid=valid,
-        #     #     pos=pos,
-        #     #     heading=heading,
-        #     #     agent_shape=agent_shape,
-        #     #     token_traj=token_traj,
-        #     # )
-        #     #
-        #     # noise=token_dict["sampled_pos"]- pos_now
-        #     # heading_noise=wrap_angle(token_dict["sampled_heading"]- head_now)
-        #     #
-        #     # pos_now= pos_now+noise.abs()*torch.randn_like(noise)*
-        #     # head_now= wrap_angle(head_now+heading_noise.abs()*torch.randn_like(heading_noise)*10)
-        #     #
-        #     # valid_now=token_dict["valid_mask"]
-        #     # diff_xy = token_traj[:, :, 0] - token_traj[:, :, 3]
-        #     # pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
-        #     #
-        #     # token_pos=token_traj.abs().mean(1).mean(1)[:,None]*0.1
-        #     #
-        #     # token_head=pred_head.abs().mean(1)[:,None]*0.1
-        #
-        #     #noise=noise.clamp(min=-1, max=1)
-        #
-        #
-        #     # sampled_pos= pos[:, self.shift:-self.shift:self.shift]+token_pos*torch.randn_like(pos_now)
-        #     # sampled_head= wrap_angle(heading[:, self.shift:-self.shift:self.shift]+noise[...,2])
-        #
-        #     # pos_now=torch.cat([pos_now[:,:1], sampled_pos], dim=1)
-        #     # head_now=torch.cat([head_now[:,:1], sampled_head], dim=1)
-        #
-        #     #valid_now[:,1:]=valid_now[:,:-1]
-        #     pos_now=pos_now+torch.randn_like(pos_now)*0.1
-        #     head_now=head_now+torch.randn_like(head_now)*0.01
-
-        pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
-        heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)
-        valid_2hz=torch.cat([valid[:,:1], valid_now], dim=1)
-
-        prev_pos, prev_head = pos_2hz[:, :-1], heading_2hz[:, :-1] # [n_agent, 2], [n_agent]
-
-        # prev_pos+=0.1*torch.randn_like(prev_pos)
-        # prev_head+=0.1*torch.randn_like(prev_head)
-
-        target_pos, target_head = transform_to_local(
-            pos_global=pos_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
-            head_global=head_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
-            pos_now=prev_pos.flatten(0, 1),  # [n_agent*18, 2]
-            head_now=prev_head.flatten(0, 1),  # [n_agent*18]
-        )
-        target_pos = target_pos.view(pos_now.shape)  # n_agent, 18, 2]
-        target_head = wrap_angle(target_head)  # [n_agent, 18]
-        target_head = target_head.view(head_now.shape)
-
-        contour_local = cal_polygon_contour(target_pos[:,:,None],target_head[:,:,None], agent_shape[:,None,None])
-
-        dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
-
-        token_idx_gt = dist.argmin(-1)
-
-        _valid_mask = valid_2hz[:,1:] & valid_2hz[:,:-1]
-        _invalid_mask = ~_valid_mask
-
-        sampled_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
-        sampled_heading=head_now.masked_fill(_invalid_mask, 0)
-
-        out_dict = {
-            "valid_mask":_valid_mask,
-            "sampled_idx": token_idx_gt,
-            "sampled_pos": sampled_pos,
-            "sampled_heading": sampled_heading,
-        }
+        # pos_now, head_now, valid_now = pos[:, self.shift::self.shift], heading[:, self.shift::self.shift], valid[:,
+        #                                                                                                    self.shift::self.shift]
+        # pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
+        # heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)
+        # valid_2hz=torch.cat([valid[:,:1], valid_now], dim=1)
+        # 
+        # prev_pos, prev_head = pos_2hz[:, :-1], heading_2hz[:, :-1] # [n_agent, 2], [n_agent]
+        # 
+        # # prev_pos+=0.1*torch.randn_like(prev_pos)
+        # # prev_head+=0.1*torch.randn_like(prev_head)
+        # 
+        # target_pos, target_head = transform_to_local(
+        #     pos_global=pos_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
+        #     head_global=head_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
+        #     pos_now=prev_pos.flatten(0, 1),  # [n_agent*18, 2]
+        #     head_now=prev_head.flatten(0, 1),  # [n_agent*18]
+        # )
+        # target_pos = target_pos.view(pos_now.shape)  # n_agent, 18, 2]
+        # target_head = wrap_angle(target_head)  # [n_agent, 18]
+        # target_head = target_head.view(head_now.shape)
+        # 
+        # contour_local = cal_polygon_contour(target_pos[:,:,None],target_head[:,:,None], agent_shape[:,None,None])
+        # 
+        # dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
+        # 
+        # token_idx_gt = dist.argmin(-1)
+        # 
+        # _valid_mask = valid_2hz[:,1:] & valid_2hz[:,:-1]
+        # _invalid_mask = ~_valid_mask
+        # 
+        # sampled_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
+        # sampled_heading=head_now.masked_fill(_invalid_mask, 0)
+        # 
+        # out_dict = {
+        #     "valid_mask":_valid_mask,
+        #     "sampled_idx": token_idx_gt,
+        #     "sampled_pos": sampled_pos,
+        #     "sampled_heading": sampled_heading,
+        # }
+        out_dict={}
 
         def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
             B, T, D = tensor.shape
@@ -549,6 +509,8 @@ class TokenProcessor(torch.nn.Module):
         out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
 
         out_dict["sampled_traj"] = target_traj.reshape(-1, 19, 30, 3)[:, :-1, :5].reshape(-1, 18, 15)
+        out_dict["sampled_pos"] =  pos[:, 5::5]
+        out_dict["sampled_heading"] = heading[:, 5::5]
 
         sample_valid = target_mask[:, :-1, :5].all(-1)
 
@@ -673,6 +635,7 @@ class TokenProcessor(torch.nn.Module):
             )
             tokenized_agent['token_traj_all'] = token_traj_all
             tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
+            tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
 
             if "col_mask" in agent.keys():
                 tokenized_agent["col_mask"] = agent["col_mask"]

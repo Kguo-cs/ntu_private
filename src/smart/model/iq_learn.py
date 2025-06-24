@@ -177,11 +177,6 @@ class IQ_SoftQ(LightningModule):
         return log_prob,logpi,actor_loss,entropy,current_Q,v_value,value_loss,reward
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
-        action = tokenized_agent["sampled_idx"][:, 2:]
-        valid_mask = tokenized_agent["valid_mask"][:, 1:]
-        agent_num = len(action)
-
-        all_valid_mask=valid_mask[:agent_num].all(-1)#train_mask #
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
@@ -215,6 +210,12 @@ class IQ_SoftQ(LightningModule):
             action=min_index
         else:
             proposal_loss=0
+            action = tokenized_agent["sampled_idx"][:, 2:]
+
+        valid_mask = tokenized_agent["valid_mask"][:, 1:]
+        agent_num = len(action)
+
+        all_valid_mask=valid_mask[:agent_num].all(-1)#train_mask #
 
         log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
 
