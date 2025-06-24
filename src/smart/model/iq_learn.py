@@ -185,10 +185,6 @@ class IQ_SoftQ(LightningModule):
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
-
-        current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
-
         if self.encoder.agent_encoder.pred_proposal:
             proposal=pred["proposal"][:,1:-1]
             target_mask=tokenized_agent["target_mask"][:,1:-1,None]
@@ -207,8 +203,14 @@ class IQ_SoftQ(LightningModule):
             self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
 
+
         else:
             proposal_loss=0
+
+        log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
+
+        current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
+
 
         if self.encoder.agent_encoder.pred_light:
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)

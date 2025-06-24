@@ -514,6 +514,52 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": sampled_heading,
         }
 
+        def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
+            B, T, D = tensor.shape
+            max_future = 30
+
+            # Pad extra steps to the right to safely index up to t+30
+            padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
+
+            # Start indices every 5 steps
+            starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
+            num_chunks = starts.size(0)
+
+            # For each start t, get future steps t+1 to t+30 (exclude t)
+            offsets = torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
+            indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
+            gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
+
+            return gathered
+
+        gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
+
+        gt_traj[~valid] = 0
+
+        target_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
+
+        target_mask = target_traj.any(-1) != 0
+
+        target_pos = target_traj[..., :2].flatten(0, 1)
+        target_head = target_traj[..., 2].flatten(0, 1)
+
+        target_pos, target_head = transform_to_local(
+            pos_global=target_pos,  # [n_agent*18, 1, 2]
+            head_global=target_head,  # [n_agent*18, 1]
+            pos_now=pos[:, ::5].flatten(0, 1),  # [n_agent*18, 2]
+            head_now=heading[:, ::5].flatten(0, 1),  # [n_agent*18]
+        )
+
+        out_dict["target_pos"] = target_pos.reshape(-1, 19, 30, 2)[:, 1:]
+        out_dict["target_head"] = target_head.reshape(-1, 19, 30)[:, 1:]
+        out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
+
+        out_dict["sampled_traj"] = target_traj.reshape(-1, 19, 30, 3)[:, :-1, :5].reshape(-1, 18, 15)
+
+        sample_valid = target_mask[:, :-1, :5].all(-1)
+
+        out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
+
         return out_dict
 
     @staticmethod
@@ -643,12 +689,6 @@ class TokenProcessor(torch.nn.Module):
                 for key in ["type", "batch", "shape"]:
                     tokenized_agent[key] = agent[key]
 
-                token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                                agent["gt_head_raw"],
-                                                                agent_shape, token_traj  # ,True
-                                                                )
-                tokenized_agent.update(token_dict)
-
                 # map_feature = encoder.map_encoder(tokenized_map)
                 #
                 # detach_map_feature={}
@@ -705,45 +745,6 @@ class TokenProcessor(torch.nn.Module):
                 #
                 # tokenized_agent["sampled_idx"] = hist_traj
 
-                def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
-                    B, T, D = tensor.shape
-                    max_future = 30
-
-                    # Pad extra steps to the right to safely index up to t+30
-                    padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
-
-                    # Start indices every 5 steps
-                    starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
-                    num_chunks = starts.size(0)
-
-                    # For each start t, get future steps t+1 to t+30 (exclude t)
-                    offsets = torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
-                    indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
-                    gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
-
-                    return gathered
-
-                gt_traj=torch.cat([agent["gt_pos_raw"],agent["gt_head_raw"][:,:,None]],dim=-1)
-
-                gt_traj[~agent["gt_valid_raw"]]=0
-
-                target_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
-
-                target_mask=target_traj.any(-1)!=0
-
-                target_pos=target_traj[...,:2].flatten(0,1)
-                target_head=target_traj[...,2].flatten(0,1)
-
-                target_pos, target_head = transform_to_local(
-                    pos_global=target_pos,  # [n_agent*18, 1, 2]
-                    head_global=target_head,  # [n_agent*18, 1]
-                    pos_now=agent["gt_pos_raw"][:,::5].flatten(0, 1),  # [n_agent*18, 2]
-                    head_now=agent["gt_head_raw"][:,::5].flatten(0, 1),  # [n_agent*18]
-                )
-
-                tokenized_agent["target_pos"]=target_pos.reshape(-1,19,30,2)[:,1:]
-                tokenized_agent["target_head"]=target_head.reshape(-1,19,30)[:,1:]
-                tokenized_agent["target_mask"]=target_mask[:,1:] #& tokenized_agent["valid_mask"][:,:,None]
 
                 #traj=target_traj.reshape(-1,19,30,3)[:,:-1,4]
                 # pos: Tensor,  # [n_agent, n_step, n_target, 2]
@@ -752,14 +753,14 @@ class TokenProcessor(torch.nn.Module):
 
                 # cal_polygon_contour(traj[:,:2],target_traj)
 
-                # tokenized_agent["sample_idx"]=target_traj.reshape(-1,19,30,3)[:,:-1,:5].reshape(-1,18,15)
-                #
-                # sample_valid=target_mask[:,:-1,:5].all(-1)
-                #
-                # tokenized_agent["valid_mask"]=agent["gt_valid_raw"][:,:-1:5]  & sample_valid
+                token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+                                                                agent["gt_head_raw"],
+                                                                agent_shape, token_traj  # ,True
+                                                                )
+                tokenized_agent.update(token_dict)
+
                 # tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
                 # tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
-                # tokenized_agent["valid_mask"]=agent["gt_valid_raw"][:,5::5]
 
 
                 # target_pos = agent["gt_pos_raw"][:, 5::5].reshape(-1, 17, 5, 2)
