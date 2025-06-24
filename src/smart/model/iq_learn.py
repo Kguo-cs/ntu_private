@@ -203,7 +203,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
 
-
+            action=min_index
         else:
             proposal_loss=0
 
