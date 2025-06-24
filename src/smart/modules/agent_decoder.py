@@ -187,8 +187,8 @@ class SMARTAgentDecoder(nn.Module):
 
         sampled_traj=sampled_traj.reshape(n_agent,n_step,5,3)
 
-        smapled_pos=sampled_traj[...,:2]
-        sampled_head=sampled_traj[...,2]
+        smapled_pos=sampled_traj[...,-1:,:2]
+        sampled_head=sampled_traj[...,-1:,2]
 
         agent_shape=tokenized_agent["token_agent_shape"]
         token_traj=tokenized_agent["token_traj"]

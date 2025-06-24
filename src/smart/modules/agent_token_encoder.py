@@ -21,7 +21,7 @@ class AgentTokenEncoder(nn.Module):
         self.hidden_dim = hidden_dim
 
         input_dim_x_a = 2
-        input_dim_token = 15
+        input_dim_token = 8
 
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,

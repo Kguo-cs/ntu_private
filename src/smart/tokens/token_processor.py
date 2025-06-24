@@ -515,6 +515,8 @@ class TokenProcessor(torch.nn.Module):
         sample_valid = target_mask[:, :-1, :5].all(-1)
 
         out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
+        
+        out_dict["sampled_idx"] = torch.zeros_like(out_dict["valid_mask"], dtype=torch.long)
 
         return out_dict
 
