@@ -175,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_proposal=True
 
         if self.pred_proposal:
-            proposal_num=16
+            proposal_num=32
             self.proposal_embedding=nn.Embedding(proposal_num,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*30)#future 30 second
 
