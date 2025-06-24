@@ -429,11 +429,11 @@ class SMARTAgentDecoder(nn.Module):
                         next_light_logits = None
                 else:
                     self.a_t_roformer.attn.caching=True
-                    if not self.light_encoder.share:
+                    if self.pred_light and not self.light_encoder.share:
                         self.light_encoder.lg_t_roformer.attn.caching = True
                     next_token_logits,next_light_logits,feat_a = self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,light_idx)
                     self.a_t_roformer.attn.caching = False
-                    if not self.light_encoder.share:
+                    if self.pred_light and not self.light_encoder.share:
                         self.light_encoder.lg_t_roformer.attn.caching = False
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist)
@@ -569,9 +569,8 @@ class SMARTAgentDecoder(nn.Module):
             #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
-        if self.pred_light:
-            if not self.light_encoder.share:
-                self.light_encoder.lg_t_roformer.attn.kv_caching(0)
+        if self.pred_light and not self.light_encoder.share:
+            self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
         out_dict = {
             "type": tokenized_agent["type"],

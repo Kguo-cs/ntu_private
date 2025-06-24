@@ -68,7 +68,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=True
+        self.pred_light=False
 
         self.use_my=False
 
@@ -87,53 +87,16 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent = self.tokenize_agent(data)
 
-            if "light_idx" in data.keys():
+            if self.pred_light:
                 light=data["light"]
 
                 light_idx=light["light_idx"].long()
-
-                # light_match=torch.all(light_idx[None]==self.light_token_all[:,None,None],dim=-1)
-                #
-                # light_idx=torch.argmax(light_match.to(torch.int),dim=0)
-                #
-                # light_idx=self.light_token_last[light_idx]
 
                 tokenized_agent["light_idx"]=light_idx
                 pos_lg=light["light_pos"]
                 orient_lg=light["light_orient"]#torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])#
                 batch_lg=light["batch"]
                 lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
-
-                # pos_lg = pos_lg[:, None].repeat(1, light_idx.shape[1], 1)
-                # orient_lg = orient_lg[:, None].repeat(1, light_idx.shape[1])
-                # tokenized_agent["batch"] = torch.cat([tokenized_agent["batch"], batch_lg])
-
-                tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
-
-                tokenized_agent["lengths_lg"] = lengths_lg
-                tokenized_agent["batch_lg"]=batch_lg
-                tokenized_agent["pos_lg"] = pos_lg
-                tokenized_agent["orient_lg"] = orient_lg
-            else:
-                light=data["light"]
-
-                light_idx=light["type"]
-
-                light_match=torch.all(light_idx[None]==self.light_token_all[:,None,None],dim=-1)
-
-                light_idx=torch.argmax(light_match.to(torch.int),dim=0)
-
-                light_idx=self.light_token_last[light_idx]
-
-                tokenized_agent["light_idx"]=light_idx
-                pos_lg=light["pos"]
-                orient_lg=torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])#light["light_orient"]#
-                batch_lg=light["batch"]
-                lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
-
-                # pos_lg = pos_lg[:, None].repeat(1, light_idx.shape[1], 1)
-                # orient_lg = orient_lg[:, None].repeat(1, light_idx.shape[1])
-                # tokenized_agent["batch"] = torch.cat([tokenized_agent["batch"], batch_lg])
 
                 tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
 
@@ -662,6 +625,9 @@ class TokenProcessor(torch.nn.Module):
                 for key in ["position", "orientation", "batch", "token_idx", "type"]:#, "pl_type", "light_type"
                     tokenized_map[key] = map[key]
 
+                if "light_type" in data.keys():
+                    tokenized_map["light_type"] = map["light_type"]
+
             agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
                 agent['type']
             )
@@ -753,7 +719,7 @@ class TokenProcessor(torch.nn.Module):
                 for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "sampled_idx", "valid_mask"]:
                     tokenized_agent[key] = agent[key]
 
-        if "light_idx" in data.keys():
+        if self.pred_light:
             tokenized_light = data["tokenized_light"]
 
             light_idx = tokenized_light["light_idx"]
@@ -786,6 +752,7 @@ class TokenProcessor(torch.nn.Module):
             # tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
             tokenized_agent["pos_lg"] = pos_lg
             tokenized_agent["orient_lg"] = orient_lg
+
 
         # if self.encoder.agent_encoder.pred_route:
         #     route_idx = agent["route_idx"] // (120 // self.encoder.agent_encoder.route_type)
