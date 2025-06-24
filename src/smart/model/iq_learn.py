@@ -195,16 +195,19 @@ class IQ_SoftQ(LightningModule):
 
             proposal_contour=cal_polygon_contour(proposal[...,:2],proposal[...,2],token_agent_shape[:,None,None,None])
 
-            pos_loss = (torch.linalg.norm(proposal[...,:2] - target_pos,dim=-1)*target_mask).mean(-1)
-            head_loss = (wrap_angle(proposal[...,2] - target_head).abs()*target_mask).mean(-1)
+            pos_loss = (torch.linalg.norm(proposal[...,:2] - target_pos,dim=-1)*target_mask)
+            head_loss = (wrap_angle(proposal[...,2] - target_head).abs()*target_mask)
 
-            proposal_loss=(torch.linalg.norm(proposal_contour - target_contour,dim=-1).mean(-1)*target_mask).mean(-1)
+            counter_dist=torch.linalg.norm(proposal_contour - target_contour,dim=-1).mean(-1)*target_mask
 
-            proposal_loss,min_index=torch.min(proposal_loss,dim=-1)#.min(-1)
-            proposal_loss=proposal_loss[train_mask]
+            proposal_loss=counter_dist.mean(-1).amin(-1)[train_mask]
 
-            pos_dist=torch.gather(pos_loss,index=min_index[:,:,None],dim=-1)[train_mask]
-            head_diff=torch.gather(head_loss,index=min_index[:,:,None],dim=-1)[train_mask]
+            proposal5_loss=counter_dist[:,:,:,4]
+
+            min_index=torch.argmin(proposal5_loss,dim=-1)
+
+            pos_dist=torch.gather(pos_loss[...,4],index=min_index[:,:,None],dim=-1)[train_mask]
+            head_diff=torch.gather(head_loss[...,4],index=min_index[:,:,None],dim=-1)[train_mask]
 
             self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
