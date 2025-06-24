@@ -169,19 +169,18 @@ class SimulationManager:
         #map_layout_canvas={}
         #box_layout_canvas={}
         for key in ['CAM_FRONT_LEFT','CAM_FRONT','CAM_FRONT_RIGHT']:#front_left_image, front_image, front_right_image
-            map_canvas = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.camera_intrinsics[key], self.camera2ego[key])
+            map_canvas = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.camera_intrinsics[key], self.camera2ego[key],num_classes=len(self.map_classes), drivable_mask=None)
             #gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image = None
             box_canvas = project_box_to_image(gt_bboxes_3d, gt_labels_3d, self.lidar2img[key], object_classes=self.object_classes)
 
-            box_canvas=np.clip(box_canvas,0,1)
-
-            layout_canvas.append(np.concatenate([1-map_canvas, 1-box_canvas], axis=-1))
+            #box_canvas=np.ones_like(box_canvas)
+            layout_canvas.append(np.concatenate([map_canvas, 1-box_canvas], axis=-1))
 
             #map_layout_canvas[key]=map_canvas
            # box_layout_canvas[key]=box_canvas
            #  print(map_canvas.max(),box_canvas.max())
         layout_canvas = np.stack(layout_canvas, axis=0)
-       # layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
+        #layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
         return layout_canvas
 
     def vectormap_pipeline(self, gt_vecs_label, gt_lines_instance,drivable_mask):
@@ -259,8 +258,8 @@ class SimulationManager:
             ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
 
             self.gui.imageQueue.put(ci)
-
-            pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
+            with torch.no_grad():
+                pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
             tokenized_agent["pred_traj_10hz"]=pred_dict["pred_traj_10hz"]
             tokenized_agent["pred_head_10hz"]=pred_dict["pred_head_10hz"]

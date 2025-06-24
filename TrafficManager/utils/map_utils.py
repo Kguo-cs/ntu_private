@@ -156,29 +156,29 @@ def project_map_to_image(gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image
                 cv2.line(image, tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
                          colors[int(gt_label_3d)], 5)
 
-    # if drivable_mask is not None:
-    #     drivable_canvas = np.zeros((1, 900, 1600, 3), dtype=np.uint8)
-    #     drivable_grids = np.where(drivable_mask > 0)
-    #     drivable_grids = np.stack(drivable_grids, 1)
-    #     drivable_pts = drivable_grids * 0.5 - 50.0 + 0.25
-    #     drivable_pts = drivable_pts[:,[1,0]]
-    #     drivable_pts[:,1] = -drivable_pts[:, 1]
-    #     drivable_pts = torch.from_numpy(drivable_pts)
-    #
-    #     dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1))*z], dim=-1).float()
-    #     points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
-    #     points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
-    #     if points_in_cam_cor.shape[1] > 1:
-    #         points_on_image_cor = intrinsic[:3,:3] @ points_in_cam_cor
-    #         points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
-    #         points_on_image_cor = points_on_image_cor[:2, :].T
-    #         points_on_image_cor = points_on_image_cor.int().numpy()
-    #
-    #         for point in points_on_image_cor:
-    #             cv2.circle(drivable_canvas[0], point, 20, (1,0,0), -1)
-    #
-    # if drivable_mask is not None:
-    #     canvas = np.concatenate([canvas, drivable_canvas], 0)
+    if drivable_mask is not None:
+        drivable_canvas = np.zeros((1, 900, 1600, 3), dtype=np.uint8)
+        drivable_grids = np.where(drivable_mask > 0)
+        drivable_grids = np.stack(drivable_grids, 1)
+        drivable_pts = drivable_grids * 0.5 - 50.0 + 0.25
+        drivable_pts = drivable_pts[:,[1,0]]
+        drivable_pts[:,1] = -drivable_pts[:, 1]
+        drivable_pts = torch.from_numpy(drivable_pts)
+
+        dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1))*z], dim=-1).float()
+        points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
+        points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
+        if points_in_cam_cor.shape[1] > 1:
+            points_on_image_cor = intrinsic[:3,:3] @ points_in_cam_cor
+            points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
+            points_on_image_cor = points_on_image_cor[:2, :].T
+            points_on_image_cor = points_on_image_cor.int().numpy()
+
+            for point in points_on_image_cor:
+                cv2.circle(drivable_canvas[0], point, 20, (1,0,0), -1)
+
+    if drivable_mask is not None:
+        canvas = np.concatenate([canvas, drivable_canvas], 0)
 
     if image is not None:
         cv2.imwrite('./project.png', canvas)
