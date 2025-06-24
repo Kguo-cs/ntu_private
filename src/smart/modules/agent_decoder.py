@@ -369,7 +369,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             noised_light_idx  = None
 
-        sampled_idx = tokenized_agent["sampled_idx"].long()
+        sampled_idx = tokenized_agent["sampled_idx"]
         mask = tokenized_agent["valid_mask"]
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
@@ -393,7 +393,7 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step):
 
-        sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone().long()
+        sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()

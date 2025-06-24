@@ -72,22 +72,28 @@ class AgentTokenEncoder(nn.Module):
             agent_shape,  # [n_agent, 3]
             inference=False,
     ):
-        n_agent, n_step = agent_token_index.shape
+        n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
         _device = pos_a.device
 
         veh_mask = agent_type == 0
         ped_mask = agent_type == 1
         cyc_mask = agent_type == 2
         #  [n_token, hidden_dim]
-        agent_token_emb_veh = self.token_emb_veh(trajectory_token_veh)
-        agent_token_emb_ped = self.token_emb_ped(trajectory_token_ped)
-        agent_token_emb_cyc = self.token_emb_cyc(trajectory_token_cyc)
         agent_token_emb = torch.zeros(
             (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
         )
-        agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
-        agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
-        agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
+
+        if len(agent_token_index.shape) == 3:
+            agent_token_emb[veh_mask] =self.token_emb_veh(agent_token_index[veh_mask])
+            agent_token_emb[ped_mask] = self.token_emb_ped(agent_token_index[ped_mask])
+            agent_token_emb[cyc_mask] = self.token_emb_cyc(agent_token_index[cyc_mask])
+        else:
+            agent_token_emb_veh = self.token_emb_veh(trajectory_token_veh)
+            agent_token_emb_ped = self.token_emb_ped(trajectory_token_ped)
+            agent_token_emb_cyc = self.token_emb_cyc(trajectory_token_cyc)
+            agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
+            agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
+            agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
 
         motion_vector_a = torch.cat(
             [

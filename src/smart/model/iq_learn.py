@@ -113,7 +113,7 @@ class IQ_SoftQ(LightningModule):
                 next_V =current_Q=current_V=actor_loss= torch.zeros_like(log_prob)
                 v_value = torch.zeros_like(torch.cat([log_prob, torch.zeros_like(log_prob[:,:1])],dim=1))
         else:
-            action = action.unsqueeze(-1).long()  # .reshape(-1)
+            action = action.unsqueeze(-1)  # .reshape(-1)
 
             q = q_value[:, :-1]
 
@@ -235,19 +235,17 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, 1:]
-        col_mask = tokenized_agent["col_mask"][:, 2:]
-        state_mask=valid_mask[:,:-1]
-        action_mask=valid_mask[:,1:] 
-        
-        #action_mask=action_mask.all(-1,keepdim=True).repeat(1,action_mask.shape[-1])
-        
-        # print("action_mask",action_mask.shape)
 
-        # action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask[:,1:])
+        if "col_mask" in tokenized_agent.keys():
+            col_mask = tokenized_agent["col_mask"][:, 2:]
+            state_mask=valid_mask[:,:-1]
+            action_mask=valid_mask[:,1:]
 
-        train_mask=state_mask & action_mask * col_mask
+            action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask[:,1:])
 
-        #train_mask=valid_mask.all(-1) & (~col_mask[:,1:])
+            train_mask=state_mask & action_mask
+        else:
+            train_mask = valid_mask.all(-1)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
