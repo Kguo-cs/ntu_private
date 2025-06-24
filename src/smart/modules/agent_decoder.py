@@ -175,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_proposal=True
 
         if self.pred_proposal:
-            proposal_num=16
+            proposal_num=n_token_agent
             self.proposal_embedding=nn.Embedding(proposal_num,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*30)#future 30 second
 
@@ -228,11 +228,6 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_lgt=None
 
-        if self.pred_proposal:
-            proposal_feature=feat_a_t[:,:,None]+self.proposal_embedding.weight[None,None]
-            proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
-        else:
-            proposal=None
 
         mask_a=mask_a[:,-n_step:]
 
@@ -316,6 +311,12 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
+        if self.pred_proposal:
+            proposal_feature=feat_a[:,:,None]+self.proposal_embedding.weight[None,None]
+            proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
+        else:
+            proposal=None
+
         if self.output_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
@@ -359,8 +360,6 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_logits=torch.cat([next_token_logits,res_traj],dim=-1)
             else:
                 next_token_logits=feat_a
-
-
 
         return next_token_logits,next_light_logits,feat_a,proposal
 

@@ -684,26 +684,25 @@ class TokenProcessor(torch.nn.Module):
                 # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,5,2)
                 # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,5)
 
-                # tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
-                # tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
-                # tokenized_agent["valid_mask"]=agent["gt_valid_raw"][:,5::5]
+
 
                 # gt_pos_raw = tokenized_agent["gt_pos_raw"].flatten(0, 1)[:, None]
                 # gt_head_raw = tokenized_agent["gt_head_raw"].flatten(0, 1)[:, None]
-                # gt_pos_raw=agent["gt_pos_raw"][:,:-1].reshape(-1,18,5,2).flatten(0, 1)
-                # gt_head_raw=agent["gt_head_raw"][:,:-1].reshape(-1,18,5).flatten(0, 1)
+                # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,18,5,2).flatten(0, 1)
+                # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,18,5).flatten(0, 1)
                 #
+                # prev_pos, prev_head = agent["gt_pos_raw"][:,:-1:5], agent["gt_pos_raw"][:,:-1:5]  # [n_agent, 2], [n_agent]
                 #
                 # hist_pos, hist_head = transform_to_local(
                 #     pos_global=gt_pos_raw,  # [n_agent*18, 1, 2]
                 #     head_global=gt_head_raw,  # [n_agent*18, 1]
-                #     pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
-                #     head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
+                #     pos_now=prev_pos,  # [n_agent*18, 2]
+                #     head_now=prev_head,  # [n_agent*18]
                 # )
                 #
                 # hist_traj = torch.cat([hist_pos, wrap_angle(hist_head)[:, :, None]], dim=-1).reshape(
                 #     len(agent["gt_pos_raw"]), 18, -1)
-
+                #
                 # tokenized_agent["sampled_idx"] = hist_traj
 
                 def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
@@ -728,7 +727,7 @@ class TokenProcessor(torch.nn.Module):
 
                 gt_traj[~agent["gt_valid_raw"]]=0
 
-                target_traj = get_future_30_every_5th_step_with_padding(gt_traj[:,5:])  # shape: (B, T//5, 30, 2)
+                target_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
 
                 target_mask=target_traj.any(-1)!=0
 
@@ -738,13 +737,30 @@ class TokenProcessor(torch.nn.Module):
                 target_pos, target_head = transform_to_local(
                     pos_global=target_pos,  # [n_agent*18, 1, 2]
                     head_global=target_head,  # [n_agent*18, 1]
-                    pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
-                    head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
+                    pos_now=agent["gt_pos_raw"][:,::5].flatten(0, 1),  # [n_agent*18, 2]
+                    head_now=agent["gt_head_raw"][:,::5].flatten(0, 1),  # [n_agent*18]
                 )
 
-                tokenized_agent["target_pos"]=target_pos.reshape(-1,18,30,2)
-                tokenized_agent["target_head"]=target_head.reshape(-1,18,30)
+                tokenized_agent["target_pos"]=target_pos.reshape(-1,19,30,2)[:,1:]
+                tokenized_agent["target_head"]=target_head.reshape(-1,19,30)[:,1:]
                 tokenized_agent["target_mask"]=target_mask #& tokenized_agent["valid_mask"][:,:,None]
+
+                #traj=target_traj.reshape(-1,19,30,3)[:,:-1,4]
+                # pos: Tensor,  # [n_agent, n_step, n_target, 2]
+                # head: Tensor,  # [n_agent, n_step, n_target]
+                # width_length: Tensor,  # [n_agent, 1, 1, 2]
+
+                # cal_polygon_contour(traj[:,:2],target_traj)
+
+                # tokenized_agent["sample_idx"]=target_traj.reshape(-1,19,30,3)[:,:-1,:5].reshape(-1,18,15)
+                #
+                # sample_valid=target_mask[:,:-1,:5].all(-1)
+                #
+                # tokenized_agent["valid_mask"]=agent["gt_valid_raw"][:,:-1:5]  & sample_valid
+                # tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
+                # tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
+                # tokenized_agent["valid_mask"]=agent["gt_valid_raw"][:,5::5]
+
 
                 # target_pos = agent["gt_pos_raw"][:, 5::5].reshape(-1, 17, 5, 2)
                 # target_pos = torch.roll(target_pos, -1, 0)
