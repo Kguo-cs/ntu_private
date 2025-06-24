@@ -11,6 +11,12 @@ from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
 from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,eval_light
 from src.smart.loss.rollout_buffer import rollout
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+)
 
 class IQ_SoftQ(LightningModule):
 
@@ -185,16 +191,24 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_proposal:
             proposal=pred["proposal"]
-            target_traj=tokenized_agent["target_traj"]
-            target_mask=tokenized_agent["target_mask"]
+            target_mask=tokenized_agent["target_mask"][:,:,None]
+            target_pos=tokenized_agent["target_pos"][:, :,None]
+            target_head=tokenized_agent["target_head"][:, :,None]
 
-            proposal_loss = (torch.linalg.norm(proposal - target_traj[:, :,None], dim=-1, ord=1)*target_mask[:,:,None]).mean(-1).amin(
-                -1)
+            pos_loss = (torch.linalg.norm(proposal[...,:2] - target_pos,dim=-1)*target_mask).mean(-1)
+            head_loss = (wrap_angle(proposal[...,2] - target_head).abs()*target_mask).mean(-1)
 
+            proposal_loss,min_index=torch.min(pos_loss+head_loss,dim=-1)#.min(-1)
             proposal_loss=proposal_loss[train_mask]
+
+            pos_dist=torch.gather(pos_loss,index=min_index[:,:,None],dim=-1)[train_mask]
+            head_diff=torch.gather(head_loss,index=min_index[:,:,None],dim=-1)[train_mask]
+
+            self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
+
         else:
             proposal_loss=0
-
 
         if self.encoder.agent_encoder.pred_light:
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
@@ -242,7 +256,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_proposal_loss", proposal_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_proposal_loss", proposal_loss.mean().item(), on_step=True, batch_size=1)
 
         return  reward,value_loss,init_V,action_nll,actor_loss,proposal_loss
 

@@ -743,10 +743,8 @@ class TokenProcessor(torch.nn.Module):
                     head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
                 )
 
-
-                target_traj=torch.cat([target_pos, wrap_angle(target_head)[:,:,None]], dim=-1).reshape(-1,18,30,3)
-
-                tokenized_agent["target_traj"]=target_traj
+                tokenized_agent["target_pos"]=target_pos.reshape(-1,18,30,2)
+                tokenized_agent["target_head"]=target_head.reshape(-1,18,30)
                 tokenized_agent["target_mask"]=target_mask
 
                 # target_pos = agent["gt_pos_raw"][:, 5::5].reshape(-1, 17, 5, 2)

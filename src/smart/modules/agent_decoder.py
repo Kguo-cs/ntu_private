@@ -221,12 +221,11 @@ class SMARTAgentDecoder(nn.Module):
 
             #r_a2a = self.edge_encoder.build_temporal_edge(pos_a_lg,head_a_lg,head_vector_a_lg,mask)
 
-
             feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,None,None, n_step, n_current, mask)
-            feat_a=feat_a_lg[:len(sampled_idx)]
+            feat_a_t=feat_a_lg[:len(sampled_idx)]
             feat_lgt=feat_a_lg[len(sampled_idx):]
         else:
-            feat_a = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
             feat_lgt=None
 
@@ -259,7 +258,7 @@ class SMARTAgentDecoder(nn.Module):
             max_num_neighbors=self.a2a_neighbor
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        feat_a = feat_a.transpose(0, 1).flatten(0, 1)
+        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
         feat_map = (
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
         )
@@ -356,7 +355,7 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if self.pred_proposal:
-            proposal_feature=feat_a_token[:,:,None]+self.proposal_embedding.weight[None,None]
+            proposal_feature=feat_a_t[:,:,None]+self.proposal_embedding.weight[None,None]
             proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
         else:
             proposal=None
