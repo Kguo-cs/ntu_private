@@ -190,6 +190,8 @@ class IQ_SoftQ(LightningModule):
 
             proposal_loss = (torch.linalg.norm(proposal - target_traj[:, :,None], dim=-1, ord=1)*target_mask[:,:,None]).mean(-1).amin(
                 -1)
+
+            proposal_loss=proposal_loss[train_mask]
         else:
             proposal_loss=0
 

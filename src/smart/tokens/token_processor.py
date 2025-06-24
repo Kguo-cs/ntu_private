@@ -723,17 +723,15 @@ class TokenProcessor(torch.nn.Module):
                     indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
                     gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
 
-                    # Create mask: 1 for valid steps, 0 for padded
-                    valid_lengths = torch.clamp(T - (starts + 1), max=max_future)  # (T//5,)
-                    mask = torch.arange(max_future, device=tensor.device).unsqueeze(0) < valid_lengths.unsqueeze(
-                        1)  # (T//5, 30)
-                    mask = mask.unsqueeze(0).expand(B, -1, -1)  # (B, T//5, 30)
-
-                    return gathered, mask
+                    return gathered
 
                 gt_traj=torch.cat([agent["gt_pos_raw"],agent["gt_head_raw"][:,:,None]],dim=-1)
 
-                target_traj, target_mask = get_future_30_every_5th_step_with_padding(gt_traj[:,5:])  # shape: (B, T//5, 30, 2)
+                gt_traj[~agent["gt_valid_raw"]]=0
+
+                target_traj = get_future_30_every_5th_step_with_padding(gt_traj[:,5:])  # shape: (B, T//5, 30, 2)
+
+                target_mask=target_traj.any(-1)!=0
 
                 target_pos=target_traj[...,:2].flatten(0,1)
                 target_head=target_traj[...,2].flatten(0,1)
@@ -745,7 +743,8 @@ class TokenProcessor(torch.nn.Module):
                     head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
                 )
 
-                target_traj=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(-1,18,30,3)
+
+                target_traj=torch.cat([target_pos, wrap_angle(target_head)[:,:,None]], dim=-1).reshape(-1,18,30,3)
 
                 tokenized_agent["target_traj"]=target_traj
                 tokenized_agent["target_mask"]=target_mask
