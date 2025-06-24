@@ -744,7 +744,7 @@ class TokenProcessor(torch.nn.Module):
 
                 tokenized_agent["target_pos"]=target_pos.reshape(-1,18,30,2)
                 tokenized_agent["target_head"]=target_head.reshape(-1,18,30)
-                tokenized_agent["target_mask"]=target_mask
+                tokenized_agent["target_mask"]=target_mask #& tokenized_agent["valid_mask"][:,:,None]
 
                 # target_pos = agent["gt_pos_raw"][:, 5::5].reshape(-1, 17, 5, 2)
                 # target_pos = torch.roll(target_pos, -1, 0)

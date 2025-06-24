@@ -190,10 +190,10 @@ class IQ_SoftQ(LightningModule):
         current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
         if self.encoder.agent_encoder.pred_proposal:
-            proposal=pred["proposal"]
-            target_mask=tokenized_agent["target_mask"][:,:,None]
-            target_pos=tokenized_agent["target_pos"][:, :,None]
-            target_head=tokenized_agent["target_head"][:, :,None]
+            proposal=pred["proposal"][:,1:-1]
+            target_mask=tokenized_agent["target_mask"][:,1:-1,None]
+            target_pos=tokenized_agent["target_pos"][:, 1:-1,None]
+            target_head=tokenized_agent["target_head"][:, 1:-1,None]
 
             pos_loss = (torch.linalg.norm(proposal[...,:2] - target_pos,dim=-1)*target_mask).mean(-1)
             head_loss = (wrap_angle(proposal[...,2] - target_head).abs()*target_mask).mean(-1)
