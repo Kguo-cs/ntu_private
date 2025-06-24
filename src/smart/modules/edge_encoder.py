@@ -109,7 +109,7 @@ class EdgeEncoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
 
         if proposal is None:
-            edge_index_a2a = radiusGraphNearest(x=pos_s,
+            full_edge_index = radiusGraphNearest(x=pos_s,
                                                  r=max_radius,
                                                  batch=batch_s,
                                                  loop=False,
