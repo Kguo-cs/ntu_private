@@ -183,6 +183,17 @@ class IQ_SoftQ(LightningModule):
 
         current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
+        if self.encoder.agent_encoder.pred_proposal:
+            proposal=pred["proposal"]
+            target_traj=tokenized_agent["target_traj"]
+            target_mask=tokenized_agent["target_mask"]
+
+            proposal_loss = (torch.linalg.norm(proposal - target_traj[:, :,None], dim=-1, ord=1)*target_mask[:,:,None]).mean(-1).amin(
+                -1)
+        else:
+            proposal_loss=0
+
+
         if self.encoder.agent_encoder.pred_light:
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
 
@@ -229,9 +240,9 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_proposal_loss", proposal_loss.mean().item(), on_step=True, batch_size=1)
 
-
-        return  reward,value_loss,init_V,action_nll,actor_loss
+        return  reward,value_loss,init_V,action_nll,actor_loss,proposal_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, 1:]
@@ -247,7 +258,7 @@ class IQ_SoftQ(LightningModule):
         else:
             train_mask = valid_mask.all(-1)
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss,proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
 
@@ -255,7 +266,7 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_res:
                 loss=expert_actor_loss.mean()+expert_nll
             else:
-                loss =expert_nll
+                loss =expert_nll+proposal_loss.mean()
         else:
             if self.global_step % self.rollout_freq== 0:
                 tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
@@ -265,7 +276,7 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            agent_reward, agent_value_loss, agent_V_diff, _,agent_actor_loss = self.get_QV(
+            agent_reward, agent_value_loss, agent_V_diff, _,agent_actor_loss,agent_proposal_loss = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
             critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss)

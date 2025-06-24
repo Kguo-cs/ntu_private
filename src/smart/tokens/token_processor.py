@@ -21,6 +21,7 @@ from omegaconf import DictConfig
 from torch import Tensor
 from torch.distributions import Categorical
 from torch_geometric.data import HeteroData
+import torch.nn.functional as F
 
 from src.smart.utils import (
     cal_polygon_contour,
@@ -706,13 +707,55 @@ class TokenProcessor(torch.nn.Module):
 
                 # tokenized_agent["sampled_idx"] = hist_traj
 
+                def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
+                    B, T, D = tensor.shape
+                    max_future = 30
+
+                    # Pad extra steps to the right to safely index up to t+30
+                    padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
+
+                    # Start indices every 5 steps
+                    starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
+                    num_chunks = starts.size(0)
+
+                    # For each start t, get future steps t+1 to t+30 (exclude t)
+                    offsets = torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
+                    indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
+                    gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
+
+                    # Create mask: 1 for valid steps, 0 for padded
+                    valid_lengths = torch.clamp(T - (starts + 1), max=max_future)  # (T//5,)
+                    mask = torch.arange(max_future, device=tensor.device).unsqueeze(0) < valid_lengths.unsqueeze(
+                        1)  # (T//5, 30)
+                    mask = mask.unsqueeze(0).expand(B, -1, -1)  # (B, T//5, 30)
+
+                    return gathered, mask
+
+                gt_traj=torch.cat([agent["gt_pos_raw"],agent["gt_head_raw"][:,:,None]],dim=-1)
+
+                target_traj, target_mask = get_future_30_every_5th_step_with_padding(gt_traj[:,5:])  # shape: (B, T//5, 30, 2)
+
+                target_pos=target_traj[...,:2].flatten(0,1)
+                target_head=target_traj[...,2].flatten(0,1)
+
+                target_pos, target_head = transform_to_local(
+                    pos_global=target_pos,  # [n_agent*18, 1, 2]
+                    head_global=target_head,  # [n_agent*18, 1]
+                    pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
+                    head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
+                )
+
+                target_traj=torch.cat([target_pos, target_head[:,:,None]], dim=-1).reshape(-1,18,30,3)
+
+                tokenized_agent["target_traj"]=target_traj
+                tokenized_agent["target_mask"]=target_mask
 
                 # target_pos = agent["gt_pos_raw"][:, 5::5].reshape(-1, 17, 5, 2)
                 # target_pos = torch.roll(target_pos, -1, 0)
                 #
                 # target_head = agent["gt_head_raw"][:, 5::5].reshape(-1, 17, 5)
                 # target_head = torch.roll(target_head, -1, 0)
-
+                #
                 # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,18,5,2)
                 # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,18,5)
                 #
