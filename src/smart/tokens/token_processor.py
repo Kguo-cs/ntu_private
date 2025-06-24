@@ -236,18 +236,6 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent]
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
-        # av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-        #
-        # initial_token_dict =self.tokenized_initial_pos(
-        #     valid=valid,
-        #     pos=pos,
-        #     heading=heading,
-        #     role=data["agent"]["role"],
-        # )
-        # tokenized_agent.update(initial_token_dict)
-
-
-
         token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
@@ -550,8 +538,14 @@ class TokenProcessor(torch.nn.Module):
             head_now=heading[:, ::5].flatten(0, 1),  # [n_agent*18]
         )
 
-        out_dict["target_pos"] = target_pos.reshape(-1, 19, 30, 2)[:, 1:]
-        out_dict["target_head"] = target_head.reshape(-1, 19, 30)[:, 1:]
+        target_pos=target_pos.reshape(-1, 19, 30, 2)[:, 1:]
+        target_head=target_head.reshape(-1, 19, 30)[:, 1:]
+
+        target_contour = cal_polygon_contour(target_pos,target_head, agent_shape[:,None,None])
+
+        out_dict["target_pos"] = target_pos
+        out_dict["target_head"] = target_head
+        out_dict["target_contour"] = target_contour
         out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
 
         out_dict["sampled_traj"] = target_traj.reshape(-1, 19, 30, 3)[:, :-1, :5].reshape(-1, 18, 15)
@@ -754,8 +748,8 @@ class TokenProcessor(torch.nn.Module):
                 # cal_polygon_contour(traj[:,:2],target_traj)
 
                 token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                                agent["gt_head_raw"],
-                                                                agent_shape, token_traj  # ,True
+                                                            agent["gt_head_raw"],
+                                                            agent_shape, token_traj  # ,True
                                                                 )
                 tokenized_agent.update(token_dict)
 

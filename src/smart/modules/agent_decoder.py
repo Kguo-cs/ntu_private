@@ -499,7 +499,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 range_a = torch.arange(next_token_idx.shape[0])
 
-                next_token_traj_all = token_traj_all[range_a, next_token_idx][:, 1:]
+                next_token_traj_all = token_traj_all[range_a, next_token_idx]
                 
             if next_light_logits is not None and len(next_light_logits):
 

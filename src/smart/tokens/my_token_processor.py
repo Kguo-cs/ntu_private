@@ -104,55 +104,11 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
-        # sample_interval=10
-        #
-        # lane_ids =torch.unique(data["pt_token"]["ln_id"], return_inverse=True)[1]
-        #
-        # pt_idx=torch.arange(len(lane_ids),device=lane_ids.device)
-
-        # # Collect sampled points
-        # sampled_points = []
-        #
-        # for lane in range(lane_ids[-1]+1):
-        #     # Get indices where lane_id == current lane
-        #     sampled_lane_points = pt_idx[lane_ids == lane][::sample_interval]
-        #
-        #     sampled_points.append(sampled_lane_points)
-        #
-        # # Concatenate all sampled points
-        # sample_list = torch.cat(sampled_points)
-
-        # Get change points (start of each lane group)
-        # change_idx = torch.nonzero(lane_ids[1:] != lane_ids[:-1], as_tuple=False).squeeze(1) + 1
-        # starts = torch.cat([torch.tensor([0], device=lane_ids.device), change_idx])
-        # ends = torch.cat([change_idx, torch.tensor([len(lane_ids)], device=lane_ids.device)])
-        # lengths = ends - starts
-        #
-        # # Create global index mask for sampling
-        # max_len = lengths.max()
-        # grid = torch.arange(max_len, device=lane_ids.device).unsqueeze(0)
-        # mask = grid < lengths.unsqueeze(1)
-        # sampling_mask = (grid % sample_interval == 0) & mask
-        #
-        # # Flattened index positions per group
-        # base = starts.unsqueeze(1) + grid
-        # valid_idx = base[sampling_mask]
-        # # Recover sampled original indices
-        # sample_list = pt_idx[valid_idx]
-
-        # traj_pos = data["map_save"]["traj_pos"] [::sample_interval] # [n_pl, 3, 2]
-        # traj_theta = data["map_save"]["traj_theta"] [::sample_interval]  # [n_pl]
-        # ln_id = data["pt_token"]["ln_id"][::sample_interval]
-        # type= data["pt_token"]["type"][::sample_interval]  # [n_pl]
-        # pl_type= data["pt_token"]["pl_type"][::sample_interval]  # [n_pl]
-        # light_type= data["pt_token"]["light_type"][::sample_interval]  # [n_pl]
-        traj_pos = data["map_save"]["traj_pos"]#[sample_list]#[::sample_interval] ## # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"]#[sample_list] #[::sample_interval]##  # [n_pl]
-        type= data["pt_token"]["type"]#[sample_list]#[::sample_interval]#.long()#[::sample_interval]  # [n_pl]
-        pl_type= data["pt_token"]["pl_type"]#[sample_list]#[::sample_interval]##[::sample_interval]  # [n_pl]
-        light_type= data["pt_token"]["light_type"]#[sample_list]#[::sample_interval] ##[::sample_interval]  # [n_pl]
-
-        #dist=torch.linalg.norm(traj_pos[1:,0]-traj_pos[:-1,0],dim=-1)#each two point with interval 50
+        traj_pos = data["map_save"]["traj_pos"]## # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"]##  # [n_pl]
+        type= data["pt_token"]["type"]  # [n_pl]
+        pl_type= data["pt_token"]["pl_type"]# [n_pl]
+        light_type= data["pt_token"]["light_type"]# [n_pl]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -168,51 +124,15 @@ class TokenProcessor(torch.nn.Module):
 
         token_idx = torch.argmin(dist, dim=-1)
 
-        # batch=data["pt_token"]["batch"]
-        # light_edge=data["pt_token"]["light_edge"]
-        # ln_id=data["pt_token"]["ln_id"]
-        #
-        # agent_batch=data["agent"]["batch"]
-        # next_route=data["agent"]["next_route"]
-
-        # ln_num=0
-        # pl_num=0
-        # light_num=0
-
-        # for i in range(max(batch)+1):
-        #     batch_ln_id=ln_id[batch==i]+ln_num
-        #     mask=next_route==-1
-        #     next_route[agent_batch==i]=next_route[agent_batch==i]+ln_num
-        #     next_route[mask]=-1
-        #
-        #     if len(light_edge[i]):
-        #         light_edge[i][:,0]+=light_num
-        #         light_edge[i][:,1]+=pl_num
-        #
-        #         light_num=light_edge[i][-1][0]+1
-        #
-        #     ln_num=max(batch_ln_id).item()+1
-        #     ln_id[batch==i]=batch_ln_id
-        #     pl_num+=len(batch_ln_id)+1
-        #
-        # light_edge = torch.tensor(np.concatenate(light_edge,axis=0)).to(batch.device)
-
-        #data["agent"]["next_route"]=next_route
-
-
-        position=traj_pos[:, 0] #.contiguous()
+        position=traj_pos[:, 0].contiguous()
 
         tokenized_map = {
-           # "position": position,  # [n_pl, 2]
             "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
-           # "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
             "type": type ,  # [n_pl]
             "pl_type": pl_type ,  # [n_pl]
             "light_type": light_type ,  # [n_pl]
-           # "ln_id":ln_id,
-           # "rel_position":rel_position
         }
         return tokenized_map
 
