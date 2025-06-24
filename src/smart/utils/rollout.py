@@ -19,7 +19,7 @@ from torch import Tensor
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
 
 
-@torch.no_grad()
+# @torch.no_grad()
 def cal_polygon_contour(
     pos: Tensor,  # [n_agent, n_step, n_target, 2]
     head: Tensor,  # [n_agent, n_step, n_target]
