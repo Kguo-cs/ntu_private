@@ -177,7 +177,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_proposal:
             proposal_num=n_token_agent
             self.proposal_embedding=nn.Embedding(proposal_num,hidden_dim)
-            self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)#future 30 second
+            self.proposal_head=MLPLayer(hidden_dim,hidden_dim//2, output_dim=3*5)#future 30 second
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -328,7 +328,7 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         if self.pred_proposal:
-            feat_flat = feat_a_t.flatten(0, 1)  # [B*T, D]
+            feat_flat = feat_a.flatten(0, 1)  # [B*T, D]
             proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
             proposal = self.proposal_head(proposal_feature).reshape(feat_a_t.shape[0],feat_a_t.shape[1],proposal_feature.shape[1],-1,3)
         else:

@@ -221,7 +221,6 @@ class IQ_SoftQ(LightningModule):
 
         current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
 
-
         if self.encoder.agent_encoder.pred_light:
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
 
