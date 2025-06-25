@@ -375,6 +375,9 @@ class SMARTAgentDecoder(nn.Module):
         pred_head = torch.arctan2(diff_xy[:, :, :,1], diff_xy[:, :,:, 0])
 
         token_local_traj = torch.cat([pred_pos, pred_head[:, :,:, None]], dim=-1)
+        token_agent_shape=tokenized_agent["token_agent_shape"]
+        token_traj=tokenized_agent["token_traj"]
+
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
@@ -450,7 +453,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 if self.pred_proposal:
                     next_local_traj = proposal[:, -1, :, :5][range_a, next_token_idx]
-                    next_token_idx=self.token_processor.traj_to_idx(next_local_traj[:,-1:,None],tokenized_agent)[:,0]
+                    next_token_idx=self.token_processor.traj_to_idx(next_local_traj[:,-1:,None],token_agent_shape,token_traj)[:,0]
                 else:
                     next_local_traj = token_local_traj[range_a, next_token_idx]
 

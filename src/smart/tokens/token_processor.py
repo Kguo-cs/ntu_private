@@ -478,13 +478,14 @@ class TokenProcessor(torch.nn.Module):
         out_dict["target_contour"] = target_contour
         out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
 
-        out_dict["sampled_traj"] = target_traj.reshape(-1, 19, target_traj.shape[2], 3)[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
+        sampled_traj = target_traj.reshape(-1, 19, target_traj.shape[2], 3)[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
         out_dict["sampled_pos"] =  pos[:, 5::5]
         out_dict["sampled_heading"] = heading[:, 5::5]
 
         sample_valid = target_mask[:, :-1, :5].all(-1)
 
         out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
+        out_dict["sampled_idx"] = self.traj_to_idx(sampled_traj, agent_shape,token_traj)
 
         return out_dict
 
@@ -618,7 +619,6 @@ class TokenProcessor(torch.nn.Module):
                                                         agent_shape, token_traj
                                                             )
             tokenized_agent.update(token_dict)
-            tokenized_agent["sampled_idx"] = self.traj_to_idx(tokenized_agent["sampled_traj"], tokenized_agent)
 
         else:
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
@@ -639,10 +639,8 @@ class TokenProcessor(torch.nn.Module):
         return tokenized_map, tokenized_agent
 
 
-    def traj_to_idx(self,sampled_traj,tokenized_agent):
+    def traj_to_idx(self,sampled_traj,token_agent_shape,token_traj):
 
-        token_agent_shape=tokenized_agent["token_agent_shape"]
-        token_traj=tokenized_agent["token_traj"]
 
         contour_local = cal_polygon_contour(sampled_traj[..., :2], sampled_traj[...,  2], token_agent_shape[:, None, None])
 
