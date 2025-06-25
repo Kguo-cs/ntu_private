@@ -177,7 +177,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_proposal:
             proposal_num=n_token_agent
             self.proposal_embedding=nn.Embedding(proposal_num,hidden_dim)
-            self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*10)#future 30 second
+            self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)#future 30 second
 
         self.token_processor= token_processor
         self.apply(weight_init)

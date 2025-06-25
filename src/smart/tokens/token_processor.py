@@ -473,7 +473,7 @@ class TokenProcessor(torch.nn.Module):
             starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
 
             # For each start t, get future steps t+1 to t+30 (exclude t)
-            offsets = torch.tensor([1,2,3,4,5,10,15,20,25,30],device=tensor.device)#torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
+            offsets = torch.tensor([1,2,3,4,5],device=tensor.device)#torch.arange(1, max_future + 1, device=tensor.device)  # (30,),10,15,20,25,30
             indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
             gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
 
