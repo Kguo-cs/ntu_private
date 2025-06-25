@@ -44,6 +44,7 @@ from waymo.waymo_render import WaymoRenderer
 from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
 from time import sleep
+import mss
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -52,13 +53,13 @@ class SimulationManager:
         self.setup_paths()
         self.setup_planner(cfg)
 
-        self.result_path = f"./results/{datetime.now().strftime('%m-%d-%H%M%S')}/"
-        self.img_save_path = f"{self.result_path}imgs/"
+        #self.result_path = f"./results/{datetime.now().strftime('%m-%d-%H%M%S')}/"
+        #self.img_save_path = f"{self.result_path}imgs/"
 
-        os.makedirs(self.result_path, exist_ok=True)
-        os.makedirs(self.img_save_path, exist_ok=True)
+        #os.makedirs(self.result_path, exist_ok=True)
+        #os.makedirs(self.img_save_path, exist_ok=True)
 
-        self.map_classes= ['divider', 'ped_crossing', 'boundary']# blue,green,red
+        self.map_classes= [ 'ped_crossing','divider', 'boundary']#green, blue,red
         self.object_classes=['vehicle']
         self.map_bound = {'x':[-50.0, 50.0, 0.5],"y":[-50.0, 50.0, 0.5]}
 
@@ -169,30 +170,39 @@ class SimulationManager:
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = 91
 
+        self.recording = True
+
+        self.record_path = "./results/video/"+str(scenario.scenario_id)+".mp4"
+        self.record_fps=10
+        self.record_width = 1800  # Must match BEV window texture width
+        self.record_height = 1230  # Must match BEV window texture height
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # or 'XVID' or 'avc1'
+
+        self.video_writer = cv2.VideoWriter(
+            self.record_path,
+            fourcc,
+            self.record_fps,
+            (self.record_width, self.record_height)
+        )
+
+
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
 
         layout_canvas = []
-        #map_layout_canvas={}
-        #box_layout_canvas={}
-
         images=[]
 
         for key in ['CAM_FRONT_LEFT','CAM_FRONT','CAM_FRONT_RIGHT']:#front_left_image, front_image, front_right_image
             image = np.ones((900, 1600, 3), dtype=np.uint8) * 255  # White RGB image
 
-            map_canvas,image = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.lidar2img[key],image=image,num_classes=len(self.map_classes), drivable_mask=None)
-            #gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image = None
-            box_canvas = project_box_to_image(gt_bboxes_3d, gt_labels_3d, self.lidar2img[key], object_classes=self.object_classes)
+            map_canvas = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.camera_intrinsics[key],self.camera2ego[key],self.lidar2img[key].numpy(),image=image,num_classes=len(self.map_classes), drivable_mask=drivable_mask)
+            box_canvas= project_box_to_image(gt_bboxes_3d, gt_labels_3d, self.lidar2img[key], image=image,object_classes=self.object_classes)
 
             layout_canvas.append(np.concatenate([map_canvas, box_canvas], axis=-1))
 
             images.append(image)
 
-            #map_layout_canvas[key]=map_canvas
-           # box_layout_canvas[key]=box_canvas
-           #  print(map_canvas.max(),box_canvas.max())
         layout_canvas = np.stack(layout_canvas, axis=0)
-        #layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
+        layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
         return layout_canvas,images
 
     def vectormap_pipeline(self, gt_vecs_label, gt_lines_instance,drivable_mask):
@@ -220,11 +230,11 @@ class SimulationManager:
 
         return bev_map,gt_vecs_pts_loc,bev_image
 
-    def process_frame(self,scenario,data,map_feature,tokenized_agent):
+    def process_frame(self,map_feature,tokenized_agent):
         if self.timestamp >= self.MAX_SIM_TIME:
             print("Simulation time end.")
             return False
-        device=tokenized_agent["type"].device
+        #device=tokenized_agent["type"].device
         agent_type=tokenized_agent["type"].cpu().numpy()
 
         if self.timestamp % 5 == 0:
@@ -263,7 +273,6 @@ class SimulationManager:
             ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
                 np.array(img) for img in resized_images]
 
-
             bev_image = bev_image.transpose(1, 0, 2)
             pred_bev_img = Image.fromarray(bev_image)#bev_map*255
             pred_bev_img = pred_bev_img.convert('RGBA')
@@ -293,7 +302,8 @@ class SimulationManager:
 
         self.timestamp += 1
 
-        sleep(1000)
+        sleep(0.1)
+        self.capture_viewport_frame()
 
         return True
 
@@ -301,16 +311,13 @@ class SimulationManager:
         input_dir =self.config["data_path"]
         all_scenarios=os.listdir(input_dir)
         all_scenarios.sort()
-        #i=-1
+
         for scenario in all_scenarios:
             dataset = tf.data.TFRecordDataset(
                 [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
             )
 
             for tf_data in dataset:
-                # i+=1
-                # if i==0:
-                #     continue
 
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
@@ -352,17 +359,56 @@ class SimulationManager:
 
                 try:
                     while True:
-                        if not self.process_frame(scenario,data,map_feature,tokenized_agent):
+                        if not self.process_frame(map_feature,tokenized_agent):
                             break
                 finally:
                     self.cleanup()
 
+                    return
+
+    def capture_viewport_frame(self):
+        if not self.recording or self.video_writer is None:
+            return
+
+        with mss.mss() as sct:
+            # Get viewport position & size
+            vp_x, vp_y = 140,128
+            vp_w, vp_h =1800, 1230
+
+            monitor = {
+                "top": int(vp_y),
+                "left": int(vp_x),
+                "width": int(vp_w),
+                "height": int(vp_h),
+            }
+
+            # Capture screen region
+            sct_img = sct.grab(monitor)
+            frame = np.array(sct_img)
+
+            # Convert BGRA to BGR
+            frame = frame[:, :, :3]
+
+            # # Resize to match video size
+            # frame = cv2.resize(frame, (self.record_width, self.record_height))
+            # # Save as image
+            # img_path = f"frame_{int(time.time() * 1000)}.png"
+            # cv2.imwrite(img_path, frame)
+            # print(f"[INFO] Frame saved to {img_path}")
+            # print("Frame shape:", frame.shape)
+
+            self.video_writer.write(frame)
+
+
     def cleanup(self):
         print("Simulation ends")
+
         # if self.scorer:
         #     self.scorer.save()
+        # if self.gui.video_writer is not None:
         self.gui.terminate()
         self.gui.join()
+        self.video_writer.release()
 
     def setup_constants(self):
         self.DIFFUSION_SERVER = self.config["servers"]["diffusion"]

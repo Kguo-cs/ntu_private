@@ -16,7 +16,7 @@ from TrafficManager.LimSim.utils.simBase import CoordTF
 from copy import deepcopy
 from pathlib import Path
 from typing import List, Tuple
-
+import time
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -101,27 +101,40 @@ class GUI(Process):
             self, scenario,step_current=10
     ) -> None:
         super().__init__()
-        self.renderQueue = RenderQueue(5)
-        self.imageQueue = ImageQueue(50)
+        self.renderQueue = RenderQueue(1)
+        self.imageQueue = ImageQueue(1)
 
         self.zoom_speed: float = 1.0
         self.is_dragging: bool = False
         self.old_offset = (0, 0)
 
         # colors
-
+            #[1,4,10]
+        # self.lane_style = [
+        #     (COLOR_WHITE, 6),  # FREEWAY = 0
+        #     (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
+        #     (COLOR_ORANGE, 6),  # STOP_SIGN = 2
+        #     (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
+        #     (COLOR_SKY_BLUE_1, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
+        #     (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
+        #     (COLOR_BUTTER, 2),  # BROKEN = 6
+        #     (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
+        #     (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
+        #     (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
+        #     (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
+        # ]
         self.lane_style = [
             (COLOR_WHITE, 6),  # FREEWAY = 0
-            (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
+            (COLOR_SKY_BLUE_1, 6),  # SURFACE_STREET = 1
             (COLOR_ORANGE, 6),  # STOP_SIGN = 2
             (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
-            (COLOR_SKY_BLUE_1, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
+            (COLOR_RED, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
             (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
             (COLOR_BUTTER, 2),  # BROKEN = 6
             (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
             (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
             (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
-            (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
+            (COLOR_GREEN, 4),  # CROSSWALK = 10
         ]
 
         self.tl_style = [
@@ -161,6 +174,7 @@ class GUI(Process):
         # self.ag_id2size = dict(zip(ag_id, ag_size))
         # self.ag_id2role = dict(zip(ag_id, ag_role))
         self.ego_idx=np.where(self.ag_role[:,0])[0][0]
+
 
     def set_ego_pose(self,tokenized_agent,rel_pos,rel_heading):
 
@@ -520,10 +534,16 @@ class GUI(Process):
                 'PRED_BEV_TT', pred_bev_img_array.flatten().tolist()
             )
 
+
     def render_loop(self):
         self.update_inertial_zoom()
         dpg.delete_item("Canvas", children_only=True)
         canvasNode = dpg.add_draw_node(parent="Canvas")
+        #self.vp_x, self.vp_y = dpg.get_viewport_pos()
+       # self.vp_w, self.vp_h = dpg.get_viewport_width(), dpg.get_viewport_height()
+
+        #print(self.vp_x, self.vp_y, self.vp_w, self.vp_h)
+
         try:
             agent_pos,agent_head,agent_type,light_idx,time_step=self.renderQueue.get()
 
@@ -538,6 +558,7 @@ class GUI(Process):
                 self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
         except TypeError:
             return
+
 
         # Handle camera images
       #  try:
@@ -656,7 +677,6 @@ class GUI(Process):
         ego_x=ego_pos[0]
         ego_y=ego_pos[1]
 
-
         bbox_list = []
         label_list = []
 
@@ -739,7 +759,7 @@ class GUI(Process):
 
         gt_vecs_label=[]
         gt_map_pts=[]
-        type_dict={1:0,10:1,4:2}
+        type_dict={10:0,1:1,4:2}
 
         self.patch_size=[100, 100]
 
@@ -754,30 +774,19 @@ class GUI(Process):
                     (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
                 )
 
-                # dx = polyline[:,0] - ego_x
-                # dy = polyline[:,1] - ego_y
-
-                # x_new = dx * np.cos(ego_yaw) + dy * np.sin(ego_yaw)
-                # y_new = -dx * np.sin(ego_yaw) + dy * np.cos(ego_yaw)
-
                 x_mask=(x_new>-self.patch_size[0]//2) & (x_new<self.patch_size[0]//2)
                 y_mask=(y_new>-self.patch_size[1]//2) & (y_new<self.patch_size[1]//2)
 
                 mask=x_mask & y_mask
 
                 if mask.any():#any point intersect
-                    pts=np.stack([x_new, y_new], axis=-1)
+                    pts=np.stack([-y_new,x_new], axis=-1)
 
                     gt_map_pts.append(pts)
                     gt_vecs_label.append(type_dict[_type])
 
 
         send_data["gt_vecs_label"] = gt_vecs_label#type [0,1,2]
-        # gt_lines_instance = gt_vecs_pts_loc.instance_list
-        # gt_map_pts = []
-        # for i in range(x_new(gt_lines_instance)):
-        #     pts = np.array(list(gt_lines_instance[i].coords))
-        #     gt_map_pts.append(pts.tolist())
         send_data["gt_lines_instance"] = gt_map_pts#list of list 2
 
         # ---------------ref pose------------------#

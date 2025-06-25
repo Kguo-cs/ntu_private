@@ -170,7 +170,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_proposal:
             self.proposal_embedding=nn.Embedding(token_processor.n_token_agent,hidden_dim)
-            self.proposal_head=MLPLayer(hidden_dim,hidden_dim//2, output_dim=3*10)#future 30 second
+            self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*10)#future 30 second
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -377,7 +377,6 @@ class SMARTAgentDecoder(nn.Module):
         token_local_traj = torch.cat([pred_pos, pred_head[:, :,:, None]], dim=-1)
         token_agent_shape=tokenized_agent["token_agent_shape"]
         token_traj=tokenized_agent["token_traj"]
-
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()

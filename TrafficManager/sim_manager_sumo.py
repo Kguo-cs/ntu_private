@@ -235,7 +235,6 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        #self.renderer = MatplotlibRenderer()
         self.checkers = [OffRoadChecker(), CollisionChecker()]
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):

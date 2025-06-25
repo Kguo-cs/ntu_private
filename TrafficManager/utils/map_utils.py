@@ -82,7 +82,7 @@ def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classe
             cv2.line(canvas[int(gt_label_3d)], tuple(pp1), tuple(pp2), (1,0,0), 1)
 
             if image is not None:## blue,green,red
-                colors = [(0, 0, 255),(0, 255, 0),  (255, 0, 0)]
+                colors = [(0, 255, 0),(0, 0, 255),  (255, 0, 0)]
                 cv2.line(image, tuple(pp1),tuple(pp2),
                          colors[int(gt_label_3d)], 1)
 
@@ -98,81 +98,39 @@ def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classe
     return canvas,image
 
 
-def project_map_to_image(gt_bboxes_3d, gt_labels_3d, lidar2img, image=None,num_classes=3,drivable_mask=None):
-    # z = 0
-    # if image is not None:
-    #     canvas = image
-    # else:
-    #     canvas = np.zeros((3, 900, 1600, 3), dtype=np.uint8)
-    # gt_lines_instance = gt_bboxes_3d.instance_list
-    # for gt_line_instance, gt_label_3d in zip(gt_lines_instance, gt_labels_3d):
-    #     pts = torch.Tensor(list(gt_line_instance.coords))
-    #     pts = pts[:, [1, 0]]
-    #     pts[:, 1] = -pts[:, 1]
-    #     dummy_pts = torch.cat([pts, torch.ones((pts.shape[0], 1))*z], dim=-1)
-    #     # dummy_pts = torch.cat([dummy_pts, torch.ones((pts.shape[0], 1))], dim=-1)
-    #     points_in_cam_cor = torch.matmul(
-    #         extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
-    #     points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
-    #     if points_in_cam_cor.shape[1] > 1:
-    #         points_on_image_cor = intrinsic[:3, :3] @ points_in_cam_cor
-    #         points_on_image_cor = points_on_image_cor / \
-    #             (points_on_image_cor[-1, :].reshape(1, -1))
-    #         points_on_image_cor = points_on_image_cor[:2, :].T
-    #         points_on_image_cor = points_on_image_cor.int().numpy()
-    #     else:
-    #         points_on_image_cor = []
-    #
-    #     if image is not None:
-    #         for p in points_on_image_cor:
-    #             cv2.circle(canvas, tuple(p), 4, (255, 0, 0), -1)
-    #         for i in range(len(points_on_image_cor)-1):
-    #             cv2.line(canvas, tuple(points_on_image_cor[i]), tuple(
-    #                 points_on_image_cor[i+1]), (255, 0, 0), 4)
-    #     else:
-    #         # for p in points_on_image_cor:
-    #         #     cv2.circle(canvas[int(gt_label_3d)], tuple(p), 40, (150,0,0), -1)
-    #         for i in range(len(points_on_image_cor)-1):
-    #             cv2.line(canvas[int(gt_label_3d)], tuple(points_on_image_cor[i]), tuple(
-    #                 points_on_image_cor[i+1]), (1, 0, 0), 4)
-    z = 0
+def project_map_to_image(gt_lines_instance, gt_labels_3d, intrinsic, extrinsic, lidar2img, num_classes=3, image=None,
+                         drivable_mask=None):
+    z = -1.84
     canvas = np.zeros((num_classes, 900, 1600, 3), dtype=np.uint8)
-    for gt_line_instance, gt_label_3d in zip(gt_bboxes_3d, gt_labels_3d):
+    for gt_line_instance, gt_label_3d in zip(gt_lines_instance, gt_labels_3d):
         pts = torch.Tensor(gt_line_instance)
         pts = pts[:, [1, 0]]
         pts[:, 1] = -pts[:, 1]
         dummy_pts = torch.cat([pts, torch.ones((pts.shape[0], 1)) * z], dim=-1)
 
-        points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
-        points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
-        if points_in_cam_cor.shape[1] > 1:
-            points_on_image_cor = intrinsic[:3, :3] @ points_in_cam_cor
-            points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
-            points_on_image_cor = points_on_image_cor[:2, :].T
-            points_on_image_cor = points_on_image_cor.int().numpy()
-        else:
-            points_on_image_cor = []
+        # points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
+        # points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
+        # if points_in_cam_cor.shape[1] > 1:
+        #     points_on_image_cor = intrinsic[:3, :3] @ points_in_cam_cor
+        #     points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
+        #     points_on_image_cor = points_on_image_cor[:2, :].T
+        #     points_on_image_cor = points_on_image_cor.int().numpy()
+        # else:
+        #     points_on_image_cor = []
 
-        dummy_pts = torch.cat([dummy_pts, torch.ones((pts.shape[0], 1))], dim=-1)  # [N, 4]
-        # Project to image plane using lidar2img
-        image_coords = dummy_pts @ lidar2img.T
-
-        # Keep only points with positive depth
-        valid_mask = image_coords[:, 2] > 0
-        image_coords = image_coords[valid_mask]
-
-        if image_coords.shape[0] > 1:
-            image_coords = image_coords[:, :3] / image_coords[:, 2:3]  # [N, 3] -> normalized
-            points_on_image_cor = image_coords[:, :2].int().numpy()  # Final pixel coordinates
-        else:
-            points_on_image_cor = []
+        coords = np.concatenate([dummy_pts, np.ones((len(dummy_pts), 1))], axis=-1)
+        coords = coords @ lidar2img.T
+        coords = coords[coords[:, 2] > 0]
+        coords[:, 0] /= coords[:, 2]
+        coords[:, 1] /= coords[:, 2]
+        points_on_image_cor = coords[:, :2].astype(int)
 
         for i in range(len(points_on_image_cor) - 1):
             cv2.line(canvas[int(gt_label_3d)], tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
                      (1, 0, 0), 4)
 
-        if image is not None:## blue,green,red
-            colors = [(0, 0, 255),(0, 255, 0),  (255, 0, 0)]
+        if image is not None:
+            colors = [(0, 255, 0), (0, 0, 255), (255, 0, 0)]
             for i in range(len(points_on_image_cor) - 1):
                 cv2.line(image, tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
                          colors[int(gt_label_3d)], 5)
@@ -182,37 +140,35 @@ def project_map_to_image(gt_bboxes_3d, gt_labels_3d, lidar2img, image=None,num_c
         drivable_grids = np.where(drivable_mask > 0)
         drivable_grids = np.stack(drivable_grids, 1)
         drivable_pts = drivable_grids * 0.5 - 50.0 + 0.25
-        drivable_pts = drivable_pts[:,[1,0]]
-        drivable_pts[:,1] = -drivable_pts[:, 1]
+        drivable_pts = drivable_pts[:, [1, 0]]
+        drivable_pts[:, 1] = -drivable_pts[:, 1]
         drivable_pts = torch.from_numpy(drivable_pts)
 
-        dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1))*z], dim=-1).float()
-        # dummy_pts: [N, 3] → Add homogeneous coord
-        dummy_pts = torch.cat([dummy_pts, torch.ones((dummy_pts.shape[0], 1))], dim=-1)  # [N, 4]
+        dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1)) * z], dim=-1).float()
+        # points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
+        # points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
+        # if points_in_cam_cor.shape[1] > 1:
+        #     points_on_image_cor = intrinsic[:3, :3] @ points_in_cam_cor
+        #     points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
+        #     points_on_image_cor = points_on_image_cor[:2, :].T
+        #     points_on_image_cor = points_on_image_cor.int().numpy()
+        coords = np.concatenate([dummy_pts, np.ones((len(dummy_pts), 1))], axis=-1)
+        coords = coords @ lidar2img.T
+        coords = coords[coords[:, 2] > 0]
+        coords[:, 0] /= coords[:, 2]
+        coords[:, 1] /= coords[:, 2]
+        points_on_image_cor = coords[:, :2].astype(int)
 
-        # Project using lidar2img (should be a [4x4] projection matrix)
-        image_coords = dummy_pts @ lidar2img.T  # [N, 4]
-
-        # Filter valid points (positive depth)
-        valid_mask = image_coords[:, 2] > 0
-        image_coords = image_coords[valid_mask]
-
-        if image_coords.shape[0] > 1:
-            # Normalize homogeneous coordinates
-            image_coords = image_coords[:, :3] / image_coords[:, 2:3]  # [N, 3]
-            points_on_image_cor = image_coords[:, :2].int().numpy()
-            for point in points_on_image_cor:
-                cv2.circle(drivable_canvas[0], point, 20, (1,0,0), -1)
+        for point in points_on_image_cor:
+            cv2.circle(drivable_canvas[0], point, 20, (1, 0, 0), -1)
 
     if drivable_mask is not None:
         canvas = np.concatenate([canvas, drivable_canvas], 0)
-
     canvas = canvas[..., 0]
     canvas = np.transpose(canvas, (1, 2, 0))
-    canvas = canvas[::4, ::4, :][1:, ...]
-        # cv2.imwrite('./project.png', canvas)
+    canvas = canvas[::4, ::4, :][1:, ...]  # 224, 400, 3
 
-    return canvas,image
+    return canvas
 
 
 def compute_box_corners_3d(boxes):
@@ -336,9 +292,9 @@ def project_box_to_image(gt_bboxes_3d, gt_labels_3d, transform, object_classes, 
                         cv2.LINE_AA,
                     )
 
-    if image is not None:
-        cv2.imwrite(f'./tmp/{cam_name}.png', image)
-
+    # if image is not None:
+    #     cv2.imwrite(f'./tmp/{cam_name}.png', image)
+    #
     canvas = canvas[..., 0]
     canvas = np.transpose(canvas, (1, 2, 0))
     canvas = canvas[::4, ::4, :][1:, ...]
