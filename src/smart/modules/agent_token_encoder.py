@@ -128,14 +128,3 @@ class AgentTokenEncoder(nn.Module):
         else:
             return feat_a # [n_agent, n_step, hidden_dim]
 
-    def traj_to_idx(self,sampled_traj,token_agent_shape,token_traj):
-
-        sampled_traj = sampled_traj.reshape(sampled_traj.shape[0], sampled_traj.shape[1], -1, 3)
-
-        contour_local = cal_polygon_contour(sampled_traj[..., :2], sampled_traj[...,  2], token_agent_shape[:, None, None])
-
-        dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
-
-        sampled_idx = dist.argmin(-1)
-
-        return sampled_idx

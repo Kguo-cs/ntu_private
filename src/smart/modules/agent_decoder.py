@@ -170,7 +170,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_proposal:
             self.proposal_embedding=nn.Embedding(token_processor.n_token_agent,hidden_dim)
-            self.proposal_head=MLPLayer(hidden_dim,hidden_dim//2, output_dim=3*5)#future 30 second
+            self.proposal_head=MLPLayer(hidden_dim,hidden_dim//2, output_dim=3*10)#future 30 second
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -364,7 +364,6 @@ class SMARTAgentDecoder(nn.Module):
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step):
 
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
-        sampled_traj=tokenized_agent["sampled_traj"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
@@ -451,12 +450,11 @@ class SMARTAgentDecoder(nn.Module):
 
                 if self.pred_proposal:
                     next_local_traj = proposal[:, -1, :, :5][range_a, next_token_idx]
+                    next_token_idx=self.token_processor.traj_to_idx(next_local_traj[:,-1:,None],tokenized_agent)[:,0]
                 else:
                     next_local_traj = token_local_traj[range_a, next_token_idx]
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
-
-            sampled_traj = torch.cat([sampled_traj, next_local_traj.reshape(-1, 1, 15)], dim=1)
 
             pred_traj, pred_head = transform_to_global(
                 pos_local=next_local_traj[:,:,:2],  # [n_agent, 6*4, 2]
@@ -534,7 +532,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            "sampled_traj": sampled_traj,
+            # "sampled_traj": sampled_traj,
             "light_idx": light_idx
         }
 

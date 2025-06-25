@@ -65,14 +65,12 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=True
+        self.pred_light=False
 
-        self.pred_proposal=False
+        self.pred_proposal=True
 
         if self.pred_proposal:
             self.n_token_agent=16
-
-        self.use_my=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -279,7 +277,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [n_agent, n_step_token]
         """
 
-        if self.use_my:
+        if self.pred_proposal:
             return self.my_match_agent_token(valid, pos, heading,agent_shape, token_traj)
 
         num_k = self.agent_token_sampling.num_k if self.training else 1
@@ -446,7 +444,7 @@ class TokenProcessor(torch.nn.Module):
             starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
 
             # For each start t, get future steps t+1 to t+30 (exclude t)
-            offsets = torch.tensor([1,2,3,4,5],device=tensor.device)#torch.arange(1, max_future + 1, device=tensor.device)  # (30,),10,15,20,25,30
+            offsets = torch.tensor([1,2,3,4,5,10,15,20,25,30],device=tensor.device)#torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
             indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
             gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
 
@@ -640,3 +638,16 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map, tokenized_agent
 
+
+    def traj_to_idx(self,sampled_traj,tokenized_agent):
+
+        token_agent_shape=tokenized_agent["token_agent_shape"]
+        token_traj=tokenized_agent["token_traj"]
+
+        contour_local = cal_polygon_contour(sampled_traj[..., :2], sampled_traj[...,  2], token_agent_shape[:, None, None])
+
+        dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
+
+        sampled_idx = dist.argmin(-1)
+
+        return sampled_idx
