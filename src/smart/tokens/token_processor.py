@@ -51,7 +51,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = 32 #self.agent_token_all_veh.shape[0]
+        self.n_token_agent = 16 #self.agent_token_all_veh.shape[0]
 
         self.use_lane=False
 
@@ -471,10 +471,9 @@ class TokenProcessor(torch.nn.Module):
 
             # Start indices every 5 steps
             starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
-            num_chunks = starts.size(0)
 
             # For each start t, get future steps t+1 to t+30 (exclude t)
-            offsets = torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
+            offsets = torch.tensor([1,2,3,4,5,10,15,20,25,30],device=tensor.device)#torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
             indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
             gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
 
@@ -498,8 +497,8 @@ class TokenProcessor(torch.nn.Module):
             head_now=heading[:, ::5].flatten(0, 1),  # [n_agent*18]
         )
 
-        target_pos=target_pos.reshape(-1, 19, 30, 2)[:, 1:]
-        target_head=target_head.reshape(-1, 19, 30)[:, 1:]
+        target_pos=target_pos.reshape(-1, 19, target_traj.shape[2], 2)[:, 1:]
+        target_head=target_head.reshape(-1, 19, target_traj.shape[2])[:, 1:]
 
         target_contour = cal_polygon_contour(target_pos,target_head, agent_shape[:,None,None])
 
@@ -508,7 +507,7 @@ class TokenProcessor(torch.nn.Module):
         out_dict["target_contour"] = target_contour
         out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
 
-        out_dict["sampled_traj"] = target_traj.reshape(-1, 19, 30, 3)[:, :-1, :5].reshape(-1, 18, 15)
+        out_dict["sampled_traj"] = target_traj.reshape(-1, 19, target_traj.shape[2], 3)[:, :-1, :5].reshape(-1, 18, 15)
         out_dict["sampled_pos"] =  pos[:, 5::5]
         out_dict["sampled_heading"] = heading[:, 5::5]
 
