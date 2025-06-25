@@ -29,10 +29,6 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
-from torch_scatter import scatter_mean,scatter_max
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock, general_rope
-from torch.nn.utils.rnn import pad_sequence
-
 
 class TokenProcessor(torch.nn.Module):
 
@@ -51,7 +47,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = 32 #self.agent_token_all_veh.shape[0]
+        self.n_token_agent = self.agent_token_all_veh.shape[0]
 
         self.use_lane=False
 
@@ -69,7 +65,12 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=False
+        self.pred_light=True
+
+        self.pred_proposal=False
+
+        if self.pred_proposal:
+            self.n_token_agent=16
 
         self.use_my=True
 
@@ -318,45 +319,17 @@ class TokenProcessor(torch.nn.Module):
                 torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
             )  # [n_agent]
 
-            # if self.training:
-            #     token_world_gt = transform_to_local(
-            #         pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
-            #         head_local=None,
-            #         pos_now=prev_pos,  # [n_agent, 2]
-            #         head_now=prev_head,  # [n_agent]
-            #     )[0].view(*token_traj.shape)
-
-                # token_contour_local = token_traj[range_a, token_idx_gt]
-                #
-                # token_contour_local[:,:,0]+=0.1*torch.randn_like(token_contour_local[:,:,0])
-                # token_contour_local[:,:,1]+=0.01*torch.randn_like(token_contour_local[:,:,1])
-                # token_contour_gt = transform_to_global(
-                #     pos_local=token_contour_local,  # [n_agent, n_token*4, 2]
-                #     head_local=None,
-                #     pos_now=prev_pos,  # [n_agent, 2]
-                #     head_now=prev_head,  # [n_agent]
-                # )[0]
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
-
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
-
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
-
-            # if self.training:
-            #     prev_head=wrap_angle(prev_head+torch.randn_like(prev_head)*0.001)
 
             prev_head[_valid_mask] = next_head[_valid_mask]
             prev_pos = pos[:, i].clone()
-
             next_pos = token_contour_gt.mean(1)
-
-            # if self.training:
-            #     prev_pos =prev_pos+torch.randn_like(prev_pos)*0.01
-
             prev_pos[_valid_mask] = next_pos[_valid_mask]
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
@@ -578,7 +551,7 @@ class TokenProcessor(torch.nn.Module):
 
     def _get_agent_shape_and_token_traj(
         self, agent_type: Tensor
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """
         agent_shape: [n_agent, 2]
         token_traj_all: [n_agent, n_token, 6, 4, 2]
@@ -610,186 +583,60 @@ class TokenProcessor(torch.nn.Module):
         token_traj = token_traj_all[:, :, -1, :, :].contiguous()
         return agent_shape, token_traj_all, token_traj
 
-    def process_data(self,data,pred_agent=True,pred_light=False):
+    def process_data(self,data):
 
         tokenized_agent = {}
         tokenized_map = {}
         tokenized_agent['num_graphs'] = data.num_graphs
 
-        if pred_agent:
-            map = data["tokenized_map"]
-            agent = data["tokenized_agent"]
+        map = data["tokenized_map"]
+        agent = data["tokenized_agent"]
 
-            if 'traj_pos' in map.keys():
-                tokenized_map["traj_pos"] = map["traj_pos"]
-                tokenized_map["type"] = map["type"]
-                tokenized_map["batch"] = map["batch"]
-            else:
-                for key in ["position", "orientation", "batch", "token_idx", "type"]:#, "pl_type", "light_type"
-                    tokenized_map[key] = map[key]
+        if 'traj_pos' in map.keys():
+            tokenized_map["traj_pos"] = map["traj_pos"]
+            tokenized_map["type"] = map["type"]
+            tokenized_map["batch"] = map["batch"]
+        else:
+            for key in ["position", "orientation", "batch", "token_idx", "type"]:#, "pl_type", "light_type"
+                tokenized_map[key] = map[key]
 
-                if "light_type" in data.keys():
-                    tokenized_map["light_type"] = map["light_type"]
+            if "light_type" in data.keys():
+                tokenized_map["light_type"] = map["light_type"]
 
-            agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
-                agent['type']
-            )
-            tokenized_agent['token_traj_all'] = token_traj_all
-            tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
-            tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
+        agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
+            agent['type']
+        )
 
-            if "col_mask" in agent.keys():
-                tokenized_agent["col_mask"] = agent["col_mask"]
+        tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
+        tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
 
-            if "gt_pos_raw" in agent.keys():
-                # for key in ["gt_pos_raw", "gt_head_raw", "gt_valid_raw"]:
-                #     tokenized_agent[key] = agent[key]#[:, 5::5]
-                for key in ["type", "batch", "shape"]:
-                    tokenized_agent[key] = agent[key]
+        if "col_mask" in agent.keys():
+            tokenized_agent["col_mask"] = agent["col_mask"]
 
-                # map_feature = encoder.map_encoder(tokenized_map)
-                #
-                # detach_map_feature={}
-                # for key in map_feature.keys():
-                #     detach_map_feature[key] = map_feature[key].detach()
-                #
-                # tokenized_map["detach_map_feature"] = detach_map_feature
-                # tokenized_map["map_feature"] = map_feature
-                #
-                # with torch.no_grad():
-                #     pred_dict=encoder.agent_encoder(tokenized_agent, map_feature)
-                #     dist =  GMM_Dist(pred_dict["q_value"])
-                #
-                #     noised_pos=dist.sample()
-                #
-                #     token_dict = token_processor.my_match_agent_token(agent["gt_valid_raw"],
-                #                                                       agent["gt_pos_raw"],
-                #                                                        agent["gt_head_raw"],
-                #                                                        agent_shape,
-                #                                                        token_traj,
-                #                                                        noised_pos
-                #                                                        )
-                # tokenized_agent.update(token_dict)
+        if "gt_pos_raw" in agent.keys():
+            for key in ["type", "batch", "shape"]:
+                tokenized_agent[key] = agent[key]
 
-                # target, target_valid = get_euclidean_targets(
-                #     pred_pos=tokenized_agent["sampled_pos"],
-                #     pred_head=tokenized_agent["sampled_heading"],
-                #     pred_valid=tokenized_agent["valid_mask"],
-                #     gt_pos=tokenized_agent["gt_pos_raw"],
-                #     gt_head=tokenized_agent["gt_head_raw"],
-                #     gt_valid=tokenized_agent["gt_valid_raw"]
-                # )
-                # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,5,2)
-                # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,5)
+            token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+                                                        agent["gt_head_raw"],
+                                                        agent_shape, token_traj
+                                                            )
+            tokenized_agent.update(token_dict)
+        else:
+            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
+                tokenized_agent[key] = agent[key]
 
-
-
-                # gt_pos_raw = tokenized_agent["gt_pos_raw"].flatten(0, 1)[:, None]
-                # gt_head_raw = tokenized_agent["gt_head_raw"].flatten(0, 1)[:, None]
-                # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,18,5,2).flatten(0, 1)
-                # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,18,5).flatten(0, 1)
-                #
-                # prev_pos, prev_head = agent["gt_pos_raw"][:,:-1:5], agent["gt_pos_raw"][:,:-1:5]  # [n_agent, 2], [n_agent]
-                #
-                # hist_pos, hist_head = transform_to_local(
-                #     pos_global=gt_pos_raw,  # [n_agent*18, 1, 2]
-                #     head_global=gt_head_raw,  # [n_agent*18, 1]
-                #     pos_now=prev_pos,  # [n_agent*18, 2]
-                #     head_now=prev_head,  # [n_agent*18]
-                # )
-                #
-                # hist_traj = torch.cat([hist_pos, wrap_angle(hist_head)[:, :, None]], dim=-1).reshape(
-                #     len(agent["gt_pos_raw"]), 18, -1)
-                #
-                # tokenized_agent["sampled_idx"] = hist_traj
-
-
-                #traj=target_traj.reshape(-1,19,30,3)[:,:-1,4]
-                # pos: Tensor,  # [n_agent, n_step, n_target, 2]
-                # head: Tensor,  # [n_agent, n_step, n_target]
-                # width_length: Tensor,  # [n_agent, 1, 1, 2]
-
-                # cal_polygon_contour(traj[:,:2],target_traj)
-
-                token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                            agent["gt_head_raw"],
-                                                            agent_shape, token_traj  # ,True
-                                                                )
-                tokenized_agent.update(token_dict)
-
-                # tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
-                # tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
-
-
-                # target_pos = agent["gt_pos_raw"][:, 5::5].reshape(-1, 17, 5, 2)
-                # target_pos = torch.roll(target_pos, -1, 0)
-                #
-                # target_head = agent["gt_head_raw"][:, 5::5].reshape(-1, 17, 5)
-                # target_head = torch.roll(target_head, -1, 0)
-                #
-                # gt_pos_raw=agent["gt_pos_raw"][:,1:].reshape(-1,18,5,2)
-                # gt_head_raw=agent["gt_head_raw"][:,1:].reshape(-1,18,5)
-                #
-                # contour=cal_polygon_contour(pos=gt_pos_raw,
-                #                     head=gt_head_raw,
-                #                     width_length=agent["shape"][:,None,None],
-                #                     )[:,:,0]
-                #
-                # target = transform_to_local(
-                #     pos_global=contour.flatten(0, 1),  # [n_agent*18, 1, 2]
-                #     head_global=None,  # [n_agent*18, 1]
-                #     pos_now=tokenized_agent["sampled_pos"].flatten(0, 1),  # [n_agent*18, 2]
-                #     head_now=tokenized_agent["sampled_heading"].flatten(0, 1),  # [n_agent*18]
-                # )[0].view(contour.shape)
-
-
-            else:
-                for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "sampled_idx", "valid_mask"]:
-                    tokenized_agent[key] = agent[key]
+            tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
 
         if self.pred_light:
             tokenized_light = data["tokenized_light"]
-
             light_idx = tokenized_light["light_idx"]
-
-            # light_mask=light_idx<self.encoder.agent_encoder.light_type
-
-            # light_pred_mask=light_mask.all(-1)#torch.ones_like(light_idx[:,0]).to(torch.bool)
-            # light_idx[light_idx>2]=0
-
-            # light_pred_mask=torch.ones_like(light_pred_mask)
-            # pos_lg, orient_lg=self.rotate(pos_lg, orient_lg, batch_lg)
-
-            tokenized_agent["light_idx"] = light_idx.long()  # [light_pred_mask]
-            pos_lg = tokenized_light["pos_lg"]  # [light_pred_mask]
-            orient_lg = tokenized_light["orient_lg"]  # [light_pred_mask]
-            batch_lg = tokenized_light["batch"]  # [light_pred_mask]
-
-            lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
-
-            # pos_lg=pos_lg[:,None].repeat(1,light_idx.shape[1],1)
-            # orient_lg=orient_lg[:,None].repeat(1,light_idx.shape[1])
-            # tokenized_agent["batch"]=torch.cat([tokenized_agent["batch"],batch_lg])
+            tokenized_agent["light_idx"] = light_idx.long()
             tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type],
                                                       dim=0)
+            tokenized_agent["batch_lg"] = tokenized_light["batch"]
+            tokenized_agent["pos_lg"] =  tokenized_light["pos_lg"]
+            tokenized_agent["orient_lg"] =  tokenized_light["orient_lg"]
 
-            # sinusoidal_lg = general_rope(pos_lg, self.encoder.agent_encoder.head_dim, orient_lg)
-            # sinusoidal_lg = padding(sinusoidal_lg, lengths_lg)
-            tokenized_agent["lengths_lg"] = lengths_lg
-            tokenized_agent["batch_lg"] = batch_lg
-            # tokenized_agent["sinusoidal_lg"] = sinusoidal_lg
-            tokenized_agent["pos_lg"] = pos_lg
-            tokenized_agent["orient_lg"] = orient_lg
-
-
-        # if self.encoder.agent_encoder.pred_route:
-        #     route_idx = agent["route_idx"] // (120 // self.encoder.agent_encoder.route_type)
-        #     route_idx[:, :2] = -1
-        #
-        #     route_idx[route_idx == -1] = self.encoder.agent_encoder.route_type
-        #
-        #     tokenized_agent["route_idx"] = route_idx.long()
-        #     tokenized_agent["route_valid_mask"] = route_idx != self.encoder.agent_encoder.route_type
-        #
         return tokenized_map, tokenized_agent
 

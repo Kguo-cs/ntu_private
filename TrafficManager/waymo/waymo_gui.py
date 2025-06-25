@@ -129,7 +129,7 @@ class GUI(Process):
             COLOR_GREEN,  # GO = 1;
             COLOR_YELLOW,  # CAUTION = 2;
             COLOR_ALUMINIUM_1,  # NO_LANE_STATE = 3;
- #           COLOR_VIOLET,  # LANE_STATE_UNKNOWN = 4;
+            COLOR_VIOLET,  # LANE_STATE_UNKNOWN = 4;
         ]
         # sdc=0, interest=1, predict=2
         self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]

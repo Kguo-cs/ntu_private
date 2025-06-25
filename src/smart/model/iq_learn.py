@@ -29,12 +29,6 @@ class IQ_SoftQ(LightningModule):
         self.output_gmm=self.encoder.output_gmm
         self.alpha = self.encoder.alpha
         self.n_token_agent=self.encoder.agent_encoder.n_token_agent
-        self.batch_replay=False
-
-        # if self.batch_replay:
-        #     self.replay_buffer = deque(maxlen=4000)
-        # else:
-        #     self.replay_buffer = deque(maxlen=1)
 
         if self.iq_learn and self.output_gmm:
             self.automatic_optimization = False
@@ -195,7 +189,7 @@ class IQ_SoftQ(LightningModule):
 
             counter_dist=(torch.linalg.norm(proposal_contour - target_contour,dim=-1).mean(-1)*target_mask).square()
 
-            proposal_loss=counter_dist.mean(-1).amin(-1)[train_mask]
+            proposal_loss=counter_dist.mean(-1).amin(-1)[train_mask].mean()
 
             proposal5_loss=counter_dist[:,:,:,4]
 
@@ -206,6 +200,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
 
             action=min_index
         else:
@@ -267,7 +262,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_proposal_loss", proposal_loss.mean().item(), on_step=True, batch_size=1)
 
         return  reward,value_loss,init_V,action_nll,actor_loss,proposal_loss
 
@@ -279,7 +273,7 @@ class IQ_SoftQ(LightningModule):
             state_mask=valid_mask[:,:-1]
             action_mask=valid_mask[:,1:]
 
-            action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask[:,1:])
+            action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask)
 
             train_mask= state_mask & action_mask
         else:
@@ -293,7 +287,7 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_res:
                 loss=expert_actor_loss.mean()+expert_nll
             else:
-                loss =expert_nll+proposal_loss.mean()
+                loss =expert_nll+proposal_loss
         else:
             if self.global_step % self.rollout_freq== 0:
                 tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)

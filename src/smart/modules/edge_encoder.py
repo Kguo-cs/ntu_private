@@ -100,8 +100,8 @@ class EdgeEncoder(nn.Module):
             mask,  # [n_agent, n_step]
             max_num_neighbors,
             max_radius,
-            proposal,
-            shape
+            proposal=None,
+            shape=None
     ):
         mask = mask.transpose(0, 1).reshape(-1)
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)

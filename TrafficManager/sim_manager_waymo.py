@@ -250,7 +250,6 @@ class SimulationManager:
             ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
                 np.array(img) for img in resized_images]
 
-
             pred_bev_img=Image.fromarray(bev_map*255)
             pred_bev_img = pred_bev_img.convert('RGBA')
             pred_bev_img = pred_bev_img.resize(
@@ -261,17 +260,17 @@ class SimulationManager:
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
-            tokenized_agent["pred_traj_10hz"]=pred_dict["pred_traj_10hz"]
-            tokenized_agent["pred_head_10hz"]=pred_dict["pred_head_10hz"]
-            tokenized_agent["sampled_idx"] = pred_dict["sampled_idx"]
-            tokenized_agent["valid_mask"] = pred_dict["valid_mask"]
-            tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
-            tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
+            tokenized_agent.update(pred_dict)
 
+            # tokenized_agent["pred_traj_10hz"]=pred_dict["pred_traj_10hz"]
+            # tokenized_agent["pred_head_10hz"]=pred_dict["pred_head_10hz"]
+            # tokenized_agent["sampled_idx"] = pred_dict["sampled_idx"]
+            # tokenized_agent["valid_mask"] = pred_dict["valid_mask"]
+            # tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
+            # tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
+            # tokenized_agent["light_idx"] = pred_dict["light_idx"]
 
-            tokenized_agent["light_idx"] = pred_dict["light_idx"]
-
-        self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
+        # self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
@@ -394,12 +393,12 @@ class SimulationManager:
     def setup_planner(self,cfg):
         self.planner = SMART(cfg.model.model_config)
 
-        # if torch.cuda.is_available():
-        #     state_dict = torch.load(self.config["planner_path"])["state_dict"]
-        # else:
-        #     state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
+        if torch.cuda.is_available():
+            state_dict = torch.load(self.config["planner_path"])["state_dict"]
+        else:
+            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
 
-        # self.planner.load_state_dict(state_dict)
+        self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 

@@ -17,7 +17,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_light_col zha
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_a /home/ke/code/catk/src/waymo_data/full/
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc64_pt20_map/2025-06-12_15-39-26/sim/ka6fqmjc/checkpoints/epoch=19-step=152200-val_closed_wosac=0.7689.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc64_light5_100_sharet_current_sacol/2025-06-23_23-21-42/sim/h03bb4mh/checkpoints/epoch=9-step=76100-val_closed_wosac=0.7706.ckpt ./
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
