@@ -58,7 +58,7 @@ class SimulationManager:
         os.makedirs(self.result_path, exist_ok=True)
         os.makedirs(self.img_save_path, exist_ok=True)
 
-        self.map_classes= ['divider', 'ped_crossing', 'boundary']
+        self.map_classes= ['divider', 'ped_crossing', 'boundary']# blue,green,red
         self.object_classes=['vehicle']
         self.map_bound = {'x':[-50.0, 50.0, 0.5],"y":[-50.0, 50.0, 0.5]}
 
@@ -70,6 +70,7 @@ class SimulationManager:
         canvas_w = int(patch_w / xbound[2])
         self.patch_size = (patch_h, patch_w)
         self.canvas_size = (canvas_h, canvas_w)
+
 
         self.lidar2img = {
             'CAM_FRONT': torch.tensor([[1.14251841e+03, 8.00000000e+02, 0.00000000e+00, -9.52000000e+02],
@@ -135,9 +136,14 @@ class SimulationManager:
             for cam in self.lidar2img
         }
         self.camera2ego = {
-            cam: torch.linalg.inv(self.lidar2cam[cam]) @ self.lidar2ego
+            cam:self.lidar2ego @  torch.linalg.inv(self.lidar2cam[cam])
             for cam in self.lidar2cam
         }
+#camera2ego = lidar2ego @ lidar2cam[cam]
+
+        # self.camera_intrinsics = self.lidar2img[:, :3]
+        # cam2lidar = np.linalg.inv(self.lidar2cam)
+        # self.camera2ego = self.lidar2ego @ cam2lidar
 
         self.initial_step=10
 
@@ -168,20 +174,26 @@ class SimulationManager:
         layout_canvas = []
         #map_layout_canvas={}
         #box_layout_canvas={}
+
+        images=[]
+
         for key in ['CAM_FRONT_LEFT','CAM_FRONT','CAM_FRONT_RIGHT']:#front_left_image, front_image, front_right_image
-            map_canvas = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.camera_intrinsics[key], self.camera2ego[key],num_classes=len(self.map_classes), drivable_mask=None)
+            image = np.ones((900, 1600, 3), dtype=np.uint8) * 255  # White RGB image
+
+            map_canvas,image = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.lidar2img[key],image=image,num_classes=len(self.map_classes), drivable_mask=None)
             #gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image = None
             box_canvas = project_box_to_image(gt_bboxes_3d, gt_labels_3d, self.lidar2img[key], object_classes=self.object_classes)
 
-            #box_canvas=np.ones_like(box_canvas)
-            layout_canvas.append(np.concatenate([map_canvas, 1-box_canvas], axis=-1))
+            layout_canvas.append(np.concatenate([map_canvas, box_canvas], axis=-1))
+
+            images.append(image)
 
             #map_layout_canvas[key]=map_canvas
            # box_layout_canvas[key]=box_canvas
            #  print(map_canvas.max(),box_canvas.max())
         layout_canvas = np.stack(layout_canvas, axis=0)
         #layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
-        return layout_canvas
+        return layout_canvas,images
 
     def vectormap_pipeline(self, gt_vecs_label, gt_lines_instance,drivable_mask):
         '''
@@ -198,14 +210,15 @@ class SimulationManager:
             gt_map_pts.append(pts)
 
         gt_vecs_pts_loc=gt_map_pts
+        image = np.ones((self.canvas_size[0], self.canvas_size[1], 3), dtype=np.uint8) * 255  # White RGB image
 
-        bev_map = visualize_bev_hdmap(gt_vecs_pts_loc, gt_vecs_label, self.canvas_size,
-                                      num_classes=3, bound=self.map_bound['x'],
+        bev_map,bev_image = visualize_bev_hdmap(gt_vecs_pts_loc, gt_vecs_label, self.canvas_size,
+                                      num_classes=3, bound=self.map_bound['x'],image=image,
                                       drivable_mask=drivable_mask)
 
-        #bev_map = bev_map.transpose(2, 0, 1)  # C, H, W
+        bev_map = bev_map.transpose(2, 0, 1)  # C, H, W
 
-        return bev_map,gt_vecs_pts_loc
+        return bev_map,gt_vecs_pts_loc,bev_image
 
     def process_frame(self,scenario,data,map_feature,tokenized_agent):
         if self.timestamp >= self.MAX_SIM_TIME:
@@ -230,15 +243,15 @@ class SimulationManager:
             gt_lines_instance=diffusion_data["gt_lines_instance"]
             drivable_mask=diffusion_data["drivable_mask"]
 
-            bev_map,gt_vecs_pts_loc=self.vectormap_pipeline(gt_vecs_label, gt_lines_instance,drivable_mask)
+            bev_map,gt_vecs_pts_loc,bev_image=self.vectormap_pipeline(gt_vecs_label, gt_lines_instance,drivable_mask)
 
             gt_bboxes_3d=diffusion_data["gt_bboxes_3d"]
             gt_labels_3d=diffusion_data["gt_labels_3d"]
 
-            gen_images=self.project_bev2img(drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d)
+            send_layouts,gen_images=self.project_bev2img(drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d)
 
             front_left_image, front_image, front_right_image = [
-                Image.fromarray(img * 255).convert('RGBA') for img in gen_images[:3]]
+                Image.fromarray(img).convert('RGBA') for img in gen_images[:3]]
 
             new_width, new_height = self.TARGET_SIZE[0], int(
                 (self.TARGET_SIZE[0] / front_image.width) * front_image.height)
@@ -250,7 +263,9 @@ class SimulationManager:
             ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
                 np.array(img) for img in resized_images]
 
-            pred_bev_img=Image.fromarray(bev_map*255)
+
+            bev_image = bev_image.transpose(1, 0, 2)
+            pred_bev_img = Image.fromarray(bev_image)#bev_map*255
             pred_bev_img = pred_bev_img.convert('RGBA')
             pred_bev_img = pred_bev_img.resize(
                 (800, 800), Image.Resampling.LANCZOS)
@@ -261,14 +276,6 @@ class SimulationManager:
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
             tokenized_agent.update(pred_dict)
-
-            # tokenized_agent["pred_traj_10hz"]=pred_dict["pred_traj_10hz"]
-            # tokenized_agent["pred_head_10hz"]=pred_dict["pred_head_10hz"]
-            # tokenized_agent["sampled_idx"] = pred_dict["sampled_idx"]
-            # tokenized_agent["valid_mask"] = pred_dict["valid_mask"]
-            # tokenized_agent["sampled_pos"] = pred_dict["sampled_pos"]
-            # tokenized_agent["sampled_heading"] = pred_dict["sampled_heading"]
-            # tokenized_agent["light_idx"] = pred_dict["light_idx"]
 
         # self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
 
@@ -286,7 +293,7 @@ class SimulationManager:
 
         self.timestamp += 1
 
-        sleep(0.1)
+        sleep(1000)
 
         return True
 
@@ -294,16 +301,16 @@ class SimulationManager:
         input_dir =self.config["data_path"]
         all_scenarios=os.listdir(input_dir)
         all_scenarios.sort()
-        i=-1
+        #i=-1
         for scenario in all_scenarios:
             dataset = tf.data.TFRecordDataset(
                 [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
             )
 
             for tf_data in dataset:
-                i+=1
-                if i==0:
-                    continue
+                # i+=1
+                # if i==0:
+                #     continue
 
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()

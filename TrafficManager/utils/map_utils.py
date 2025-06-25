@@ -68,7 +68,7 @@ def to_tensor(data):
         raise TypeError(f'type {type(data)} cannot be converted to tensor.')
 
 
-def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classes=3, bound=[-50.0, 50.0], drivable_mask=None):
+def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classes=3,image=None, bound=[-50.0, 50.0], drivable_mask=None):
     canvas = np.zeros((num_classes, *canvas_size, 3), dtype=np.uint8)
     for gt_line_instance, gt_label_3d in zip(gt_lines_instance, gt_labels_3d):
         pts = np.array(gt_line_instance)
@@ -80,6 +80,12 @@ def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classe
             pp1 = ((pts[i] - bound[0]) / (bound[1] - bound[0]) * canvas_size[0]).astype(int)
             pp2 = ((pts[i+1] - bound[0]) / (bound[1] - bound[0]) * canvas_size[0]).astype(int)
             cv2.line(canvas[int(gt_label_3d)], tuple(pp1), tuple(pp2), (1,0,0), 1)
+
+            if image is not None:## blue,green,red
+                colors = [(0, 0, 255),(0, 255, 0),  (255, 0, 0)]
+                cv2.line(image, tuple(pp1),tuple(pp2),
+                         colors[int(gt_label_3d)], 1)
+
     canvas = canvas[..., 0]    # [3, 200, 200]
 
     if drivable_mask is not None:
@@ -89,10 +95,10 @@ def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classe
     canvas = np.transpose(canvas, (2, 1, 0))    # H, W, C
     
    # cv2.imwrite('./GT_polyline_pts_MAP.png', canvas[:,:,:3]*255)
-    return canvas
+    return canvas,image
 
 
-def project_map_to_image(gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image=None,num_classes=3,drivable_mask=None):
+def project_map_to_image(gt_bboxes_3d, gt_labels_3d, lidar2img, image=None,num_classes=3,drivable_mask=None):
     # z = 0
     # if image is not None:
     #     canvas = image
@@ -136,6 +142,7 @@ def project_map_to_image(gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image
         pts = pts[:, [1, 0]]
         pts[:, 1] = -pts[:, 1]
         dummy_pts = torch.cat([pts, torch.ones((pts.shape[0], 1)) * z], dim=-1)
+
         points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
         points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
         if points_in_cam_cor.shape[1] > 1:
@@ -146,12 +153,26 @@ def project_map_to_image(gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image
         else:
             points_on_image_cor = []
 
+        dummy_pts = torch.cat([dummy_pts, torch.ones((pts.shape[0], 1))], dim=-1)  # [N, 4]
+        # Project to image plane using lidar2img
+        image_coords = dummy_pts @ lidar2img.T
+
+        # Keep only points with positive depth
+        valid_mask = image_coords[:, 2] > 0
+        image_coords = image_coords[valid_mask]
+
+        if image_coords.shape[0] > 1:
+            image_coords = image_coords[:, :3] / image_coords[:, 2:3]  # [N, 3] -> normalized
+            points_on_image_cor = image_coords[:, :2].int().numpy()  # Final pixel coordinates
+        else:
+            points_on_image_cor = []
+
         for i in range(len(points_on_image_cor) - 1):
             cv2.line(canvas[int(gt_label_3d)], tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
                      (1, 0, 0), 4)
 
-        if image is not None:
-            colors = [(0, 255, 0), (0, 0, 255), (255, 0, 0)]
+        if image is not None:## blue,green,red
+            colors = [(0, 0, 255),(0, 255, 0),  (255, 0, 0)]
             for i in range(len(points_on_image_cor) - 1):
                 cv2.line(image, tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
                          colors[int(gt_label_3d)], 5)
@@ -166,29 +187,32 @@ def project_map_to_image(gt_bboxes_3d, gt_labels_3d, intrinsic, extrinsic, image
         drivable_pts = torch.from_numpy(drivable_pts)
 
         dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1))*z], dim=-1).float()
-        points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
-        points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
-        if points_in_cam_cor.shape[1] > 1:
-            points_on_image_cor = intrinsic[:3,:3] @ points_in_cam_cor
-            points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
-            points_on_image_cor = points_on_image_cor[:2, :].T
-            points_on_image_cor = points_on_image_cor.int().numpy()
+        # dummy_pts: [N, 3] → Add homogeneous coord
+        dummy_pts = torch.cat([dummy_pts, torch.ones((dummy_pts.shape[0], 1))], dim=-1)  # [N, 4]
 
+        # Project using lidar2img (should be a [4x4] projection matrix)
+        image_coords = dummy_pts @ lidar2img.T  # [N, 4]
+
+        # Filter valid points (positive depth)
+        valid_mask = image_coords[:, 2] > 0
+        image_coords = image_coords[valid_mask]
+
+        if image_coords.shape[0] > 1:
+            # Normalize homogeneous coordinates
+            image_coords = image_coords[:, :3] / image_coords[:, 2:3]  # [N, 3]
+            points_on_image_cor = image_coords[:, :2].int().numpy()
             for point in points_on_image_cor:
                 cv2.circle(drivable_canvas[0], point, 20, (1,0,0), -1)
 
     if drivable_mask is not None:
         canvas = np.concatenate([canvas, drivable_canvas], 0)
 
-    if image is not None:
-        cv2.imwrite('./project.png', canvas)
-    else:
-        canvas = canvas[..., 0]
-        canvas = np.transpose(canvas, (1, 2, 0))
-        canvas = canvas[::4, ::4, :][1:, ...]
+    canvas = canvas[..., 0]
+    canvas = np.transpose(canvas, (1, 2, 0))
+    canvas = canvas[::4, ::4, :][1:, ...]
         # cv2.imwrite('./project.png', canvas)
 
-    return canvas
+    return canvas,image
 
 
 def compute_box_corners_3d(boxes):
