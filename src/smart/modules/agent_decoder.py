@@ -328,7 +328,8 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
         if self.pred_proposal:
-            proposal_feature=feat_a_t[:,:,None]+self.proposal_embedding.weight[None,None]
+            feat_flat = feat_a_t.flatten(0, 1)  # [B*T, D]
+            proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
             proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
         else:
             proposal=None
