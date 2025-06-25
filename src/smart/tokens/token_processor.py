@@ -65,9 +65,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=True
+        self.pred_light=False
 
-        self.pred_proposal=False
+        self.pred_proposal=True
 
         if self.pred_proposal:
             self.n_token_agent=16
@@ -478,15 +478,13 @@ class TokenProcessor(torch.nn.Module):
         out_dict["target_contour"] = target_contour
         out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
 
-        out_dict["sampled_traj"] = target_traj.reshape(-1, 19, target_traj.shape[2], 3)[:, :-1, :5].reshape(-1, 18, 15)
+        out_dict["sampled_traj"] = target_traj.reshape(-1, 19, target_traj.shape[2], 3)[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
         out_dict["sampled_pos"] =  pos[:, 5::5]
         out_dict["sampled_heading"] = heading[:, 5::5]
 
         sample_valid = target_mask[:, :-1, :5].all(-1)
 
         out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
-        
-        out_dict["sampled_idx"] = torch.zeros_like(out_dict["valid_mask"], dtype=torch.long)
 
         return out_dict
 
@@ -620,6 +618,8 @@ class TokenProcessor(torch.nn.Module):
                                                         agent_shape, token_traj
                                                             )
             tokenized_agent.update(token_dict)
+            tokenized_agent["sampled_idx"] = self.traj_to_idx(tokenized_agent["sampled_traj"], tokenized_agent)
+
         else:
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
                 tokenized_agent[key] = agent[key]
