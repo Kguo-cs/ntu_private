@@ -42,12 +42,12 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
 
-    def get_network_QV(self,all_q_value,tokenized_map, tokenized_agent,action,key):
+    def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
         # pred = network(tokenized_map, tokenized_agent)
 
         # q_value = pred["q_value"][:,:,0]
-        q_value=all_q_value[:,:,0]
+       # q_value=all_q_value[:,:,0]
 
         if self.output_gmm:
             dist =  GMM_Dist(q_value)
@@ -133,25 +133,25 @@ class IQ_SoftQ(LightningModule):
 
             logpi= torch.log(pi+ 1e-10)#.clamp_min(min=1e-10)
 
-            log_pi_stack=torch.log_softmax(all_q_value[:, :-1]/ self.alpha, dim=-1)
-
-            rolling_action = torch.stack([
-                        torch.roll(action, shifts=-i, dims=1)
-                        for i in range(log_pi_stack.shape[2])
-                    ], dim=-2)  # [B, Tm1, T_a]
-
-            log_prob1=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
-
-            valid_mask=torch.ones_like(log_prob1)
-            for i in range(log_pi_stack.shape[2]):
-                log_prob1[:,rolling_action.shape[1]-i:,i]=0
-                valid_mask[:,rolling_action.shape[1]-i:,i]=0
-
-            log_prob=log_prob1.sum(-1)/valid_mask.sum(-1)
+            # log_pi_stack=torch.log_softmax(all_q_value[:, :-1]/ self.alpha, dim=-1)
+            #
+            # rolling_action = torch.stack([
+            #             torch.roll(action, shifts=-i, dims=1)
+            #             for i in range(log_pi_stack.shape[2])
+            #         ], dim=-2)  # [B, Tm1, T_a]
+            #
+            # log_prob1=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
+            #
+            # valid_mask=torch.ones_like(log_prob1)
+            # for i in range(log_pi_stack.shape[2]):
+            #     log_prob1[:,rolling_action.shape[1]-i:,i]=0
+            #     valid_mask[:,rolling_action.shape[1]-i:,i]=0
+            #
+            # log_prob=log_prob1.sum(-1)/valid_mask.sum(-1)
             # act=action.reshape(-1)
             # log_prob=logpi.reshape(len(act), -1)[torch.arange(len(act)), act].reshape(q.shape[0], q.shape[1])
 
-            #log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+            log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
             entropy = -torch.sum(pi * logpi, dim=-1)
 
             if self.encoder.agent_encoder.pred_res and key=="expert":
@@ -174,18 +174,19 @@ class IQ_SoftQ(LightningModule):
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        if self.encoder.agent_encoder.pred_proposal:
+        if self.encoder.agent_encoder.pred_proposal :
             proposal=pred["proposal"][:,1:-1]
-            target_pos=tokenized_agent["target_pos"][:, 1:-1,None]
-            target_head=tokenized_agent["target_head"][:, 1:-1,None]
+            # target_pos=tokenized_agent["target_pos"][:, 1:-1,None]
+            # target_head=tokenized_agent["target_head"][:, 1:-1,None]
             target_mask=tokenized_agent["target_mask"][:,1:-1,None]
             token_agent_shape=tokenized_agent["token_agent_shape"][:, None, None,None]
-            # sampled_pos=tokenized_agent["sampled_pos"][:,1:-1]
-            # sampled_head=tokenized_agent["sampled_head"][:,1:-1]
+            sampled_pos=tokenized_agent["sampled_pos"][:,1:-1]
+            sampled_heading=tokenized_agent["sampled_heading"][:,1:-1]
+            target_global_traj=tokenized_agent["target_global_traj"][:,1:-1]
 
-            proposal_loss, pos_dist, head_diff,action=get_proposal_loss(proposal,token_agent_shape,target_pos,
-                                                                        target_head,target_mask
-                                                                        # sampled_pos,sampled_head
+            proposal_loss, pos_dist, head_diff,action=get_proposal_loss(proposal,token_agent_shape,
+                                                                        target_global_traj,target_mask,
+                                                                        sampled_pos,sampled_heading
                                                                         )
 
             proposal_loss=proposal_loss[train_mask].mean()
@@ -279,10 +280,7 @@ class IQ_SoftQ(LightningModule):
             else:
                 loss =expert_nll+expert_proposal_loss
         else:
-            if self.global_step % self.rollout_freq== 0:
-                tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
-            else:
-                tokenized_map_rollout, tokenized_agent_rollout =random.sample(self.replay_buffer,1)[0]
+            tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)

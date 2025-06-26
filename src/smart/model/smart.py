@@ -136,7 +136,7 @@ class SMART(LightningModule):
                 # )
 
                 pred = self.encoder.agent_encoder.inference(
-                    tokenized_agent, map_feature, self.validation_rollout_sampling
+                    tokenized_agent, map_feature
                 )
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])

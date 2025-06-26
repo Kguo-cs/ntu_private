@@ -87,23 +87,25 @@ def rollout(encoder, tokenized_map, tokenized_agent):
         pred = encoder.inference(
             tokenized_map,
             tokenized_agent,
-            None
+            post_sampling=True
         )
     encoder.train()
 
-    tokenized_agent_rollout = {}
-    tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
+    tokenized_agent.update(pred)
 
-    if "sampled_idx" in pred.keys():
-        for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
-            tokenized_agent_rollout[key] = pred[key]
-
-        #tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
-
-    if "light_idx" in tokenized_agent.keys():
-        tokenized_agent_rollout['light_idx'] = pred['light_idx']
-        for key in ["lengths_lg", "pos_lg","orient_lg", "batch_lg"]:
-            tokenized_agent_rollout[key] = tokenized_agent[key]
+    # tokenized_agent_rollout = tokenized_agent
+    # tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
+    #
+    # if "sampled_idx" in pred.keys():
+    #     for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape"]:
+    #         tokenized_agent_rollout[key] = pred[key]
+    #
+    #     #tokenized_agent_rollout['sampled_idx'] = pred['sampled_idx'].to(torch.int16)
+    #
+    # if "light_idx" in tokenized_agent.keys():
+    #     tokenized_agent_rollout['light_idx'] = pred['light_idx']
+    #     for key in ["lengths_lg", "pos_lg","orient_lg", "batch_lg"]:
+    #         tokenized_agent_rollout[key] = tokenized_agent[key]
 
     # if self.rollout_freq > 1:
     #     tokenized_map_rollout = {}
@@ -114,5 +116,5 @@ def rollout(encoder, tokenized_map, tokenized_agent):
     #
     #     self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
-    return tokenized_map,tokenized_agent_rollout
+    return tokenized_map,tokenized_agent
 

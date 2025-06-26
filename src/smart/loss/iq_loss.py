@@ -126,22 +126,21 @@ def padding(tensor,lengths,padding_value=0.0 ):
     return padded_tensor
 
 
-def get_proposal_loss(proposal,token_agent_shape,target_pos, target_head,target_mask):
-    # target_pos = target_traj[..., :2].flatten(0, 1)
-    # target_head = target_traj[..., 2].flatten(0, 1)
+def get_proposal_loss(proposal,token_agent_shape,target_global_traj,target_mask,sampled_pos,sampled_heading):
+    target_pos = target_global_traj[..., :2].flatten(0, 1)
+    target_head = target_global_traj[..., 2].flatten(0, 1)
+
+    target_pos, target_head = transform_to_local(
+        pos_global=target_pos,  # [n_agent*18, 1, 2]
+        head_global=target_head,  # [n_agent*18, 1]
+        pos_now=sampled_pos.flatten(0, 1),  # [n_agent*18, 2]
+        head_now=sampled_heading.flatten(0, 1),  # [n_agent*18]
+    )
     #
-    # target_pos, target_head = transform_to_local(
-    #     pos_global=target_pos,  # [n_agent*18, 1, 2]
-    #     head_global=target_head,  # [n_agent*18, 1]
-    #     pos_now=pos.flatten(0, 1),  # [n_agent*18, 2]
-    #     head_now=heading.flatten(0, 1),  # [n_agent*18]
-    # )
-    #
-    # target_pos = target_pos.reshape(-1, 19, target_traj.shape[2], 2)[:, 1:]
-    # target_head = target_head.reshape(-1, 19, target_traj.shape[2])[:, 1:]
+    target_pos = target_pos.reshape(-1, target_global_traj.shape[1], 1, target_global_traj.shape[2], 2)
+    target_head = target_head.reshape(-1, target_global_traj.shape[1], 1, target_global_traj.shape[2])
 
     target_contour = cal_polygon_contour(target_pos, target_head, token_agent_shape)
-
 
     proposal_contour = cal_polygon_contour(proposal[..., :2], proposal[..., 2], token_agent_shape)
 

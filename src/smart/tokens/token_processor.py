@@ -448,16 +448,15 @@ class TokenProcessor(torch.nn.Module):
 
         gt_traj[~valid] = 0
 
+
         target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
+        out_dict["target_global_traj"] =target_global_traj[:,1:]
 
         target_mask = target_global_traj.any(-1) != 0
 
-        target_pos = target_global_traj[..., :2].flatten(0, 1)
-        target_head = target_global_traj[..., 2].flatten(0, 1)
-
         target_pos, target_head = transform_to_local(
-            pos_global=target_pos,  # [n_agent*18, 1, 2]
-            head_global=target_head,  # [n_agent*18, 1]
+            pos_global=target_global_traj[..., :2].flatten(0, 1),  # [n_agent*18, 1, 2]
+            head_global= target_global_traj[..., 2].flatten(0, 1),  # [n_agent*18, 1]
             pos_now=pos[:, ::5].flatten(0, 1),  # [n_agent*18, 2]
             head_now=heading[:, ::5].flatten(0, 1),  # [n_agent*18]
         )
@@ -465,9 +464,8 @@ class TokenProcessor(torch.nn.Module):
         target_pos=target_pos.reshape(-1, 19, target_global_traj.shape[2], 2)
         target_head=target_head.reshape(-1, 19, target_global_traj.shape[2])
 
-        out_dict["target_pos"] = target_pos[:, 1:]
-        out_dict["target_head"] = target_head[:, 1:]
-
+        # out_dict["target_pos"] = target_pos[:, 1:]
+        # out_dict["target_head"] = target_head[:, 1:]
         out_dict["target_mask"] = target_mask[:, 1:]
 
         out_dict["sampled_pos"] =  pos[:, 5::5]
@@ -477,12 +475,15 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
 
-        sampled_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
+        target_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
 
-        sampled_traj = sampled_traj[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
+        sampled_traj = target_traj[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
 
         out_dict["sampled_idx"] = self.traj_to_idx(sampled_traj, agent_shape,token_traj)
 
+        gt_contour =cal_polygon_contour( pos[:, 5::5,None], heading[:, 5::5,None], agent_shape[:,None,None])[:,:,0]
+
+        out_dict["gt_contour"] =gt_contour
         return out_dict
 
     @staticmethod

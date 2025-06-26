@@ -52,7 +52,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
 
         if self.tokenizer_training:
@@ -122,6 +122,8 @@ class SMARTDecoder(nn.Module):
                 output_gmm=self.output_gmm
             )
 
+        if self.iq_learn:
+            self.agent_encoder.a_t_roformer.attn.caching = True
 
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],
@@ -166,7 +168,7 @@ class SMARTDecoder(nn.Module):
         self,
         tokenized_map: Dict[str, Tensor],
         tokenized_agent: Dict[str, Tensor],
-        sampling_scheme: DictConfig,
+        post_sampling,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["detach_map_feature"]
@@ -174,6 +176,6 @@ class SMARTDecoder(nn.Module):
             map_feature = self.map_encoder(tokenized_map)
 
         pred_dict = self.agent_encoder.inference(
-            tokenized_agent, map_feature, sampling_scheme
+            tokenized_agent, map_feature, post_sampling
         )
         return pred_dict
