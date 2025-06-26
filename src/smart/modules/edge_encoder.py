@@ -117,7 +117,8 @@ class EdgeEncoder(nn.Module):
 
 
         else:
-            proposal_pos=proposal[...,::5,:2]
+            proposal_pos=proposal[...,-6:,:2].detach()
+
             pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
 
             full_edge_index = radius_graph(x=pos_s, r=60,max_num_neighbors=300, batch=batch_s, loop=False)
@@ -129,7 +130,7 @@ class EdgeEncoder(nn.Module):
                                         head_now=head_s  # [n_agent]
                         )
 
-            global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2)
+            global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2).to(torch.float16)
 
             src, dst = full_edge_index
 
@@ -142,7 +143,7 @@ class EdgeEncoder(nn.Module):
             src_traj=global_pos[src][:,:,None]
             dst_traj=global_pos[dst][:,None]
 
-            dist=torch.norm(src_traj - dst_traj,dim=-1).reshape(-1,32*32*6).amin(-1)
+            dist=torch.norm(src_traj - dst_traj,dim=-1).reshape(-1,proposal_pos.shape[-3]*proposal_pos.shape[-3]*6).amin(-1)
 
             # # shape: (E, 32, 6, 2), unsqueezed for broadcasting
             # src_traj = global_pos[src].transpose(1,2).flatten(0,1)  # (E, 32, 6, 2)
@@ -163,7 +164,7 @@ class EdgeEncoder(nn.Module):
             src_radius=radius[src]
             dst_radius=radius[dst]
 
-            radius_sum=src_radius+dst_radius #+5
+            radius_sum=src_radius+dst_radius+5
 
             intersecting=dist<radius_sum
 

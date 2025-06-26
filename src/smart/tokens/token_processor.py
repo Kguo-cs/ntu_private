@@ -38,8 +38,6 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
-        pred_light=False,
-        pred_proposal=True
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -67,9 +65,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=pred_light
+        self.pred_light=False
 
-        self.pred_proposal=pred_proposal
+        self.pred_proposal=True
 
         if self.pred_proposal:
             self.n_token_agent=16
@@ -95,17 +93,11 @@ class TokenProcessor(torch.nn.Module):
                 light_idx=light["light_idx"].long()
 
                 tokenized_agent["light_idx"]=light_idx
-                pos_lg=light["light_pos"]
-                orient_lg=light["light_orient"]#torch.atan2(light["light_polyline"][:,-1],light["light_polyline"][:,-2])#
-                batch_lg=light["batch"]
-                lengths_lg = torch.bincount(batch_lg, minlength=data.num_graphs).tolist()
-
                 tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
 
-                tokenized_agent["lengths_lg"] = lengths_lg
-                tokenized_agent["batch_lg"]=batch_lg
-                tokenized_agent["pos_lg"] = pos_lg
-                tokenized_agent["orient_lg"] = orient_lg
+                tokenized_agent["batch_lg"]=light["batch"]
+                tokenized_agent["pos_lg"] = light["light_pos"]
+                tokenized_agent["orient_lg"] = light["light_orient"]
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 

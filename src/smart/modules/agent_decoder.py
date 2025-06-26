@@ -212,6 +212,13 @@ class SMARTAgentDecoder(nn.Module):
 
             feat_lgt=None
 
+        if self.pred_proposal:
+            feat_flat = feat_a_t.flatten(0, 1)  # [B*T, D]
+            proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
+            proposal = self.proposal_head(proposal_feature).reshape(feat_a_t.shape[0],feat_a_t.shape[1],proposal_feature.shape[1],-1,3)
+        else:
+            proposal=None
+
         mask_a=mask_a[:,-n_step:]
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
@@ -239,7 +246,7 @@ class SMARTAgentDecoder(nn.Module):
             mask=mask_a,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
-            proposal=None,
+            proposal=proposal,
             shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
@@ -282,12 +289,6 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
-        if self.pred_proposal:
-            feat_flat = feat_a_t.flatten(0, 1)  # [B*T, D]
-            proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
-            proposal = self.proposal_head(proposal_feature).reshape(feat_a_t.shape[0],feat_a_t.shape[1],proposal_feature.shape[1],-1,3)
-        else:
-            proposal=None
 
         if self.output_gmm:
             next_logits = self.gmm_logits_head(feat_a)
@@ -534,8 +535,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            # "sampled_traj": sampled_traj,
-            "light_idx": light_idx
+            #"light_idx": light_idx
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
