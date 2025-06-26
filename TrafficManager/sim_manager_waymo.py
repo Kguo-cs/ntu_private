@@ -45,6 +45,13 @@ from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
 from time import sleep
 import mss
+from src.smart.utils import (
+    angle_between_2d_vectors,
+    transform_to_global,
+    weight_init,
+    wrap_angle,
+)
+from waymo.waymo_traffic_light_system import  TrafficSystem
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -287,11 +294,28 @@ class SimulationManager:
             tokenized_agent.update(pred_dict)
 
             #control ego
-            ego_sampled_traj=torch.zeros([5,2],device=device)
-            ego_idx=self.gui.ego_idx
-            token_agent_shape=tokenized_agent["token_agent_shape"][ego_idx]
-            token_traj=tokenized_agent["token_traj"][ego_idx]
-            sampled_idx=self.planner.token_processor.traj_to_idx(ego_sampled_traj,token_agent_shape,token_traj)
+            # ego_planned_traj=torch.zeros([5,3],device=device)[None]
+            # ego_idx=self.gui.ego_idx
+            # token_agent_shape=tokenized_agent["token_agent_shape"][ego_idx][None]
+            # token_traj=tokenized_agent["token_traj"][ego_idx][None]
+            # sampled_idx=self.planner.token_processor.traj_to_idx(ego_planned_traj[:,-1:],token_agent_shape,token_traj)[0]
+            #
+            # tokenized_agent["sampled_idx"][ego_idx][-1]=sampled_idx
+            #
+            # pos_a=tokenized_agent["sampled_pos"][ego_idx][None]
+            # head_a=tokenized_agent["sampled_heading"][ego_idx][None]
+            #
+            # pred_traj, pred_head = transform_to_global(
+            #     pos_local=ego_planned_traj[:,:,:2],  # [n_agent, 6*4, 2]
+            #     head_local=ego_planned_traj[:,:,2],
+            #     pos_now=pos_a[:, -2],  # [n_agent, 2]
+            #     head_now=head_a[:, -2],  # [n_agent]
+            # )
+            #
+            # tokenized_agent['pred_traj_10hz'][ego_idx]=pred_traj
+            # tokenized_agent['pred_head_10hz'][ego_idx]=pred_head
+            # tokenized_agent['sampled_pos'][ego_idx][-1]=pred_traj[:,-1]
+            # tokenized_agent['sampled_heading'][ego_idx][-1]=pred_head[:,-1]
 
 
 
@@ -351,6 +375,10 @@ class SimulationManager:
 
                 #add agent
                 # track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.zeros([1])])
+                # track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([1,91]).astype(bool)])
+                # track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([1,3]).astype(bool)])
+
+                #add static object
                 # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([1]).astype(int)])
                 # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
                 # state[0,:,0]=362
@@ -359,8 +387,22 @@ class SimulationManager:
                 # state[0,:,4]=10
                 # state[0,:,5]=10
                 # track_infos["states"]=np.concatenate([track_infos["states"],state])
-                # track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([1,91]).astype(bool)])
-                # track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([1,3]).astype(bool)])
+
+                #add dynamic ped
+                # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.ones([1]).astype(int)])
+                # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
+                #
+                # state[0,0,0]=362
+                # state[0,5,0]=361
+                # state[0,10,0]=360
+                # state[0,:,1]=6270
+                # state[0,:,3]=1
+                # state[0,:,4]=1
+                # state[0,:,5]=1
+                # state[0,:,6]=-np.pi
+                # track_infos["states"]=np.concatenate([track_infos["states"],state])
+
+
 
                 #delete agent
                 # id=997
@@ -386,6 +428,8 @@ class SimulationManager:
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
                 self.initialize_simulation(scenario,data)
+                #custom_traffic_Light
+                #trafficlight_system=TrafficSystem(data["light"])
 
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1
@@ -393,9 +437,6 @@ class SimulationManager:
                 tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
-
-
-
 
                 agent_num=len(tokenized_agent["batch"])
 
@@ -406,7 +447,6 @@ class SimulationManager:
                 tokenized_agent["orient_lg"]=tokenized_agent["orient_lg"][:light_num]
                 tokenized_agent["batch_lg"]=tokenized_agent["batch_lg"][:light_num]
                 tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
-
 
 
                 while True:

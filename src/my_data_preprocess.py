@@ -219,6 +219,7 @@ def process_light(map_infos,tf_lights,tf_current_light):
         "light_idx": light_idx.to(torch.int8),
         "light_pos": torch.FloatTensor(light_pos),
         "light_orient": torch.FloatTensor(light_orient),
+        "light_polyline":light_polyline,
         "num_nodes": light_idx.shape[0]
     }
     return light

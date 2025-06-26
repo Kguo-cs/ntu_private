@@ -167,11 +167,7 @@ class GUI(Process):
         )
         self.tl_lane_id =self.tl_lane_id[step_current]
 
-        #tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
 
-        # ag_valid, ag_xy, ag_yaw, self.ag_size, ag_role, self.ag_id = get_agent_features(
-        #     scenario, step_current=step_current
-        # )
         self.ag_size=data["agent"]["shape"]
         ag_role=data["agent"]["role"]
         self.ag_id=data["agent"]["id"].numpy()
