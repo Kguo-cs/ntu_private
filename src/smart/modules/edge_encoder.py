@@ -121,7 +121,7 @@ class EdgeEncoder(nn.Module):
 
             pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
 
-            full_edge_index = radius_graph(x=pos_s, r=60,max_num_neighbors=300, batch=batch_s, loop=False)
+            full_edge_index = radius_graph(x=pos_s, r=60,max_num_neighbors=max_num_neighbors, batch=batch_s, loop=False)
 
             global_pos,_ = transform_to_global(
                                         pos_local=pos_local,  # [n_agent, n_step, 2]
@@ -134,10 +134,10 @@ class EdgeEncoder(nn.Module):
 
             src, dst = full_edge_index
 
-            mask1=src<dst
-
-            src=src[mask1]
-            dst=dst[mask1]
+            # mask1=src<dst
+            #
+            # src=src[mask1]
+            # dst=dst[mask1]
 
 
             src_traj=global_pos[src][:,:,None]
@@ -171,10 +171,10 @@ class EdgeEncoder(nn.Module):
             src=src[intersecting]
             dst=dst[intersecting]
 
-            src_full = torch.cat([src, dst], dim=0)
-            dst_full = torch.cat([dst, src], dim=0)
+            # src = torch.cat([src, dst], dim=0)
+            # dst = torch.cat([dst, src], dim=0)
 
-            full_edge_index=torch.stack([src_full, dst_full], dim=0)
+            full_edge_index=torch.stack([src, dst], dim=0)
 
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
