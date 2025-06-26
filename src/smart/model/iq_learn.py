@@ -9,7 +9,7 @@ import torch
 
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
-from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,eval_light
+from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,eval_light,get_proposal_loss
 from src.smart.loss.rollout_buffer import rollout
 from src.smart.utils import (
     cal_polygon_contour,
@@ -176,33 +176,24 @@ class IQ_SoftQ(LightningModule):
 
         if self.encoder.agent_encoder.pred_proposal:
             proposal=pred["proposal"][:,1:-1]
-            target_mask=tokenized_agent["target_mask"][:,1:-1,None]
             target_pos=tokenized_agent["target_pos"][:, 1:-1,None]
             target_head=tokenized_agent["target_head"][:, 1:-1,None]
-            target_contour=tokenized_agent["target_contour"][:, 1:-1,None]
-            token_agent_shape=tokenized_agent["token_agent_shape"]
+            target_mask=tokenized_agent["target_mask"][:,1:-1,None]
+            token_agent_shape=tokenized_agent["token_agent_shape"][:, None, None,None]
+            # sampled_pos=tokenized_agent["sampled_pos"][:,1:-1]
+            # sampled_head=tokenized_agent["sampled_head"][:,1:-1]
 
-            proposal_contour=cal_polygon_contour(proposal[...,:2],proposal[...,2],token_agent_shape[:,None,None,None])
+            proposal_loss, pos_dist, head_diff,action=get_proposal_loss(proposal,token_agent_shape,target_pos,
+                                                                        target_head,target_mask
+                                                                        # sampled_pos,sampled_head
+                                                                        )
 
-            pos_loss = (torch.linalg.norm(proposal[...,:2] - target_pos,dim=-1)*target_mask)
-            head_loss = (wrap_angle(proposal[...,2] - target_head).abs()*target_mask)
+            proposal_loss=proposal_loss[train_mask].mean()
 
-            counter_dist=(torch.linalg.norm(proposal_contour - target_contour,dim=-1).mean(-1)*target_mask).square()
-
-            proposal_loss=counter_dist.mean(-1).amin(-1)[train_mask].mean()
-
-            proposal5_loss=counter_dist[:,:,:,4]
-
-            min_index=torch.argmin(proposal5_loss,dim=-1)
-
-            pos_dist=torch.gather(pos_loss[...,4],index=min_index[:,:,None],dim=-1)[train_mask]
-            head_diff=torch.gather(head_loss[...,4],index=min_index[:,:,None],dim=-1)[train_mask]
-
-            self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_pos_dist", pos_dist[train_mask].mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_head_diff", head_diff[train_mask].mean().item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
 
-            action=min_index
         else:
             proposal_loss=0
             action = tokenized_agent["sampled_idx"][:, 2:]
@@ -262,6 +253,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
         return  reward,value_loss,init_V,action_nll,actor_loss,proposal_loss
 
@@ -279,15 +271,13 @@ class IQ_SoftQ(LightningModule):
         else:
             train_mask = valid_mask.all(-1)
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss,proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
-
-        self.log("train/expert_nll", expert_nll.item(), on_step=True, batch_size=1)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss,expert_proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if not self.iq_learn:
             if self.encoder.agent_encoder.pred_res:
                 loss=expert_actor_loss.mean()+expert_nll
             else:
-                loss =expert_nll+proposal_loss
+                loss =expert_nll+expert_proposal_loss
         else:
             if self.global_step % self.rollout_freq== 0:
                 tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
@@ -297,10 +287,11 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            agent_reward, agent_value_loss, agent_V_diff, _,agent_actor_loss,agent_proposal_loss = self.get_QV(
+            agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_actor_loss,agent_proposal_loss = self.get_QV(
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
-            critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss)
+            #critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss)
+            critic_loss=expert_nll+expert_proposal_loss+agent_nll+agent_proposal_loss
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
@@ -308,7 +299,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()

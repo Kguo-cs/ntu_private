@@ -65,9 +65,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=True
+        self.pred_light=False
 
-        self.pred_proposal=False
+        self.pred_proposal=True
 
         if self.pred_proposal:
             self.n_token_agent=16
@@ -448,12 +448,12 @@ class TokenProcessor(torch.nn.Module):
 
         gt_traj[~valid] = 0
 
-        target_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
+        target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
 
-        target_mask = target_traj.any(-1) != 0
+        target_mask = target_global_traj.any(-1) != 0
 
-        target_pos = target_traj[..., :2].flatten(0, 1)
-        target_head = target_traj[..., 2].flatten(0, 1)
+        target_pos = target_global_traj[..., :2].flatten(0, 1)
+        target_head = target_global_traj[..., 2].flatten(0, 1)
 
         target_pos, target_head = transform_to_local(
             pos_global=target_pos,  # [n_agent*18, 1, 2]
@@ -462,23 +462,25 @@ class TokenProcessor(torch.nn.Module):
             head_now=heading[:, ::5].flatten(0, 1),  # [n_agent*18]
         )
 
-        target_pos=target_pos.reshape(-1, 19, target_traj.shape[2], 2)[:, 1:]
-        target_head=target_head.reshape(-1, 19, target_traj.shape[2])[:, 1:]
+        target_pos=target_pos.reshape(-1, 19, target_global_traj.shape[2], 2)
+        target_head=target_head.reshape(-1, 19, target_global_traj.shape[2])
 
-        target_contour = cal_polygon_contour(target_pos,target_head, agent_shape[:,None,None])
+        out_dict["target_pos"] = target_pos[:, 1:]
+        out_dict["target_head"] = target_head[:, 1:]
 
-        out_dict["target_pos"] = target_pos
-        out_dict["target_head"] = target_head
-        out_dict["target_contour"] = target_contour
-        out_dict["target_mask"] = target_mask[:, 1:]  # & tokenized_agent["valid_mask"][:,:,None]
+        out_dict["target_mask"] = target_mask[:, 1:]
 
-        sampled_traj = target_traj.reshape(-1, 19, target_traj.shape[2], 3)[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
         out_dict["sampled_pos"] =  pos[:, 5::5]
         out_dict["sampled_heading"] = heading[:, 5::5]
 
         sample_valid = target_mask[:, :-1, :5].all(-1)
 
         out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
+
+        sampled_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
+
+        sampled_traj = sampled_traj[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
+
         out_dict["sampled_idx"] = self.traj_to_idx(sampled_traj, agent_shape,token_traj)
 
         return out_dict
@@ -634,7 +636,6 @@ class TokenProcessor(torch.nn.Module):
 
 
     def traj_to_idx(self,sampled_traj,token_agent_shape,token_traj):
-
 
         contour_local = cal_polygon_contour(sampled_traj[..., :2], sampled_traj[...,  2], token_agent_shape[:, None, None])
 

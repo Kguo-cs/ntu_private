@@ -179,7 +179,7 @@ def process_light(map_infos,tf_lights,tf_current_light):
         start_pos=polylines[0]
         light_pos[i]=start_pos
 
-        light_polyline[i]=new_polylines-start_pos[None]
+        light_polyline[i]=new_polylines#-start_pos[None]
 
     if len(current_light_ids):
         # Create a mapping from lane_id to index in light_all
@@ -211,15 +211,15 @@ def process_light(map_infos,tf_lights,tf_current_light):
     map_tensor=torch.tensor([3,4,0,1,2])
     light_idx = map_tensor[light_idx[:,5::5].long()]
 
-    light_polyline=torch.FloatTensor(light_polyline).reshape(-1,20)
+    relative_pos=light_polyline[:,-1]-light_pos
 
-    light_orient=torch.atan2(light_polyline[:, -1], light_polyline[:, -2])
+    light_orient=np.arctan2(relative_pos[:, 1], relative_pos[:, 0])
 
     light={
         "light_idx": light_idx.to(torch.int8),
         "light_pos": torch.FloatTensor(light_pos),
         "light_orient": torch.FloatTensor(light_orient),
-        "light_polyline":light_polyline,
+        "light_polyline":torch.FloatTensor(light_polyline),
         "num_nodes": light_idx.shape[0]
     }
     return light

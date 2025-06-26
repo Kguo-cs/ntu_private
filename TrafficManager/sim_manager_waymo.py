@@ -353,8 +353,8 @@ class SimulationManager:
 
             for tf_data in dataset:
                 i+=1
-                if i!=4:
-                    continue
+                # if i!=4:
+                #     continue
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
@@ -429,7 +429,7 @@ class SimulationManager:
 
                 self.initialize_simulation(scenario,data)
                 #custom_traffic_Light
-                #trafficlight_system=TrafficSystem(data["light"])
+               # trafficlight_system=TrafficSystem(data["light"])
 
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1
@@ -455,7 +455,7 @@ class SimulationManager:
 
                 self.cleanup()
 
-                return
+               # return
 
     def capture_viewport_frame(self):
         if not self.recording or self.video_writer is None:

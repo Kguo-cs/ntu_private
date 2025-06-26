@@ -1,4 +1,6 @@
 import torch
+from sympy.physics.units import action
+
 from src.smart.metrics.utils import get_euclidean_targets
 
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
@@ -122,3 +124,40 @@ def padding(tensor,lengths,padding_value=0.0 ):
     padded_tensor = pad_sequence(list(torch.split(tensor, lengths)), batch_first=True, padding_value=padding_value)
 
     return padded_tensor
+
+
+def get_proposal_loss(proposal,token_agent_shape,target_pos, target_head,target_mask):
+    # target_pos = target_traj[..., :2].flatten(0, 1)
+    # target_head = target_traj[..., 2].flatten(0, 1)
+    #
+    # target_pos, target_head = transform_to_local(
+    #     pos_global=target_pos,  # [n_agent*18, 1, 2]
+    #     head_global=target_head,  # [n_agent*18, 1]
+    #     pos_now=pos.flatten(0, 1),  # [n_agent*18, 2]
+    #     head_now=heading.flatten(0, 1),  # [n_agent*18]
+    # )
+    #
+    # target_pos = target_pos.reshape(-1, 19, target_traj.shape[2], 2)[:, 1:]
+    # target_head = target_head.reshape(-1, 19, target_traj.shape[2])[:, 1:]
+
+    target_contour = cal_polygon_contour(target_pos, target_head, token_agent_shape)
+
+
+    proposal_contour = cal_polygon_contour(proposal[..., :2], proposal[..., 2], token_agent_shape)
+
+    pos_loss = (torch.linalg.norm(proposal[..., :2] - target_pos, dim=-1) * target_mask)
+    head_loss = (wrap_angle(proposal[..., 2] - target_head).abs() * target_mask)
+
+    counter_dist = (torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask).square()
+
+    proposal_loss = counter_dist.mean(-1).amin(-1)
+
+    proposal5_loss = counter_dist[:, :, :, 4]
+
+    action = torch.argmin(proposal5_loss, dim=-1)
+
+    pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1)
+    head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1)
+
+
+    return proposal_loss, pos_dist, head_diff,action
