@@ -121,7 +121,7 @@ class EdgeEncoder(nn.Module):
 
             pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
 
-            full_edge_index = radius_graph(x=pos_s, r=60,max_num_neighbors=max_num_neighbors, batch=batch_s, loop=False)
+            full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=max_num_neighbors, batch=batch_s, loop=False)
 
             global_pos,_ = transform_to_global(
                                         pos_local=pos_local,  # [n_agent, n_step, 2]
@@ -157,7 +157,7 @@ class EdgeEncoder(nn.Module):
             # ).amin(dim=1)  # (E,)
 
             # shape: (n_batch, 2)
-            radius_single = torch.norm(shape[:, :2] / 2, dim=-1)  # (n_batch,)
+            radius_single = torch.norm(shape.to(torch.float16)[:, :2] / 2, dim=-1)  # (n_batch,)
             # pos_a: (n_batch, n_agent_per_batch, ?)
             radius = radius_single[batch_s]  # (n_agent,)
 
