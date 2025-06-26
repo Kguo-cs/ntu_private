@@ -153,10 +153,10 @@ class SimulationManager:
         with open(config_path, 'r') as config_file:
             return yaml.safe_load(config_file)
 
-    def initialize_simulation(self,scenario):
+    def initialize_simulation(self,scenario,data):
         # Initialising models, planners, maps etc
 
-        self.gui = GUI(scenario,self.initial_step)
+        self.gui = GUI(scenario,data,self.initial_step)
         if self.GUI_DISPLAY:
             self.gui.start()
 
@@ -286,12 +286,14 @@ class SimulationManager:
 
             tokenized_agent.update(pred_dict)
 
+            # tokenized_agent["light_idx"]=tokenized_agent["light_idx"]
+
         # self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
 
-        light_idx = tokenized_agent["light_idx"][:,-1].cpu().numpy()
+        light_idx = tokenized_agent["light_idx"][:,(self.timestamp-5)//5].cpu().numpy()
         agent_pos=pos[:,self.timestamp%5].cpu().numpy()
         agent_head=heading[:,self.timestamp%5].cpu().numpy()
 
@@ -311,17 +313,20 @@ class SimulationManager:
         input_dir =self.config["data_path"]
         all_scenarios=os.listdir(input_dir)
         all_scenarios.sort()
-
+        i=0
         for scenario in all_scenarios:
             dataset = tf.data.TFRecordDataset(
                 [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
             )
 
             for tf_data in dataset:
-
+                i+=1
+                if i!=4:
+                    continue
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
+
 
                 track_infos = decode_tracks_from_proto(scenario)
                 map_infos = decode_map_features_from_proto(scenario.map_features)
@@ -336,6 +341,20 @@ class SimulationManager:
 
                 data = preprocess_map(map_data)
 
+                #add agent
+                # track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.zeros([1])])
+                # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([1]).astype(int)])
+                # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
+                # state[0,:,0]=362
+                # state[0,:,1]=6300
+                # state[0,:,3]=10
+                # state[0,:,4]=10
+                # state[0,:,5]=10
+                # track_infos["states"]=np.concatenate([track_infos["states"],state])
+                # track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([1,91]).astype(bool)])
+                # track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([1,3]).astype(bool)])
+
+
                 data["agent"] = get_agent_features(
                     track_infos,
                     split="validation",
@@ -348,6 +367,8 @@ class SimulationManager:
                 data["light"] = process_light(map_infos, tf_lights, tf_current_light)
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
+                self.initialize_simulation(scenario,data)
+
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1
 
@@ -355,16 +376,28 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                self.initialize_simulation(scenario)
 
-                try:
-                    while True:
-                        if not self.process_frame(map_feature,tokenized_agent):
-                            break
-                finally:
-                    self.cleanup()
 
-                    return
+
+                agent_num=len(tokenized_agent["batch"])
+
+                #add traffic light
+                light_num=len(tokenized_agent["light_idx"])
+                tokenized_agent["light_idx"]=tokenized_agent["light_idx"][:light_num]#torch.ones_like(tokenized_agent["light_idx"][:light_num]).long()
+                tokenized_agent["pos_lg"]=tokenized_agent["pos_lg"][:light_num]
+                tokenized_agent["orient_lg"]=tokenized_agent["orient_lg"][:light_num]
+                tokenized_agent["batch_lg"]=tokenized_agent["batch_lg"][:light_num]
+                tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
+
+
+
+                while True:
+                    if not self.process_frame(map_feature, tokenized_agent):
+                        break
+
+                self.cleanup()
+
+                return
 
     def capture_viewport_frame(self):
         if not self.recording or self.video_writer is None:
@@ -450,6 +483,7 @@ class SimulationManager:
             state_dict = torch.load(self.config["planner_path"])["state_dict"]
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
+
 
         self.planner.load_state_dict(state_dict)
         self.planner.cuda()

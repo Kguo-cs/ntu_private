@@ -98,7 +98,7 @@ def generateDefaultImage(
 
 class GUI(Process):
     def __init__(
-            self, scenario,step_current=10
+            self, scenario,data,step_current=10
     ) -> None:
         super().__init__()
         self.renderQueue = RenderQueue(1)
@@ -141,9 +141,10 @@ class GUI(Process):
             COLOR_RED,  # STOP = 0;
             COLOR_GREEN,  # GO = 1;
             COLOR_YELLOW,  # CAUTION = 2;
-            COLOR_ALUMINIUM_1,  # NO_LANE_STATE = 3;
-            COLOR_VIOLET,  # LANE_STATE_UNKNOWN = 4;
+            COLOR_GREEN, #COLOR_ALUMINIUM_0,  # NO_LANE_STATE = 3;
+           COLOR_GREEN,# COLOR_ALUMINIUM_1,  # LANE_STATE_UNKNOWN = 4;
         ]
+
         # sdc=0, interest=1, predict=2
         self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
 
@@ -168,12 +169,14 @@ class GUI(Process):
 
         #tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
 
-        ag_valid, ag_xy, ag_yaw, self.ag_size, self.ag_role, self.ag_id = get_agent_features(
-            scenario, step_current=step_current
-        )
-        # self.ag_id2size = dict(zip(ag_id, ag_size))
-        # self.ag_id2role = dict(zip(ag_id, ag_role))
-        self.ego_idx=np.where(self.ag_role[:,0])[0][0]
+        # ag_valid, ag_xy, ag_yaw, self.ag_size, ag_role, self.ag_id = get_agent_features(
+        #     scenario, step_current=step_current
+        # )
+        self.ag_size=data["agent"]["shape"]
+        ag_role=data["agent"]["role"]
+        self.ag_id=data["agent"]["id"]
+
+        self.ego_idx=np.where(ag_role[:,0])[0][0]
 
 
     def set_ego_pose(self,tokenized_agent,rel_pos,rel_heading):
@@ -426,10 +429,8 @@ class GUI(Process):
         _yaw = _yaw[:, 0][_valid]
         heading_end = self.get_line_tf( _pos[_valid] + 1.5 * np.stack([np.cos(_yaw), np.sin(_yaw)],axis=-1), self.centerx, self.centery)
 
-
-        _role = self.ag_role[_valid]
         _type=ag_type[_valid]
-        for i in range(_role.shape[0]):
+        for i in range(_type.shape[0]):
             if i==self.ego_idx:#[0]
                 color=COLOR_CYAN
             else:
