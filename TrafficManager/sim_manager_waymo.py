@@ -234,7 +234,7 @@ class SimulationManager:
         if self.timestamp >= self.MAX_SIM_TIME:
             print("Simulation time end.")
             return False
-        #device=tokenized_agent["type"].device
+        device=tokenized_agent["type"].device
         agent_type=tokenized_agent["type"].cpu().numpy()
 
         if self.timestamp % 5 == 0:
@@ -286,7 +286,15 @@ class SimulationManager:
 
             tokenized_agent.update(pred_dict)
 
-            # tokenized_agent["light_idx"]=tokenized_agent["light_idx"]
+            #control ego
+            ego_sampled_traj=torch.zeros([5,2],device=device)
+            ego_idx=self.gui.ego_idx
+            token_agent_shape=tokenized_agent["token_agent_shape"][ego_idx]
+            token_traj=tokenized_agent["token_traj"][ego_idx]
+            sampled_idx=self.planner.token_processor.traj_to_idx(ego_sampled_traj,token_agent_shape,token_traj)
+
+
+
 
         # self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
 
@@ -353,6 +361,16 @@ class SimulationManager:
                 # track_infos["states"]=np.concatenate([track_infos["states"],state])
                 # track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([1,91]).astype(bool)])
                 # track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([1,3]).astype(bool)])
+
+                #delete agent
+                # id=997
+                # mask=np.where(track_infos["object_id"]!=id)
+                # track_infos["object_id"]=track_infos["object_id"][mask]
+                # track_infos["object_type"]=track_infos["object_type"][mask]
+                # track_infos["states"]=track_infos["states"][mask]
+                # track_infos["valid"]=track_infos["valid"][mask]
+                # track_infos["role"]=track_infos["role"][mask]
+
 
 
                 data["agent"] = get_agent_features(

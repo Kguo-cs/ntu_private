@@ -174,7 +174,7 @@ class GUI(Process):
         # )
         self.ag_size=data["agent"]["shape"]
         ag_role=data["agent"]["role"]
-        self.ag_id=data["agent"]["id"]
+        self.ag_id=data["agent"]["id"].numpy()
 
         self.ego_idx=np.where(ag_role[:,0])[0][0]
 

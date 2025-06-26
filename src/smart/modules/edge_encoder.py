@@ -121,7 +121,7 @@ class EdgeEncoder(nn.Module):
 
             pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
 
-            full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=max_num_neighbors, batch=batch_s, loop=False)
+            full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=20, batch=batch_s, loop=False)
 
             global_pos,_ = transform_to_global(
                                         pos_local=pos_local,  # [n_agent, n_step, 2]
