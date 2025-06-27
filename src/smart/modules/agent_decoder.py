@@ -398,7 +398,7 @@ class SMARTAgentDecoder(nn.Module):
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
-                if "next_token_logits" in tokenized_agent.keys():
+                if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
                     next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
 
                     if self.pred_proposal:
