@@ -42,12 +42,12 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
 
-    def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
+    def get_network_QV(self,all_q_value,tokenized_map, tokenized_agent,action,key):
 
         # pred = network(tokenized_map, tokenized_agent)
 
         # q_value = pred["q_value"][:,:,0]
-       # q_value=all_q_value[:,:,0]
+        q_value=all_q_value[:,1:]
 
         if self.output_gmm:
             dist =  GMM_Dist(q_value)
@@ -175,19 +175,8 @@ class IQ_SoftQ(LightningModule):
         pred = self.encoder(tokenized_map, tokenized_agent)
 
         if self.encoder.agent_encoder.pred_proposal :
-            proposal=pred["proposal"][:,1:-1]
-            # target_pos=tokenized_agent["target_pos"][:, 1:-1,None]
-            # target_head=tokenized_agent["target_head"][:, 1:-1,None]
-            target_mask=tokenized_agent["target_mask"][:,1:-1,None]
-            token_agent_shape=tokenized_agent["token_agent_shape"][:, None, None,None]
-            sampled_pos=tokenized_agent["sampled_pos"][:,1:-1]
-            sampled_heading=tokenized_agent["sampled_heading"][:,1:-1]
-            target_global_traj=tokenized_agent["target_global_traj"][:,1:-1]
 
-            proposal_loss, pos_dist, head_diff,action=get_proposal_loss(proposal,token_agent_shape,
-                                                                        target_global_traj,target_mask,
-                                                                        sampled_pos,sampled_heading
-                                                                        )
+            proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent   )
 
             proposal_loss=proposal_loss[train_mask].mean()
 
@@ -198,6 +187,9 @@ class IQ_SoftQ(LightningModule):
         else:
             proposal_loss=0
             action = tokenized_agent["sampled_idx"][:, 2:]
+
+        if pred["agent_q"] is None:
+            return 0,0,0,0,0,proposal_loss
 
         valid_mask = tokenized_agent["valid_mask"][:, 1:]
         agent_num = len(action)
@@ -275,12 +267,10 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
 
-        # if self.iq_learn:
-        #     expert_nll=0
-        #     expert_proposal_loss=0
-        #     expert_V_diff=0
-        # else:
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss,expert_proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        if self.iq_learn:
+            expert_nll=expert_proposal_loss=0
+        else:
+            expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss,expert_proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if not self.iq_learn:
             if self.encoder.agent_encoder.pred_res:

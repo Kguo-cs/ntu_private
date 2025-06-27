@@ -172,7 +172,7 @@ class SMARTAgentDecoder(nn.Module):
         self.token_processor= token_processor
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0,post_sampling=False):
+    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0,post_sampling=True):
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -355,13 +355,12 @@ class SMARTAgentDecoder(nn.Module):
             light_q=None
 
         return {
-            "feat_a": feat_a[:,1:],
             "proposal":proposal,
             "light_q": light_q,
-             "agent_q": next_token_logits[:, 1:],            # action that goes from [(10->15), ..., (85->90)]
+            "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
          }
 
-    def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling=False):
+    def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()
@@ -580,7 +579,7 @@ class SMARTAgentDecoder(nn.Module):
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
-            post_sampling=False,
+            post_sampling=True,
             step_current_10hz=None,
             n_step_future_10hz=None,
     ) -> Dict[str, torch.Tensor]:
