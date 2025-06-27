@@ -471,9 +471,9 @@ class TokenProcessor(torch.nn.Module):
         out_dict["sampled_pos"] =  pos[:, 5::5]
         out_dict["sampled_heading"] = heading[:, 5::5]
 
-        sample_valid = target_mask[:, :-1, :5].all(-1)
+        #sample_valid = target_mask[:, :-1, :5].all(-1)
 
-        out_dict["valid_mask"] = valid[:, :-1:5] & sample_valid
+        out_dict["valid_mask"] = valid[:,5::5] #valid[:, 4:-1:5] #& sample_valid
 
         target_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
 

@@ -371,6 +371,10 @@ class SMARTAgentDecoder(nn.Module):
         gt_contour=tokenized_agent["gt_contour"][:,:,None]
         n_agent = sampled_idx.shape[0]
 
+        gt_valid=tokenized_agent["valid_mask"]
+
+        current_valid=gt_valid[:, current_step-1].clone()
+
         if not self.pred_proposal:
             token_traj_all= tokenized_agent["token_traj_all"]
 
@@ -459,9 +463,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     proposal_countour=cal_polygon_contour(global_pos[:,None],global_head[:,None],token_agent_shape[:,None,None])[:,0]
 
-                    next_token_idx = torch.argmin(
-                        torch.norm(proposal_countour - gt_contour[:,t], dim=-1).sum(-1), dim=-1
-                    )  # [n_agent]
+                    next_token_idx = torch.argmin( torch.norm(proposal_countour - gt_contour[:,t], dim=-1).sum(-1), dim=-1     )
 
                 if self.pred_proposal:
                     next_local_traj = proposal[:, -1, :, :5][torch.arange(n_agent), next_token_idx]
@@ -509,7 +511,7 @@ class SMARTAgentDecoder(nn.Module):
                     agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
                 )
 
-                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(n_agent,-1,3)#.reshape(-1,4,2)
+                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(n_agent,-1,3)
 
                 pos_global, head_global = transform_to_global(
                         pos_local=res_traj[:,:,:2],
@@ -535,7 +537,11 @@ class SMARTAgentDecoder(nn.Module):
                 pos_a[:,-1]=pos_global[:,-1]
                 head_a[:,-1]=head_global[:,-1]
 
-            mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
+            if post_sampling:
+                current_valid=current_valid & gt_valid[:,t]
+                mask =torch.cat([mask,current_valid[:,None]], dim=1)
+            else:
+                mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
 
