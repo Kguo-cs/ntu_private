@@ -372,8 +372,8 @@ class SMARTAgentDecoder(nn.Module):
         n_agent = sampled_idx.shape[0]
 
         gt_valid=tokenized_agent["valid_mask"]
-
-        current_valid=gt_valid[:, current_step-1].clone()
+        gt_pos=tokenized_agent["sampled_pos"]
+        gt_head=tokenized_agent["sampled_heading"]
 
         if not self.pred_proposal:
             token_traj_all= tokenized_agent["token_traj_all"]
@@ -538,8 +538,17 @@ class SMARTAgentDecoder(nn.Module):
                 head_a[:,-1]=head_global[:,-1]
 
             if post_sampling:
-                current_valid=current_valid & gt_valid[:,t]
-                mask =torch.cat([mask,current_valid[:,None]], dim=1)
+                prev_valid=gt_valid[:,t-1]
+                pos_a[:,-1][~prev_valid] = gt_pos[:, t][~prev_valid]
+                head_a[:,-1][~prev_valid] = gt_head[:, t][~prev_valid]
+
+                valid_mask=prev_valid & gt_valid[:,t]
+                _invalid_mask = ~valid_mask
+
+                pos_a[:,-1]=pos_a[:,-1].masked_fill(_invalid_mask.unsqueeze(1), 0)
+                head_a[:,-1]=head_a[:,-1].masked_fill(_invalid_mask, 0)
+
+                mask =torch.cat([mask,valid_mask[:,None]], dim=1)
             else:
                 mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
 
