@@ -122,8 +122,6 @@ class SMARTDecoder(nn.Module):
                 output_gmm=self.output_gmm
             )
 
-        if self.iq_learn:
-            self.agent_encoder.a_t_roformer.attn.caching = True
 
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],
