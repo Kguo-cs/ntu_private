@@ -122,7 +122,6 @@ class SMARTDecoder(nn.Module):
                 output_gmm=self.output_gmm
             )
 
-
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],
             use_critic=False
