@@ -206,11 +206,6 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light and len(light_idx) and self.light_encoder.share:
             feat_lg = self.light_encoder.light_embedding(light_idx)
             feat_a_lg=torch.cat((feat_a_token,feat_lg))
-            # pos_a_lg=torch.cat([pos_a,tokenized_agent["pos_lg"][:,None].repeat(1,n_step,1)])
-            # head_a_lg=torch.cat([head_a,tokenized_agent["orient_lg"][:,None].repeat(1,n_step)])
-            #head_vector_a_lg = torch.stack([head_a_lg.cos(), head_a_lg.sin()], dim=-1)
-
-            #r_a2a = self.edge_encoder.build_temporal_edge(pos_a_lg,head_a_lg,head_vector_a_lg,mask)
 
             feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,None,None, n_step, n_current, mask)
             feat_a_t=feat_a_lg[:len(sampled_idx)]

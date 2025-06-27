@@ -76,7 +76,7 @@ class SMARTDecoder(nn.Module):
             if self.output_gmm:
                 self.alpha=1e-2
             else:
-                self.alpha=0.1
+                self.alpha=0.01
 
             if self.iq_learn and self.output_gmm:
 
