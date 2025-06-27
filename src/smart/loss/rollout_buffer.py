@@ -86,8 +86,7 @@ def rollout(encoder, tokenized_map, tokenized_agent):
     with torch.no_grad():
         pred = encoder.inference(
             tokenized_map,
-            tokenized_agent,
-            post_sampling=True
+            tokenized_agent
         )
     encoder.train()
 

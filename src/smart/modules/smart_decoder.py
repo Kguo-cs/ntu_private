@@ -164,7 +164,7 @@ class SMARTDecoder(nn.Module):
         self,
         tokenized_map: Dict[str, Tensor],
         tokenized_agent: Dict[str, Tensor],
-        post_sampling,
+        post_sampling=False,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["detach_map_feature"]

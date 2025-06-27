@@ -452,9 +452,7 @@ class SMARTAgentDecoder(nn.Module):
                 ego_token_interp = [countour_start + diff * i for i in range(n_step)]
                 # [n_batch, 6, 4, 2]
                 next_token_traj_all  = torch.stack(ego_token_interp, dim=1)
-
             else:
-
                 if not post_sampling:
                     next_token_idx = Categorical(logits=next_token_logits[:, -1,:self.n_token_agent] / self.alpha).sample()
                 else:
@@ -579,7 +577,7 @@ class SMARTAgentDecoder(nn.Module):
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
-            post_sampling=True,
+            post_sampling=False,
             step_current_10hz=None,
             n_step_future_10hz=None,
     ) -> Dict[str, torch.Tensor]:
