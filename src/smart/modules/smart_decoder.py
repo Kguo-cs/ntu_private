@@ -169,7 +169,10 @@ class SMARTDecoder(nn.Module):
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["detach_map_feature"]
         else:
-            map_feature = self.map_encoder(tokenized_map)
+            if post_sampling:
+                map_feature = None
+            else:
+                map_feature = self.map_encoder(tokenized_map)
 
         pred_dict = self.agent_encoder.inference(
             tokenized_agent, map_feature, post_sampling

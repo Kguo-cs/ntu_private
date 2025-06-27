@@ -188,6 +188,17 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
+        if self.pred_proposal:
+            feat_flat = feat_a_token.flatten(0, 1)  # [B*T, D]
+            proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
+            proposal = self.proposal_head(proposal_feature).reshape(feat_a_token.shape[0],feat_a_token.shape[1],proposal_feature.shape[1],-1,3)
+        else:
+            proposal=None
+
+        if post_sampling:
+            return None,None,None,proposal
+
+
         pos_a=pos_a[:,-n_step:]
 
         mask_a=mask[:len(sampled_idx)]
@@ -208,16 +219,6 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
             feat_lgt=None
-
-        if self.pred_proposal:
-            feat_flat = feat_a_t.flatten(0, 1)  # [B*T, D]
-            proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
-            proposal = self.proposal_head(proposal_feature).reshape(feat_a_t.shape[0],feat_a_t.shape[1],proposal_feature.shape[1],-1,3)
-        else:
-            proposal=None
-
-        if post_sampling:
-            return None,None,None,proposal
 
         mask_a=mask_a[:,-n_step:]
 
