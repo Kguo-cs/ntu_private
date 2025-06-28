@@ -23,6 +23,7 @@ from torch.distributions import Categorical
 from torch_geometric.data import HeteroData
 import torch.nn.functional as F
 
+from src.light.collision_process import sampled_pos
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -454,32 +455,40 @@ class TokenProcessor(torch.nn.Module):
 
         target_mask = target_global_traj.any(-1) != 0
 
+        sampled_pos = pos[:, 5::5].clone()
+        sampled_heading = heading[:, 5::5].clone()
+
+        if self.training:
+            sampled_pos+=torch.rand_like(sampled_pos)*0.01
+            sampled_heading+=torch.rand_like(sampled_heading)*0.001
+
+
+        out_dict["sampled_pos"] =  sampled_pos
+        out_dict["sampled_heading"] = sampled_heading
+
+        all_pos=torch.cat([pos[:, :1], sampled_heading], dim=1)
+        all_heading=torch.cat([heading[:, :1], sampled_heading], dim=1)
+
+
         target_pos, target_head = transform_to_local(
             pos_global=target_global_traj[..., :2].flatten(0, 1),  # [n_agent*18, 1, 2]
             head_global= target_global_traj[..., 2].flatten(0, 1),  # [n_agent*18, 1]
-            pos_now=pos[:, ::5].flatten(0, 1),  # [n_agent*18, 2]
-            head_now=heading[:, ::5].flatten(0, 1),  # [n_agent*18]
+            pos_now=all_pos.flatten(0, 1),  # [n_agent*18, 2]
+            head_now=all_heading.flatten(0, 1),  # [n_agent*18]
         )
 
         target_pos=target_pos.reshape(-1, 19, target_global_traj.shape[2], 2)
         target_head=target_head.reshape(-1, 19, target_global_traj.shape[2])
 
-        # out_dict["target_pos"] = target_pos[:, 1:]
-        # out_dict["target_head"] = target_head[:, 1:]
         out_dict["target_mask"] = target_mask[:, 1:]
-
-        out_dict["sampled_pos"] =  pos[:, 5::5]
-        out_dict["sampled_heading"] = heading[:, 5::5]
-
-        #sample_valid = target_mask[:, :-1, :5].all(-1)
-
-        out_dict["valid_mask"] = valid[:,5::5] #valid[:, 4:-1:5] #& sample_valid
 
         target_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
 
-        sampled_traj = target_traj[:, :-1,4:5]## [n_agent, n_step, n_target, 3]
+        sampled_traj = target_traj[:, :-1,4:5]
 
         out_dict["sampled_idx"] = self.traj_to_idx(sampled_traj, agent_shape,token_traj)
+
+        out_dict["valid_mask"] = valid[:,5::5]
 
         gt_contour =cal_polygon_contour( pos[:, 5::5,None], heading[:, 5::5,None], agent_shape[:,None,None])[:,:,0]
 
