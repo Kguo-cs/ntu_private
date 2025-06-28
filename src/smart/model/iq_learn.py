@@ -172,7 +172,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
 
-        pred = self.encoder(tokenized_map, tokenized_agent,post_sampling=(key=='expert'))
+        pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
 
         if self.encoder.agent_encoder.pred_proposal :
 
