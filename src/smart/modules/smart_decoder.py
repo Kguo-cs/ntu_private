@@ -123,7 +123,7 @@ class SMARTDecoder(nn.Module):
             )
 
     def forward(
-        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],
+        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,
             use_critic=False
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
@@ -148,7 +148,7 @@ class SMARTDecoder(nn.Module):
         if use_critic:
             pred_dict = self.critic(tokenized_agent, tokenized_map["detach_map_feature"])
         else:
-            pred_dict = self.agent_encoder(tokenized_agent, map_feature)
+            pred_dict = self.agent_encoder(tokenized_agent, map_feature, post_sampling)
 
         return pred_dict
 

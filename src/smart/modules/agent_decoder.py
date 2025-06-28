@@ -316,6 +316,7 @@ class SMARTAgentDecoder(nn.Module):
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
+            post_sampling=False
     ) -> Dict[str, torch.Tensor]:
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"]
@@ -337,7 +338,7 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
 
-        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx)
+        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,post_sampling=post_sampling)
 
         if self.n_token_agent>1:
             tokenized_agent["next_token_logits"] = next_token_logits
