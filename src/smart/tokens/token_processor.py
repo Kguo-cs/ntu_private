@@ -23,7 +23,6 @@ from torch.distributions import Categorical
 from torch_geometric.data import HeteroData
 import torch.nn.functional as F
 
-from src.light.collision_process import sampled_pos
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -461,7 +460,6 @@ class TokenProcessor(torch.nn.Module):
         if self.training:
             sampled_pos+=torch.rand_like(sampled_pos)*0.01
             sampled_heading+=torch.rand_like(sampled_heading)*0.001
-
 
         out_dict["sampled_pos"] =  sampled_pos
         out_dict["sampled_heading"] = sampled_heading
