@@ -289,7 +289,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
             #critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss)
-            critic_loss=expert_nll+expert_proposal_loss+agent_nll #+agent_proposal_loss
+            critic_loss=expert_nll+expert_proposal_loss+agent_nll+agent_proposal_loss
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
