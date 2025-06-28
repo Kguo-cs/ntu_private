@@ -464,7 +464,7 @@ class TokenProcessor(torch.nn.Module):
         out_dict["sampled_pos"] =  sampled_pos
         out_dict["sampled_heading"] = sampled_heading
 
-        all_pos=torch.cat([pos[:, :1], sampled_heading], dim=1)
+        all_pos=torch.cat([pos[:, :1], sampled_pos], dim=1)
         all_heading=torch.cat([heading[:, :1], sampled_heading], dim=1)
 
 
