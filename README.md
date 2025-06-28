@@ -57,7 +57,6 @@ conda install -y -c conda-forge ffmpeg=4.3.2
 pip install -r install/requirements.txt
 pip install torch_geometric
 pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+cu121.html
-pip install --no-deps nuscenes_devkit==1.1.11
 
 sudo apt-get install sumo sumo-tools sumo-doc
 
