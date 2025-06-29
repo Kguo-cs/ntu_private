@@ -118,22 +118,23 @@ class SMARTAgentDecoder(nn.Module):
             self.n_token_agent = n_token_agent
 
             if self.output_gmm:
-                k_ego_gmm=1
+                self.k_ego_gmm=1
                 self.cov_gmm=0.1 #[1.0, 0.1]
                 self.cov_learnable=True
                 self.use_GT=True
 
-                self.gmm_logits_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm
-                )
+                if self.k_ego_gmm>1:
+                    self.gmm_logits_head = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm
+                    )
                 self.gmm_pose_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * 3
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * 3
                 )
                 self.output_dim=3
 
                 if self.cov_learnable:
                     self.gmm_cov_head = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=k_ego_gmm * self.output_dim
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * self.output_dim
                     )
                 self.pred_res = False
 
@@ -168,6 +169,11 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_proposal:
             self.proposal_embedding=nn.Embedding(token_processor.n_token_agent,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*10)#future 30 second
+
+        self.pred_gaussian=True
+
+        if self.pred_gaussian:
+            self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=6*6)#future 30 second
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -205,11 +211,13 @@ class SMARTAgentDecoder(nn.Module):
             feat_lgt=None
 
         if self.pred_proposal:
-            feat_flat = feat_a_token.flatten(0, 1)  # [B*T, D]
-            proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
+            proposal_feature = feat_a_t[:,: None, :] + self.proposal_embedding.weight[None, None,:, :]  # [B,T, N, D]
             proposal = self.proposal_head(proposal_feature).reshape(feat_a_token.shape[0],feat_a_token.shape[1],proposal_feature.shape[1],-1,3)
         else:
             proposal=None
+
+        if self.pred_gaussian:
+            proposal = self.gaussian_head(feat_a_t)
 
         if post_sampling:
             return None,None,None,proposal
@@ -294,20 +302,14 @@ class SMARTAgentDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
-            if self.n_token_agent>1:
+            next_token_logits = self.token_predict_head(feat_a).reshape(n_agent, n_step, -1)
 
-                #feat_a=self.fut_feature(feat_a)
-                next_token_logits = self.token_predict_head(feat_a).reshape(n_agent,n_step,-1)
+            if self.pred_res and self.training:
+                res_traj = self.res_head(torch.cat([feat_a[:, :-1], feat_a_token[:, 1:]], dim=-1))
 
-                if self.pred_res and self.training:
+                res_traj = torch.cat([res_traj, res_traj[:, :1]], dim=1)
 
-                    res_traj=self.res_head(torch.cat([feat_a[:,:-1],feat_a_token[:,1:]],dim=-1))
-
-                    res_traj=torch.cat([res_traj,res_traj[:,:1]],dim=1)
-
-                    next_token_logits=torch.cat([next_token_logits,res_traj],dim=-1)
-            else:
-                next_token_logits=feat_a
+                next_token_logits = torch.cat([next_token_logits, res_traj], dim=-1)
 
         return next_token_logits,next_light_logits,feat_a,proposal
 

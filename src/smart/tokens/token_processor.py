@@ -67,7 +67,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_light=False
 
-        self.pred_proposal=True
+        self.pred_proposal=False
 
         if self.pred_proposal:
             self.n_token_agent=16

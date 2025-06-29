@@ -6,7 +6,10 @@ from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
 from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
+import numpy as np
 
+from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal,MultivariateNormal
 
 def soft_update( net, target_net, tau):
     for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -128,11 +131,11 @@ def padding(tensor,lengths,padding_value=0.0 ):
 
 def get_proposal_loss(proposal,tokenized_agent):
 
-    target_mask = tokenized_agent["target_mask"][:, 1:-1, None]
     token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]
     sampled_pos = tokenized_agent["sampled_pos"][:, 1:-1]
     sampled_heading = tokenized_agent["sampled_heading"][:, 1:-1]
     target_global_traj = tokenized_agent["target_global_traj"][:, 1:-1]
+    target_mask = tokenized_agent["target_mask"][:, 1:-1, None]
 
     target_pos = target_global_traj[..., :2].flatten(0, 1)
     target_head = target_global_traj[..., 2].flatten(0, 1)
@@ -143,7 +146,7 @@ def get_proposal_loss(proposal,tokenized_agent):
         pos_now=sampled_pos.flatten(0, 1),  # [n_agent*18, 2]
         head_now=sampled_heading.flatten(0, 1),  # [n_agent*18]
     )
-    #
+
     target_pos = target_pos.reshape(-1, target_global_traj.shape[1], 1, target_global_traj.shape[2], 2)
     target_head = target_head.reshape(-1, target_global_traj.shape[1], 1, target_global_traj.shape[2])
 
@@ -167,3 +170,64 @@ def get_proposal_loss(proposal,tokenized_agent):
 
 
     return proposal_loss, pos_dist, head_diff,action
+
+
+def get_gaussian_loss(proposal,tokenized_agent):
+
+    proposal=proposal.reshape(proposal.shape[0], proposal.shape[1],-1,6)
+
+    proposal_mean=proposal[...,:3]
+    proposal_cov=proposal[...,3:].exp()
+
+    dist=Independent(Normal(proposal_mean, proposal_cov),1)
+
+    def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
+        B, T, D = tensor.shape
+        max_future = 6
+
+        # Pad extra steps to the right to safely index up to t+30
+        padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
+
+        # Start indices every 5 steps
+        starts = torch.arange(0, T, 1, device=tensor.device)  # (T//5,)
+
+        # For each start t, get future steps t+1 to t+30 (exclude t)
+        offsets = torch.tensor([1, 2, 3, 4, 5,6],
+                               device=tensor.device)  # torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
+        indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
+        gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
+
+        return gathered
+
+    sampled_pos = tokenized_agent["sampled_pos"]
+    sampled_heading = tokenized_agent["sampled_heading"]
+
+    gt_traj = torch.cat([sampled_pos, sampled_heading[:, :, None]], dim=-1)[:,1:]
+
+    target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)[:,:-1]  # shape: (B, T//5, 30, 2)
+
+    target_mask = target_global_traj.any(-1) != 0
+
+    target_pos = target_global_traj[..., :2].flatten(0, 1)
+    target_head = target_global_traj[..., 2].flatten(0, 1)
+
+    target_pos, target_head = transform_to_local(
+        pos_global=target_pos,  # [n_agent*18, 1, 2]
+        head_global=target_head,  # [n_agent*18, 1]
+        pos_now=sampled_pos[:,1:-1] .flatten(0, 1),  # [n_agent*18, 2]
+        head_now=sampled_heading[:,1:-1].flatten(0, 1),  # [n_agent*18]
+    )
+
+    target_pos = target_pos.reshape(-1, target_global_traj.shape[1],  target_global_traj.shape[2], 2)
+    target_head = target_head.reshape(-1, target_global_traj.shape[1],  target_global_traj.shape[2])
+
+    target_head=wrap_angle(target_head)
+
+    target_local=torch.cat([target_pos, target_head[:,:,:,None]], dim=-1)
+
+    proposal_loss = -(dist.log_prob(target_local)*target_mask).mean()   #.clamp_min(min=np.log(1e-5))
+
+    pos_dist = target_local[..., :2]-proposal_mean[..., :2]
+    head_diff = target_local[..., 2]-proposal_mean[..., 2]
+
+    return proposal_loss, pos_dist, head_diff

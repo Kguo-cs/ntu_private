@@ -5,7 +5,7 @@ import torch
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
-from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,eval_light,get_proposal_loss
+from src.smart.loss.iq_loss import get_iqloss,soft_update,get_return,eval_light,get_proposal_loss,get_gaussian_loss
 from src.smart.loss.rollout_buffer import rollout
 from src.smart.utils import (
     cal_polygon_contour,
@@ -170,12 +170,18 @@ class IQ_SoftQ(LightningModule):
 
         pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
 
-        if self.encoder.agent_encoder.pred_proposal:
+        if pred["proposal"] is not None:
 
             if key=="expert":
-                proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent )
+                if self.encoder.agent_encoder.pred_gaussian:
 
-                proposal_loss=proposal_loss[train_mask].mean()
+                    proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"][:,1:-1],tokenized_agent )
+                    action = tokenized_agent["sampled_idx"][:, 2:]
+
+                else:
+                    proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent )
+
+                    proposal_loss=proposal_loss[train_mask].mean()
 
                 self.log("train/" + key + "_pos_dist", pos_dist[train_mask].mean().item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_head_diff", head_diff[train_mask].mean().item(), on_step=True, batch_size=1)
@@ -283,7 +289,7 @@ class IQ_SoftQ(LightningModule):
         # if self.iq_learn:
         #     expert_nll=expert_proposal_loss=0
         # else:
-        tokenized_map, tokenized_agent = rollout(self.encoder, tokenized_map, tokenized_agent,True)
+        #tokenized_map, tokenized_agent = rollout(self.encoder, tokenized_map, tokenized_agent,True)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_actor_loss,expert_proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
