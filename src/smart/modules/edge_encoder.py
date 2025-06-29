@@ -117,11 +117,14 @@ class EdgeEncoder(nn.Module):
 
 
         else:
-            proposal_pos=proposal[...,-6:,:2].detach()
+            proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
 
-            pos_local=proposal_pos.transpose(0, 1).flatten(0,1).flatten(1, 2)
+            pos_local=proposal[...,:2]#.to(torch.float16)
+            proposal_sigma = 3*torch.norm(proposal[..., 2:].exp(),dim=-1)#.to(torch.float16)
 
             full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=10, batch=batch_s, loop=False)
+
+            #.flatten(1, 2)
 
             global_pos,_ = transform_to_global(
                                         pos_local=pos_local,  # [n_agent, n_step, 2]
@@ -130,7 +133,7 @@ class EdgeEncoder(nn.Module):
                                         head_now=head_s  # [n_agent]
                         )
 
-            global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2).to(torch.float16)
+            #global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2)
 
             src, dst = full_edge_index
 
@@ -139,11 +142,10 @@ class EdgeEncoder(nn.Module):
             # src=src[mask1]
             # dst=dst[mask1]
 
+            src_traj=global_pos[src]#[:,:,None]
+            dst_traj=global_pos[dst]#[:,None]
 
-            src_traj=global_pos[src][:,:,None]
-            dst_traj=global_pos[dst][:,None]
-
-            dist=torch.norm(src_traj - dst_traj,dim=-1).reshape(-1,proposal_pos.shape[-3]*proposal_pos.shape[-3]*6).amin(-1)
+            dist=torch.norm(src_traj - dst_traj,dim=-1)#.reshape(-1,proposal_pos.shape[-3]*proposal_pos.shape[-3]*6).amin(-1)
 
             # # shape: (E, 32, 6, 2), unsqueezed for broadcasting
             # src_traj = global_pos[src].transpose(1,2).flatten(0,1)  # (E, 32, 6, 2)
@@ -157,24 +159,21 @@ class EdgeEncoder(nn.Module):
             # ).amin(dim=1)  # (E,)
 
             # shape: (n_batch, 2)
-            radius_single = torch.norm(shape.to(torch.float16)[:, :2] / 2, dim=-1)  # (n_batch,)
+            radius_single = torch.norm(shape[:, :2] / 2, dim=-1)  # (n_batch,)#.to(torch.float16)
             # pos_a: (n_batch, n_agent_per_batch, ?)
-            radius = radius_single[batch_s]  # (n_agent,)
+            radius = radius_single[batch_s][:,None]  # (n_agent,)
 
             src_radius=radius[src]
             dst_radius=radius[dst]
 
-            radius_sum=src_radius+dst_radius+5
+            src_sigma=proposal_sigma[src]
+            dst_sigma=proposal_sigma[dst]
 
-            intersecting=dist<radius_sum
+            radius_sum=src_radius+dst_radius+src_sigma+dst_sigma
 
-            src=src[intersecting]
-            dst=dst[intersecting]
+            intersecting=(dist<radius_sum).any(dim=-1)
 
-            # src = torch.cat([src, dst], dim=0)
-            # dst = torch.cat([dst, src], dim=0)
-
-            full_edge_index=torch.stack([src, dst], dim=0)
+            full_edge_index=full_edge_index[:,intersecting]
 
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
