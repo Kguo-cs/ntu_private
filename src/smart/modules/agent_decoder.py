@@ -205,7 +205,7 @@ class SMARTAgentDecoder(nn.Module):
             feat_lgt=None
 
         if self.pred_proposal:
-            feat_flat = feat_a_t.flatten(0, 1)  # [B*T, D]
+            feat_flat = feat_a_token.flatten(0, 1)  # [B*T, D]
             proposal_feature = feat_flat[:, None, :] + self.proposal_embedding.weight[None, :, :]  # [B*T, N, D]
             proposal = self.proposal_head(proposal_feature).reshape(feat_a_token.shape[0],feat_a_token.shape[1],proposal_feature.shape[1],-1,3)
         else:
@@ -512,21 +512,6 @@ class SMARTAgentDecoder(nn.Module):
                         pos_now=pos_a[:, -1],  # [n_agent, 2]
                         head_now=head_a[:, -1],  # [n_agent]
                     )
-                # res_traj_global = transform_to_global(
-                #     pos_local=res_traj,  # [n_agent, 6*4, 2]
-                #     head_local=None,
-                #     pos_now=pos_a[:, -1],  # [n_agent, 2]
-                #     head_now=head_a[:, -1],  # [n_agent]
-                # )[0]
-                #
-                # pos_a_next = res_traj_global.mean(dim=1)
-                # diff_xy_next = res_traj_global[:, 0] - res_traj_global[:, 3]
-                # head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
-                # pos_a[:,-1]=pos_a_next#pos_global[:,-1]
-                # head_a[:,-1]=head_a_next#head_global[:,-1]
-
-                # head_global=wrap_angle(head_global)
-                #
                 pos_a[:,-1]=pos_global[:,-1]
                 head_a[:,-1]=head_global[:,-1]
 

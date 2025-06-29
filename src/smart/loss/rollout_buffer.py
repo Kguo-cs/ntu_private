@@ -87,7 +87,7 @@ def rollout(encoder, tokenized_map, tokenized_agent):
         pred = encoder.inference(
             tokenized_map,
             tokenized_agent,
-            post_sampling=True
+           # post_sampling=True
         )
     encoder.train()
 
