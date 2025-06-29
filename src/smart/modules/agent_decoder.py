@@ -216,9 +216,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             proposal=None
 
-        if self.pred_gaussian:
-            proposal = self.gaussian_head(feat_a_t)
-
         if post_sampling:
             return None,None,None,proposal
 
@@ -241,6 +238,18 @@ class SMARTAgentDecoder(nn.Module):
             max_num_neighbors=self.pt2a_neighbor
         )
 
+        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+        feat_map = (
+            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        )
+
+        feat_a = self.pt2a_attn_layers[0](
+            (feat_map, feat_a), r_pl2a, edge_index_pl2a
+        )
+        
+        if self.pred_gaussian:
+            proposal = self.gaussian_head(feat_a).reshape(n_step,n_agent,  -1).permute(1, 0, 2)  
+
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_a=head_a,  # [n_agent, n_step]
@@ -253,14 +262,6 @@ class SMARTAgentDecoder(nn.Module):
             shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
-        feat_map = (
-            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
-        )
-
-        feat_a = self.pt2a_attn_layers[0](
-            (feat_map, feat_a), r_pl2a, edge_index_pl2a
-        )
 
         if self.pred_light and len(light_idx):
             mask_lg=mask[len(sampled_idx):]

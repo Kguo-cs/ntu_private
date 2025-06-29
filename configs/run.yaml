@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc64_gaussianpos3 #_iqLearn05 #_rollpost_noexpertnll_tpred
+task_name: bc64_gaussianpos3Map #_iqLearn05 #_rollpost_noexpertnll_tpred
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
