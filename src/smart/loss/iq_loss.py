@@ -174,10 +174,10 @@ def get_proposal_loss(proposal,tokenized_agent):
 
 def get_gaussian_loss(proposal,tokenized_agent):
 
-    proposal=proposal.reshape(proposal.shape[0], proposal.shape[1],-1,6)
+    proposal=proposal.reshape(proposal.shape[0], proposal.shape[1],-1,4)
 
-    proposal_mean=proposal[...,:3]
-    proposal_cov=proposal[...,3:].exp()
+    proposal_mean=proposal[...,:2]
+    proposal_cov=proposal[...,2:].exp()
 
     dist=Independent(Normal(proposal_mean, proposal_cov),1)
 
@@ -201,8 +201,11 @@ def get_gaussian_loss(proposal,tokenized_agent):
 
     sampled_pos = tokenized_agent["sampled_pos"]
     sampled_heading = tokenized_agent["sampled_heading"]
+    valid_mask=tokenized_agent["valid_mask"][:,1:]
 
     gt_traj = torch.cat([sampled_pos, sampled_heading[:, :, None]], dim=-1)[:,1:]
+
+    gt_traj[~valid_mask]=0
 
     target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)[:,:-1]  # shape: (B, T//5, 30, 2)
 
@@ -223,9 +226,9 @@ def get_gaussian_loss(proposal,tokenized_agent):
 
     target_head=wrap_angle(target_head)
 
-    target_local=torch.cat([target_pos, target_head[:,:,:,None]], dim=-1)
+    #target_local=torch.cat([target_pos, target_head[:,:,:,None]], dim=-1)
 
-    proposal_loss = -(dist.log_prob(target_local)*target_mask).mean(-1)   #.clamp_min(min=np.log(1e-5))
+    proposal_loss = -(dist.log_prob(target_pos)*target_mask).mean(-1)# .clamp_min(min=np.log(1e-5))
 
     pos_dist = (torch.linalg.norm(target_local[..., :2]-proposal_mean[..., :2],dim=-1)*target_mask).mean(-1)
     head_diff =(wrap_angle(target_local[..., 2]-proposal_mean[..., 2]).abs() *target_mask).mean(-1)

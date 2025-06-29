@@ -173,7 +173,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_gaussian=True
 
         if self.pred_gaussian:
-            self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=6*6)#future 30 second
+            self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=4*6)#future 30 second
 
         self.token_processor= token_processor
         self.apply(weight_init)
