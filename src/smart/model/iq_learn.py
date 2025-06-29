@@ -168,29 +168,6 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
 
-        # with torch.no_grad():
-        #     pred = self.encoder(tokenized_map, tokenized_agent,post_sampling=(key=='expert'))#
-        #
-        #     proposal=pred["proposal"][:,:-1,:,4].flatten(0,1)
-        #
-        #     global_pos, global_head = transform_to_global(
-        #         pos_local=proposal[...,:2],
-        #         head_local=proposal[...,2],
-        #         pos_now=tokenized_agent["sampled_pos"][:,:-1].flatten(0,1),
-        #         head_now=tokenized_agent["sampled_heading"][:,:-1].flatten(0,1),
-        #     )
-        #
-        #     proposal_countour = cal_polygon_contour(global_pos.reshape(-1,17,global_pos.shape[-2],2), global_head.reshape(-1,17,global_pos.shape[-2]),
-        #                                             tokenized_agent["token_agent_shape"][:, None, None])
-        #
-        #     next_token_idx = torch.argmin(torch.norm(proposal_countour - tokenized_agent["gt_contour"][:, 1:,None], dim=-1).sum(-1), dim=-1).flatten(0,1)
-        #
-        #     sampled_pos = global_pos[torch.arange(len(next_token_idx)), next_token_idx].reshape(-1,17,2)
-        #     sampled_heading = global_head[torch.arange(len(next_token_idx)), next_token_idx].reshape(-1,17)
-        #
-        #     tokenized_agent["sampled_pos"][:,1:]=sampled_pos
-        #     tokenized_agent["sampled_heading"][:,1:]=sampled_heading
-
         pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
 
         if self.encoder.agent_encoder.pred_proposal:
