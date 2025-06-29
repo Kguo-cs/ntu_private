@@ -120,7 +120,7 @@ class EdgeEncoder(nn.Module):
             proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
 
             pos_local=proposal[...,:2]#.to(torch.float16)
-            proposal_sigma = 3*torch.norm(proposal[..., 2:].exp(),dim=-1)#.to(torch.float16)
+            proposal_sigma = 4*torch.norm(proposal[..., 2:].exp(),dim=-1)#.to(torch.float16)
 
             full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=10, batch=batch_s, loop=False)
 
