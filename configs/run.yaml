@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc48_16_iq_fut5_idx_rollpost_noexpertnll
+task_name: bc48_16_iq_idx_rollpost_noexpertnll_tpred
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
