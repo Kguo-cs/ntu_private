@@ -173,7 +173,7 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.agent_encoder.pred_proposal:
 
             if key=="expert":
-                proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent   )
+                proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent )
 
                 proposal_loss=proposal_loss[train_mask].mean()
 
