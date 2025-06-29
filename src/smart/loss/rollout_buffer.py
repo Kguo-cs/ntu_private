@@ -81,13 +81,13 @@ class ReplayBuffer:
 
 
 
-def rollout(encoder, tokenized_map, tokenized_agent):
+def rollout(encoder, tokenized_map, tokenized_agent,post_sampling=False):
     encoder.eval()
     with torch.no_grad():
         pred = encoder.inference(
             tokenized_map,
             tokenized_agent,
-           # post_sampling=True
+           post_sampling=post_sampling
         )
     encoder.train()
 
