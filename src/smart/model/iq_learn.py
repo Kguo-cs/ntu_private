@@ -239,9 +239,9 @@ class IQ_SoftQ(LightningModule):
 
         actor_loss = actor_loss[all_valid_mask]
 
-        reward = reward[all_valid_mask]
+        reward = reward[train_mask]
 
-        value_loss=value_loss[all_valid_mask]
+        value_loss=value_loss[train_mask]
 
         V=V[all_valid_mask]
 
