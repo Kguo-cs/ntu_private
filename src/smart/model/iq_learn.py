@@ -270,7 +270,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
