@@ -378,13 +378,10 @@ class SMARTAgentDecoder(nn.Module):
 
         if not self.pred_proposal:
             token_traj_all= tokenized_agent["token_traj_all"]
-
             pred_pos = token_traj_all[:,:,1:].mean(3)
             diff_xy = token_traj_all[:, :, 1:,0] - token_traj_all[:, :,1:, 3]
             pred_head = torch.arctan2(diff_xy[:, :, :,1], diff_xy[:, :,:, 0])
-
             token_local_traj = torch.cat([pred_pos, pred_head[:, :,:, None]], dim=-1)
-
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
@@ -406,8 +403,8 @@ class SMARTAgentDecoder(nn.Module):
                     if self.pred_proposal:
                         proposal=tokenized_agent["proposal"][:, :current_step]
 
-                    self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
-                    self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
+                    # self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
+                    # self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
                     if self.pred_light:
                         next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
                     else:
@@ -416,9 +413,9 @@ class SMARTAgentDecoder(nn.Module):
                     self.a_t_roformer.attn.caching=True
                     next_token_logits,next_light_logits,feat_a,proposal = self.predict_agent(sampled_idx, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,0,post_sampling)
-                    self.a_t_roformer.attn.caching = False
+                    # self.a_t_roformer.attn.caching = False
 
-                self.a_t_roformer.attn.kv_caching(self.agent_hist)
+                self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
             else:
                 next_token_logits,next_light_logits,feat_a,proposal  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                 pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:,-1:],t - 1,post_sampling)
@@ -460,10 +457,8 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     proposal_next_step=proposal[:,-1,:,4]
                     global_pos, global_head =transform_to_global(proposal_next_step[...,:2],proposal_next_step[...,2],pos_a[:, -1],head_a[:, -1])
-
                     proposal_countour=cal_polygon_contour(global_pos[:,None],global_head[:,None],token_agent_shape[:,None,None])[:,0]
-
-                    next_token_idx = torch.argmin( torch.norm(proposal_countour - gt_contour[:,t], dim=-1).sum(-1), dim=-1     )
+                    next_token_idx = torch.argmin( torch.norm(proposal_countour - gt_contour[:,t], dim=-1).sum(-1), dim=-1)
 
                 if self.pred_proposal:
                     next_local_traj = proposal[:, -1, :, :5][torch.arange(n_agent), next_token_idx]
@@ -483,11 +478,8 @@ class SMARTAgentDecoder(nn.Module):
             pred_traj_10hz = torch.cat([pred_traj_10hz, pred_traj], dim=1)
             pred_head_10hz = torch.cat([pred_head_10hz, pred_head], dim=1)
 
-            pos_a_next = pred_traj[:, -1]
-            head_a_next = pred_head_10hz[:,-1]
-
-            pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
-            head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
+            pos_a = torch.cat([pos_a, pred_traj[:, -1:]], dim=1)
+            head_a = torch.cat([head_a,  pred_head[:,-1:]], dim=1)
 
             if next_light_logits is not None and len(next_light_logits):
 

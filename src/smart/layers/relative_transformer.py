@@ -120,11 +120,11 @@ class RoFormerSelfAttention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    def kv_caching(self,caching_len):
+    def kv_caching(self,caching_len,current_step=0):
         self.caching_len = caching_len
-        # self.cached_k=None
-        # self.cached_v=None
-
+        self.cached_k = self.cached_k[:, :, :current_step]
+        self.cached_v = self.cached_v[:, :, :current_step]
+        self.caching=False
 
     def forward(
         self,

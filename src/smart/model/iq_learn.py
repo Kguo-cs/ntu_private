@@ -174,10 +174,8 @@ class IQ_SoftQ(LightningModule):
 
             if key=="expert":
                 if self.encoder.agent_encoder.pred_gaussian:
-
                     proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"][:,1:-1],tokenized_agent )
                     action = tokenized_agent["sampled_idx"][:, 2:]
-
                 else:
                     proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent )
                     self.log("train/" + key + "_head_diff", head_diff[train_mask].mean().item(), on_step=True, batch_size=1)
@@ -314,9 +312,9 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            # constraint_loss=expert_V_diff.square().mean() #*5
-            #
-            # self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
+            constraint_loss=expert_V_diff.square().mean() #*5
+
+            self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             loss = critic_loss+expert_proposal_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
@@ -337,8 +335,6 @@ class IQ_SoftQ(LightningModule):
                 critic_optimizer.step()
                 
                 loss=loss+actor_loss
-
-        #print(loss)
 
         return loss
 
