@@ -66,14 +66,14 @@ if __name__ == "__main__":
     n_trajs = 2048 * 100  # 2e5
     load_data_from_file = True
     data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
-    out_file_name = "agent_vocab_321_s2_20.pkl"
-    tol_dist = [0.3, 0.1, 0.2]  # veh, ped, cyc
+    out_file_name = "agent_vocab_0222_s2_1.pkl"
+    tol_dist = [0.02, 0.02, 0.02]  # veh, ped, cyc
 
     # ! don't change these params
-    shift = 20 #5  # motion token time dimension
+    shift = 1 #5  # motion token time dimension
     num_cluster = 2048  # vocabulary size
     n_step = 91
-    data_file_path = data_cache_path / "kdisk_trajs20.pkl"
+    data_file_path = data_cache_path / "kdisk_trajs1.pkl"
     if load_data_from_file:
         with open(data_file_path, "rb") as f:
             data = pickle.load(f)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
                                 if not (
                                     (
-                                        (trajs[_type] - to_add).abs().sum([1, 2]) < 1e-2
+                                        (trajs[_type] - to_add).abs().sum([1, 2]) < 1e-3
                                     ).any()
                                 ):
                                     trajs[_type] = torch.cat(
@@ -211,3 +211,19 @@ if __name__ == "__main__":
 # ped i=2047, remain=6.58%, n_inside=11
 # cyc 0.2
 # cyc i=2047, remain=7.00%, n_inside=1
+
+
+#shift = 1
+# veh 0.01
+# veh i=2047, remain=20.29%, n_inside=29
+# ped 0.01
+# ped i=2047, remain=11.57%, n_inside=4
+# cyc 0.01
+# cyc i=2047, remain=18.66%, n_inside=14
+
+# veh 0.02
+# veh i=2047, remain=1.55%, n_inside=1
+# ped 0.02
+# ped i=2047, remain=2.62%, n_inside=1
+# cyc 0.02
+# cyc i=2047, remain=1.71%, n_inside=3

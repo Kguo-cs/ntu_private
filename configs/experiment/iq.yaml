@@ -35,12 +35,12 @@ trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
-  val_check_interval: 0.00002
+  #val_check_interval: 0.00002
   max_epochs: 32
  # gradient_clip_val: 0.0
 
 data: 
-  train_batch_size: 2
+  train_batch_size: 8
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 32

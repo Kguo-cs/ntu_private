@@ -128,9 +128,9 @@ class TokenProcessor(torch.nn.Module):
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
-        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, self.shift].flatten(1, 2), persistent=False)
-        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, self.shift].flatten(1, 2), persistent=False)
-        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, self.shift].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
