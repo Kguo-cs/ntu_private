@@ -177,7 +177,7 @@ def get_gaussian_loss(proposal,tokenized_agent):
     proposal=proposal.reshape(proposal.shape[0], proposal.shape[1],-1,4)
 
     proposal_mean=proposal[...,:2]
-    proposal_cov=proposal[...,2:].exp()+0.1
+    proposal_cov=proposal[...,2:].exp()+1
 
     dist=Independent(Normal(proposal_mean, proposal_cov),1)
 
