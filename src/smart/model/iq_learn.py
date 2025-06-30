@@ -29,11 +29,12 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and self.output_gmm:
             self.automatic_optimization = False
             
-        self.use_target_q=False
+        self.use_target_q=True
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
-                **model_config.decoder, n_token_agent=self.token_processor.n_token_agent
+                **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
+                token_processor=self.token_processor
             )
             self.target_net.load_state_dict(self.encoder.state_dict())
 
@@ -119,11 +120,11 @@ class IQ_SoftQ(LightningModule):
 
             current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
-            v_value =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+            V =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
-            current_V = v_value[:, :-1]
+            current_V = V[:, :-1]
 
-            next_V = v_value[:, 1:]
+            next_V = V[:, 1:]
 
             pi = torch.softmax( q / self.alpha, dim=-1)
 
@@ -164,7 +165,7 @@ class IQ_SoftQ(LightningModule):
         reward = current_Q - y
         value_loss = current_V - y
 
-        return log_prob,logpi,actor_loss,entropy,current_Q,v_value,value_loss,reward
+        return log_prob,logpi,actor_loss,entropy,current_Q,V,value_loss,reward
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
 
@@ -232,7 +233,18 @@ class IQ_SoftQ(LightningModule):
 
         if self.use_target_q:
             with torch.no_grad():
-                target_V = self.get_network_QV(self.target_net, tokenized_map, tokenized_agent,action,key)[4]
+                pred = self.target_net(tokenized_map, tokenized_agent)
+                next_q=pred["agent_q"][:,2:]
+                next_V = self.alpha * torch.logsumexp(next_q / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+                dones = torch.zeros_like(next_V)
+
+                dones[:, -1] = 1
+
+                y = self.gamma * (1 - dones) * next_V
+
+            current_V = V[:, :-1]
+            reward = current_Q - y
+            value_loss = current_V - y
 
         init_V = V[:, 0]
         last_V= V[:,-1]
