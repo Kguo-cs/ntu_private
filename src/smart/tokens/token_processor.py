@@ -610,6 +610,7 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
         tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
+        tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
 
         if "col_mask" in agent.keys():
             tokenized_agent["col_mask"] = agent["col_mask"]

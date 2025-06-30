@@ -170,7 +170,7 @@ class SMARTAgentDecoder(nn.Module):
             self.proposal_embedding=nn.Embedding(token_processor.n_token_agent,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*10)#future 30 second
 
-        self.pred_gaussian=True
+        self.pred_gaussian=False
 
         if self.pred_gaussian:
             self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=4*6)#future 30 second
@@ -249,6 +249,8 @@ class SMARTAgentDecoder(nn.Module):
         
         if self.pred_gaussian:
             proposal = self.gaussian_head(feat_a).reshape(n_step,n_agent,  -1).permute(1, 0, 2)  
+        else:
+            proposal = None
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
