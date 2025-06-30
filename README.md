@@ -94,5 +94,5 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 # bc20_pt8_share_map_05mixx2_sa diverge 
 
 
-#to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn
+#to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn, interval 0.1
 

@@ -42,7 +42,7 @@ class TokenProcessor(torch.nn.Module):
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
-        self.shift = 5
+        self.shift = 1
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -71,7 +71,7 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_proposal:
             self.n_token_agent=16
-
+            
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
@@ -124,13 +124,13 @@ class TokenProcessor(torch.nn.Module):
     def init_agent_token(self, agent_token_path) -> None:
         agent_token_data = pickle.load(open(agent_token_path, "rb"))
         for k, v in agent_token_data["token_all"].items():
-            v = torch.tensor(v, dtype=torch.float32)
+            v = torch.tensor(v, dtype=torch.float32)[:,:self.shift+1]
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
-        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
-        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
-        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, self.shift].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, self.shift].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, self.shift].flatten(1, 2), persistent=False)
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -243,8 +243,8 @@ class TokenProcessor(torch.nn.Module):
         #     agent_shape=agent_shape,
         #     token_traj=token_traj,
         # )
-        tokenized_agent["pos"]=pos[:,11:]
-        tokenized_agent["heading"]=heading[:,11:]
+        # tokenized_agent["pos"]=pos[:,11:]
+        # tokenized_agent["heading"]=heading[:,11:]
 
         tokenized_agent.update(token_dict)
         return tokenized_agent

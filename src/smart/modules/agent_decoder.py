@@ -65,7 +65,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
         self.num_layers = num_layers
-        self.shift = 5
+        self.shift = token_processor.shift
         self.hist_drop_prob = hist_drop_prob
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
