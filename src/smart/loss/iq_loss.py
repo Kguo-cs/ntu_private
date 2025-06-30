@@ -20,7 +20,7 @@ def hard_update(source, target):
     for param, target_param in zip(source.parameters(), target.parameters()):
         target_param.data.copy_(param.data)
 
-def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss):
+def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q   ):
     div = 'x2'
     alpha = 0.5
     eps = 1e-3
@@ -36,6 +36,9 @@ def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss):
         value_loss = (agent_value_loss.mean() + expert_value_loss.mean()) / 2
 
         critic_loss = alpha * (-expert_reward / alpha).exp().mean() + value_loss
+    elif div == 'recoil':
+        chi_loss=(expert_reward.square().mean()+agent_reward.square().mean())/2
+        critic_loss = -expert_Q.mean() + agent_Q.mean()+chi_loss/(4*0.02)
 
     elif div == 'tv':
         critic_loss = (-expert_reward).mean() + agent_reward.mean()
@@ -134,8 +137,8 @@ def get_proposal_loss(proposal,tokenized_agent):
     token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]
     sampled_pos = tokenized_agent["sampled_pos"][:, 1:-1]
     sampled_heading = tokenized_agent["sampled_heading"][:, 1:-1]
-    target_global_traj = tokenized_agent["target_global_traj"][:, 1:-1]
-    target_mask = tokenized_agent["target_mask"][:, 1:-1, None]
+    target_global_traj = tokenized_agent["target_global_traj"][:, 1:-1,:proposal.shape[3]]#,:
+    target_mask = tokenized_agent["target_mask"][:, 1:-1, None,:proposal.shape[3]]
 
     target_pos = target_global_traj[..., :2].flatten(0, 1)
     target_head = target_global_traj[..., 2].flatten(0, 1)
@@ -152,7 +155,7 @@ def get_proposal_loss(proposal,tokenized_agent):
 
     target_contour = cal_polygon_contour(target_pos, target_head, token_agent_shape)
 
-    proposal_contour = cal_polygon_contour(proposal[..., :2], proposal[..., 2], token_agent_shape)
+    proposal_contour = cal_polygon_contour(proposal[..., :2], proposal[..., 2], token_agent_shape)#B,T,N,F,4,2
 
     pos_loss = (torch.linalg.norm(proposal[..., :2] - target_pos, dim=-1) * target_mask)
     head_loss = (wrap_angle(proposal[..., 2] - target_head).abs() * target_mask)
@@ -167,7 +170,6 @@ def get_proposal_loss(proposal,tokenized_agent):
 
     pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1)
     head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1)
-
 
     return proposal_loss, pos_dist, head_diff,action
 

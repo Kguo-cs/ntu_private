@@ -122,9 +122,11 @@ class RoFormerSelfAttention(nn.Module):
 
     def kv_caching(self,caching_len,current_step=0):
         self.caching_len = caching_len
-        self.cached_k = self.cached_k[:, :, :current_step]
-        self.cached_v = self.cached_v[:, :, :current_step]
         self.caching=False
+
+        if self.cached_k is not None:
+            self.cached_k = self.cached_k[:, :, :current_step]
+            self.cached_v = self.cached_v[:, :, :current_step]
 
     def forward(
         self,

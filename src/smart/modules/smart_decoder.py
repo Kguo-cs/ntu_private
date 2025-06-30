@@ -52,7 +52,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=True
+        self.iq_learn=False
         self.output_gmm=False
 
         if self.tokenizer_training:
@@ -129,15 +129,7 @@ class SMARTDecoder(nn.Module):
         if "map_feature" in tokenized_map:
             map_feature = tokenized_map["map_feature"]
         else:
-            #tokenized_map,tokenized_agent = self.preprocess(tokenized_map, tokenized_agent)
-            #tokenized_map=self.filter_map(tokenized_map, tokenized_agent)
-
             map_feature = self.map_encoder(tokenized_map)
-
-            # if "token_traj_all" not in tokenized_agent.keys():#agent
-            #     for key in map_feature.keys():
-            #         map_feature[key] = map_feature[key].detach()
-            # else:
             detach_map_feature={}
             for key in map_feature.keys():
                 detach_map_feature[key] = map_feature[key].detach()
