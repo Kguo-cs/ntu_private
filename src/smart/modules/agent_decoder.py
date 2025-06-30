@@ -500,8 +500,8 @@ class SMARTAgentDecoder(nn.Module):
             pred_traj_10hz = torch.cat([pred_traj_10hz, pred_traj1], dim=1)
             pred_head_10hz = torch.cat([pred_head_10hz, pred_head1], dim=1)
 
-            pos_a1 = torch.cat([pos_a, pred_traj1[:, -1:]], dim=1)
-            head_a1 = torch.cat([head_a,  pred_head1[:,-1:]], dim=1)
+            pos_a = torch.cat([pos_a, pred_traj1[:, -1:]], dim=1)
+            head_a = torch.cat([head_a,  pred_head1[:,-1:]], dim=1)
 
             if next_light_logits is not None and len(next_light_logits):
 
