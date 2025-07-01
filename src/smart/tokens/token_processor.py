@@ -75,7 +75,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_dynamic=True
 
         if self.use_dynamic:
-            self.n_token_agent=63*63
+            self.n_token_agent=45*45
 
         self.interval_t=self.shift /10
 
@@ -291,7 +291,6 @@ class TokenProcessor(torch.nn.Module):
 
             acc=torch.linspace(-5,5,acc_n,device=heading.device)
             yaw_rate=torch.linspace(-1.5,1.5,head_n,device=heading.device)
-
 
             token_speed=acc[None]*self.interval_t+prev_speed[:,None]
             token_heading=yaw_rate[None]*self.interval_t+prev_head[:,None]
