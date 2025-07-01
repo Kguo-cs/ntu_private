@@ -286,17 +286,20 @@ class TokenProcessor(torch.nn.Module):
             _invalid_mask = ~_valid_mask
             out_dict["valid_mask"].append(_valid_mask)
 
-            acc=torch.linspace(-5,5,63,device=heading.device)
-            yaw_rate=torch.linspace(-1.5,1.5,63,device=heading.device)
+            head_n=63
+            acc_n=63
+
+            acc=torch.linspace(-5,5,acc_n,device=heading.device)
+            yaw_rate=torch.linspace(-1.5,1.5,head_n,device=heading.device)
 
 
             token_speed=acc[None]*self.interval_t+prev_speed[:,None]
             token_heading=yaw_rate[None]*self.interval_t+prev_head[:,None]
 
-            token_speed=token_speed[:,None].repeat(1,63,1).flatten(1,2)
+            token_speed=token_speed[:,None].repeat(1,head_n,1).flatten(1,2)
 
             token_dist=token_speed*self.interval_t
-            token_heading=token_heading[:,:,None].repeat(1,1,63).flatten(1,2)
+            token_heading=token_heading[:,:,None].repeat(1,1,acc_n).flatten(1,2)
             token_prev_pos=prev_pos[:,None]
 
             new_pos=torch.stack(([token_prev_pos[...,0]+token_dist*torch.cos(token_heading),token_prev_pos[...,1]+token_dist*torch.sin(token_heading)]),dim=-1)
@@ -335,7 +338,7 @@ class TokenProcessor(torch.nn.Module):
                 prev_speed= torch.norm(pos[:,i+1]-pos[:,i],dim=1)/0.1
                 next_speed = token_speed[range(len(prev_speed)),token_idx_gt]
                 prev_speed[_valid_mask] = next_speed[_valid_mask]
-                speed_valid =  valid[:,i+1] & valid[:,i]
+                speed_valid =  valid[:,i+1]
                 speed_valid[_valid_mask]=True
 
             # add to output dict
@@ -347,18 +350,20 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        # sampled_pos=out_dict["sampled_pos"]
-        # valid_mask=out_dict["valid_mask"]
-        #
-        # gt_pos=pos[:,5::5]
-        #
-        # dist=(sampled_pos-gt_pos)[valid_mask]
-        #
-        # # dist=torch.norm(dist,dim=-1).cpu().numpy()
-        #
-        # print(torch.mean(dist))#tensor(0.002, device='cuda:0')
+        sampled_pos=out_dict["sampled_pos"]
+        valid_mask=out_dict["valid_mask"]
 
-## baseline tensor(0.024, device='cuda:0')
+        gt_pos=pos[:,5::5]
+
+        dist=(sampled_pos-gt_pos)[valid_mask]
+
+        dist=torch.norm(dist,dim=1)
+
+        # dist=torch.norm(dist,dim=-1).cpu().numpy()
+
+        print(torch.mean(dist))#val tensor(0.033, device='cuda:0')
+
+        ##val baseline tensor(0.026, device='cuda:0')
 
         return out_dict
 
@@ -391,7 +396,6 @@ class TokenProcessor(torch.nn.Module):
 
         if self.use_dynamic:
             return self.dynamic_match(valid, pos, heading,agent_shape)
-
 
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
@@ -491,6 +495,7 @@ class TokenProcessor(torch.nn.Module):
                     prev_head_sample.masked_fill(_invalid_mask, 0.0)
                 )
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
+
 
         return out_dict
 
