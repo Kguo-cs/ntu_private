@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc12_5hz_nolight_iq #_post0222 #_recoil #_local #target  #gaussianpos3Mapadd1_d5 #_iqLearn05 #_rollpost_noexpertnll_tpred
+task_name: bc12_5hz_nolight_iq025 #_post0222 #_recoil #_local #target  #gaussianpos3Mapadd1_d5 #_iqLearn05 #_rollpost_noexpertnll_tpred
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
