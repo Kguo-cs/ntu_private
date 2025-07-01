@@ -75,7 +75,9 @@ class TokenProcessor(torch.nn.Module):
         self.use_dynamic=True
 
         if self.use_dynamic:
-            self.n_token_agent=45*45
+            self.head_n=45
+            self.acc_n=45
+            self.n_token_agent=self.acc_n*self.head_n
 
         self.interval_t=self.shift /10
 
@@ -286,8 +288,8 @@ class TokenProcessor(torch.nn.Module):
             _invalid_mask = ~_valid_mask
             out_dict["valid_mask"].append(_valid_mask)
 
-            head_n=63
-            acc_n=63
+            head_n=self.head_n
+            acc_n=self.acc_n
 
             acc=torch.linspace(-5,5,acc_n,device=heading.device)
             yaw_rate=torch.linspace(-1.5,1.5,head_n,device=heading.device)
