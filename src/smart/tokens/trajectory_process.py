@@ -55,3 +55,5 @@ cyc_traj=traj[type==2]
 print(veh_traj.size())#8559983
 print(ped_traj.size())#585226
 print(cyc_traj.size())#60093
+
+
