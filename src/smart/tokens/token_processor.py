@@ -72,7 +72,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_proposal:
             self.n_token_agent=16
 
-        self.use_dynamic=False
+        self.use_dynamic=True
 
         if self.use_dynamic:
             self.n_token_agent=63*63

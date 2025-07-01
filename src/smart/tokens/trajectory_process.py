@@ -7,7 +7,7 @@ import datetime
 from torch_geometric.data import HeteroData
 import numpy as np
 import matplotlib.pyplot as plt
-from src.smart.utils import  wrap_angle
+# from src.smart.utils import  wrap_angle
 #
 # data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_a91/"
 #
@@ -68,7 +68,7 @@ for type_id in [0,1,2]:
     # print((veh_acc<5).to(torch.float).mean())
 
     # yaw
-    veh_rate=wrap_angle(veh_traj[:,1:,2]-veh_traj[:,:-1,2])/0.5
+    veh_rate=(veh_traj[:,1:,2]-veh_traj[:,:-1,2])/0.5#
 
     # Flatten
     acc_flat = veh_acc.flatten()
