@@ -197,6 +197,8 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_proposal:
             proposal_feature = feat_a_token[:,: ,None] + self.proposal_embedding.weight[None, None]  # [B,T, N, D]
             proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
+        elif self.pred_gaussian:
+            proposal = self.gaussian_head(feat_a_token)
         else:
             proposal=None
 
@@ -247,10 +249,6 @@ class SMARTAgentDecoder(nn.Module):
             (feat_map, feat_a), r_pl2a, edge_index_pl2a
         )
         
-        if self.pred_gaussian:
-            proposal = self.gaussian_head(feat_a).reshape(n_step,n_agent,  -1).permute(1, 0, 2)  
-        else:
-            proposal = None
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -566,7 +564,10 @@ class SMARTAgentDecoder(nn.Module):
 
                 mask =torch.cat([mask,valid_mask[:,None]], dim=1)
             else:
-                mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
+                if "gt_z_raw" in tokenized_agent.keys():
+                    mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
+                else:
+                    mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
 
