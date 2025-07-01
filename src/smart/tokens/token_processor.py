@@ -257,6 +257,8 @@ class TokenProcessor(torch.nn.Module):
         range_a = torch.arange(n_agent)
 
         prev_pos, prev_head = pos[:, 0], heading[:, 0]  # [n_agent, 2], [n_agent]
+        prev_speed = torch.norm(pos[:,1]-pos[:,0],dim=1)
+
         out_dict = {
             "valid_mask": [],
             "sampled_idx": [],
@@ -264,17 +266,27 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [],
         }
 
+        prev_valid=valid[:,0] & valid[:,1]
+
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
-            _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
+            _valid_mask = prev_valid & valid[:, i]  # [n_agent]
             _invalid_mask = ~_valid_mask
+            prev_valid = valid[:,i]
             out_dict["valid_mask"].append(_valid_mask)
+
+            acc=torch.linspace(-5,5,63,device=heading.device)
+            yaw_rate=torch.linspace(-1.5,1.5,63,device=heading.device)
+
+            new_speed=acc[None]+prev_speed[:,None]*self.shift /10
+            new_heading=yaw_rate[None]+prev_head[:,None]*self.shift /10
+
+            new_pos=torch.stack(([prev_pos[:,None,0]+new_speed*torch.cos(new_heading),prev_pos[:,None,1]+new_speed*torch.sin(new_heading)]),dim=-1)
+
+            token_traj=cal_polygon_contour(new_pos,new_heading,agent_shape[:,None])
 
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
             gt_contour = gt_contour.unsqueeze(1)  # [n_agent, 1, 4, 2]
-
-
-
 
             # ! tokenize without sampling
             token_world_gt = transform_to_global(
@@ -335,7 +347,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_proposal:
             return self.my_match_agent_token(valid, pos, heading,agent_shape, token_traj)
 
-        if self.pred_proposal:
+        if self.use_dynamic:
             return self.dynamic_match(valid, pos, heading,agent_shape)
 
 

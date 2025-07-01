@@ -564,10 +564,10 @@ class SMARTAgentDecoder(nn.Module):
 
                 mask =torch.cat([mask,valid_mask[:,None]], dim=1)
             else:
-                #if "gt_z_raw" in tokenized_agent.keys():
-                mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
-                # else:
-                #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+                if "gt_z_raw" in tokenized_agent.keys():
+                    mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
+                else:
+                    mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
 
