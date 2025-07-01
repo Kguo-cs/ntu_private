@@ -7,7 +7,7 @@ import datetime
 from torch_geometric.data import HeteroData
 import numpy as np
 import matplotlib.pyplot as plt
-
+from src.smart.utils import  wrap_angle
 #
 # data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_a91/"
 #
@@ -64,18 +64,48 @@ for type_id in [0,1,2]:
     veh_speed=torch.norm(veh_vel,dim=-1)
     veh_acc=(veh_speed[:,1:]-veh_speed[:,:-1])/0.5
 
-    print((veh_acc>-5).to(torch.float).mean())
-    print((veh_acc<5).to(torch.float).mean())
-
+    # print((veh_acc>-5).to(torch.float).mean())
+    # print((veh_acc<5).to(torch.float).mean())
 
     # yaw
+    veh_rate=wrap_angle(veh_traj[:,1:,2]-veh_traj[:,:-1,2])/0.5
 
-    veh_rate=(veh_traj[:,1:,2]-veh_traj[:,:-1,2])/0.5
+    # Flatten
+    acc_flat = veh_acc.flatten()
+    rate_flat = veh_rate[:,1:].flatten()
 
-    print((veh_rate>-1.5).to(torch.float).mean())
-    print((veh_rate<1.5).to(torch.float).mean())
+    print(rate_flat.max())
+    print(rate_flat.min())
 
+    # Clip to reasonable range (e.g., acceleration in [-10, 10], yaw rate in [-2π, 2π])
+    acc_min, acc_max = -5.0, 5.0
+    rate_min, rate_max = -2*np.pi ,2*np.pi # ~ -2π to 2π
 
+    # Number of bins
+    acc_bins = 40
+    rate_bins = 40
+
+    # Digitize (map values to bin indices)
+    acc_idx = ((acc_flat - acc_min) / (acc_max - acc_min) * acc_bins).long()
+    rate_idx = ((rate_flat - rate_min) / (rate_max - rate_min) * rate_bins).long()
+
+    # Clamp to stay within bounds
+    acc_idx = acc_idx.clamp(0, acc_bins - 1)
+    rate_idx = rate_idx.clamp(0, rate_bins - 1)
+
+    # Joint index (flattened 2D bin index)
+    joint_idx = acc_idx * rate_bins + rate_idx
+
+    joint_idx=joint_idx.cpu()
+
+    # Compute 2D histogram
+    joint_hist = torch.bincount(joint_idx, minlength=acc_bins * rate_bins).reshape(acc_bins, rate_bins)
+
+    log_hist = torch.log(joint_hist+1)
+
+    plt.imshow(log_hist)
+
+    plt.show()
 # tensor(0.9996, device='cuda:0')
 # tensor(0.9996, device='cuda:0')
 # tensor(0.9999, device='cuda:0')
