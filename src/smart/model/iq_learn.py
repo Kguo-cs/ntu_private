@@ -29,6 +29,8 @@ class IQ_SoftQ(LightningModule):
 
         self.use_target_q=False
 
+        self.start_step=10//self.token_processor.shift-1
+
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
                 **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
@@ -38,7 +40,8 @@ class IQ_SoftQ(LightningModule):
 
 
     def get_network_QV(self,all_q_value,tokenized_map, tokenized_agent,action,key):
-        q_value=all_q_value[:,1:]
+
+        q_value=all_q_value[:,self.start_step:]
 
         if self.output_gmm:
             dist =  GMM_Dist(q_value)
@@ -201,12 +204,12 @@ class IQ_SoftQ(LightningModule):
 
         else:
             proposal_loss=0
-            action = tokenized_agent["sampled_idx"][:, 2:]
+            action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
 
-        valid_mask = tokenized_agent["valid_mask"][:, 1:]
+        valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
         agent_num = len(action)
 
         all_valid_mask=valid_mask[:agent_num].all(-1)#train_mask #
@@ -275,12 +278,12 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,init_V-1,action_nll,current_Q,proposal_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
-        valid_mask= tokenized_agent["valid_mask"][:, 1:]
+        valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
 
         if "col_mask" in tokenized_agent.keys():
             col_mask = tokenized_agent["col_mask"][:, 2:]
             state_mask=valid_mask[:,:-1]
-            action_mask=valid_mask[:,1:]
+            action_mask=valid_mask[:,self.start_step:]
 
             action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask)
 
@@ -320,7 +323,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss#+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()

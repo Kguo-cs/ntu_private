@@ -71,6 +71,8 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_proposal:
             self.n_token_agent=16
+
+        self.use_dynamic=False
             
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -249,6 +251,63 @@ class TokenProcessor(torch.nn.Module):
         tokenized_agent.update(token_dict)
         return tokenized_agent
 
+    def dynamic_match(self, valid, pos, heading,agent_shape) -> Dict[str, Tensor]:
+
+        n_agent, n_step = valid.shape
+        range_a = torch.arange(n_agent)
+
+        prev_pos, prev_head = pos[:, 0], heading[:, 0]  # [n_agent, 2], [n_agent]
+        out_dict = {
+            "valid_mask": [],
+            "sampled_idx": [],
+            "sampled_pos": [],
+            "sampled_heading": [],
+        }
+
+        for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
+            _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
+            _invalid_mask = ~_valid_mask
+            out_dict["valid_mask"].append(_valid_mask)
+
+            #! gt_contour: [n_agent, 4, 2] in global coord
+            gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
+            gt_contour = gt_contour.unsqueeze(1)  # [n_agent, 1, 4, 2]
+
+
+
+
+            # ! tokenize without sampling
+            token_world_gt = transform_to_global(
+                pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
+                head_local=None,
+                pos_now=prev_pos,  # [n_agent, 2]
+                head_now=prev_head,  # [n_agent]
+            )[0].view(*token_traj.shape)
+            token_idx_gt = torch.argmin(
+                torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
+            )  # [n_agent]
+
+            # [n_agent, 4, 2]
+            token_contour_gt = token_world_gt[range_a, token_idx_gt]
+
+            # udpate prev_pos, prev_head
+            prev_head = heading[:, i].clone()
+            dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
+            next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+
+            prev_head[_valid_mask] = next_head[_valid_mask]
+            prev_pos = pos[:, i].clone()
+            next_pos = token_contour_gt.mean(1)
+            prev_pos[_valid_mask] = next_pos[_valid_mask]
+            # add to output dict
+            out_dict["sampled_idx"].append(token_idx_gt)
+            out_dict["sampled_pos"].append(
+                prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
+            )
+            out_dict["sampled_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
+
+        return out_dict
+
     def _match_agent_token(
         self,
         valid: Tensor,  # [n_agent, n_step]
@@ -275,6 +334,10 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_proposal:
             return self.my_match_agent_token(valid, pos, heading,agent_shape, token_traj)
+
+        if self.pred_proposal:
+            return self.dynamic_match(valid, pos, heading,agent_shape)
+
 
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
