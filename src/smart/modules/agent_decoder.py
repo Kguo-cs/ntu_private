@@ -175,6 +175,8 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_gaussian:
             self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=4*6)#future 30 second
 
+        self.use_dynamic=token_processor.use_dynamic
+
         self.token_processor= token_processor
         self.apply(weight_init)
 
@@ -248,7 +250,6 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = self.pt2a_attn_layers[0](
             (feat_map, feat_a), r_pl2a, edge_index_pl2a
         )
-        
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -383,6 +384,8 @@ class SMARTAgentDecoder(nn.Module):
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
+        if self.use_dynamic:
+            prev_speed= torch.norm(pos_a[:,-1]-pos_a[:,-2],dim=-1)/(self.shift /10)
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
@@ -492,16 +495,49 @@ class SMARTAgentDecoder(nn.Module):
                             logits=next_token_logits[:, -1, :self.n_token_agent] / self.alpha).sample()
 
                     # next_local_traj = token_local_traj[torch.arange(n_agent), next_token_idx]
-                    next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+
+                    if self.use_dynamic:
+                        prev_pos=pos_a[:, -1]
+                        prev_head=head_a[:, -1]
+
+                        acc = torch.linspace(-5, 5, 63, device=prev_head.device)
+                        yaw_rate = torch.linspace(-1.5, 1.5, 63, device=prev_head.device)
+
+                        token_speed = acc[None] * self.shift / 10 + prev_speed[:, None]
+                        token_heading = yaw_rate[None] * self.shift / 10 + prev_head[:, None]
+
+                        token_speed = token_speed[:, None].repeat(1, 63, 1).flatten(1, 2)
+
+                        token_heading = token_heading[:, :, None].repeat(1, 1, 63).flatten(1, 2)
+
+                        token_speed = token_speed[torch.arange(n_agent), next_token_idx]
+                        token_heading = token_heading[torch.arange(n_agent), next_token_idx]
+
+                        prev_speed=token_speed
+
+                        token_prev_pos = prev_pos[:, None]
+
+                        time=torch.arange(self.shift+1,device=token_speed.device)/10
+
+                        token_dist=time*token_speed[:,None]
+                        token_heading=token_heading[:,None]
+
+                        new_pos = torch.stack(([token_prev_pos[..., 0] + token_dist * torch.cos(token_heading),
+                                                token_prev_pos[..., 1] + token_dist * torch.sin(token_heading)]),
+                                              dim=-1)
+
+                        token_traj_global = cal_polygon_contour(new_pos, token_heading, token_agent_shape[:,None])
+                    else:
+                        next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+
+                        token_traj_global = transform_to_global(
+                            pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
+                            head_local=None,
+                            pos_now=pos_a[:, -1],  # [n_agent, 2]
+                            head_now=head_a[:, -1],  # [n_agent]
+                        )[0].view(*next_token_traj_all.shape)
 
                     sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
-
-                    token_traj_global = transform_to_global(
-                        pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
-                        head_local=None,
-                        pos_now=pos_a[:, -1],  # [n_agent, 2]
-                        head_now=head_a[:, -1],  # [n_agent]
-                    )[0].view(*next_token_traj_all.shape)
 
                     if "gt_z_raw" in tokenized_agent.keys():
                         pred_traj = token_traj_global[:, 1:].mean(2)
