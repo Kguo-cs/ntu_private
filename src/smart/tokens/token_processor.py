@@ -42,7 +42,7 @@ class TokenProcessor(torch.nn.Module):
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
-        self.shift = 2
+        self.shift = 5
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -73,7 +73,10 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_agent=16
 
         self.use_dynamic=False
-            
+
+        if self.use_dynamic:
+            self.n_token_agent=63*63
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
@@ -257,7 +260,7 @@ class TokenProcessor(torch.nn.Module):
         range_a = torch.arange(n_agent)
 
         prev_pos, prev_head = pos[:, 0], heading[:, 0]  # [n_agent, 2], [n_agent]
-        prev_speed = torch.norm(pos[:,1]-pos[:,0],dim=1)
+        prev_speed = torch.norm(pos[:,1]-pos[:,0],dim=1)/(self.shift /10)
 
         out_dict = {
             "valid_mask": [],
@@ -266,35 +269,39 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [],
         }
 
-        prev_valid=valid[:,0] & valid[:,1]
+        speed_valid=valid[:,0] & valid[:,1]
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
-            _valid_mask = prev_valid & valid[:, i]  # [n_agent]
+            _valid_mask = valid[:, i - self.shift] & valid[:, i]  & speed_valid # [n_agent]
             _invalid_mask = ~_valid_mask
-            prev_valid = valid[:,i]
             out_dict["valid_mask"].append(_valid_mask)
 
             acc=torch.linspace(-5,5,63,device=heading.device)
             yaw_rate=torch.linspace(-1.5,1.5,63,device=heading.device)
 
-            new_speed=acc[None]+prev_speed[:,None]*self.shift /10
-            new_heading=yaw_rate[None]+prev_head[:,None]*self.shift /10
+            token_speed=acc[None]*self.shift /10+prev_speed[:,None]
+            token_heading=yaw_rate[None]*self.shift /10+prev_head[:,None]
 
-            new_pos=torch.stack(([prev_pos[:,None,0]+new_speed*torch.cos(new_heading),prev_pos[:,None,1]+new_speed*torch.sin(new_heading)]),dim=-1)
+            token_speed=token_speed[:,None].repeat(1,63,1).flatten(1,2)
 
-            token_traj=cal_polygon_contour(new_pos,new_heading,agent_shape[:,None])
+            token_heading=token_heading[:,:,None].repeat(1,1,63).flatten(1,2)
+            token_prev_pos=prev_pos[:,None]
+
+            new_pos=torch.stack(([token_prev_pos[...,0]+token_speed*torch.cos(token_heading),token_prev_pos[...,1]+token_speed*torch.sin(token_heading)]),dim=-1)
+
+            token_world_gt=cal_polygon_contour(new_pos,token_heading,agent_shape[:,None])
 
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
             gt_contour = gt_contour.unsqueeze(1)  # [n_agent, 1, 4, 2]
 
             # ! tokenize without sampling
-            token_world_gt = transform_to_global(
-                pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
-                head_local=None,
-                pos_now=prev_pos,  # [n_agent, 2]
-                head_now=prev_head,  # [n_agent]
-            )[0].view(*token_traj.shape)
+            # token_world_gt = transform_to_global(
+            #     pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
+            #     head_local=None,
+            #     pos_now=prev_pos,  # [n_agent, 2]
+            #     head_now=prev_head,  # [n_agent]
+            # )[0].view(*token_traj.shape)
             token_idx_gt = torch.argmin(
                 torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
             )  # [n_agent]
@@ -306,17 +313,26 @@ class TokenProcessor(torch.nn.Module):
             prev_head = heading[:, i].clone()
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
-
             prev_head[_valid_mask] = next_head[_valid_mask]
+
+
             prev_pos = pos[:, i].clone()
             next_pos = token_contour_gt.mean(1)
             prev_pos[_valid_mask] = next_pos[_valid_mask]
+
+            prev_speed= torch.norm(pos[:,i]-pos[:,i-1],dim=1)/(self.shift /10)
+            next_speed = token_speed[range(len(prev_speed)),token_idx_gt]
+            prev_speed[_valid_mask] = next_speed[_valid_mask]
+            speed_valid =  valid[:,i] & valid[:,i-1]
+            speed_valid[_valid_mask]=True
+
             # add to output dict
             out_dict["sampled_idx"].append(token_idx_gt)
             out_dict["sampled_pos"].append(
                 prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
             )
             out_dict["sampled_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
+        out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
         return out_dict
 
@@ -461,8 +477,6 @@ class TokenProcessor(torch.nn.Module):
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         noise=None
     ) -> Dict[str, Tensor]:
-
-
         # pos_now, head_now, valid_now = pos[:, self.shift::self.shift], heading[:, self.shift::self.shift], valid[:,
         #                                                                                                    self.shift::self.shift]
         # pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
