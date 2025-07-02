@@ -42,7 +42,7 @@ class TokenProcessor(torch.nn.Module):
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
-        self.shift = 5
+        self.shift = 2
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -72,7 +72,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_proposal:
             self.n_token_agent=16
 
-        self.use_dynamic=True
+        self.use_dynamic=False
 
         if self.use_dynamic:
             self.head_n=45
@@ -351,18 +351,18 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        sampled_pos=out_dict["sampled_pos"]
-        valid_mask=out_dict["valid_mask"]
+        # sampled_pos=out_dict["sampled_pos"]
+        # valid_mask=out_dict["valid_mask"]
 
-        gt_pos=pos[:,5::5]
+        # gt_pos=pos[:,5::5]
 
-        dist=(sampled_pos-gt_pos)[valid_mask]
+        # dist=(sampled_pos-gt_pos)[valid_mask]
 
-        dist=torch.norm(dist,dim=1)
+        # dist=torch.norm(dist,dim=1)
 
-        # dist=torch.norm(dist,dim=-1).cpu().numpy()
+        # # dist=torch.norm(dist,dim=-1).cpu().numpy()
 
-        print(torch.mean(dist))#val tensor(0.033, device='cuda:0')
+        # print(torch.mean(dist))#val tensor(0.033, device='cuda:0')
 
         ##val baseline tensor(0.026, device='cuda:0')
 
