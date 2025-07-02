@@ -43,7 +43,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.use_dynamic=False
+        self.use_dynamic=True
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
