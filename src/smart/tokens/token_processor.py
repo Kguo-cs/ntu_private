@@ -735,10 +735,15 @@ class TokenProcessor(torch.nn.Module):
             for key in ["type", "batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
+            if "gt_speed_raw" in agent.keys():
+                speed=agent["gt_speed_raw"]
+            else:
+                speed=None
+
             token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
                                                         agent["gt_head_raw"],
                                                         agent_shape, token_traj,
-                                                         agent["gt_speed_raw"],
+                                                         speed,
                                                             )
             tokenized_agent.update(token_dict)
 
