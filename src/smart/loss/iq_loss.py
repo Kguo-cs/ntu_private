@@ -224,7 +224,7 @@ def get_gaussian_loss(proposal,tokenized_agent):
     )
 
     target_pos = target_pos.reshape(-1, target_global_traj.shape[1],  target_global_traj.shape[2], 2)
-    target_head = target_head.reshape(-1, target_global_traj.shape[1],  target_global_traj.shape[2])
+    #target_head = target_head.reshape(-1, target_global_traj.shape[1],  target_global_traj.shape[2])
 
     #target_head=wrap_angle(target_head)
 
