@@ -42,7 +42,7 @@ class TokenProcessor(torch.nn.Module):
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
-        self.shift = 2
+        self.shift = 5
         self.use_dynamic=False
 
         module_dir = os.path.dirname(__file__)
@@ -487,6 +487,8 @@ class TokenProcessor(torch.nn.Module):
                 out_dict["sampled_heading"].append(
                     prev_head_sample.masked_fill(_invalid_mask, 0.0)
                 )
+
+
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
 

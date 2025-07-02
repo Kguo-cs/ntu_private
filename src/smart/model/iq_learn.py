@@ -18,7 +18,7 @@ class IQ_SoftQ(LightningModule):
 
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
-        self.gamma =0.997
+        self.gamma = 0.99
         self.iq_learn=self.encoder.iq_learn
         self.output_gmm=self.encoder.output_gmm
         self.alpha = self.encoder.alpha
@@ -210,6 +210,11 @@ class IQ_SoftQ(LightningModule):
             return 0,0,0,0,0,proposal_loss
 
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
+
+        valid_mask=valid_mask[train_mask]
+        action=action[train_mask]
+        train_mask=train_mask[train_mask]
+
         agent_num = len(action)
 
         all_valid_mask=valid_mask[:agent_num].all(-1)#train_mask #
@@ -293,6 +298,8 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
+
+        tokenized_agent["train_mask"]=train_mask
 
         # if self.iq_learn:
         #     expert_nll=expert_proposal_loss=0

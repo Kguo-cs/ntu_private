@@ -304,7 +304,11 @@ class SMARTAgentDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
-            next_token_logits = self.token_predict_head(feat_a).reshape(n_agent, n_step, -1)
+            if self.training and "train_mask" in tokenized_agent.keys():
+                train_mask = tokenized_agent["train_mask"]
+                feat_a=feat_a[train_mask]
+
+            next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
             if self.pred_res and self.training:
                 res_traj = self.res_head(torch.cat([feat_a[:, :-1], feat_a_token[:, 1:]], dim=-1))
@@ -343,10 +347,10 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,post_sampling=post_sampling)
 
-        if self.n_token_agent>1:
-            tokenized_agent["next_token_logits"] = next_token_logits
-            tokenized_agent["next_light_logits"] = next_light_logits
-            tokenized_agent["proposal"] = proposal
+        # if self.n_token_agent>1:
+        #     tokenized_agent["next_token_logits"] = next_token_logits
+        #     tokenized_agent["next_light_logits"] = next_light_logits
+        #     tokenized_agent["proposal"] = proposal
 
         if next_light_logits is not None:
             light_q=next_light_logits[:, 1:]
@@ -407,8 +411,6 @@ class SMARTAgentDecoder(nn.Module):
                     if self.pred_proposal:
                         proposal=tokenized_agent["proposal"][:, :current_step]
 
-                    # self.a_t_roformer.attn.cached_k = self.a_t_roformer.attn.cached_k[:, :, :current_step]
-                    # self.a_t_roformer.attn.cached_v = self.a_t_roformer.attn.cached_v[:, :, :current_step]
                     if self.pred_light:
                         next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
                     else:
@@ -417,7 +419,6 @@ class SMARTAgentDecoder(nn.Module):
                     self.a_t_roformer.attn.caching=True
                     next_token_logits,next_light_logits,feat_a,proposal = self.predict_agent(sampled_idx, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,0,post_sampling)
-                    # self.a_t_roformer.attn.caching = False
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
             else:
