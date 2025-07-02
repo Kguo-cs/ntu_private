@@ -375,17 +375,17 @@ class SMARTAgentDecoder(nn.Module):
             gt_head=tokenized_agent["sampled_heading"]
             gt_sampled_idx = tokenized_agent["sampled_idx"]
 
-        if not self.pred_proposal:
+        if self.use_dynamic:
+            speed_a=tokenized_agent["sampled_speed"][:, :current_step].clone()
+
+        if not self.pred_proposal :
             token_traj_all = tokenized_agent["token_traj_all"]
-            pred_pos = token_traj_all[:,:,1:].mean(3)
-            diff_xy = token_traj_all[:, :, 1:,0] - token_traj_all[:, :,1:, 3]
-            pred_head = torch.arctan2(diff_xy[:, :, :,1], diff_xy[:, :,:, 0])
-            token_local_traj = torch.cat([pred_pos, pred_head[:, :,:, None]], dim=-1)
+            # pred_pos = token_traj_all[:,:,1:].mean(3)
+            # diff_xy = token_traj_all[:, :, 1:,0] - token_traj_all[:, :,1:, 3]
+            # pred_head = torch.arctan2(diff_xy[:, :, :,1], diff_xy[:, :,:, 0])
+            # token_local_traj = torch.cat([pred_pos, pred_head[:, :,:, None]], dim=-1)
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
-
-        if self.use_dynamic:
-            prev_speed= torch.norm(pos_a[:,-1]-pos_a[:,-2],dim=-1)/(self.shift /10)
 
         if self.pred_light:
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
@@ -499,34 +499,29 @@ class SMARTAgentDecoder(nn.Module):
                     if self.use_dynamic:
                         prev_pos=pos_a[:, -1]
                         prev_head=head_a[:, -1]
+                        prev_speed = speed_a[:,-1]#torch.norm(pos_a[:, -1] - pos_a[:, -2], dim=-1) / (self.shift / 10)
 
-                        acc = torch.linspace(-5, 5, 63, device=prev_head.device)
-                        yaw_rate = torch.linspace(-1.5, 1.5, 63, device=prev_head.device)
+                        acc =token_traj[:,:,0,0][torch.arange(n_agent), next_token_idx]
+                        yaw_rate =token_traj[:,:,0,1][torch.arange(n_agent), next_token_idx]
 
-                        token_speed = acc[None] * self.shift / 10 + prev_speed[:, None]
-                        token_heading = yaw_rate[None] * self.shift / 10 + prev_head[:, None]
-
-                        token_speed = token_speed[:, None].repeat(1, 63, 1).flatten(1, 2)
-
-                        token_heading = token_heading[:, :, None].repeat(1, 1, 63).flatten(1, 2)
-
-                        token_speed = token_speed[torch.arange(n_agent), next_token_idx]
-                        token_heading = token_heading[torch.arange(n_agent), next_token_idx]
-
-                        prev_speed=token_speed
+                        token_speed = acc* self.shift / 10 + prev_speed
+                        token_heading = yaw_rate* self.shift / 10 + prev_head
 
                         token_prev_pos = prev_pos[:, None]
 
                         time=torch.arange(self.shift+1,device=token_speed.device)/10
 
-                        token_dist=time*token_speed[:,None]
-                        token_heading=token_heading[:,None]
+                        token_dist = time*token_speed[:,None]
+                        token_heading = token_heading[:, None] # (n_agent, 1)
 
-                        new_pos = torch.stack(([token_prev_pos[..., 0] + token_dist * torch.cos(token_heading),
-                                                token_prev_pos[..., 1] + token_dist * torch.sin(token_heading)]),
+                        new_pos = torch.stack([token_prev_pos[..., 0] + token_dist * torch.cos(token_heading),
+                                                token_prev_pos[..., 1] + token_dist * torch.sin(token_heading)],
                                               dim=-1)
 
                         token_traj_global = cal_polygon_contour(new_pos, token_heading, token_agent_shape[:,None])
+
+                        speed_a = torch.cat([speed_a, token_speed.unsqueeze(1)], dim=1)
+
                     else:
                         next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
 
