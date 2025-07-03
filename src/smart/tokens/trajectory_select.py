@@ -25,7 +25,7 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 res = {"token_all": {}}
 
-for type_id in [2,0,1]:#
+for type_id in [0,1,2]:#
     #veh_traj=traj[type==type_id]
     #veh_traj = veh_traj.reshape(-1, 5, 3)  # [N, 5, 2]
 
@@ -104,33 +104,71 @@ for type_id in [2,0,1]:#
         idx = top_k_flat_idx[i]
         traj2 = veh_traj[joint_idx == idx][:10000000]
 
-        #meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
-        traj2=torch.cat([torch.zeros_like(traj2[:,:1]),traj2], dim=1)
+        mean_traj=torch.mean(traj2, dim=0)
 
-        contour = cal_polygon_contour(
-            pos=traj2[:, :, :2],  # [N, 6, 2]
-            head=traj2[:, :, 2],  # [N, 6]
-            width_length=width_length.unsqueeze(0),
-        )
+        dist=torch.norm(traj2-mean_traj[None],p=1, dim=-1).mean(-1) #.argmin()
 
-        mean_contour=contour.mean(dim=0).cpu()
+        choice_index=torch.argmin(dist)
 
-        traj_list.append(mean_contour)
+        #choice_index = torch.randint(0, traj2.shape[0], (1,)).item()
+
+        meaning_traj=traj2[choice_index]
+        #meaning_traj= traj2.mean(dim=0) #.numpy()
+        traj_list.append(meaning_traj.cpu().to(torch.float32))
+
+        # traj2=torch.cat([torch.zeros_like(traj2[:,:1]),traj2], dim=1)
+        #
+        # contour = cal_polygon_contour(
+        #     pos=traj2[:, :, :2],  # [N, 6, 2]
+        #     head=traj2[:, :, 2],  # [N, 6]
+        #     width_length=width_length.unsqueeze(0),
+        # )
+        #
+        # meaning_contour=contour.mean(dim=0)
+
+        # contour = cal_polygon_contour(
+        #     pos=meaning_traj[ :, :2],  # [N, 6, 2]
+        #     head=meaning_traj[ :, 2],  # [N, 6]
+        #     width_length=width_length.unsqueeze(0),
+        # )
+        #
+        # print((meaning_contour-contour).max())
+
+        #traj_list.append(meaning_contour.cpu())
 
     #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
     #
     # plt.show()
-    contour = torch.stack(traj_list, dim=0)
+    traj_list = torch.stack(traj_list, dim=0)
 
-    inverse_contour = contour.clone()
-    inverse_contour[:, :, 1] = -inverse_contour[:, :, 1]
+    # inverse_contour = traj_list.clone()
+    # inverse_contour[:, :, 1] = -inverse_contour[:, :, 1]
+    #
+    # contour = torch.cat([traj_list, inverse_contour], dim=0)
 
-    contour = torch.cat([contour, inverse_contour], dim=0)
+    inverse_traj = traj_list.clone()
+    inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
+    inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
 
+    codebook = torch.cat([traj_list, inverse_traj], dim=0)
+
+    codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
+
+    k= ["veh", "ped", "cyc"][type_id]
+
+    if k == "veh":
+        width_length = torch.tensor([2.0, 4.8])
+    elif k == "ped":
+        width_length = torch.tensor([1.0, 1.0])
+    elif k == "cyc":
+        width_length = torch.tensor([1.0, 2.0])
+
+    contour = cal_polygon_contour(
+        pos=codebook[:, :, :2],  # [N, 6, 2]
+        head=codebook[:, :, 2],  # [N, 6]
+        width_length=width_length.unsqueeze(0),
+    )
     res["token_all"][k] = contour.numpy()
-
-
-
 
 with open("my2048.pkl", "wb") as f:
     pickle.dump(res, f)
