@@ -91,7 +91,8 @@ for type_id in [0,1,2]:
     inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
     
     codebook = torch.cat([traj_list, inverse_traj], dim=0)
-    
+
+    codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
     
     k= ["veh", "ped", "cyc"][type_id]
     
