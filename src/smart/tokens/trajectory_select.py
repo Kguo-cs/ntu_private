@@ -57,7 +57,9 @@ for type_id in [0,1,2]:#
         y_max=1
         x_interval = 0.05
         y_interval = 0.05
-        
+    
+    y_max = y_max - y_interval/2
+     
     y_min= -y_max
 
     final_pos = veh_traj[..., -1, :2]
@@ -69,14 +71,14 @@ for type_id in [0,1,2]:#
 
     final_pos = veh_traj[..., -1, :2]
 
-    x_bin=(x_max - x_min) / x_interval
-    y_bin= ( y_max-y_min) / y_interval
+    x_bin= (x_max - x_min) / x_interval
+    y_bin= (y_max - y_min) / y_interval
 
     x_bin = int(x_bin)
     y_bin = int(y_bin)
 
     x_idx= ((final_pos[:, 0] -x_min) /x_interval).long()
-    y_idx= ((final_pos[:, 1]-y_min)/ y_interval).long()
+    y_idx= ((final_pos[:, 1]- y_min)/ y_interval).long()
 
     x_idx = x_idx.clamp(0, x_bin-1)
     y_idx = y_idx.clamp(0, y_bin-1)
