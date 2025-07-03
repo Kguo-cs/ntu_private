@@ -45,8 +45,8 @@ for type_id in [0,1,2]:#
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max = 1.5
-        x_interval =0.2 #0.1
-        y_interval =0.1 # 0.05
+        x_interval =0.1#0.1
+        y_interval = 0.1
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
@@ -216,3 +216,20 @@ with open("my2048.pkl", "wb") as f:
 # tensor(0.9989, device='cuda:0') 0.999764979994374 tensor(0.9991, device='cuda:0') tensor(36, device='cuda:0')
 # torch.Size([1608651, 5, 3])
 # tensor(0.9901, device='cuda:0') 0.9964125220448686 tensor(0.9937, device='cuda:0') tensor(18, device='cuda:0')
+
+
+#0.1 0.1  no sys
+# torch.Size([215685024, 5, 3])
+# tensor(0.9995, device='cuda:0') 0.999885272516649 tensor(0.9996, device='cuda:0') tensor(112, device='cuda:0')
+# torch.Size([16594332, 5, 3])
+# tensor(0.9989, device='cuda:0') 0.9997616053481394 tensor(0.9991, device='cuda:0') tensor(18, device='cuda:0')
+# torch.Size([1608651, 5, 3])
+# tensor(0.9905, device='cuda:0') 0.9963397902963415 tensor(0.9941, device='cuda:0') tensor(9, device='cuda:0')
+
+#0.2 0.05  no sys
+# torch.Size([215685024, 5, 3])
+# tensor(0.9995, device='cuda:0') 0.9998879291684155 tensor(0.9996, device='cuda:0') tensor(108, device='cuda:0')
+# torch.Size([16594332, 5, 3])
+# tensor(0.9989, device='cuda:0') 0.9997616053481394 tensor(0.9991, device='cuda:0') tensor(18, device='cuda:0')
+# torch.Size([1608651, 5, 3])
+# tensor(0.9905, device='cuda:0') 0.9963397902963415 tensor(0.9941, device='cuda:0') tensor(9, device='cuda:0')
