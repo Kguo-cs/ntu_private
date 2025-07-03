@@ -102,11 +102,11 @@ for type_id in [0,1,2]:#
     traj_list= []
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx][:10000000]
+        traj2 = veh_traj[joint_idx == idx]#[:10000000]
 
-        mean_traj=torch.mean(traj2, dim=0)
+        mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
 
-        dist=torch.norm(traj2-mean_traj[None],p=1, dim=-1).mean(-1) #.argmin()
+        dist=torch.norm(traj2[:,-1,:2]-mean_traj[None],dim=-1)#.mean(-1) #.argmin()
 
         choice_index=torch.argmin(dist)
 
