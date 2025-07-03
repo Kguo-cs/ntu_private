@@ -41,7 +41,7 @@ for type_id in [0,1,2]:
         y_interval = 0.05
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
-        y_max=1
+        y_max=2
         x_interval = 0.05
         y_interval = 0.05
     elif type_id == 2:
