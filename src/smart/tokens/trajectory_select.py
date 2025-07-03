@@ -35,8 +35,7 @@ for type_id in [0,1,2]:
     veh_traj[...,2]=veh_traj[...,2].abs()
 
 
-    final_pos = veh_traj[..., -1, :2]
-    
+
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max=1.5
@@ -52,7 +51,13 @@ for type_id in [0,1,2]:
         y_max=2
         x_interval = 0.05
         y_interval = 0.05
-    
+
+    final_pos = veh_traj[..., -1, :2]
+
+    veh_traj=veh_traj[(final_pos[:,0]>x_min) & (final_pos[:,0]<x_max) & (final_pos[:,1]<y_max)]
+
+    final_pos = veh_traj[..., -1, :2]
+
     x_bin=(x_max - x_min) / x_interval
     y_bin= y_max / y_interval
     
@@ -67,7 +72,7 @@ for type_id in [0,1,2]:
 
     joint_idx = x_idx * y_bin + y_idx
 
-    joint_hist = torch.bincount(joint_idx, minlength=250 * 30).reshape(250, 30)
+    joint_hist = torch.bincount(joint_idx, minlength=x_bin * y_bin)#.reshape(250, 30)
         
     # Top-k
     top_k_value, top_k_flat_idx = torch.topk(joint_hist.flatten(), k=1024)
@@ -80,22 +85,23 @@ for type_id in [0,1,2]:
         meaning_traj= traj2.mean(dim=0)
         
         traj_list.append(meaning_traj)
-        
-        plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-
+    #
+    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+    #
+    # plt.show()
         
     traj_list = torch.stack(traj_list, dim=0)
-    
+
     inverse_traj = traj_list.clone()
     inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
     inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
-    
+
     codebook = torch.cat([traj_list, inverse_traj], dim=0)
 
     codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
-    
+
     k= ["veh", "ped", "cyc"][type_id]
-    
+
     if k == "veh":
         width_length = torch.tensor([2.0, 4.8])
     elif k == "ped":
