@@ -19,7 +19,7 @@ files = os.listdir(data_directory)
 
 
 # #
-for filename in tqdm(files[:100000]):
+for filename in tqdm(files):#[:100000]
     input_path = os.path.join(data_directory, filename)
     with open(input_path, "rb") as f:
         data = pickle.load(f)
@@ -43,7 +43,7 @@ for filename in tqdm(files[:100000]):
         head_now=head[:,:-1:5].flatten(0,1),  # [n_agent*18]
     )
 
-    traj=torch.cat([local_pos, wrap_angle(target_head)[:,:,None]],dim=-1).reshape(-1,18,5,3)
+    traj=torch.cat([local_pos, wrap_angle(target_head)[:,:,None]],dim=-1).reshape(-1,18,5,3).to(torch.float16)
 
     traj_list.append(traj)
 

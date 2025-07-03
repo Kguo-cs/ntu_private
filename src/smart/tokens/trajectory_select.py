@@ -21,8 +21,8 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 
 
-traj=torch.load("/home/ke/code/catk/src/waymo_data/traj.pt")#.cuda()
-type=torch.load("/home/ke/code/catk/src/waymo_data/type.pt")#.cuda()
+traj=torch.load("/home/ke/code/catk/src/waymo_data/traj.pt").cuda()
+type=torch.load("/home/ke/code/catk/src/waymo_data/type.pt").cuda()
 
 res = {"token_all": {}}
 
@@ -34,29 +34,28 @@ for type_id in [0,1,2]:
     veh_traj[...,1]=veh_traj[...,1].abs()
     veh_traj[...,2]=veh_traj[...,2].abs()
 
-
-
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max=1.5
         x_interval = 0.1
         y_interval = 0.05
     elif type_id == 1:
-        x_min, x_max = -1,8
-        y_max=1
+        x_min, x_max = -1.5 , 4.5
+        y_max=2
         x_interval = 0.05
         y_interval = 0.05
     elif type_id == 2:
-        x_min, x_max = -1.5, 4.5
+        x_min, x_max = -5, 10
         y_max=2
         x_interval = 0.05
         y_interval = 0.05
 
     final_pos = veh_traj[..., -1, :2]
 
-    veh_traj=veh_traj[(final_pos[:,0]>x_min) & (final_pos[:,0]<x_max) & (final_pos[:,1]<y_max)]
+    veh_traj_in=veh_traj[(final_pos[:,0]>x_min) & (final_pos[:,0]<x_max) & (final_pos[:,1]<y_max)]
+    #print(len(veh_traj_in)/len(veh_traj))
 
-    final_pos = veh_traj[..., -1, :2]
+    final_pos = veh_traj_in[..., -1, :2]
 
     x_bin=(x_max - x_min) / x_interval
     y_bin= y_max / y_interval
@@ -75,17 +74,21 @@ for type_id in [0,1,2]:
     joint_hist = torch.bincount(joint_idx, minlength=x_bin * y_bin)#.reshape(250, 30)
         
     # Top-k
-    top_k_value, top_k_flat_idx = torch.topk(joint_hist.flatten(), k=1024)
+    cluster_n=1024
+
+    top_k_value, top_k_flat_idx = torch.topk(joint_hist, k=cluster_n)#.flatten()
+
+    print(len(veh_traj_in)/len(veh_traj),top_k_value.sum()/joint_hist.sum(),top_k_value.min())
     
     traj_list= []
-    for i in range(1024):
+    for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2= veh_traj[joint_idx == idx]
-        
-        meaning_traj= traj2.mean(dim=0)
-        
+        traj2= veh_traj_in[joint_idx == idx]
+
+        meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
+
         traj_list.append(meaning_traj)
-    #
+
     #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
     #
     # plt.show()
@@ -116,39 +119,30 @@ for type_id in [0,1,2]:
     )
     res["token_all"][k] = contour.numpy()
 
-            
+
 with open("my2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
-        # print(len(final_pos[final_pos[:, 1]== 0]))
-    
-    # final_pos=final_pos[final_pos[:, 1] > 0]
-        #mask= joint_hist.cpu().numpy()
-    # joint_hist=np.log(joint_hist + 1)
 
-    # print((joint_hist>60).sum())
-    
-    #plt.imshow((joint_hist>60).T)
-    # sys_pos=final_pos.clone()
-    
-    # sys_pos[:,0]=final_pos[:,0]
-    # sys_pos[:,1]=-final_pos[:,1]
-    
+# torch.Size([154079694, 5, 3])
+# 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
+# torch.Size([10534068, 5, 3])
+# 0.9997874515334437 tensor(0.9998, device='cuda:0') tensor(9, device='cuda:0')
+# torch.Size([1081674, 5, 3])
+# 0.993570151450437 tensor(0.9982, device='cuda:0') tensor(6, device='cuda:0')
 
-#     acc_idx = ((acc_flat - acc_min) / (acc_max - acc_min) * acc_bins).long()
-#     rate_idx = ((rate_flat - rate_min) / (rate_max - rate_min) * rate_bins).long()
-    
-    
-    
-    # final_pos = torch.cat([sys_pos, final_pos], dim=0)
-        
-    # plt.scatter(final_pos[:, 0], final_pos[:, 1], s=1, label=f"Type {type_id}")
+# torch.Size([154079694, 5, 3])
+# 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
+# torch.Size([10534068, 5, 3])
+# 0.9997874515334437 tensor(0.9998, device='cuda:0') tensor(9, device='cuda:0')
+# torch.Size([1081674, 5, 3])
+# 0.9993232711519368 tensor(0.9932, device='cuda:0') tensor(10, device='cuda:0')
 
-    # plt.xlim(-5, 20)
-    # plt.ylim(-12.5, 12.5)
+# torch.Size([154079694, 5, 3])
+# 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
+# torch.Size([10534068, 5, 3])
+# 0.9999438963181175 tensor(0.9997, device='cuda:0') tensor(10, device='cuda:0')
+# torch.Size([1081674, 5, 3])
+# 0.9993232711519368 tensor(0.9932, device='cuda:0') tensor(10, device='cuda:0')
 
-    # plt.savefig('/home/ke/code/catk/src/waymo_data/final_pos.png')
-    
-    # break
-    
-# torch.save(codebook_list, "codebook.pt")
+
