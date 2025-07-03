@@ -19,35 +19,42 @@ files = os.listdir(data_directory)
 
 
 # #
-for filename in tqdm(files):#[:100000]
+for filename in tqdm(files):
     input_path = os.path.join(data_directory, filename)
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
     agent=data['tokenized_agent']
 
-    valid=agent['gt_valid_raw']
-    all_valid=valid.all(-1)
+    pos=agent['gt_pos_raw'].cuda()
+    head=agent['gt_head_raw'].cuda()
+    valid=agent['gt_valid_raw'].cuda()
 
-    pos=agent['gt_pos_raw'][all_valid]
-    head=agent['gt_head_raw'][all_valid]
+
+    all_valid=valid[:,1:].reshape(-1,5)
+    sampled_valid=valid[:,:-1:5].reshape(-1)
+
+    traj_valid=sampled_valid & all_valid.all(-1)
 
     # traj=torch.cat([agent['gt_pos_raw'],agent['gt_head_raw'][:,:,None]],dim=2)
-    rel_pos=pos[:,1:].reshape(-1,5,2)
-    rel_head=head[:,1:].reshape(-1,5)
+    rel_pos=pos[:,1:].reshape(-1,5,2)[traj_valid]
+    rel_head=head[:,1:].reshape(-1,5)[traj_valid]
+
+    sampled_pos=pos[:,:-1:5].flatten(0,1)[traj_valid]
+    sampled_head=head[:,:-1:5].flatten(0,1)[traj_valid]
 
     local_pos, target_head = transform_to_local(
         pos_global=rel_pos,  # [n_agent*18, 1, 2]
         head_global=rel_head,  # [n_agent*18, 1]
-        pos_now=pos[:,:-1:5].flatten(0,1),  # [n_agent*18, 2]
-        head_now=head[:,:-1:5].flatten(0,1),  # [n_agent*18]
+        pos_now=sampled_pos,  # [n_agent*18, 2]
+        head_now=sampled_head,  # [n_agent*18]
     )
 
-    traj=torch.cat([local_pos, wrap_angle(target_head)[:,:,None]],dim=-1).reshape(-1,18,5,3).to(torch.float16)
+    traj=torch.cat([local_pos, wrap_angle(target_head)[:,:,None]],dim=-1).to(torch.float16)#.reshape(-1,5,3)
 
     traj_list.append(traj)
 
-    type_list.append(agent['type'][all_valid])
+    type_list.append(agent['type'].cuda()[:,None].repeat(1,18).reshape(-1)[traj_valid])
 #
 traj_list=torch.cat(traj_list)
 type_list=torch.cat(type_list)
