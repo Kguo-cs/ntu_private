@@ -20,7 +20,6 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 
 
-
 traj=torch.load("/home/ke/code/catk/src/waymo_data/traj.pt").cuda()
 type=torch.load("/home/ke/code/catk/src/waymo_data/type.pt").cuda()
 
