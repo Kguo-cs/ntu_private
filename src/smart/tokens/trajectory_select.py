@@ -25,7 +25,7 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 res = {"token_all": {}}
 
-for type_id in [0,1,2]:#
+for type_id in [2,0,1]:#
     #veh_traj=traj[type==type_id]
     #veh_traj = veh_traj.reshape(-1, 5, 3)  # [N, 5, 2]
 
@@ -35,10 +35,12 @@ for type_id in [0,1,2]:#
     total_n=len(veh_traj)
     print(veh_traj.shape)
 
-    mask=veh_traj[...,1]<0
-
-    veh_traj[...,2][mask]=-veh_traj[...,2][mask]
-    veh_traj[...,1][mask]=-veh_traj[...,1][mask]
+    # mask=veh_traj[...,1]<0
+    #
+    # veh_traj[...,2][mask]=-veh_traj[...,2][mask]
+    # veh_traj[...,1][mask]=-veh_traj[...,1][mask]
+    veh_traj[...,1]=veh_traj[...,1].abs()
+    veh_traj[...,2]=veh_traj[...,2].abs()
 
     if type_id == 0:
         x_min, x_max = -5, 20
@@ -91,16 +93,16 @@ for type_id in [0,1,2]:#
     k= ["veh", "ped", "cyc"][type_id]
 
     if k == "veh":
-        width_length = torch.tensor([2.0, 4.8])
+        width_length = torch.tensor([2.0, 4.8]).cuda()
     elif k == "ped":
-        width_length = torch.tensor([1.0, 1.0])
+        width_length = torch.tensor([1.0, 1.0]).cuda()
     elif k == "cyc":
-        width_length = torch.tensor([1.0, 2.0])
+        width_length = torch.tensor([1.0, 2.0]).cuda()
 
     traj_list= []
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx]
+        traj2 = veh_traj[joint_idx == idx][:10000000]
 
         #meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
         traj2=torch.cat([torch.zeros_like(traj2[:,:1]),traj2], dim=1)
@@ -118,19 +120,15 @@ for type_id in [0,1,2]:#
     #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
     #
     # plt.show()
-    contour = torch.stack(contour, dim=0)
+    contour = torch.stack(traj_list, dim=0)
+
+    inverse_contour = contour.clone()
+    inverse_contour[:, :, 1] = -inverse_contour[:, :, 1]
+
+    contour = torch.cat([contour, inverse_contour], dim=0)
 
     res["token_all"][k] = contour.numpy()
 
-
-#
-#     inverse_traj = traj_list.clone()
-#     inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
-#     inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
-#
-#     codebook = torch.cat([traj_list, inverse_traj], dim=0)
-#
-#     codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
 
 
 
