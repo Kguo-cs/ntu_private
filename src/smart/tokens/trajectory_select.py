@@ -34,12 +34,15 @@ for type_id in [0,1,2]:#
     # torch.save(veh_traj, "/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt")
     total_n=len(veh_traj)
     print(veh_traj.shape)
-    veh_traj[...,1]=veh_traj[...,1].abs()
-    veh_traj[...,2]=veh_traj[...,2].abs()
+
+    mask=veh_traj[...,1]<0
+
+    veh_traj[...,2][mask]=-veh_traj[...,2][mask]
+    veh_traj[...,1][mask]=-veh_traj[...,1][mask]
 
     if type_id == 0:
         x_min, x_max = -5, 20
-        y_max=1.5
+        y_max = 1.5
         x_interval = 0.1
         y_interval = 0.05
     elif type_id == 1:
@@ -84,30 +87,7 @@ for type_id in [0,1,2]:#
     top_k_value, top_k_flat_idx = torch.topk(joint_hist, k=cluster_n)#.flatten()
 
     print(top_k_value.sum()/total_n,len(veh_traj)/total_n,top_k_value.sum()/len(veh_traj),top_k_value.min())#mask.to(torch.float).mean(),
-
-    traj_list= []
-    for i in range(cluster_n):
-        idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx]
-
-        meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
-
-        traj_list.append(meaning_traj)
-
-    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-    #
-    # plt.show()
-
-    traj_list = torch.stack(traj_list, dim=0)
-
-    inverse_traj = traj_list.clone()
-    inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
-    inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
-
-    codebook = torch.cat([traj_list, inverse_traj], dim=0)
-
-    codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
-
+#
     k= ["veh", "ped", "cyc"][type_id]
 
     if k == "veh":
@@ -117,15 +97,44 @@ for type_id in [0,1,2]:#
     elif k == "cyc":
         width_length = torch.tensor([1.0, 2.0])
 
-    contour = cal_polygon_contour(
-        pos=codebook[:, :, :2],  # [N, 6, 2]
-        head=codebook[:, :, 2],  # [N, 6]
-        width_length=width_length.unsqueeze(0),
-    )
+    traj_list= []
+    for i in range(cluster_n):
+        idx = top_k_flat_idx[i]
+        traj2 = veh_traj[joint_idx == idx]
+
+        #meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
+        traj2=torch.cat([torch.zeros_like(traj2[:,:1]),traj2], dim=1)
+
+        contour = cal_polygon_contour(
+            pos=traj2[:, :, :2],  # [N, 6, 2]
+            head=traj2[:, :, 2],  # [N, 6]
+            width_length=width_length.unsqueeze(0),
+        )
+
+        mean_contour=contour.mean(dim=0).cpu()
+
+        traj_list.append(mean_contour)
+
+    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+    #
+    # plt.show()
+    contour = torch.stack(contour, dim=0)
+
     res["token_all"][k] = contour.numpy()
 
 
-with open("valid2048.pkl", "wb") as f:
+#
+#     inverse_traj = traj_list.clone()
+#     inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
+#     inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
+#
+#     codebook = torch.cat([traj_list, inverse_traj], dim=0)
+#
+#     codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
+
+
+
+with open("my2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
@@ -158,3 +167,11 @@ with open("valid2048.pkl", "wb") as f:
 # tensor(0.9989, device='cuda:0') 0.999764979994374 tensor(0.9991, device='cuda:0') tensor(36, device='cuda:0')
 # torch.Size([1608651, 5, 3])
 # tensor(0.9901, device='cuda:0') 0.9964125220448686 tensor(0.9937, device='cuda:0') tensor(18, device='cuda:0')
+
+#2048
+# torch.Size([215685024, 5, 3])
+# tensor(0.9995, device='cuda:0') 0.9998906507296492 tensor(0.9996, device='cuda:0') tensor(113, device='cuda:0')
+# torch.Size([16594332, 5, 3])
+# tensor(0.9996, device='cuda:0') 0.999764979994374 tensor(0.9998, device='cuda:0') tensor(4, device='cuda:0')
+# torch.Size([1608651, 5, 3])
+# tensor(0.9954, device='cuda:0') 0.9964125220448686 tensor(0.9990, device='cuda:0') tensor(4, device='cuda:
