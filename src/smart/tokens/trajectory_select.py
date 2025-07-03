@@ -41,7 +41,7 @@ for type_id in [0,1,2]:
         y_interval = 0.05
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
-        y_max=2
+        y_max=1
         x_interval = 0.05
         y_interval = 0.05
     elif type_id == 2:
@@ -89,39 +89,39 @@ for type_id in [0,1,2]:
 
         traj_list.append(meaning_traj)
 
-    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-    #
-    # plt.show()
+        plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+
+    plt.show()
         
-    traj_list = torch.stack(traj_list, dim=0)
-
-    inverse_traj = traj_list.clone()
-    inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
-    inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
-
-    codebook = torch.cat([traj_list, inverse_traj], dim=0)
-
-    codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
-
-    k= ["veh", "ped", "cyc"][type_id]
-
-    if k == "veh":
-        width_length = torch.tensor([2.0, 4.8])
-    elif k == "ped":
-        width_length = torch.tensor([1.0, 1.0])
-    elif k == "cyc":
-        width_length = torch.tensor([1.0, 2.0])
-
-    contour = cal_polygon_contour(
-        pos=codebook[:, :, :2],  # [N, 6, 2]
-        head=codebook[:, :, 2],  # [N, 6]
-        width_length=width_length.unsqueeze(0),
-    )
-    res["token_all"][k] = contour.numpy()
-
-
-with open("my2048.pkl", "wb") as f:
-    pickle.dump(res, f)
+#     traj_list = torch.stack(traj_list, dim=0)
+#
+#     inverse_traj = traj_list.clone()
+#     inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
+#     inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
+#
+#     codebook = torch.cat([traj_list, inverse_traj], dim=0)
+#
+#     codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
+#
+#     k= ["veh", "ped", "cyc"][type_id]
+#
+#     if k == "veh":
+#         width_length = torch.tensor([2.0, 4.8])
+#     elif k == "ped":
+#         width_length = torch.tensor([1.0, 1.0])
+#     elif k == "cyc":
+#         width_length = torch.tensor([1.0, 2.0])
+#
+#     contour = cal_polygon_contour(
+#         pos=codebook[:, :, :2],  # [N, 6, 2]
+#         head=codebook[:, :, 2],  # [N, 6]
+#         width_length=width_length.unsqueeze(0),
+#     )
+#     res["token_all"][k] = contour.numpy()
+#
+#
+# with open("my2048.pkl", "wb") as f:
+#     pickle.dump(res, f)
 
 
 # torch.Size([154079694, 5, 3])

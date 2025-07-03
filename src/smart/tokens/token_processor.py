@@ -131,10 +131,6 @@ class TokenProcessor(torch.nn.Module):
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
-        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
-        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
-        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
-
         if self.use_dynamic:
             module_dir = os.path.dirname(__file__)
             codebook=torch.load(os.path.join(module_dir, "codebook.pt"))
@@ -142,6 +138,11 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"agent_token_all_veh", codebook[0,:,None,None], persistent=False)
             self.register_buffer(f"agent_token_all_ped", codebook[1,:,None,None], persistent=False)
             self.register_buffer(f"agent_token_all_cyc", codebook[2,:,None,None], persistent=False)
+
+        self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
+        self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
+
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 

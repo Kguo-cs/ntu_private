@@ -187,9 +187,9 @@ class SMARTAgentDecoder(nn.Module):
         # ! get agent token embeddings
         feat_a_token = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
-            trajectory_token_veh=self.token_processor.trajectory_token_veh,
-            trajectory_token_ped=self.token_processor.trajectory_token_ped,
-            trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
+            trajectory_token_veh=self.token_processor.agent_token_all_veh,
+            trajectory_token_ped=self.token_processor.agent_token_all_ped,
+            trajectory_token_cyc=self.token_processor.agent_token_all_cyc,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             agent_type=tokenized_agent["type"],  # [n_agent]
