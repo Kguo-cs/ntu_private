@@ -420,8 +420,8 @@ class TokenProcessor(torch.nn.Module):
 
             #if i>10:
             token_valid=min_dist<0.3
-            _valid_mask=token_valid & _valid_mask
             token_idx_gt[~token_valid]=self.n_token_agent-1
+            _valid_mask=token_valid & _valid_mask
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -432,8 +432,7 @@ class TokenProcessor(torch.nn.Module):
             prev_pos = pos[:, i].clone()
             next_pos = token_contour_gt.mean(1)
             prev_pos[_valid_mask] = next_pos[_valid_mask]
-            _invalid_mask = ~_valid_mask
-
+            _invalid_mask = ~valid[:, i]
 
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
