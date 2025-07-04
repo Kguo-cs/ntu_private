@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from src.smart.utils import  wrap_angle
 from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_a91/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
 
 traj_list=[]
@@ -24,11 +24,11 @@ for filename in tqdm(files):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    agent=data['tokenized_agent']
+    agent=data['agent']
 
-    pos=agent['gt_pos_raw'].cuda()
-    head=agent['gt_head_raw'].cuda()
-    valid=agent['gt_valid_raw'].cuda()
+    pos=agent['position'][:,:,:2].cuda()
+    head=agent['heading'].cuda()
+    valid=agent['valid_mask'].cuda()
 
 
     all_valid=valid[:,1:].reshape(-1,5)
@@ -56,11 +56,12 @@ for filename in tqdm(files):
 
     type_list.append(agent['type'].cuda()[:,None].repeat(1,18).reshape(-1)[traj_valid])
 #
-traj_list=torch.cat(traj_list)
-type_list=torch.cat(type_list)
+traj=torch.cat(traj_list)
+type=torch.cat(type_list)
 
-torch.save(traj_list,"/home/ke/code/catk/src/waymo_data/traj.pt")
-torch.save(type_list,"/home/ke/code/catk/src/waymo_data/type.pt")
+for type_id in [0,1,2]:
+    veh_traj=traj[type==type_id]
+    torch.save(veh_traj, "/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt")
 
 
 #

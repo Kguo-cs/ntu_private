@@ -233,3 +233,12 @@ with open("my2048.pkl", "wb") as f:
 # tensor(0.9989, device='cuda:0') 0.9997616053481394 tensor(0.9991, device='cuda:0') tensor(18, device='cuda:0')
 # torch.Size([1608651, 5, 3])
 # tensor(0.9905, device='cuda:0') 0.9963397902963415 tensor(0.9941, device='cuda:0') tensor(9, device='cuda:0')
+
+#no explo
+# 0.1 0.1  no sys
+# torch.Size([214326235, 5, 3])
+# tensor(0.9997, device='cuda:0') 0.99995539043552 tensor(0.9998, device='cuda:0') tensor(82, device='cuda:0')
+# torch.Size([16348428, 5, 3])
+# tensor(0.9995, device='cuda:0') 0.9999772455186517 tensor(0.9996, device='cuda:0') tensor(14, device='cuda:0')
+# torch.Size([1590937, 5, 3])
+# tensor(0.9980, device='cuda:0') 0.9993425258196899 tensor(0.9986, device='cuda:0') tensor(5, device='cuda:0')
