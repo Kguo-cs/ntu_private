@@ -205,12 +205,12 @@ class TokenProcessor(torch.nn.Module):
         pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
         vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
 
-        # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
-        heading = self._clean_heading(valid, heading)
-        # ! extrapolate to previous 5th step.
-        valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
-            valid, pos, heading, vel
-        )
+        # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
+        # heading = self._clean_heading(valid, heading)
+        # # ! extrapolate to previous 5th step.
+        # valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
+        #     valid, pos, heading, vel
+        # )
 
         # ! prepare output dict
         tokenized_agent = {
