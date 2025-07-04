@@ -22,7 +22,7 @@ from omegaconf import DictConfig
 from torch import Tensor
 
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_inter10_a91v/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_inter10_raw/"
 
 raw_data = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 
@@ -83,21 +83,21 @@ for filename in tqdm(files):
     valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
     heading = data["agent"]["heading"]  # [n_agent, n_step]
     pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-    vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+    #vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
 
-    # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
-    heading = _clean_heading(valid, heading)
-    # ! extrapolate to previous 5th step.
-    valid, pos, heading, vel = _extrapolate_agent_to_prev_token_step(
-        valid, pos, heading, vel
-    )
+    # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
+    # heading = _clean_heading(valid, heading)
+    # # ! extrapolate to previous 5th step.
+    # valid, pos, heading, vel = _extrapolate_agent_to_prev_token_step(
+    #     valid, pos, heading, vel
+    # )
     # "gt_pos_raw": pos[:, 5:: 5],  # [n_agent, n_step=18, 2]
     # "gt_head_raw": heading[:, self.shift:: self.shift],  # [n_agent, n_step=18]
     # "gt_valid_raw": valid[:, self.shift:: self.shift],  # [n_agent, n_step=18]
 
     data1["tokenized_agent"]["gt_pos_raw"]= pos#[:, 5:: 5]
     data1["tokenized_agent"]["gt_head_raw"]=heading#[:, 5:: 5]
-    data1["tokenized_agent"]["gt_speed_raw"]=torch.norm(vel,dim=-1)#[:, 5:: 5]
+    #data1["tokenized_agent"]["gt_speed_raw"]=torch.norm(vel,dim=-1)#[:, 5:: 5]
     data1["tokenized_agent"]["gt_valid_raw"]=valid#[:, 5:: 5]
     # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
     # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]

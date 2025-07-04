@@ -7,13 +7,13 @@ export PBS_JOBID=10911693.pbs101
 
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/new/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/validation_light 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_light_col ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.67.68:/home/ke/code/catk/src/waymo_data/full/training_inter10_8192 ./
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_light_col zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_inter10_8192 /home/ke/code/catk/src/waymo_data/ #full/
 
