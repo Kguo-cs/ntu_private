@@ -48,7 +48,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = self.agent_token_all_veh.shape[0]+1
+        self.n_token_agent = self.agent_token_all_veh.shape[0]#+1
 
         self.use_lane=False
 
@@ -419,9 +419,9 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             #if i>10:
-            token_valid=min_dist<0.5
-            token_idx_gt[~token_valid]=self.n_token_agent-1
-            _valid_mask=token_valid & _valid_mask
+            # token_valid=min_dist<0.5
+            # token_idx_gt[~token_valid]=self.n_token_agent-1
+            # _valid_mask=token_valid & _valid_mask
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -432,7 +432,9 @@ class TokenProcessor(torch.nn.Module):
             prev_pos = pos[:, i].clone()
             next_pos = token_contour_gt.mean(1)
             prev_pos[_valid_mask] = next_pos[_valid_mask]
-            _invalid_mask = ~valid[:, i]
+
+            #pos_valid=valid[:, i]
+            _invalid_mask = ~_valid_mask
 
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
@@ -440,7 +442,7 @@ class TokenProcessor(torch.nn.Module):
                 prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
             )
             out_dict["gt_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
-            out_dict["valid_mask"].append(valid[:, i])
+            out_dict["valid_mask"].append(_valid_mask)
 
             # ! tokenize from sampled rollout state
             if num_k == 1:  # K=1 means no sampling
