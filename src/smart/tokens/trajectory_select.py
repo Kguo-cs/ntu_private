@@ -46,7 +46,7 @@ for type_id in [0,1,2]:#
         x_min, x_max = -5, 20
         y_max = 1.5
         x_interval =0.1#0.1
-        y_interval = 0.1
+        y_interval = 0.05
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
@@ -140,9 +140,9 @@ for type_id in [0,1,2]:#
 
         #traj_list.append(meaning_contour.cpu())
 
-        plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-
-    plt.show()
+    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+    #
+    # plt.show()
     codebook = torch.stack(traj_list, dim=0)
 
     # inverse_contour = traj_list.clone()
@@ -174,9 +174,9 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-# with open("my2048.pkl", "wb") as f:
-#     pickle.dump(res, f)
-#
+with open("my2048.pkl", "wb") as f:
+    pickle.dump(res, f)
+
 
 # torch.Size([154079694, 5, 3])
 # 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
@@ -238,6 +238,15 @@ for type_id in [0,1,2]:#
 # 0.1 0.1  no sys
 # torch.Size([214326235, 5, 3])
 # tensor(0.9997, device='cuda:0') 0.99995539043552 tensor(0.9998, device='cuda:0') tensor(82, device='cuda:0')
+# torch.Size([16348428, 5, 3])
+# tensor(0.9995, device='cuda:0') 0.9999772455186517 tensor(0.9996, device='cuda:0') tensor(14, device='cuda:0')
+# torch.Size([1590937, 5, 3])
+# tensor(0.9980, device='cuda:0') 0.9993425258196899 tensor(0.9986, device='cuda:0') tensor(5, device='cuda:0')
+
+#no explo
+# 0.1 0.05  no sys
+# torch.Size([214326235, 5, 3])
+# tensor(0.9972, device='cuda:0') 0.9999571820967228 tensor(0.9973, device='cuda:0') tensor(1048, device='cuda:0')
 # torch.Size([16348428, 5, 3])
 # tensor(0.9995, device='cuda:0') 0.9999772455186517 tensor(0.9996, device='cuda:0') tensor(14, device='cuda:0')
 # torch.Size([1590937, 5, 3])
