@@ -162,14 +162,16 @@ def get_proposal_loss(proposal,tokenized_agent,start_step,train_mask):
 
     counter_dist =torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask
 
-    proposal_loss = counter_dist.sum(-1).amin(-1).sum()/target_mask.sum()
+    target_sum=target_mask.sum()
+
+    proposal_loss = counter_dist.sum(-1).amin(-1).sum()/target_sum
 
     proposal5_loss = counter_dist[:, :, :, 4]
 
     action = torch.argmin(proposal5_loss, dim=-1)
 
-    pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1)/target_mask.sum()
-    head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1)/target_mask.sum()
+    pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1).sum()/target_sum
+    head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1).sum()/target_sum
 
     return proposal_loss, pos_dist, head_diff,action
 
