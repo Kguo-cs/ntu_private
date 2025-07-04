@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc64_dist05_2049_raw #_AllresVAl_detach_centerinter_post #dyanmic #8192_iq #5Hz_iq997 #embed_5Hz_iq1 #dynamicpost51      #_5hz_start_nolight_trainmask #_expertinit1_post0222 #_recoil #_local #target  #gaussianpos3Mapadd1_d5 #_iqLearn05 #_rollpost_noexpertnll_tpred
+task_name: bc64_dist1_2049_raw_detach_AllresVAl #_centerinter_post #dyanmic #8192_iq #5Hz_iq997 #embed_5Hz_iq1 #dynamicpost51      #_5hz_start_nolight_trainmask #_expertinit1_post0222 #_recoil #_local #target  #gaussianpos3Mapadd1_d5 #_iqLearn05 #_rollpost_noexpertnll_tpred
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
