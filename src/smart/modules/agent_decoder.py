@@ -312,17 +312,16 @@ class SMARTAgentDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
+            if self.pred_res and self.training:
+                proposal = self.traj_head(torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1))
+                proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
                 feat_a=feat_a[train_mask]
-                agent_token_emb=agent_token_emb[train_mask]
 
             next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
-            if self.pred_res and self.training:
-                proposal = self.traj_head(torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1))
-
-                proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
         return next_token_logits,next_light_logits,feat_a,proposal
 

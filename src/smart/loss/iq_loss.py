@@ -134,11 +134,11 @@ def padding(tensor,lengths,padding_value=0.0 ):
 
 def get_proposal_loss(proposal,tokenized_agent,start_step,train_mask):
 
-    token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None][train_mask]
-    sampled_pos = tokenized_agent["sampled_pos"][:, start_step:-1][train_mask]
-    sampled_heading = tokenized_agent["sampled_heading"][:, start_step:-1][train_mask]
-    target_global_traj = tokenized_agent["target_global_traj"][:, start_step:-1,:proposal.shape[3]][train_mask]
-    target_mask = tokenized_agent["target_mask"][:, start_step:-1, None,:proposal.shape[3]][train_mask]
+    token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]#[train_mask]
+    sampled_pos = tokenized_agent["sampled_pos"][:, start_step:-1]#[train_mask]
+    sampled_heading = tokenized_agent["sampled_heading"][:, start_step:-1]#[train_mask]
+    target_global_traj = tokenized_agent["target_global_traj"][:, start_step:-1,:proposal.shape[3]]#[train_mask]
+    target_mask = tokenized_agent["target_mask"][:, start_step:-1, None,:proposal.shape[3]]#[train_mask]
 
     target_pos = target_global_traj[..., :2].flatten(0, 1)
     target_head = target_global_traj[..., 2].flatten(0, 1)
