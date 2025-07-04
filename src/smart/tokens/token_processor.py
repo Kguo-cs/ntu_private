@@ -415,7 +415,7 @@ class TokenProcessor(torch.nn.Module):
                 torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
             )  # [n_agent]
 
-            _valid_mask=(min_dist<0.3) & _valid_mask
+            _valid_mask=(min_dist<0.2) & _valid_mask
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]

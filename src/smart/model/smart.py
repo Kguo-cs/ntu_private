@@ -20,7 +20,6 @@ import torch
 from lightning import LightningModule
 from torch.optim.lr_scheduler import LambdaLR
 
-from src.my_token_preprocess import token_processor
 from src.smart.metrics import (
     CrossEntropy,
     TokenCls,
