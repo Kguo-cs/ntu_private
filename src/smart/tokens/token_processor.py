@@ -509,13 +509,13 @@ class TokenProcessor(torch.nn.Module):
         gt_traj[~valid] = 0
 
         sampled_idx=out_dict["sampled_idx"]
-        valid_mask=out_dict["valid_mask"]# current position, heading valid
+        #valid_mask=out_dict["valid_mask"] # current position, heading valid
         token_mask=sampled_idx==self.n_token_agent-1
 
         target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
         out_dict["target_global_traj"] =target_global_traj[:,1:]
         target_mask = target_global_traj.any(-1) != 0
-        out_dict["target_mask"] = target_mask[:, 1:] & token_mask[:,:,None] & valid_mask[:,:,None]
+        out_dict["target_mask"] = target_mask[:, 1:] & token_mask[:,:,None] #& valid_mask[:,:,None]
 
         return out_dict
 
