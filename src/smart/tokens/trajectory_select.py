@@ -46,7 +46,7 @@ for type_id in [0,1,2]:#
         x_min, x_max = -5, 20
         y_max = 1.5
         x_interval =0.1#0.1
-        y_interval = 0.05
+        y_interval = 0.1
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
@@ -174,7 +174,7 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-with open("my2048.pkl", "wb") as f:
+with open("my2048_01.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
