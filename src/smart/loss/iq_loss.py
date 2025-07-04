@@ -134,11 +134,11 @@ def padding(tensor,lengths,padding_value=0.0 ):
 
 def get_proposal_loss(proposal,tokenized_agent,start_step,train_mask):
 
-    token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]#[train_mask]
-    sampled_pos = tokenized_agent["sampled_pos"][:, start_step:-1]#[train_mask]
-    sampled_heading = tokenized_agent["sampled_heading"][:, start_step:-1]#[train_mask]
-    target_global_traj = tokenized_agent["target_global_traj"][:, start_step:-1,:proposal.shape[3]]#[train_mask]
-    target_mask = tokenized_agent["target_mask"][:, start_step:-1, None,:proposal.shape[3]]#[train_mask]
+    token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]
+    sampled_pos = tokenized_agent["sampled_pos"][:, start_step:-1]
+    sampled_heading = tokenized_agent["sampled_heading"][:, start_step:-1]
+    target_global_traj = tokenized_agent["target_global_traj"][:, start_step:-1,:proposal.shape[3]]
+    target_mask = tokenized_agent["target_mask"][:, start_step:-1, None,:proposal.shape[3]]
 
     target_pos = target_global_traj[..., :2].flatten(0, 1)
     target_head = target_global_traj[..., 2].flatten(0, 1)
@@ -162,14 +162,14 @@ def get_proposal_loss(proposal,tokenized_agent,start_step,train_mask):
 
     counter_dist =torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask
 
-    proposal_loss = counter_dist.mean(-1).amin(-1)
+    proposal_loss = counter_dist.sum(-1).amin(-1).sum()/target_mask.sum()
 
     proposal5_loss = counter_dist[:, :, :, 4]
 
     action = torch.argmin(proposal5_loss, dim=-1)
 
-    pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1)
-    head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1)
+    pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1)/target_mask.sum()
+    head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1)/target_mask.sum()
 
     return proposal_loss, pos_dist, head_diff,action
 
