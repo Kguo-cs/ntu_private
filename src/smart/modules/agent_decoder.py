@@ -147,7 +147,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                    self.pred_res = False
+                    self.pred_res = True
 
                     if self.pred_res:
                         self.traj_head = MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)
@@ -313,7 +313,7 @@ class SMARTAgentDecoder(nn.Module):
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
             if self.pred_res :#and self.training
-                proposal = self.traj_head(feat_a)#torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1)
+                proposal = self.traj_head(feat_a.detach())#torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1)
                 proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
             if self.training and "train_mask" in tokenized_agent.keys():
@@ -490,11 +490,14 @@ class SMARTAgentDecoder(nn.Module):
                     head_a = torch.cat([head_a,  pred_head1[:,-1:]], dim=1)
 
                 else:
+                    if not self.pred_res:
+                        next_token_logits=next_token_logits[:, :,:token_traj_all.shape[1]]
+
                     if post_sampling:
                         next_token_idx=gt_sampled_idx[:,t]
                     else:
                         next_token_idx = Categorical(
-                            logits=next_token_logits[:, -1, :token_traj_all.shape[1]] / self.alpha).sample()#
+                            logits=next_token_logits[:, -1, ] / self.alpha).sample()#
 
                     if self.pred_res:
                         proposal=proposal[:,-1,0]
