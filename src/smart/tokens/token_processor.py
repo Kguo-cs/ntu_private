@@ -48,7 +48,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = self.agent_token_all_veh.shape[0] #+1
+        self.n_token_agent = self.agent_token_all_veh.shape[0]+1
 
         self.use_lane=False
 
@@ -397,7 +397,6 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [],
         }
 
-
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
 
@@ -421,7 +420,7 @@ class TokenProcessor(torch.nn.Module):
 
             #if i>10:
             token_valid=min_dist<0.5
-            #token_idx_gt[~token_valid]=self.n_token_agent-1
+            token_idx_gt[~token_valid]=self.n_token_agent-1
             _valid_mask=token_valid & _valid_mask
 
             # udpate prev_pos, prev_head
@@ -509,10 +508,14 @@ class TokenProcessor(torch.nn.Module):
 
         gt_traj[~valid] = 0
 
+        sampled_idx=out_dict["sampled_idx"]
+
+        token_mask=sampled_idx==self.n_token_agent-1
+
         target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
         out_dict["target_global_traj"] =target_global_traj[:,1:]
         target_mask = target_global_traj.any(-1) != 0
-        out_dict["target_mask"] = target_mask[:, 1:]
+        out_dict["target_mask"] = target_mask[:, 1:] & token_mask[:,:,None]
 
         return out_dict
 
