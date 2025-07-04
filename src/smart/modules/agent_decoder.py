@@ -150,7 +150,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.pred_res = True
 
                     if self.pred_res:
-                        self.traj_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3*5)
+                        self.traj_head = MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)
 
                 else:
                     self.token_predict_head = MLPLayer(
@@ -312,8 +312,8 @@ class SMARTAgentDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
-            if self.pred_res and self.training:
-                proposal = self.traj_head(torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1))
+            if self.pred_res :#and self.training
+                proposal = self.traj_head(feat_a)#torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1)
                 proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
             if self.training and "train_mask" in tokenized_agent.keys():
@@ -499,9 +499,17 @@ class SMARTAgentDecoder(nn.Module):
                         next_token_idx=gt_sampled_idx[:,t]
                     else:
                         next_token_idx = Categorical(
-                            logits=next_token_logits[:, -1, :token_traj_all.shape[1]] / self.alpha).sample()
+                            logits=next_token_logits[:, -1, :] / self.alpha).sample()#token_traj_all.shape[1]
 
-                    # next_local_traj = token_local_traj[torch.arange(n_agent), next_token_idx]
+                    if self.pred_res:
+                        proposal=proposal[:,-1,0]
+
+                        proposal=torch.cat([torch.zeros_like(proposal[:,:1]), proposal], dim=1)
+                        proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+
+                        token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
+                    else:
+                        token_traj_current=token_traj_all
 
                     if self.use_dynamic:
                         prev_pos=pos_a[:, -1]
@@ -530,7 +538,7 @@ class SMARTAgentDecoder(nn.Module):
                         speed_a = torch.cat([speed_a, token_speed.unsqueeze(1)], dim=1)
 
                     else:
-                        next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+                        next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
 
                         token_traj_global = transform_to_global(
                             pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
@@ -563,31 +571,6 @@ class SMARTAgentDecoder(nn.Module):
                 next_light_idx= cat_dist.sample()
 
                 light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
-
-            # if self.pred_res:
-            #     head_vector_a = torch.stack([head_a[:, -1:].cos(), head_a[:, -1:].sin()], dim=-1)
-            #
-            #     feat_a_token=self.agent_token_embedding(
-            #         agent_token_index=sampled_idx[:, -1:],  # [n_ag, n_step]
-            #         trajectory_token_veh=self.token_processor.trajectory_token_veh,
-            #         trajectory_token_ped=self.token_processor.trajectory_token_ped,
-            #         trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
-            #         pos_a=pos_a[:, -2:],  # [n_agent, n_step, 2]
-            #         head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            #         agent_type=tokenized_agent["type"],  # [n_agent]
-            #         agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
-            #     )
-            #
-            #     res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(n_agent,-1,3)
-            #
-            #     pos_global, head_global = transform_to_global(
-            #             pos_local=res_traj[:,:,:2],
-            #             head_local=res_traj[:,:,2],
-            #             pos_now=pos_a[:, -1],  # [n_agent, 2]
-            #             head_now=head_a[:, -1],  # [n_agent]
-            #         )
-            #     pos_a[:,-1]=pos_global[:,-1]
-            #     head_a[:,-1]=head_global[:,-1]
 
             if post_sampling:
                 prev_valid=gt_valid[:,t-1]

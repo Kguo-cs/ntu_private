@@ -134,6 +134,8 @@ def padding(tensor,lengths,padding_value=0.0 ):
 
 def get_proposal_loss(proposal,tokenized_agent,start_step,train_mask):
 
+    proposal=proposal[:,:-1]
+
     token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]
     sampled_pos = tokenized_agent["sampled_pos"][:, start_step:-1]
     sampled_heading = tokenized_agent["sampled_heading"][:, start_step:-1]
