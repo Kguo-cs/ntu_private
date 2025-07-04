@@ -48,7 +48,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = self.agent_token_all_veh.shape[0]
+        self.n_token_agent = self.agent_token_all_veh.shape[0]+1
 
         self.use_lane=False
 
@@ -415,7 +415,9 @@ class TokenProcessor(torch.nn.Module):
                 torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
             )  # [n_agent]
 
-            _valid_mask=(min_dist<0.2) & _valid_mask
+            token_valid=min_dist<0.2
+
+            _valid_mask=token_valid & _valid_mask
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
@@ -431,13 +433,15 @@ class TokenProcessor(torch.nn.Module):
             prev_pos[_valid_mask] = next_pos[_valid_mask]
             _invalid_mask = ~_valid_mask
 
+            token_idx_gt[~token_valid]=self.n_token_agent-1
+
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
             out_dict["gt_pos"].append(
                 prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
             )
             out_dict["gt_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
-            out_dict["valid_mask"].append(_valid_mask)
+            out_dict["valid_mask"].append(valid[:, i])
 
             # ! tokenize from sampled rollout state
             if num_k == 1:  # K=1 means no sampling

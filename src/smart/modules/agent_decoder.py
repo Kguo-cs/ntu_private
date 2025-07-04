@@ -167,7 +167,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_proposal=token_processor.pred_proposal
 
         if self.pred_proposal:
-            self.proposal_embedding=nn.Embedding(token_processor.n_token_agent,hidden_dim)
+            self.proposal_embedding=nn.Embedding(n_token_agent,hidden_dim)
             self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)#future 30 second
 
         self.pred_gaussian=False
@@ -493,7 +493,7 @@ class SMARTAgentDecoder(nn.Module):
                         next_token_idx=gt_sampled_idx[:,t]
                     else:
                         next_token_idx = Categorical(
-                            logits=next_token_logits[:, -1, :self.n_token_agent] / self.alpha).sample()
+                            logits=next_token_logits[:, -1, :token_traj_all.shape[1]] / self.alpha).sample()
 
                     # next_local_traj = token_local_traj[torch.arange(n_agent), next_token_idx]
 
