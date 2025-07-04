@@ -147,7 +147,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                    self.pred_res = True
+                    self.pred_res = False
 
                     if self.pred_res:
                         self.traj_head = MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)
@@ -229,7 +229,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=pos_a[:,-n_step:]
             head_a=head_a[:,-n_step:]
             head_vector_a=head_vector_a[:,-n_step:]
-            agent_token_emb=agent_token_emb[:,-n_step:]
+            #agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
 
         mask_a=mask_a[:,-n_step:]
@@ -322,7 +322,6 @@ class SMARTAgentDecoder(nn.Module):
 
             next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
-
         return next_token_logits,next_light_logits,feat_a,proposal
 
     def forward(
@@ -390,10 +389,6 @@ class SMARTAgentDecoder(nn.Module):
 
         if not self.pred_proposal :
             token_traj_all = tokenized_agent["token_traj_all"]
-            # pred_pos = token_traj_all[:,:,1:].mean(3)
-            # diff_xy = token_traj_all[:, :, 1:,0] - token_traj_all[:, :,1:, 3]
-            # pred_head = torch.arctan2(diff_xy[:, :, :,1], diff_xy[:, :,:, 0])
-            # token_local_traj = torch.cat([pred_pos, pred_head[:, :,:, None]], dim=-1)
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
@@ -499,7 +494,7 @@ class SMARTAgentDecoder(nn.Module):
                         next_token_idx=gt_sampled_idx[:,t]
                     else:
                         next_token_idx = Categorical(
-                            logits=next_token_logits[:, -1, :] / self.alpha).sample()#token_traj_all.shape[1]
+                            logits=next_token_logits[:, -1, :token_traj_all.shape[1]] / self.alpha).sample()#
 
                     if self.pred_res:
                         proposal=proposal[:,-1,0]

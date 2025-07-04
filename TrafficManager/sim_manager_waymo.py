@@ -353,8 +353,8 @@ class SimulationManager:
 
             for tf_data in dataset:
                 i+=1
-                # if i!=4:
-                #     continue
+                if i!=4:
+                    continue
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
@@ -440,13 +440,13 @@ class SimulationManager:
 
                 agent_num=len(tokenized_agent["batch"])
 
-                #add traffic light
-                light_num=len(tokenized_agent["light_idx"])
-                tokenized_agent["light_idx"]=tokenized_agent["light_idx"][:light_num]#torch.ones_like(tokenized_agent["light_idx"][:light_num]).long()
-                tokenized_agent["pos_lg"]=tokenized_agent["pos_lg"][:light_num]
-                tokenized_agent["orient_lg"]=tokenized_agent["orient_lg"][:light_num]
-                tokenized_agent["batch_lg"]=tokenized_agent["batch_lg"][:light_num]
-                tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
+                # #add traffic light
+                # light_num=len(tokenized_agent["light_idx"])
+                # tokenized_agent["light_idx"]=tokenized_agent["light_idx"][:light_num]#torch.ones_like(tokenized_agent["light_idx"][:light_num]).long()
+                # tokenized_agent["pos_lg"]=tokenized_agent["pos_lg"][:light_num]
+                # tokenized_agent["orient_lg"]=tokenized_agent["orient_lg"][:light_num]
+                # tokenized_agent["batch_lg"]=tokenized_agent["batch_lg"][:light_num]
+                # tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
 
 
                 while True:
@@ -543,7 +543,7 @@ class SimulationManager:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
 
 
-        self.planner.load_state_dict(state_dict)
+        # self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 

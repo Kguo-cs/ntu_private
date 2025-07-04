@@ -1,0 +1,26 @@
+# Data Configuration
+data:
+  template_path: "data/data_template.pth"
+  nu_scenes_root: "networkFiles/{map_name}/"
+
+# Image Configuration
+image:
+  size: 200
+  target_size: [560, 315]
+
+
+data_path: "../src/waymo_data/full/validation_tfrecords_splitted"
+
+planner_path: "../src/waymo_data/bc64_light5_100_sharet_current_sacol_epoch=9-step=76100-val_closed_wosac=0.7706.ckpt"
+
+static:
+  add: []
+  remove: []
+
+traffic_light:
+  add: []
+  remove: []
+
+agent:
+  add: []
+  remove: []
