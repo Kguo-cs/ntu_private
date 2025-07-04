@@ -110,18 +110,5 @@ class AgentTokenEncoder(nn.Module):
         feat_a = torch.cat((agent_token_emb, x_a), dim=-1)
         feat_a = self.fusion_emb(feat_a)
 
-        if inference:
-            return (
-                feat_a,  # [n_agent, n_step, hidden_dim]
-                agent_token_emb,  # [n_agent, n_step, hidden_dim]
-                agent_token_emb_veh,  # [n_agent, hidden_dim]
-                agent_token_emb_ped,  # [n_agent, hidden_dim]
-                agent_token_emb_cyc,  # [n_agent, hidden_dim]
-                veh_mask,  # [n_agent]
-                ped_mask,  # [n_agent]
-                cyc_mask,  # [n_agent]
-                categorical_embs,  # List of len=2, shape [n_agent, hidden_dim]
-            )
-        else:
-            return feat_a # [n_agent, n_step, hidden_dim]
+        return feat_a, agent_token_emb  # [n_agent, n_step, hidden_dim]
 

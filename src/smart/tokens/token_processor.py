@@ -205,12 +205,12 @@ class TokenProcessor(torch.nn.Module):
         pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
         vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
 
-        # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
-        # heading = self._clean_heading(valid, heading)
-        # # ! extrapolate to previous 5th step.
-        # valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
-        #     valid, pos, heading, vel
-        # )
+        # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
+        heading = self._clean_heading(valid, heading)
+        # ! extrapolate to previous 5th step.
+        valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
+            valid, pos, heading, vel
+        )
 
         # ! prepare output dict
         tokenized_agent = {
@@ -397,6 +397,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [],
         }
 
+
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
 
@@ -419,7 +420,7 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             #if i>10:
-            token_valid=min_dist<0.2
+            token_valid=min_dist<0.5
             #token_idx_gt[~token_valid]=self.n_token_agent-1
             _valid_mask=token_valid & _valid_mask
 
@@ -487,6 +488,31 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
+        def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
+            B, T, D = tensor.shape
+            max_future = 30
+
+            # Pad extra steps to the right to safely index up to t+30
+            padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
+
+            # Start indices every 5 steps
+            starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
+
+            # For each start t, get future steps t+1 to t+30 (exclude t)
+            offsets = torch.tensor([1,2,3,4,5],device=tensor.device)#,10,15,20,25,30torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
+            indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
+            gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
+
+            return gathered
+
+        gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
+
+        gt_traj[~valid] = 0
+
+        target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
+        out_dict["target_global_traj"] =target_global_traj[:,1:]
+        target_mask = target_global_traj.any(-1) != 0
+        out_dict["target_mask"] = target_mask[:, 1:]
 
         return out_dict
 
@@ -562,11 +588,11 @@ class TokenProcessor(torch.nn.Module):
 
         gt_traj[~valid] = 0
 
-
         target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
         out_dict["target_global_traj"] =target_global_traj[:,1:]
 
         target_mask = target_global_traj.any(-1) != 0
+        out_dict["target_mask"] = target_mask[:, 1:]
 
         sampled_pos = pos[:, 5::5].clone()
         sampled_heading = heading[:, 5::5].clone()
@@ -592,7 +618,6 @@ class TokenProcessor(torch.nn.Module):
         target_pos=target_pos.reshape(-1, 19, target_global_traj.shape[2], 2)
         target_head=target_head.reshape(-1, 19, target_global_traj.shape[2])
 
-        out_dict["target_mask"] = target_mask[:, 1:]
 
         target_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
 

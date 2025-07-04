@@ -147,10 +147,10 @@ class SMARTAgentDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                    self.pred_res = False
+                    self.pred_res = True
 
                     if self.pred_res:
-                        self.res_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3)
+                        self.traj_head = MLPLayer(hidden_dim*2,hidden_dim, output_dim=3*5)
 
                 else:
                     self.token_predict_head = MLPLayer(
@@ -176,6 +176,7 @@ class SMARTAgentDecoder(nn.Module):
             self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=4*6)#future 30 second
 
         self.use_dynamic=token_processor.use_dynamic
+        self.start_step=10//self.shift-1
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -185,7 +186,7 @@ class SMARTAgentDecoder(nn.Module):
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
         # ! get agent token embeddings
-        feat_a_token = self.agent_token_embedding(
+        feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             trajectory_token_veh=self.token_processor.agent_token_all_veh,
             trajectory_token_ped=self.token_processor.agent_token_all_ped,
@@ -222,6 +223,14 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
             feat_lgt=None
+
+        if self.training:
+            n_step=n_step-self.start_step
+            pos_a=pos_a[:,-n_step:]
+            head_a=head_a[:,-n_step:]
+            head_vector_a=head_vector_a[:,-n_step:]
+            agent_token_emb=agent_token_emb[:,-n_step:]
+            feat_a_t=feat_a_t[:,-n_step:]
 
         mask_a=mask_a[:,-n_step:]
 
@@ -262,7 +271,6 @@ class SMARTAgentDecoder(nn.Module):
             proposal=proposal,
             shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
-
 
         if self.pred_light and len(light_idx):
             mask_lg=mask[len(sampled_idx):]
@@ -307,15 +315,14 @@ class SMARTAgentDecoder(nn.Module):
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
                 feat_a=feat_a[train_mask]
+                agent_token_emb=agent_token_emb[train_mask]
 
             next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
             if self.pred_res and self.training:
-                res_traj = self.res_head(torch.cat([feat_a[:, :-1], feat_a_token[:, 1:]], dim=-1))
+                proposal = self.traj_head(torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1))
 
-                res_traj = torch.cat([res_traj, res_traj[:, :1]], dim=1)
-
-                next_token_logits = torch.cat([next_token_logits, res_traj], dim=-1)
+                proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
         return next_token_logits,next_light_logits,feat_a,proposal
 
@@ -347,10 +354,10 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,post_sampling=post_sampling)
 
-        # if self.n_token_agent>1:
-        #     tokenized_agent["next_token_logits"] = next_token_logits
-        #     tokenized_agent["next_light_logits"] = next_light_logits
-        #     tokenized_agent["proposal"] = proposal
+        if self.n_token_agent>1:
+            tokenized_agent["next_token_logits"] = next_token_logits
+            tokenized_agent["next_light_logits"] = next_light_logits
+            tokenized_agent["proposal"] = proposal
 
         if next_light_logits is not None:
             light_q=next_light_logits[:, 1:]
@@ -558,30 +565,30 @@ class SMARTAgentDecoder(nn.Module):
 
                 light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
 
-            if self.pred_res:
-                head_vector_a = torch.stack([head_a[:, -1:].cos(), head_a[:, -1:].sin()], dim=-1)
-
-                feat_a_token=self.agent_token_embedding(
-                    agent_token_index=sampled_idx[:, -1:],  # [n_ag, n_step]
-                    trajectory_token_veh=self.token_processor.trajectory_token_veh,
-                    trajectory_token_ped=self.token_processor.trajectory_token_ped,
-                    trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
-                    pos_a=pos_a[:, -2:],  # [n_agent, n_step, 2]
-                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                    agent_type=tokenized_agent["type"],  # [n_agent]
-                    agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
-                )
-
-                res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(n_agent,-1,3)
-
-                pos_global, head_global = transform_to_global(
-                        pos_local=res_traj[:,:,:2],
-                        head_local=res_traj[:,:,2],
-                        pos_now=pos_a[:, -1],  # [n_agent, 2]
-                        head_now=head_a[:, -1],  # [n_agent]
-                    )
-                pos_a[:,-1]=pos_global[:,-1]
-                head_a[:,-1]=head_global[:,-1]
+            # if self.pred_res:
+            #     head_vector_a = torch.stack([head_a[:, -1:].cos(), head_a[:, -1:].sin()], dim=-1)
+            #
+            #     feat_a_token=self.agent_token_embedding(
+            #         agent_token_index=sampled_idx[:, -1:],  # [n_ag, n_step]
+            #         trajectory_token_veh=self.token_processor.trajectory_token_veh,
+            #         trajectory_token_ped=self.token_processor.trajectory_token_ped,
+            #         trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
+            #         pos_a=pos_a[:, -2:],  # [n_agent, n_step, 2]
+            #         head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            #         agent_type=tokenized_agent["type"],  # [n_agent]
+            #         agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
+            #     )
+            #
+            #     res_traj = self.res_head(torch.cat([feat_a[:,-1], feat_a_token[:,-1]], dim=-1)).reshape(n_agent,-1,3)
+            #
+            #     pos_global, head_global = transform_to_global(
+            #             pos_local=res_traj[:,:,:2],
+            #             head_local=res_traj[:,:,2],
+            #             pos_now=pos_a[:, -1],  # [n_agent, 2]
+            #             head_now=head_a[:, -1],  # [n_agent]
+            #         )
+            #     pos_a[:,-1]=pos_global[:,-1]
+            #     head_a[:,-1]=head_global[:,-1]
 
             if post_sampling:
                 prev_valid=gt_valid[:,t-1]

@@ -39,9 +39,7 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.state_dict())
 
 
-    def get_network_QV(self,all_q_value,tokenized_map, tokenized_agent,action,key):
-
-        q_value=all_q_value[:,self.start_step:]
+    def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
         if self.output_gmm:
             dist =  GMM_Dist(q_value)
@@ -111,10 +109,6 @@ class IQ_SoftQ(LightningModule):
 
             q = q_value[:, :-1]
 
-            if self.encoder.agent_encoder.pred_res:
-                traj=q[:,:,self.n_token_agent:]
-                q=q[:,:,:self.n_token_agent]
-
             current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
             V =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
@@ -150,10 +144,7 @@ class IQ_SoftQ(LightningModule):
             log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
             entropy = -torch.sum(pi * logpi, dim=-1)
 
-            if self.encoder.agent_encoder.pred_res and key=="expert":
-                actor_loss = torch.abs(traj-tokenized_agent["target"][:,2:]).mean(-1)
-            else:
-                actor_loss=self.alpha * log_prob - current_Q
+            actor_loss = self.alpha * log_prob - current_Q
 
         dones = torch.zeros_like(next_V)
         dones[:, -1] = 1
@@ -174,16 +165,16 @@ class IQ_SoftQ(LightningModule):
 
             if key=="expert":
                 if self.encoder.agent_encoder.pred_gaussian:
-                    proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"][:,1:-1],tokenized_agent )
+                    proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"],tokenized_agent )
                     action = tokenized_agent["sampled_idx"][:, 2:]
                 else:
-                    proposal_loss, pos_dist, head_diff,action=get_proposal_loss(pred["proposal"][:,1:-1],tokenized_agent )
+                    proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step,train_mask )
 
-                    self.log("train/" + key + "_head_diff", head_diff[train_mask].mean().item(), on_step=True, batch_size=1)
+                    self.log("train/" + key + "_head_diff", head_diff.mean().item(), on_step=True, batch_size=1)
 
-                proposal_loss=proposal_loss[train_mask].mean()
+                proposal_loss=proposal_loss.mean()
 
-                self.log("train/" + key + "_pos_dist", pos_dist[train_mask].mean().item(), on_step=True, batch_size=1)
+                self.log("train/" + key + "_pos_dist", pos_dist.mean().item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
             else:
                 proposal=pred["proposal"][:,1:-1,:,4].flatten(0,1)
@@ -201,10 +192,10 @@ class IQ_SoftQ(LightningModule):
 
                 action = torch.argmin(dist, dim=-1)
                 proposal_loss=0
-
         else:
             proposal_loss=0
-            action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
+
+        action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
