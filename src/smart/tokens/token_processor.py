@@ -226,8 +226,6 @@ class TokenProcessor(torch.nn.Module):
             "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-            # "next_route": data["agent"]["next_route"],
-            # "light":data["agent"]["light"]
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
@@ -251,16 +249,6 @@ class TokenProcessor(torch.nn.Module):
             token_traj=token_traj,
             speed=speed
         )
-        # token_dict = self.my_match_agent_token(
-        #     valid=valid,
-        #     pos=pos,
-        #     heading=heading,
-        #     agent_shape=agent_shape,
-        #     token_traj=token_traj,
-        # )
-        # tokenized_agent["pos"]=pos[:,11:]
-        # tokenized_agent["heading"]=heading[:,11:]
-
         tokenized_agent.update(token_dict)
         return tokenized_agent
 
@@ -360,6 +348,7 @@ class TokenProcessor(torch.nn.Module):
 
         return out_dict
 
+
     def _match_agent_token(
         self,
         valid: Tensor,  # [n_agent, n_step]
@@ -410,8 +399,6 @@ class TokenProcessor(torch.nn.Module):
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
-            _invalid_mask = ~_valid_mask
-            out_dict["valid_mask"].append(_valid_mask)
 
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
@@ -424,9 +411,11 @@ class TokenProcessor(torch.nn.Module):
                 pos_now=prev_pos,  # [n_agent, 2]
                 head_now=prev_head,  # [n_agent]
             )[0].view(*token_traj.shape)
-            token_idx_gt = torch.argmin(
+            min_dist,token_idx_gt = torch.min(
                 torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
             )  # [n_agent]
+
+            _valid_mask=(min_dist<0.3) & _valid_mask
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
@@ -440,12 +429,15 @@ class TokenProcessor(torch.nn.Module):
             prev_pos = pos[:, i].clone()
             next_pos = token_contour_gt.mean(1)
             prev_pos[_valid_mask] = next_pos[_valid_mask]
+            _invalid_mask = ~_valid_mask
+
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
             out_dict["gt_pos"].append(
                 prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
             )
             out_dict["gt_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
+            out_dict["valid_mask"].append(_valid_mask)
 
             # ! tokenize from sampled rollout state
             if num_k == 1:  # K=1 means no sampling

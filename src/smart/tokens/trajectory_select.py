@@ -117,8 +117,8 @@ for type_id in [0,1,2]:#
         # #choice_index = torch.randint(0, traj2.shape[0], (1,)).item()
 
         # meaning_traj=traj2[choice_index]
-        meaning_traj= traj2.mean(dim=0) #.numpy()
-        traj_list.append(meaning_traj.cpu().to(torch.float32))
+        meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
+        traj_list.append(meaning_traj.to(torch.float32))
 
         # traj2=torch.cat([torch.zeros_like(traj2[:,:1]),traj2], dim=1)
         #
@@ -140,9 +140,9 @@ for type_id in [0,1,2]:#
 
         #traj_list.append(meaning_contour.cpu())
 
-    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-    #
-    # plt.show()
+        plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+
+    plt.show()
     codebook = torch.stack(traj_list, dim=0)
 
     # inverse_contour = traj_list.clone()
@@ -174,9 +174,9 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-with open("my2048.pkl", "wb") as f:
-    pickle.dump(res, f)
-
+# with open("my2048.pkl", "wb") as f:
+#     pickle.dump(res, f)
+#
 
 # torch.Size([154079694, 5, 3])
 # 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
