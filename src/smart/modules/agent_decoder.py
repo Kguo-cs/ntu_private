@@ -147,7 +147,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                    self.pred_res = True
+                    self.pred_res = False
 
                     if self.pred_res:
                         self.traj_head = MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)
