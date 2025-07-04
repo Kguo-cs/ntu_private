@@ -241,4 +241,4 @@ def get_gaussian_loss(proposal,tokenized_agent):
     pos_dist = (torch.linalg.norm(target_local[..., :2]-proposal_mean[..., :2],dim=-1)*target_mask).mean(-1)
     head_diff =0 #(wrap_angle(target_local[..., 2]-proposal_mean[..., 2]).abs() *target_mask).mean(-1)
 
-    return 0.01*proposal_loss, pos_dist, head_diff
+    return proposal_loss, pos_dist, head_diff
