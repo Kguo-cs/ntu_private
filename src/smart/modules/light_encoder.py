@@ -58,23 +58,30 @@ class LightEncoder(nn.Module):
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
         self.share=True
+
+        self.autoRegressive_light=True
+
+        if self.autoRegressive_light:
+            self.share = False
+            #self.light_hist=1000
+        else:
+            self.use_gnn=True
+
+            if self.use_gnn:
+                self.edge_encoder=edge_encoder
+                self.lg2lg_layers = AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=self.head_dim,
+                    dropout=self.light_dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
+            else:
+                self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
+
         if not self.share:
             self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
-
-        self.use_gnn=True
-
-        if self.use_gnn:
-            self.edge_encoder=edge_encoder
-            self.lg2lg_layers = AttentionLayer(
-                hidden_dim=hidden_dim,
-                num_heads=num_heads,
-                head_dim=self.head_dim,
-                dropout=self.light_dropout,
-                bipartite=False,
-                has_pos_emb=True,
-            )
-        else:
-            self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
 
         self.lg2a_attn_layers = nn.ModuleList(
             [
@@ -181,57 +188,80 @@ class LightEncoder(nn.Module):
         return feat_lg,next_light_logits
 
     def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg, n_current, feat_lg=None):
-
         n_light, n_step = light_idx.shape[0], light_idx.shape[1]
 
-        if not self.share  :
-            feat_lg = self.light_embedding(light_idx)
+        # if not self.share:
+        #     feat_lg = self.light_embedding(light_idx)
 
-            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
+        if self.autoRegressive_light:
 
-        mask_lg=mask_lg[:, -n_step:]
+            lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
 
-        if self.use_gnn:
-            pos_lg=tokenized_agent["pos_lg"]
-            head_lg=tokenized_agent["orient_lg"]
-            head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
-
-            edge_index_lg2lg, r_lg2lg=self.edge_encoder.build_interaction_edge(
-                pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-                head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
-                head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
-                batch_s=batch_lg,  # [n_agent*n_step]
-                mask=mask_lg,  # [n_agent, n_step]
-                max_radius=100,
-                max_num_neighbors=10
-            )
-
-            feat_lg = self.lg2lg_layers(feat_lg.transpose(0, 1).flatten(0, 1), r_lg2lg, edge_index_lg2lg)
-
-            feat_lg=feat_lg.reshape( n_step, n_light, -1).swapaxes(0, 1)
-
-        else:
-            lengths=tokenized_agent["lengths_lg"]
-
-            padded_lg_feature = padding(feat_lg, lengths)
+            padded_lg_feature = padding(feat_lg, lengths_lg)#b,agent,t,
 
             feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
 
-            padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
+            pos_lg = tokenized_agent["pos_lg"]
+            head_lg = tokenized_agent["orient_lg"]
 
-            #padding_light_mask = padding(mask_lg, lengths).swapaxes(1, 2).flatten(0,1)
+            pos_lg=padding(pos_lg, lengths_lg)[:,:,None].repeat(1,1,n_step,1).flatten(1,2)
+            head_lg=padding(head_lg, lengths_lg)[:,:,None].repeat(1,1,n_step).flatten(1,2)
 
-            lg_sinusoidal=self.get_lg_sinusoidal(tokenized_agent)
+            feat_lg=padded_lg_feature.flatten(1,2)
 
-            lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
+            padding_light_mask = padding(mask_lg, lengths_lg,padding_value=True) .flatten(1,2)
 
-            #lg2lg_mask = padding_light_mask[:, None, None]
+            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pos_lg, head_lg, n_step, n_current,  padding_light_mask).reshape(padded_lg_feature.shape)
 
-            padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, None, lg_sinusoidal)
+            feat_lg=feat_lg[feature_mask]
 
-            padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
+        else:
+            if not self.share:
+                feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
 
-            feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
+            mask_lg=mask_lg[:, -n_step:]
+
+            if self.use_gnn:
+                pos_lg=tokenized_agent["pos_lg"]
+                head_lg=tokenized_agent["orient_lg"]
+                head_vector_lg = torch.stack([head_lg.cos(), head_lg.sin()], dim=-1)
+
+                edge_index_lg2lg, r_lg2lg=self.edge_encoder.build_interaction_edge(
+                    pos_a=pos_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                    head_a=head_lg[:,None].repeat(1,n_step),  # [n_agent, n_step]
+                    head_vector_a=head_vector_lg[:,None].repeat(1,n_step,1),  # [n_agent, n_step, 2]
+                    batch_s=batch_lg,  # [n_agent*n_step]
+                    mask=mask_lg,  # [n_agent, n_step]
+                    max_radius=100,
+                    max_num_neighbors=10
+                )
+
+                feat_lg = self.lg2lg_layers(feat_lg.transpose(0, 1).flatten(0, 1), r_lg2lg, edge_index_lg2lg)
+
+                feat_lg=feat_lg.reshape( n_step, n_light, -1).swapaxes(0, 1)
+
+            else:
+                lengths=tokenized_agent["lengths_lg"]
+
+                padded_lg_feature = padding(feat_lg, lengths)
+
+                feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
+
+                padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
+
+                #padding_light_mask = padding(mask_lg, lengths).swapaxes(1, 2).flatten(0,1)
+
+                lg_sinusoidal=self.get_lg_sinusoidal(tokenized_agent)
+
+                lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
+
+                #lg2lg_mask = padding_light_mask[:, None, None]
+
+                padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, None, lg_sinusoidal)
+
+                padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
+
+                feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 
         #        feat_lg=self.predict_feature(feat_lg)
 

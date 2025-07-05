@@ -124,7 +124,7 @@ class RoFormerSelfAttention(nn.Module):
         self.caching_len = caching_len
         self.caching=False
 
-        if self.cached_k is not None:
+        if self.cached_k is not None and current_step!=0:
             self.cached_k = self.cached_k[:, :, :current_step]
             self.cached_v = self.cached_v[:, :, :current_step]
 
@@ -136,6 +136,7 @@ class RoFormerSelfAttention(nn.Module):
         encoder_hidden_states=None,
         encoder_sinusoidal_pos=None,
         pos_embeding=None,
+        n_agent=1
     ):
         mixed_query_layer = self.query(hidden_states)
         query_layer = self.transpose_for_scores(mixed_query_layer)
@@ -218,8 +219,8 @@ class RoFormerSelfAttention(nn.Module):
             # if self.cached_k is None:
             #     self.cached_k = key_layer; self.cached_v = value_layer
             # else:
-            key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len:]
-            value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len:]
+            key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len*n_agent:]
+            value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len*n_agent:]
             #attention_mask=None
         elif self.caching:
             self.cached_k = key_layer
@@ -491,25 +492,31 @@ class RoFormerBlock(nn.Module):
 
         self.hist_len=hist_len
 
-    def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None,pos_embeding=None):
-        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding)
+    def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None,pos_embeding=None,n_agent=1):
+        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding,n_agent=n_agent)
         x = x + self.mlp(self.norm2(x))
         return x
 
     def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask):
 
-        causal_mask = generate_limited_causal_mask(n_step, self.hist_len, device=feature.device)
+        n_agent=pos.shape[1]//n_step
 
-        time = torch.arange(n_current, n_step + n_current, device=feature.device)[None, :, None]
+        time = torch.arange(n_current, n_step + n_current, device=feature.device)[:,None].repeat(1,n_agent).flatten(0,1)[None, :, None]
 
         # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
         #
         # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
+
         sinusoidal_pos = self.rotary_embedding(pos, heading, time)
 
-        if mask is not None:
-            causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]
+        if self.training:
+            causal_mask = generate_limited_causal_mask(n_step, self.hist_len,n_agent=n_agent, device=feature.device)
+            if mask is not None:
+                causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]
+        else:
+            if mask is not None:
+                causal_mask = ~mask[:, None, None, :]
 
-        feature = self.forward(feature, causal_mask, sinusoidal_pos)
+        feature = self.forward(feature, causal_mask, sinusoidal_pos,n_agent=n_agent)
 
         return feature

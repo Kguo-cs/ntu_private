@@ -212,8 +212,8 @@ class SMARTAgentDecoder(nn.Module):
             return None,None,None,proposal
 
         pos_a=pos_a[:,-n_step:]
-
         mask_a=mask[:n_agent]
+        mask_lg =mask[n_agent:]
 
         if self.pred_light and len(light_idx) and self.light_encoder.share:
             feat_lg = self.light_encoder.light_embedding(light_idx)
@@ -226,6 +226,7 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
             feat_lgt=None
+
 
         if self.training:
             n_step=n_step-self.start_step
@@ -281,11 +282,14 @@ class SMARTAgentDecoder(nn.Module):
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         if self.pred_light and len(light_idx):
-            mask_lg=mask[len(sampled_idx):,-n_step:]
+            feat_lg = self.light_encoder.light_embedding(light_idx)
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 
-            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lgt)
+            _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lg)
+
+            mask_lg = mask_lg[:, -n_step:]
+            next_light_logits=next_light_logits[:,-n_step:]
 
             edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
                 pos_pl= tokenized_agent["pos_lg"],  # [n_pl, 2]
@@ -423,6 +427,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             light_idx = torch.zeros([0,2])
 
+
         pred_traj_10hz = torch.zeros(
             [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device
         )
@@ -444,10 +449,14 @@ class SMARTAgentDecoder(nn.Module):
                         next_light_logits = None
                 else:
                     self.a_t_roformer.attn.caching=True
+                    if self.pred_light and not self.light_encoder.share:
+                        self.light_encoder.lg_t_roformer.attn.caching=True
                     next_token_logits,next_light_logits,feat_a,proposal = self.predict_agent(sampled_idx, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,0,post_sampling)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
+                if self.pred_light and not self.light_encoder.share:
+                    self.light_encoder.lg_t_roformer.attn.kv_caching(self.agent_hist)
             else:
                 next_token_logits,next_light_logits,feat_a,proposal  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                 pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:,-1:],t - 1,post_sampling)
@@ -630,6 +639,8 @@ class SMARTAgentDecoder(nn.Module):
                     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
+        if self.pred_light and not self.light_encoder.share:
+            self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
         out_dict = {
             "type": tokenized_agent["type"],
@@ -646,9 +657,9 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["pred_head_10hz"] = pred_head_10hz#tokenized_agent["heading"] #
             pred_z = tokenized_agent["gt_z_raw"].unsqueeze(1)  # [n_agent, 1]
             out_dict["pred_z_10hz"] = pred_z.expand(-1, pred_traj_10hz.shape[1])
-            out_dict["gt_pos_raw"] = tokenized_agent["gt_pos_raw"]  # [n_agent, 18, 2]
-            out_dict["gt_head_raw"] = tokenized_agent["gt_head_raw"]  # [n_agent, 18]
-            out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
+            #out_dict["gt_pos_raw"] = tokenized_agent["gt_pos_raw"]  # [n_agent, 18, 2]
+            #out_dict["gt_head_raw"] = tokenized_agent["gt_head_raw"]  # [n_agent, 18]
+           # out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
 
         return out_dict
 

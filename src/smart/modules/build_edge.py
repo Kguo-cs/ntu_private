@@ -224,13 +224,15 @@ def generate_causal_mask(seq_len, device='cpu'):
     return mask  # [T, T]
 
 
-def generate_limited_causal_mask(seq_len, history_len, device='cpu'):
+def generate_limited_causal_mask(seq_len, history_len,n_agent=1, device='cpu'):
     # for i in range(seq_len):
     #     start = max(0, i - history_len + 1)
     #     mask[i, start:i + 1] = 0.0  # allow self and last `history_len - 1` tokens
 
-    i = torch.arange(seq_len, device=device).unsqueeze(1)
-    j = torch.arange(seq_len, device=device).unsqueeze(0)
+    t=torch.arange(seq_len, device=device)[:,None].repeat(1,n_agent).flatten(0,1)
+
+    i = t.unsqueeze(1)
+    j = t.unsqueeze(0)
     mask = (j> i) | (j < i - history_len+ 1)  # True means masked
 
     return mask  # shape: [seq_len, seq_len]
