@@ -249,7 +249,11 @@ class TokenProcessor(torch.nn.Module):
             token_traj=token_traj,
             speed=speed
         )
+
         tokenized_agent.update(token_dict)
+
+
+
         return tokenized_agent
 
     def dynamic_match(self, valid, pos,speed, heading,agent_shape, token_traj) -> Dict[str, Tensor]:
@@ -517,6 +521,7 @@ class TokenProcessor(torch.nn.Module):
         out_dict["target_global_traj"] =target_global_traj[:,1:]
         target_mask = target_global_traj.any(-1) != 0
         out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]# & token_mask[:,:,None]
+
 
         return out_dict
 

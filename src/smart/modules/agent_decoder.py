@@ -315,15 +315,31 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_res:
                 if self.training:
-                    proposal_feature=feat_a[:, :-1]+ agent_token_emb[:, 1:]
+                    proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
                 else:
                     proposal_feature = feat_a
+
                 proposal = self.traj_head(proposal_feature.detach())
                 proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+
+                if self.training and self.pred_all_token:
+                    next_token_idx = sampled_idx[:, 1 + self.start_step:]
+
+                    token_traj_all = tokenized_agent["token_traj_all"]
+
+                    pred_pos = token_traj_all[:, :, :].mean(3)
+                    diff_xy = token_traj_all[:, :, :, 0] - token_traj_all[:, :, :, 3]
+                    pred_head = torch.arctan2(diff_xy[:, :, :, 1], diff_xy[:, :, :, 0])
+
+                    token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
+
+                    next_token_traj_all = token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
+                    proposal=proposal+next_token_traj_all[:,:,None]
 
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
                 feat_a=feat_a[train_mask]
+
 
             next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
@@ -394,6 +410,12 @@ class SMARTAgentDecoder(nn.Module):
 
         if not self.pred_proposal :
             token_traj_all = tokenized_agent["token_traj_all"]
+            pred_pos = token_traj_all[:, :, :].mean(3)
+            diff_xy = token_traj_all[:, :, :, 0] - token_traj_all[:, :, :, 3]
+            pred_head = torch.arctan2(diff_xy[:, :, :, 1], diff_xy[:, :, :, 0])
+
+            token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
+
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
@@ -512,6 +534,9 @@ class SMARTAgentDecoder(nn.Module):
                             proposal_feature=feat_a[:,-1]+token_embedding
 
                             proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
+                            next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
+
+                            proposal=proposal+next_token_traj_all
 
                             next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
 
