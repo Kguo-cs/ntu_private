@@ -322,12 +322,12 @@ class SMARTAgentDecoder(nn.Module):
             #         proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
             # else:
             if self.training:
-                proposal_feature=feat_a[:, :-1]+ agent_token_emb[:, 1:]
+                proposal_feature=feat_a[:, :-1].detach()+ agent_token_emb[:, 1:]
             else:
                 proposal_feature=feat_a
 
             if self.pred_res:
-                proposal = self.traj_head(proposal_feature.detach())
+                proposal = self.traj_head(proposal_feature)
                 proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
             if self.training and "train_mask" in tokenized_agent.keys():
