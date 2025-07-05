@@ -536,7 +536,7 @@ class SMARTAgentDecoder(nn.Module):
                             proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
                             next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
 
-                            proposal=proposal+next_token_traj_all
+                            proposal=next_token_traj_all
 
                             next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
 
