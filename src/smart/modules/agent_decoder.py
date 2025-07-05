@@ -224,9 +224,7 @@ class SMARTAgentDecoder(nn.Module):
             feat_lgt=feat_a_lg[n_agent:]
         else:
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
-
             feat_lgt=None
-
 
         if self.training:
             n_step=n_step-self.start_step
@@ -325,9 +323,9 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_res:
                 if self.training:
-                    proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+                    proposal_feature = feat_a[:, :-1] + self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
-                    proposal_feature = feat_a
+                    proposal_feature = feat_a+self.agent_token_embedding.embedding.weight[-1,None,None]
 
                 proposal = self.traj_head(proposal_feature.detach())
                 proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
@@ -418,7 +416,6 @@ class SMARTAgentDecoder(nn.Module):
             pred_head = torch.arctan2(diff_xy[:, :, :, 1], diff_xy[:, :, :, 0])
 
             token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
-
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
@@ -426,7 +423,6 @@ class SMARTAgentDecoder(nn.Module):
             light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
         else:
             light_idx = torch.zeros([0,2])
-
 
         pred_traj_10hz = torch.zeros(
             [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device
@@ -535,7 +531,6 @@ class SMARTAgentDecoder(nn.Module):
                             logits=next_token_logits[:, -1, ] / self.alpha).sample()#
 
                     if self.pred_res:
-
                         if self.pred_all_token:
                             token_embedding=self.agent_token_embedding.embedding(next_token_idx)
 
@@ -653,13 +648,9 @@ class SMARTAgentDecoder(nn.Module):
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-            out_dict["pred_traj_10hz"] = pred_traj_10hz#tokenized_agent["pos"]#
-            out_dict["pred_head_10hz"] = pred_head_10hz#tokenized_agent["heading"] #
-            pred_z = tokenized_agent["gt_z_raw"].unsqueeze(1)  # [n_agent, 1]
-            out_dict["pred_z_10hz"] = pred_z.expand(-1, pred_traj_10hz.shape[1])
-            #out_dict["gt_pos_raw"] = tokenized_agent["gt_pos_raw"]  # [n_agent, 18, 2]
-            #out_dict["gt_head_raw"] = tokenized_agent["gt_head_raw"]  # [n_agent, 18]
-           # out_dict["gt_valid_raw"] = tokenized_agent["gt_valid_raw"]  # [n_agent, 18]
+            out_dict["pred_traj_10hz"] = pred_traj_10hz
+            out_dict["pred_head_10hz"] = pred_head_10hz
+            out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, pred_traj_10hz.shape[1])
 
         return out_dict
 
