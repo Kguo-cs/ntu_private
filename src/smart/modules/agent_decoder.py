@@ -148,8 +148,10 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
                     self.pred_res = True
+                    self.pred_all_token = True
 
                     if self.pred_res:
+
                         self.traj_head = MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)
 
                 else:
@@ -229,7 +231,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=pos_a[:,-n_step:]
             head_a=head_a[:,-n_step:]
             head_vector_a=head_vector_a[:,-n_step:]
-            #agent_token_emb=agent_token_emb[:,-n_step:]
+            agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
 
         mask_a=mask_a[:,-n_step:]
@@ -312,9 +314,21 @@ class SMARTAgentDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
-            if self.pred_res :#and self.training
-                proposal = self.traj_head(feat_a.detach())#torch.cat([feat_a[:, :-1], agent_token_emb[:, 1:]], dim=-1)
-                proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+
+            if self.pred_all_token:
+                if self.training:
+                    proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+                    proposal = self.traj_head(proposal_feature.detach())
+                    proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+            else:
+                if self.training:
+                    proposal_feature=feat_a[:, :-1]
+                else:
+                    proposal_feature=feat_a
+
+                if self.pred_res:
+                    proposal = self.traj_head(proposal_feature.detach())
+                    proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
@@ -500,12 +514,22 @@ class SMARTAgentDecoder(nn.Module):
                             logits=next_token_logits[:, -1, ] / self.alpha).sample()#
 
                     if self.pred_res:
-                        proposal=proposal[:,-1,0]
 
-                        proposal=torch.cat([torch.zeros_like(proposal[:,:1]), proposal], dim=1)
-                        proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+                        if self.pred_all_token:
+                            token_embedding=self.agent_token_embedding.embedding(next_token_idx)
 
-                        token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
+                            proposal_feature=feat_a[:,-1]+token_embedding
+
+                            proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
+
+                            next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+
+                        else:
+                            proposal=proposal[:,-1,0]
+
+                            proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+
+                            token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
                     else:
                         token_traj_current=token_traj_all
 
@@ -536,7 +560,8 @@ class SMARTAgentDecoder(nn.Module):
                         speed_a = torch.cat([speed_a, token_speed.unsqueeze(1)], dim=1)
 
                     else:
-                        next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
+                        if not self.pred_all_token:
+                            next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
 
                         token_traj_global = transform_to_global(
                             pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
@@ -548,9 +573,9 @@ class SMARTAgentDecoder(nn.Module):
                     sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
                     if "gt_z_raw" in tokenized_agent.keys():
-                        pred_traj = token_traj_global[:, 1:].mean(2)
+                        pred_traj = token_traj_global[:, :].mean(2)
                         pred_traj_10hz = torch.cat([pred_traj_10hz, pred_traj], dim=1)
-                        diff_xy = token_traj_global[:, 1:, 0] - token_traj_global[:, 1:, 3]
+                        diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
                         pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
                         pred_head_10hz = torch.cat([pred_head_10hz, pred_head], dim=1)
 

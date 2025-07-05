@@ -127,7 +127,7 @@ class TokenProcessor(torch.nn.Module):
     def init_agent_token(self, agent_token_path) -> None:
         agent_token_data = pickle.load(open(agent_token_path, "rb"))
         for k, v in agent_token_data["token_all"].items():
-            v = torch.tensor(v, dtype=torch.float32)[:,:self.shift+1]
+            v = torch.tensor(v, dtype=torch.float32)[:,1:self.shift+1]
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
@@ -516,7 +516,7 @@ class TokenProcessor(torch.nn.Module):
         target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
         out_dict["target_global_traj"] =target_global_traj[:,1:]
         target_mask = target_global_traj.any(-1) != 0
-        out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None] & token_mask[:,:,None]
+        out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]# & token_mask[:,:,None]
 
         return out_dict
 
