@@ -51,12 +51,12 @@ for type_id in [0,1,2]:#
         x_min, x_max = -1.5 , 4.5
         y_max=2
         x_interval = 0.05
-        y_interval = 0.05
+        y_interval = 0.025
     elif type_id == 2:
         x_min, x_max = -3, 8
         y_max=1
         x_interval = 0.05
-        y_interval = 0.05
+        y_interval = 0.025
     
     y_max = y_max - y_interval/2
      
@@ -251,3 +251,11 @@ with open("my4096.pkl", "wb") as f:
 # tensor(0.9995, device='cuda:0') 0.9999772455186517 tensor(0.9996, device='cuda:0') tensor(14, device='cuda:0')
 # torch.Size([1590937, 5, 3])
 # tensor(0.9980, device='cuda:0') 0.9993425258196899 tensor(0.9986, device='cuda:0') tensor(5, device='cuda:0')
+
+#4096
+# torch.Size([214326235, 5, 3])
+# tensor(0.9997, device='cuda:0') 0.9999571820967228 tensor(0.9998, device='cuda:0') tensor(40, device='cuda:0')
+# torch.Size([16348428, 5, 3])
+# tensor(0.9996, device='cuda:0') 0.9999773066866123 tensor(0.9996, device='cuda:0') tensor(7, device='cuda:0')
+# torch.Size([1590937, 5, 3])
+# tensor(0.9986, device='cuda:0') 0.9993475543029046 tensor(0.9992, device='cuda:0') tensor(2, device='cuda:0')
