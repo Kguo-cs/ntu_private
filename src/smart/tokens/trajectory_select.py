@@ -259,3 +259,6 @@ with open("my4096.pkl", "wb") as f:
 # tensor(0.9996, device='cuda:0') 0.9999773066866123 tensor(0.9996, device='cuda:0') tensor(7, device='cuda:0')
 # torch.Size([1590937, 5, 3])
 # tensor(0.9986, device='cuda:0') 0.9993475543029046 tensor(0.9992, device='cuda:0') tensor(2, device='cuda:0')
+
+
+#2048: 0.05 is better than 0.1

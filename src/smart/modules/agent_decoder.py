@@ -304,7 +304,6 @@ class SMARTAgentDecoder(nn.Module):
         feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
-
         if self.output_gmm:
             next_logits = self.gmm_logits_head(feat_a)
             next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
@@ -314,21 +313,13 @@ class SMARTAgentDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
-
-            # if self.pred_all_token:
-            #     if self.training:
-            #         proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
-            #         proposal = self.traj_head(proposal_feature.detach())
-            #         proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
-            # else:
-            if self.training:
-                proposal_feature=feat_a[:, :-1]+ agent_token_emb[:, 1:]
-            else:
-                proposal_feature=feat_a
-
             if self.pred_res:
+                if self.training:
+                    proposal_feature=feat_a[:, :-1]+ agent_token_emb[:, 1:]
+                else:
+                    proposal_feature = feat_a
                 proposal = self.traj_head(proposal_feature.detach())
-                proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+                proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
