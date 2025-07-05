@@ -72,7 +72,7 @@ def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,exp
 
     return critic_loss
 
-def get_return(reward,log_prob,current_Q,V,all_valid_mask,alpha,gamma):
+def get_return(reward,log_prob,current_Q,V,alpha,gamma):
     rewards=reward - alpha * log_prob
     returns = torch.zeros_like(V)
     running_return=returns[:,-1]
@@ -81,8 +81,8 @@ def get_return(reward,log_prob,current_Q,V,all_valid_mask,alpha,gamma):
         running_return = rewards[:, i] + gamma *running_return
         returns[:, i] = running_return
 
-    current_Q_diff = (current_Q - returns[:,:-1])[all_valid_mask]
-    V_diff=(V[:,:-1]-returns[:,:-1])[all_valid_mask]
+    current_Q_diff = (current_Q - returns[:,:-1])
+    V_diff=(V[:,:-1]-returns[:,:-1])
 
     return current_Q_diff, V_diff
 

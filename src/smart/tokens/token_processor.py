@@ -66,7 +66,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=False
+        self.pred_light=True
 
         self.pred_proposal=False
 
@@ -742,7 +742,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_map["type"] = map["type"]
             tokenized_map["batch"] = map["batch"]
         else:
-            for key in ["position", "orientation", "batch", "token_idx", "type", "light_type"]:#, "pl_type"
+            for key in ["position", "orientation", "batch", "token_idx", "type"]:#, "pl_type", "light_type"
                 tokenized_map[key] = map[key]
 
             if "light_type" in data.keys():

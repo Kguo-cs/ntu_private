@@ -162,7 +162,6 @@ class IQ_SoftQ(LightningModule):
         pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
 
         if pred["proposal"] is not None:
-
             if key=="expert":
                 if self.encoder.agent_encoder.pred_gaussian:
                     proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"],tokenized_agent )
@@ -200,17 +199,17 @@ class IQ_SoftQ(LightningModule):
 
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
 
-        valid_mask=valid_mask[train_mask]
-        action=action[train_mask]
-        train_mask=train_mask[train_mask]
-
         agent_num = len(action)
 
-        all_valid_mask=valid_mask[:agent_num].all(-1)#train_mask #
+        #valid_mask=valid_mask[train_mask]
+        action=action[train_mask[:agent_num]]
+        #train_mask[:agent_num]=train_mask[train_mask[:agent_num]]
+
+        #all_valid_mask=valid_mask[:agent_num].all(-1)#train_mask #
 
         log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
 
-        current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,all_valid_mask,self.alpha,self.gamma)
+        current_Q_diff, V_diff = get_return(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
         if self.encoder.agent_encoder.pred_light:
             light_action=torch.clamp_max(tokenized_agent["light_idx"][:, 2:],max=self.token_processor.light_type-1)
@@ -219,11 +218,11 @@ class IQ_SoftQ(LightningModule):
 
             light_pred = torch.argmax(light_logpi, dim=-1)
             real_light = tokenized_agent["light_idx"][:, 2:]
-            light_acc = (light_pred == real_light)[train_mask[agent_num:]]
+            light_acc = (light_pred == real_light)#[train_mask[agent_num:]]
             self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
             log_prob=torch.cat([log_prob,log_prob_light],dim=0)
 
-        action_nll = -log_prob[train_mask].mean()
+        action_nll = -log_prob.mean()#[train_mask]
 
         if self.use_target_q:
             with torch.no_grad():
@@ -241,21 +240,24 @@ class IQ_SoftQ(LightningModule):
         init_V = V[:, 0]
         last_V= V[:,-1]
 
-        actor_loss = actor_loss[all_valid_mask]
+        #actor_loss = actor_loss[all_valid_mask]
 
-        reward = reward[train_mask]
+        #reward = reward[train_mask]
 
-        value_loss=value_loss[train_mask]
+        #value_loss=value_loss[train_mask]
 
-        V=V[all_valid_mask]
+        # V=V[all_valid_mask]
+        #
+        # current_Q=current_Q[all_valid_mask]
+        #
+        # entropy =entropy[all_valid_mask]
+        #
+        # init_V=init_V[all_valid_mask]
+        #
+        # last_V=last_V[all_valid_mask]
 
-        current_Q=current_Q[all_valid_mask]
-
-        entropy =entropy[all_valid_mask]
-
-        init_V=init_V[all_valid_mask]
-
-        last_V=last_V[all_valid_mask]
+        # current_Q_diff=current_Q_diff[all_valid_mask]
+        # V_diff=V_diff[all_valid_mask]
 
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)

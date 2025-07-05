@@ -212,15 +212,15 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a=pos_a[:,-n_step:]
 
-        mask_a=mask[:len(sampled_idx)]
+        mask_a=mask[:n_agent]
 
         if self.pred_light and len(light_idx) and self.light_encoder.share:
             feat_lg = self.light_encoder.light_embedding(light_idx)
             feat_a_lg=torch.cat((feat_a_token,feat_lg))
 
             feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,None,None, n_step, n_current, mask)
-            feat_a_t=feat_a_lg[:len(sampled_idx)]
-            feat_lgt=feat_a_lg[len(sampled_idx):]
+            feat_a_t=feat_a_lg[:n_agent]
+            feat_lgt=feat_a_lg[n_agent:]
         else:
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask_a)
 
@@ -233,6 +233,11 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a[:,-n_step:]
             agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
+
+            if self.pred_light and len(light_idx) and self.light_encoder.share:
+                feat_lgt=feat_lgt[:,-n_step:]
+                light_idx=light_idx[:,-n_step:]
+                feat_lg=feat_lg[:,-n_step:]
 
         mask_a=mask_a[:,-n_step:]
 
@@ -275,7 +280,7 @@ class SMARTAgentDecoder(nn.Module):
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         if self.pred_light and len(light_idx):
-            mask_lg=mask[len(sampled_idx):]
+            mask_lg=mask[len(sampled_idx):,-n_step:]
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 
@@ -338,8 +343,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
-                feat_a=feat_a[train_mask]
-
+                feat_a=feat_a[train_mask[:n_agent]]
 
             next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
@@ -377,15 +381,9 @@ class SMARTAgentDecoder(nn.Module):
         #     tokenized_agent["next_token_logits"] = next_token_logits
         #     tokenized_agent["next_light_logits"] = next_light_logits
         #     tokenized_agent["proposal"] = proposal
-
-        if next_light_logits is not None:
-            light_q=next_light_logits[:, 1:]
-        else:
-            light_q=None
-
         return {
             "proposal":proposal,
-            "light_q": light_q,
+            "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
          }
 
