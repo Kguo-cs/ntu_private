@@ -48,7 +48,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = self.agent_token_all_veh.shape[0]#+1
+        self.n_token_agent = self.agent_token_all_veh.shape[0]+1
 
         self.use_lane=False
 
@@ -74,6 +74,11 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_agent=16
 
         self.interval_t=self.shift /10
+
+        self.pred_all_token = False
+
+        if self.pred_all_token:
+            self.n_token_agent=self.agent_token_all_veh.shape[0]
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -422,10 +427,10 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
-            #if i>10:
-            # token_valid=min_dist<0.5
-            # token_idx_gt[~token_valid]=self.n_token_agent-1
-            # _valid_mask=token_valid & _valid_mask
+            if not self.pred_all_token:
+                token_valid=min_dist<0.5
+                token_idx_gt[~token_valid]=self.n_token_agent-1
+                _valid_mask=token_valid & _valid_mask
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -522,6 +527,8 @@ class TokenProcessor(torch.nn.Module):
         target_mask = target_global_traj.any(-1) != 0
         out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]# & token_mask[:,:,None]
 
+        if not self.pred_all_token:
+            out_dict["target_mask"] = out_dict["target_mask"]  & token_mask[:,:,None]
 
         return out_dict
 

@@ -148,7 +148,8 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
                     self.pred_res = True
-                    self.pred_all_token = True
+
+                    self.pred_all_token=token_processor.pred_all_token
 
                     if self.pred_res:
 
@@ -532,9 +533,10 @@ class SMARTAgentDecoder(nn.Module):
                             proposal_feature=feat_a[:,-1]+token_embedding
 
                             proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
+
                             next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
 
-                            proposal=next_token_traj_all
+                            proposal=proposal+next_token_traj_all
 
                             next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
 
