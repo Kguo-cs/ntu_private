@@ -352,10 +352,10 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,post_sampling=post_sampling)
 
-        if self.n_token_agent>1:
-            tokenized_agent["next_token_logits"] = next_token_logits
-            tokenized_agent["next_light_logits"] = next_light_logits
-            tokenized_agent["proposal"] = proposal
+        # if self.n_token_agent>1:
+        #     tokenized_agent["next_token_logits"] = next_token_logits
+        #     tokenized_agent["next_light_logits"] = next_light_logits
+        #     tokenized_agent["proposal"] = proposal
 
         if next_light_logits is not None:
             light_q=next_light_logits[:, 1:]
