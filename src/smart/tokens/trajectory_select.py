@@ -46,7 +46,7 @@ for type_id in [0,1,2]:#
         x_min, x_max = -5, 20
         y_max = 1.5
         x_interval =0.1#0.1
-        y_interval = 0.1
+        y_interval = 0.05
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
@@ -88,7 +88,7 @@ for type_id in [0,1,2]:#
     joint_hist = torch.bincount(joint_idx, minlength=x_bin * y_bin)#.reshape(250, 30)
 
     # Top-k
-    cluster_n=2048
+    cluster_n=4096
 
     top_k_value, top_k_flat_idx = torch.topk(joint_hist, k=cluster_n)#.flatten()
 
@@ -174,7 +174,7 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-with open("my2048_01.pkl", "wb") as f:
+with open("my4096.pkl", "wb") as f:
     pickle.dump(res, f)
 
 

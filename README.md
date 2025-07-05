@@ -36,7 +36,7 @@ Gk@140286
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
 
-qsub -I -l select=1:ngpus=1 -l walltime=4:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=11:00:00 -P 12002486
 
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
