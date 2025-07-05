@@ -148,7 +148,7 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
                     self.pred_res = True
-                    self.pred_all_token = True
+                    self.pred_all_token = False
 
                     if self.pred_res:
 
@@ -315,20 +315,20 @@ class SMARTAgentDecoder(nn.Module):
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
 
-            if self.pred_all_token:
-                if self.training:
-                    proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
-                    proposal = self.traj_head(proposal_feature.detach())
-                    proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+            # if self.pred_all_token:
+            #     if self.training:
+            #         proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+            #         proposal = self.traj_head(proposal_feature.detach())
+            #         proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+            # else:
+            if self.training:
+                proposal_feature=feat_a[:, :-1]+ agent_token_emb[:, 1:]
             else:
-                if self.training:
-                    proposal_feature=feat_a[:, :-1]
-                else:
-                    proposal_feature=feat_a
+                proposal_feature=feat_a
 
-                if self.pred_res:
-                    proposal = self.traj_head(proposal_feature.detach())
-                    proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
+            if self.pred_res:
+                proposal = self.traj_head(proposal_feature.detach())
+                proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],1,-1,3)
 
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
