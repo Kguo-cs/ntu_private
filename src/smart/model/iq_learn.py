@@ -270,6 +270,9 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
+        
+        off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0]).float().mean()
+        self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
 
         return  reward,value_loss,init_V-1,action_nll,current_Q,proposal_loss
 

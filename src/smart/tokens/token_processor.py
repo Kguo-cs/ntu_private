@@ -48,7 +48,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
-        self.n_token_agent = self.agent_token_all_veh.shape[0]+1
+        self.n_token_agent = self.agent_token_all_veh.shape[0]
 
         self.use_lane=False
 
@@ -79,6 +79,10 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_all_token:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
+            
+        self.pred_res= False
+        if self.pred_res:
+            self.n_token_agent+=1
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
