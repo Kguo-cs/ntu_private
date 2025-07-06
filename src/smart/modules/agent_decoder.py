@@ -161,7 +161,7 @@ class SMARTAgentDecoder(nn.Module):
                     )
 
         self.use_light = token_processor.use_light
-        self.pred_light=False
+        self.pred_light=True
 
         if self.use_light:
             self.light_type = token_processor.light_type
@@ -371,13 +371,13 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx = light_idx.clone()
 
-            # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
-            #
-            # random_mask = torch.rand_like(light_idx.float()) > 0.9
-            #
-            # random_mask[:, :2] = False
-            #
-            # noised_light_idx[random_mask] = random_light[random_mask]
+            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+
+            random_mask = torch.rand_like(light_idx.float()) > 0.95
+
+            random_mask[:, :2] = False
+
+            noised_light_idx[random_mask] = random_light[random_mask]
         else:
             noised_light_idx  = []
 
