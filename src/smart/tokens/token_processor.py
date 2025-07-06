@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_all_token:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
             
-        self.pred_res= False
+        self.pred_res= True
         if self.pred_res:
             self.n_token_agent+=1
 
@@ -260,8 +260,6 @@ class TokenProcessor(torch.nn.Module):
         )
 
         tokenized_agent.update(token_dict)
-
-
 
         return tokenized_agent
 

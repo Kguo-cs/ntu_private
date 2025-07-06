@@ -325,7 +325,7 @@ class SMARTAgentDecoder(nn.Module):
                 if self.training:
                     proposal_feature = feat_a[:, :-1] + self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
-                    proposal_feature = feat_a+self.agent_token_embedding.embedding.weight[-1,None,None]
+                    proposal_feature = feat_a #+self.agent_token_embedding.embedding.weight[-1,None,None]
 
                 proposal = self.traj_head(proposal_feature.detach())
                 proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
