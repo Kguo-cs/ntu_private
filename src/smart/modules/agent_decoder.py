@@ -161,7 +161,7 @@ class SMARTAgentDecoder(nn.Module):
                     )
 
         self.use_light = token_processor.use_light
-        self.pred_light=True
+        self.pred_light=False
 
         if self.use_light:
             self.light_type = token_processor.light_type
