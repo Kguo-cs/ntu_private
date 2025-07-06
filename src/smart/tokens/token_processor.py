@@ -66,7 +66,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.pred_light=True
+        self.use_light=True
 
         self.pred_proposal=False
 
@@ -99,7 +99,7 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent = self.tokenize_agent(data)
 
-            if self.pred_light:
+            if self.use_light:
                 light=data["light"]
 
                 light_idx=light["light_idx"].long()
@@ -792,7 +792,7 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
 
-        if self.pred_light:
+        if self.use_light:
 
             tokenized_light = data["tokenized_light"]
 

@@ -41,7 +41,7 @@ class LightEncoder(nn.Module):
             num_heads: int,
             light_type,
             shift,
-            predict_step,
+            pred_light,
             alpha
         ) -> None:
         super(LightEncoder, self).__init__()
@@ -54,22 +54,18 @@ class LightEncoder(nn.Module):
         self.light_type = light_type
         self.shift = shift
         self.light_dropout = 0
-        self.predict_step=predict_step
 
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
-        self.share=True
+        self.share=False
         self.alpha=alpha
 
-        self.use_real_light=False
+        self.pred_light=pred_light
 
-        if not self.use_real_light:
+        if pred_light:
             self.autoRegressive_light=True
 
-            if self.autoRegressive_light:
-                self.share = False
-                #self.light_hist=1000
-            else:
+            if not self.autoRegressive_light:
                 self.use_gnn=True
 
                 if self.use_gnn:
@@ -102,12 +98,8 @@ class LightEncoder(nn.Module):
             ]
         )
 
-
-        # self.predict_feature = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
-        #                             output_dim=hidden_dim * self.predict_step)
-
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                                 output_dim=self.light_type* self.predict_step)
+                                                 output_dim=self.light_type)
 
 
     def get_lg_sinusoidal(self,tokenized_agent):
@@ -180,7 +172,7 @@ class LightEncoder(nn.Module):
 
             feat_lg=padded_lg_feature.flatten(1,2)
 
-            pad_mask=padding(mask_lg, lengths_lg,padding_value=True)
+            pad_mask=padding(mask_lg, lengths_lg)
 
             padding_light_mask = pad_mask .flatten(1,2)
             n_agent = pad_pos.shape[1]
@@ -192,6 +184,7 @@ class LightEncoder(nn.Module):
 
                 next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
             else:
+
                 light_logit=torch.zeros((batch_size,n_agent,n_step,self.light_type),device=light_idx.device)-1e10
 
                 for i in range(n_agent):
@@ -273,7 +266,7 @@ class LightEncoder(nn.Module):
 
                 feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 
-            next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
+            next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)
 
         return feat_lg, next_light_logits
 

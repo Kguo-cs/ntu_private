@@ -211,7 +211,7 @@ class IQ_SoftQ(LightningModule):
 
         action_nll = -log_prob[train_mask].mean()
 
-        if self.encoder.agent_encoder.pred_light:
+        if len(pred["light_q"]):
             light_idx=tokenized_agent["light_idx"][:, 2:]
             light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
 
@@ -221,7 +221,7 @@ class IQ_SoftQ(LightningModule):
             light_nll=-log_prob_light[light_mask].mean()
             light_acc = (torch.argmax(light_logpi, dim=-1) == light_idx)#[train_mask[agent_num:]]
             self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-
+            self.log("train/" + key + "_light_nll", light_nll.item(), on_step=True, batch_size=1)
         else:
             light_nll=0
 
@@ -271,7 +271,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_light_nll", light_nll.item(), on_step=True, batch_size=1)
 
         off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0]).float().mean()
         self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
