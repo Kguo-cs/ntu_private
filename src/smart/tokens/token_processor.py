@@ -808,15 +808,15 @@ class TokenProcessor(torch.nn.Module):
 
                 return shuffle_idx
 
-            shuffle_Id=get_shuffle_within_group_idx(tokenized_light["batch"])
+            #shuffle_Id=get_shuffle_within_group_idx(tokenized_light["batch"])
 
             light_idx = tokenized_light["light_idx"]
-            tokenized_agent["light_idx"] = light_idx.long()[shuffle_Id]
+            tokenized_agent["light_idx"] = light_idx.long()#[shuffle_Id]
             # tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type],
             #                                           dim=0)
             tokenized_agent["batch_lg"] = tokenized_light["batch"]
-            tokenized_agent["pos_lg"] = tokenized_light["pos_lg"][shuffle_Id]
-            tokenized_agent["orient_lg"] = tokenized_light["orient_lg"][shuffle_Id]
+            tokenized_agent["pos_lg"] = tokenized_light["pos_lg"]#[shuffle_Id]
+            tokenized_agent["orient_lg"] = tokenized_light["orient_lg"]#[shuffle_Id]
 
         return tokenized_map, tokenized_agent
 
