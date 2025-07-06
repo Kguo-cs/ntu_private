@@ -431,7 +431,7 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
-            if not self.pred_all_token:
+            if not self.pred_all_token and self.pred_res:
                 token_valid=min_dist<0.5
                 token_idx_gt[~token_valid]=self.n_token_agent-1
                 _valid_mask=token_valid & _valid_mask
@@ -519,20 +519,22 @@ class TokenProcessor(torch.nn.Module):
 
             return gathered
 
-        gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
+        
+        if self.pred_res:
+            gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
 
-        gt_traj[~valid] = 0
+            gt_traj[~valid] = 0
 
-        valid_mask=out_dict["valid_mask"] # current position, heading valid
-        token_mask=out_dict["sampled_idx"]==self.n_token_agent-1
+            valid_mask=out_dict["valid_mask"] # current position, heading valid
+            token_mask=out_dict["sampled_idx"]==self.n_token_agent-1
 
-        target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
-        out_dict["target_global_traj"] =target_global_traj[:,1:]
-        target_mask = target_global_traj.any(-1) != 0
-        out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]# & token_mask[:,:,None]
+            target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
+            out_dict["target_global_traj"] =target_global_traj[:,1:]
+            target_mask = target_global_traj.any(-1) != 0
+            out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]# & token_mask[:,:,None]
 
-        if not self.pred_all_token:
-            out_dict["target_mask"] = out_dict["target_mask"]  & token_mask[:,:,None]
+            if not self.pred_all_token:
+                out_dict["target_mask"] = out_dict["target_mask"]  & token_mask[:,:,None]
 
         return out_dict
 

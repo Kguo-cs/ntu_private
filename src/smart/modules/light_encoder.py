@@ -210,7 +210,7 @@ class LightEncoder(nn.Module):
             feat_lg=padded_lg_feature.flatten(1,2)
 
             padding_light_mask = padding(mask_lg, lengths_lg,padding_value=True) .flatten(1,2)
-
+            
             feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pos_lg, head_lg, n_step, n_current,  padding_light_mask).reshape(padded_lg_feature.shape)
 
             feat_lg=feat_lg[feature_mask]
