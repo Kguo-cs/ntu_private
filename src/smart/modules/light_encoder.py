@@ -42,6 +42,7 @@ class LightEncoder(nn.Module):
             light_type,
             shift,
             predict_step,
+            alpha
         ) -> None:
         super(LightEncoder, self).__init__()
 
@@ -58,6 +59,7 @@ class LightEncoder(nn.Module):
         self.light_embedding = nn.Embedding(5, hidden_dim)
 
         self.share=True
+        self.alpha=alpha
 
         self.autoRegressive_light=True
 
@@ -97,27 +99,13 @@ class LightEncoder(nn.Module):
             ]
         )
 
+
         # self.predict_feature = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
         #                             output_dim=hidden_dim * self.predict_step)
-
 
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type* self.predict_step)
 
-    # def light2agent(self, feat_a, feat_lg, tokenized_agent, sinusoidal_lg, pos_a, head_a, n_step):
-    #
-    #     sinusoidal_a = self.rotary_embedding(pos_a, head_a)
-    #     lengths_a = torch.bincount(tokenized_agent["batch"]).tolist()
-    #     padded_a_feature = padding(feat_a, lengths_a)
-    #     feature_mask = (padded_a_feature[:, :, 0] != 0).any(-1)
-    #
-    #     sinusoidal_lg = sinusoidal_lg.repeat_interleave(n_step, dim=0)
-    #     feat_lg = feat_lg.flatten(1, 2)
-    #     padded_a_feature = self.lg2a_roformer(padded_a_feature, None, agent_sinusoidal, feat_lg, sinusoidal_lg)
-    #
-    #     feat_a = padded_a_feature[feature_mask]
-    #
-    #     return feat_a
 
     def get_lg_sinusoidal(self,tokenized_agent):
         if "lg_sinusoidal" in tokenized_agent.keys():
@@ -163,30 +151,6 @@ class LightEncoder(nn.Module):
 
         return feat_a
 
-    def predict_lightfeature(  self, feat_lg, lg_sinusoidal, lengths ,mask_lg ,n_step ) :
-
-        padded_lg_feature = padding(feat_lg, lengths)
-
-        feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
-
-        padded_lg_feature = padded_lg_feature.swapaxes(1, 2).flatten(0, 1)
-
-        padding_light_mask = padding(mask_lg[:, -n_step:], lengths, padding_value=True).swapaxes(1, 2).flatten(0, 1)
-
-        lg_sinusoidal = lg_sinusoidal.repeat_interleave(n_step, dim=0)
-
-        lg2lg_mask = padding_light_mask[:, None, None]
-
-        padded_lg_feature = self.lg2lg_roformer(padded_lg_feature, lg2lg_mask, lg_sinusoidal)
-        
-        padded_lg_feature = padded_lg_feature.reshape(len(lengths), n_step, -1, padded_lg_feature.shape[-1])
-
-        feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
-
-        next_light_logits = self.light_token_predict_head(feat_lg)
-
-        return feat_lg,next_light_logits
-
     def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg, n_current, feat_lg=None):
         n_light, n_step = light_idx.shape[0], light_idx.shape[1]
 
@@ -194,6 +158,7 @@ class LightEncoder(nn.Module):
         #     feat_lg = self.light_embedding(light_idx)
 
         if self.autoRegressive_light:
+            batch_size=tokenized_agent["num_graphs"]
 
             lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
 
@@ -204,16 +169,58 @@ class LightEncoder(nn.Module):
             pos_lg = tokenized_agent["pos_lg"]
             head_lg = tokenized_agent["orient_lg"]
 
-            pos_lg=padding(pos_lg, lengths_lg)[:,:,None].repeat(1,1,n_step,1).flatten(1,2)
-            head_lg=padding(head_lg, lengths_lg)[:,:,None].repeat(1,1,n_step).flatten(1,2)
+            pad_pos=padding(pos_lg, lengths_lg)
+            pad_head=padding(head_lg, lengths_lg)
+
+            pad_pos_lg=pad_pos[:,:,None].repeat(1,1,n_step,1).flatten(1,2)
+            pad_head_lg=pad_head[:,:,None].repeat(1,1,n_step).flatten(1,2)
 
             feat_lg=padded_lg_feature.flatten(1,2)
 
-            padding_light_mask = padding(mask_lg, lengths_lg,padding_value=True) .flatten(1,2)
-            
-            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pos_lg, head_lg, n_step, n_current,  padding_light_mask).reshape(padded_lg_feature.shape)
+            pad_mask=padding(mask_lg, lengths_lg,padding_value=True)
 
-            feat_lg=feat_lg[feature_mask]
+            padding_light_mask = pad_mask .flatten(1,2)
+            n_agent = pad_pos.shape[1]
+
+            if self.training:
+                feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step, n_current,  padding_light_mask,n_agent).reshape(padded_lg_feature.shape)
+
+                feat_lg=feat_lg[feature_mask]
+
+                next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
+            else:
+                light_logit=torch.zeros((batch_size,n_agent,n_step,self.light_type),device=light_idx.device)-1e10
+
+                for i in range(n_agent):
+                    if self.lg_t_roformer.attn.caching==False:
+                        feat_lg=feat_lg[:,-1:]
+                        pad_pos_lg=pad_pos_lg[:,-1:]
+                        pad_head_lg=pad_head_lg[:,-1:]
+
+                    feat_lg1 = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step+1, n_current,
+                                                                padding_light_mask,n_agent)
+
+                    last_feature=feat_lg1[:,-1]
+
+                    next_light_logits = self.light_token_predict_head(last_feature).reshape(batch_size, self.light_type)
+
+                    cat_dist = Categorical(logits=next_light_logits / self.alpha)
+
+                    next_light_idx = cat_dist.sample()
+
+                    light_logit[torch.arange(batch_size),i,-1, next_light_idx] = 0
+
+                    next_light_feature=self.light_embedding(next_light_idx)
+
+                    feat_lg=next_light_feature[:, None]
+
+                    pad_pos_lg=pad_pos[:, i:i+1]
+                    pad_head_lg=pad_head[:, i:i+1]
+
+                    padding_light_mask=torch.cat((padding_light_mask, pad_mask[:, i:i+1,0]), dim=1)[:, -self.light_hist*n_agent:]
+                    self.lg_t_roformer.attn.kv_caching(self.light_hist)
+
+                next_light_logits=light_logit[feature_mask]
 
         else:
             if not self.share:
@@ -263,9 +270,7 @@ class LightEncoder(nn.Module):
 
                 feat_lg = padded_lg_feature.swapaxes(1, 2)[feature_mask]
 
-        #        feat_lg=self.predict_feature(feat_lg)
-
-        next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
+            next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
 
         return feat_lg, next_light_logits
 

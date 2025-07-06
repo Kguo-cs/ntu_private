@@ -497,11 +497,9 @@ class RoFormerBlock(nn.Module):
         x = x + self.mlp(self.norm2(x))
         return x
 
-    def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask):
+    def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask,n_agent=1):
 
-        n_agent=pos.shape[1]//n_step
-
-        time = torch.arange(n_current, n_step + n_current, device=feature.device)[:,None].repeat(1,n_agent).flatten(0,1)[None, :, None]
+        time = torch.arange(n_current, n_step + n_current, device=feature.device)[:,None].repeat(1,n_agent).flatten(0,1)[None, :mask.shape[1], None][:,-pos.shape[1]:]
 
         # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
         #
@@ -510,7 +508,7 @@ class RoFormerBlock(nn.Module):
         sinusoidal_pos = self.rotary_embedding(pos, heading, time)
 
         if self.training:
-            causal_mask = generate_limited_causal_mask(n_step, self.hist_len,n_agent=n_agent, device=feature.device)
+            causal_mask = generate_limited_causal_mask(n_step*n_agent, self.hist_len*n_agent, device=feature.device)
             if mask is not None:
                 causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]
         else:
