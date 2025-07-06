@@ -213,7 +213,6 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a=pos_a[:,-n_step:]
         mask_a=mask[:n_agent]
-        mask_lg =mask[n_agent:]
 
         if self.pred_light and len(light_idx) and self.light_encoder.share:
             feat_lg = self.light_encoder.light_embedding(light_idx)
@@ -284,6 +283,8 @@ class SMARTAgentDecoder(nn.Module):
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 
+            mask_lg=light_idx<self.light_type
+
             _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lg)
 
             mask_lg = mask_lg[:, -n_step:]
@@ -346,7 +347,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.training and "train_mask" in tokenized_agent.keys():
                 train_mask = tokenized_agent["train_mask"]
-                feat_a=feat_a[train_mask[:n_agent]]
+                feat_a=feat_a[train_mask]
 
             next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
 
@@ -378,7 +379,8 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = tokenized_agent["sampled_pos"]
         head_a = tokenized_agent["sampled_heading"]
 
-        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,noised_light_idx,post_sampling=post_sampling)
+        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,
+                                                                                noised_light_idx,post_sampling=post_sampling)
 
         # if self.n_token_agent>1:
         #     tokenized_agent["next_token_logits"] = next_token_logits

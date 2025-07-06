@@ -105,7 +105,7 @@ class TokenProcessor(torch.nn.Module):
                 light_idx=light["light_idx"].long()
 
                 tokenized_agent["light_idx"]=light_idx
-                tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
+                #tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
 
                 tokenized_agent["batch_lg"]=light["batch"]
                 tokenized_agent["pos_lg"] = light["light_pos"]
@@ -796,27 +796,27 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_light = data["tokenized_light"]
 
-            def get_shuffle_within_group_idx(group_ids):
-                shuffle_idx = torch.empty_like(group_ids, dtype=torch.long)
-
-                unique_ids = torch.unique(group_ids)
-                for gid in unique_ids:
-                    mask = group_ids == gid
-                    idx = torch.nonzero(mask, as_tuple=True)[0]
-                    perm = idx[torch.randperm(len(idx), device=group_ids.device)]
-                    shuffle_idx[mask] = perm
-
-                return shuffle_idx
-
-            shuffle_Id=get_shuffle_within_group_idx(tokenized_light["batch"])
+            # def get_shuffle_within_group_idx(group_ids):
+            #     shuffle_idx = torch.empty_like(group_ids, dtype=torch.long)
+            #
+            #     unique_ids = torch.unique(group_ids)
+            #     for gid in unique_ids:
+            #         mask = group_ids == gid
+            #         idx = torch.nonzero(mask, as_tuple=True)[0]
+            #         perm = idx[torch.randperm(len(idx), device=group_ids.device)]
+            #         shuffle_idx[mask] = perm
+            #
+            #     return shuffle_idx
+            #
+            # shuffle_Id=get_shuffle_within_group_idx(tokenized_light["batch"])
 
             light_idx = tokenized_light["light_idx"]
-            tokenized_agent["light_idx"] = light_idx.long()[shuffle_Id]
-            tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type],
-                                                      dim=0)
+            tokenized_agent["light_idx"] = light_idx.long()#[shuffle_Id]
+            # tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type],
+            #                                           dim=0)
             tokenized_agent["batch_lg"] = tokenized_light["batch"]
-            tokenized_agent["pos_lg"] = tokenized_light["pos_lg"][shuffle_Id]
-            tokenized_agent["orient_lg"] = tokenized_light["orient_lg"][shuffle_Id]
+            tokenized_agent["pos_lg"] = tokenized_light["pos_lg"]#[shuffle_Id]
+            tokenized_agent["orient_lg"] = tokenized_light["orient_lg"]#[shuffle_Id]
 
         return tokenized_map, tokenized_agent
 

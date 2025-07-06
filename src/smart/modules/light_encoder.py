@@ -61,29 +61,32 @@ class LightEncoder(nn.Module):
         self.share=True
         self.alpha=alpha
 
-        self.autoRegressive_light=True
+        self.use_real_light=False
 
-        if self.autoRegressive_light:
-            self.share = False
-            #self.light_hist=1000
-        else:
-            self.use_gnn=True
+        if not self.use_real_light:
+            self.autoRegressive_light=True
 
-            if self.use_gnn:
-                self.edge_encoder=edge_encoder
-                self.lg2lg_layers = AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=self.head_dim,
-                    dropout=self.light_dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
+            if self.autoRegressive_light:
+                self.share = False
+                #self.light_hist=1000
             else:
-                self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
+                self.use_gnn=True
 
-        if not self.share:
-            self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
+                if self.use_gnn:
+                    self.edge_encoder=edge_encoder
+                    self.lg2lg_layers = AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=self.head_dim,
+                        dropout=self.light_dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                else:
+                    self.lg2lg_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout)
+
+            if not self.share:
+                self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
 
         self.lg2a_attn_layers = nn.ModuleList(
             [
