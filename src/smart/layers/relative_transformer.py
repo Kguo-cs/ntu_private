@@ -508,7 +508,7 @@ class RoFormerBlock(nn.Module):
         sinusoidal_pos = self.rotary_embedding(pos, heading, time)
 
         if self.training:
-            causal_mask = generate_limited_causal_mask(n_step*n_agent, self.hist_len*n_agent, device=feature.device)
+            causal_mask = generate_limited_causal_mask(n_step, self.hist_len,n_agent, device=feature.device)
             if mask is not None:
                 causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]
         else:

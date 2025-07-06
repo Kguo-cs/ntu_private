@@ -37,7 +37,7 @@ class LightEncoder(nn.Module):
             self,
             edge_encoder,
             hidden_dim: int,
-            time_span: Optional[int],
+            light_hist: Optional[int],
             num_heads: int,
             light_type,
             shift,
@@ -48,9 +48,7 @@ class LightEncoder(nn.Module):
 
         self.head_dim = hidden_dim // num_heads
 
-        self.lg_time_span = time_span
-
-        self.light_hist = time_span // shift
+        self.light_hist = light_hist
         self.light_type = light_type
         self.shift = shift
         self.light_dropout = 0
@@ -177,46 +175,46 @@ class LightEncoder(nn.Module):
             padding_light_mask = pad_mask .flatten(1,2)
             n_agent = pad_pos.shape[1]
 
-            if self.training:
-                feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step, n_current,  padding_light_mask,n_agent).reshape(padded_lg_feature.shape)
+            #if self.training:
+            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step, n_current,  padding_light_mask,n_agent).reshape(padded_lg_feature.shape)
 
-                feat_lg=feat_lg[feature_mask]
+            feat_lg=feat_lg[feature_mask]
 
-                next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
-            else:
-
-                light_logit=torch.zeros((batch_size,n_agent,n_step,self.light_type),device=light_idx.device)-1e10
-
-                for i in range(n_agent):
-                    if self.lg_t_roformer.attn.caching==False:
-                        feat_lg=feat_lg[:,-1:]
-                        pad_pos_lg=pad_pos_lg[:,-1:]
-                        pad_head_lg=pad_head_lg[:,-1:]
-
-                    feat_lg1 = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step+1, n_current,
-                                                                padding_light_mask,n_agent)
-
-                    last_feature=feat_lg1[:,-1]
-
-                    next_light_logits = self.light_token_predict_head(last_feature).reshape(batch_size, self.light_type)
-
-                    cat_dist = Categorical(logits=next_light_logits / self.alpha)
-
-                    next_light_idx = cat_dist.sample()
-
-                    light_logit[torch.arange(batch_size),i,-1, next_light_idx] = 0
-
-                    next_light_feature=self.light_embedding(next_light_idx)
-
-                    feat_lg=next_light_feature[:, None]
-
-                    pad_pos_lg=pad_pos[:, i:i+1]
-                    pad_head_lg=pad_head[:, i:i+1]
-
-                    padding_light_mask=torch.cat((padding_light_mask, pad_mask[:, i:i+1,0]), dim=1)[:, -self.light_hist*n_agent:]
-                    self.lg_t_roformer.attn.kv_caching(self.light_hist)
-
-                next_light_logits=light_logit[feature_mask]
+            next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
+            # else:
+            #
+            #     light_logit=torch.zeros((batch_size,n_agent,n_step,self.light_type),device=light_idx.device)-1e10
+            #
+            #     for i in range(n_agent):
+            #         if self.lg_t_roformer.attn.caching==False:
+            #             feat_lg=feat_lg[:,-1:]
+            #             pad_pos_lg=pad_pos_lg[:,-1:]
+            #             pad_head_lg=pad_head_lg[:,-1:]
+            #
+            #         feat_lg1 = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step+1, n_current,
+            #                                                     padding_light_mask,n_agent)
+            #
+            #         last_feature=feat_lg1[:,-1]
+            #
+            #         next_light_logits = self.light_token_predict_head(last_feature).reshape(batch_size, self.light_type)
+            #
+            #         cat_dist = Categorical(logits=next_light_logits / self.alpha)
+            #
+            #         next_light_idx = cat_dist.sample()
+            #
+            #         light_logit[torch.arange(batch_size),i,-1, next_light_idx] = 0
+            #
+            #         next_light_feature=self.light_embedding(next_light_idx)
+            #
+            #         feat_lg=next_light_feature[:, None]
+            #
+            #         pad_pos_lg=pad_pos[:, i:i+1]
+            #         pad_head_lg=pad_head[:, i:i+1]
+            #
+            #         padding_light_mask=torch.cat((padding_light_mask, pad_mask[:, i:i+1,0]), dim=1)[:, -self.light_hist*n_agent:]
+            #         self.lg_t_roformer.attn.kv_caching(self.light_hist)
+            #
+            #     next_light_logits=light_logit[feature_mask]
 
         else:
             if not self.share:
