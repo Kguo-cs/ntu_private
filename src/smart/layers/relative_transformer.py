@@ -499,7 +499,13 @@ class RoFormerBlock(nn.Module):
 
     def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask,n_agent=1):
 
-        time = torch.arange(n_current, n_step + n_current, device=feature.device)[:,None].repeat(1,n_agent).flatten(0,1)[None, :mask.shape[1], None][:,-pos.shape[1]:]
+        time = torch.arange(n_current, n_step + n_current, device=feature.device)
+        #[:,None].repeat(1,n_agent).flatten(0,1)[None, :mask.shape[1], None][:,-pos.shape[1]:]
+
+        if n_agent>1:
+            time=time[:,None].repeat(1,n_agent).flatten(0,1)[None, :mask.shape[1], None][:,-pos.shape[1]:]
+        else:
+            time=time[None,:,None]
 
         # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
         #

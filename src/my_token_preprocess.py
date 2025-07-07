@@ -31,7 +31,7 @@ token_processor.eval()
 token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_4096_444/"
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
-agent_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"#_light
+agent_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"
 
 # Worker function
 def process_file(filename):
@@ -39,8 +39,6 @@ def process_file(filename):
     output_path = os.path.join(token_data_directory, filename)
     with open(input_path, "rb") as f:
         data = pickle.load(f)
-
-
 
     data= HeteroData(data).cuda()
 

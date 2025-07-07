@@ -294,8 +294,7 @@ class SMARTAgentDecoder(nn.Module):
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 
             if self.pred_light:
-                _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,   n_current,feat_lg)
-                next_light_logits = next_light_logits[:, -n_step:]
+                _, next_light_logits = self.light_encoder(tokenized_agent,light_idx, mask_lg, batch_lg,  n_step, n_current,feat_lg)
             else:
                 next_light_logits = []
 
@@ -380,13 +379,14 @@ class SMARTAgentDecoder(nn.Module):
         #
         # light_idx[random_mask] = random_light[random_mask]
 
-        sampled_idx = tokenized_agent["sampled_idx"]
-        mask = tokenized_agent["valid_mask"]
-        pos_a = tokenized_agent["sampled_pos"]
-        head_a = tokenized_agent["sampled_heading"]
-
-        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,
-                                                                                light_idx,post_sampling=post_sampling)
+        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(tokenized_agent["sampled_idx"],
+                                                                                tokenized_agent["valid_mask"],
+                                                                                tokenized_agent["sampled_pos"],
+                                                                                tokenized_agent["sampled_heading"] ,
+                                                                                tokenized_agent,
+                                                                                map_feature,
+                                                                                light_idx,
+                                                                                post_sampling=post_sampling)
 
         # if self.n_token_agent>1:
         #     tokenized_agent["next_token_logits"] = next_token_logits

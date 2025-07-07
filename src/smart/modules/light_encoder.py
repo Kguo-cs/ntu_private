@@ -61,10 +61,11 @@ class LightEncoder(nn.Module):
         self.pred_light=pred_light
 
         if pred_light:
-            self.autoRegressive_light=True
+            self.autoRegressive_light=False
 
             if not self.autoRegressive_light:
                 self.use_gnn=True
+                # self.share=True
 
                 if self.use_gnn:
                     self.edge_encoder=edge_encoder
@@ -144,8 +145,8 @@ class LightEncoder(nn.Module):
 
         return feat_a
 
-    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg, n_current, feat_lg=None):
-        n_light, n_step = light_idx.shape[0], light_idx.shape[1]
+    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg,n_step, n_current, feat_lg=None):
+        n_light, light_step = light_idx.shape[0], light_idx.shape[1]
 
         # if not self.share:
         #     feat_lg = self.light_embedding(light_idx)
@@ -165,8 +166,8 @@ class LightEncoder(nn.Module):
             pad_pos=padding(pos_lg, lengths_lg)
             pad_head=padding(head_lg, lengths_lg)
 
-            pad_pos_lg=pad_pos[:,:,None].repeat(1,1,n_step,1).flatten(1,2)
-            pad_head_lg=pad_head[:,:,None].repeat(1,1,n_step).flatten(1,2)
+            pad_pos_lg=pad_pos[:,:,None].repeat(1,1,light_step,1).flatten(1,2)
+            pad_head_lg=pad_head[:,:,None].repeat(1,1,light_step).flatten(1,2)
 
             feat_lg=padded_lg_feature.flatten(1,2)
 
@@ -176,9 +177,10 @@ class LightEncoder(nn.Module):
             n_agent = pad_pos.shape[1]
 
             #if self.training:
-            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, n_step, n_current,  padding_light_mask,n_agent).reshape(padded_lg_feature.shape)
+            feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, pad_pos_lg, pad_head_lg, light_step, n_current,  padding_light_mask,n_agent).reshape(padded_lg_feature.shape)
 
             feat_lg=feat_lg[feature_mask]
+            feat_lg = feat_lg[:, -n_step:]
 
             next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
             # else:
@@ -218,7 +220,9 @@ class LightEncoder(nn.Module):
 
         else:
             if not self.share:
-                feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, n_step, n_current,  mask_lg)
+                feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, light_step, n_current,  mask_lg)
+
+                feat_lg = feat_lg[:, -n_step:]
 
             mask_lg=mask_lg[:, -n_step:]
 
