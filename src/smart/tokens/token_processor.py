@@ -432,7 +432,7 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             if not self.pred_all_token and self.pred_res:
-                token_valid=min_dist<0.5
+                token_valid=min_dist<0.3
                 token_idx_gt[~token_valid]=self.n_token_agent-1
                 _valid_mask=token_valid & _valid_mask
 
