@@ -199,9 +199,10 @@ class IQ_SoftQ(LightningModule):
 
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
 
-        valid_mask=valid_mask[train_mask]
-        action=action[train_mask]
-        train_mask=train_mask[train_mask]
+        if "train_mask" in tokenized_agent.keys():
+            valid_mask=valid_mask[train_mask]
+            action=action[train_mask]
+            train_mask=train_mask[train_mask]
 
         all_valid_mask=valid_mask.all(-1)
 
@@ -289,12 +290,15 @@ class IQ_SoftQ(LightningModule):
 
             train_mask= state_mask & action_mask
         else:
-            train_mask = valid_mask.all(-1)
+           # train_mask = valid_mask.all(-1)
+            state_mask = valid_mask[:, :-1]
+            action_mask = valid_mask[:, self.start_step:]
+            train_mask = state_mask & action_mask
 
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
 
-        tokenized_agent["train_mask"]=train_mask
+        #tokenized_agent["train_mask"]=train_mask
 
         # if self.iq_learn:
         #     expert_nll=expert_proposal_loss=0

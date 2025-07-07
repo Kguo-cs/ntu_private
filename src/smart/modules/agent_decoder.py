@@ -370,20 +370,15 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) -> Dict[str, torch.Tensor]:
-        if self.use_light:
-            light_idx = tokenized_agent["light_idx"]
+        light_idx = tokenized_agent["light_idx"].clone()
 
-            noised_light_idx = light_idx.clone()
-
-            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
-
-            random_mask = torch.rand_like(light_idx.float()) > 0.9
-
-            random_mask[:, :2] = False
-
-            noised_light_idx[random_mask] = random_light[random_mask]
-        else:
-            noised_light_idx  = []
+        # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+        #
+        # random_mask = torch.rand_like(light_idx.float()) > 0.9
+        #
+        # random_mask[:, :2] = False
+        #
+        # light_idx[random_mask] = random_light[random_mask]
 
         sampled_idx = tokenized_agent["sampled_idx"]
         mask = tokenized_agent["valid_mask"]
@@ -391,7 +386,7 @@ class SMARTAgentDecoder(nn.Module):
         head_a = tokenized_agent["sampled_heading"]
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(sampled_idx, mask, pos_a, head_a,tokenized_agent, map_feature,
-                                                                                noised_light_idx,post_sampling=post_sampling)
+                                                                                light_idx,post_sampling=post_sampling)
 
         # if self.n_token_agent>1:
         #     tokenized_agent["next_token_logits"] = next_token_logits
@@ -412,6 +407,7 @@ class SMARTAgentDecoder(nn.Module):
         token_agent_shape=tokenized_agent["token_agent_shape"]
         token_traj=tokenized_agent["token_traj"]
         n_agent = sampled_idx.shape[0]
+        light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
 
         if post_sampling:
             gt_valid=tokenized_agent["valid_mask"]
@@ -432,10 +428,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
-        if self.use_light:
-            light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
-        else:
-            light_idx = torch.zeros([0,2])
 
         pred_traj_10hz = torch.zeros(
             [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device

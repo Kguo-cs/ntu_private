@@ -110,6 +110,8 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["batch_lg"]=light["batch"]
                 tokenized_agent["pos_lg"] = light["light_pos"]
                 tokenized_agent["orient_lg"] = light["light_orient"]
+            else:
+                tokenized_agent["light_idx"]=torch.zeros([0,18])
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
@@ -623,7 +625,6 @@ class TokenProcessor(torch.nn.Module):
         all_pos=torch.cat([pos[:, :1], sampled_pos], dim=1)
         all_heading=torch.cat([heading[:, :1], sampled_heading], dim=1)
 
-
         target_pos, target_head = transform_to_local(
             pos_global=target_global_traj[..., :2].flatten(0, 1),  # [n_agent*18, 1, 2]
             head_global= target_global_traj[..., 2].flatten(0, 1),  # [n_agent*18, 1]
@@ -633,7 +634,6 @@ class TokenProcessor(torch.nn.Module):
 
         target_pos=target_pos.reshape(-1, 19, target_global_traj.shape[2], 2)
         target_head=target_head.reshape(-1, 19, target_global_traj.shape[2])
-
 
         target_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
 
@@ -812,11 +812,11 @@ class TokenProcessor(torch.nn.Module):
 
             light_idx = tokenized_light["light_idx"]
             tokenized_agent["light_idx"] = light_idx.long()#[shuffle_Id]
-            # tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type],
-            #                                           dim=0)
             tokenized_agent["batch_lg"] = tokenized_light["batch"]
             tokenized_agent["pos_lg"] = tokenized_light["pos_lg"]#[shuffle_Id]
             tokenized_agent["orient_lg"] = tokenized_light["orient_lg"]#[shuffle_Id]
+        else:
+            tokenized_agent["light_idx"] = torch.zeros([0, 18])
 
         return tokenized_map, tokenized_agent
 
