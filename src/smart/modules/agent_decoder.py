@@ -335,9 +335,9 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_res:
                 if self.training:
-                    proposal_feature = feat_a[:, :-1] + self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
+                    proposal_feature = feat_a[:, :-1] #+ self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
-                    proposal_feature = feat_a #+self.agent_token_embedding.embedding.weight[-1,None,None]
+                    proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
                 proposal = self.traj_head(proposal_feature.detach())
                 proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
@@ -375,13 +375,13 @@ class SMARTAgentDecoder(nn.Module):
 
             noised_light_idx = light_idx.clone()
 
-            # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
-            #
-            # random_mask = torch.rand_like(light_idx.float()) > 0.95
-            #
-            # random_mask[:, :2] = False
-            #
-            # noised_light_idx[random_mask] = random_light[random_mask]
+            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+
+            random_mask = torch.rand_like(light_idx.float()) > 0.9
+
+            random_mask[:, :2] = False
+
+            noised_light_idx[random_mask] = random_light[random_mask]
         else:
             noised_light_idx  = []
 
