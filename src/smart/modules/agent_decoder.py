@@ -169,7 +169,9 @@ class SMARTAgentDecoder(nn.Module):
             self.light_hist= self.agent_hist
 
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
-
+        else:
+            self.pred_light=False
+            
         self.pred_proposal=token_processor.pred_proposal
 
         if self.pred_proposal:
