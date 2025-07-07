@@ -40,8 +40,6 @@ from waymo_open_dataset.protos import scenario_pb2
 import tensorflow as tf
 from src.my_data_preprocess import (decode_tracks_from_proto,decode_map_features_from_proto,
                                     decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,process_light,preprocess_map)
-from waymo.waymo_render import WaymoRenderer
-from waymo.waymo_model import Model
 from waymo.waymo_gui import GUI
 from time import sleep
 import mss
@@ -51,7 +49,7 @@ from src.smart.utils import (
     weight_init,
     wrap_angle,
 )
-from waymo.waymo_traffic_light_system import  TrafficSystem
+import json
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -60,15 +58,10 @@ class SimulationManager:
         self.setup_paths()
         self.setup_planner(cfg)
 
-        #self.result_path = f"./results/{datetime.now().strftime('%m-%d-%H%M%S')}/"
-        #self.img_save_path = f"{self.result_path}imgs/"
-
-        #os.makedirs(self.result_path, exist_ok=True)
-        #os.makedirs(self.img_save_path, exist_ok=True)
-
         self.map_classes= [ 'ped_crossing','divider', 'boundary']#green, blue,red
         self.object_classes=['vehicle']
-        self.map_bound = {'x':[-50.0, 50.0, 0.5],"y":[-50.0, 50.0, 0.5]}
+        self.map_bound = {'x':[-50.0, 50.0, 0.5],
+                          "y":[-50.0, 50.0, 0.5]}
 
         xbound = self.map_bound['x']
         ybound = self.map_bound['y']
@@ -79,79 +72,26 @@ class SimulationManager:
         self.patch_size = (patch_h, patch_w)
         self.canvas_size = (canvas_h, canvas_w)
 
+        with open('./waymo/json/calibrated_sensors.json', 'r') as f:
+            data = json.load(f)
 
-        self.lidar2img = {
-            'CAM_FRONT': torch.tensor([[1.14251841e+03, 8.00000000e+02, 0.00000000e+00, -9.52000000e+02],
-                                   [0.00000000e+00, 4.50000000e+02, -1.14251841e+03, -8.09704417e+02],
-                                   [0.00000000e+00, 1.00000000e+00, 0.00000000e+00, -1.19000000e+00],
-                                   [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-            'CAM_FRONT_LEFT': torch.tensor([[6.03961325e-14, 1.39475744e+03, 0.00000000e+00, -9.20539908e+02],
-                                        [-3.68618420e+02, 2.58109396e+02, -1.14251841e+03, -6.47296750e+02],
-                                        [-8.19152044e-01, 5.73576436e-01, 0.00000000e+00, -8.29094072e-01],
-                                        [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-            'CAM_FRONT_RIGHT': torch.tensor([[1.31064327e+03, -4.77035138e+02, 0.00000000e+00, -4.06010608e+02],
-                                         [3.68618420e+02, 2.58109396e+02, -1.14251841e+03, -6.47296750e+02],
-                                         [8.19152044e-01, 5.73576436e-01, 0.00000000e+00, -8.29094072e-01],
-                                         [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-            'CAM_BACK': torch.tensor([[-5.60166031e+02, -8.00000000e+02, 0.00000000e+00, -1.28800000e+03],
-                                  [5.51091060e-14, -4.50000000e+02, -5.60166031e+02, -8.58939847e+02],
-                                  [1.22464680e-16, -1.00000000e+00, 0.00000000e+00, -1.61000000e+00],
-                                  [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-            'CAM_BACK_LEFT': torch.tensor([[-1.14251841e+03, 8.00000000e+02, 0.00000000e+00, -6.84385123e+02],
-                                       [-4.22861679e+02, -1.53909064e+02, -1.14251841e+03, -4.96004706e+02],
-                                       [-9.39692621e-01, -3.42020143e-01, 0.00000000e+00, -4.92889531e-01],
-                                       [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
+        self.lidar2img={}
+        self.image_size={}
 
-            'CAM_BACK_RIGHT': torch.tensor([[3.60989788e+02, -1.34723223e+03, 0.00000000e+00, -1.04238127e+02],
-                                        [4.22861679e+02, -1.53909064e+02, -1.14251841e+03, -4.96004706e+02],
-                                        [9.39692621e-01, -3.42020143e-01, 0.00000000e+00, -4.92889531e-01],
-                                        [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
-        }
-        self.lidar2cam = {
-            'CAM_FRONT': torch.tensor([[1., 0., 0., 0.],
-                                   [0., 0., -1., -0.24],
-                                   [0., 1., 0., -1.19],
-                                   [0., 0., 0., 1.]]),
-            'CAM_FRONT_LEFT': torch.tensor([[0.57357644, 0.81915204, 0., -0.22517331],
-                                        [0., 0., -1., -0.24],
-                                        [-0.81915204, 0.57357644, 0., -0.82909407],
-                                        [0., 0., 0., 1.]]),
-            'CAM_FRONT_RIGHT': torch.tensor([[0.57357644, -0.81915204, 0., 0.22517331],
-                                         [0., 0., -1., -0.24],
-                                         [0.81915204, 0.57357644, 0., -0.82909407],
-                                         [0., 0., 0., 1.]]),
-            'CAM_BACK': torch.tensor([[-1., 0., 0., 0.],
-                                  [0., 0., -1., -0.24],
-                                  [0., -1., 0., -1.61],
-                                  [0., 0., 0., 1.]]),
-            'CAM_BACK_LEFT': torch.tensor([[-0.34202014, 0.93969262, 0., -0.25388956],
-                                       [0., 0., -1., -0.24],
-                                       [-0.93969262, -0.34202014, 0., -0.49288953],
-                                       [0., 0., 0., 1.]]),
+        for key,item in data.items():
+            # Step 1: Load matrices # using the 3x3 'intrinsic' matrix
+            K = np.array(item["intrinsic"])
+            R = np.array(item["rot"])
+            T = np.array(item["tran"])
 
-            'CAM_BACK_RIGHT': torch.tensor([[-0.34202014, -0.93969262, 0., 0.25388956],
-                                        [0., 0., -1., -0.24],
-                                        [0.93969262, -0.34202014, 0., -0.49288953],
-                                        [0., 0., 0., 1.]])
-        }
-        self.lidar2ego = torch.tensor([[0., 1., 0., -0.39],
-                                   [-1., 0., 0., 0.],
-                                   [0., 0., 1., 1.84],
-                                   [0., 0., 0., 1.]])
+            R_lidar2cam = R.T
+            T_lidar2cam = -R_lidar2cam @ T
 
-        self.camera_intrinsics = {
-            cam: self.lidar2img[cam][:3, :3]
-            for cam in self.lidar2img
-        }
-        self.camera2ego = {
-            cam:self.lidar2ego @  torch.linalg.inv(self.lidar2cam[cam])
-            for cam in self.lidar2cam
-        }
-#camera2ego = lidar2ego @ lidar2cam[cam]
+            RT = np.concatenate([R_lidar2cam, T_lidar2cam[:,None]], axis=1)
+            P= K @ RT
+            self.lidar2img[key] = np.vstack([P, np.array([[0, 0, 0, 1]])])  # shape: (4, 4)
 
-        # self.camera_intrinsics = self.lidar2img[:, :3]
-        # cam2lidar = np.linalg.inv(self.lidar2cam)
-        # self.camera2ego = self.lidar2ego @ cam2lidar
+            self.image_size[key]=(int(K[1,2]*2),int(K[0,2]*2))
 
         self.initial_step=10
 
@@ -167,30 +107,33 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        print(f"Testing connection to WorldDreamer & Driver servers...")
+        #print(f"Testing connection to WorldDreamer & Driver servers...")
         ##requests.get(self.DIFFUSION_SERVER + "dreamer-clean/")
         ##requests.get(self.DRIVER_SERVER + "driver-clean/")
 
         self.data_template = torch.load(self.DATA_TEMPLATE_PATH)
 
-        # self.renderer = WaymoRenderer(scenario)
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = 91
 
-        self.recording = True
+        self.recording = False
 
-        self.record_path = "./results/video/"+str(scenario.scenario_id)+".mp4"
-        self.record_fps=10
-        self.record_width = 1800  # Must match BEV window texture width
-        self.record_height = 1230  # Must match BEV window texture height
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # or 'XVID' or 'avc1'
+        if self.recording:
+            self.record_path = "./results/video/"+str(scenario.scenario_id)+".mp4"
+            self.record_fps=10
+            self.record_width = 1800  # Must match BEV window texture width
+            self.record_height = 1230  # Must match BEV window texture height
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # or 'XVID' or 'avc1'
 
-        self.video_writer = cv2.VideoWriter(
-            self.record_path,
-            fourcc,
-            self.record_fps,
-            (self.record_width, self.record_height)
-        )
+            self.video_writer = cv2.VideoWriter(
+                self.record_path,
+                fourcc,
+                self.record_fps,
+                (self.record_width, self.record_height)
+            )
+
+        self.lidar_height=1.84
+
 
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
@@ -199,17 +142,17 @@ class SimulationManager:
         images=[]
 
         for key in ['CAM_FRONT_LEFT','CAM_FRONT','CAM_FRONT_RIGHT']:#front_left_image, front_image, front_right_image
-            image = np.ones((900, 1600, 3), dtype=np.uint8) * 255  # White RGB image
+            # image = np.ones((1080,1920, 3), dtype=np.uint8) * 255  # White RGB image
+            #image = np.ones((900, 1600, 3), dtype=np.uint8) * 255  # White RGB image
+            image = np.ones((self.image_size[key][0],self.image_size[key][1], 3), dtype=np.uint8) * 255  # White RGB image
 
-            map_canvas = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.camera_intrinsics[key],self.camera2ego[key],self.lidar2img[key].numpy(),image=image,num_classes=len(self.map_classes), drivable_mask=drivable_mask)
-            box_canvas= project_box_to_image(gt_bboxes_3d, gt_labels_3d, self.lidar2img[key], image=image,object_classes=self.object_classes)
-
-            layout_canvas.append(np.concatenate([map_canvas, box_canvas], axis=-1))
-
+            map_canvas = project_map_to_image(gt_vecs_pts_loc, gt_vecs_label, self.lidar2img[key],self.lidar_height,image=image,num_classes=len(self.map_classes), drivable_mask=None)
+            box_canvas= project_box_to_image(gt_bboxes_3d, gt_labels_3d, self.lidar2img[key],self.lidar_height, image=image,object_classes=self.object_classes)
+        #     layout_canvas.append(np.concatenate([map_canvas, box_canvas], axis=-1))
             images.append(image)
-
-        layout_canvas = np.stack(layout_canvas, axis=0)
-        layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
+        #
+        # layout_canvas = np.stack(layout_canvas, axis=0)
+        # layout_canvas = np.transpose(layout_canvas, (0, 3, 1, 2))    # 6, C, H, W
         return layout_canvas,images
 
     def vectormap_pipeline(self, gt_vecs_label, gt_lines_instance,drivable_mask):
@@ -270,9 +213,8 @@ class SimulationManager:
             front_left_image, front_image, front_right_image = [
                 Image.fromarray(img).convert('RGBA') for img in gen_images[:3]]
 
-            new_width, new_height = self.TARGET_SIZE[0], int(
-                (self.TARGET_SIZE[0] / front_image.width) * front_image.height)
-            resized_images = [img.resize((new_width, new_height), Image.Resampling.LANCZOS) for img in [
+            new_width, new_height = self.TARGET_SIZE[0], self.TARGET_SIZE[1]#[560, 315]
+            resized_images = [img.resize((new_width, new_height), Image.Resampling.NEAREST) for img in [
                 front_left_image, front_image, front_right_image]]
 
             ci = CameraImages()
@@ -290,6 +232,10 @@ class SimulationManager:
             self.gui.imageQueue.put(ci)
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
+
+            for key in pred_dict.keys():
+                pred_dict[key][self.control_mask] = tokenized_agent[key][self.control_mask][:,:(self.timestamp-5)//5]
+
 
             tokenized_agent.update(pred_dict)
 
@@ -359,7 +305,6 @@ class SimulationManager:
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
 
-
                 track_infos = decode_tracks_from_proto(scenario)
                 map_infos = decode_map_features_from_proto(scenario.map_features)
                 dynamic_map_infos = decode_dynamic_map_states_from_proto(
@@ -372,48 +317,6 @@ class SimulationManager:
                 map_data = get_map_features(map_infos, tf_current_light)
 
                 data = preprocess_map(map_data)
-
-                #add agent
-                # track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.zeros([1])])
-                # track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([1,91]).astype(bool)])
-                # track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([1,3]).astype(bool)])
-
-                #add static object
-                # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([1]).astype(int)])
-                # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
-                # state[0,:,0]=362
-                # state[0,:,1]=6300
-                # state[0,:,3]=10
-                # state[0,:,4]=10
-                # state[0,:,5]=10
-                # track_infos["states"]=np.concatenate([track_infos["states"],state])
-
-                #add dynamic ped
-                # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.ones([1]).astype(int)])
-                # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
-                #
-                # state[0,0,0]=362
-                # state[0,5,0]=361
-                # state[0,10,0]=360
-                # state[0,:,1]=6270
-                # state[0,:,3]=1
-                # state[0,:,4]=1
-                # state[0,:,5]=1
-                # state[0,:,6]=-np.pi
-                # track_infos["states"]=np.concatenate([track_infos["states"],state])
-
-
-
-                #delete agent
-                # id=997
-                # mask=np.where(track_infos["object_id"]!=id)
-                # track_infos["object_id"]=track_infos["object_id"][mask]
-                # track_infos["object_type"]=track_infos["object_type"][mask]
-                # track_infos["states"]=track_infos["states"][mask]
-                # track_infos["valid"]=track_infos["valid"][mask]
-                # track_infos["role"]=track_infos["role"][mask]
-
-
 
                 data["agent"] = get_agent_features(
                     track_infos,
@@ -449,13 +352,15 @@ class SimulationManager:
                 # tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
 
 
+                self.control_mask = torch.zeros_like(tokenized_agent["ego_mask"])
+
                 while True:
                     if not self.process_frame(map_feature, tokenized_agent):
                         break
 
                 self.cleanup()
 
-               # return
+                return
 
     def capture_viewport_frame(self):
         if not self.recording or self.video_writer is None:
@@ -493,13 +398,10 @@ class SimulationManager:
 
     def cleanup(self):
         print("Simulation ends")
-
-        # if self.scorer:
-        #     self.scorer.save()
-        # if self.gui.video_writer is not None:
         self.gui.terminate()
         self.gui.join()
-        self.video_writer.release()
+        if self.recording:
+            self.video_writer.release()
 
     def setup_constants(self):
         self.DIFFUSION_SERVER = self.config["servers"]["diffusion"]
@@ -538,12 +440,12 @@ class SimulationManager:
         self.planner = SMART(cfg.model.model_config)
 
         if torch.cuda.is_available():
-            state_dict = torch.load(self.config["planner_path"])["state_dict"]
+            state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
         else:
-            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"))["state_dict"]
+            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
 
-        # self.planner.load_state_dict(state_dict)
+        self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 

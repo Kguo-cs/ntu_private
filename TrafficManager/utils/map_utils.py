@@ -98,14 +98,14 @@ def visualize_bev_hdmap(gt_lines_instance, gt_labels_3d, canvas_size, num_classe
     return canvas,image
 
 
-def project_map_to_image(gt_lines_instance, gt_labels_3d, intrinsic, extrinsic, lidar2img, num_classes=3, image=None,
+def project_map_to_image(gt_lines_instance, gt_labels_3d,  lidar2img,lidar_height, num_classes=3, image=None,
                          drivable_mask=None):
-    z = -1.84
-    canvas = np.zeros((num_classes, 900, 1600, 3), dtype=np.uint8)
+    z = -lidar_height
+    #canvas = np.zeros((num_classes, image, 1600, 3), dtype=np.uint8)
     for gt_line_instance, gt_label_3d in zip(gt_lines_instance, gt_labels_3d):
         pts = torch.Tensor(gt_line_instance)
-        pts = pts[:, [1, 0]]
-        pts[:, 1] = -pts[:, 1]
+        # pts = pts[:, [1, 0]]
+        # pts[:, 1] = -pts[:, 1]
         dummy_pts = torch.cat([pts, torch.ones((pts.shape[0], 1)) * z], dim=-1)
 
         # points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
@@ -125,50 +125,43 @@ def project_map_to_image(gt_lines_instance, gt_labels_3d, intrinsic, extrinsic, 
         coords[:, 1] /= coords[:, 2]
         points_on_image_cor = coords[:, :2].astype(int)
 
-        for i in range(len(points_on_image_cor) - 1):
-            cv2.line(canvas[int(gt_label_3d)], tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
-                     (1, 0, 0), 4)
+        # for i in range(len(points_on_image_cor) - 1):
+        #     cv2.line(canvas[int(gt_label_3d)], tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
+        #              (1, 0, 0), 4)
 
         if image is not None:
             colors = [(0, 255, 0), (0, 0, 255), (255, 0, 0)]
             for i in range(len(points_on_image_cor) - 1):
                 cv2.line(image, tuple(points_on_image_cor[i]), tuple(points_on_image_cor[i + 1]),
-                         colors[int(gt_label_3d)], 5)
+                         colors[int(gt_label_3d)], 3)
 
-    if drivable_mask is not None:
-        drivable_canvas = np.zeros((1, 900, 1600, 3), dtype=np.uint8)
-        drivable_grids = np.where(drivable_mask > 0)
-        drivable_grids = np.stack(drivable_grids, 1)
-        drivable_pts = drivable_grids * 0.5 - 50.0 + 0.25
-        drivable_pts = drivable_pts[:, [1, 0]]
-        drivable_pts[:, 1] = -drivable_pts[:, 1]
-        drivable_pts = torch.from_numpy(drivable_pts)
+    # if drivable_mask is not None:
+    #     drivable_canvas = np.zeros((1, 900, 1600, 3), dtype=np.uint8)
+    #     drivable_grids = np.where(drivable_mask > 0)
+    #     drivable_grids = np.stack(drivable_grids, 1)
+    #     drivable_pts = drivable_grids * 0.5 - 50.0 + 0.25
+    #     drivable_pts = drivable_pts[:, [1, 0]]
+    #     drivable_pts[:, 1] = -drivable_pts[:, 1]
+    #     drivable_pts = torch.from_numpy(drivable_pts)
+    #
+    #     dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1)) * z], dim=-1).float()
+    #     coords = np.concatenate([dummy_pts, np.ones((len(dummy_pts), 1))], axis=-1)
+    #     coords = coords @ lidar2img.T
+    #     coords = coords[coords[:, 2] > 0]
+    #     coords[:, 0] /= coords[:, 2]
+    #     coords[:, 1] /= coords[:, 2]
+    #     points_on_image_cor = coords[:, :2].astype(int)
+    #
+    #     for point in points_on_image_cor:
+    #         cv2.circle(drivable_canvas[0], point, 20, (1, 0, 0), -1)
+    #
+    # if drivable_mask is not None:
+    #     canvas = np.concatenate([canvas, drivable_canvas], 0)
+    # canvas = canvas[..., 0]
+    # canvas = np.transpose(canvas, (1, 2, 0))
+    # canvas = canvas[::4, ::4, :][1:, ...]  # 224, 400, 3
 
-        dummy_pts = torch.cat([drivable_pts, torch.ones((drivable_pts.shape[0], 1)) * z], dim=-1).float()
-        # points_in_cam_cor = torch.matmul(extrinsic[:3, :3].T, (dummy_pts.T - extrinsic[:3, 3].reshape(3, -1)))
-        # points_in_cam_cor = points_in_cam_cor[:, points_in_cam_cor[2, :] > 0]
-        # if points_in_cam_cor.shape[1] > 1:
-        #     points_on_image_cor = intrinsic[:3, :3] @ points_in_cam_cor
-        #     points_on_image_cor = points_on_image_cor / (points_on_image_cor[-1, :].reshape(1, -1))
-        #     points_on_image_cor = points_on_image_cor[:2, :].T
-        #     points_on_image_cor = points_on_image_cor.int().numpy()
-        coords = np.concatenate([dummy_pts, np.ones((len(dummy_pts), 1))], axis=-1)
-        coords = coords @ lidar2img.T
-        coords = coords[coords[:, 2] > 0]
-        coords[:, 0] /= coords[:, 2]
-        coords[:, 1] /= coords[:, 2]
-        points_on_image_cor = coords[:, :2].astype(int)
-
-        for point in points_on_image_cor:
-            cv2.circle(drivable_canvas[0], point, 20, (1, 0, 0), -1)
-
-    if drivable_mask is not None:
-        canvas = np.concatenate([canvas, drivable_canvas], 0)
-    canvas = canvas[..., 0]
-    canvas = np.transpose(canvas, (1, 2, 0))
-    canvas = canvas[::4, ::4, :][1:, ...]  # 224, 400, 3
-
-    return canvas
+   # return canvas
 
 
 def compute_box_corners_3d(boxes):
@@ -182,14 +175,15 @@ def compute_box_corners_3d(boxes):
     # Create a template corner for a unit cube (centered at 0.5)
     corner_offsets = np.array([
         [0.5, 0.5, -0.5],
-        [-0.5, 0.5, -0.5],
-        [-0.5, -0.5, -0.5],
+        [-0.5, 0.5, -0.5],#1
+        [-0.5, -0.5, -0.5],#2
         [0.5, -0.5, -0.5],
         [0.5, 0.5, 0.5],
-        [-0.5, 0.5, 0.5],
-        [-0.5, -0.5, 0.5],
+        [-0.5, 0.5, 0.5],#5
+        [-0.5, -0.5, 0.5],#6
         [0.5, -0.5, 0.5]
-    ])  # shape (8, 3)
+    ])
+
 
     corners = np.zeros((N, 8, 3))
     for i in range(N):
@@ -206,16 +200,18 @@ def compute_box_corners_3d(boxes):
 
     return corners
 
-def project_box_to_image(gt_bboxes_3d, gt_labels_3d, transform, object_classes, image=None, cam_name=None):
+def project_box_to_image(gt_bboxes_3d, gt_labels_3d, transform,lidar_height, object_classes, image=None, cam_name=None):
     canvas = np.zeros((len(object_classes), 900, 1600, 3), dtype=np.uint8)
     if gt_bboxes_3d is not None and len(gt_bboxes_3d) > 0:
         corners = compute_box_corners_3d(gt_bboxes_3d.numpy())
+
+        corners[...,2]-=lidar_height
         num_bboxes = corners.shape[0]
 
         coords = np.concatenate(
             [corners.reshape(-1, 3), np.ones((num_bboxes * 8, 1))], axis=-1
         )
-        transform = copy.deepcopy(transform.numpy()).reshape(4, 4)
+        transform = copy.deepcopy(transform).reshape(4, 4)
         coords = coords @ transform.T
         coords = coords.reshape(-1, 8, 4)
 
@@ -237,12 +233,12 @@ def project_box_to_image(gt_bboxes_3d, gt_labels_3d, transform, object_classes, 
         for index in range(coords.shape[0]):
             for start, end in [
                 (0, 3),
-                (1, 2),
+                (0, 1),#(1, 2),
                 (3, 2),
                 (3, 7),
                 (4, 7),
-                (2, 6),
-                (5, 6),
+                (0, 4),#(2, 6),
+                (4, 5),#(5, 6),
                 (6, 7),
             ]:
                 try:
@@ -266,10 +262,10 @@ def project_box_to_image(gt_bboxes_3d, gt_labels_3d, transform, object_classes, 
                         cv2.LINE_AA,
                     )
             for start, end in [
-                (0, 1),
-                (0, 4),
-                (1, 5),
-                (4, 5),
+                (2, 6),  #1, 2 is back,  5 is back ,6 is back
+                 (5, 6),
+                 (1, 5),
+                 (1, 2),
             ]:
                 try:
                     cv2.line(

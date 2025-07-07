@@ -32,4 +32,4 @@ image:
 
 data_path: "../src/waymo_data/full/validation_tfrecords_splitted"
 
-planner_path: "../src/waymo_data/bc64_light5_100_sharet_current_sacol_epoch=9-step=76100-val_closed_wosac=0.7706.ckpt"
+planner_path: "../src/waymo_data/epoch=3-step=30440-val_closed_wosac=0.7671.ckpt"

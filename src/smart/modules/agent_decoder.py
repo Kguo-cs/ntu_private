@@ -189,7 +189,7 @@ class SMARTAgentDecoder(nn.Module):
         self.token_processor= token_processor
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx, n_current=0,post_sampling=False):
+    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,post_sampling=False):
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -283,11 +283,11 @@ class SMARTAgentDecoder(nn.Module):
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         if len(light_idx):
-            mask_lg=light_idx<self.light_type
-
-            if not self.training:
-                light_idx=light_idx[:,-n_step:]
-                mask_lg=mask_lg[:, -self.light_hist:]
+            # mask_lg=light_idx<self.light_type
+            #
+            # if not self.training:
+            #     light_idx=light_idx[:,-n_step:]
+            #     mask_lg=mask_lg[:, -self.light_hist:]
 
             feat_lg = self.light_encoder.light_embedding(light_idx)
 
@@ -371,13 +371,14 @@ class SMARTAgentDecoder(nn.Module):
     ) -> Dict[str, torch.Tensor]:
         light_idx = tokenized_agent["light_idx"].clone()
 
-        # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
-        #
-        # random_mask = torch.rand_like(light_idx.float()) > 0.9
-        #
-        # random_mask[:, :2] = False
-        #
-        # light_idx[random_mask] = random_light[random_mask]
+        random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+
+        random_mask = torch.rand_like(light_idx.float()) > 0.9
+
+        random_mask[:, :2] = False
+
+        light_idx[random_mask] = random_light[random_mask]
+        mask_lg=light_idx<self.light_type
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["valid_mask"],
@@ -386,6 +387,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 tokenized_agent,
                                                                                 map_feature,
                                                                                 light_idx,
+                                                                                mask_lg,
                                                                                 post_sampling=post_sampling)
 
         # if self.n_token_agent>1:
@@ -409,6 +411,8 @@ class SMARTAgentDecoder(nn.Module):
         n_agent = sampled_idx.shape[0]
         light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
 
+        mask_lg=light_idx<self.light_type
+
         if post_sampling:
             gt_valid=tokenized_agent["valid_mask"]
             gt_pos=tokenized_agent["sampled_pos"]
@@ -427,7 +431,6 @@ class SMARTAgentDecoder(nn.Module):
             token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
-
 
         pred_traj_10hz = torch.zeros(
             [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device
@@ -453,14 +456,15 @@ class SMARTAgentDecoder(nn.Module):
                     if self.pred_light and not self.light_encoder.share:
                         self.light_encoder.lg_t_roformer.attn.caching=True
                     next_token_logits,next_light_logits,feat_a,proposal = self.predict_agent(sampled_idx, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,light_idx,0,post_sampling)
+                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,post_sampling)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
                 if self.pred_light and not self.light_encoder.share:
                     self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist)
             else:
                 next_token_logits,next_light_logits,feat_a,proposal  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
-                                pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx,t - 1,post_sampling)#[:,-1:]
+                                                            pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
+                                                                                    mask_lg[:,-self.light_hist:],t - 1,post_sampling)
 
             if self.output_gmm:
                 #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
@@ -638,6 +642,7 @@ class SMARTAgentDecoder(nn.Module):
                     mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
                 else:
                     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+                mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light and not self.light_encoder.share:
@@ -651,6 +656,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
+            "light_idx": light_idx,
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission

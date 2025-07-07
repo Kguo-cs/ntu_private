@@ -61,7 +61,7 @@ class LightEncoder(nn.Module):
         self.pred_light=pred_light
 
         if pred_light:
-            self.autoRegressive_light=False
+            self.autoRegressive_light=True
 
             if not self.autoRegressive_light:
                 self.use_gnn=True
@@ -148,11 +148,7 @@ class LightEncoder(nn.Module):
     def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg,n_step, n_current, feat_lg=None):
         n_light, light_step = light_idx.shape[0], light_idx.shape[1]
 
-        # if not self.share:
-        #     feat_lg = self.light_embedding(light_idx)
-
         if self.autoRegressive_light:
-            batch_size=tokenized_agent["num_graphs"]
 
             lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
 
@@ -173,7 +169,7 @@ class LightEncoder(nn.Module):
 
             pad_mask=padding(mask_lg, lengths_lg)
 
-            padding_light_mask = pad_mask .flatten(1,2)
+            padding_light_mask = pad_mask.flatten(1,2)
             n_agent = pad_pos.shape[1]
 
             #if self.training:
@@ -184,7 +180,7 @@ class LightEncoder(nn.Module):
 
             next_light_logits = self.light_token_predict_head(feat_lg).reshape(n_light, n_step,  self.light_type)#$self.predict_step,
             # else:
-            #
+            #            batch_size=tokenized_agent["num_graphs"]
             #     light_logit=torch.zeros((batch_size,n_agent,n_step,self.light_type),device=light_idx.device)-1e10
             #
             #     for i in range(n_agent):

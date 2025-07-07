@@ -58,6 +58,7 @@ COLOR_SCARLET_RED = (164, 0, 0, 255)
 COLOR_ALUMINIUM_0 = (238, 238, 236, 255)
 COLOR_ALUMINIUM_1 = (211, 215, 207, 255)
 COLOR_ALUMINIUM_2 = (66, 62, 64, 255)
+COLOR_GREY = (128, 128, 128, 255)
 
 class SequenceError(Exception):
     def __init__(self, errorInfo: str) -> None:
@@ -125,14 +126,14 @@ class GUI(Process):
         # ]
         self.lane_style = [
             (COLOR_WHITE, 6),  # FREEWAY = 0
-            (COLOR_SKY_BLUE_1, 6),  # SURFACE_STREET = 1
+            (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
             (COLOR_ORANGE, 6),  # STOP_SIGN = 2
             (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
             (COLOR_RED, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
             (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
-            (COLOR_BUTTER, 2),  # BROKEN = 6
-            (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
-            (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
+            (COLOR_GREY, 2),  # BROKEN = 6
+            (COLOR_WHITE, 2),  # SOLID_SINGLE = 7
+            (COLOR_BUTTER, 2),  # DOUBLE = 8
             (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
             (COLOR_GREEN, 4),  # CROSSWALK = 10
         ]
@@ -469,7 +470,7 @@ class GUI(Process):
         for i, _type in enumerate(self.mp_type):
             # if _type==0:
             #     print("freeway")
-            if _type in [0,1,2,3,4,10]:
+            if _type in [4,5,6,7,8,10]:
                 color, thickness = self.lane_style[_type]
                 polyline = self.mp_xyz[i][:, :2]
 
@@ -495,12 +496,12 @@ class GUI(Process):
             polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
 
             # Draw polyline in DPG
-            dpg.draw_polyline(
-                points=polyline_tf,
-                color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
-                thickness=3,
-                parent=node
-            )
+            # dpg.draw_polyline(
+            #     points=polyline_tf,
+            #     color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
+            #     thickness=3,
+            #     parent=node
+            # )
 
             # If traffic light state indicates active (1 to 3), draw a marker at the end
             # if 1 <= _state <= 3:
@@ -694,7 +695,7 @@ class GUI(Process):
 
         for i in range(len(agent_pos)):
 
-            if i != self.ego_idx and agent_type[i]==0:
+            if i != self.ego_idx:
                 sur_x = agent_pos[i,0]
                 sur_y = agent_pos[i,1]
                 sur_yaw = agent_heading[i]
@@ -704,26 +705,26 @@ class GUI(Process):
                 tran_x, tran_y, tran_yaw = transform(
                     (sur_x, sur_y, sur_yaw), (ego_x, ego_y, ego_yaw)
                 )
-                tran_x, tran_y, tran_yaw = transform(
-                    (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
-                )
+                # tran_x, tran_y, tran_yaw = transform(
+                #     (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
+                # )
                 # print(sur_veh['id'], tran_x, tran_y, tran_yaw,  tran_yaw+np.pi/2)
                 bbox_list.append(
                     [
                         tran_x,
                         tran_y,
-                        -0.8,
-                        shape[1],
+                        shape[2]/2,
                         shape[0],
+                        shape[1],
                         shape[2],
-                        -(tran_yaw + np.pi / 2),
+                        tran_yaw, #-(tran_yaw + np.pi / 2),
                         0,
                         0,
                     ]
                 )
 
                 # plot_vehicle((tran_x, tran_y, tran_yaw), color='blue')
-                label_list.append(0)  # 0 for vehicle
+                label_list.append(0)  # 0 for vehicle[agent_type[i]]
 
         send_data = {}
         # ------------ meta ------------ #
@@ -756,32 +757,29 @@ class GUI(Process):
 
         gt_vecs_label=[]
         gt_map_pts=[]
-        type_dict={10:0,1:1,4:2}
+        type_dict={10:0,5:1,6:1,7:1,8:1,4:2}#6 is dash line
 
         self.patch_size=[100, 100]
 
         for i, _type in enumerate(self.mp_type):
-            if _type in [1,4,10]:#['divider', 'ped_crossing', 'boundary']
+            if _type in [4,5,6,7,8,10]:#['divider', 'ped_crossing', 'boundary']
                 polyline = self.mp_xyz[i][:, :2]
 
                 tran_x, tran_y, tran_yaw = transform(
                     (polyline[:,0], polyline[:,1], 0), (ego_x, ego_y, ego_yaw)
                 )
-                x_new, y_new, tran_yaw = transform(
-                    (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
-                )
+                # tran_x, tran_y, tran_yaw = transform(
+                #     (tran_x, tran_y, tran_yaw), (0, 0, -np.pi / 2)
+                # )
 
-                x_mask=(x_new>-self.patch_size[0]//2) & (x_new<self.patch_size[0]//2)
-                y_mask=(y_new>-self.patch_size[1]//2) & (y_new<self.patch_size[1]//2)
-
+                x_mask=(tran_x>-self.patch_size[0]//2) & (tran_x<self.patch_size[0]//2)
+                y_mask=(tran_x>-self.patch_size[1]//2) & (tran_y<self.patch_size[1]//2)
                 mask=x_mask & y_mask
 
                 if mask.any():#any point intersect
-                    pts=np.stack([-y_new,x_new], axis=-1)
-
+                    pts=np.stack([tran_x, tran_y], axis=-1)
                     gt_map_pts.append(pts)
                     gt_vecs_label.append(type_dict[_type])
-
 
         send_data["gt_vecs_label"] = gt_vecs_label#type [0,1,2]
         send_data["gt_lines_instance"] = gt_map_pts#list of list 2
