@@ -88,7 +88,7 @@ for type_id in [0,1,2]:#
     joint_hist = torch.bincount(joint_idx, minlength=x_bin * y_bin)#.reshape(250, 30)
 
     # Top-k
-    cluster_n=4096
+    cluster_n=2048
 
     top_k_value, top_k_flat_idx = torch.topk(joint_hist, k=cluster_n)#.flatten()
 
@@ -140,12 +140,12 @@ for type_id in [0,1,2]:#
 
         #traj_list.append(meaning_contour.cpu())
 
-    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-    #
-    # plt.show()
+        plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+
+    plt.show()
     codebook = torch.stack(traj_list, dim=0)
 
-    # inverse_contour = traj_list.clone()
+    # inverse_contour = traj_list.clone()#0.05 0.2 0.25
     # inverse_contour[:, :, 1] = -inverse_contour[:, :, 1]
     #
     # contour = torch.cat([traj_list, inverse_contour], dim=0)
@@ -174,8 +174,8 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-with open("my4096.pkl", "wb") as f:
-    pickle.dump(res, f)
+# with open("my4096.pkl", "wb") as f:
+#     pickle.dump(res, f)
 
 
 # torch.Size([154079694, 5, 3])
