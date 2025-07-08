@@ -76,14 +76,15 @@ class TokenProcessor(torch.nn.Module):
 
         self.interval_t=self.shift /10
 
-        self.pred_all_token = False
-
-        if self.pred_all_token:
-            self.n_token_agent=self.agent_token_all_veh.shape[0]
-            
-        self.pred_res= True
-        if self.pred_res:
+        self.pred_last_res= False
+        if self.pred_last_res:
             self.n_token_agent+=1
+            
+        self.pred_all_res = True
+
+        if self.pred_all_res:
+            self.n_token_agent=self.agent_token_all_veh.shape[0]
+            self.pred_last_res=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -434,20 +435,23 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
-            if not self.pred_all_token and self.pred_res:
+            if  self.pred_last_res:
                 token_valid=min_dist<0.5
                 token_idx_gt[~token_valid]=self.n_token_agent-1
                 _valid_mask=token_valid & _valid_mask
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
-            dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
-            next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+            if not self.pred_all_res:
+                dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
+                next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+                prev_head[_valid_mask] = next_head[_valid_mask]
 
-            prev_head[_valid_mask] = next_head[_valid_mask]
             prev_pos = pos[:, i].clone()
-            next_pos = token_contour_gt.mean(1)
-            prev_pos[_valid_mask] = next_pos[_valid_mask]
+
+            if not self.pred_all_res:
+                next_pos = token_contour_gt.mean(1)
+                prev_pos[_valid_mask] = next_pos[_valid_mask]
 
             _valid_mask=valid[:, i]
             _invalid_mask = ~_valid_mask
@@ -523,27 +527,26 @@ class TokenProcessor(torch.nn.Module):
             return gathered
 
         
-        if self.pred_res:
+        if self.pred_last_res or self.pred_all_res:
             gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
 
             gt_traj[~valid] = 0
 
-            valid_mask=out_dict["valid_mask"] # current position, heading valid
-            token_mask=out_dict["sampled_idx"]==self.n_token_agent-1
+            valid_mask = out_dict["valid_mask"]  # current position, heading valid
 
             target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
             out_dict["target_global_traj"] =target_global_traj[:,1:]
             target_mask = target_global_traj.any(-1) != 0
-            out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]# & token_mask[:,:,None]
+            out_dict["target_mask"] = target_mask[:, 1:]  & valid_mask[:,:,None]
 
-            if not self.pred_all_token:
-                out_dict["target_mask"] = out_dict["target_mask"]  & token_mask[:,:,None]
+            if self.pred_last_res:
+                token_mask=out_dict["sampled_idx"]==self.n_token_agent - 1
+                out_dict["target_mask"] = out_dict["target_mask"] & token_mask[:, :, None]
 
         return out_dict
 
-
     def my_match_agent_token(
-        self,
+            self,
         valid: Tensor,  # [n_agent, n_step]
         pos: Tensor,  # [n_agent, n_step, 2]
         heading: Tensor,  # [n_agent, n_step]
