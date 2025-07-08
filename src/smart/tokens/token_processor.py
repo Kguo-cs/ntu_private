@@ -49,6 +49,7 @@ class TokenProcessor(torch.nn.Module):
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
+        self.n_token_map = self.map_token_traj_src.shape[0]
 
         self.use_lane=False
 

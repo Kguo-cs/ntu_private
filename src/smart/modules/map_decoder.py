@@ -56,12 +56,13 @@ class SMARTMapDecoder(nn.Module):
             self.head_dim=head_dim
 
             # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-            self.my_map=False
+            # self.my_map=False
 
-            if self.my_map:
-                self.token_emb = MLPEmbedding(input_dim=27, hidden_dim=hidden_dim)
-            else:
-                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+            # if self.my_map:
+            #     self.token_emb = MLPEmbedding(input_dim=27, hidden_dim=hidden_dim)
+            # else:
+            #     self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+            self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
             if self.gnn:
                 input_dim_r_pt2pt = 3
@@ -93,15 +94,14 @@ class SMARTMapDecoder(nn.Module):
         if not self.use_map:
             return {}
 
-
         batch = tokenized_map["batch"]
 
         if "orientation" in tokenized_map.keys():
             pos_pt = tokenized_map["position"]
             orient_pt = tokenized_map["orientation"]
-            pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
-            x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]
-
+            # pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
+            # x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]
+            x_pt = self.token_emb(tokenized_map["token_idx"].long())
         else:
             traj_pos= tokenized_map["traj_pos"]
             pos_pt=traj_pos[:,0,:2]
