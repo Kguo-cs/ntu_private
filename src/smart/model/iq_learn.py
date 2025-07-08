@@ -290,8 +290,8 @@ class IQ_SoftQ(LightningModule):
 
             train_mask= state_mask & action_mask
         else:
-            # train_mask = valid_mask.all(-1)
-            # tokenized_agent["train_mask"]=train_mask
+            #train_mask = valid_mask.all(-1)
+            #tokenized_agent["train_mask"]=train_mask
             state_mask = valid_mask[:, :-1]
             action_mask = valid_mask[:, 1:]
             train_mask = state_mask & action_mask
