@@ -150,7 +150,7 @@ class GUI(Process):
         self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
 
         #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
-        self.agent_type_style = [COLOR_ALUMINIUM_0, COLOR_CHAMELEON, COLOR_MAGENTA]
+        self.agent_type_style = [COLOR_ALUMINIUM_0, COLOR_YELLOW, COLOR_MAGENTA]
 
         # make output dir
         # self.save_dir = save_dir
@@ -310,13 +310,6 @@ class GUI(Process):
         dpg.set_item_height('PredBEVWindow', 850)
         dpg.set_item_pos('PredBEVWindow', (900, self.image_height+65))
 
-        # dpg.set_item_width('PromptsWindow', 470)
-        # dpg.set_item_height('PromptsWindow', 800)
-        # dpg.set_item_pos('PromptsWindow', (10, 380))
-
-        # dpg.set_item_width('ResponseWindow', 470)
-        # dpg.set_item_height('ResponseWindow', 800)
-        # dpg.set_item_pos('ResponseWindow', (1300, 380))
 
     def drawMainWindowWhiteBG(self):
         pmin, pmax = self.netBoundary
@@ -446,7 +439,8 @@ class GUI(Process):
             )
 
             # # Draw shaft of the arrow
-            self.draw_arrow(heading_start[i], heading_end[i], COLOR_BLACK, thickness=1, tip_length=1.0, parent=node)
+            if _type[i]==0:
+                self.draw_arrow(heading_start[i], heading_end[i], COLOR_BLACK, thickness=1, tip_length=1.0, parent=node)
 
             center=bbox_gt[i].mean(0)
 
@@ -485,6 +479,14 @@ class GUI(Process):
                     thickness=thickness,
                     parent=node
                 )
+
+                # dpg.draw_text(
+                #     self.ctf.dpgCoord(x, y, self.centerx, self.centery),
+                #     id,
+                #     color=(255, 0, 0),
+                #     size=20,
+                #     parent=node
+                # )
 
     def draw_traffic_light(self,node,light_idx):
 

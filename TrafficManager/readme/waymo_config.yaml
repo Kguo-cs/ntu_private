@@ -15,14 +15,31 @@ planner_path: "../src/waymo_data/epoch=3-step=30440-val_closed_wosac=0.7671.ckpt
 
 gui_display: true
 
-static:
-  add: []
-  remove: []
 
 traffic_light:
   add: []
   remove: []
 
-agent:
-  add: []
+static_object:
+  add: #static object
+    x: [362] #global x
+    y: [6300] #global y
+    length: [10] #length
+    width: [10] #width
+    height: [1] #height
+    heading: [0]
   remove: []
+
+
+
+agent:
+  add:
+    type: [1]         #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+    x: [360] #global x
+    y: [6270] #global y
+    v_x: [-1] #global Vx
+    v_y: [0] #global Vy
+    length: [1] #length
+    width: [1] #width
+    height: [1] #height
+  remove: [997] # give the remove agent id

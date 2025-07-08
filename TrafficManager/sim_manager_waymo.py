@@ -108,14 +108,9 @@ class SimulationManager:
 
     def initialize_simulation(self,scenario,data):
         # Initialising models, planners, maps etc
-
         self.gui = GUI(scenario,data,self.initial_step)
         if self.GUI_DISPLAY:
             self.gui.start()
-
-        #print(f"Testing connection to WorldDreamer & Driver servers...")
-        ##requests.get(self.DIFFUSION_SERVER + "dreamer-clean/")
-        ##requests.get(self.DRIVER_SERVER + "driver-clean/")
 
         self.data_template = torch.load(self.DATA_TEMPLATE_PATH)
 
@@ -197,7 +192,6 @@ class SimulationManager:
             agent_heading=tokenized_agent['sampled_heading'][:,self.timestamp//5-1].cpu().numpy()
             #ci = CameraImages()
             #bev_map=self.gui.draw_input(data,agent_pos)
-
             #ci.PRED_BEV =bev_map
 
             diffusion_data = self.gui.limsim2diffusion(
@@ -321,6 +315,66 @@ class SimulationManager:
 
                 data = preprocess_map(map_data)
 
+                # add static object
+                add_static = self.config["static_object"]["add"]
+                static_x=np.array(add_static["x"])
+                static_y=np.array(add_static["y"])
+
+                add_static_num=len(static_x)
+                new_state=np.zeros([add_static_num,91,9])
+                new_state[:,:,0]=static_x[:,None]
+                new_state[:,:,1]=static_y[:,None]
+                new_state[:,:,3]=np.array(add_static["length"])
+                new_state[:,:,4]=np.array(add_static["width"])
+                new_state[:,:,5]=np.array(add_static["height"])
+                new_state[:, :, 6]=np.array(add_static["heading"])
+                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+
+                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
+                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
+                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
+                track_infos["object_type"]=np.concatenate([track_infos["object_type"],3+np.zeros([add_static_num])])
+
+                # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([1]).astype(int)])
+                # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
+                # state[0,:,0]=362
+                # state[0,:,1]=6300
+                # state[0,:,3]=10
+                # state[0,:,4]=10
+                # state[0,:,5]=10
+                # track_infos["states"]=np.concatenate([track_infos["states"],state])
+
+                add_agents=self.config["agent"]["add"]
+                x=np.array(add_agents["x"])
+                y=np.array(add_agents["y"])
+                v_x=np.array(add_agents["v_x"])
+                v_y=np.array(add_agents["v_y"])
+
+                add_agent_num=len(x)
+
+                track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.arange(add_agent_num)])
+                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
+                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
+                track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(add_agents["type"])])
+
+                new_state=np.zeros([add_agent_num,91,9])
+                new_state[:,:,0]=x[:,None]+v_x[:,None]*np.arange(-1,8.1,0.1)[None]
+                new_state[:,:,1]=y[:,None]+v_y[:,None]*np.arange(-1,8.1,0.1)[None]
+                new_state[:,:,3]=np.array(add_agents["length"])
+                new_state[:,:,4]=np.array(add_agents["width"])
+                new_state[:,:,5]=np.array(add_agents["height"])
+                new_state[:, :, 6]=np.arctan2(v_y,v_x)
+                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+
+               # delete agent
+                remove_id=self.config["agent"]["remove"]
+                mask=np.where(track_infos["object_id"]!=remove_id)
+                track_infos["object_id"]=track_infos["object_id"][mask]
+                track_infos["object_type"]=track_infos["object_type"][mask]
+                track_infos["states"]=track_infos["states"][mask]
+                track_infos["valid"]=track_infos["valid"][mask]
+                track_infos["role"]=track_infos["role"][mask]
+
                 data["agent"] = get_agent_features(
                     track_infos,
                     split="validation",
@@ -334,8 +388,6 @@ class SimulationManager:
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
                 self.initialize_simulation(scenario,data)
-                #custom_traffic_Light
-               # trafficlight_system=TrafficSystem(data["light"])
 
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1
@@ -345,6 +397,8 @@ class SimulationManager:
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
                 agent_num=len(tokenized_agent["batch"])
+                #custom_traffic_Light
+                # trafficlight_system=TrafficSystem(data["light"])
 
                 # #add traffic light
                 # light_num=len(tokenized_agent["light_idx"])
@@ -354,8 +408,10 @@ class SimulationManager:
                 # tokenized_agent["batch_lg"]=tokenized_agent["batch_lg"][:light_num]
                 # tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
 
+                self.control_mask =tokenized_agent["type"]<3#torch.ones_like(tokenized_agent["ego_mask"])#$tokenized_agent["ego_mask"] #
 
-                self.control_mask =tokenized_agent["ego_mask"] #torch.zeros_like(tokenized_agent["ego_mask"])
+                tokenized_agent["type"][tokenized_agent["type"]==3]=0
+
 
                 while True:
                     if not self.process_frame(map_feature, tokenized_agent):
@@ -413,7 +469,6 @@ class SimulationManager:
             state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
-
 
         self.planner.load_state_dict(state_dict)
         self.planner.cuda()
