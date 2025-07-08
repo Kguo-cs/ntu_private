@@ -238,6 +238,8 @@ class TokenProcessor(torch.nn.Module):
             "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            "pred_traj_10hz": pos,
+            "pred_head_10hz": heading,
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:

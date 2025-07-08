@@ -114,7 +114,7 @@ class SimulationManager:
         self.data_template = torch.load(self.DATA_TEMPLATE_PATH)
 
         self.timestamp = self.initial_step
-        self.MAX_SIM_TIME = 91
+        self.MAX_SIM_TIME = 90
 
         self.recording = False
 
@@ -184,7 +184,6 @@ class SimulationManager:
         if self.timestamp >= self.MAX_SIM_TIME:
             print("Simulation time end.")
             return False
-        device=tokenized_agent["type"].device
         agent_type=tokenized_agent["type"].cpu().numpy()
 
         if self.timestamp % 5 == 0:
@@ -233,11 +232,24 @@ class SimulationManager:
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
-            for key in pred_dict.keys():
-                pred_dict[key][self.control_mask] = tokenized_agent[key][self.control_mask][:,:(self.timestamp-5)//5]
+
+            # "sampled_pos": pos_a,  # [n_agent, 18, 2]
+            # "sampled_heading": head_a,  # [n_agent, 18]
+            # "valid_mask": mask,  # [n_agent, 18]
+            # "sampled_idx": sampled_idx,  # [n_agent, 18]
+            # "light_idx": light_idx,
+
+            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","pred_traj_10hz","pred_head_10hz"]:
+                pred_value=pred_dict[key]
+                tokenized_agent[key][self.control_mask][:,:pred_value.shape[1]] = pred_value[self.control_mask]
+
+            for key in ["pred_traj_10hz","pred_head_10hz"]:
+                pred_value=pred_dict[key]
+                tokenized_agent[key][self.control_mask][:,self.timestamp+1:self.timestamp+6] = pred_value[self.control_mask]
 
 
-            tokenized_agent.update(pred_dict)
+
+            # tokenized_agent.update(pred_dict)
 
             #control ego
             # ego_planned_traj=torch.zeros([5,3],device=device)[None]
@@ -263,22 +275,14 @@ class SimulationManager:
             # tokenized_agent['sampled_pos'][ego_idx][-1]=pred_traj[:,-1]
             # tokenized_agent['sampled_heading'][ego_idx][-1]=pred_head[:,-1]
 
-
-
-
-        # self.gui.set_ego_pose(tokenized_agent,torch.tensor((0,0)).to(device),torch.tensor(0).to(device)) #set agent_pos,agent_head to (0m,0m) relative to the initial position
-
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
 
         light_idx = tokenized_agent["light_idx"][:,(self.timestamp-5)//5].cpu().numpy()
-        agent_pos=pos[:,self.timestamp%5].cpu().numpy()
-        agent_head=heading[:,self.timestamp%5].cpu().numpy()
-
+        agent_pos=pos[:,self.timestamp].cpu().numpy()
+        agent_head=heading[:,self.timestamp].cpu().numpy()
 
         self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
-
-        #rendered_image=self.renderer.render( scenario, tokenized_agent,self.timestamp)
 
         self.timestamp += 1
 
@@ -352,7 +356,7 @@ class SimulationManager:
                 # tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
 
 
-                self.control_mask = torch.zeros_like(tokenized_agent["ego_mask"])
+                self.control_mask =tokenized_agent["ego_mask"] #torch.zeros_like(tokenized_agent["ego_mask"])
 
                 while True:
                     if not self.process_frame(map_feature, tokenized_agent):

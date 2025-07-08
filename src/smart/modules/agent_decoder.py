@@ -432,12 +432,8 @@ class SMARTAgentDecoder(nn.Module):
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
-        pred_traj_10hz = torch.zeros(
-            [n_agent, 0, 2], dtype=pos_a.dtype, device=pos_a.device
-        )
-        pred_head_10hz = torch.zeros(
-            [n_agent, 0], dtype=pos_a.dtype, device=pos_a.device
-        )
+        pred_traj_10hz = []
+        pred_head_10hz = []
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -522,8 +518,8 @@ class SMARTAgentDecoder(nn.Module):
                         head_now=head_a[:, -1],  # [n_agent]
                     )
 
-                    pred_traj_10hz = torch.cat([pred_traj_10hz, pred_traj1], dim=1)
-                    pred_head_10hz = torch.cat([pred_head_10hz, pred_head1], dim=1)
+                    pred_traj_10hz.append(pred_traj1)
+                    pred_head_10hz.append(pred_head1)
 
                     pos_a = torch.cat([pos_a, pred_traj1[:, -1:]], dim=1)
                     head_a = torch.cat([head_a,  pred_head1[:,-1:]], dim=1)
@@ -602,10 +598,10 @@ class SMARTAgentDecoder(nn.Module):
 
                     if "gt_z_raw" in tokenized_agent.keys():
                         pred_traj = token_traj_global[:, :].mean(2)
-                        pred_traj_10hz = torch.cat([pred_traj_10hz, pred_traj], dim=1)
+                        pred_traj_10hz.append(pred_traj)
                         diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
                         pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
-                        pred_head_10hz = torch.cat([pred_head_10hz, pred_head], dim=1)
+                        pred_head_10hz.append(pred_head)
 
                     # ! get pos_a_next and head_a_next, spawn unseen agents
                     pos_a_next = token_traj_global[:, -1].mean(dim=1)
@@ -660,9 +656,9 @@ class SMARTAgentDecoder(nn.Module):
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-            out_dict["pred_traj_10hz"] = pred_traj_10hz
-            out_dict["pred_head_10hz"] = pred_head_10hz
-            out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, pred_traj_10hz.shape[1])
+            out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
+            out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
+            out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
         return out_dict
 

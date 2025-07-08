@@ -27,7 +27,7 @@ data:
 # Image Configuration
 image:
   size: 200
-  target_size: [560, 315]
+  target_size: [560, 315] #[767, 576] #, 767
 
 
 data_path: "../src/waymo_data/full/validation_tfrecords_splitted"

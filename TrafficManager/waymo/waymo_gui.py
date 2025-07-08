@@ -175,6 +175,9 @@ class GUI(Process):
 
         self.ego_idx=np.where(ag_role[:,0])[0][0]
 
+        self.image_width = 560#767  #
+        self.image_height =315 #576#
+
 
     def set_ego_pose(self,tokenized_agent,rel_pos,rel_heading):
 
@@ -226,12 +229,12 @@ class GUI(Process):
         dpg.bind_font(default_font)
 
         # Camera Window
-        image_width = 560
-        image_height = 315
+        image_width = self.image_width #560
+        image_height = self.image_height#315
         ## CAM_FRONT_LEFT
         self.CAM_FRONT_LEFT_TR = dpg.add_texture_registry(show=False)
         dpg.add_dynamic_texture(
-            width=image_width, height=image_height,
+            width=self.image_width, height=image_height,
             default_value=generateDefaultImage(image_width, image_height),
             tag='CAM_FRONT_LEFT_TT', parent=self.CAM_FRONT_LEFT_TR
         )
@@ -287,25 +290,25 @@ class GUI(Process):
             dpg.add_mouse_wheel_handler(callback=self.mouse_wheel)
 
     def resize_windows(self):
-        dpg.set_item_width("CAM_FRONT_LEFT_WINDOW", 580)
-        dpg.set_item_height("CAM_FRONT_LEFT_WINDOW", 360)
+        dpg.set_item_width("CAM_FRONT_LEFT_WINDOW", self.image_width+20)
+        dpg.set_item_height("CAM_FRONT_LEFT_WINDOW", self.image_height+45)
         dpg.set_item_pos("CAM_FRONT_LEFT_WINDOW", (10, 10))
 
-        dpg.set_item_width('CAM_FRONT_WINDOW', 580)
-        dpg.set_item_height('CAM_FRONT_WINDOW', 360)
-        dpg.set_item_pos('CAM_FRONT_WINDOW', (600, 10))
+        dpg.set_item_width('CAM_FRONT_WINDOW', self.image_width+20)
+        dpg.set_item_height('CAM_FRONT_WINDOW', self.image_height+45)
+        dpg.set_item_pos('CAM_FRONT_WINDOW', (self.image_width+40, 10))
 
-        dpg.set_item_width('CAM_FRONT_RIGHT_WINDOW', 580)
-        dpg.set_item_height('CAM_FRONT_RIGHT_WINDOW', 360)
-        dpg.set_item_pos('CAM_FRONT_RIGHT_WINDOW', (1190, 10))
+        dpg.set_item_width('CAM_FRONT_RIGHT_WINDOW', self.image_width+20)
+        dpg.set_item_height('CAM_FRONT_RIGHT_WINDOW', self.image_height+45)
+        dpg.set_item_pos('CAM_FRONT_RIGHT_WINDOW', (self.image_width*2+70, 10)) #1120
 
         dpg.set_item_width('BEVWindow', 850)
         dpg.set_item_height('BEVWindow', 850)
-        dpg.set_item_pos('BEVWindow', (10, 380))
+        dpg.set_item_pos('BEVWindow', (10, self.image_height+65))
 
         dpg.set_item_width('PredBEVWindow', 850)
         dpg.set_item_height('PredBEVWindow', 850)
-        dpg.set_item_pos('PredBEVWindow', (900, 380))
+        dpg.set_item_pos('PredBEVWindow', (900, self.image_height+65))
 
         # dpg.set_item_width('PromptsWindow', 470)
         # dpg.set_item_height('PromptsWindow', 800)
