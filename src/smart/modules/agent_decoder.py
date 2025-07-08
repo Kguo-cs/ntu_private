@@ -378,7 +378,7 @@ class SMARTAgentDecoder(nn.Module):
         # random_mask[:, :2] = False
 
         # light_idx[random_mask] = random_light[random_mask]
-        # mask_lg=light_idx<self.light_type
+        mask_lg=light_idx<self.light_type
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["valid_mask"],
