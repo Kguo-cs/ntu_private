@@ -45,18 +45,18 @@ for type_id in [0,1,2]:#
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max = 1.5
-        x_interval =0.1#0.1
+        x_interval =0.05#0.1
         y_interval = 0.05
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
         x_interval = 0.05
-        y_interval = 0.025
+        y_interval = 0.05
     elif type_id == 2:
         x_min, x_max = -3, 8
         y_max=1
         x_interval = 0.05
-        y_interval = 0.025
+        y_interval = 0.05
     
     y_max = y_max - y_interval/2
      
@@ -140,9 +140,9 @@ for type_id in [0,1,2]:#
 
         #traj_list.append(meaning_contour.cpu())
 
-        plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
-
-    plt.show()
+    #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
+    #
+    # plt.show()
     codebook = torch.stack(traj_list, dim=0)
 
     # inverse_contour = traj_list.clone()#0.05 0.2 0.25
@@ -174,8 +174,8 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-# with open("my4096.pkl", "wb") as f:
-#     pickle.dump(res, f)
+with open("my2048_05.pkl", "wb") as f:
+    pickle.dump(res, f)
 
 
 # torch.Size([154079694, 5, 3])
