@@ -12,4 +12,4 @@ source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
-python  run.py > bc64_nonoise_diff03_sa_maptoken.log  2>&1
+python  run.py > bc64_nonoise_diff05_sa.log  2>&1
