@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc64_lightformer_notoken03_sa #_nonoise_difflast #_8192_iq #lightformer_nonoise_notoken #nores #_shuffle_shuffle_noraw #tokensame #_detach_raw_iq #_res_real_dist05_iq #4096_all_center4096_iq #_center01_iq #_detach_raw_centerinter_post #dyanmic #8192_iq #5Hz_iq997 #embed_5Hz_iq1 #dynamicpost51      #_5hz_start_nolight_trainmask #_expertinit1_post0222 #_recoil #_local #target  #gaussianpos3Mapadd1_d5 #_iqLearn05 #_rollpost_noexpertnll_tpred
+task_name: bc64_lightformer_nonoise_diff03 #_sa #_nonoise_difflast #_8192_iq #lightformer_nonoise_notoken #nores #_shuffle_shuffle_noraw #tokensame #_detach_raw_iq #_res_real_dist05_iq #4096_all_center4096_iq #_center01_iq #_detach_raw_centerinter_post #dyanmic #8192_iq #5Hz_iq997 #embed_5Hz_iq1 #dynamicpost51      #_5hz_start_nolight_trainmask #_expertinit1_post0222 #_recoil #_local #target  #gaussianpos3Mapadd1_d5 #_iqLearn05 #_rollpost_noexpertnll_tpred
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

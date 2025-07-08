@@ -334,7 +334,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_res:
                 if self.training:
-                    proposal_feature = feat_a[:, :-1] #+ self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
+                    proposal_feature = feat_a[:, :-1] + self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
                     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
@@ -371,14 +371,14 @@ class SMARTAgentDecoder(nn.Module):
     ) -> Dict[str, torch.Tensor]:
         light_idx = tokenized_agent["light_idx"].clone()
 
-        random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
+        # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
 
-        random_mask = torch.rand_like(light_idx.float()) > 0.9
+        # random_mask = torch.rand_like(light_idx.float()) > 0.9
 
-        random_mask[:, :2] = False
+        # random_mask[:, :2] = False
 
-        light_idx[random_mask] = random_light[random_mask]
-        mask_lg=light_idx<self.light_type
+        # light_idx[random_mask] = random_light[random_mask]
+        # mask_lg=light_idx<self.light_type
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["valid_mask"],
