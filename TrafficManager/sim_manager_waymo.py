@@ -54,9 +54,15 @@ import json
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
         self.config = self.load_config(config_path)
-        self.setup_constants()
-        self.setup_paths()
         self.setup_planner(cfg)
+        self.GUI_DISPLAY = self.config["gui_display"]
+
+        data_root = os.path.dirname(os.path.abspath(__file__))
+
+        self.DATA_TEMPLATE_PATH = os.path.join(
+            data_root, self.config["data"]["template_path"]
+        )
+        self.TARGET_SIZE = tuple(self.config["image"]["target_size"])
 
         self.map_classes= [ 'ped_crossing','divider', 'boundary']#green, blue,red
         self.object_classes=['vehicle']
@@ -232,13 +238,6 @@ class SimulationManager:
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
-
-            # "sampled_pos": pos_a,  # [n_agent, 18, 2]
-            # "sampled_heading": head_a,  # [n_agent, 18]
-            # "valid_mask": mask,  # [n_agent, 18]
-            # "sampled_idx": sampled_idx,  # [n_agent, 18]
-            # "light_idx": light_idx,
-
             for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","pred_traj_10hz","pred_head_10hz"]:
                 pred_value=pred_dict[key]
                 tokenized_agent[key][self.control_mask][:,:pred_value.shape[1]] = pred_value[self.control_mask]
@@ -407,39 +406,6 @@ class SimulationManager:
         if self.recording:
             self.video_writer.release()
 
-    def setup_constants(self):
-        self.DIFFUSION_SERVER = self.config["servers"]["diffusion"]
-        self.DRIVER_SERVER = self.config["servers"]["driver"]
-        self.STEP_LENGTH = self.config["simulation"]["step_length"]
-        self.GUI_DISPLAY = self.config["simulation"]["gui_display"]
-        self.MAX_SIM_TIME = self.config["simulation"]["max_sim_time"]
-        self.EGO_ID = self.config["simulation"]["ego_id"]
-        self.MAP_NAME = self.config["map"]["name"]
-        self.IMAGE_SIZE = self.config["image"]["size"]
-        self.TARGET_SIZE = tuple(self.config["image"]["target_size"])
-
-    def setup_paths(self):
-        data_root = os.path.dirname(os.path.abspath(__file__))
-        self.SUMO_CFG_FILE = os.path.join(
-            data_root,
-            self.config["map"]["sumo_cfg_file"].format(map_name=self.MAP_NAME),
-        )
-        self.SUMO_NET_FILE = os.path.join(
-            data_root,
-            self.config["map"]["sumo_net_file"].format(map_name=self.MAP_NAME),
-        )
-        self.SUMO_ROU_FILE = os.path.join(
-            data_root,
-            self.config["map"]["sumo_rou_file"].format(map_name=self.MAP_NAME),
-        )
-        self.DATA_TEMPLATE_PATH = os.path.join(
-            data_root, self.config["data"]["template_path"]
-        )
-        self.NU_SCENES_DATA_ROOT = os.path.join(
-            data_root,
-            self.config["data"]["nu_scenes_root"].format(map_name=self.MAP_NAME),
-        )
-
     def setup_planner(self,cfg):
         self.planner = SMART(cfg.model.model_config)
 
@@ -456,7 +422,7 @@ class SimulationManager:
 
 @hydra.main(config_path="../configs/", config_name="run.yaml", version_base=None)
 def main(cfg):
-    sim_manager = SimulationManager(cfg, 'waymo/waymo_config.yaml')
+    sim_manager = SimulationManager(cfg, './readme/waymo_config.yaml')
     sim_manager.run_simulation()
 
 

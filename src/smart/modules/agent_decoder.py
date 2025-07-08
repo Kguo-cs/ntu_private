@@ -336,15 +336,10 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
-                proposal = self.traj_head(proposal_feature.detach())
-                proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+                if self.training or self.pred_last_res:
+                    proposal = self.traj_head(proposal_feature)#.detach()
+                    proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
-                if self.pred_all_res:
-                    agent_type = tokenized_agent["type"]
-                    veh_mask=agent_type==0
-                    proposal[...,0][veh_mask]  = torch.tanh(proposal[...,0][veh_mask])*0.05
-                    proposal[...,0][~veh_mask] = torch.tanh(proposal[...,0][~veh_mask])*0.025
-                    proposal[...,1]=torch.tanh(proposal[...,1])*0.025
 
                 if self.training and self.pred_all_res:
                     next_token_idx = sampled_idx[:, 1 + self.start_step:]
@@ -358,6 +353,13 @@ class SMARTAgentDecoder(nn.Module):
                     token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
 
                     next_token_traj_all = token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
+
+                    agent_type = tokenized_agent["type"]
+                    veh_mask=agent_type==0
+                    proposal[...,0][veh_mask]  = torch.tanh(proposal[...,0][veh_mask])*0.05
+                    proposal[...,0][~veh_mask] = torch.tanh(proposal[...,0][~veh_mask])*0.025
+                    proposal[...,1]=torch.tanh(proposal[...,1])*0.025
+
                     proposal=proposal+next_token_traj_all[:,:,None]
 
             if self.training and "train_mask" in tokenized_agent.keys():
