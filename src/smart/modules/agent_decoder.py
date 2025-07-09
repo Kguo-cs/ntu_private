@@ -332,7 +332,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_last_res or self.pred_all_res:
                 if self.training:
-                    proposal_feature = (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
+                    proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]    #().detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
                     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
