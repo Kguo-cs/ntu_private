@@ -18,11 +18,6 @@ sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
 from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
-
-
-
-
-
 def Kdisk_cluster(
     X,  # [n_trajs, 4, 2], bbox of the last point of the segment
     N,  # int
@@ -61,12 +56,7 @@ num_cluster=2048
 torch.manual_seed(2)
 
 for type_id in [0,1,2]:#
-    #veh_traj=traj[type==type_id]
-    #veh_traj = veh_traj.reshape(-1, 5, 3)  # [N, 5, 2]
-
     v=torch.load("/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt")[:100000000]
-
-    # torch.save(veh_traj, "/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt")
     total_n=len(v)
     print(v.shape)
 
@@ -78,13 +68,10 @@ for type_id in [0,1,2]:#
         width_length = torch.tensor([1.0, 1.0])
     elif k == "cyc":
         width_length = torch.tensor([1.0, 2.0])
-        
-        
+
     contour = cal_polygon_contour(
         pos=v[:, -1, :2], head=v[:, -1, 2], width_length=width_length.cuda()
     )  # [n_trajs, 4, 2]
-
-
 
     if k == "veh":
         tol = tol_dist[0]

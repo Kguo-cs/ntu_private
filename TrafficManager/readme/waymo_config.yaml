@@ -12,6 +12,7 @@ data_path: "../src/waymo_data/full/validation_tfrecords_splitted"
 
 planner_path: "../src/waymo_data/epoch=3-step=30440-val_closed_wosac=0.7671.ckpt"
 
+output_json_path: "./waymo/json_output/labels.json"
 
 gui_display: true
 
@@ -37,7 +38,7 @@ agent:
     type: [1]         #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
     x: [360] #global x
     y: [6270] #global y
-    v_x: [-1] #global Vx
+    v_x: [-2] #global Vx
     v_y: [0] #global Vy
     length: [1] #length
     width: [1] #width

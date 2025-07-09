@@ -100,6 +100,7 @@ class SimulationManager:
             self.image_size[key]=(int(K[1,2]*2),int(K[0,2]*2))
 
         self.initial_step=10
+        self.output_json_path=self.config["output_json_path"]
 
     @staticmethod
     def load_config(config_path: str) -> Dict:
@@ -134,8 +135,6 @@ class SimulationManager:
             )
 
         self.lidar_height=1.84
-
-
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
 
@@ -232,13 +231,15 @@ class SimulationManager:
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
-            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","pred_traj_10hz","pred_head_10hz"]:
+            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
                 pred_value=pred_dict[key]
                 tokenized_agent[key][self.control_mask][:,:pred_value.shape[1]] = pred_value[self.control_mask]
 
             for key in ["pred_traj_10hz","pred_head_10hz"]:
                 pred_value=pred_dict[key]
                 tokenized_agent[key][self.control_mask][:,self.timestamp+1:self.timestamp+6] = pred_value[self.control_mask]
+
+            tokenized_agent["all_valid"][self.control_mask][:, self.timestamp + 1:self.timestamp + 6]=True
 
 
 
@@ -278,6 +279,7 @@ class SimulationManager:
         self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
 
         self.timestamp += 1
+        self.dump_result(tokenized_agent)
 
         sleep(0.1)
         self.capture_viewport_frame()
@@ -315,35 +317,7 @@ class SimulationManager:
 
                 data = preprocess_map(map_data)
 
-                # add static object
-                add_static = self.config["static_object"]["add"]
-                static_x=np.array(add_static["x"])
-                static_y=np.array(add_static["y"])
-
-                add_static_num=len(static_x)
-                new_state=np.zeros([add_static_num,91,9])
-                new_state[:,:,0]=static_x[:,None]
-                new_state[:,:,1]=static_y[:,None]
-                new_state[:,:,3]=np.array(add_static["length"])
-                new_state[:,:,4]=np.array(add_static["width"])
-                new_state[:,:,5]=np.array(add_static["height"])
-                new_state[:, :, 6]=np.array(add_static["heading"])
-                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
-
-                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
-                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
-                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
-                track_infos["object_type"]=np.concatenate([track_infos["object_type"],3+np.zeros([add_static_num])])
-
-                # track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([1]).astype(int)])
-                # state=np.zeros([1,91,9])# x, y, z, length, width, height,heading,vx,vy
-                # state[0,:,0]=362
-                # state[0,:,1]=6300
-                # state[0,:,3]=10
-                # state[0,:,4]=10
-                # state[0,:,5]=10
-                # track_infos["states"]=np.concatenate([track_infos["states"],state])
-
+                #add agent
                 add_agents=self.config["agent"]["add"]
                 x=np.array(add_agents["x"])
                 y=np.array(add_agents["y"])
@@ -375,6 +349,27 @@ class SimulationManager:
                 track_infos["valid"]=track_infos["valid"][mask]
                 track_infos["role"]=track_infos["role"][mask]
 
+                # add static object
+                add_static = self.config["static_object"]["add"]
+                static_x=np.array(add_static["x"])
+                static_y=np.array(add_static["y"])
+
+                add_static_num=len(static_x)
+                new_state=np.zeros([add_static_num,91,9])
+                new_state[:,:,0]=static_x[:,None]
+                new_state[:,:,1]=static_y[:,None]
+                new_state[:,:,3]=np.array(add_static["length"])
+                new_state[:,:,4]=np.array(add_static["width"])
+                new_state[:,:,5]=np.array(add_static["height"])
+                new_state[:, :, 6]=np.array(add_static["heading"])
+                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+
+                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
+                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
+                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
+                track_infos["object_type"]=np.concatenate([track_infos["object_type"],3+np.zeros([add_static_num])])
+
+
                 data["agent"] = get_agent_features(
                     track_infos,
                     split="validation",
@@ -396,7 +391,6 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                agent_num=len(tokenized_agent["batch"])
                 #custom_traffic_Light
                 # trafficlight_system=TrafficSystem(data["light"])
 
@@ -455,7 +449,46 @@ class SimulationManager:
             self.video_writer.write(frame)
 
 
+    def dump_result(self,tokenized_agent):
+
+        result={}
+        pos = tokenized_agent["pred_traj_10hz"].cpu().numpy()
+        heading = tokenized_agent["pred_head_10hz"].cpu().numpy()
+        shape=tokenized_agent["shape"].cpu().numpy()
+        type=tokenized_agent["type"].cpu().numpy()
+        tracking_id=tokenized_agent["id"].cpu().numpy()
+        all_valid=tokenized_agent["all_valid"].cpu().numpy()
+
+        velocity=(pos[:,1:]-pos[:,:-1])/0.1
+
+        velocity=np.concatenate([velocity[:,:1],velocity],axis=1)
+
+        sim_t=pos.shape[1]
+
+        boxes=np.zeros([len(pos),sim_t,7])#[x, y, z, l, w, h, yaw]
+
+        boxes[:,:,:2]=pos
+        boxes[:,:,3:6]=shape[:,None]
+        boxes[:,:,6]=heading
+
+        type[tracking_id<0]=3
+
+        labels=np.array(["vehicle","pedestrian","bicycle","static_object"])[type]
+
+
+        for t in range(sim_t):
+            result[str(t)]={}
+            valid=all_valid[:,t]
+            result[str(t)]["bboxes"]=boxes[:,t][valid].tolist()
+            result[str(t)]["labels"]=labels[valid].tolist()
+            result[str(t)]["tracking_id"]=tracking_id[valid].tolist()
+            result[str(t)]["velocity"]=velocity[:,t][valid].tolist()
+
+        with open(self.output_json_path, "w") as f:
+            json.dump(result, f, indent=2)
+
     def cleanup(self):
+
         print("Simulation ends")
         self.gui.terminate()
         self.gui.join()

@@ -76,7 +76,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.interval_t=self.shift /10
 
-        self.pred_last_res= True
+        self.pred_last_res= False
         if self.pred_last_res:
             self.n_token_agent+=1
             
@@ -103,12 +103,8 @@ class TokenProcessor(torch.nn.Module):
 
             if self.use_light:
                 light=data["light"]
-
                 light_idx=light["light_idx"].long()
-
                 tokenized_agent["light_idx"]=light_idx
-                #tokenized_agent["valid_mask"] = torch.cat([tokenized_agent["valid_mask"], light_idx < self.light_type], dim=0)
-
                 tokenized_agent["batch_lg"]=light["batch"]
                 tokenized_agent["pos_lg"] = light["light_pos"]
                 tokenized_agent["orient_lg"] = light["light_orient"]
@@ -241,6 +237,8 @@ class TokenProcessor(torch.nn.Module):
             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             "pred_traj_10hz": pos,
             "pred_head_10hz": heading,
+            "all_valid": valid,
+            "id": data["agent"]["id"],
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
