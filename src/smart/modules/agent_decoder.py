@@ -549,14 +549,14 @@ class SMARTAgentDecoder(nn.Module):
 
                         proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
 
-                        token_diff = torch.index_select(self.token_processor.max_diff, dim=0,
-                                                        index=tokenized_agent["type"].long())
+                        # token_diff = torch.index_select(self.token_processor.max_diff, dim=0,
+                        #                                 index=tokenized_agent["type"].long())
 
                         # proposal_max_diff = token_diff[torch.arange(n_agent), next_token_idx]
                         #
                         # proposal = torch.tanh(proposal) * proposal_max_diff
                         #
-                        # next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
+                        next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
 
                         proposal=proposal+next_token_traj_all
 
