@@ -333,7 +333,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_last_res or self.pred_all_res:
                 if self.training:
-                    proposal_feature = (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach()    #().detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
+                    proposal_feature =feat_a[:, :-1] + agent_token_emb[:, 1:] # (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach()    #().detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
                     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
@@ -355,11 +355,11 @@ class SMARTAgentDecoder(nn.Module):
 
                     next_token_traj_all = token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
 
-                    # token_diff = torch.index_select(self.token_processor.max_diff, dim=0, index=tokenized_agent["type"].long())
-                    #
-                    # proposal_max_diff = token_diff[torch.arange(n_agent)[:,None], next_token_idx]
-                    #
-                    # proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
+                    token_diff = torch.index_select(self.token_processor.max_diff, dim=0, index=tokenized_agent["type"].long())
+
+                    proposal_max_diff = token_diff[torch.arange(n_agent)[:,None], next_token_idx]
+
+                    proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
 
                     proposal=proposal+next_token_traj_all[:,:,None]
 
@@ -549,13 +549,13 @@ class SMARTAgentDecoder(nn.Module):
 
                         proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
 
-                        # token_diff = torch.index_select(self.token_processor.max_diff, dim=0,
-                        #                                 index=tokenized_agent["type"].long())
+                        token_diff = torch.index_select(self.token_processor.max_diff, dim=0,
+                                                        index=tokenized_agent["type"].long())
 
-                        # proposal_max_diff = token_diff[torch.arange(n_agent), next_token_idx]
-                        #
-                        # proposal = torch.tanh(proposal) * proposal_max_diff
-                        #
+                        proposal_max_diff = token_diff[torch.arange(n_agent), next_token_idx]
+
+                        proposal = torch.tanh(proposal) * proposal_max_diff
+
                         next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
 
                         proposal=proposal+next_token_traj_all

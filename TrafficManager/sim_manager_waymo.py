@@ -102,6 +102,8 @@ class SimulationManager:
         self.initial_step=10
         self.output_json_path=self.config["output_json_path"]
 
+        self.input_json_path=self.config["input_json_path"]
+
     @staticmethod
     def load_config(config_path: str) -> Dict:
         with open(config_path, 'r') as config_file:
@@ -109,7 +111,9 @@ class SimulationManager:
 
     def initialize_simulation(self,scenario,data):
         # Initialising models, planners, maps etc
-        self.gui = GUI(scenario,data,self.initial_step)
+        light = self.config["traffic_light"]
+
+        self.gui = GUI(scenario,data,light,self.initial_step)
         if self.GUI_DISPLAY:
             self.gui.start()
 
@@ -233,41 +237,39 @@ class SimulationManager:
 
             for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
                 pred_value=pred_dict[key]
-                tokenized_agent[key][self.control_mask][:,:pred_value.shape[1]] = pred_value[self.control_mask]
+                tokenized_agent[key][self.control_mask,:pred_value.shape[1]] = pred_value[self.control_mask]
 
             for key in ["pred_traj_10hz","pred_head_10hz"]:
-                pred_value=pred_dict[key]
-                tokenized_agent[key][self.control_mask][:,self.timestamp+1:self.timestamp+6] = pred_value[self.control_mask]
+                tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
 
-            tokenized_agent["all_valid"][self.control_mask][:, self.timestamp + 1:self.timestamp + 6]=True
-
-
-
-            # tokenized_agent.update(pred_dict)
+            tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
+            self.dump_result(tokenized_agent)
 
             #control ego
-            # ego_planned_traj=torch.zeros([5,3],device=device)[None]
-            # ego_idx=self.gui.ego_idx
-            # token_agent_shape=tokenized_agent["token_agent_shape"][ego_idx][None]
-            # token_traj=tokenized_agent["token_traj"][ego_idx][None]
-            # sampled_idx=self.planner.token_processor.traj_to_idx(ego_planned_traj[:,-1:],token_agent_shape,token_traj)[0]
-            #
-            # tokenized_agent["sampled_idx"][ego_idx][-1]=sampled_idx
-            #
-            # pos_a=tokenized_agent["sampled_pos"][ego_idx][None]
-            # head_a=tokenized_agent["sampled_heading"][ego_idx][None]
-            #
-            # pred_traj, pred_head = transform_to_global(
-            #     pos_local=ego_planned_traj[:,:,:2],  # [n_agent, 6*4, 2]
-            #     head_local=ego_planned_traj[:,:,2],
-            #     pos_now=pos_a[:, -2],  # [n_agent, 2]
-            #     head_now=head_a[:, -2],  # [n_agent]
-            # )
-            #
-            # tokenized_agent['pred_traj_10hz'][ego_idx]=pred_traj
-            # tokenized_agent['pred_head_10hz'][ego_idx]=pred_head
-            # tokenized_agent['sampled_pos'][ego_idx][-1]=pred_traj[:,-1]
-            # tokenized_agent['sampled_heading'][ego_idx][-1]=pred_head[:,-1]
+            with open(self.input_json_path, "r") as f:
+                data = json.load(f)
+
+            if len(data)>0:
+                object_id = tokenized_agent["id"]
+
+                for t in data.keys():
+                    ids=data[t]["tracking_id"]
+                    bboxes=torch.tensor(data[t]["bboxes"]).cuda()
+                    for id,box in zip(ids,bboxes):
+                        obj_mask=id==object_id
+                        tokenized_agent['pred_traj_10hz'][obj_mask,int(t)]=box[:2]
+                        tokenized_agent['pred_head_10hz'][obj_mask,int(t)]=box[-1]
+                        tokenized_agent['shape'][obj_mask]=box[3:6]
+                        tokenized_agent["all_valid"][obj_mask]=True
+
+                token_dict =self.planner.token_processor._match_agent_token(
+                                                                         tokenized_agent["all_valid"],
+                                                                         tokenized_agent['pred_traj_10hz'],
+                                                                         tokenized_agent['pred_head_10hz'],
+                                                                         tokenized_agent["token_agent_shape"],
+                                                                         tokenized_agent["token_traj"],
+                                                                         )
+                tokenized_agent.update(token_dict)
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
@@ -279,7 +281,6 @@ class SimulationManager:
         self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
 
         self.timestamp += 1
-        self.dump_result(tokenized_agent)
 
         sleep(0.1)
         self.capture_viewport_frame()
@@ -391,16 +392,7 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                #custom_traffic_Light
-                # trafficlight_system=TrafficSystem(data["light"])
 
-                # #add traffic light
-                # light_num=len(tokenized_agent["light_idx"])
-                # tokenized_agent["light_idx"]=tokenized_agent["light_idx"][:light_num]#torch.ones_like(tokenized_agent["light_idx"][:light_num]).long()
-                # tokenized_agent["pos_lg"]=tokenized_agent["pos_lg"][:light_num]
-                # tokenized_agent["orient_lg"]=tokenized_agent["orient_lg"][:light_num]
-                # tokenized_agent["batch_lg"]=tokenized_agent["batch_lg"][:light_num]
-                # tokenized_agent["valid_mask"]=tokenized_agent["valid_mask"][:light_num+agent_num]
 
                 self.control_mask =tokenized_agent["type"]<3#torch.ones_like(tokenized_agent["ego_mask"])#$tokenized_agent["ego_mask"] #
 
@@ -475,7 +467,6 @@ class SimulationManager:
 
         labels=np.array(["vehicle","pedestrian","bicycle","static_object"])[type]
 
-
         for t in range(sim_t):
             result[str(t)]={}
             valid=all_valid[:,t]
@@ -483,6 +474,7 @@ class SimulationManager:
             result[str(t)]["labels"]=labels[valid].tolist()
             result[str(t)]["tracking_id"]=tracking_id[valid].tolist()
             result[str(t)]["velocity"]=velocity[:,t][valid].tolist()
+            result[str(t)]["occluded"]=np.ones_like(labels)[valid].tolist()
 
         with open(self.output_json_path, "w") as f:
             json.dump(result, f, indent=2)

@@ -4,36 +4,14 @@ from multiprocessing import Process
 from typing import Dict, List, Tuple
 
 import dearpygui.dearpygui as dpg
-import numpy as np
-from matplotlib import pyplot as plt
 from rich import print
-
-from TrafficManager.LimSim.simModel.DataQueue import (
-    ERD, JLRD, LRD, RGRD, VRD, CameraImages, QuestionAndAnswer,
-)
-from TrafficManager.LimSim.simModel.Model import Model
 from TrafficManager.LimSim.utils.simBase import CoordTF
-from copy import deepcopy
-from pathlib import Path
-from typing import List, Tuple
-import time
 import cv2
-import numpy as np
-import tensorflow as tf
-from waymo_open_dataset.protos import scenario_pb2, sim_agents_submission_pb2
-import torch
-
-from src.utils.video_recorder import ImageEncoder
-import matplotlib.pyplot as plt
 from typing import Dict, List
 from math import cos, pi, sin
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
-from copy import deepcopy
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from PIL import Image
-import io
 from src.utils.vis_waymo import get_map_features,get_traffic_light_features,get_agent_features
 from TrafficManager.LimSim.simModel.DataQueue import (
     CameraImages, ImageQueue, QAQueue, QuestionAndAnswer, RenderQueue,
@@ -99,7 +77,7 @@ def generateDefaultImage(
 
 class GUI(Process):
     def __init__(
-            self, scenario,data,step_current=10
+            self, scenario,data,light,step_current
     ) -> None:
         super().__init__()
         self.renderQueue = RenderQueue(1)
@@ -163,11 +141,11 @@ class GUI(Process):
 
         self.netBoundary = ((position[:,0].min(), position[:,1].min()), (position[:,0].max(), position[:,1].max()))
 
-        self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
-            scenario.dynamic_map_states
-        )
-        self.tl_lane_id =self.tl_lane_id[step_current]
-
+        # self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
+        #     scenario.dynamic_map_states
+        # )
+        # self.tl_lane_id =self.tl_lane_id[step_current]
+        self.light=light
 
         self.ag_size=data["agent"]["shape"]
         ag_role=data["agent"]["role"]
@@ -488,35 +466,88 @@ class GUI(Process):
                 #     parent=node
                 # )
 
+
+
+    # Define traffic light drawing function
+    def draw_light(self,node, position, orientation,lights):
+        spacing = 30
+        radius = 10
+        polyline_tf = self.get_line_tf([position], self.centerx, self.centery)[0]
+        x=polyline_tf[0]
+        y=polyline_tf[1]
+        # Define light types
+        shape_symbols = {
+            "circle": "O",
+            "left": "<",
+            "right": ">",
+            "forward": "^",
+            "uturn": "U"
+        }
+
+        light_color={
+            "red": COLOR_RED,
+            "green": COLOR_GREEN,
+            "yellow": COLOR_YELLOW,
+        }
+
+        for i, (color, ltype) in enumerate(lights):
+            if orientation == "vertical":
+                cx, cy = x, y + i * spacing
+            else:  # horizontal
+                cx, cy = x + i * spacing, y
+
+
+
+            # Draw colored circle
+            dpg.draw_circle( center=(cx, cy), radius=radius, color=light_color[color],
+                             fill=light_color[color], thickness=2, parent = node  )
+
+            # Draw symbol
+            symbol = shape_symbols.get(ltype, "?")
+            print(symbol)
+            dpg.draw_text( pos=(cx - 5, cy - 5), text=symbol, size=20, color=[0, 0, 0, 255],
+                          parent=node
+                          )
+    #
     def draw_traffic_light(self,node,light_idx):
+        for entry in self.light.get("vertical", []):
+            lights = entry["lights"]
+            position = tuple(entry["position"])
+            self.draw_light(node, position=position, orientation="vertical", lights=lights)
 
-        for i_tl, _state in enumerate(light_idx):#self.tl_lane_state[step_t]
-            _lane_id=self.tl_lane_id[i_tl]#
-            # _lane_id = self.tl_lane_id[step_t][i_tl]
-            _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
-          # print(step_t,_lane_idx)
+        # Draw all horizontal lights
+        for entry in self.light.get("horizontal", []):
+            lights = entry["lights"]
+            position = tuple(entry["position"])
+            self.draw_light(node, position=position, orientation="horizontal", lights=lights)
 
-            polyline = self.mp_xyz[_lane_idx][:, :2]
-
-            polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
-
-            # Draw polyline in DPG
-            # dpg.draw_polyline(
-            #     points=polyline_tf,
-            #     color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
-            #     thickness=3,
-            #     parent=node
-            # )
-
-            # If traffic light state indicates active (1 to 3), draw a marker at the end
-            # if 1 <= _state <= 3:
-            #     x, y = polyline_tf[-1]
-            #     offset = 10
-            #     # Draw tilted cross manually using lines
-            #     dpg.draw_line((x - offset, y - offset), (x + offset, y + offset), color=self.tl_style[_state],
-            #                   thickness=6,parent=node)
-            #     dpg.draw_line((x - offset, y + offset), (x + offset, y - offset), color=self.tl_style[_state],
-            #                   thickness=6,parent=node )
+    #     for i_tl, _state in enumerate(light_idx):#self.tl_lane_state[step_t]
+    #         _lane_id=self.tl_lane_id[i_tl]#
+    #         # _lane_id = self.tl_lane_id[step_t][i_tl]
+    #         _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
+    #       # print(step_t,_lane_idx)
+    #
+    #         polyline = self.mp_xyz[_lane_idx][:, :2]
+    #
+    #         polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
+    #
+    #         # Draw polyline in DPG
+    #         # dpg.draw_polyline(
+    #         #     points=polyline_tf,
+    #         #     color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
+    #         #     thickness=3,
+    #         #     parent=node
+    #         # )
+    #
+    #         # If traffic light state indicates active (1 to 3), draw a marker at the end
+    #         # if 1 <= _state <= 3:
+    #         #     x, y = polyline_tf[-1]
+    #         #     offset = 10
+    #         #     # Draw tilted cross manually using lines
+    #         #     dpg.draw_line((x - offset, y - offset), (x + offset, y + offset), color=self.tl_style[_state],
+    #         #                   thickness=6,parent=node)
+    #         #     dpg.draw_line((x - offset, y + offset), (x + offset, y - offset), color=self.tl_style[_state],
+    #         #                   thickness=6,parent=node )
 
     def showImage(self, cameraImages: CameraImages):
         front_left_image = cameraImages.CAM_FRONT_LEFT / 255
