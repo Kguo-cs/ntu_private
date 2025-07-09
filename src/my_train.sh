@@ -12,4 +12,4 @@ source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
-python  run.py > bc72_mydist_diff.log  2>&1
+python  run.py > bc72_mydist_residx_nodetach.log  2>&1
