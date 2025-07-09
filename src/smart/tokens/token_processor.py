@@ -140,6 +140,9 @@ class TokenProcessor(torch.nn.Module):
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
+        self.register_buffer(f"max_diff", agent_token_data["max_diff"], persistent=False)
+
+
         if self.use_dynamic:
             module_dir = os.path.dirname(__file__)
             codebook=torch.load(os.path.join(module_dir, "codebook.pt"))

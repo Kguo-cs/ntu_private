@@ -21,8 +21,10 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 agent_token_data = pickle.load(open("my_kdist.pkl", "rb"))['token_all']
 
+diff_list=[]
+
 for type_id in [0,1,2]:#
-    v=torch.load("/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt")[:10000000]
+    v=torch.load("/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt")[:100000]
     total_n=len(v)
     print(v.shape)
 
@@ -40,15 +42,38 @@ for type_id in [0,1,2]:#
         head=v[:, -1:, 2],  # [N, 6]
         width_length=width_length.unsqueeze(0).cuda(),
     )# [n_agent, 1, 4, 2]
-    token_world_gt=torch.FloatTensor(agent_token_data[k]).to(torch.float16).cuda() #[1, n_token,4, 2]
+    token_traj_all=torch.FloatTensor(agent_token_data[k]).to(torch.float16).cuda() #[1, n_token,4, 2]
 
+    pred_pos = token_traj_all.mean(2)
+    diff_xy = token_traj_all[:, :, 0] - token_traj_all[:, :, 3]
+    pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[ :, :, 0])
 
+    token_local_traj = torch.cat([pred_pos, pred_head[:, :,None]], dim=-1)[:,1:]
 
-    min_dist, token_idx_gt = torch.min(
-        torch.norm(token_world_gt[None,:,-1] - gt_contour, dim=-1).sum(-1), dim=-1
+    token_idx_gt = torch.argmin(
+        torch.norm(token_traj_all[None,:,-1] - gt_contour, dim=-1).sum(-1), dim=-1
     )  # [n_agent]
 
-    print(token_idx_gt)
+    all_diff=[]
+
+    for i in range(2048):
+        traj=v[token_idx_gt==i]
+
+        diff=traj-token_local_traj[i,None]
+
+        diff[:,:,2]=wrap_angle(diff[:,:,2])
+
+        max_diff=diff.abs().amax(dim=0)
+
+        all_diff.append(max_diff)
+
+    all_diff=torch.stack(all_diff)
+
+    diff_list.append(all_diff)
+
+diff=torch.stack(diff_list)
+torch.save(diff,"diff.pt")
+
 
 
 

@@ -24,6 +24,7 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 # type=torch.load("/home/ke/code/catk/src/waymo_data/type.pt")
 
 res = {"token_all": {}}
+diff_list=[]
 
 for type_id in [0,1,2]:#
     #veh_traj=traj[type==type_id]
@@ -45,7 +46,7 @@ for type_id in [0,1,2]:#
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max = 1.5
-        x_interval =0.05#0.1
+        x_interval =0.1#0.1
         y_interval = 0.05
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
@@ -104,6 +105,8 @@ for type_id in [0,1,2]:#
         width_length = torch.tensor([1.0, 2.0]).cuda()
 
     traj_list= []
+
+    traj_diff=[]
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
         traj2 = veh_traj[joint_idx == idx]#[:10000000]
@@ -117,8 +120,17 @@ for type_id in [0,1,2]:#
         # #choice_index = torch.randint(0, traj2.shape[0], (1,)).item()
 
         # meaning_traj=traj2[choice_index]
-        meaning_traj= traj2.mean(dim=0).cpu() #.numpy()
-        traj_list.append(meaning_traj.to(torch.float32))
+        meaning_traj= traj2.mean(dim=0) #.numpy()
+
+        diff=traj2[:10000000]-meaning_traj[None]
+
+        max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+        max_diff[:,2]=wrap_angle(max_diff[:,2])
+
+
+        traj_diff.append(max_diff.cpu())
+
+        traj_list.append(meaning_traj.cpu().to(torch.float32))
 
         # traj2=torch.cat([torch.zeros_like(traj2[:,:1]),traj2], dim=1)
         #
@@ -143,6 +155,7 @@ for type_id in [0,1,2]:#
     #     plt.plot(meaning_traj[:,0],meaning_traj[:,1])#, alpha=0.1, color='C0'
     #
     # plt.show()
+    diff_list.append(torch.stack(traj_diff))
     codebook = torch.stack(traj_list, dim=0)
 
     # inverse_contour = traj_list.clone()#0.05 0.2 0.25
@@ -174,7 +187,9 @@ for type_id in [0,1,2]:#
     )
     res["token_all"][k] = contour.numpy()
 
-with open("my2048_05.pkl", "wb") as f:
+res["max_diff"]=torch.stack(diff_list)
+
+with open("my2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
