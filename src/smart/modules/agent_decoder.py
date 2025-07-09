@@ -560,6 +560,10 @@ class SMARTAgentDecoder(nn.Module):
                         proposal=proposal+next_token_traj_all
 
                         next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+                        
+                        #next_token_idx =  torch.norm(next_token_traj_all - token_traj.unsqueeze(1), dim=-1).mean(-1).argmin(-1)
+                        next_token_idx = self.token_processor.traj_to_idx(proposal[:, -1:, None], token_agent_shape,
+                                                                        token_traj)[:, 0]
 
                     elif self.pred_last_res:
                             proposal=proposal[:,-1,0]
