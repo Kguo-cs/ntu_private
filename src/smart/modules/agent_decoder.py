@@ -116,8 +116,8 @@ class SMARTAgentDecoder(nn.Module):
 
             self.output_gmm = output_gmm
             self.n_token_agent = n_token_agent
-            self.pred_last_res = token_processor.pred_last_res
 
+            self.pred_last_res = token_processor.pred_last_res
             self.pred_all_res = token_processor.pred_all_res
 
             if self.output_gmm:
@@ -332,12 +332,12 @@ class SMARTAgentDecoder(nn.Module):
         else:
             if self.pred_last_res or self.pred_all_res:
                 if self.training:
-                    proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:] #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
+                    proposal_feature = (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
                 else:
                     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
                 if self.training or self.pred_last_res:
-                    proposal = self.traj_head(proposal_feature)#.detach()
+                    proposal = self.traj_head(proposal_feature)#
                     proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
 
