@@ -53,17 +53,17 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_lane=False
 
-        light_token_all=torch.IntTensor(np.load(os.path.join(module_dir, "light_cluster.npy") ))#261
-
-        self.register_buffer(f"light_token_all", light_token_all, persistent=False)
-
-        light_token_last=light_token_all[:,-1].long()
-
-        map_tensor=torch.tensor([3,4,0,1,2])
-
-        light_token_last=map_tensor[light_token_last]
-
-        self.register_buffer(f"light_token_last", light_token_last, persistent=False)
+        # light_token_all=torch.IntTensor(np.load(os.path.join(module_dir, "light_cluster.npy") ))#261
+        #
+        # self.register_buffer(f"light_token_all", light_token_all, persistent=False)
+        #
+        # light_token_last=light_token_all[:,-1].long()
+        #
+        # map_tensor=torch.tensor([3,4,0,1,2])
+        #
+        # light_token_last=map_tensor[light_token_last]
+        #
+        # self.register_buffer(f"light_token_last", light_token_last, persistent=False)
 
         self.light_type=5
 

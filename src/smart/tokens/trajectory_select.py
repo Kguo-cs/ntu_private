@@ -25,6 +25,7 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 res = {"token_all": {}}
 diff_list=[]
+q = torch.tensor([0.001, 0.999]).cuda()
 
 for type_id in [0,1,2]:#
     #veh_traj=traj[type==type_id]
@@ -124,14 +125,18 @@ for type_id in [0,1,2]:#
 
         diff=traj2[:10000000]-meaning_traj[None]
 
+        diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
+
+        max_diff=diff_q.abs().amax(dim=0)
+
         #max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
-        diff[:,2]=wrap_angle(diff[:,2])
-
-        max_diff = diff.abs().amax(dim=0)  # torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
-
-        std_diff = diff.std(dim=0) * 5
-
-        max_diff = torch.minimum(max_diff, std_diff)
+        # diff[:,2]=wrap_angle(diff[:,2])
+        #
+        # max_diff = diff.abs().amax(dim=0)  # torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+        #
+        # std_diff = diff.std(dim=0) * 5
+        #
+        # max_diff = torch.minimum(max_diff, std_diff)
 
         traj_diff.append(max_diff.cpu())
 
@@ -194,7 +199,7 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("std5.pkl", "wb") as f:
+with open("my2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
