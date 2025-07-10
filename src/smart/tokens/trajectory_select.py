@@ -9,6 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 # from src.smart.utils import  wrap_angle
 import sys
+
+from src.smart.tokens.token_std import meaning_traj, max_diff
+
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
@@ -122,16 +125,19 @@ for type_id in [0,1,2]:#
         # #choice_index = torch.randint(0, traj2.shape[0], (1,)).item()
 
         # meaning_traj=traj2[choice_index]
+        traj_q=torch.quantile(traj2.to(torch.float32), q, dim=0)
 
-        meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
+        meaning_traj=traj_q.mean(dim=0)
+
+        # meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
 
         # meaning_traj= traj2.mean(dim=0) #.numpy()
-
-        diff=traj2[:10000000]-meaning_traj[None]
-
-        diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
-
-        max_diff=diff_q.abs().amax(dim=0)
+        max_diff=traj_q[1]-meaning_traj
+        # diff=traj2[:10000000]-meaning_traj[None]
+        #
+        # diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
+        #
+        # max_diff=diff_q.abs().amax(dim=0)
 
         #max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
         # diff[:,2]=wrap_angle(diff[:,2])
