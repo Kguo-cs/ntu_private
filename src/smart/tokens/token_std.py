@@ -57,10 +57,10 @@ for type_id in [0,1,2]:#
 
         diff=traj2-meaning_traj[None]
 
-        max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
-        
         diff[:,2]=wrap_angle(diff[:,2])
-        
+
+        max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+
         std_diff = diff.std(dim=0)*4
         
         max_diff = torch.minimum(max_diff, std_diff)
@@ -68,7 +68,6 @@ for type_id in [0,1,2]:#
         traj_diff.append(max_diff.cpu())
 
     diff_list.append(torch.stack(traj_diff))
-
 
 res["max_diff"]=torch.stack(diff_list)
 with open("my_kdist.pkl", "wb") as f:
