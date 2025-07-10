@@ -26,6 +26,7 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 res = {"token_all": {}}
 diff_list=[]
 q = torch.tensor([0.001, 0.999]).cuda()
+mid=torch.tensor([0.5]).cuda()
 
 for type_id in [0,1,2]:#
     #veh_traj=traj[type==type_id]
@@ -110,7 +111,7 @@ for type_id in [0,1,2]:#
     traj_diff=[]
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx]#
+        traj2 = veh_traj[joint_idx == idx][:10000000]#
 
         # mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
 
@@ -121,7 +122,10 @@ for type_id in [0,1,2]:#
         # #choice_index = torch.randint(0, traj2.shape[0], (1,)).item()
 
         # meaning_traj=traj2[choice_index]
-        meaning_traj= traj2.mean(dim=0) #.numpy()
+
+        meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
+
+        # meaning_traj= traj2.mean(dim=0) #.numpy()
 
         diff=traj2[:10000000]-meaning_traj[None]
 
@@ -199,7 +203,7 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("my2048.pkl", "wb") as f:
+with open("mid2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
 

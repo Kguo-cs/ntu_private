@@ -23,7 +23,7 @@ res = pickle.load(open("/home/ke/code/catk/src/smart/tokens/my_kdist.pkl", "rb")
 agent_token_data=res['token_all']   
 diff_list=[]
 q = torch.tensor([0.001, 0.999]).cuda()
-
+mid=torch.tensor([0.5]).cuda()
 for type_id in [0,1,2]:#
     
     all_v=torch.load("/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt").cuda() #[:,-1:]
@@ -53,6 +53,8 @@ for type_id in [0,1,2]:#
     for i in range(len(token_local_traj)):
         
         traj2 = all_v[all_idx==i]#.cuda()
+
+        # meaning_traj=torch.cat([traj2.mean(0), traj2.std(0)], dim=0)
         
         meaning_traj= token_local_traj[i]#traj2.mean(dim=0) #.numpy()
 
