@@ -62,7 +62,7 @@ def Kdisk_cluster(
 if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
     n_trajs = 2048 * 100  # 2e5
-    load_data_from_file = False
+    load_data_from_file = True
     data_cache_path = Path("/root/.cache/SMART")
     out_file_name = "agent_vocab_555_s2.pkl"
     tol_dist = [0.05, 0.05, 0.05]  # veh, ped, cyc

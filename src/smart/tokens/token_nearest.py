@@ -19,7 +19,7 @@ sys.path.append('/mnt/d/code/sim')
 from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 
 
-agent_token_data = pickle.load(open("/home/ke/code/catk/src/smart/tokens/my_kdist.pkl", "rb"))['token_all']
+agent_token_data = pickle.load(open("/home/ke/code/catk/src/smart/tokens/agent_vocab_555_s2.pkl", "rb"))['token_all']
 
 diff_list=[]
 
@@ -64,7 +64,7 @@ for type_id in [0,1,2]:#
     
     print(nearsest_token.shape)
     
-    torch.save(nearsest_token, "/home/ke/code/catk/src/waymo_data/nearest_token_"+str(type_id)+".pt")
+    torch.save(nearsest_token, "/home/ke/code/catk/src/waymo_data/agent_vocab_555_s2_"+str(type_id)+".pt")
     
     
     # pred_pos = token_traj_all.mean(2)

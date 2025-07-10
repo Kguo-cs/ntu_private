@@ -24,7 +24,7 @@ agent_token_data=res['token_all']
 diff_list=[]
 q = torch.tensor([0.001, 0.999]).cuda()
 mid=torch.tensor([0.5]).cuda()
-for type_id in [0,1,2]:#
+for type_id in [2]:#0,1,
     
     all_v=torch.load("/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt").cuda() #[:,-1:]
     all_idx= torch.load("/home/ke/code/catk/src/waymo_data/nearest_token_"+str(type_id)+".pt").cuda() #[:,-1:]
