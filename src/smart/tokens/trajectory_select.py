@@ -122,12 +122,12 @@ for type_id in [0,1,2]:#
         # meaning_traj=traj2[choice_index]
         meaning_traj= traj2.mean(dim=0) #.numpy()
 
-        diff=traj2[:10000000]-meaning_traj[None]
+        diff=traj2-meaning_traj[None]
 
         #max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
         diff[:,2]=wrap_angle(diff[:,2])
         
-        max_diff = diff.std(dim=0)*3
+        max_diff = diff.std(dim=0)*4
 
         traj_diff.append(max_diff.cpu())
 
