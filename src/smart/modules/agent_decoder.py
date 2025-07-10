@@ -537,7 +537,7 @@ class SMARTAgentDecoder(nn.Module):
 
                         proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
 
-                        proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:,None], next_token_idx]
+                        proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent), next_token_idx]
 
                         proposal = torch.tanh(proposal) * proposal_max_diff
 
