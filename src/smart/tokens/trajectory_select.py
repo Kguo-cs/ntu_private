@@ -114,9 +114,9 @@ for type_id in [0,1,2]:#
     traj_diff=[]
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx][:10000000]#
+        traj2 = veh_traj[joint_idx == idx]#[:10000000]#
 
-        mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
+        #mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
 
         # dist=torch.norm(traj2[:,-1,:2]-mean_traj[None],dim=-1)#.mean(-1) #.argmin()
 
@@ -131,7 +131,7 @@ for type_id in [0,1,2]:#
 
         # meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
 
-        # meaning_traj= traj2.mean(dim=0) #.numpy()
+        meaning_traj= traj2.mean(dim=0) #.numpy()
         #max_diff=traj_q[1]-meaning_traj
         diff=traj2[:10000000]-meaning_traj[None]
 
