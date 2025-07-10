@@ -135,12 +135,24 @@ class TokenProcessor(torch.nn.Module):
 
     def init_agent_token(self, agent_token_path) -> None:
         agent_token_data = pickle.load(open(agent_token_path, "rb"))
+
+        all_token_local_traj=[]
         for k, v in agent_token_data["token_all"].items():
             v = torch.tensor(v, dtype=torch.float32)[:,1:self.shift+1]
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
+            pred_pos = v.mean(2)
+            diff_xy = v[:, :, 0] - v[:, :,  3]
+            pred_head = torch.arctan2(diff_xy[:, :,1], diff_xy[:, :,0])
+            token_local_traj = torch.cat([pred_pos, pred_head[:, :,  None]], dim=-1)
+            all_token_local_traj.append(token_local_traj)
+
+        all_token_local_traj=torch.stack(all_token_local_traj)
+        self.register_buffer(f"all_token_local_traj", all_token_local_traj, persistent=False)
+
         self.register_buffer(f"max_diff", agent_token_data["max_diff"], persistent=False)
+
 
 
         if self.use_dynamic:

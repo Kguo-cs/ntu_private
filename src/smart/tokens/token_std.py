@@ -22,6 +22,7 @@ from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
 res = pickle.load(open("/home/ke/code/catk/src/smart/tokens/my_kdist.pkl", "rb"))
 agent_token_data=res['token_all']   
 diff_list=[]
+q = torch.tensor([0.001, 0.999]).cuda()
 
 for type_id in [0,1,2]:#
     
@@ -55,15 +56,18 @@ for type_id in [0,1,2]:#
         
         meaning_traj= token_local_traj[i]#traj2.mean(dim=0) #.numpy()
 
-        diff=traj2-meaning_traj[None]
+        diff=traj2[:10000000]-meaning_traj[None]
 
         diff[:,2]=wrap_angle(diff[:,2])
 
-        max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+        diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
 
-        std_diff = diff.std(dim=0)*4
+        max_diff=diff_q.abs().amax(dim=0)
+        # max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+        #
+        # std_diff = diff.std(dim=0)*4
         
-        max_diff = torch.minimum(max_diff, std_diff)
+        # max_diff = torch.minimum(max_diff, std_diff)
         
         traj_diff.append(max_diff.cpu())
 

@@ -345,13 +345,7 @@ class SMARTAgentDecoder(nn.Module):
                 if self.training and self.pred_all_res:
                     next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
-                    token_traj_all = tokenized_agent["token_traj_all"]
-
-                    pred_pos = token_traj_all[:, :, :].mean(3)
-                    diff_xy = token_traj_all[:, :, :, 0] - token_traj_all[:, :, :, 3]
-                    pred_head = torch.arctan2(diff_xy[:, :, :, 1], diff_xy[:, :, :, 0])
-
-                    token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
+                    token_local_traj=torch.index_select(self.token_processor.all_token_local_traj, dim=0, index=tokenized_agent["type"].long())
 
                     next_token_traj_all = token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
 
@@ -432,11 +426,8 @@ class SMARTAgentDecoder(nn.Module):
 
         if not self.pred_proposal :
             token_traj_all = tokenized_agent["token_traj_all"]
-            pred_pos = token_traj_all[:, :, :].mean(3)
-            diff_xy = token_traj_all[:, :, :, 0] - token_traj_all[:, :, :, 3]
-            pred_head = torch.arctan2(diff_xy[:, :, :, 1], diff_xy[:, :, :, 0])
-
-            token_local_traj = torch.cat([pred_pos, pred_head[:, :, :, None]], dim=-1)
+            token_local_traj = torch.index_select(self.token_processor.all_token_local_traj, dim=0,
+                                                  index=tokenized_agent["type"].long())
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
