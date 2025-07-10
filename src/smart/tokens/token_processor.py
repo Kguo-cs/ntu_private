@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = False
+        self.pred_all_res = True
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -453,23 +453,51 @@ class TokenProcessor(torch.nn.Module):
                 token_idx_gt[~token_valid]=self.n_token_agent-1
                 _valid_mask=token_valid & _valid_mask
 
-            # if self.pred_all_res:
-            #     self.token_local_traj=1
+            if self.pred_all_res:
+                token_local_traj= self.token_local_traj[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5,3]
+                
+                diff=self.token_diff[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5, 3]
+                
+                local_pos,local_heading=transform_to_local(
+                    pos_global=pos[:, i:i+1],  # [n_agent, 5, 2],
+                    head_global=heading[:, i:i+1],  # [n_agent, 5]
+                    pos_now=prev_pos,  # [n_agent, 2]
+                    head_now=prev_head,  # [n_agent]
+                )           
+                
+                local_traj=torch.cat([local_pos, local_heading[:, :, None]], dim=-1)  # [n_agent, 5, 3]
+                
+                real_diff=local_traj-token_local_traj  # [n_agent, 5, 3]
+                
+                token_diff=torch.minimum(real_diff,diff)
+                token_diff=torch.maximum(token_diff,-diff)
+                
+                local_token_traj=token_local_traj + token_diff
+                
+                global_pos,global_heading = transform_to_global(
+                        local_token_traj[:,:,:2],
+                        local_token_traj[:,:,2],
+                        prev_pos,  # [n_agent, 2]
+                        prev_head,  # [n_agent]
+                )
+                
+                token_contour_gt = cal_polygon_contour(global_pos[:,0], global_heading[:,0], agent_shape)  # [n_agent, 4, 2]
+                
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
-            if not self.pred_all_res:
-                dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
-                next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
-                prev_head[_valid_mask] = next_head[_valid_mask]
+            #if not self.pred_all_res:
+            dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
+            next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+            prev_head[_valid_mask] = next_head[_valid_mask]
 
             prev_pos = pos[:, i].clone()
 
-            if not self.pred_all_res:
-                next_pos = token_contour_gt.mean(1)
-                prev_pos[_valid_mask] = next_pos[_valid_mask]
+            #if not self.pred_all_res:
+            next_pos = token_contour_gt.mean(1)
+            prev_pos[_valid_mask] = next_pos[_valid_mask]
 
-            _valid_mask=valid[:, i]
+            #_valid_mask=valid[:, i]
             _invalid_mask = ~_valid_mask
 
             # add to output dict
@@ -548,7 +576,7 @@ class TokenProcessor(torch.nn.Module):
 
             gt_traj[~valid] = 0
 
-            valid_mask = out_dict["valid_mask"]  # current position, heading valid
+            valid_mask = valid[:,5::5]#out_dict["valid_mask"]  # current position, heading valid
 
             target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
             out_dict["target_global_traj"] =target_global_traj[:,1:]
@@ -762,6 +790,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.token_local_traj = torch.index_select(self.all_token_local_traj, dim=0,
                                               index=agent_type.long())
+        self.token_diff = torch.index_select(self.max_diff, dim=0, index=agent_type.long())
 
         return agent_shape, token_traj_all, token_traj
 
