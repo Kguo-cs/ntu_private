@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = True
+        self.pred_all_res = False
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -415,6 +415,8 @@ class TokenProcessor(torch.nn.Module):
         prev_pos, prev_head = pos[:, 0], heading[:, 0]  # [n_agent, 2], [n_agent]
         prev_pos_sample, prev_head_sample = pos[:, 0], heading[:, 0]
 
+
+
         out_dict = {
             "valid_mask": [],
             "gt_idx": [],
@@ -450,6 +452,9 @@ class TokenProcessor(torch.nn.Module):
                 token_valid=min_dist<0.5
                 token_idx_gt[~token_valid]=self.n_token_agent-1
                 _valid_mask=token_valid & _valid_mask
+
+            # if self.pred_all_res:
+            #     self.token_local_traj=1
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -754,6 +759,10 @@ class TokenProcessor(torch.nn.Module):
             )
 
         token_traj = token_traj_all[:, :, -1, :, :].contiguous()
+
+        self.token_local_traj = torch.index_select(self.all_token_local_traj, dim=0,
+                                              index=agent_type.long())
+
         return agent_shape, token_traj_all, token_traj
 
     def process_data(self,data):

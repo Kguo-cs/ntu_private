@@ -337,6 +337,9 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
+                if self.pred_all_res:
+                    proposal_feature=proposal_feature.detach()
+
                 if self.training or self.pred_last_res:
                     proposal = self.traj_head(proposal_feature)#
                     proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
@@ -345,9 +348,7 @@ class SMARTAgentDecoder(nn.Module):
                 if self.training and self.pred_all_res:
                     next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
-                    token_local_traj=torch.index_select(self.token_processor.all_token_local_traj, dim=0, index=tokenized_agent["type"].long())
-
-                    next_token_traj_all = token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
+                    next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
 
                     token_diff = torch.index_select(self.token_processor.max_diff, dim=0, index=tokenized_agent["type"].long())
 
@@ -426,8 +427,6 @@ class SMARTAgentDecoder(nn.Module):
 
         if not self.pred_proposal :
             token_traj_all = tokenized_agent["token_traj_all"]
-            token_local_traj = torch.index_select(self.token_processor.all_token_local_traj, dim=0,
-                                                  index=tokenized_agent["type"].long())
         else:
             gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
@@ -547,7 +546,7 @@ class SMARTAgentDecoder(nn.Module):
 
                         proposal = torch.tanh(proposal) * proposal_max_diff
 
-                        next_token_traj_all = token_local_traj[torch.arange(n_agent), next_token_idx]
+                        next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent), next_token_idx]
 
                         proposal=proposal+next_token_traj_all
 

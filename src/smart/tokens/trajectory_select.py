@@ -3,14 +3,9 @@ import os
 import pickle
 from tqdm import tqdm
 import torch
-import datetime
-from torch_geometric.data import HeteroData
-import numpy as np
-import matplotlib.pyplot as plt
-# from src.smart.utils import  wrap_angle
+
 import sys
 
-from src.smart.tokens.token_std import meaning_traj, max_diff
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
@@ -19,7 +14,7 @@ sys.path.append('/home/ke/code/catk')
 sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
-from src.smart.utils import cal_polygon_contour, transform_to_local, wrap_angle
+from src.smart.utils import cal_polygon_contour
 
 
 
@@ -114,7 +109,7 @@ for type_id in [0,1,2]:#
     traj_diff=[]
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx]#[:10000000]#
+        traj2 = veh_traj[joint_idx == idx][:10000000]#
 
         #mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
 
@@ -129,9 +124,9 @@ for type_id in [0,1,2]:#
 
         #meaning_traj=traj_q.mean(dim=0)
 
-        # meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
+        meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
 
-        meaning_traj= traj2.mean(dim=0) #.numpy()
+        #meaning_traj= traj2.mean(dim=0) #.numpy()
         #max_diff=traj_q[1]-meaning_traj
         diff=traj2[:10000000]-meaning_traj[None]
 
@@ -209,7 +204,7 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("my2048.pkl", "wb") as f:
+with open("mid2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
