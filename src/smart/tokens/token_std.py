@@ -24,7 +24,7 @@ agent_token_data=res['token_all']
 diff_list=[]
 q = torch.tensor([0.001, 0.999]).cuda()
 mid=torch.tensor([0.5]).cuda()
-for type_id in [2]:#0,1,
+for type_id in [0,1,2]:#
     
     all_v=torch.load("/home/ke/code/catk/src/waymo_data/"+str(type_id)+".pt").cuda() #[:,-1:]
     all_idx= torch.load("/home/ke/code/catk/src/waymo_data/nearest_token_"+str(type_id)+".pt").cuda() #[:,-1:]
@@ -49,22 +49,27 @@ for type_id in [2]:#0,1,
     token_local_traj = torch.cat([pred_pos, pred_head[:, :,None]], dim=-1)
     
     traj_diff=[]
-    
+    traj_list= []
+
     for i in range(len(token_local_traj)):
         
-        traj2 = all_v[all_idx==i]#.cuda()
+        traj2 = all_v[all_idx==i][:10000000]#.cuda()
 
         # meaning_traj=torch.cat([traj2.mean(0), traj2.std(0)], dim=0)
-        
-        meaning_traj= token_local_traj[i]#traj2.mean(dim=0) #.numpy()
+        traj_q=torch.quantile(traj2.to(torch.float32), q, dim=0)
 
-        diff=traj2[:10000000]-meaning_traj[None]
+        meaning_traj=traj_q.mean(dim=0)
+        max_diff=traj_q[1]-meaning_traj
 
-        diff[:,2]=wrap_angle(diff[:,2])
-
-        diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
-
-        max_diff=diff_q.abs().amax(dim=0)
+        # meaning_traj= token_local_traj[i]#traj2.mean(dim=0) #.numpy()
+        #
+        # diff=traj2[:10000000]-meaning_traj[None]
+        #
+        # diff[:,2]=wrap_angle(diff[:,2])
+        #
+        # diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
+        #
+        # max_diff=diff_q.abs().amax(dim=0)
         # max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
         #
         # std_diff = diff.std(dim=0)*4
@@ -72,11 +77,42 @@ for type_id in [2]:#0,1,
         # max_diff = torch.minimum(max_diff, std_diff)
         
         traj_diff.append(max_diff.cpu())
+        traj_list.append(meaning_traj.cpu().to(torch.float32))
 
     diff_list.append(torch.stack(traj_diff))
+    codebook = torch.stack(traj_list, dim=0)
+
+    # inverse_contour = traj_list.clone()#0.05 0.2 0.25
+    # inverse_contour[:, :, 1] = -inverse_contour[:, :, 1]
+    #
+    # contour = torch.cat([traj_list, inverse_contour], dim=0)
+
+    # inverse_traj = traj_list.clone()
+    # inverse_traj[:, :, 1] = -inverse_traj[:, :, 1]
+    # inverse_traj[:, :, 2] = -inverse_traj[:, :, 2]
+
+    # codebook = torch.cat([traj_list, inverse_traj], dim=0)
+
+    codebook=torch.cat([torch.zeros_like(codebook[:,:1]),codebook], dim=1)
+
+    k= ["veh", "ped", "cyc"][type_id]
+
+    if k == "veh":
+        width_length = torch.tensor([2.0, 4.8])
+    elif k == "ped":
+        width_length = torch.tensor([1.0, 1.0])
+    elif k == "cyc":
+        width_length = torch.tensor([1.0, 2.0])
+
+    contour = cal_polygon_contour(
+        pos=codebook[:, :, :2],  # [N, 6, 2]
+        head=codebook[:, :, 2],  # [N, 6]
+        width_length=width_length.unsqueeze(0),
+    )
+    res["token_all"][k] = contour.numpy()
 
 res["max_diff"]=torch.stack(diff_list)
-with open("my_kdist.pkl", "wb") as f:
+with open("mean_kdist.pkl", "wb") as f:
     pickle.dump(res, f)
 
     # all_diff=[]
