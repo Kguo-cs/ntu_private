@@ -124,9 +124,10 @@ for type_id in [0,1,2]:#
 
         diff=traj2[:10000000]-meaning_traj[None]
 
-        max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
-        max_diff[:,2]=wrap_angle(max_diff[:,2])
-
+        #max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+        diff[:,2]=wrap_angle(diff[:,2])
+        
+        max_diff = diff.std(dim=0)*3
 
         traj_diff.append(max_diff.cpu())
 
