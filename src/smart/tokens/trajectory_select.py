@@ -109,7 +109,7 @@ for type_id in [0,1,2]:#
     traj_diff=[]
     for i in range(cluster_n):
         idx = top_k_flat_idx[i]
-        traj2 = veh_traj[joint_idx == idx]#[:10000000]
+        traj2 = veh_traj[joint_idx == idx]#
 
         # mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
 
@@ -122,12 +122,16 @@ for type_id in [0,1,2]:#
         # meaning_traj=traj2[choice_index]
         meaning_traj= traj2.mean(dim=0) #.numpy()
 
-        diff=traj2-meaning_traj[None]
+        diff=traj2[:10000000]-meaning_traj[None]
 
         #max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
         diff[:,2]=wrap_angle(diff[:,2])
-        
-        max_diff = diff.std(dim=0)*4
+
+        max_diff = diff.abs().amax(dim=0)  # torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
+
+        std_diff = diff.std(dim=0) * 5
+
+        max_diff = torch.minimum(max_diff, std_diff)
 
         traj_diff.append(max_diff.cpu())
 
@@ -190,7 +194,7 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("my2048.pkl", "wb") as f:
+with open("std5.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
