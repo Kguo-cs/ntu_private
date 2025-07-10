@@ -116,7 +116,7 @@ for type_id in [0,1,2]:#
         idx = top_k_flat_idx[i]
         traj2 = veh_traj[joint_idx == idx][:10000000]#
 
-        # mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
+        mean_traj=torch.mean(traj2[:,-1,:2], dim=0)
 
         # dist=torch.norm(traj2[:,-1,:2]-mean_traj[None],dim=-1)#.mean(-1) #.argmin()
 
@@ -125,19 +125,19 @@ for type_id in [0,1,2]:#
         # #choice_index = torch.randint(0, traj2.shape[0], (1,)).item()
 
         # meaning_traj=traj2[choice_index]
-        traj_q=torch.quantile(traj2.to(torch.float32), q, dim=0)
+        #traj_q=torch.quantile(traj2.to(torch.float32), q, dim=0)
 
-        meaning_traj=traj_q.mean(dim=0)
+        #meaning_traj=traj_q.mean(dim=0)
 
         # meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
 
         # meaning_traj= traj2.mean(dim=0) #.numpy()
-        max_diff=traj_q[1]-meaning_traj
-        # diff=traj2[:10000000]-meaning_traj[None]
-        #
-        # diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
-        #
-        # max_diff=diff_q.abs().amax(dim=0)
+        #max_diff=traj_q[1]-meaning_traj
+        diff=traj2[:10000000]-meaning_traj[None]
+
+        diff_q=torch.quantile(diff.to(torch.float32), q, dim=0)
+
+        max_diff=diff_q.abs().amax(dim=0)
 
         #max_diff=diff.abs().amax(dim=0)#torch.minimum(diff.amax(dim=0), -diff.amin(dim=0))
         # diff[:,2]=wrap_angle(diff[:,2])
@@ -209,7 +209,7 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("mid2048.pkl", "wb") as f:
+with open("my2048.pkl", "wb") as f:
     pickle.dump(res, f)
 
 
