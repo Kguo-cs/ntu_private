@@ -275,8 +275,11 @@ class IQ_SoftQ(LightningModule):
 
         off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
         self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
+        
+        if self.iq_learn:
+            action_nll=0
 
-        return  reward,value_loss,init_V-1,light_nll,current_Q,proposal_loss
+        return  reward,value_loss,init_V-1,action_nll+light_nll,current_Q,proposal_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]

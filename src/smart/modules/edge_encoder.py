@@ -220,7 +220,7 @@ class EdgeEncoder(nn.Module):
                                               r=pl2a_radius,
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
-                                              max_num_neighbors=20)
+                                              max_num_neighbors=30)
 
         # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
         #                                       y=pos_pl[:, :2],

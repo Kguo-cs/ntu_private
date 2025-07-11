@@ -2,7 +2,7 @@
 #PBS -N std
 
 #PBS -l select=1:ncpus=112:ngpus=1:mem=320gb:container_engine=enroot
-#PBS -l walltime=12:00:00
+#PBS -l walltime=24:00:00
 #PBS -q normal
 #PBS -P 12002486
 #PBS -j oe
@@ -12,4 +12,4 @@ source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
-python  run.py > bc72_mykdist03_diff.log  2>&1
+python  run.py > bc64_dist03_map30.log  2>&1
