@@ -212,8 +212,8 @@ class SMARTAgentDecoder(nn.Module):
         else:
             proposal=None
 
-        if post_sampling:
-            return None,None,None,proposal
+        # if post_sampling:
+        #     return None,None,None,proposal
 
         pos_a=pos_a[:,-n_step:]
 
@@ -521,8 +521,8 @@ class SMARTAgentDecoder(nn.Module):
                     head_a = torch.cat([head_a,  pred_head1[:,-1:]], dim=1)
 
                 else:
-                    if not self.pred_last_res:
-                        next_token_logits=next_token_logits[:, :,:token_traj_all.shape[1]]
+                    # if not self.pred_last_res:
+                    #     next_token_logits=next_token_logits[:, :,:token_traj_all.shape[1]]
 
                     if post_sampling:
                         next_token_idx=gt_sampled_idx[:,t]

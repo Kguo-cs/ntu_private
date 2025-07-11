@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = False
+        self.pred_all_res = True
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -228,11 +228,13 @@ class TokenProcessor(torch.nn.Module):
         vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
 
         # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
-        # heading = self._clean_heading(valid, heading)
-        # # ! extrapolate to previous 5th step.
-        # valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
-        #     valid, pos, heading, vel
-        # )
+
+        # if not self.pred_last_res:
+        #     heading = self._clean_heading(valid, heading)
+        #     # ! extrapolate to previous 5th step.
+        #     valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
+        #         valid, pos, heading, vel
+        #     )
 
         # ! prepare output dict
         tokenized_agent = {
@@ -415,8 +417,6 @@ class TokenProcessor(torch.nn.Module):
         prev_pos, prev_head = pos[:, 0], heading[:, 0]  # [n_agent, 2], [n_agent]
         prev_pos_sample, prev_head_sample = pos[:, 0], heading[:, 0]
 
-
-
         out_dict = {
             "valid_mask": [],
             "gt_idx": [],
@@ -498,7 +498,7 @@ class TokenProcessor(torch.nn.Module):
             else:
                 _valid_mask=valid[:, i]
 
-            _invalid_mask = ~_valid_mask
+            _invalid_mask = ~valid[:, i]
 
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
