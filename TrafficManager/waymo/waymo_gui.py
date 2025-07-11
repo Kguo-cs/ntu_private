@@ -77,7 +77,7 @@ def generateDefaultImage(
 
 class GUI(Process):
     def __init__(
-            self, scenario,data,light,step_current
+            self, map_data,data,light,step_current
     ) -> None:
         super().__init__()
         self.renderQueue = RenderQueue(1)
@@ -112,8 +112,8 @@ class GUI(Process):
             (COLOR_GREY, 2),  # BROKEN = 6
             (COLOR_WHITE, 2),  # SOLID_SINGLE = 7
             (COLOR_BUTTER, 2),  # DOUBLE = 8
-            (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
-            (COLOR_GREEN, 4),  # CROSSWALK = 10
+            # (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
+            (COLOR_GREEN, 4),  # CROSSWALK,SPEED_BUMP = 9
         ]
 
         self.tl_style = [
@@ -133,9 +133,17 @@ class GUI(Process):
         # make output dir
         # self.save_dir = save_dir
         # self.save_dir.mkdir(exist_ok=True, parents=True)
+        #self.mp_xyz=map_infos['all_polylines_list']
 
         # draw gt
-        self.mp_xyz, self.mp_id, self.mp_type = get_map_features(scenario.map_features)
+        # self.mp_xyz, self.mp_id, self.mp_type = get_map_features(scenario.map_features)
+        #
+
+        self.mp_id = map_data["map_polygon"]["polygon_ids"]
+
+        self.mp_xyz=map_data["map_polygon"]["polygon_xyz"]
+
+        self.mp_type=map_data["map_polygon"]["map_type"]
 
         position=np.concatenate(self.mp_xyz, axis=0)
 
@@ -445,7 +453,7 @@ class GUI(Process):
         for i, _type in enumerate(self.mp_type):
             # if _type==0:
             #     print("freeway")
-            if _type in [4,5,6,7,8,10]:
+            if _type in [4,5,6,7,8,9]:
                 color, thickness = self.lane_style[_type]
                 polyline = self.mp_xyz[i][:, :2]
 
@@ -458,13 +466,17 @@ class GUI(Process):
                     parent=node
                 )
 
-                # dpg.draw_text(
-                #     self.ctf.dpgCoord(x, y, self.centerx, self.centery),
-                #     id,
-                #     color=(255, 0, 0),
-                #     size=20,
-                #     parent=node
-                # )
+                x = polyline[len(polyline)//2][0]
+                y = polyline[len(polyline)//2][1]
+
+
+                dpg.draw_text(
+                    self.ctf.dpgCoord(x, y, self.centerx, self.centery),
+                    self.mp_id[i],
+                    color=(255, 255, 255),
+                    size=15,
+                    parent=node
+                )
 
 
 
@@ -792,12 +804,12 @@ class GUI(Process):
 
         gt_vecs_label=[]
         gt_map_pts=[]
-        type_dict={10:0,5:1,6:1,7:1,8:1,4:2}#6 is dash line
+        type_dict={9:0,5:1,6:1,7:1,8:1,4:2}#6 is dash line
 
         self.patch_size=[100, 100]
 
         for i, _type in enumerate(self.mp_type):
-            if _type in [4,5,6,7,8,10]:#['divider', 'ped_crossing', 'boundary']
+            if _type in [4,5,6,7,8,9]:#['divider', 'ped_crossing', 'boundary']
                 polyline = self.mp_xyz[i][:, :2]
 
                 tran_x, tran_y, tran_yaw = transform(

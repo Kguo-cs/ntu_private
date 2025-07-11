@@ -111,11 +111,11 @@ class SimulationManager:
         with open(config_path, 'r') as config_file:
             return yaml.safe_load(config_file)
 
-    def initialize_simulation(self,scenario,data):
+    def initialize_simulation(self,map_data,data):
         # Initialising models, planners, maps etc
         light = self.config["traffic_light"]
 
-        self.gui = GUI(scenario,data,light,self.initial_step)
+        self.gui = GUI(map_data,data,light,self.initial_step)
         if self.GUI_DISPLAY:
             self.gui.start()
 
@@ -127,7 +127,7 @@ class SimulationManager:
         self.recording = False
 
         if self.recording:
-            self.record_path = "./results/video/"+str(scenario.scenario_id)+".mp4"
+            self.record_path = "./results/video/record.mp4"
             self.record_fps=10
             self.record_width = 1800  # Must match BEV window texture width
             self.record_height = 1230  # Must match BEV window texture height
@@ -306,9 +306,43 @@ class SimulationManager:
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
-
                 track_infos = decode_tracks_from_proto(scenario)
-                map_infos = decode_map_features_from_proto(scenario.map_features)
+
+                remove_map_object=self.config["map_object"]["remove"]
+                add_map_object=self.config["map_object"]["add"]
+
+                remove_mapid=[]
+
+                for polyline in remove_map_object:
+                    remove_mapid.append(polyline["id"])
+
+                for polyline in add_map_object:
+                    remove_mapid.append(polyline["id"])
+
+                map_infos = decode_map_features_from_proto(scenario.map_features,remove_mapid)
+
+                point_cnt=len(map_infos['all_polylines'])
+
+                for polyline in add_map_object:
+                    feature_data_type= polyline["polygon_type"]
+                    cur_info = {"id": polyline["id"]}
+                    cur_info["type"] = polyline["polyline_type"]
+
+                    cur_polyline = np.stack(
+                        [
+                            np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
+                            for p in polyline["points"]
+                        ],
+                        axis=0,
+                    )
+                    cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+
+                    map_infos[feature_data_type].append(cur_info)
+                    map_infos["all_polylines_list"].append(cur_polyline)
+                    point_cnt += len(cur_polyline)
+
+                map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
+
                 dynamic_map_infos = decode_dynamic_map_states_from_proto(
                     scenario.dynamic_map_states
                 )
@@ -316,36 +350,43 @@ class SimulationManager:
 
                 tf_lights = process_dynamic_map(dynamic_map_infos)
                 tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+
                 map_data = get_map_features(map_infos, tf_current_light)
 
                 data = preprocess_map(map_data)
 
                 #add agent
                 add_agents=self.config["agent"]["add"]
-                x=np.array(add_agents["x"])
-                y=np.array(add_agents["y"])
-                v_x=np.array(add_agents["v_x"])
-                v_y=np.array(add_agents["v_y"])
 
-                add_agent_num=len(x)
+                add_agent_num=len(add_agents)
 
                 track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.arange(add_agent_num)])
                 track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
                 track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
-                track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(add_agents["type"])])
 
                 new_state=np.zeros([add_agent_num,91,9])
-                new_state[:,:,0]=x[:,None]+v_x[:,None]*np.arange(-1,8.1,0.1)[None]
-                new_state[:,:,1]=y[:,None]+v_y[:,None]*np.arange(-1,8.1,0.1)[None]
-                new_state[:,:,3]=np.array(add_agents["length"])
-                new_state[:,:,4]=np.array(add_agents["width"])
-                new_state[:,:,5]=np.array(add_agents["height"])
-                new_state[:, :, 6]=np.arctan2(v_y,v_x)
+                agent_type=[]
+
+                for i in range(add_agent_num):
+                    agent=add_agents[i]
+                    pos=np.array(agent["position"])[None]+np.array(agent["velocity"])[None]*np.arange(-1,8.1,0.1)[:,None]
+
+                    new_state[i, :, :2] = pos
+                    new_state[i, :, 3:6] =np.array( agent["shape"])[None]
+                    new_state[i, :, 6] = np.arctan2(agent["velocity"][1],agent["velocity"][0])
+
+                    agent_type.append(agent["type"])
+
+                track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(agent_type)])
                 track_infos["states"]=np.concatenate([track_infos["states"],new_state])
 
                # delete agent
-                remove_id=self.config["agent"]["remove"]
-                mask=np.where(track_infos["object_id"]!=remove_id)
+                remove_agent=self.config["agent"]["remove"]
+
+                mask=np.ones(len(track_infos["object_id"])).astype(bool)
+                for agent in remove_agent:
+                    mask[track_infos["object_id"]==agent["id"]]=False
+
                 track_infos["object_id"]=track_infos["object_id"][mask]
                 track_infos["object_type"]=track_infos["object_type"][mask]
                 track_infos["states"]=track_infos["states"][mask]
@@ -354,17 +395,15 @@ class SimulationManager:
 
                 # add static object
                 add_static = self.config["static_object"]["add"]
-                static_x=np.array(add_static["x"])
-                static_y=np.array(add_static["y"])
-
-                add_static_num=len(static_x)
+                add_static_num=len(add_static)
                 new_state=np.zeros([add_static_num,91,9])
-                new_state[:,:,0]=static_x[:,None]
-                new_state[:,:,1]=static_y[:,None]
-                new_state[:,:,3]=np.array(add_static["length"])
-                new_state[:,:,4]=np.array(add_static["width"])
-                new_state[:,:,5]=np.array(add_static["height"])
-                new_state[:, :, 6]=np.array(add_static["heading"])
+
+                for i in range(add_static_num):
+                    static=add_static[i]
+                    new_state[i, :, :2] = np.array(static["position"])[None]
+                    new_state[i, :, 3:6] =np.array( static["shape"])[None]
+                    new_state[i, :, 6] = static["heading"]
+
                 track_infos["states"]=np.concatenate([track_infos["states"],new_state])
 
                 track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
@@ -385,7 +424,7 @@ class SimulationManager:
                 data["light"] = process_light(map_infos, tf_lights, tf_current_light)
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
-                self.initialize_simulation(scenario,data)
+                self.initialize_simulation(map_data,data)
 
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1

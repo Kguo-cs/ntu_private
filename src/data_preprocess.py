@@ -137,12 +137,17 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     # point_orientation: List[Optional[torch.Tensor]] = [None] * num_polygons
     point_type: List[Optional[torch.Tensor]] = [None] * num_polygons
 
+    polygon_xyz=[]
+
+    map_type=[]
+
     for _key in _polygon_types:
         for _seg in map_infos[_key]:
             _idx = polygon_ids.index(_seg["id"])
             centerline = map_infos["all_polylines"][
                 _seg["polyline_index"][0] : _seg["polyline_index"][1]
             ]
+            polygon_xyz.append(centerline[:,:3])
             centerline = torch.from_numpy(centerline).float()
             polygon_type[_idx] = _polygon_types.index(_key)
 
@@ -154,6 +159,8 @@ def get_map_features(map_infos, tf_current_light, dim=2):
             point_type[_idx] = torch.full(
                 (len(center_vectors),), _seg["type"], dtype=torch.uint8
             )
+
+            map_type.append(_seg["type"])
 
             if _key == "lane":
                 res = tf_current_light[tf_current_light["lane_id"] == _seg["id"]]
@@ -181,6 +188,10 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     map_data["map_polygon"]["num_nodes"] = num_polygons
     map_data["map_polygon"]["type"] = polygon_type
     map_data["map_polygon"]["light_type"] = polygon_light_type
+    map_data["map_polygon"]["polygon_ids"] = polygon_ids
+    map_data["map_polygon"]["polygon_xyz"] = polygon_xyz
+    map_data["map_polygon"]["map_type"] = map_type
+
     if len(num_points) == 0:
         map_data["map_point"]["num_nodes"] = 0
         map_data["map_point"]["position"] = torch.tensor([], dtype=torch.float)
@@ -280,14 +291,18 @@ def decode_tracks_from_proto(scenario):
     return track_infos
 
 
-def decode_map_features_from_proto(map_features):
+def decode_map_features_from_proto(map_features,remove_mapid=[]):
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
     polylines = []
+    # other_id=[]
     point_cnt = 0
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
         # pip install waymo-open-dataset-tf-2-6-0==1.4.9, not updated, should be driveway
         if feature_data_type is None:
+            continue
+
+        if mf.id in remove_mapid:
             continue
 
         feature = getattr(mf, feature_data_type)

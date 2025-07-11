@@ -21,37 +21,57 @@ input_json_path: "./waymo/json_input/agent.json"  #edit ego (or other) agent beh
 gui_display: true
 
 static_object:
-  add: #static object  #
-    x: [362] #global x  #增加多个物体就是【362, 。。。】
-    y: [6300] #global y
-    length: [10] #length
-    width: [10] #width
-    height: [1] #height
-    heading: [0]
+  add: #static object
+    - position: [362,6300]
+      heading: 0
+      shape: [10,10,1] #length,width,height
+
+#    - position: [ 362,3600 ]#增加多个物体
+#      heading: 0
+#      shape: [ 10,10,1 ] #length,width,height
+
 
 map_object:
   add: #static object
-    x: [362] #global x
-    y: [6300] #global y
-    length: [10] #length
-    width: [10] #width
-    height: [1] #height
-    heading: [0]
+    - polygon_type: road_edge #_polygon_types = ["lane", "road_edge", "road_line", "crosswalk"]
+      polyline_type: 4
+      # polyline_type = {
+      #     # for lane
+      #     "TYPE_FREEWAY": 0,
+      #     "TYPE_SURFACE_STREET": 1,
+      #     "TYPE_STOP_SIGN": 2,
+      #     "TYPE_BIKE_LANE": 3,
+      #     # for roadedge
+      #     "TYPE_ROAD_EDGE_BOUNDARY": 4,
+      #     "TYPE_ROAD_EDGE_MEDIAN": 5,
+      #     # for roadline
+      #     "BROKEN": 6,
+      #     "SOLID_SINGLE": 7,
+      #     "DOUBLE": 8,
+      #     # for crosswalk, speed bump and drive way
+      #     "TYPE_CROSSWALK": 9,
+      # }
+      points:
+        - [370, 6270]
+        - [370, 6275]
+        - [370, 6280]
+        - [370, 6290]
+      id: -100
 
-  remove: []
+  remove:
+    - id: 984
+
 
 
 agent:
   add:
-    type: [1] #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
-    x: [360] #current global x
-    y: [6270] #current global y
-    v_x: [-2] #currentglobal Vx
-    v_y: [0] #current global Vy
-    length: [1] #length
-    width: [1] #width
-    height: [1] #height
-  remove: [997] # give the remove agent id
+    - type: 1 #{0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+      position: [360,6270]
+      velocity: [-2,0]
+      shape: [1,1,1]
+
+  remove:
+    - id: 997 # give the remove agent id
 
 
 
