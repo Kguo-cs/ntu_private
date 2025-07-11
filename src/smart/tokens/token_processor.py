@@ -486,17 +486,15 @@ class TokenProcessor(torch.nn.Module):
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
-            if not self.pred_last_res:
-                dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
-                next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
-                prev_head[_valid_mask] = next_head[_valid_mask]
+            dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
+            next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+            prev_head[_valid_mask] = next_head[_valid_mask]
 
             prev_pos = pos[:, i].clone()
+            next_pos = token_contour_gt.mean(1)
+            prev_pos[_valid_mask] = next_pos[_valid_mask]
 
-            if not self.pred_last_res:
-                next_pos = token_contour_gt.mean(1)
-                prev_pos[_valid_mask] = next_pos[_valid_mask]
-            else:
+            if self.pred_last_res:
                 _valid_mask=valid[:, i]
 
             _invalid_mask = ~valid[:, i]
