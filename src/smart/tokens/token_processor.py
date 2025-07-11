@@ -67,7 +67,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.use_light=True
+        self.use_light=False
 
         self.pred_proposal=False
 
@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = False
+        self.pred_all_res = True
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]

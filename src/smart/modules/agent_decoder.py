@@ -161,11 +161,11 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_light = token_processor.use_light
         self.pred_light=True
+        self.light_type = token_processor.light_type
+        self.light_hist = self.agent_hist
 
         if self.use_light:
-            self.light_type = token_processor.light_type
 
-            self.light_hist= self.agent_hist
 
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
         else:
@@ -370,6 +370,7 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) -> Dict[str, torch.Tensor]:
+
         light_idx = tokenized_agent["light_idx"].clone()
 
         # random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
