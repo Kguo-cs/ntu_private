@@ -151,7 +151,8 @@ class TokenProcessor(torch.nn.Module):
         all_token_local_traj=torch.stack(all_token_local_traj)
         self.register_buffer(f"all_token_local_traj", all_token_local_traj, persistent=False)
 
-        self.register_buffer(f"max_diff", 0.1*agent_token_data["max_diff"], persistent=False)
+        if "max_diff" in agent_token_data.keys():
+            self.register_buffer(f"max_diff", 0.1*agent_token_data["max_diff"], persistent=False)
 
         if self.use_dynamic:
             module_dir = os.path.dirname(__file__)
@@ -790,7 +791,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.token_local_traj = torch.index_select(self.all_token_local_traj, dim=0,
                                               index=agent_type.long())
-        self.token_diff = torch.index_select(self.max_diff, dim=0, index=agent_type.long())
+
+        if self.pred_all_res:
+            self.token_diff = torch.index_select(self.max_diff, dim=0, index=agent_type.long())
 
         return agent_shape, token_traj_all, token_traj
 
