@@ -17,7 +17,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_inter10_8192 /home/ke/code/catk/src/waymo_data/ #full/
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc64_lightformer_nonoise_diff/2025-07-07_10-30-27/sim/sc29oaza/checkpoints/epoch=3-step=30440-val_closed_wosac=0.7671.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc72_03_diff_last/2025-07-11_12-56-43/sim/6rjk3m36/checkpoints/epoch=4-step=33820-val_closed_wosac=0.7650.ckpt ./
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
@@ -36,7 +36,7 @@ Gk@140286
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
 
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=6:00:00 -P 12002486
 
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src

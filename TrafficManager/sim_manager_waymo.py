@@ -78,7 +78,9 @@ class SimulationManager:
         self.patch_size = (patch_h, patch_w)
         self.canvas_size = (canvas_h, canvas_w)
 
-        with open('./waymo/json/calibrated_sensors.json', 'r') as f:
+        camera_parameter_path=self.config["camera_parameter_path"]
+
+        with open(camera_parameter_path, 'r') as f:
             data = json.load(f)
 
         self.lidar2img={}
@@ -291,16 +293,16 @@ class SimulationManager:
         input_dir =self.config["data_path"]
         all_scenarios=os.listdir(input_dir)
         all_scenarios.sort()
-        i=0
+       #i=0
         for scenario in all_scenarios:
             dataset = tf.data.TFRecordDataset(
                 [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
             )
 
             for tf_data in dataset:
-                i+=1
-                if i!=4:
-                    continue
+                # i+=1
+                # if i!=4:
+                #     continue
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
@@ -392,12 +394,9 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-
-
-                self.control_mask =tokenized_agent["type"]<3#torch.ones_like(tokenized_agent["ego_mask"])#$tokenized_agent["ego_mask"] #
+                self.control_mask =tokenized_agent["type"]<3
 
                 tokenized_agent["type"][tokenized_agent["type"]==3]=0
-
 
                 while True:
                     if not self.process_frame(map_feature, tokenized_agent):
@@ -502,7 +501,7 @@ class SimulationManager:
 
 @hydra.main(config_path="../configs/", config_name="run.yaml", version_base=None)
 def main(cfg):
-    sim_manager = SimulationManager(cfg, './readme/waymo_config.yaml')
+    sim_manager = SimulationManager(cfg, './config.yaml')
     sim_manager.run_simulation()
 
 

@@ -504,7 +504,6 @@ class GUI(Process):
 
             # Draw symbol
             symbol = shape_symbols.get(ltype, "?")
-            print(symbol)
             dpg.draw_text( pos=(cx - 5, cy - 5), text=symbol, size=20, color=[0, 0, 0, 255],
                           parent=node
                           )

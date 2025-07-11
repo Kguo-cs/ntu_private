@@ -62,7 +62,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.interval_t=self.shift /10
 
-        self.pred_last_res= True
+        self.pred_last_res= False
         if self.pred_last_res:
             self.n_token_agent+=1
             
@@ -773,10 +773,10 @@ class TokenProcessor(torch.nn.Module):
 
         token_traj = token_traj_all[:, :, -1, :, :].contiguous()
 
-        self.token_local_traj = torch.index_select(self.all_token_local_traj, dim=0,
-                                              index=agent_type.long())
-
         if self.pred_all_res:
+            self.token_local_traj = torch.index_select(self.all_token_local_traj, dim=0,
+                                                       index=agent_type.long())
+
             self.token_diff = torch.index_select(self.max_diff, dim=0, index=agent_type.long())
 
         return agent_shape, token_traj_all, token_traj

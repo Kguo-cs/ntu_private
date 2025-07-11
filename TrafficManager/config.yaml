@@ -1,30 +1,88 @@
-# Server Configuration
-servers:
-  diffusion: "http://127.0.0.1:11002/"
-  driver: "http://127.0.0.1:11003/"
-
-# Simulation Configuration
-simulation:
-  ego_id: '283'
-  step_length: 0.1
-  gui_display: true
-  max_sim_time: 100.0
-  use_agent_path: true # false for open-loop, true for closed-loop
-
-# Map Configuration
-map:
-  name: 'boston-seaport'
-  gen_description: 'daytime, cloudy, downtown, red buildings, white cars'
-  sumo_cfg_file: "networkFiles/{map_name}/osm.sumocfg"
-  sumo_net_file: "networkFiles/{map_name}/osm.net.xml"
-  sumo_rou_file: "networkFiles/{map_name}/osm.rou.xml"
-
 # Data Configuration
 data:
   template_path: "data/data_template.pth"
-  nu_scenes_root: "networkFiles/{map_name}/"
 
 # Image Configuration
 image:
   size: 200
   target_size: [560, 315]
+
+
+data_path: "./waymo/waymo_data"
+
+planner_path: "./waymo/model_checkpoint/epoch=4-step=33820-val_closed_wosac=0.7650.ckpt"
+
+camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
+
+output_json_path: "./waymo/json_output/labels_occluded.json"
+
+input_json_path: "./waymo/json_input/agent.json"  #edit ego (or other) agent behavior like static_ego.json
+
+gui_display: true
+
+static_object:
+  add: #static object  #
+    x: [362] #global x  #增加多个物体就是【362, 。。。】
+    y: [6300] #global y
+    length: [10] #length
+    width: [10] #width
+    height: [1] #height
+    heading: [0]
+
+map_object:
+  add: #static object
+    x: [362] #global x
+    y: [6300] #global y
+    length: [10] #length
+    width: [10] #width
+    height: [1] #height
+    heading: [0]
+
+  remove: []
+
+
+agent:
+  add:
+    type: [1] #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+    x: [360] #current global x
+    y: [6270] #current global y
+    v_x: [-2] #currentglobal Vx
+    v_y: [0] #current global Vy
+    length: [1] #length
+    width: [1] #width
+    height: [1] #height
+  remove: [997] # give the remove agent id
+
+
+
+
+traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
+  vertical:
+    - lights:
+        - [red, circle]
+        - [yellow, left]
+        - [green, right]
+      position: [350, 6270]
+
+#    - lights:
+#        - [red, uturn]
+#        - [green, forward]
+#        - [yellow, right]
+#      position: [360, 6270]
+#
+#  horizontal:
+#    - lights:
+#        - [red, right]
+#        - [yellow, left]
+#        - [green, circle]
+#      position: [360, 6270]
+# Define light types
+#light_types = {
+#            "circle": "O",
+#            "left": "<",
+#            "right": ">",
+#            "forward": "^",
+#            "uturn": "U"
+#}
+
+
