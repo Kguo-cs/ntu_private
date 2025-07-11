@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = True
+        self.pred_all_res = False
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -152,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"all_token_local_traj", all_token_local_traj, persistent=False)
 
         if "max_diff" in agent_token_data.keys():
-            self.register_buffer(f"max_diff", 0.1*agent_token_data["max_diff"], persistent=False)
+            self.register_buffer(f"max_diff", 0.01*agent_token_data["max_diff"], persistent=False)
 
         if self.use_dynamic:
             module_dir = os.path.dirname(__file__)
