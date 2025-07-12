@@ -212,7 +212,7 @@ class IQ_SoftQ(LightningModule):
 
         action_nll = -log_prob[train_mask].mean()
 
-        if len(pred["light_q"]):
+        if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
             light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
 
