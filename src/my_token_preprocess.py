@@ -16,22 +16,22 @@ sys.path.append('/home/ke/code/catk')
 sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 
 
-from src.smart.tokens.my_token_processor import TokenProcessor
+from src.smart.tokens.token_processor import TokenProcessor
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
     map_token_file="map_traj_token5.pkl",
-    agent_token_file="agent_vocab_444_s2_4096.pkl",
+    agent_token_file="agent_vocab_555_s2.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0}
 ).cuda()
 token_processor.eval()
 
 # Set paths
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_4096_444/"
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_raw_light/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_light_2049/"
 
-agent_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10/"
+os.makedirs(token_data_directory, exist_ok=True)
 
 # Worker function
 def process_file(filename):
@@ -40,46 +40,26 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    data= HeteroData(data).cuda()
+    data1= HeteroData(data).cuda()
 
-    tokenized_map, tokenized_agent,tokenized_light = token_processor(data)
 
-    # Remove unnecessary keys
-    tokenized_agent.pop('gt_pos_raw', None)
-    tokenized_agent.pop("gt_head_raw", None)
-    tokenized_agent.pop("gt_valid_raw", None)
-    tokenized_agent.pop('gt_z_raw', None)
-    tokenized_agent.pop('gt_idx', None)
-    tokenized_agent.pop('gt_heading', None)
-    tokenized_agent.pop('gt_pos', None)
+    agent = data1["tokenized_agent"]
 
-    tokenized_agent["sampled_idx"]=  tokenized_agent["sampled_idx"].to(torch.int16)
+    agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
+        agent['type']
+    )
+    token_dict = token_processor._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+                                        agent["gt_head_raw"],
+                                        agent_shape, token_traj  )
 
-    for key in tokenized_agent.keys():
-        tokenized_agent[key]=tokenized_agent[key].cpu()
 
-    tokenized_agent["num_nodes"] = len(tokenized_agent["sampled_pos"])
-
-    # tokenized_map["num_nodes"] = len(tokenized_map["position"])
-    #
-    # tokenized_map["token_idx"]=  tokenized_map["token_idx"].to(torch.int16)
-    # for key in tokenized_map.keys():
-    #     tokenized_map[key]=tokenized_map[key].cpu()
-
-    # for key in tokenized_light.keys():
-    #     tokenized_light[key]=tokenized_light[key].cpu()
-    #
-    # tokenized_light["num_nodes"] = len(tokenized_light["light_idx"])
-    agent_path=os.path.join(agent_directory, filename)
-
-    with open(agent_path, "rb") as f:
-        data1 = pickle.load(f)
-
-    data_dict = {"tokenized_map": data1["tokenized_map"], "tokenized_agent": tokenized_agent}#,"tokenized_light": data1["tokenized_light"]
+    for key in ["valid_mask","sampled_idx","sampled_pos","sampled_heading","target_global_traj","target_mask"]:
+        data["tokenized_agent"][key] = token_dict[key].cpu()
+    data["tokenized_agent"]["sampled_idx"]= data["tokenized_agent"]["sampled_idx"].to(torch.int16)    
 
     # Save the tokenized data
     with open(output_path, "wb") as f:
-        pickle.dump(data_dict, f)
+        pickle.dump(data, f)
 
 
 if __name__ == "__main__":

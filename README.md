@@ -6,10 +6,10 @@ Lyuchen2018!
 export PBS_JOBID=66378.pbs111
 
 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_2049 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw_light shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_2049 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.67.68:/home/ke/code/catk/src/waymo_data/full/training_inter10_8192 ./
 

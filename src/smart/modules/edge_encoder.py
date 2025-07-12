@@ -214,20 +214,20 @@ class EdgeEncoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
-        # edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
-        #                                       y=pos_pl[:, :2],
-        #                                       x_heading=head_s,
-        #                                       r=pl2a_radius,
-        #                                       batch_x=batch_s,
-        #                                       batch_y=batch_pl,
-        #                                       max_num_neighbors=30)
-
-        edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
                                               y=pos_pl[:, :2],
+                                              x_heading=head_s,
                                               r=pl2a_radius,
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
-                                              max_num_neighbors=8)
+                                              max_num_neighbors=20)
+
+        # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
+        #                                       y=pos_pl[:, :2],
+        #                                       r=pl2a_radius,
+        #                                       batch_x=batch_s,
+        #                                       batch_y=batch_pl,
+        #                                       max_num_neighbors=8)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
 

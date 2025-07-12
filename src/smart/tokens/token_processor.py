@@ -834,6 +834,10 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
 
+            if self.pred_last_res:
+                for key in ["target_global_traj","target_mask"]:
+                    tokenized_agent[key] = agent[key]
+
         if self.use_light:
 
             tokenized_light = data["tokenized_light"]
