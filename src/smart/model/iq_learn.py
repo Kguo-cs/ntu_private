@@ -280,7 +280,7 @@ class IQ_SoftQ(LightningModule):
         off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
         self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
         
-        if self.iq_learn:
+        if self.iq_learn and not self.use_gail:
             action_nll=0
 
         if self.use_target_q:
