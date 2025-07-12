@@ -103,8 +103,8 @@ class SimulationManager:
 
         self.initial_step=10
         self.output_json_path=self.config["output_json_path"]
-
         self.input_json_path=self.config["input_json_path"]
+        self.lidar_height=self.config["lidar_height"]
 
     @staticmethod
     def load_config(config_path: str) -> Dict:
@@ -140,7 +140,6 @@ class SimulationManager:
                 (self.record_width, self.record_height)
             )
 
-        self.lidar_height=1.84
 
     def project_bev2img(self,drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d  ):
 
@@ -360,12 +359,26 @@ class SimulationManager:
 
                 add_agent_num=len(add_agents)
 
-                track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.arange(add_agent_num)])
-                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
-                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
+
+                # delete agent
+                remove_agent = self.config["agent"]["remove"]
+
+                mask = np.ones(len(track_infos["object_id"])).astype(bool)
+                for agent in remove_agent:
+                    mask[track_infos["object_id"] == agent["id"]] = False
+
+                for agent in add_agents:
+                    mask[track_infos["object_id"] == agent["id"]] = False
+
+                track_infos["object_id"] = track_infos["object_id"][mask]
+                track_infos["object_type"] = track_infos["object_type"][mask]
+                track_infos["states"] = track_infos["states"][mask]
+                track_infos["valid"] = track_infos["valid"][mask]
+                track_infos["role"] = track_infos["role"][mask]
 
                 new_state=np.zeros([add_agent_num,91,9])
                 agent_type=[]
+                object_id=[]
 
                 for i in range(add_agent_num):
                     agent=add_agents[i]
@@ -376,22 +389,14 @@ class SimulationManager:
                     new_state[i, :, 6] = np.arctan2(agent["velocity"][1],agent["velocity"][0])
 
                     agent_type.append(agent["type"])
+                    object_id.append(agent["id"])
 
                 track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(agent_type)])
                 track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+                track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.array(object_id)])
+                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
+                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
 
-               # delete agent
-                remove_agent=self.config["agent"]["remove"]
-
-                mask=np.ones(len(track_infos["object_id"])).astype(bool)
-                for agent in remove_agent:
-                    mask[track_infos["object_id"]==agent["id"]]=False
-
-                track_infos["object_id"]=track_infos["object_id"][mask]
-                track_infos["object_type"]=track_infos["object_type"][mask]
-                track_infos["states"]=track_infos["states"][mask]
-                track_infos["valid"]=track_infos["valid"][mask]
-                track_infos["role"]=track_infos["role"][mask]
 
                 # add static object
                 add_static = self.config["static_object"]["add"]
@@ -411,7 +416,6 @@ class SimulationManager:
                 track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
                 track_infos["object_type"]=np.concatenate([track_infos["object_type"],3+np.zeros([add_static_num])])
 
-
                 data["agent"] = get_agent_features(
                     track_infos,
                     split="validation",
@@ -424,6 +428,13 @@ class SimulationManager:
                 data["light"] = process_light(map_infos, tf_lights, tf_current_light)
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
+
+                for agent in data["agent"]["stop"]:
+                    agent["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
+                    print(1)
+
+
+
                 self.initialize_simulation(map_data,data)
 
                 batch_data = HeteroData(data).cuda()
@@ -433,7 +444,7 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                self.control_mask =tokenized_agent["type"]<3
+                self.control_mask = tokenized_agent["type"]<3
 
                 tokenized_agent["type"][tokenized_agent["type"]==3]=0
 

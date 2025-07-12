@@ -20,6 +20,10 @@ input_json_path: "./waymo/json_input/agent.json"  #edit ego (or other) agent beh
 
 gui_display: true
 
+lidar_height: 1.84
+
+
+
 static_object:
   add: #static object
     - position: [362,6300]
@@ -69,12 +73,16 @@ agent:
       position: [360,6270]
       velocity: [-2,0]
       shape: [1,1,1]
+      id: 0
 
   remove:
     - id: 997 # give the remove agent id
 
+  stop:
+    - id: 997 # give the remove agent id
 
-
+  recording:
+    - id: 997 # give the remove agent id
 
 traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
   vertical:
@@ -83,13 +91,14 @@ traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向
         - [yellow, left]
         - [green, right]
       position: [350, 6270]
+      #light_types = {
+      #            "circle": "O",
+      #            "left": "<",
+      #            "right": ">",
+      #            "forward": "^",
+      #            "uturn": "U"
+      #}
 
-#    - lights:
-#        - [red, uturn]
-#        - [green, forward]
-#        - [yellow, right]
-#      position: [360, 6270]
-#
 #  horizontal:
 #    - lights:
 #        - [red, right]
@@ -97,12 +106,5 @@ traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向
 #        - [green, circle]
 #      position: [360, 6270]
 # Define light types
-#light_types = {
-#            "circle": "O",
-#            "left": "<",
-#            "right": ">",
-#            "forward": "^",
-#            "uturn": "U"
-#}
 
 

@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and self.output_gmm:
             self.automatic_optimization = False
 
-        self.use_target_q=True
+        self.use_target_q=False
 
         self.start_step=10//self.token_processor.shift-1
 
