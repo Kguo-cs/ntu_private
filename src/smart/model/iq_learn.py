@@ -27,7 +27,7 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and self.output_gmm:
             self.automatic_optimization = False
 
-        self.use_target_q=False
+        self.use_target_q=True
 
         self.start_step=10//self.token_processor.shift-1
 
@@ -226,18 +226,15 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        if self.use_target_q:
+        if self.use_target_q and key=="expert":
             with torch.no_grad():
                 pred = self.target_net(tokenized_map, tokenized_agent)
-                next_q=pred["agent_q"][:,2:]
-                next_V = self.alpha * torch.logsumexp(next_q / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-                dones = torch.zeros_like(next_V)
-                dones[:, -1] = 1
-                y = self.gamma * (1 - dones) * next_V
 
-            current_V = V[:, :-1]
-            reward = current_Q - y
-            value_loss = current_V - y
+                target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
+            self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
+        else:
+            target_V=0
+
 
         init_V = V[:, 0]
         last_V= V[:,-1]
@@ -279,7 +276,9 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             action_nll=0
 
-        return  reward,value_loss,init_V-1,action_nll+light_nll,current_Q,proposal_loss
+        V_error=(V-target_V)[all_valid_mask]
+
+        return  reward,value_loss,V_error,action_nll+light_nll,current_Q,proposal_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -327,15 +326,14 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
 
             critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
-            #critic_loss=expert_nll+expert_proposal_loss+agent_nll+agent_proposal_loss
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=expert_V_diff.square().mean() #*5
+            constraint_loss=expert_V_diff.square().mean()*5
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss+expert_nll#+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss+expert_proposal_loss+expert_nll+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
@@ -347,12 +345,12 @@ class IQ_SoftQ(LightningModule):
                 actor_loss.backward(retain_graph=True)
                 torch.nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), max_norm=0.5)
                 actor_optimizer.step()
-                
+
                 critic_optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
                 critic_optimizer.step()
-                
+
                 loss=loss+actor_loss
 
         return loss
@@ -366,7 +364,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
         if self.use_target_q :
-            soft_update(self.encoder.agent_encoder, self.target_net.agent_encoder, tau = 1)
+            soft_update(self.encoder.agent_encoder, self.target_net.agent_encoder, tau = 2e-4)
 
         return loss
 

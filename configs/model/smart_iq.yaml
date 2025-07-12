@@ -13,7 +13,7 @@ model_config:
     # num_freq_bands: 128
 #    num_heads: 16
     num_map_layers: 1
-    num_agent_layers: 2
+    num_agent_layers: 1
     pl2pl_radius: 20
     pl2a_radius: 40
     a2a_radius: 60
