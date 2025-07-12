@@ -65,8 +65,6 @@ map_object:
   remove:
     - id: 984
 
-
-
 agent:
   add:
     - type: 1 #{0: "vehicle", 1: "pedestrian", 2: "cyclist"}
@@ -84,27 +82,72 @@ agent:
   recording:
     - id: 1040 # give the recording agent id
 
-traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
-  vertical:
-    - lights:
-        - [red, circle]
-        - [yellow, left]
-        - [green, right]
-      position: [350, 6270]
-      #light_types = {
-      #            "circle": "O",
-      #            "left": "<",
-      #            "right": ">",
-      #            "forward": "^",
-      #            "uturn": "U"
-      #}
 
-#  horizontal:
+traffic_lights:
+  - id: "tl_001"
+    position: [34.5, 120.8, 5.0]     # 信号灯的世界坐标
+    orientation: "vertical"         # vertical | horizontal
+    type:                           # 灯泡组合类型
+      - color: "red"
+        shape: "circle"
+      - color: "yellow"
+        shape: "left_arrow"
+      - color: "green"
+        shape: "circle"
+    mode: "periodic"                # fixed | periodic | custom
+    fixed_state: "green"            # 仅在 fixed 模式下使用
+    periodic_schedule:              # 周期性切换设置
+      cycle_time: 60.0              # 整个周期长度（秒）
+      phases:                       # 每个状态阶段
+        - duration: 30.0
+          lights_on:
+            - color: "green"
+              shape: "circle"
+        - duration: 5.0
+          lights_on:
+            - color: "yellow"
+              shape: "left_arrow"
+        - duration: 25.0
+          lights_on:
+            - color: "red"
+              shape: "circle"
+    custom_logic:                  # 可扩展自定义控制逻辑
+      enabled: false
+      script_path: ""              # 指向外部 Python 文件（可选）
+
+  - id: "tl_002"
+    position: [56.3, 122.1, 5.0]
+    orientation: "horizontal"
+    type:
+      - color: "red"
+        shape: "u_turn_arrow"
+      - color: "green"
+        shape: "u_turn_arrow"
+    mode: "fixed"
+    fixed_state: "red"
+
+
+#traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
+#  vertical:
 #    - lights:
-#        - [red, right]
+#        - [red, circle]
 #        - [yellow, left]
-#        - [green, circle]
-#      position: [360, 6270]
-# Define light types
-
+#        - [green, right]
+#      position: [350, 6270]
+#      #light_types = {
+#      #            "circle": "O",
+#      #            "left": "<",
+#      #            "right": ">",
+#      #            "forward": "^",
+#      #            "uturn": "U"
+#      #}
+#
+##  horizontal:
+##    - lights:
+##        - [red, right]
+##        - [yellow, left]
+##        - [green, circle]
+##      position: [360, 6270]
+## Define light types
+#
 
