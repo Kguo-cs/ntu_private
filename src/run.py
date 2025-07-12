@@ -67,9 +67,9 @@ torch.set_float32_matmul_precision("high")
 # torch.backends.cudnn.benchmark = False
 # torch.cuda.synchronize()
 # print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-torch.backends.cuda.matmul.allow_tf32 = False
-torch.backends.cuda.allow_tf32 = False
-print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
+# torch.backends.cuda.matmul.allow_tf32 = False
+# torch.backends.cuda.allow_tf32 = False
+# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
 
 
 def run(cfg: DictConfig) -> None:
