@@ -235,7 +235,6 @@ class IQ_SoftQ(LightningModule):
         else:
             target_V=0
 
-
         init_V = V[:, 0]
         last_V= V[:,-1]
 
