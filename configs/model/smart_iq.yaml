@@ -14,11 +14,11 @@ model_config:
 #    num_heads: 16
     num_map_layers: 1
     num_agent_layers: 1
-    pl2pl_radius: 20
+    pl2pl_radius: 30
     pl2a_radius: 40
     a2a_radius: 60
     dropout: 0
     hist_drop_prob: 0
-    pt2pt_neighbor: 20
+    pt2pt_neighbor: 10
     pt2a_neighbor: 8
     a2a_neighbor: 10
