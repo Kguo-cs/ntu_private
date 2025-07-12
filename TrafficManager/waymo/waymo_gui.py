@@ -1,18 +1,15 @@
 import os
 from math import cos, pi, sin
 from multiprocessing import Process
-from typing import Dict, List, Tuple
 
 import dearpygui.dearpygui as dpg
 from rich import print
 from TrafficManager.LimSim.utils.simBase import CoordTF
 import cv2
 from typing import Dict, List
-from math import cos, pi, sin
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
-from src.utils.vis_waymo import get_map_features,get_traffic_light_features,get_agent_features
 from TrafficManager.LimSim.simModel.DataQueue import (
     CameraImages, ImageQueue, QAQueue, QuestionAndAnswer, RenderQueue,
 )
