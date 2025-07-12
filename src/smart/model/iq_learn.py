@@ -275,9 +275,10 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             action_nll=0
 
-        V_error=(V-target_V)[all_valid_mask]
+        if self.use_target_q:
+            V=(V-target_V)[all_valid_mask]
 
-        return  reward,value_loss,V_error,action_nll+light_nll,current_Q,proposal_loss
+        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]

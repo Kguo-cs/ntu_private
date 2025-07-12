@@ -16,7 +16,7 @@ camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
 output_json_path: "./waymo/json_output/labels_occluded.json"
 
-input_json_path: "./waymo/json_input/agent.json"  #edit ego (or other) agent behavior like static_ego.json
+input_json_path: "./waymo/json_input/controlled_agent.json"  #edit ego (or other) agent behavior like static_ego.json
 
 gui_display: true
 
@@ -79,10 +79,10 @@ agent:
     - id: 997 # give the remove agent id
 
   stop:
-    - id: 997 # give the remove agent id
+   # - id: 991 # give the stop agent id
 
   recording:
-    - id: 997 # give the remove agent id
+    - id: 1040 # give the recording agent id
 
 traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
   vertical:

@@ -299,9 +299,6 @@ class SimulationManager:
             )
 
             for tf_data in dataset:
-                # i+=1
-                # if i!=4:
-                #     continue
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
@@ -357,18 +354,21 @@ class SimulationManager:
                 #add agent
                 add_agents=self.config["agent"]["add"]
 
-                add_agent_num=len(add_agents)
-
-
                 # delete agent
-                remove_agent = self.config["agent"]["remove"]
 
                 mask = np.ones(len(track_infos["object_id"])).astype(bool)
-                for agent in remove_agent:
-                    mask[track_infos["object_id"] == agent["id"]] = False
 
-                for agent in add_agents:
-                    mask[track_infos["object_id"] == agent["id"]] = False
+                if self.config["agent"]["remove"] is not None:
+                    for agent in self.config["agent"]["remove"]:
+                        mask[track_infos["object_id"] == agent["id"]] = False
+
+                if add_agents is not None:
+                    for agent in add_agents:
+                        mask[track_infos["object_id"] == agent["id"]] = False
+
+                    add_agent_num=len(add_agents)
+                else:
+                    add_agent_num=0
 
                 track_infos["object_id"] = track_infos["object_id"][mask]
                 track_infos["object_type"] = track_infos["object_type"][mask]
@@ -400,21 +400,45 @@ class SimulationManager:
 
                 # add static object
                 add_static = self.config["static_object"]["add"]
-                add_static_num=len(add_static)
-                new_state=np.zeros([add_static_num,91,9])
 
-                for i in range(add_static_num):
-                    static=add_static[i]
-                    new_state[i, :, :2] = np.array(static["position"])[None]
-                    new_state[i, :, 3:6] =np.array( static["shape"])[None]
-                    new_state[i, :, 6] = static["heading"]
+                if add_static is not None:
+                    add_static_num=len(add_static)
+                    new_state=np.zeros([add_static_num,91,9])
 
-                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+                    for i in range(add_static_num):
+                        static=add_static[i]
+                        new_state[i, :, :2] = np.array(static["position"])[None]
+                        new_state[i, :, 3:6] =np.array( static["shape"])[None]
+                        new_state[i, :, 6] = static["heading"]
 
-                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
-                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
-                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
-                track_infos["object_type"]=np.concatenate([track_infos["object_type"],3+np.zeros([add_static_num])])
+                    track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+
+                    track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
+                    track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
+                    track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
+                    track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([add_static_num])])
+                else:
+                    add_static_num=0
+
+                self.control_mask=np.ones([len(track_infos["object_type"])])
+
+                self.control_mask[-add_static_num:]=False
+
+                if self.config["agent"]["stop"] is not None:
+
+                    for agent in self.config["agent"]["stop"]:
+                        id=agent["id"]
+                        mask=track_infos["object_id"]==id
+                        self.control_mask[mask]=False
+                        track_infos["valid"][mask]=True
+                        track_infos["states"][mask]=track_infos["states"][mask,10:11]
+
+                if self.config["agent"]["recording"] is not None:
+                    for agent in self.config["agent"]["recording"]:
+                        id=agent["id"]
+                        mask=track_infos["object_id"]==id
+                        self.control_mask[mask]=False
+
 
                 data["agent"] = get_agent_features(
                     track_infos,
@@ -429,12 +453,6 @@ class SimulationManager:
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
 
-                for agent in data["agent"]["stop"]:
-                    agent["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
-                    print(1)
-
-
-
                 self.initialize_simulation(map_data,data)
 
                 batch_data = HeteroData(data).cuda()
@@ -444,9 +462,9 @@ class SimulationManager:
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                self.control_mask = tokenized_agent["type"]<3
-
-                tokenized_agent["type"][tokenized_agent["type"]==3]=0
+                # self.control_mask = tokenized_agent["type"]<3
+                #
+                # tokenized_agent["type"][tokenized_agent["type"]==3]=0
 
                 while True:
                     if not self.process_frame(map_feature, tokenized_agent):
