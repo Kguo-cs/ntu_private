@@ -263,10 +263,6 @@ class SMARTAgentDecoder(nn.Module):
             map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
         )
 
-        feat_a = self.pt2a_attn_layers[0](
-            (feat_map, feat_a), r_pl2a, edge_index_pl2a
-        )
-
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_a=head_a,  # [n_agent, n_step]
@@ -280,12 +276,6 @@ class SMARTAgentDecoder(nn.Module):
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         if len(light_idx):
-            # mask_lg=light_idx<self.light_type
-            #
-            # if not self.training:
-            #     light_idx=light_idx[:,-n_step:]
-            #     mask_lg=mask_lg[:, -self.light_hist:]
-
             feat_lg = self.light_encoder.light_embedding(light_idx)
 
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
@@ -316,6 +306,11 @@ class SMARTAgentDecoder(nn.Module):
             )
         else:
             next_light_logits = []
+
+        feat_a = self.pt2a_attn_layers[0](
+            (feat_map, feat_a), r_pl2a, edge_index_pl2a
+        )
+
 
         feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
