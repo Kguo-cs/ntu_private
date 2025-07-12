@@ -362,7 +362,7 @@ class IQ_SoftQ(LightningModule):
         return loss
 
     def get_dis_loss(self,tokenized_map,tokenized_agent,tokenized_agent_rollout):
-        map_feature = tokenized_map["map_feature"]
+        map_feature = tokenized_map["detach_map_feature"]
 
         expert_d = torch.sigmoid(self.discriminator(tokenized_agent, map_feature)["agent_q"])
 
