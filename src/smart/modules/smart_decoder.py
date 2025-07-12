@@ -54,6 +54,8 @@ class SMARTDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.iq_learn=True
         self.output_gmm=False
+        self.use_gail=True
+
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
@@ -119,8 +121,31 @@ class SMARTDecoder(nn.Module):
                 a2a_neighbor=a2a_neighbor,
                 token_processor=token_processor,
                 alpha=self.alpha,
-                output_gmm=self.output_gmm
+                output_gmm=self.output_gmm,
+                pred_light=True
             )
+            if self.use_gail:
+                self.discriminator = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=time_span,
+                    pl2a_radius=pl2a_radius,
+                    a2a_radius=a2a_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=num_agent_layers,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    hist_drop_prob=hist_drop_prob,
+                    n_token_agent=n_token_agent,
+                    pt2a_neighbor=pt2a_neighbor,
+                    a2a_neighbor=a2a_neighbor,
+                    token_processor=token_processor,
+                    alpha=self.alpha,
+                    output_gmm=self.output_gmm,
+                    pred_light=False
+                )
 
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,

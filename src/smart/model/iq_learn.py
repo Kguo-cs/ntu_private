@@ -33,11 +33,7 @@ class IQ_SoftQ(LightningModule):
 
         self.start_step=10//self.token_processor.shift-1
 
-        self.use_gail=True
-
-        if self.use_gail:
-            self.discriminator=deepcopy(self.encoder.agent_encoder)
-            self.discriminator.pred_light=False
+        self.use_gail=self.encoder.use_gail
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -318,7 +314,7 @@ class IQ_SoftQ(LightningModule):
             self.encoder.agent_encoder.pred_light=False
 
             if self.use_gail:
-                expert_d = torch.sigmoid(self.discriminator(tokenized_agent,  tokenized_map["detach_map_feature"])["agent_q"])
+                expert_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent,  tokenized_map["detach_map_feature"])["agent_q"])
                 expert_loss = F.binary_cross_entropy(expert_d, torch.ones_like(expert_d))
                 self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
                 self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
@@ -329,7 +325,7 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
-                agent_d = torch.sigmoid(self.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"])
+                agent_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"])
 
                 agent_loss = F.binary_cross_entropy(agent_d, torch.zeros_like(agent_d))
                 critic_loss = expert_loss + agent_loss

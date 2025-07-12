@@ -56,7 +56,8 @@ class SMARTAgentDecoder(nn.Module):
             a2a_neighbor: int,
             token_processor,
             alpha,
-            output_gmm
+            output_gmm,
+            pred_light
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -160,7 +161,7 @@ class SMARTAgentDecoder(nn.Module):
                     )
 
         self.use_light = token_processor.use_light
-        self.pred_light=True
+        self.pred_light=pred_light
         self.light_type = token_processor.light_type
         self.light_hist = self.agent_hist
 
