@@ -116,5 +116,5 @@ def rollout(encoder, tokenized_map, tokenized_agent,post_sampling=False):
     #
     #     self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
-    return tokenized_map,tokenized_agent
+    return tokenized_agent
 

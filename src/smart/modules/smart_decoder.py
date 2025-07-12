@@ -52,7 +52,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
 
         if self.tokenizer_training:
@@ -130,11 +130,11 @@ class SMARTDecoder(nn.Module):
             map_feature = tokenized_map["map_feature"]
         else:
             map_feature = self.map_encoder(tokenized_map)
-            detach_map_feature={}
-            for key in map_feature.keys():
-                detach_map_feature[key] = map_feature[key].detach()
-
-            tokenized_map["detach_map_feature"] = detach_map_feature
+            # detach_map_feature={}
+            # for key in map_feature.keys():
+            #     detach_map_feature[key] = map_feature[key].detach()
+            #
+            # tokenized_map["detach_map_feature"] = detach_map_feature
             tokenized_map["map_feature"] = map_feature
 
         if use_critic:
@@ -159,7 +159,7 @@ class SMARTDecoder(nn.Module):
         post_sampling=False,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
-            map_feature = tokenized_map["detach_map_feature"]
+            map_feature = tokenized_map["map_feature"]
         else:
             if post_sampling:
                 map_feature = None

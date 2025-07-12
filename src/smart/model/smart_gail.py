@@ -12,13 +12,10 @@
 # its affiliates is strictly prohibited.
 
 
-# from src.waymo_data.trash.gail import GAIL
 from src.smart.model.iq_learn import IQ_SoftQ
 from src.smart.model.smart import SMART
 from src.smart.modules.smart_decoder import SMARTDecoder
 
-from src.smart.model.ego_gmm_smart import EgoGMMSMART
-from src.smart.modules.ego_gmm_smart_decoder import EgoGMMSMARTDecoder
 import torch
 import math
 from torch.optim.lr_scheduler import LambdaLR
@@ -32,9 +29,7 @@ from torch.optim.lr_scheduler import LambdaLR
 #         model_config.decoder.hidden_dim=model_config.decoder.hidden_dim//2
 #
 #         self.discriminator=SMARTDecoder(
-#             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
-#             state_action=True
-#         )
+#             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent )
 
 class SMART_IQ(IQ_SoftQ, SMART):
     def __init__(self, model_config) -> None:
@@ -77,32 +72,4 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
 
 
-# class EGO_GMM_GAIL(GAIL, EgoGMMSMART):
-#     def __init__(self, model_config) -> None:
-#         EgoGMMSMART.__init__(self, model_config)  # Explicit call
-#         GAIL.__init__(self, model_config)  # Explicit call
-#
-#         self.discriminator = EgoGMMSMARTDecoder(**model_config.decoder)
 
-    # def compute_dist(self):
-    #     ego_pose_topk = torch.cat(
-    #         [
-    #             ego_next_poses[..., :2],
-    #             ego_next_poses[..., [-1]].cos(),
-    #             ego_next_poses[..., [-1]].sin(),
-    #         ],
-    #         dim=-1,
-    #     )
-    #     cov = (
-    #         (self.gmm_cov * sampling_scheme.temp_cov)
-    #         .repeat_interleave(2)[None, None, :]
-    #         .expand(*ego_pose_topk.shape)
-    #     )  # [n_batch, k, 4]
-    #
-    #     gmm = MixtureSameFamily(
-    #         Categorical(logits=ego_next_logits), Independent(Normal(ego_next_poses, self.gmm_cov), 1)
-    #     )
-    #     ego_sample=ego_sample
-    #
-    #     prev_log_prob=gmm.log_prob(action)
-    #

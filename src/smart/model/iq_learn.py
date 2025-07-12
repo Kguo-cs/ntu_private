@@ -2,6 +2,7 @@ from lightning import LightningModule
 import numpy as np
 import torch
 
+from TrafficManager.LimSim.utils.data_copy import deepcopy
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
@@ -13,6 +14,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+import torch.nn.functional as F
 
 class IQ_SoftQ(LightningModule):
 
@@ -30,6 +32,12 @@ class IQ_SoftQ(LightningModule):
         self.use_target_q=False
 
         self.start_step=10//self.token_processor.shift-1
+
+        self.use_gail=True
+
+        if self.use_gail:
+            self.discriminator=deepcopy(self.encoder.agent_encoder)
+            self.discriminator.pred_light=False
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -301,31 +309,26 @@ class IQ_SoftQ(LightningModule):
                 action_mask = valid_mask[:, 1:]
                 train_mask = state_mask & action_mask
 
-        if self.iq_learn:
-            self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-
-
         # if self.iq_learn:
-        #     expert_nll=expert_proposal_loss=0
-        # else:
-        #tokenized_map, tokenized_agent = rollout(self.encoder, tokenized_map, tokenized_agent,True)
+        #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
-        if not self.iq_learn:
-            loss = expert_nll + expert_proposal_loss
-        else:
-            self.encoder.agent_encoder.a_t_roformer.attn.caching = False
+        if self.iq_learn:
+            self.encoder.agent_encoder.pred_light=False
 
-            tokenized_map_rollout, tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+            tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
-                tokenized_map_rollout, tokenized_agent_rollout, train_mask,key='agent')
+            if self.use_gail:
+                critic_loss=self.get_dis_loss(tokenized_map,tokenized_agent,tokenized_agent_rollout)
+            else:
+                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
+                    tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-            critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
+                critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
@@ -333,7 +336,8 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss+expert_nll+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            loss = critic_loss+expert_proposal_loss+expert_nll #+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+            self.encoder.agent_encoder.pred_light=True
 
             if self.automatic_optimization==False:
                 actor_optimizer,critic_optimizer=self.optimizers()
@@ -352,8 +356,29 @@ class IQ_SoftQ(LightningModule):
                 critic_optimizer.step()
 
                 loss=loss+actor_loss
+        else:
+            loss = expert_nll + expert_proposal_loss
 
         return loss
+
+    def get_dis_loss(self,tokenized_map,tokenized_agent,tokenized_agent_rollout):
+        map_feature = tokenized_map["map_feature"]
+
+        expert_d = torch.sigmoid(self.discriminator(tokenized_agent, map_feature)["agent_q"])
+
+        agent_d = torch.sigmoid(self.discriminator(tokenized_agent_rollout, map_feature)["agent_q"])
+
+        expert_loss = F.binary_cross_entropy(expert_d, torch.ones_like(expert_d))
+        agent_loss = F.binary_cross_entropy(agent_d, torch.zeros_like(agent_d))
+
+        discrim_loss = expert_loss + agent_loss
+
+        self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
+        self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
+        self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
+        self.log("train/agent_disc_val", agent_d.mean().item(), on_step=True, batch_size=1)
+
+        return discrim_loss
 
     def training_step(self, data, batch_idx):
 

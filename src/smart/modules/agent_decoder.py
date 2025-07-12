@@ -386,10 +386,10 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 mask_lg,
                                                                                 post_sampling=post_sampling)
 
-        # if self.n_token_agent>1:
-        #     tokenized_agent["next_token_logits"] = next_token_logits
-        #     tokenized_agent["next_light_logits"] = next_light_logits
-        #     tokenized_agent["proposal"] = proposal
+        # tokenized_agent["next_token_logits"] = next_token_logits
+        # tokenized_agent["next_light_logits"] = next_light_logits
+        # tokenized_agent["proposal"] = proposal
+
         return {
             "proposal":proposal,
             "light_q": next_light_logits,
@@ -429,10 +429,10 @@ class SMARTAgentDecoder(nn.Module):
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
-                    next_token_logits = tokenized_agent["next_token_logits"][:, :current_step]
+                    next_token_logits = tokenized_agent["next_token_logits"][:, -1:]
 
-                    if self.pred_proposal:
-                        proposal=tokenized_agent["proposal"][:, :current_step]
+                    if tokenized_agent["proposal"] is not None:
+                        proposal=tokenized_agent["proposal"][:, -1:]
 
                     if self.pred_light:
                         next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
@@ -650,7 +650,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            "light_idx": light_idx,
+            #"light_idx": light_idx,
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
