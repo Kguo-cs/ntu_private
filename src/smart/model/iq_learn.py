@@ -316,6 +316,9 @@ class IQ_SoftQ(LightningModule):
             criterion = nn.BCELoss()
 
             if self.use_gail:
+                # for key in ["sampled_pos", "sampled_heading"]:
+                #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
+
                 expert_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent,  tokenized_map["detach_map_feature"])["agent_q"])
                 expert_loss = criterion(expert_d, torch.ones_like(expert_d))
 
@@ -328,6 +331,8 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
+                # for key in ["sampled_pos", "sampled_heading"]:
+                #     tokenized_agent_rollout[key] = tokenized_agent_rollout[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
 
                 agent_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"])
                 agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
