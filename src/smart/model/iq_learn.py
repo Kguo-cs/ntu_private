@@ -285,7 +285,7 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             V=(V-target_V)[all_valid_mask]
 
-        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob,pred["feat_a"]
+        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -311,7 +311,7 @@ class IQ_SoftQ(LightningModule):
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
@@ -338,12 +338,14 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent_rollout[key] = tokenized_agent_rollout[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
-                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_feat = self.get_QV(
+                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
+                
+                pred=self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
 
-                value_pred=self.encoder.value_network(agent_feat[:,:-1])[:,:,0]
+                value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
 
-                agent_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"][:,1:,0])
+                agent_d = torch.sigmoid(pred["agent_q"][:,1:,0])
                 agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
                 agent_return,agent_rewards=get_return(agent_d,self.gamma)
                 critic_loss = expert_loss + agent_loss
