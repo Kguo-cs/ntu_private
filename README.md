@@ -38,12 +38,12 @@ Spyder1@
 
 qsub -I -l select=1:ngpus=1 -l walltime=9:00:00 -P 12002486
 
+export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 git pull
 
-export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
 export NVIDIA_TF32_OVERRIDE=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
