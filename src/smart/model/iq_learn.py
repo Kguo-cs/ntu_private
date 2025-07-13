@@ -15,6 +15,7 @@ from src.smart.utils import (
     wrap_angle,
 )
 import torch.nn.functional as F
+import torch.nn as nn
 
 class IQ_SoftQ(LightningModule):
 
@@ -312,10 +313,12 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
+            criterion = nn.BCELoss()
 
             if self.use_gail:
                 expert_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent,  tokenized_map["detach_map_feature"])["agent_q"])
-                expert_loss = F.binary_cross_entropy_with_logits(expert_d, torch.ones_like(expert_d))
+                expert_loss = criterion(expert_d, torch.ones_like(expert_d))
+
                 self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
                 self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
 
@@ -325,8 +328,9 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
+
                 agent_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"])
-                agent_loss = F.binary_cross_entropy_with_logits(agent_d, torch.zeros_like(agent_d))
+                agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
                 critic_loss = expert_loss + agent_loss
 
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
