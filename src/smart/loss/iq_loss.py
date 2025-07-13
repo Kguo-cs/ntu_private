@@ -88,6 +88,8 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
 def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
 
+    s=s.detach()
+
     if reward_type == 'airl':
         rewards = (s + eps).log() - (1 - s + eps).log()
     elif reward_type == 'gail':

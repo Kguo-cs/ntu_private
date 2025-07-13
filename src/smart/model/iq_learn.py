@@ -215,7 +215,9 @@ class IQ_SoftQ(LightningModule):
 
         current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
-        action_nll = -log_prob[train_mask].mean()
+        log_prob=log_prob[train_mask]
+
+        action_nll = -log_prob.mean()
 
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
@@ -283,7 +285,7 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             V=(V-target_V)[all_valid_mask]
 
-        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss
+        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -309,7 +311,7 @@ class IQ_SoftQ(LightningModule):
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
@@ -345,6 +347,18 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
                 self.log("train/agent_disc_val", agent_d.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
+
+                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
+                    tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
+
+                baseline_return=get_return(torch.zeros_like(agent_d)+0.5,self.gamma)
+                adv=agent_return-baseline_return
+                weight=(adv>0).float()
+
+                agent_wNLL=-(agent_log_prob*weight).mean()
+                self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
+
+                expert_nll=expert_nll+agent_nll
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
