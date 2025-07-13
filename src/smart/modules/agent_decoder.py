@@ -384,9 +384,10 @@ class SMARTAgentDecoder(nn.Module):
 
         # tokenized_agent["next_token_logits"] = next_token_logits
         # tokenized_agent["next_light_logits"] = next_light_logits
-        # tokenized_agent["proposal"] = proposal
+        #tokenized_agent["feat_a"] = feat_a
 
         return {
+            "feat_a":feat_a,
             "proposal":proposal,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]

@@ -19,8 +19,7 @@ from torch import Tensor
 
 from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
-from torch_scatter import scatter_mean
-from .build_edge import  radiusGraphNearest2
+from src.smart.layers import MLPLayer
 
 
 class SMARTDecoder(nn.Module):
@@ -150,6 +149,8 @@ class SMARTDecoder(nn.Module):
                     pred_last_res=False,
                     pred_all_res=False,
                 )
+
+                self.value_network=MLPLayer(hidden_dim,hidden_dim, output_dim=1)
 
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,
