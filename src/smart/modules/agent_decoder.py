@@ -57,7 +57,9 @@ class SMARTAgentDecoder(nn.Module):
             token_processor,
             alpha,
             output_gmm,
-            pred_light
+            pred_light,
+            pred_last_res,
+            pred_all_res
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -119,8 +121,8 @@ class SMARTAgentDecoder(nn.Module):
             self.output_gmm = output_gmm
             self.n_token_agent = n_token_agent
 
-            self.pred_last_res = token_processor.pred_last_res
-            self.pred_all_res = token_processor.pred_all_res
+            self.pred_last_res = pred_last_res
+            self.pred_all_res = pred_all_res
 
             if self.output_gmm:
                 self.k_ego_gmm=1
@@ -146,19 +148,12 @@ class SMARTAgentDecoder(nn.Module):
                 #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
                 # )
             else:
-                if n_token_agent>1:
+                self.token_predict_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
 
-                    self.token_predict_head = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                    )
-
-                    if self.pred_last_res or self.pred_all_res:
-                        self.traj_head = MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)
-
-                else:
-                    self.token_predict_head = MLPLayer(
-                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=n_token_agent
-                    )
+                if self.pred_last_res or self.pred_all_res:
+                    self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
 
         self.use_light = token_processor.use_light
         self.pred_light=pred_light
@@ -355,7 +350,7 @@ class SMARTAgentDecoder(nn.Module):
                 train_mask = tokenized_agent["train_mask"]
                 feat_a=feat_a[train_mask]
 
-            next_token_logits = self.token_predict_head(feat_a).reshape(-1, n_step, self.n_token_agent)
+            next_token_logits = self.token_predict_head(feat_a)#.reshape(feat_a, n_step, -1)
 
         return next_token_logits,next_light_logits,feat_a,proposal
 

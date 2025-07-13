@@ -52,9 +52,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
-        self.use_gail=False
+        self.use_gail=True
 
 
         if self.tokenizer_training:
@@ -122,7 +122,9 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor,
                 alpha=self.alpha,
                 output_gmm=self.output_gmm,
-                pred_light=True
+                pred_light=True,
+                pred_last_res=token_processor.pred_last_res,
+                pred_all_res=token_processor.pred_all_res,
             )
             if self.use_gail:
                 self.discriminator = SMARTAgentDecoder(
@@ -138,13 +140,15 @@ class SMARTDecoder(nn.Module):
                     head_dim=head_dim,
                     dropout=dropout,
                     hist_drop_prob=hist_drop_prob,
-                    n_token_agent=n_token_agent,
+                    n_token_agent=1,
                     pt2a_neighbor=pt2a_neighbor,
                     a2a_neighbor=a2a_neighbor,
                     token_processor=token_processor,
                     alpha=self.alpha,
                     output_gmm=self.output_gmm,
-                    pred_light=False
+                    pred_light=False,
+                    pred_last_res=False,
+                    pred_all_res=False,
                 )
 
     def forward(

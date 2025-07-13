@@ -72,7 +72,7 @@ def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,exp
 
     return critic_loss
 
-def get_return(reward,log_prob,current_Q,V,alpha,gamma):
+def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
     rewards=reward - alpha * log_prob
     returns = torch.zeros_like(V)
     running_return=returns[:,-1]
@@ -85,6 +85,29 @@ def get_return(reward,log_prob,current_Q,V,alpha,gamma):
     V_diff=(V[:,:-1]-returns[:,:-1])
 
     return current_Q_diff, V_diff
+
+def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
+
+    if reward_type == 'airl':
+        rewards = (s + eps).log() - (1 - s + eps).log()
+    elif reward_type == 'gail':
+        rewards = (s + eps).log()
+    elif reward_type == 'raw':
+        rewards = s
+    elif reward_type == 'airl-positive':
+        rewards = (s + eps).log() - (1 - s + eps).log() + 20
+    elif reward_type == 'revise':
+        d_x = (s + eps).log()
+        rewards = d_x + (-1 - (-d_x).log())
+
+    returns = torch.zeros_like(rewards)
+    running_return=returns[:,-1]
+
+    for i in range(rewards.size(1)-1,-1,-1):
+        running_return = rewards[:, i] + gamma *running_return
+        returns[:, i] = running_return
+
+    return returns
 
 def eval_light(tokenized_agent,tokenized_agent_rollout,logger,light_type):
     real_light = tokenized_agent["light_idx"][:, 2:]
