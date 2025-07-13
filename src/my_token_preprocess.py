@@ -29,7 +29,7 @@ token_processor.eval()
 
 # Set paths
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_raw_light/"
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_light_2049/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049/"
 
 os.makedirs(token_data_directory, exist_ok=True)
 
@@ -56,6 +56,10 @@ def process_file(filename):
     for key in ["valid_mask","sampled_idx","sampled_pos","sampled_heading","target_global_traj","target_mask"]:
         data["tokenized_agent"][key] = token_dict[key].cpu()
     data["tokenized_agent"]["sampled_idx"]= data["tokenized_agent"]["sampled_idx"].to(torch.int16)    
+
+    del data["tokenized_agent"]['gt_pos_raw']
+    del data["tokenized_agent"]['gt_head_raw']
+    del data["tokenized_agent"]['gt_valid_raw']
 
     # Save the tokenized data
     with open(output_path, "wb") as f:
