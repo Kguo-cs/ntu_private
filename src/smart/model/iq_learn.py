@@ -315,7 +315,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
                 expert_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent,  tokenized_map["detach_map_feature"])["agent_q"])
-                expert_loss = F.binary_cross_entropy(expert_d, torch.ones_like(expert_d))
+                expert_loss = F.binary_cross_entropy_with_logits(expert_d, torch.ones_like(expert_d))
                 self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
                 self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
 
@@ -326,8 +326,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
                 agent_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"])
-
-                agent_loss = F.binary_cross_entropy(agent_d, torch.zeros_like(agent_d))
+                agent_loss = F.binary_cross_entropy_with_logits(agent_d, torch.zeros_like(agent_d))
                 critic_loss = expert_loss + agent_loss
 
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
