@@ -312,8 +312,8 @@ class SMARTAgentDecoder(nn.Module):
             (feat_map, feat_a), r_pl2a, edge_index_pl2a
         )
 
-        # for layer_i in range(self.num_layers):
-        #     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+        for layer_i in range(self.num_layers):
+            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
         feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
