@@ -5,7 +5,7 @@ from tqdm import tqdm
 import torch
 from pathlib import Path
 from torch_geometric.data import HeteroData
-torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("medium")
 import sys
 
 
@@ -29,7 +29,7 @@ token_processor.eval()
 
 # Set paths
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_raw_light/"
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049/"
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049medium/"
 
 os.makedirs(token_data_directory, exist_ok=True)
 
