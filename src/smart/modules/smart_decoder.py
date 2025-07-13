@@ -52,9 +52,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
-        self.use_gail=False
+        self.use_gail=True
 
 
         if self.tokenizer_training:
