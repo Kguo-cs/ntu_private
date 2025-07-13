@@ -93,7 +93,7 @@ def rollout(encoder, tokenized_map, tokenized_agent,post_sampling=False):
 
     tokenized_agent.update(pred)
     for key in ["sampled_pos", "sampled_heading"]:
-        tokenized_agent[key] = tokenized_agent[key] + 1e-3 * torch.randn_like(tokenized_agent[key])
+        tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
 
     # tokenized_agent_rollout = tokenized_agent
     # tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']

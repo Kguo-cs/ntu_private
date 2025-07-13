@@ -832,8 +832,8 @@ class TokenProcessor(torch.nn.Module):
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
                 tokenized_agent[key] = agent[key]
 
-            # for key in ["sampled_pos", "sampled_heading"] :
-            #     tokenized_agent[key] = tokenized_agent[key]+1e-3*torch.randn_like(tokenized_agent[key])
+            for key in ["sampled_pos", "sampled_heading"] :
+                tokenized_agent[key] = tokenized_agent[key]+1e-4*torch.randn_like(tokenized_agent[key])
 
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
 
