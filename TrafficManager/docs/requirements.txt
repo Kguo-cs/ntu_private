@@ -6,13 +6,11 @@ nuscenes_devkit==1.1.11
 opencv_python==4.10.0.82
 pynput==1.7.7
 pyquaternion==0.9.9
-sumolib==1.19.0
-traci==1.19.0
 pexpect
-
 matplotlib==3.5.3
 
-
+#sumolib==1.19.0
+#traci==1.19.0
 #pytz
 #mmcv_full==1.4.0
 #numpy==1.24.4

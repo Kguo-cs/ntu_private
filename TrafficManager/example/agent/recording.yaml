@@ -1,0 +1,4 @@
+agent:
+  recording:
+    - id: 1040 # give the recording agent id
+

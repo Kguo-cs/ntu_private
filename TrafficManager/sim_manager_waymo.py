@@ -16,16 +16,18 @@ import cv2
 from PIL import Image
 from io import BytesIO
 import yaml
-from src.smart.model.smart import SMART
+import argparse
+
+dir_name=os.path.dirname(os.path.abspath(__file__))
 
 # Add LimSim to sys.path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "LimSim"))  # noqa
-from TrafficManager.utils.map_utils import VectorizedLocalMap
-from LimSim.utils.trajectory import Trajectory, State
-from LimSim.trafficManager.traffic_manager import TrafficManager
+sys.path.append(dir_name)  # noqa
+
+sys.path.append(os.path.dirname(dir_name))  # noqa
+
+sys.path.append(os.path.join(dir_name, "LimSim"))  # noqa
 from LimSim.simModel.DataQueue import CameraImages
 from torch_geometric.data import HeteroData
-from pathlib import Path
 
 from TrafficManager.utils.map_utils import (
     LiDARInstanceLines,
@@ -38,11 +40,13 @@ from TrafficManager.utils.map_utils import (
 import hydra
 from waymo_open_dataset.protos import scenario_pb2
 import tensorflow as tf
+
+from src.smart.model.smart import SMART
+
 from src.my_data_preprocess import (decode_tracks_from_proto,decode_map_features_from_proto,
                                     decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,process_light,preprocess_map)
 from waymo.waymo_gui import GUI
 from time import sleep
-import mss
 from src.smart.utils import (
     angle_between_2d_vectors,
     transform_to_global,
@@ -51,11 +55,12 @@ from src.smart.utils import (
 )
 import json
 from  waymo.check_oclluded import check_occlusion_fully_batched
+from omegaconf import OmegaConf
 
 class SimulationManager:
-    def __init__(self, cfg,config_path: str) -> None:
-        self.config = self.load_config(config_path)
-        self.setup_planner(cfg)
+    def __init__(self, model_cfg,config: str) -> None:
+        self.config = config
+        self.setup_planner(model_cfg)
         self.GUI_DISPLAY = self.config["gui_display"]
 
         data_root = os.path.dirname(os.path.abspath(__file__))
@@ -114,7 +119,7 @@ class SimulationManager:
 
     def initialize_simulation(self,map_data,data):
         # Initialising models, planners, maps etc
-        light = self.config["traffic_light"]
+        light = self.config["traffic_lights"]
 
         self.gui = GUI(map_data,data,light,self.initial_step)
         if self.GUI_DISPLAY:
@@ -284,7 +289,7 @@ class SimulationManager:
 
         self.timestamp += 1
 
-        # sleep(0.1)
+       # sleep(1000)
         self.capture_viewport_frame()
 
         return True
@@ -310,35 +315,41 @@ class SimulationManager:
 
                 remove_mapid=[]
 
-                for polyline in remove_map_object:
-                    remove_mapid.append(polyline["id"])
+                if remove_map_object is not None:
 
-                for polyline in add_map_object:
-                    remove_mapid.append(polyline["id"])
+                    for polyline in remove_map_object:
+                        remove_mapid.append(polyline["id"])
+
+                if add_map_object is not None:
+
+                    for polyline in add_map_object:
+                        remove_mapid.append(polyline["id"])
 
                 map_infos = decode_map_features_from_proto(scenario.map_features,remove_mapid)
 
                 point_cnt=len(map_infos['all_polylines'])
 
-                for polyline in add_map_object:
-                    feature_data_type= polyline["polygon_type"]
-                    cur_info = {"id": polyline["id"]}
-                    cur_info["type"] = polyline["polyline_type"]
+                if add_map_object is not None:
 
-                    cur_polyline = np.stack(
-                        [
-                            np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
-                            for p in polyline["points"]
-                        ],
-                        axis=0,
-                    )
-                    cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+                    for polyline in add_map_object:
+                        feature_data_type= polyline["polygon_type"]
+                        cur_info = {"id": polyline["id"]}
+                        cur_info["type"] = polyline["polyline_type"]
 
-                    map_infos[feature_data_type].append(cur_info)
-                    map_infos["all_polylines_list"].append(cur_polyline)
-                    point_cnt += len(cur_polyline)
+                        cur_polyline = np.stack(
+                            [
+                                np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
+                                for p in polyline["points"]
+                            ],
+                            axis=0,
+                        )
+                        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
 
-                map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
+                        map_infos[feature_data_type].append(cur_info)
+                        map_infos["all_polylines_list"].append(cur_polyline)
+                        point_cnt += len(cur_polyline)
+
+                    map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
 
                 dynamic_map_infos = decode_dynamic_map_states_from_proto(
                     scenario.dynamic_map_states
@@ -475,6 +486,8 @@ class SimulationManager:
         if not self.recording or self.video_writer is None:
             return
 
+        import mss
+
         with mss.mss() as sct:
             # Get viewport position & size
             vp_x, vp_y = 140,128
@@ -599,14 +612,28 @@ class SimulationManager:
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
-        self.planner.load_state_dict(state_dict)
+        #self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 
 
 @hydra.main(config_path="../configs/", config_name="run.yaml", version_base=None)
-def main(cfg):
-    sim_manager = SimulationManager(cfg, './config.yaml')
+def main(model_cfg):
+
+    default_config='./config.yaml'
+
+    simulator_cfg = OmegaConf.load(default_config)
+
+    custom_config_path=model_cfg.custom_config
+
+    # Merge if provided
+    if custom_config_path is not None:
+        print(f"Loading custom config from: {custom_config_path}")
+        override_cfg = OmegaConf.load(custom_config_path)
+        simulator_cfg = OmegaConf.merge(simulator_cfg, override_cfg)
+
+
+    sim_manager = SimulationManager(model_cfg, simulator_cfg)
     sim_manager.run_simulation()
 
 

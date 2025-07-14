@@ -1,0 +1,3 @@
+agent:
+  remove:
+    - id: 997 # give the remove agent id

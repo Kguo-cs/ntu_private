@@ -27,3 +27,5 @@ train_log_dir: null
 
 # seed for random number generators in pytorch, numpy and python.random
 seed: 817
+
+custom_config: null

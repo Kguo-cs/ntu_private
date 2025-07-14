@@ -1,0 +1,26 @@
+map_object:
+  add: #static object
+    - polygon_type: road_edge #_polygon_types = ["lane", "road_edge", "road_line", "crosswalk"]
+      polyline_type: 4
+      # polyline_type = {
+      #     # for lane
+      #     "TYPE_FREEWAY": 0,
+      #     "TYPE_SURFACE_STREET": 1,
+      #     "TYPE_STOP_SIGN": 2,
+      #     "TYPE_BIKE_LANE": 3,
+      #     # for roadedge
+      #     "TYPE_ROAD_EDGE_BOUNDARY": 4,
+      #     "TYPE_ROAD_EDGE_MEDIAN": 5,
+      #     # for roadline
+      #     "BROKEN": 6,
+      #     "SOLID_SINGLE": 7,
+      #     "DOUBLE": 8,
+      #     # for crosswalk, speed bump and drive way
+      #     "TYPE_CROSSWALK": 9,
+      # }
+      points:
+        - [370, 6270]
+        - [370, 6275]
+        - [370, 6280]
+        - [370, 6290]
+      id: -100

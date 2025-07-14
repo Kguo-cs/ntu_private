@@ -1,0 +1,13 @@
+traffic_lights:
+  - position:  [350, 6275]    # 信号灯的世界坐标
+    orientation: "vertical"         # vertical | horizontal
+    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
+      - color: "red"
+        shape: "left_arrow"
+      - color: "yellow"
+        shape: "circle"
+      - color: "green"
+        shape: "circle"
+    mode: "fixed"                # fixed | periodic | custom
+    fixed_state: "red"            # 仅在 fixed 模式下使用
+

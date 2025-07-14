@@ -1,0 +1,26 @@
+traffic_lights:
+  - position:  [350, 6275]    # 信号灯的世界坐标
+    orientation: "vertical"         # vertical | horizontal
+    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
+      - color: "red"
+        shape: "left_arrow"
+      - color: "yellow"
+        shape: "circle"
+      - color: "green"
+        shape: "circle"
+    mode: "periodic"                # fixed | periodic | custom
+    periodic_schedule:              # 周期性切换设置
+      cycle_time: 60.0              # 整个周期长度（秒）
+      phases:                       # 每个状态阶段
+        - duration: 2.0
+          lights_on:
+            - color: "green"
+              shape: "circle"
+        - duration: 5.0
+          lights_on:
+            - color: "yellow"
+              shape: "circle"
+        - duration: 25.0
+          lights_on:
+            - color: "red"
+              shape: "left_arrow"

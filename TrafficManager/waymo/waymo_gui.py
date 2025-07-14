@@ -13,6 +13,7 @@ import numpy as np
 from TrafficManager.LimSim.simModel.DataQueue import (
     CameraImages, ImageQueue, QAQueue, QuestionAndAnswer, RenderQueue,
 )
+import importlib.util
 
 COLOR_BLACK = (0, 0, 0, 255)
 COLOR_WHITE = (255, 255, 255, 255)
@@ -71,6 +72,22 @@ def generateDefaultImage(
     np_img = np_img / 255
     return np_img.flatten().tolist()
 
+# --- Color map ---
+color_map = {
+    "red": (255, 0, 0, 255),
+    "yellow": (255, 255, 0, 255),
+    "green": (0, 255, 0, 255),
+    "off": (60, 60, 60, 255)
+}
+
+
+shape_symbols = {
+    "circle": "O",
+    "left_arrow": "<",
+    "right_arrow": ">",
+    "forward_arrow": "^",
+    "uturn": "U"
+}
 
 class GUI(Process):
     def __init__(
@@ -258,12 +275,6 @@ class GUI(Process):
         )
         with dpg.window(tag='PredBEVWindow', label='BEV Map'):
             dpg.add_image('PRED_BEV_TT')
-
-        # # Prompts windows
-        # dpg.add_window(tag="PromptsWindow", label='Prompts')
-
-        # # Response Window
-        # dpg.add_window(tag="ResponseWindow", label='Reasoning and decision')
 
     def create_handlers(self):
         with dpg.handler_registry():
@@ -475,59 +486,62 @@ class GUI(Process):
                     parent=node
                 )
 
+    # --- Get currently active light(s) ---
+    def get_current_active_lights(self,light_group,time):
+        if light_group["mode"] == "fixed":
+            return [{"color": light_group["fixed_state"], "shape": "circle"}]
 
+        elif light_group["mode"] == "periodic":
+            t =  time % light_group["periodic_schedule"]["cycle_time"]
+            total = 0
+            for phase in light_group["periodic_schedule"]["phases"]:
+                total += phase["duration"]
+                if t <= total:
+                    return phase["lights_on"]
+        elif light_group["mode"] == "custom":
+            script_path = light_group["custom_logic"]["script_path"]
+            spec = importlib.util.spec_from_file_location("custom_logic", script_path)
+            logic = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(logic)
+            return logic.get_current_light_state(time)
+        return [{"color": "red", "shape": "circle"}]  # fallback
 
-    # Define traffic light drawing function
-    def draw_light(self,node, position, orientation,lights):
-        spacing = 30
-        radius = 10
-        polyline_tf = self.get_line_tf([position], self.centerx, self.centery)[0]
-        x=polyline_tf[0]
-        y=polyline_tf[1]
-        # Define light types
-        shape_symbols = {
-            "circle": "O",
-            "left": "<",
-            "right": ">",
-            "forward": "^",
-            "uturn": "U"
-        }
+    # --- Draw the traffic light on the canvas ---
+    def draw_traffic_light(self,node,time_step):
 
-        light_color={
-            "red": COLOR_RED,
-            "green": COLOR_GREEN,
-            "yellow": COLOR_YELLOW,
-        }
+        if self.light is not None:
 
-        for i, (color, ltype) in enumerate(lights):
-            if orientation == "vertical":
-                cx, cy = x, y + i * spacing
-            else:  # horizontal
-                cx, cy = x + i * spacing, y
+            for light_group in self.light:
+                orientation = light_group["orientation"]
+                lights = light_group["type"]
+                active = self.get_current_active_lights(light_group,time_step//10)
 
+                radius = 15
+                padding = 0
 
+                position=light_group["position"]
 
-            # Draw colored circle
-            dpg.draw_circle( center=(cx, cy), radius=radius, color=light_color[color],
-                             fill=light_color[color], thickness=2, parent = node  )
+                polyline_tf = self.get_line_tf([position], self.centerx, self.centery)[0]
+                start_x=polyline_tf[0]
+                start_y=polyline_tf[1]
 
-            # Draw symbol
-            symbol = shape_symbols.get(ltype, "?")
-            dpg.draw_text( pos=(cx - 5, cy - 5), text=symbol, size=20, color=[0, 0, 0, 255],
-                          parent=node
-                          )
-    #
-    def draw_traffic_light(self,node,light_idx):
-        for entry in self.light.get("vertical", []):
-            lights = entry["lights"]
-            position = tuple(entry["position"])
-            self.draw_light(node, position=position, orientation="vertical", lights=lights)
+                for i, light in enumerate(lights):
+                    is_active = any(l["color"] == light["color"] and l["shape"] == light["shape"] for l in active)
+                    color = color_map[light["color"]] if is_active else color_map["off"]
 
-        # Draw all horizontal lights
-        for entry in self.light.get("horizontal", []):
-            lights = entry["lights"]
-            position = tuple(entry["position"])
-            self.draw_light(node, position=position, orientation="horizontal", lights=lights)
+                    if orientation == "vertical":
+                        x, y = start_x, start_y + i * (2 * radius + padding)
+                    else:
+                        x, y = start_x + i * (2 * radius + padding), start_y
+
+                    dpg.draw_circle(center=[x, y], radius=radius, color=(0, 0, 0, 255),
+                                    fill=color, thickness=2, parent=node)
+
+                    symbol = shape_symbols.get(light["shape"], "?")
+                    dpg.draw_text( pos=(x - 5, y - 5), text=symbol, size=20, color=[255, 255, 255, 255],
+                                  parent=node
+                                  )
+
 
     #     for i_tl, _state in enumerate(light_idx):#self.tl_lane_state[step_t]
     #         _lane_id=self.tl_lane_id[i_tl]#
@@ -596,7 +610,7 @@ class GUI(Process):
 
             if time_step is not None:
                 self.drawRoadgraph(canvasNode)
-                self.draw_traffic_light(canvasNode,light_idx)
+                self.draw_traffic_light(canvasNode,time_step)
                 self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
         except TypeError:
             return
