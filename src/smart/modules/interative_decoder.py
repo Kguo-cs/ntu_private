@@ -180,7 +180,7 @@ class InterativeDecoder(nn.Module):
                 #     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
                 if self.pred_last_res:
-                    proposal_feature=feat_a[:, :-1].detach()
+                    proposal_feature=feat_a[:, :-1]#.detach()
                 else:
                     proposal_feature=feat_a[:, :-1] + agent_token_emb[:, 1:]
 
