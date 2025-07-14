@@ -168,7 +168,7 @@ def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
     return returns,rewards
 
 
-def compute_advantages(rewards, values,gamma=0.99,lam=1):#0.95
+def compute_advantages(rewards, values,gamma=0.99,lam=0.95):#0.95
 
     dones = torch.zeros_like(rewards)
     dones[:,-1]=1
