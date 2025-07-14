@@ -47,9 +47,10 @@ from src.smart.utils import (
     angle_between_2d_vectors,
     transform_to_global,
     weight_init,
-    wrap_angle,
+    wrap_angle, transform_to_local,
 )
 import json
+from  waymo.check_oclluded import check_occlusion_fully_batched
 
 class SimulationManager:
     def __init__(self, cfg,config_path: str) -> None:
@@ -397,6 +398,7 @@ class SimulationManager:
                 track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
                 track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
 
+                track_infos["role"][:,-1]=True#control
 
                 # add static object
                 add_static = self.config["static_object"]["add"]
@@ -417,27 +419,21 @@ class SimulationManager:
                     track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
                     track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
                     track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([add_static_num])])
-                else:
-                    add_static_num=0
 
-                self.control_mask=np.ones([len(track_infos["object_type"])])
-
-                self.control_mask[-add_static_num:]=False
 
                 if self.config["agent"]["stop"] is not None:
-
                     for agent in self.config["agent"]["stop"]:
                         id=agent["id"]
                         mask=track_infos["object_id"]==id
-                        self.control_mask[mask]=False
                         track_infos["valid"][mask]=True
                         track_infos["states"][mask]=track_infos["states"][mask,10:11]
+                        track_infos["role"][mask,-1]=False
 
                 if self.config["agent"]["recording"] is not None:
                     for agent in self.config["agent"]["recording"]:
                         id=agent["id"]
                         mask=track_infos["object_id"]==id
-                        self.control_mask[mask]=False
+                        track_infos["role"][mask,-1]=False
 
 
                 data["agent"] = get_agent_features(
@@ -452,6 +448,7 @@ class SimulationManager:
                 data["light"] = process_light(map_infos, tf_lights, tf_current_light)
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
+                self.control_mask=data["agent"]["role"][:,-1]
 
                 self.initialize_simulation(map_data,data)
 
@@ -461,6 +458,7 @@ class SimulationManager:
                 tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
+
 
                 # self.control_mask = tokenized_agent["type"]<3
                 #
@@ -511,28 +509,59 @@ class SimulationManager:
     def dump_result(self,tokenized_agent):
 
         result={}
-        pos = tokenized_agent["pred_traj_10hz"].cpu().numpy()
-        heading = tokenized_agent["pred_head_10hz"].cpu().numpy()
-        shape=tokenized_agent["shape"].cpu().numpy()
-        type=tokenized_agent["type"].cpu().numpy()
-        tracking_id=tokenized_agent["id"].cpu().numpy()
-        all_valid=tokenized_agent["all_valid"].cpu().numpy()
 
-        velocity=(pos[:,1:]-pos[:,:-1])/0.1
+        pos_global = tokenized_agent["pred_traj_10hz"]
+        head_global = tokenized_agent["pred_head_10hz"]
+        all_valid = tokenized_agent["all_valid"]
+        tracking_id = tokenized_agent["id"]
 
-        velocity=np.concatenate([velocity[:,:1],velocity],axis=1)
+        ego_mask=tokenized_agent["ego_mask"]
 
-        sim_t=pos.shape[1]
+        ego_pos=pos_global[ego_mask][0]
+        ego_heading=head_global[ego_mask][0]
 
-        boxes=np.zeros([len(pos),sim_t,7])#[x, y, z, l, w, h, yaw]
+        pos_local, head_local=transform_to_local(pos_global.transpose(0,1),head_global.transpose(0,1),ego_pos,ego_heading )
 
-        boxes[:,:,:2]=pos
+        pos_local=pos_local.transpose(0,1)
+        head_local=head_local.transpose(0,1)
+
+        head_local=wrap_angle(head_local)
+
+        all_valid[ego_mask]=False
+        all_valid[tracking_id<0]=False
+
+        shape=tokenized_agent["shape"]
+
+        velocity=(pos_local[:,1:]-pos_local[:,:-1])/0.1
+
+        velocity=torch.cat([velocity[:,:1],velocity],dim=1)
+
+        sim_t=pos_local.shape[1]
+
+        boxes=torch.zeros([len(pos_local),sim_t,7]).cuda()#[x, y, z, l, w, h, yaw]
+
+        boxes[:,:,:2]=pos_local
+        boxes[:,:,:3]=-self.lidar_height
         boxes[:,:,3:6]=shape[:,None]
-        boxes[:,:,6]=heading
+        boxes[:,:,6]=head_local
 
-        type[tracking_id<0]=3
+        occlude_list=[]
 
-        labels=np.array(["car","pedestrian","bicycle","traffic_cone"])[type]
+        # for key in self.lidar2img.keys():
+        #     lidar2img=self.lidar2img[key]
+        #     image_size=self.image_size[key]
+        #     lidar2img=torch.FloatTensor(lidar2img)[None].repeat(sim_t,1,1).cuda()
+        #     occluded=check_occlusion_fully_batched(boxes.transpose(0,1), lidar2img,image_size)
+        #
+        #     occlude_list.append(occluded)
+
+        boxes=boxes.cpu().numpy()
+
+        type=tokenized_agent["type"].cpu().numpy()
+        all_valid=all_valid.cpu().numpy()
+        tracking_id=tracking_id.cpu().numpy()
+
+        labels=np.array(["car","pedestrian","bicycle"])[type]#,"traffic_cone"
 
         for t in range(sim_t):
             result[str(t)]={}
@@ -562,7 +591,7 @@ class SimulationManager:
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
-        self.planner.load_state_dict(state_dict)
+        #self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 

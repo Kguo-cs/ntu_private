@@ -127,27 +127,27 @@ traffic_lights:
     fixed_state: "red"
 
 
-#traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
-#  vertical:
+traffic_light: #特别属性包含灯的颜色，类别组合(圆形，向左向右箭头，掉头箭头等)，竖向横向。
+  vertical:
+    - lights:
+        - [red, circle]
+        - [yellow, left]
+        - [green, right]
+      position: [350, 6270]
+      #light_types = {
+      #            "circle": "O",
+      #            "left": "<",
+      #            "right": ">",
+      #            "forward": "^",
+      #            "uturn": "U"
+      #}
+
+#  horizontal:
 #    - lights:
-#        - [red, circle]
+#        - [red, right]
 #        - [yellow, left]
-#        - [green, right]
-#      position: [350, 6270]
-#      #light_types = {
-#      #            "circle": "O",
-#      #            "left": "<",
-#      #            "right": ">",
-#      #            "forward": "^",
-#      #            "uturn": "U"
-#      #}
-#
-##  horizontal:
-##    - lights:
-##        - [red, right]
-##        - [yellow, left]
-##        - [green, circle]
-##      position: [360, 6270]
-## Define light types
-#
+#        - [green, circle]
+#      position: [360, 6270]
+# Define light types
+
 

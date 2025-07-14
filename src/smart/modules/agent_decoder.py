@@ -309,7 +309,10 @@ class SMARTAgentDecoder(nn.Module):
         all_features=train_mask, feat_a_t, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a
 
         if self.training:
-            tokenized_agent["all_features"]=all_features
+            detach_all_features=[]
+            for feature in all_features:
+                detach_all_features.append(feature.detach())
+            tokenized_agent["all_features"]=detach_all_features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features)
 
