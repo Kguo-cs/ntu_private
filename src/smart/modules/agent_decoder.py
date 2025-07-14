@@ -301,12 +301,15 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
-        if "train_mask" not in tokenized_agent.keys():
-            train_mask=None
-        else:
+        if "train_mask" in tokenized_agent.keys() and self.training:
             train_mask=tokenized_agent["train_mask"]
+        else:
+            train_mask=None
 
         all_features=train_mask, feat_a_t, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a
+
+        if self.training:
+            tokenized_agent["all_features"]=all_features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features)
 
@@ -345,7 +348,6 @@ class SMARTAgentDecoder(nn.Module):
         #tokenized_agent["feat_a"] = feat_a
 
         return {
-            "feat_a":feat_a,
             "proposal":proposal,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
@@ -634,16 +636,3 @@ class SMARTAgentDecoder(nn.Module):
         out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz,post_sampling)
 
         return out_dict
-        # feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
-        #
-        # for layer_i in range(self.num_layers):
-        #     if len(light_idx):
-        #         feat_a = self.lg2a_attn_layers[layer_i]((feat_lg,feat_a), r_lg2a, edge_index_lg2a)
-        #
-        #     feat_a = self.pt2a_attn_layers[layer_i](
-        #         (feat_map, feat_a), r_pl2a, edge_index_pl2a
-        #     )
-        #
-        #     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-        #
-        # feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)

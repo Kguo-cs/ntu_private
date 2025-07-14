@@ -532,7 +532,7 @@ class SimulationManager:
 
         type[tracking_id<0]=3
 
-        labels=np.array(["vehicle","pedestrian","bicycle","static_object"])[type]
+        labels=np.array(["car","pedestrian","bicycle","traffic_cone"])[type]
 
         for t in range(sim_t):
             result[str(t)]={}

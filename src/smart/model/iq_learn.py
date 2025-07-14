@@ -321,7 +321,9 @@ class IQ_SoftQ(LightningModule):
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
 
-                expert_d = torch.sigmoid(self.encoder.discriminator(tokenized_agent,  tokenized_map["detach_map_feature"])["agent_q"][:,1:,0])
+                expert_logit=self.encoder.discriminator(tokenized_agent["all_features"])[0]
+
+                expert_d = torch.sigmoid(expert_logit[:,1:,0])
 
                 expert_return,_=get_return(expert_d,self.gamma)
                 expert_loss = criterion(expert_d, torch.ones_like(expert_d))
@@ -338,14 +340,14 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent_rollout[key] = tokenized_agent_rollout[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
+                #value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
+
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
                 
-                pred=self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
+                agent_logit=self.encoder.discriminator(tokenized_agent_rollout["all_features"])[0]
 
-                #value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
-
-                agent_d = torch.sigmoid(pred["agent_q"][:,1:,0])
+                agent_d = torch.sigmoid(agent_logit[:,1:,0])
                 agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
                 agent_return,agent_rewards=get_return(agent_d,self.gamma)
                 critic_loss = expert_loss + agent_loss
