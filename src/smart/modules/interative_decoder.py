@@ -173,33 +173,32 @@ class InterativeDecoder(nn.Module):
                 next_cov = torch.zeros_like(next_poses)+0.1
             next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
         else:
-            if self.pred_last_res or self.pred_all_res:
-                # if self.training:
-                #     proposal_feature =feat_a[:, :-1] + agent_token_emb[:, 1:] # (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach()    #().detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
-                # else:
-                #     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
 
-                if self.pred_last_res:
-                    proposal_feature=feat_a[:, :-1]#.detach()
+            if self.pred_last_res:
+                if self.training:
+                    proposal_feature = feat_a[:, :-1]
                 else:
-                    proposal_feature=feat_a[:, :-1] + agent_token_emb[:, 1:]
+                    proposal_feature = feat_a[:, -1:]
 
-                if self.training or self.pred_last_res:
-                    proposal = self.traj_head(proposal_feature)#
-                    proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+                proposal = self.traj_head(proposal_feature)  #
+                proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
-                if self.training and self.pred_all_res:
-                    next_token_idx = sampled_idx[:, 1 + self.start_step:]
+            if self.pred_all_res and self.training:
+                proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+                proposal = self.traj_head(proposal_feature)
+                proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
-                    next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
+                next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
-                    proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:,None], next_token_idx]
+                next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
 
-                    proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
+                proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:,None], next_token_idx]
 
-                    proposal=proposal+next_token_traj_all[:,:,None]
+                proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
 
-            if self.training and train_mask is not None:
+                proposal=proposal+next_token_traj_all[:,:,None]
+
+            if train_mask is not None:
                 feat_a=feat_a[train_mask]
 
             next_token_logits = self.token_predict_head(feat_a)

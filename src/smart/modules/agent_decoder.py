@@ -182,7 +182,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             self.pred_light=False
             
-        # self.pred_proposal=token_processor.pred_proposal
+        self.pred_proposal=token_processor.pred_proposal
         #
         # if self.pred_proposal:
         #     self.proposal_embedding=nn.Embedding(n_token_agent,hidden_dim)
@@ -301,7 +301,12 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
-        all_features=tokenized_agent["train_mask"], feat_a_t, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a
+        if "train_mask" not in tokenized_agent.keys():
+            train_mask=None
+        else:
+            train_mask=tokenized_agent["train_mask"]
+
+        all_features=train_mask, feat_a_t, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features)
 

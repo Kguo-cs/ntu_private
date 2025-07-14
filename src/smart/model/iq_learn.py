@@ -204,7 +204,7 @@ class IQ_SoftQ(LightningModule):
 
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
 
-        if tokenized_agent["train_mask"] is not None:
+        if "train_mask" in tokenized_agent.keys():
             valid_mask=valid_mask[train_mask]
             action=action[train_mask]
             train_mask=train_mask[train_mask]
@@ -307,7 +307,6 @@ class IQ_SoftQ(LightningModule):
                 state_mask = valid_mask[:, :-1]
                 action_mask = valid_mask[:, 1:]
                 train_mask = state_mask & action_mask
-                tokenized_agent["train_mask"]=None
 
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
