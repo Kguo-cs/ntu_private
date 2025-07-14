@@ -83,19 +83,19 @@ class LightEncoder(nn.Module):
             if not self.share:
                 self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
 
-        self.lg2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=self.head_dim,
-                    dropout=self.light_dropout,
-                    bipartite=True,
-                    has_pos_emb=True,
-                )
-                for _ in range(1)
-            ]
-        )
+        # self.lg2a_attn_layers = nn.ModuleList(
+        #     [
+        #         AttentionLayer(
+        #             hidden_dim=hidden_dim,
+        #             num_heads=num_heads,
+        #             head_dim=self.head_dim,
+        #             dropout=self.light_dropout,
+        #             bipartite=True,
+        #             has_pos_emb=True,
+        #         )
+        #         for _ in range(1)
+        #     ]
+        # )
 
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type)

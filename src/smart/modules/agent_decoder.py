@@ -162,6 +162,22 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.use_light:
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
+
+            self.lg2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+
+
         else:
             self.pred_light=False
             
@@ -297,14 +313,19 @@ class SMARTAgentDecoder(nn.Module):
                 mask_pl=mask_lg[:,-n_step:]
             )
 
-            feat_a = self.light_encoder.lg2a_attn_layers[0](
-                (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
-            )
+            feat_lg=feat_lg.swapaxes(0, 1).flatten(0, 1)
+
+            # feat_a = self.light_encoder.lg2a_attn_layers[0](
+            #     (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
+            # )
         else:
             next_light_logits = []
 
 
         for layer_i in range(self.num_layers):
+            if len(light_idx):
+                feat_a = self.lg2a_attn_layers[layer_i]((feat_lg,feat_a), r_lg2a, edge_index_lg2a)
+
             feat_a = self.pt2a_attn_layers[layer_i](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
