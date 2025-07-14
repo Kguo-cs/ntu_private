@@ -343,7 +343,7 @@ class IQ_SoftQ(LightningModule):
                 
                 pred=self.encoder.discriminator(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
 
-                value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
+                #value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
 
                 agent_d = torch.sigmoid(pred["agent_q"][:,1:,0])
                 agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
@@ -353,25 +353,32 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
                 self.log("train/agent_disc_val", agent_d.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
+                self.log("train/agent_rewards", agent_rewards.mean().item(), on_step=True, batch_size=1)
 
 
-                advantages,returns=compute_advantages(agent_rewards,value_pred)
+                #advantages,returns=compute_advantages(agent_rewards,value_pred)
 
                 #weights = torch.exp(advantages / 1).clamp(max=1.0)  # avoid large weights
 
-                value_loss = 0.5 * (returns - value_pred).pow(2).mean()
+                # value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
-                self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+                # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+                # self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
                 # baseline_return=get_return(torch.zeros_like(agent_d)+0.5,self.gamma)
                 # adv=agent_return-baseline_return
-                weight=(advantages>0).float()
+                #weight=(advantages>0).float()
+                
+                beta=1
+                advantages=agent_rewards
+                weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
+                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+                self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
 
-                agent_wNLL=-(agent_log_prob*weight).mean()
+                agent_wNLL=-(agent_log_prob*weights).mean()
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
 
-                expert_nll=expert_nll+agent_nll+value_loss
+                expert_nll=expert_nll+agent_wNLL #+value_loss
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(

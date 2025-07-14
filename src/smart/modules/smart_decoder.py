@@ -150,7 +150,7 @@ class SMARTDecoder(nn.Module):
                     pred_all_res=False,
                 )
 
-                self.value_network=MLPLayer(hidden_dim,hidden_dim, output_dim=1)
+                #self.value_network=MLPLayer(hidden_dim,hidden_dim, output_dim=1)
 
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,

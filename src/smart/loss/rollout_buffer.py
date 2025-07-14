@@ -132,7 +132,7 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
     return current_Q_diff, V_diff
 
-def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
+def get_return(s,gamma,eps = 1e-20,reward_type="airl"):
 
     s=s.detach()
 
