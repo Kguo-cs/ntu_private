@@ -1,5 +1,6 @@
 import torch
 import math
+import matplotlib.pyplot as plt
 
 def compute_corners_3d_torch(boxes):
     T, N = boxes.shape[:2]
@@ -44,9 +45,9 @@ def project_points(corners, lidar2img):
     xy = proj[..., :2] / torch.clamp(depth.unsqueeze(-1), min=1e-6)
     return xy, depth  # (T,N,8,2), (T,N,8)
 
-def raster_scene(boxes, lidar2img, image_size=(1280, 720)):
+def raster_scene(boxes, lidar2img, image_size):
     T, N = boxes.shape[:2]
-    W, H = image_size
+    H, W  = image_size
     device = boxes.device
 
     corners3d = compute_corners_3d_torch(boxes)         # (T,N,8,3)
@@ -65,6 +66,11 @@ def raster_scene(boxes, lidar2img, image_size=(1280, 720)):
         # 🔀 Sort by increasing depth (closest first)
         sort_idx = avg_depths[t].argsort()
         for rank, i in enumerate(sort_idx):
+            d = avg_depths[t, i].item()
+
+            if d<0:
+                continue
+
             x1, y1, x2, y2 = boxes2d[t, i]
             x1 = int(torch.clamp(x1, 0, W - 1))
             y1 = int(torch.clamp(y1, 0, H - 1))
@@ -72,20 +78,32 @@ def raster_scene(boxes, lidar2img, image_size=(1280, 720)):
             y2 = int(torch.clamp(y2, 0, H - 1))
             if x2 <= x1 or y2 <= y1:
                 continue
-            d = avg_depths[t, i].item()
 
+            # patch = image_depths[t, y1:y2+1, x1:x2+1]
+            # mask = (patch > d)
+            # patch[mask] = d
+            # image_depths[t, y1:y2 + 1, x1:x2 + 1]=
+            # image_box_ids[t, y1:y2+1, x1:x2+1][mask] = i
             patch = image_depths[t, y1:y2+1, x1:x2+1]
             box_patch = image_box_ids[t, y1:y2+1, x1:x2+1]
             mask = (patch > d)
             patch[mask] = d
             box_patch[mask] = i.item()
 
+            image_depths[t, y1:y2 + 1, x1:x2 + 1]=patch
+            image_box_ids[t, y1:y2 + 1, x1:x2 + 1]=box_patch
+
+    #plt.imshow(image_box_ids[0].cpu().numpy())
+    #plt.imshow(image_depths[0].cpu().numpy())
+
+    #plt.show()
+
     return image_box_ids, corners2d
 
 
-def check_occlusion_fully_batched(boxes, lidar2img, image_size=(1280, 720)):
+def check_occlusion_fully_batched(boxes, lidar2img, image_size):
     T, N = boxes.shape[:2]
-    W, H = image_size
+    H, W  = image_size
 
     image_box_ids, corners2d = raster_scene(boxes, lidar2img, image_size=image_size)
     occluded = torch.ones((T, N), dtype=torch.bool, device=boxes.device)
@@ -100,24 +118,24 @@ def check_occlusion_fully_batched(boxes, lidar2img, image_size=(1280, 720)):
                     occluded[t, i] = False
                     break
 
-    return occluded
+    return ~occluded
 
-T, N = 1, 3
-boxes = torch.tensor([[
-    [0, 0, 0, 2, 2, 2, 0],        # Box 0
-    [0, 1.5, 0, 2, 2, 2, 0],      # Box 1 in front
-    [0, 0.7, 0, 1, 1, 2, 0]       # Box 2 overlaps with 1, together occlude 0
-]], dtype=torch.float32).cuda()
-
-lidar2img = torch.tensor([[
-    [700, 0, 640, 0],
-    [0, 700, 360, 0],
-    [0,   0,   1, 0],
-    [0,   0,   0, 1]
-]], dtype=torch.float32).cuda()
-
-occluded = check_occlusion_fully_batched(boxes, lidar2img, image_size=(1280, 720))
-print(occluded.cpu()) #get tensor([[False,  True,  True]])
+# T, N = 1, 3
+# boxes = torch.tensor([[
+#     [0, 0, 0, 2, 2, 2, 0],        # Box 0
+#     [0, 1.5, 0, 2, 2, 2, 0],      # Box 1 in front
+#     [0, 0.7, 0, 1, 1, 2, 0]       # Box 2 overlaps with 1, together occlude 0
+# ]], dtype=torch.float32).cuda()
+#
+# lidar2img = torch.tensor([[
+#     [700, 0, 640, 0],
+#     [0, 700, 360, 0],
+#     [0,   0,   1, 0],
+#     [0,   0,   0, 1]
+# ]], dtype=torch.float32).cuda()
+#
+# occluded = check_occlusion_fully_batched(boxes, lidar2img, image_size=(1280, 720))
+# print(occluded.cpu()) #get tensor([[False,  True,  True]])
 
 
 #tensor([[ True, False, False]])

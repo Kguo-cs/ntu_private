@@ -245,7 +245,6 @@ class SimulationManager:
                 tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
 
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
-            self.dump_result(tokenized_agent)
 
             #control ego
             with open(self.input_json_path, "r") as f:
@@ -281,10 +280,11 @@ class SimulationManager:
         agent_head=heading[:,self.timestamp].cpu().numpy()
 
         self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
+        self.dump_result(tokenized_agent)
 
         self.timestamp += 1
 
-        sleep(0.1)
+        # sleep(0.1)
         self.capture_viewport_frame()
 
         return True
@@ -356,7 +356,6 @@ class SimulationManager:
                 add_agents=self.config["agent"]["add"]
 
                 # delete agent
-
                 mask = np.ones(len(track_infos["object_id"])).astype(bool)
 
                 if self.config["agent"]["remove"] is not None:
@@ -509,68 +508,77 @@ class SimulationManager:
     def dump_result(self,tokenized_agent):
 
         result={}
-
-        pos_global = tokenized_agent["pred_traj_10hz"]
-        head_global = tokenized_agent["pred_head_10hz"]
-        all_valid = tokenized_agent["all_valid"]
+        all_valid = tokenized_agent["all_valid"][:,self.timestamp]
         tracking_id = tokenized_agent["id"]
 
         ego_mask=tokenized_agent["ego_mask"]
 
-        ego_pos=pos_global[ego_mask][0]
-        ego_heading=head_global[ego_mask][0]
-
-        pos_local, head_local=transform_to_local(pos_global.transpose(0,1),head_global.transpose(0,1),ego_pos,ego_heading )
-
-        pos_local=pos_local.transpose(0,1)
-        head_local=head_local.transpose(0,1)
-
-        head_local=wrap_angle(head_local)
-
         all_valid[ego_mask]=False
         all_valid[tracking_id<0]=False
 
+        pos_global = tokenized_agent["pred_traj_10hz"][:,self.timestamp]
+        prev_pos =  tokenized_agent["pred_traj_10hz"][:,self.timestamp-1]
+        head_global = tokenized_agent["pred_head_10hz"][:,self.timestamp]
         shape=tokenized_agent["shape"]
 
-        velocity=(pos_local[:,1:]-pos_local[:,:-1])/0.1
+        ego_pos=pos_global[ego_mask]
+        ego_heading=head_global[ego_mask]
 
-        velocity=torch.cat([velocity[:,:1],velocity],dim=1)
+        pos_global=pos_global[all_valid]
+        head_global=head_global[all_valid]
+        prev_pos=prev_pos[all_valid]
+        shape=shape[all_valid]
 
-        sim_t=pos_local.shape[1]
 
-        boxes=torch.zeros([len(pos_local),sim_t,7]).cuda()#[x, y, z, l, w, h, yaw]
+        pos_local, head_local=transform_to_local(pos_global[None],head_global[None],ego_pos,ego_heading)
+        prev_pos_local=transform_to_local(prev_pos[None],None,ego_pos,ego_heading)[0]
 
-        boxes[:,:,:2]=pos_local
-        boxes[:,:,:3]=-self.lidar_height
-        boxes[:,:,3:6]=shape[:,None]
-        boxes[:,:,6]=head_local
+        pos_local=pos_local[0]
+        head_local=head_local[0]
+        prev_pos_local=prev_pos_local[0]
 
-        occlude_list=[]
+        head_local=wrap_angle(head_local)
 
-        # for key in self.lidar2img.keys():
-        #     lidar2img=self.lidar2img[key]
-        #     image_size=self.image_size[key]
-        #     lidar2img=torch.FloatTensor(lidar2img)[None].repeat(sim_t,1,1).cuda()
-        #     occluded=check_occlusion_fully_batched(boxes.transpose(0,1), lidar2img,image_size)
-        #
-        #     occlude_list.append(occluded)
+        velocity=(pos_local-prev_pos_local)/0.1
+
+        boxes=torch.zeros([len(pos_local),7]).cuda()#[x, y, z, l, w, h, yaw]
+
+        boxes[:,:2]=pos_local
+        boxes[:,2]=shape[:,2]/2-self.lidar_height  #half height
+        boxes[:,3:6]=shape
+        boxes[:,6]=head_local
+
+        visible_list=[]
+
+        for key in self.lidar2img.keys():
+            lidar2img=torch.FloatTensor(self.lidar2img[key]).cuda()
+
+            visible=check_occlusion_fully_batched(boxes[None],lidar2img[None],image_size=self.image_size[key])#width, height
+
+            visible_list.append(visible)
+
+        visible=torch.cat(visible_list).any(dim=0).to(torch.int).cpu().numpy()
 
         boxes=boxes.cpu().numpy()
 
         type=tokenized_agent["type"].cpu().numpy()
-        all_valid=all_valid.cpu().numpy()
         tracking_id=tracking_id.cpu().numpy()
 
         labels=np.array(["car","pedestrian","bicycle"])[type]#,"traffic_cone"
 
-        for t in range(sim_t):
-            result[str(t)]={}
-            valid=all_valid[:,t]
-            result[str(t)]["bboxes"]=boxes[:,t][valid].tolist()
-            result[str(t)]["labels"]=labels[valid].tolist()
-            result[str(t)]["tracking_id"]=tracking_id[valid].tolist()
-            result[str(t)]["velocity"]=velocity[:,t][valid].tolist()
-            result[str(t)]["occluded"]=np.ones_like(labels)[valid].tolist()
+        # Read JSON from file
+        if self.timestamp>self.initial_step:
+            with open(self.output_json_path, 'r') as f:
+                result = json.load(f)
+
+        t=str(self.timestamp)
+
+        result[t]={}
+        result[t]["bboxes"]=boxes.tolist()
+        result[t]["labels"]=labels.tolist()
+        result[t]["tracking_id"]=tracking_id.tolist()
+        result[t]["velocity"]=velocity.tolist()
+        result[t]["occluded"]=visible.tolist()
 
         with open(self.output_json_path, "w") as f:
             json.dump(result, f, indent=2)
@@ -591,7 +599,7 @@ class SimulationManager:
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
-        #self.planner.load_state_dict(state_dict)
+        self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 

@@ -64,7 +64,7 @@ class InterativeDecoder(nn.Module):
                     bipartite=True,
                     has_pos_emb=True,
                 )
-                for _ in range(num_layers)
+                for _ in range(1)
             ]
         )
 
@@ -150,9 +150,10 @@ class InterativeDecoder(nn.Module):
 
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
+        if len(feat_lg):
+            feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
+
         for layer_i in range(self.num_layers):
-            if len(feat_lg):
-                feat_a = self.lg2a_attn_layers[layer_i]((feat_lg,feat_a), r_lg2a, edge_index_lg2a)
 
             feat_a = self.pt2a_attn_layers[layer_i](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a

@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/waymo_data"
 
-planner_path: "./waymo/model_checkpoint/epoch=4-step=33820-val_closed_wosac=0.7650.ckpt"
+planner_path: "./waymo/model_checkpoint/epoch=5-step=45660-val_closed_wosac=0.7672.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
