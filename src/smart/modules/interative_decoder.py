@@ -176,7 +176,7 @@ class InterativeDecoder(nn.Module):
 
             if self.pred_last_res:
                 if self.training:
-                    proposal_feature = feat_a[:, :-1]
+                    proposal_feature = feat_a[:, :-1].detach()
                 else:
                     proposal_feature = feat_a[:, -1:]
 
