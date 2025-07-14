@@ -1,0 +1,208 @@
+# Not a contribution
+# Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
+# NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
+# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+from typing import Dict, Optional
+
+import torch
+import torch.nn as nn
+
+from src.smart.layers import MLPLayer
+from src.smart.layers.attention_layer import AttentionLayer
+from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
+
+
+class InterativeDecoder(nn.Module):
+    def __init__(
+            self,
+            hidden_dim: int,
+            num_historical_steps: int,
+            num_future_steps: int,
+            time_span: Optional[int],
+            num_layers: int,
+            num_heads: int,
+            head_dim: int,
+            dropout: float,
+            hist_drop_prob: float,
+            n_token_agent: int,
+            token_processor,
+            output_gmm,
+            pred_last_res,
+            pred_all_res
+    ) -> None:
+        super(InterativeDecoder, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.num_historical_steps = num_historical_steps
+        self.num_future_steps = num_future_steps
+        self.time_span = time_span if time_span is not None else num_historical_steps
+        self.num_layers = num_layers
+        self.shift = token_processor.shift
+        self.hist_drop_prob = hist_drop_prob
+
+        self.head_dim = hidden_dim // num_heads
+
+        self.agent_hist = self.time_span // self.shift
+
+        # self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
+        #                                   hist_len=self.agent_hist)
+
+        self.lg2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=True,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
+        self.pt2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=True,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
+        self.a2a_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+        self.output_gmm = output_gmm
+
+        self.pred_last_res = pred_last_res
+        self.pred_all_res = pred_all_res
+
+        if self.output_gmm:
+            self.k_ego_gmm=1
+            self.cov_gmm=0.1 #[1.0, 0.1]
+            self.cov_learnable=True
+            self.use_GT=True
+
+            if self.k_ego_gmm>1:
+                self.gmm_logits_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm
+                )
+            self.gmm_pose_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * 3
+            )
+            self.output_dim=3
+
+            if self.cov_learnable:
+                self.gmm_cov_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * self.output_dim
+                )
+
+            # self.cholesky_head = nn.Linear(
+            #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
+            # )
+        else:
+            self.token_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+            )
+
+            if self.pred_last_res or self.pred_all_res:
+                self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
+        self.start_step=10//self.shift-1
+
+    def forward(self,all_features ):
+
+        #train_mask,feat_a_token,pos_a,head_a, n_step, n_current, mask,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a=all_features
+
+
+        # n_agent, n_step = head_a.shape
+        #
+        # feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
+        #
+        # if self.training:
+        #     n_step=n_step-self.start_step
+        #     feat_a_t=feat_a_t[:,-n_step:]
+        train_mask,feat_a_t,agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a=all_features
+
+        n_agent, n_step = feat_a_t.shape[0],feat_a_t.shape[1]
+
+        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+
+        for layer_i in range(self.num_layers):
+            if len(feat_lg):
+                feat_a = self.lg2a_attn_layers[layer_i]((feat_lg,feat_a), r_lg2a, edge_index_lg2a)
+
+            feat_a = self.pt2a_attn_layers[layer_i](
+                (feat_map, feat_a), r_pl2a, edge_index_pl2a
+            )
+
+            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+        feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
+
+        proposal=None
+
+        if self.output_gmm:
+            next_logits = self.gmm_logits_head(feat_a)
+            next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
+            if self.cov_learnable:
+                next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
+            else:
+                next_cov = torch.zeros_like(next_poses)+0.1
+            next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
+        else:
+            if self.pred_last_res or self.pred_all_res:
+                # if self.training:
+                #     proposal_feature =feat_a[:, :-1] + agent_token_emb[:, 1:] # (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach()    #().detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
+                # else:
+                #     proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
+
+                if self.pred_last_res:
+                    proposal_feature=feat_a[:, :-1].detach()
+                else:
+                    proposal_feature=feat_a[:, :-1] + agent_token_emb[:, 1:]
+
+                if self.training or self.pred_last_res:
+                    proposal = self.traj_head(proposal_feature)#
+                    proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+
+                if self.training and self.pred_all_res:
+                    next_token_idx = sampled_idx[:, 1 + self.start_step:]
+
+                    next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
+
+                    proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:,None], next_token_idx]
+
+                    proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
+
+                    proposal=proposal+next_token_traj_all[:,:,None]
+
+            if self.training and train_mask is not None:
+                feat_a=feat_a[train_mask]
+
+            next_token_logits = self.token_predict_head(feat_a)
+
+        return next_token_logits,feat_a,proposal
+

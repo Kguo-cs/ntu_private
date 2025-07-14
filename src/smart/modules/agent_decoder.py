@@ -34,7 +34,7 @@ from src.smart.loss.iq_loss import padding
 from src.smart.modules.light_encoder import LightEncoder
 from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
-
+from src.smart.modules.interative_decoder import InterativeDecoder
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -78,82 +78,83 @@ class SMARTAgentDecoder(nn.Module):
 
         self.head_dim = hidden_dim // num_heads
 
-        self.pred_agent = True
+        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
 
-        if self.pred_agent:
+        self.agent_hist = self.time_span // self.shift
 
-            self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
+        self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
-            self.agent_hist = self.time_span // self.shift
+        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
 
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
+        self.n_token_agent = n_token_agent
+        self.output_gmm = output_gmm
 
-            self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
+        self.pred_last_res = pred_last_res
+        self.pred_all_res = pred_all_res
 
-            self.pt2a_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=True,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
+        self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,num_layers,num_heads,head_dim,
+                                                    dropout,hist_drop_prob,n_token_agent,token_processor,output_gmm,pred_last_res,pred_all_res
+                                                    )
 
-            self.a2a_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
-
-            self.output_gmm = output_gmm
-            self.n_token_agent = n_token_agent
-
-            self.pred_last_res = pred_last_res
-            self.pred_all_res = pred_all_res
-
-            if self.output_gmm:
-                self.k_ego_gmm=1
-                self.cov_gmm=0.1 #[1.0, 0.1]
-                self.cov_learnable=True
-                self.use_GT=True
-
-                if self.k_ego_gmm>1:
-                    self.gmm_logits_head = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm
-                    )
-                self.gmm_pose_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * 3
-                )
-                self.output_dim=3
-
-                if self.cov_learnable:
-                    self.gmm_cov_head = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * self.output_dim
-                    )
-
-                # self.cholesky_head = nn.Linear(
-                #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
-                # )
-            else:
-                self.token_predict_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                )
-
-                if self.pred_last_res or self.pred_all_res:
-                    self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
+        # self.pt2a_attn_layers = nn.ModuleList(
+        #     [
+        #         AttentionLayer(
+        #             hidden_dim=hidden_dim,
+        #             num_heads=num_heads,
+        #             head_dim=head_dim,
+        #             dropout=dropout,
+        #             bipartite=True,
+        #             has_pos_emb=True,
+        #         )
+        #         for _ in range(num_layers)
+        #     ]
+        # )
+        #
+        # self.a2a_attn_layers = nn.ModuleList(
+        #     [
+        #         AttentionLayer(
+        #             hidden_dim=hidden_dim,
+        #             num_heads=num_heads,
+        #             head_dim=head_dim,
+        #             dropout=dropout,
+        #             bipartite=False,
+        #             has_pos_emb=True,
+        #         )
+        #         for _ in range(num_layers)
+        #     ]
+        # )
+        #
+        #
+        # if self.output_gmm:
+        #     self.k_ego_gmm=1
+        #     self.cov_gmm=0.1 #[1.0, 0.1]
+        #     self.cov_learnable=True
+        #     self.use_GT=True
+        #
+        #     if self.k_ego_gmm>1:
+        #         self.gmm_logits_head = MLPLayer(
+        #             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm
+        #         )
+        #     self.gmm_pose_head = MLPLayer(
+        #         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * 3
+        #     )
+        #     self.output_dim=3
+        #
+        #     if self.cov_learnable:
+        #         self.gmm_cov_head = MLPLayer(
+        #             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * self.output_dim
+        #         )
+        #
+        #     # self.cholesky_head = nn.Linear(
+        #     #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
+        #     # )
+        # else:
+        #     self.token_predict_head = MLPLayer(
+        #         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+        #     )
+        #
+        #     if self.pred_last_res or self.pred_all_res:
+        #         self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
 
         self.use_light = token_processor.use_light
         self.pred_light=pred_light
@@ -163,29 +164,29 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_light:
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
 
-            self.lg2a_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=True,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
+            # self.lg2a_attn_layers = nn.ModuleList(
+            #     [
+            #         AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=head_dim,
+            #             dropout=dropout,
+            #             bipartite=True,
+            #             has_pos_emb=True,
+            #         )
+            #         for _ in range(num_layers)
+            #     ]
+            # )
 
 
         else:
             self.pred_light=False
             
-        self.pred_proposal=token_processor.pred_proposal
-
-        if self.pred_proposal:
-            self.proposal_embedding=nn.Embedding(n_token_agent,hidden_dim)
-            self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)#future 30 second
+        # self.pred_proposal=token_processor.pred_proposal
+        #
+        # if self.pred_proposal:
+        #     self.proposal_embedding=nn.Embedding(n_token_agent,hidden_dim)
+        #     self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)#future 30 second
 
         self.pred_gaussian=False
 
@@ -214,29 +215,20 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
-        if self.pred_proposal:
-            proposal_feature = feat_a_token[:,: ,None] + self.proposal_embedding.weight[None, None]  # [B,T, N, D]
-            proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
-        elif self.pred_gaussian:
-            proposal = self.gaussian_head(feat_a_token)
-        else:
-            proposal=None
+        # if self.pred_proposal:
+        #     proposal_feature = feat_a_token[:,: ,None] + self.proposal_embedding.weight[None, None]  # [B,T, N, D]
+        #     proposal = self.proposal_head(proposal_feature).reshape(proposal_feature.shape[0],proposal_feature.shape[1],proposal_feature.shape[2],-1,3)
+        # elif self.pred_gaussian:
+        #     proposal = self.gaussian_head(feat_a_token)
+        # else:
+        #     proposal=None
 
         # if post_sampling:
         #     return None,None,None,proposal
 
         pos_a=pos_a[:,-n_step:]
 
-        if len(light_idx) and self.light_encoder.share:
-            feat_lg = self.light_encoder.light_embedding(light_idx)
-            feat_a_lg=torch.cat((feat_a_token,feat_lg))
-
-            feat_a_lg = self.a_t_roformer.temporal_embed(feat_a_lg,None,None, n_step, n_current, mask)
-            feat_a_t=feat_a_lg[:n_agent]
-            feat_lgt=feat_a_lg[n_agent:]
-        else:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token,pos_a,head_a, n_step, n_current, mask)
-            feat_lgt=None
+        feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
 
         if self.training:
             n_step=n_step-self.start_step
@@ -245,11 +237,6 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a[:,-n_step:]
             agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
-
-            if len(light_idx) and self.light_encoder.share:
-                feat_lgt=feat_lgt[:,-n_step:]
-                light_idx=light_idx[:,-n_step:]
-                feat_lg=feat_lg[:,-n_step:]
 
         mask_a=mask[:,-n_step:]
 
@@ -270,11 +257,6 @@ class SMARTAgentDecoder(nn.Module):
             max_num_neighbors=self.pt2a_neighbor
         )
 
-        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
-        feat_map = (
-            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
-        )
-
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_a=head_a,  # [n_agent, n_step]
@@ -283,7 +265,7 @@ class SMARTAgentDecoder(nn.Module):
             mask=mask_a,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
-            proposal=proposal,
+            proposal=None,
             shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
@@ -314,65 +296,15 @@ class SMARTAgentDecoder(nn.Module):
             )
 
             feat_lg=feat_lg.swapaxes(0, 1).flatten(0, 1)
-
-            # feat_a = self.light_encoder.lg2a_attn_layers[0](
-            #     (feat_lg.swapaxes(0, 1).flatten(0, 1), feat_a), r_lg2a, edge_index_lg2a
-            # )
         else:
-            next_light_logits = []
+            next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
+        feat_map = (
+            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        )
+        all_features=tokenized_agent["train_mask"], feat_a_t, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a
 
-        for layer_i in range(self.num_layers):
-            if len(light_idx):
-                feat_a = self.lg2a_attn_layers[layer_i]((feat_lg,feat_a), r_lg2a, edge_index_lg2a)
-
-            feat_a = self.pt2a_attn_layers[layer_i](
-                (feat_map, feat_a), r_pl2a, edge_index_pl2a
-            )
-
-            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-
-        feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
-
-        if self.output_gmm:
-            next_logits = self.gmm_logits_head(feat_a)
-            next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-            if self.cov_learnable:
-                next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
-            else:
-                next_cov = torch.zeros_like(next_poses)+0.1
-            next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
-        else:
-            if self.pred_last_res or self.pred_all_res:
-                if self.training:
-                    proposal_feature =feat_a[:, :-1] + agent_token_emb[:, 1:] # (feat_a[:, :-1] + agent_token_emb[:, 1:]).detach()    #().detach() #self.agent_token_embedding.embedding.weight[-1,None,None] #[:, 1:]
-                else:
-                    proposal_feature = feat_a# self.agent_token_embedding.embedding.weight[-1,None,None]#feat_a #+
-
-                if self.pred_last_res:
-                    proposal_feature=proposal_feature.detach()
-
-                if self.training or self.pred_last_res:
-                    proposal = self.traj_head(proposal_feature)#
-                    proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
-
-
-                if self.training and self.pred_all_res:
-                    next_token_idx = sampled_idx[:, 1 + self.start_step:]
-
-                    next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
-
-                    proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:,None], next_token_idx]
-
-                    proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
-
-                    proposal=proposal+next_token_traj_all[:,:,None]
-
-            if self.training and "train_mask" in tokenized_agent.keys():
-                train_mask = tokenized_agent["train_mask"]
-                feat_a=feat_a[train_mask]
-
-            next_token_logits = self.token_predict_head(feat_a)#.reshape(feat_a, n_step, -1)
+        next_token_logits,feat_a,proposal=self.interative_decoder(all_features)
 
         return next_token_logits,next_light_logits,feat_a,proposal
 
@@ -698,3 +630,16 @@ class SMARTAgentDecoder(nn.Module):
         out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz,post_sampling)
 
         return out_dict
+        # feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+        #
+        # for layer_i in range(self.num_layers):
+        #     if len(light_idx):
+        #         feat_a = self.lg2a_attn_layers[layer_i]((feat_lg,feat_a), r_lg2a, edge_index_lg2a)
+        #
+        #     feat_a = self.pt2a_attn_layers[layer_i](
+        #         (feat_map, feat_a), r_pl2a, edge_index_pl2a
+        #     )
+        #
+        #     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+        #
+        # feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
