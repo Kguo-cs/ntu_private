@@ -164,11 +164,11 @@ class SMARTDecoder(nn.Module):
             map_feature = tokenized_map["map_feature"]
         else:
             map_feature = self.map_encoder(tokenized_map)
-            detach_map_feature={}
-            for key in map_feature.keys():
-                detach_map_feature[key] = map_feature[key].detach()
-
-            tokenized_map["detach_map_feature"] = detach_map_feature
+            # detach_map_feature={}
+            # for key in map_feature.keys():
+            #     detach_map_feature[key] = map_feature[key].detach()
+            #
+            # tokenized_map["detach_map_feature"] = detach_map_feature
             tokenized_map["map_feature"] = map_feature
 
         if use_critic:

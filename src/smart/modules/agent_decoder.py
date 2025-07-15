@@ -312,7 +312,7 @@ class SMARTAgentDecoder(nn.Module):
 
         all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
 
-        if self.training:
+        if train_mask is not None:
             detach_all_features=[]
             for feature in all_features:
                 if feature is not None:
@@ -339,6 +339,7 @@ class SMARTAgentDecoder(nn.Module):
         # random_mask[:, :2] = False
 
         # light_idx[random_mask] = random_light[random_mask]
+
         mask_lg=light_idx<self.light_type
 
         next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(tokenized_agent["sampled_idx"],
