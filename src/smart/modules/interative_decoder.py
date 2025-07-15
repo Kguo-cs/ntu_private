@@ -134,7 +134,7 @@ class InterativeDecoder(nn.Module):
         #     feat_a_t=feat_a_t[:,-n_step:]
         train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a=all_features
 
-        n_agent = agent_token_emb.shape[0]
+        n_agent = sampled_idx.shape[0]
 
         # feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
         #
@@ -161,14 +161,16 @@ class InterativeDecoder(nn.Module):
                 proposal_feature = feat_a[:, :-1].detach()
             else:
                 proposal_feature = feat_a[:, -1:]
-        else:
-            proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
 
-        if self.training or self.pred_last_res:
             proposal = self.traj_head(proposal_feature)  #
             proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
         if self.pred_all_res and self.training:
+
+            proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+            proposal = self.traj_head(proposal_feature)  #
+            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+
             next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
             next_token_traj_all = self.token_processor.token_local_traj[
