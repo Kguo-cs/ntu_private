@@ -291,7 +291,7 @@ class SimulationManager:
 
                 self.camera_rendering_time.append(time.time()-camera_rendering_start)
                 #print(get_process_memory()-rss_before)
-                print(get_self_gpu_usage())
+               # print(get_self_gpu_usage())
                 #print(print_cpu_usage())
 
             traffic_model_start=time.time()
@@ -311,7 +311,7 @@ class SimulationManager:
 
             self.traffic_model_time.append(time.time()-traffic_model_start)
            # print(get_process_memory() - rss_before)
-            print(get_self_gpu_usage())
+            #print(get_self_gpu_usage())
             #print(print_cpu_usage())
 
             #control ego
@@ -354,7 +354,7 @@ class SimulationManager:
         output_start=time.time()
         #rss_before = get_process_memory()
         self.dump_result(tokenized_agent)
-        print(get_self_gpu_usage())
+        #print(get_self_gpu_usage())
         #print(print_cpu_usage())
 
         self.output_time.append(time.time()-output_start)
@@ -441,7 +441,7 @@ class SimulationManager:
 
                 data_loadding_memory = get_process_memory()
                 print(f"data load memory  : {data_loadding_memory - rss_before:.1f} MB")
-                print(get_self_gpu_usage())
+                #print(get_self_gpu_usage())
                 #print(print_cpu_usage())
 
                 tf_lights = process_dynamic_map(dynamic_map_infos)
@@ -562,7 +562,7 @@ class SimulationManager:
                 print("data preprocess time:", data_preproces_time-data_loadding_time)
                 data_preproces_memory = get_process_memory()
                 print(f"data preprocess memory  : {data_preproces_memory - data_loadding_memory:.1f} MB")
-                print(get_self_gpu_usage())
+                #print(get_self_gpu_usage())
                # print(print_cpu_usage())
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
@@ -572,7 +572,7 @@ class SimulationManager:
                 print("map embedding time:", map_embedding_time-data_preproces_time)
                 map_embedding_memory = get_process_memory()
                 print(f"map embedding memory  : {map_embedding_memory - data_preproces_memory:.1f} MB")
-                print(get_self_gpu_usage())
+                #print(get_self_gpu_usage())
                 #print(print_cpu_usage())
 
                 # self.control_mask = tokenized_agent["type"]<3
@@ -584,11 +584,8 @@ class SimulationManager:
                         break
 
                 print("camera_rendering_time:",np.mean(self.camera_rendering_time))
-                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
                 print("traffic_model_time:",np.mean(self.traffic_model_time))
-                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
                 print("output_time:",np.mean(self.output_time))
-                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
 
                 self.cleanup()
 
