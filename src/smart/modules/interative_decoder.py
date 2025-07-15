@@ -142,12 +142,10 @@ class InterativeDecoder(nn.Module):
         #     feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
 
         for layer_i in range(self.num_layers):
-
+            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
             feat_a = self.pt2a_attn_layers[layer_i](
                 (feat_map, feat_a), r_pl2a, edge_index_pl2a
             )
-
-            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
         feat_a = feat_a.view(-1, n_agent, feat_a.shape[-1]).transpose(0, 1)
 
