@@ -243,6 +243,11 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_pl = build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
 
+        if "train_mask" in tokenized_agent.keys() and self.training:
+            train_mask=tokenized_agent["train_mask"]
+        else:
+            train_mask=None
+
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=map_feature["position"],  # [n_pl, 2]
             orient_pl=map_feature["orientation"],  # [n_pl]
@@ -253,7 +258,8 @@ class SMARTAgentDecoder(nn.Module):
             batch_s=batch_s,  # [n_agent*n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
-            max_num_neighbors=self.pt2a_neighbor
+            max_num_neighbors=self.pt2a_neighbor,
+            train_mask=train_mask
         )
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
@@ -300,15 +306,12 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
-        if "train_mask" in tokenized_agent.keys() and self.training:
-            train_mask=tokenized_agent["train_mask"]
-        else:
-            train_mask=None
 
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
+
 
         all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
 
@@ -513,11 +516,11 @@ class SMARTAgentDecoder(nn.Module):
                                                                         token_traj)[:, 0]
 
                     elif self.pred_last_res:
-                            proposal=proposal[:,-1,0]
+                        proposal=proposal[:,-1,0]
 
-                            proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+                        proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
 
-                            token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
+                        token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
                     else:
                         token_traj_current=token_traj_all
 

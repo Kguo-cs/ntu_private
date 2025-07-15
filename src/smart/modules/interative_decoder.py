@@ -143,50 +143,53 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+            if layer_i == self.num_layers-1 and train_mask is not None:
+                feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:,train_mask]
+                n_agent=feat_a.shape[1]
+                feat_a=feat_a.flatten(0, 1)
+
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        feat_a = feat_a.view(-1, n_agent, feat_a.shape[-1]).transpose(0, 1)
+        feat_a = feat_a.view(-1, n_agent, self.hidden_dim).transpose(0, 1)
 
         proposal=None
 
-        if self.output_gmm:
-            next_logits = self.gmm_logits_head(feat_a)
-            next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-            if self.cov_learnable:
-                next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
+
+        if self.pred_last_res:
+            if self.training:
+                proposal_feature = feat_a[:, :-1].detach()
             else:
-                next_cov = torch.zeros_like(next_poses)+0.1
-            next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
+                proposal_feature = feat_a[:, -1:]
         else:
+            proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
 
-            if self.pred_last_res:
-                if self.training:
-                    proposal_feature = feat_a[:, :-1].detach()
-                else:
-                    proposal_feature = feat_a[:, -1:]
+        if self.training or self.pred_last_res:
+            proposal = self.traj_head(proposal_feature)  #
+            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
-                proposal = self.traj_head(proposal_feature)  #
-                proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+        if self.pred_all_res and self.training:
+            next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
-            if self.pred_all_res and self.training:
-                proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
-                proposal = self.traj_head(proposal_feature)
-                proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+            next_token_traj_all = self.token_processor.token_local_traj[
+                torch.arange(n_agent)[:, None], next_token_idx]
 
-                next_token_idx = sampled_idx[:, 1 + self.start_step:]
+            proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:, None], next_token_idx]
 
-                next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent)[:,None], next_token_idx]
+            proposal = torch.tanh(proposal) * proposal_max_diff[:, :, None]
 
-                proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:,None], next_token_idx]
+            proposal = proposal + next_token_traj_all[:, :, None]
 
-                proposal=torch.tanh(proposal)*proposal_max_diff[:,:,None]
-
-                proposal=proposal+next_token_traj_all[:,:,None]
-
-            if train_mask is not None:
-                feat_a=feat_a[train_mask]
-
-            next_token_logits = self.token_predict_head(feat_a)
+        next_token_logits = self.token_predict_head(feat_a)
 
         return next_token_logits,feat_a,proposal
 
+        # if self.output_gmm:
+        #     next_logits = self.gmm_logits_head(feat_a)
+        #     next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
+        #     if self.cov_learnable:
+        #         next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
+        #     else:
+        #         next_cov = torch.zeros_like(next_poses)+0.1
+        #     next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
+        # else:

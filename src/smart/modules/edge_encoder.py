@@ -203,9 +203,18 @@ class EdgeEncoder(nn.Module):
             batch_pl,  # [n_pl*n_step]
             pl2a_radius,
             max_num_neighbors,
-            mask_pl=None
+            mask_pl=None,
+            train_mask=None
     ):
         n_step = pos_a.shape[1]
+
+        if train_mask is not None:
+            mask=mask[train_mask]
+            pos_a=pos_a[train_mask]
+            head_a=head_a[train_mask]
+            head_vector_a=head_vector_a[train_mask]
+            batch_s=batch_s.reshape(n_step,-1)[:,train_mask].flatten(0,1)
+
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
         head_s = head_a.transpose(0, 1).reshape(-1)
