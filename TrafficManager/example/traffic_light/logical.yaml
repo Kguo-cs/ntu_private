@@ -1,5 +1,5 @@
 traffic_lights:
-  - position:  [350, 6275]    # 信号灯的世界坐标
+  - position:  [360, 6275]    # 信号灯的世界坐标
     orientation: "vertical"         # vertical | horizontal
     type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
       - color: "red"
@@ -15,12 +15,9 @@ traffic_lights:
         - duration: 2.0
           lights_on:
             - color: "green"
-              shape: "circle"
         - duration: 5.0
           lights_on:
             - color: "yellow"
-              shape: "circle"
         - duration: 25.0
           lights_on:
             - color: "red"
-              shape: "left_arrow"

@@ -48,14 +48,52 @@ from src.my_data_preprocess import (decode_tracks_from_proto,decode_map_features
 from waymo.waymo_gui import GUI
 from time import sleep
 from src.smart.utils import (
-    angle_between_2d_vectors,
-    transform_to_global,
-    weight_init,
     wrap_angle, transform_to_local,
 )
 import json
 from  waymo.check_oclluded import check_occlusion_fully_batched
 from omegaconf import OmegaConf
+import time
+import tracemalloc
+import psutil
+from pynvml import *
+
+
+def print_cpu_usage(interval=1.0):
+    pid = os.getpid()
+    process = psutil.Process(pid)
+
+    # 初次调用时统计间隔 CPU 时间，第二次才有结果
+    process.cpu_percent(interval=None)  # 清除旧状态
+    time.sleep(interval)
+    cpu_usage = process.cpu_percent(interval=None)
+
+    print(f"🧠 当前进程 CPU 占用率：{cpu_usage:.2f}%")
+
+def get_self_gpu_usage():
+    nvmlInit()
+    pid = os.getpid()
+    device_count = nvmlDeviceGetCount()
+
+    for i in range(device_count):
+        handle = nvmlDeviceGetHandleByIndex(i)
+        procs = nvmlDeviceGetComputeRunningProcesses(handle)
+
+        for p in procs:
+            if p.pid == pid:
+                meminfo = nvmlDeviceGetMemoryInfo(handle)
+                util = nvmlDeviceGetUtilizationRates(handle)
+                print(f"[GPU:{i}] PID={pid} 使用显存: {p.usedGpuMemory / 1024**2:.1f} MiB / {meminfo.total / 1024**2:.1f} MiB")
+                print(f"[GPU:{i}] GPU 核心利用率: {util.gpu}%")
+                break
+
+    nvmlShutdown()
+
+
+def get_process_memory():
+    """返回当前进程的 RSS（真实占用内存，单位 MB）"""
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1024 / 1024  # in MB
 
 class SimulationManager:
     def __init__(self, model_cfg,config: str) -> None:
@@ -112,6 +150,11 @@ class SimulationManager:
         self.input_json_path=self.config["input_json_path"]
         self.lidar_height=self.config["lidar_height"]
 
+
+        self.camera_rendering_time=[]
+        self.traffic_model_time=[]
+        self.output_time=[]
+
     @staticmethod
     def load_config(config_path: str) -> Dict:
         with open(config_path, 'r') as config_file:
@@ -125,7 +168,7 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        self.data_template = torch.load(self.DATA_TEMPLATE_PATH)
+        self.data_template = torch.load(self.DATA_TEMPLATE_PATH,weights_only=False)
 
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = 90
@@ -198,47 +241,62 @@ class SimulationManager:
         agent_type=tokenized_agent["type"].cpu().numpy()
 
         if self.timestamp % 5 == 0:
-            agent_pos=tokenized_agent['sampled_pos'][:,self.timestamp//5-1].cpu().numpy()
-            agent_heading=tokenized_agent['sampled_heading'][:,self.timestamp//5-1].cpu().numpy()
-            #ci = CameraImages()
-            #bev_map=self.gui.draw_input(data,agent_pos)
-            #ci.PRED_BEV =bev_map
 
-            diffusion_data = self.gui.limsim2diffusion(
-                agent_pos,agent_heading,agent_type,self.data_template
-            )
 
-            gt_vecs_label=diffusion_data["gt_vecs_label"]
-            gt_lines_instance=diffusion_data["gt_lines_instance"]
-            drivable_mask=diffusion_data["drivable_mask"]
+            if self.GUI_DISPLAY:
+                camera_rendering_start = time.time()
+                #rss_before = get_process_memory()
 
-            bev_map,gt_vecs_pts_loc,bev_image=self.vectormap_pipeline(gt_vecs_label, gt_lines_instance,drivable_mask)
+                agent_pos = tokenized_agent['sampled_pos'][:,self.timestamp//5-1].cpu().numpy()
+                agent_heading=tokenized_agent['sampled_heading'][:,self.timestamp//5-1].cpu().numpy()
+                #ci = CameraImages()
+                #bev_map=self.gui.draw_input(data,agent_pos)
+                #ci.PRED_BEV =bev_map
 
-            gt_bboxes_3d=diffusion_data["gt_bboxes_3d"]
-            gt_labels_3d=diffusion_data["gt_labels_3d"]
+                diffusion_data = self.gui.limsim2diffusion(
+                    agent_pos,agent_heading,agent_type,self.data_template
+                )
 
-            send_layouts,gen_images=self.project_bev2img(drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d)
+                gt_vecs_label=diffusion_data["gt_vecs_label"]
+                gt_lines_instance=diffusion_data["gt_lines_instance"]
+                drivable_mask=diffusion_data["drivable_mask"]
 
-            front_left_image, front_image, front_right_image = [
-                Image.fromarray(img).convert('RGBA') for img in gen_images[:3]]
+                bev_map,gt_vecs_pts_loc,bev_image=self.vectormap_pipeline(gt_vecs_label, gt_lines_instance,drivable_mask)
 
-            new_width, new_height = self.TARGET_SIZE[0], self.TARGET_SIZE[1]#[560, 315]
-            resized_images = [img.resize((new_width, new_height), Image.Resampling.NEAREST) for img in [
-                front_left_image, front_image, front_right_image]]
+                gt_bboxes_3d=diffusion_data["gt_bboxes_3d"]
+                gt_labels_3d=diffusion_data["gt_labels_3d"]
 
-            ci = CameraImages()
+                send_layouts,gen_images=self.project_bev2img(drivable_mask, gt_vecs_pts_loc,gt_vecs_label,gt_bboxes_3d,gt_labels_3d)
 
-            ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
-                np.array(img) for img in resized_images]
+                front_left_image, front_image, front_right_image = [
+                    Image.fromarray(img).convert('RGBA') for img in gen_images[:3]]
 
-            bev_image = bev_image.transpose(1, 0, 2)
-            pred_bev_img = Image.fromarray(bev_image)#bev_map*255
-            pred_bev_img = pred_bev_img.convert('RGBA')
-            pred_bev_img = pred_bev_img.resize(
-                (800, 800), Image.Resampling.LANCZOS)
-            ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
+                new_width, new_height = self.TARGET_SIZE[0], self.TARGET_SIZE[1]#[560, 315]
+                resized_images = [img.resize((new_width, new_height), Image.Resampling.NEAREST) for img in [
+                    front_left_image, front_image, front_right_image]]
 
-            self.gui.imageQueue.put(ci)
+                ci = CameraImages()
+
+                ci.CAM_FRONT_LEFT, ci.CAM_FRONT, ci.CAM_FRONT_RIGHT = [
+                    np.array(img) for img in resized_images]
+
+                bev_image = bev_image.transpose(1, 0, 2)
+                pred_bev_img = Image.fromarray(bev_image)#bev_map*255
+                pred_bev_img = pred_bev_img.convert('RGBA')
+                pred_bev_img = pred_bev_img.resize(
+                    (800, 800), Image.Resampling.LANCZOS)
+                ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
+
+                self.gui.imageQueue.put(ci)
+
+                self.camera_rendering_time.append(time.time()-camera_rendering_start)
+                #print(get_process_memory()-rss_before)
+                print(get_self_gpu_usage())
+                #print(print_cpu_usage())
+
+            traffic_model_start=time.time()
+           # rss_before = get_process_memory()
+
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
@@ -251,31 +309,37 @@ class SimulationManager:
 
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
 
+            self.traffic_model_time.append(time.time()-traffic_model_start)
+           # print(get_process_memory() - rss_before)
+            print(get_self_gpu_usage())
+            #print(print_cpu_usage())
+
             #control ego
-            with open(self.input_json_path, "r") as f:
-                data = json.load(f)
+            if self.input_json_path is not None:
+                with open(self.input_json_path, "r") as f:
+                    data = json.load(f)
 
-            if len(data)>0:
-                object_id = tokenized_agent["id"]
+                if len(data)>0:
+                    object_id = tokenized_agent["id"]
 
-                for t in data.keys():
-                    ids=data[t]["tracking_id"]
-                    bboxes=torch.tensor(data[t]["bboxes"]).cuda()
-                    for id,box in zip(ids,bboxes):
-                        obj_mask=id==object_id
-                        tokenized_agent['pred_traj_10hz'][obj_mask,int(t)]=box[:2]
-                        tokenized_agent['pred_head_10hz'][obj_mask,int(t)]=box[-1]
-                        tokenized_agent['shape'][obj_mask]=box[3:6]
-                        tokenized_agent["all_valid"][obj_mask]=True
+                    for t in data.keys():
+                        ids=data[t]["tracking_id"]
+                        bboxes=torch.tensor(data[t]["bboxes"]).cuda()
+                        for id,box in zip(ids,bboxes):
+                            obj_mask=id==object_id
+                            tokenized_agent['pred_traj_10hz'][obj_mask,int(t)]=box[:2]
+                            tokenized_agent['pred_head_10hz'][obj_mask,int(t)]=box[-1]
+                            tokenized_agent['shape'][obj_mask]=box[3:6]
+                            tokenized_agent["all_valid"][obj_mask]=True
 
-                token_dict =self.planner.token_processor._match_agent_token(
-                                                                         tokenized_agent["all_valid"],
-                                                                         tokenized_agent['pred_traj_10hz'],
-                                                                         tokenized_agent['pred_head_10hz'],
-                                                                         tokenized_agent["token_agent_shape"],
-                                                                         tokenized_agent["token_traj"],
-                                                                         )
-                tokenized_agent.update(token_dict)
+                    token_dict =self.planner.token_processor._match_agent_token(
+                                                                             tokenized_agent["all_valid"],
+                                                                             tokenized_agent['pred_traj_10hz'],
+                                                                             tokenized_agent['pred_head_10hz'],
+                                                                             tokenized_agent["token_agent_shape"],
+                                                                             tokenized_agent["token_traj"],
+                                                                             )
+                    tokenized_agent.update(token_dict)
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
@@ -284,13 +348,23 @@ class SimulationManager:
         agent_pos=pos[:,self.timestamp].cpu().numpy()
         agent_head=heading[:,self.timestamp].cpu().numpy()
 
-        self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
-        self.dump_result(tokenized_agent)
+        if self.GUI_DISPLAY:
+            self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
 
-        self.timestamp += 1
+        output_start=time.time()
+        #rss_before = get_process_memory()
+        self.dump_result(tokenized_agent)
+        print(get_self_gpu_usage())
+        #print(print_cpu_usage())
+
+        self.output_time.append(time.time()-output_start)
+        #print(get_process_memory() - rss_before)
+
+        print("time step: ",self.timestamp)
 
        # sleep(1000)
         self.capture_viewport_frame()
+        self.timestamp += 1
 
         return True
 
@@ -305,6 +379,11 @@ class SimulationManager:
             )
 
             for tf_data in dataset:
+                # 记录系统层进程内存
+                rss_before = get_process_memory()
+
+                start_time=time.time()
+
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
@@ -356,6 +435,15 @@ class SimulationManager:
                 )
                 current_time_index = scenario.current_time_index
 
+                data_loadding_time=time.time()
+
+                print("data load time:", data_loadding_time-start_time)
+
+                data_loadding_memory = get_process_memory()
+                print(f"data load memory  : {data_loadding_memory - rss_before:.1f} MB")
+                print(get_self_gpu_usage())
+                #print(print_cpu_usage())
+
                 tf_lights = process_dynamic_map(dynamic_map_infos)
                 tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
 
@@ -398,6 +486,7 @@ class SimulationManager:
                     new_state[i, :, :2] = pos
                     new_state[i, :, 3:6] =np.array( agent["shape"])[None]
                     new_state[i, :, 6] = np.arctan2(agent["velocity"][1],agent["velocity"][0])
+                    new_state[i,:, 7:9] =np.array(agent["velocity"])[None]
 
                     agent_type.append(agent["type"])
                     object_id.append(agent["id"])
@@ -458,17 +547,33 @@ class SimulationManager:
                 data["light"] = process_light(map_infos, tf_lights, tf_current_light)
                 data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
-                self.control_mask=data["agent"]["role"][:,-1]
-
                 self.initialize_simulation(map_data,data)
+
+                self.control_mask=data["agent"]["role"][:,-1]
 
                 batch_data = HeteroData(data).cuda()
                 batch_data.num_graphs=1
 
+
                 tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
+
+                data_preproces_time=time.time()
+
+                print("data preprocess time:", data_preproces_time-data_loadding_time)
+                data_preproces_memory = get_process_memory()
+                print(f"data preprocess memory  : {data_preproces_memory - data_loadding_memory:.1f} MB")
+                print(get_self_gpu_usage())
+               # print(print_cpu_usage())
 
                 map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
+                map_embedding_time=time.time()
+
+                print("map embedding time:", map_embedding_time-data_preproces_time)
+                map_embedding_memory = get_process_memory()
+                print(f"map embedding memory  : {map_embedding_memory - data_preproces_memory:.1f} MB")
+                print(get_self_gpu_usage())
+                #print(print_cpu_usage())
 
                 # self.control_mask = tokenized_agent["type"]<3
                 #
@@ -478,6 +583,13 @@ class SimulationManager:
                     if not self.process_frame(map_feature, tokenized_agent):
                         break
 
+                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
+                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
+                print("traffic_model_time:",np.mean(self.traffic_model_time))
+                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
+                print("output_time:",np.mean(self.output_time))
+                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
+
                 self.cleanup()
 
                 return
@@ -485,6 +597,9 @@ class SimulationManager:
     def capture_viewport_frame(self):
         if not self.recording or self.video_writer is None:
             return
+
+        if self.timestamp==self.initial_step:
+            sleep(0.1)
 
         import mss
 
@@ -599,8 +714,10 @@ class SimulationManager:
     def cleanup(self):
 
         print("Simulation ends")
-        self.gui.terminate()
-        self.gui.join()
+
+        if self.GUI_DISPLAY:
+            self.gui.terminate()
+            self.gui.join()
         if self.recording:
             self.video_writer.release()
 
@@ -612,7 +729,7 @@ class SimulationManager:
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
-        #self.planner.load_state_dict(state_dict)
+        self.planner.load_state_dict(state_dict)
         self.planner.cuda()
         self.planner.eval()
 
@@ -624,7 +741,8 @@ def main(model_cfg):
 
     simulator_cfg = OmegaConf.load(default_config)
 
-    custom_config_path=model_cfg.custom_config
+    custom_config_path=model_cfg.cfg
+
 
     # Merge if provided
     if custom_config_path is not None:

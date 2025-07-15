@@ -1,0 +1,1 @@
+input_json_path: "./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json

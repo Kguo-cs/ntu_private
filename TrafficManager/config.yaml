@@ -10,15 +10,15 @@ image:
 
 data_path: "./waymo/waymo_data"
 
-planner_path: "./waymo/model_checkpoint/epoch=5-step=45660-val_closed_wosac=0.7672.ckpt"
+planner_path: "./waymo/model_checkpoint/sim.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
 output_json_path: "./waymo/json_output/labels_occluded.json"
 
-input_json_path: "./waymo/json_input/controlled_agent.json"  #edit ego (or other) agent behavior like static_ego.json
+input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json
 
-gui_display: true
+gui_display: True
 
 lidar_height: 1.84
 
@@ -31,14 +31,9 @@ map_object:
 
 agent:
   add:
-    - type: 1 #{0: "car", 1: "pedestrian", 2: "cyclist"}
-      position: [360,6270]
-      velocity: [-2,0]
-      shape: [1,1,1]
-      id: 0
-
   remove:
   stop:
   recording:
 
 traffic_lights:
+

@@ -489,7 +489,7 @@ class GUI(Process):
     # --- Get currently active light(s) ---
     def get_current_active_lights(self,light_group,time):
         if light_group["mode"] == "fixed":
-            return [{"color": light_group["fixed_state"], "shape": "circle"}]
+            return [{"color": light_group["fixed_state"]}]
 
         elif light_group["mode"] == "periodic":
             t =  time % light_group["periodic_schedule"]["cycle_time"]
@@ -526,7 +526,7 @@ class GUI(Process):
                 start_y=polyline_tf[1]
 
                 for i, light in enumerate(lights):
-                    is_active = any(l["color"] == light["color"] and l["shape"] == light["shape"] for l in active)
+                    is_active = any(l["color"] == light["color"]  for l in active)
                     color = color_map[light["color"]] if is_active else color_map["off"]
 
                     if orientation == "vertical":
@@ -789,8 +789,8 @@ class GUI(Process):
         send_data["metas"] = data_template["metas"]
         send_data["metas"]["location"] = gen_location
         send_data["metas"]["description"] = gen_prompts
-        print(
-            f"location: {send_data['metas']['location']}\ndescription: {send_data['metas']['description']}")
+        # print(
+        #     f"location: {send_data['metas']['location']}\ndescription: {send_data['metas']['description']}")
         send_data["metas"]["ego_pos"] = torch.Tensor(
             [
                 [np.cos(ego_yaw), -np.sin(ego_yaw), 0, ego_x],
