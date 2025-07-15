@@ -164,20 +164,19 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_light:
             self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
 
-            # self.lg2a_attn_layers = nn.ModuleList(
-            #     [
-            #         AttentionLayer(
-            #             hidden_dim=hidden_dim,
-            #             num_heads=num_heads,
-            #             head_dim=head_dim,
-            #             dropout=dropout,
-            #             bipartite=True,
-            #             has_pos_emb=True,
-            #         )
-            #         for _ in range(num_layers)
-            #     ]
-            # )
-
+            self.lg2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(1)
+                ]
+            )
 
         else:
             self.pred_light=False
@@ -306,7 +305,12 @@ class SMARTAgentDecoder(nn.Module):
         else:
             train_mask=None
 
-        all_features=train_mask, feat_a_t, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a
+        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+
+        if len(feat_lg):
+            feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
+
+        all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
 
         if self.training:
             detach_all_features=[]

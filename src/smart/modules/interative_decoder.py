@@ -54,19 +54,7 @@ class InterativeDecoder(nn.Module):
         # self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
         #                                   hist_len=self.agent_hist)
 
-        self.lg2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=True,
-                    has_pos_emb=True,
-                )
-                for _ in range(1)
-            ]
-        )
+
 
         self.pt2a_attn_layers = nn.ModuleList(
             [
@@ -144,14 +132,14 @@ class InterativeDecoder(nn.Module):
         # if self.training:
         #     n_step=n_step-self.start_step
         #     feat_a_t=feat_a_t[:,-n_step:]
-        train_mask,feat_a_t,agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a=all_features
+        train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a=all_features
 
-        n_agent, n_step = feat_a_t.shape[0],feat_a_t.shape[1]
+        n_agent = agent_token_emb.shape[0]
 
-        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
-
-        if len(feat_lg):
-            feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
+        # feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+        #
+        # if len(feat_lg):
+        #     feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
 
         for layer_i in range(self.num_layers):
 
@@ -161,7 +149,7 @@ class InterativeDecoder(nn.Module):
 
             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-        feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
+        feat_a = feat_a.view(-1, n_agent, feat_a.shape[-1]).transpose(0, 1)
 
         proposal=None
 
