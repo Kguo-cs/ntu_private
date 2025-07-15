@@ -19,8 +19,9 @@ from torch_geometric.data import Dataset
 
 from src.utils import RankedLogger
 from random import shuffle
-
+import os
 log = RankedLogger(__name__, rank_zero_only=True)
+working_dir = os.getcwd()
 
 
 class MultiDataset(Dataset):
@@ -37,6 +38,9 @@ class MultiDataset(Dataset):
 
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
 
+
+        self.cache_data={}
+
         log.info("Length of {} dataset is ".format(raw_dir) + str(self._num_samples))
         super(MultiDataset, self).__init__(
             transform=transform, pre_transform=None, pre_filter=None
@@ -50,8 +54,15 @@ class MultiDataset(Dataset):
         return self._num_samples
 
     def get(self, idx: int):
-        with open(self.raw_paths[idx], "rb") as handle:
-            data = pickle.load(handle)
+
+        if  idx in self.cache_data.keys():
+            data=self.cache_data[idx]
+        else:
+            with open(self.raw_paths[idx], "rb") as handle:
+                data = pickle.load(handle)
+
+        if 'keguo' in working_dir:
+            self.cache_data[idx] = data
 
         # print(self.raw_paths[idx])
 
