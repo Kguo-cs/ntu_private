@@ -325,7 +325,7 @@ class IQ_SoftQ(LightningModule):
 
                 expert_d = torch.sigmoid(expert_logit[:,1:,0])
 
-                expert_return,_=get_return(expert_d,0.8)
+                expert_return,_=get_return(expert_d,0.5)
                 expert_loss = criterion(expert_d, torch.ones_like(expert_d))
 
                 self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
@@ -349,7 +349,7 @@ class IQ_SoftQ(LightningModule):
 
                 agent_d = torch.sigmoid(agent_logit[:,1:,0])
                 agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
-                agent_return,agent_rewards=get_return(agent_d,0.8)
+                agent_return,agent_rewards=get_return(agent_d,0.5)
                 critic_loss = expert_loss + agent_loss
 
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
@@ -367,7 +367,7 @@ class IQ_SoftQ(LightningModule):
                 # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                 # self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                baseline_return,_=get_return(torch.ones_like(agent_d),0.8)
+                baseline_return,_=get_return(torch.ones_like(agent_d),0.5)
                 # adv=agent_return-baseline_return
                 #weight=(advantages>0).float()
                 
