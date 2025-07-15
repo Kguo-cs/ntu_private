@@ -327,7 +327,7 @@ class IQ_SoftQ(LightningModule):
 
                 expert_d = torch.sigmoid(expert_logit[:,1:,0])
 
-                gamma=0.3
+                gamma=0.5
 
                 expert_return,_=get_return(expert_d,gamma)
                 expert_loss = criterion(expert_d, torch.ones_like(expert_d))
@@ -375,7 +375,7 @@ class IQ_SoftQ(LightningModule):
                 # adv=agent_return-baseline_return
                 #weight=(advantages>0).float()
                 
-                beta=1
+                beta=2
                 advantages=agent_return-baseline_return
                 weights = torch.exp(advantages / beta)#.clamp(max=1.0)  # avoid large weights
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
