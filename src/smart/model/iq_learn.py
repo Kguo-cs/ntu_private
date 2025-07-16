@@ -298,7 +298,7 @@ class IQ_SoftQ(LightningModule):
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
         for key in ["sampled_pos", "sampled_heading"]:
-            tokenized_agent[key] = tokenized_agent[key]+  2e-4 * torch.randn_like(tokenized_agent[key])#.clamp(min=-3,max=1)
+            tokenized_agent[key] = tokenized_agent[key]+  1e-3 * torch.randn_like(tokenized_agent[key])#.clamp(min=-3,max=1)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -327,7 +327,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
                 for key in ["sampled_pos", "sampled_heading"]:
-                    tokenized_agent_rollout[key] = tokenized_agent_rollout[key]+ 2e-4 * torch.randn_like(tokenized_agent_rollout[key]) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
+                    tokenized_agent_rollout[key] = tokenized_agent_rollout[key]+1e-3 * torch.randn_like(tokenized_agent_rollout[key]) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
                 #value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
 
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
@@ -356,8 +356,11 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
-                    #baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
-                    advantages=agent_return-expert_return
+                    baseline_return,_=get_return(torch.ones_like(agent_d),self.gamma)
+
+                    advantages,returns=compute_advantages(agent_rewards,baseline_return,gamma=self.gamma)
+
+                   # advantages=agent_return-expert_return
                     value_loss=0
 
                 beta=1
