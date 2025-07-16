@@ -307,7 +307,6 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
-
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
         if len(feat_lg):
@@ -375,6 +374,7 @@ class SMARTAgentDecoder(nn.Module):
         token_traj=tokenized_agent["token_traj"]
         n_agent = sampled_idx.shape[0]
         light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
+        token_traj_all = tokenized_agent["token_traj_all"]
 
         mask_lg=light_idx<self.light_type
 
@@ -383,14 +383,6 @@ class SMARTAgentDecoder(nn.Module):
             gt_pos=tokenized_agent["sampled_pos"]
             gt_head=tokenized_agent["sampled_heading"]
             gt_sampled_idx = tokenized_agent["sampled_idx"]
-
-        if self.use_dynamic:
-            speed_a=tokenized_agent["sampled_speed"][:, :current_step].clone()
-
-        if not self.pred_proposal :
-            token_traj_all = tokenized_agent["token_traj_all"]
-        else:
-            gt_contour=tokenized_agent["gt_contour"][:,:,None]
 
         pred_traj_10hz = []
         pred_head_10hz = []
@@ -409,174 +401,80 @@ class SMARTAgentDecoder(nn.Module):
                         next_light_logits = []
                 else:
                     self.a_t_roformer.attn.caching=True
-                    if self.pred_light and not self.light_encoder.share:
+                    if self.pred_light:
                         self.light_encoder.lg_t_roformer.attn.caching=True
                     next_token_logits,next_light_logits,feat_a,proposal = self.predict_agent(sampled_idx, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,post_sampling)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
-                if self.pred_light and not self.light_encoder.share:
+                if self.pred_light:
                     self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist)
             else:
                 next_token_logits,next_light_logits,feat_a,proposal  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
                                                                                     mask_lg[:,-self.light_hist:],t - 1,post_sampling)
 
-            if self.output_gmm:
-                #next_token_traj_all = token_traj_all[torch.arange(n_agent), sampled_idx[:,-1]]
-                token_agent_shape = tokenized_agent["token_agent_shape"]  # [n_token, 2]
-
-                gmm= GMM_Dist(next_token_logits)
-
-                sample = gmm.sample()[:,-1]  # [n_batch, 4]
-
-                if self.output_dim==4:
-                    head=torch.arctan2(sample[..., -1], sample[..., -2])
-                else:
-                    head=sample[..., 2]
-
-                contour_local = cal_polygon_contour(
-                    sample[..., :2],  # [n_batch, 2]
-                    head,# [n_batch]
-                    token_agent_shape,  # [n_batch, 2]
-                )  # [n_batch, 4, 2] in local coord
-                token_traj=token_traj_all[:,:,-1]
-                dist = torch.norm(contour_local.unsqueeze(1) - token_traj, dim=-1).mean(  -1  )  # [n_batch, n_token]
-
-                next_token_idx = dist.argmin(-1)
-
-                next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
-
-                countour_start = next_token_traj_all[:, 0]  # [n_batch, 4, 2]
-                n_step = next_token_traj_all.shape[1]
-                diff = (contour_local - countour_start) / (n_step - 1)
-                ego_token_interp = [countour_start + diff * i for i in range(n_step)]
-                # [n_batch, 6, 4, 2]
-                next_token_traj_all  = torch.stack(ego_token_interp, dim=1)
+            if post_sampling:
+                next_token_idx=gt_sampled_idx[:,t]
             else:
-                if self.pred_proposal:
-                    if post_sampling:
-                        proposal_next_step=proposal[:,-1,:,4]
-                        global_pos, global_head =transform_to_global(proposal_next_step[...,:2],proposal_next_step[...,2],pos_a[:, -1],head_a[:, -1])
-                        proposal_countour=cal_polygon_contour(global_pos[:,None],global_head[:,None],token_agent_shape[:,None,None])[:,0]
-                        next_token_idx = torch.argmin( torch.norm(proposal_countour - gt_contour[:,t], dim=-1).sum(-1),
-                                                       dim=-1)
-                    else:
-                        next_token_idx = Categorical(
-                            logits=next_token_logits[:, -1, :self.n_token_agent] / self.alpha).sample()
+                next_token_idx = Categorical(
+                    logits=next_token_logits[:, -1, ] / self.alpha).sample()
 
-                    next_local_traj = proposal[:, -1, :, :5][torch.arange(n_agent), next_token_idx]
-                    next_token_idx = self.token_processor.traj_to_idx(next_local_traj[:, -1:, None], token_agent_shape,
-                                                                      token_traj)[:, 0]
+            if self.pred_all_res:
+                token_embedding=self.agent_token_embedding.embedding(next_token_idx)
 
-                    sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
+                proposal_feature=feat_a[:,-1]+token_embedding
 
-                    pred_traj1, pred_head1 = transform_to_global(
-                        pos_local=next_local_traj[:,:,:2],  # [n_agent, 6*4, 2]
-                        head_local=next_local_traj[:,:,2],
-                        pos_now=pos_a[:, -1],  # [n_agent, 2]
-                        head_now=head_a[:, -1],  # [n_agent]
-                    )
+                proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
 
-                    pred_traj_10hz.append(pred_traj1)
-                    pred_head_10hz.append(pred_head1)
+                proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent), next_token_idx]
 
-                    pos_a = torch.cat([pos_a, pred_traj1[:, -1:]], dim=1)
-                    head_a = torch.cat([head_a,  pred_head1[:,-1:]], dim=1)
+                proposal = torch.tanh(proposal) * proposal_max_diff
 
-                else:
-                    # if not self.pred_last_res:
-                    #     next_token_logits=next_token_logits[:, :,:token_traj_all.shape[1]]
+                next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent), next_token_idx]
 
-                    if post_sampling:
-                        next_token_idx=gt_sampled_idx[:,t]
-                    else:
-                        next_token_idx = Categorical(
-                            logits=next_token_logits[:, -1, ] / self.alpha).sample()#
+                proposal=proposal+next_token_traj_all
 
-                    if self.pred_all_res:
-                        token_embedding=self.agent_token_embedding.embedding(next_token_idx)
+                next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
 
-                        proposal_feature=feat_a[:,-1]+token_embedding
+                next_token_idx = self.token_processor.traj_to_idx(proposal[:, -1:, None], token_agent_shape,
+                                                                token_traj)[:, 0]
 
-                        proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
+            elif self.pred_last_res:
+                proposal=proposal[:,-1,0]
 
-                        proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent), next_token_idx]
+                proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
 
-                        proposal = torch.tanh(proposal) * proposal_max_diff
+                token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
+            else:
+                token_traj_current=token_traj_all
 
-                        next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent), next_token_idx]
+            if not self.pred_all_res:
+                next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
 
-                        proposal=proposal+next_token_traj_all
+            token_traj_global = transform_to_global(
+                pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
+                head_local=None,
+                pos_now=pos_a[:, -1],  # [n_agent, 2]
+                head_now=head_a[:, -1],  # [n_agent]
+            )[0].view(*next_token_traj_all.shape)
 
-                        next_token_traj_all=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
-                        
-                        #next_token_idx =  torch.norm(next_token_traj_all - token_traj.unsqueeze(1), dim=-1).mean(-1).argmin(-1)
-                        next_token_idx = self.token_processor.traj_to_idx(proposal[:, -1:, None], token_agent_shape,
-                                                                        token_traj)[:, 0]
+            sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
-                    elif self.pred_last_res:
-                        proposal=proposal[:,-1,0]
+            if "gt_z_raw" in tokenized_agent.keys():
+                pred_traj = token_traj_global[:, :].mean(2)
+                pred_traj_10hz.append(pred_traj)
+                diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
+                pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+                pred_head_10hz.append(pred_head)
 
-                        proposal_token=cal_polygon_contour(proposal[:,:,:2],proposal[:,:,2],token_agent_shape[:,None])
+            # ! get pos_a_next and head_a_next, spawn unseen agents
+            pos_a_next = token_traj_global[:, -1].mean(dim=1)
+            diff_xy_next = token_traj_global[:, -1, 0] - token_traj_global[:, -1, 3]
+            head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
-                        token_traj_current=torch.cat([token_traj_all, proposal_token[:, None]], dim=1)
-                    else:
-                        token_traj_current=token_traj_all
-
-                    if self.use_dynamic:
-                        prev_pos=pos_a[:, -1]
-                        prev_head=head_a[:, -1]
-                        prev_speed = speed_a[:,-1]#torch.norm(pos_a[:, -1] - pos_a[:, -2], dim=-1) / (self.shift / 10)
-
-                        acc =token_traj[:,:,0,0][torch.arange(n_agent), next_token_idx]
-                        yaw_rate =token_traj[:,:,0,1][torch.arange(n_agent), next_token_idx]
-
-                        token_speed = acc* self.shift / 10 + prev_speed
-                        token_heading = yaw_rate* self.shift / 10 + prev_head
-
-                        token_prev_pos = prev_pos[:, None]
-
-                        time=torch.arange(self.shift+1,device=token_speed.device)/10
-
-                        token_dist = time*token_speed[:,None]
-                        token_heading = token_heading[:, None] # (n_agent, 1)
-
-                        new_pos = torch.stack([token_prev_pos[..., 0] + token_dist * torch.cos(token_heading),
-                                                token_prev_pos[..., 1] + token_dist * torch.sin(token_heading)],
-                                              dim=-1)
-
-                        token_traj_global = cal_polygon_contour(new_pos, token_heading, token_agent_shape[:,None])
-
-                        speed_a = torch.cat([speed_a, token_speed.unsqueeze(1)], dim=1)
-
-                    else:
-                        if not self.pred_all_res:
-                            next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
-
-                        token_traj_global = transform_to_global(
-                            pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
-                            head_local=None,
-                            pos_now=pos_a[:, -1],  # [n_agent, 2]
-                            head_now=head_a[:, -1],  # [n_agent]
-                        )[0].view(*next_token_traj_all.shape)
-
-                    sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
-
-                    if "gt_z_raw" in tokenized_agent.keys():
-                        pred_traj = token_traj_global[:, :].mean(2)
-                        pred_traj_10hz.append(pred_traj)
-                        diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
-                        pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
-                        pred_head_10hz.append(pred_head)
-
-                    # ! get pos_a_next and head_a_next, spawn unseen agents
-                    pos_a_next = token_traj_global[:, -1].mean(dim=1)
-                    diff_xy_next = token_traj_global[:, -1, 0] - token_traj_global[:, -1, 3]
-                    head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
-
-                    pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
-                    head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
+            pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
+            head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
             if len(next_light_logits):
 
@@ -608,7 +506,7 @@ class SMARTAgentDecoder(nn.Module):
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
-        if self.pred_light and not self.light_encoder.share:
+        if self.pred_light:
             self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
         out_dict = {

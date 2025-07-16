@@ -35,6 +35,7 @@ class IQ_SoftQ(LightningModule):
         self.start_step=10//self.token_processor.shift-1
 
         self.use_gail=self.encoder.use_gail
+        self.bce_loss = nn.BCELoss()
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -157,8 +158,6 @@ class IQ_SoftQ(LightningModule):
         reward = current_Q - y
         value_loss = current_V - y
 
-        # if key=="agent":
-        #     current_Q=torch.sum(q*pi,dim=-1)
 
         return log_prob,logpi,actor_loss,entropy,current_Q,V,value_loss,reward
 
@@ -179,20 +178,6 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/" + key + "_pos_dist", pos_dist.item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
             else:
-                # proposal=pred["proposal"][:,1:-1,:,4].flatten(0,1)
-
-                # global_pos, global_head = transform_to_global(
-                #     pos_local=proposal[...,:2],
-                #     head_local=proposal[...,2],
-                #     pos_now=tokenized_agent["sampled_pos"][:,1:-1].flatten(0,1),
-                #     head_now=tokenized_agent["sampled_heading"][:,1:-1].flatten(0,1),
-                # )
-
-                # global_pos=global_pos.reshape(-1,16,global_pos.shape[-2],2)
-
-                # dist=torch.norm(global_pos - tokenized_agent["sampled_pos"][:, 2:,None], dim=-1)
-
-                # action = torch.argmin(dist, dim=-1)
                 proposal_loss=0
         else:
             proposal_loss=0
@@ -276,8 +261,8 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
-        off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
-        self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
+        # off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
+        # self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
         
         if self.iq_learn and not self.use_gail:
             action_nll=0
@@ -317,7 +302,6 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
-            criterion = nn.BCELoss()
 
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
@@ -327,10 +311,8 @@ class IQ_SoftQ(LightningModule):
 
                 expert_d = torch.sigmoid(expert_logit[:,1:,0])
 
-                gamma=0.9
-
-                expert_return,_=get_return(expert_d,gamma)
-                expert_loss = criterion(expert_d, torch.ones_like(expert_d))
+                expert_return,_=get_return(expert_d,self.gamma)
+                expert_loss = self.bce_loss(expert_d, torch.ones_like(expert_d))
 
                 self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
                 self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
@@ -352,8 +334,8 @@ class IQ_SoftQ(LightningModule):
                 agent_logit=self.encoder.discriminator(tokenized_agent_rollout["all_features"])[0]
 
                 agent_d = torch.sigmoid(agent_logit[:,1:,0])
-                agent_loss = criterion(agent_d, torch.zeros_like(agent_d))
-                agent_return,agent_rewards=get_return(agent_d,gamma)
+                agent_loss = self.bce_loss(agent_d, torch.zeros_like(agent_d))
+                agent_return,agent_rewards=get_return(agent_d,self.gamma)
                 critic_loss = expert_loss + agent_loss
 
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
@@ -361,22 +343,19 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_rewards", agent_rewards.mean().item(), on_step=True, batch_size=1)
 
+                value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
 
-                #advantages,returns=compute_advantages(agent_rewards,value_pred)
+                advantages,returns=compute_advantages(agent_rewards,value_pred,gamma=self.gamma)
 
-                #weights = torch.exp(advantages / 1).clamp(max=1.0)  # avoid large weights
+                value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
-                # value_loss = 0.5 * (returns - value_pred).pow(2).mean()
-
-                # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-                # self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+                self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
                 #baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
-                # adv=agent_return-baseline_return
-                #weight=(advantages>0).float()
-                
+
                 beta=1
-                advantages=agent_return-expert_return
+                #advantages=agent_return-expert_return
                 weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
@@ -400,24 +379,6 @@ class IQ_SoftQ(LightningModule):
 
             loss = critic_loss+expert_proposal_loss+expert_nll #+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
             self.encoder.agent_encoder.pred_light=True
-
-            if self.automatic_optimization==False:
-                actor_optimizer,critic_optimizer=self.optimizers()
-
-                actor_loss=expert_actor_loss.mean()/2+agent_actor_loss.mean()/2#expert_nll #
-                self.log("train/actor_loss", actor_loss.item(), on_step=True, batch_size=1)
-
-                actor_optimizer.zero_grad()
-                actor_loss.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), max_norm=0.5)
-                actor_optimizer.step()
-
-                critic_optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.encoder.critic.parameters(), max_norm=0.5)
-                critic_optimizer.step()
-
-                loss=loss+actor_loss
         else:
             loss = expert_nll + expert_proposal_loss
 
