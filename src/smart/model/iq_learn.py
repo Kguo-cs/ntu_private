@@ -360,7 +360,7 @@ class IQ_SoftQ(LightningModule):
 
                     #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
 
-                    advantages=agent_return-baseline_return
+                    advantages=agent_return/baseline_return-1
                     value_loss=0
 
                 beta=1
