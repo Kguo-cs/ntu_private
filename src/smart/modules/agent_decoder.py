@@ -297,7 +297,7 @@ class SMARTAgentDecoder(nn.Module):
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100,
-                max_num_neighbors=20,
+                max_num_neighbors=8,
                 mask_pl=mask_lg[:,-n_step:]
             )
 
