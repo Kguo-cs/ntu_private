@@ -398,7 +398,7 @@ class TokenProcessor(torch.nn.Module):
             return self.dynamic_match(valid, pos, speed, heading,agent_shape, token_traj)
 
         pos=pos+ 1e-3 * torch.randn_like(pos)
-        heading=heading+ 1e-4 * torch.randn_like(pos)
+        heading=heading+ 1e-3 * torch.randn_like(heading)
 
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
