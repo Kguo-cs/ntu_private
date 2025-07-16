@@ -55,6 +55,8 @@ class SMARTDecoder(nn.Module):
         self.output_gmm=False
         self.use_gail=True
 
+        self.use_value=False
+
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
@@ -129,10 +131,10 @@ class SMARTDecoder(nn.Module):
                 self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,1,num_heads,head_dim,
                                                     dropout,hist_drop_prob,1,token_processor,False,False,False
                                                     )
-
-                self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,1,num_heads,head_dim,
-                                                    dropout,hist_drop_prob,1,token_processor,False,False,False
-                                                    )
+                if self.use_value:
+                    self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,1,num_heads,head_dim,
+                                                        dropout,hist_drop_prob,1,token_processor,False,False,False
+                                                        )
 
 
     def forward(

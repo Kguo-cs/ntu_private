@@ -297,6 +297,8 @@ class IQ_SoftQ(LightningModule):
 
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
+        for key in ["sampled_pos", "sampled_heading"]:
+            tokenized_agent[key] = tokenized_agent[key].to(torch.bfloat16).to(torch.float32) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -324,8 +326,8 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
-                # for key in ["sampled_pos", "sampled_heading"]:
-                #     tokenized_agent_rollout[key] = tokenized_agent_rollout[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
+                for key in ["sampled_pos", "sampled_heading"]:
+                    tokenized_agent_rollout[key] = tokenized_agent_rollout[key].to(torch.bfloat16).to(torch.float32) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
                 #value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
 
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
@@ -343,19 +345,21 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_rewards", agent_rewards.mean().item(), on_step=True, batch_size=1)
 
-                value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
+                if self.encoder.pred_value:
 
-                advantages,returns=compute_advantages(agent_rewards,value_pred,gamma=self.gamma)
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
 
-                value_loss = 0.5 * (returns - value_pred).pow(2).mean()
+                    advantages,returns=compute_advantages(agent_rewards,value_pred,gamma=self.gamma)
 
-                self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+                    value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
-                #baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
+                    self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+                    self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+                else:
+                    #baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
+                    advantages=agent_return-expert_return
 
                 beta=1
-                #advantages=agent_return-expert_return
                 weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
