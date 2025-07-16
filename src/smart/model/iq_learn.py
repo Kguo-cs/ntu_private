@@ -21,7 +21,7 @@ class IQ_SoftQ(LightningModule):
 
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
-        self.gamma = 0.99
+        self.gamma = 0.9 #0.99
         self.iq_learn=self.encoder.iq_learn
         self.output_gmm=self.encoder.output_gmm
         self.alpha = self.encoder.alpha
@@ -356,11 +356,10 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
-                    #baseline_return,_=get_return(torch.zeros_like(agent_d),self.gamma)
 
                     #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
 
-                    advantages=agent_return#-baseline_return#-1
+                    advantages=agent_return
                     value_loss=0
 
                 beta=1
