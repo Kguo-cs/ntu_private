@@ -358,9 +358,9 @@ class IQ_SoftQ(LightningModule):
                 else:
                     # baseline_return,_=get_return(torch.ones_like(agent_d),self.gamma)
 
-                    advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
+                    #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
 
-                   # advantages=agent_return-expert_return
+                    advantages=agent_return-expert_return
                     value_loss=0
 
                 beta=1
