@@ -345,7 +345,7 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_rewards", agent_rewards.mean().item(), on_step=True, batch_size=1)
 
-                if self.encoder.pred_value:
+                if self.encoder.use_value:
 
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
 
@@ -358,6 +358,7 @@ class IQ_SoftQ(LightningModule):
                 else:
                     #baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
                     advantages=agent_return-expert_return
+                    value_loss=0
 
                 beta=1
                 weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
