@@ -297,8 +297,8 @@ class IQ_SoftQ(LightningModule):
 
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-        for key in ["sampled_pos", "sampled_heading"]:
-            tokenized_agent[key] = tokenized_agent[key]+  1e-3 * torch.randn_like(tokenized_agent[key])#.clamp(min=-3,max=1)
+        # for key in ["sampled_pos", "sampled_heading"]:
+        #     tokenized_agent[key] = tokenized_agent[key]+  1e-3 * torch.randn_like(tokenized_agent[key])#.clamp(min=-3,max=1)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -326,8 +326,8 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
-                for key in ["sampled_pos", "sampled_heading"]:
-                    tokenized_agent_rollout[key] = tokenized_agent_rollout[key]+1e-3 * torch.randn_like(tokenized_agent_rollout[key]) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
+                # for key in ["sampled_pos", "sampled_heading"]:
+                #     tokenized_agent_rollout[key] = tokenized_agent_rollout[key]+1e-3 * torch.randn_like(tokenized_agent_rollout[key]) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
                 #value_pred=self.encoder.value_network(pred["feat_a"][:,:-1])[:,:,0]
 
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
