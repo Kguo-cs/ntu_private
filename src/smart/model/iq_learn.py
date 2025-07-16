@@ -172,7 +172,7 @@ class IQ_SoftQ(LightningModule):
                     proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"],tokenized_agent )
                     action = tokenized_agent["sampled_idx"][:, 2:]
                 else:
-                    proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step,train_mask )
+                    proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step )
 
                     self.log("train/" + key + "_head_diff", head_diff.item(), on_step=True, batch_size=1)
 
@@ -371,13 +371,13 @@ class IQ_SoftQ(LightningModule):
                 # self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                 # self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
+                #baseline_return,_=get_return(torch.ones_like(agent_d),gamma)
                 # adv=agent_return-baseline_return
                 #weight=(advantages>0).float()
                 
                 beta=1
-                advantages=agent_return-baseline_return
-                weights = torch.exp(advantages / beta)#.clamp(max=1.0)  # avoid large weights
+                advantages=agent_return-expert_return
+                weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
 
