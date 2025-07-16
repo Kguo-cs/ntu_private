@@ -363,7 +363,7 @@ class IQ_SoftQ(LightningModule):
                     advantages=agent_return-baseline_return
                     value_loss=0
 
-                beta=0.5
+                beta=1
                 weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
