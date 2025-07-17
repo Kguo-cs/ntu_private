@@ -223,17 +223,17 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
+                if self.global_step%2==0:
+                    expert_score=self.encoder.discriminator(tokenized_agent["all_features"])[0]
 
-                expert_score=self.encoder.discriminator(tokenized_agent["all_features"])[0]
+                    expert_d = torch.sigmoid(expert_score[:,1:,0])
 
-                expert_d = torch.sigmoid(expert_score[:,1:,0])
+                    expert_return,_=get_return(expert_d,self.gamma)
+                    expert_loss = self.bce_loss(expert_d, torch.ones_like(expert_d))
 
-                expert_return,_=get_return(expert_d,self.gamma)
-                expert_loss = self.bce_loss(expert_d, torch.ones_like(expert_d))
-
-                self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
-                self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
-                self.log("train/expert_return", expert_return.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/expert_dis_loss", expert_loss, on_step=True, batch_size=1)
+                    self.log("train/expert_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/expert_return", expert_return.mean().item(), on_step=True, batch_size=1)
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -250,22 +250,26 @@ class IQ_SoftQ(LightningModule):
                 agent_score=self.encoder.discriminator(tokenized_agent_rollout["all_features"])[0]
 
                 agent_d = torch.sigmoid(agent_score[:,1:,0])
+                agent_return, agent_rewards = get_return(agent_d, self.gamma)
                 agent_loss = self.bce_loss(agent_d, torch.zeros_like(agent_d))
-                agent_return,agent_rewards=get_return(agent_d,self.gamma)
-                critic_loss = expert_loss + agent_loss
-
-                if self.automatic_optimization==False:
-                    policy_optimizer, discriminator_optimizer = self.optimizers()
-
-                    discriminator_optimizer.zero_grad()
-                    critic_loss.backward()#retain_graph=True
-                    torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
-                    discriminator_optimizer.step()
 
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
                 self.log("train/agent_disc_val", agent_d.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_rewards", agent_rewards.mean().item(), on_step=True, batch_size=1)
+
+                if self.global_step%2==0:
+                    critic_loss = expert_loss + agent_loss
+                    self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+
+                    if self.automatic_optimization==False:
+                        policy_optimizer, discriminator_optimizer = self.optimizers()
+
+                        discriminator_optimizer.zero_grad()
+                        critic_loss.backward()#retain_graph=True
+                        torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
+                        discriminator_optimizer.step()
+
 
                 if self.encoder.use_value:
 
@@ -306,13 +310,13 @@ class IQ_SoftQ(LightningModule):
 
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
 
-            self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+                self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            constraint_loss=expert_V_diff.square().mean()*5
+                constraint_loss=expert_V_diff.square().mean()*5
 
-            self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
+                self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss+expert_nll #+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+                loss = critic_loss+expert_proposal_loss+expert_nll #+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
 
             if self.automatic_optimization == False:
                 policy_optimizer.zero_grad()
