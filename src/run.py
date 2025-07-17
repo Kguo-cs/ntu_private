@@ -54,7 +54,7 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-torch.set_float32_matmul_precision("highest")#  #“highest” (default),
+torch.set_float32_matmul_precision("high")#  #“highest” (default),
 
 # seed = 42
 # random.seed(seed)
@@ -67,8 +67,8 @@ torch.set_float32_matmul_precision("highest")#  #“highest” (default),
 # torch.backends.cudnn.benchmark = False
 # torch.cuda.synchronize()
 # print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-# torch.backends.cuda.matmul.allow_tf32 = False
-# torch.backends.cuda.allow_tf32 = False
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cuda.allow_tf32 = True
 # print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
 
 #h800 ==4090 highest
