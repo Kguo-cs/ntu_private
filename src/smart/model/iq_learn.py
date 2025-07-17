@@ -190,9 +190,9 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,all_features,key):
-        score = self.encoder.discriminator(all_features)[0]
+        score = self.encoder.discriminator(all_features)[0][:, 1:, 0]
 
-        disc_val = torch.sigmoid(score[:, 1:, 0])
+        disc_val = torch.sigmoid(score)
 
         returns, rewards = get_return(disc_val, self.gamma)
         if key == "expert":
@@ -205,7 +205,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss,rewards
+        return bce_loss,score
 
 
     def iq_update(self, tokenized_map, tokenized_agent):
