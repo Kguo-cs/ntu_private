@@ -192,13 +192,16 @@ class IQ_SoftQ(LightningModule):
     def get_reward(self,all_features,key):
         score = self.encoder.discriminator(all_features)[0]
 
-        expert_d = torch.sigmoid(score[:, 1:, 0])
+        disc_val = torch.sigmoid(score[:, 1:, 0])
 
-        returns, rewards = get_return(expert_d, self.gamma)
-        bce_loss = self.bce_loss(expert_d, torch.ones_like(expert_d))
+        returns, rewards = get_return(disc_val, self.gamma)
+        if key == "expert":
+            bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
+        else:
+            bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
-        self.log("train/"+key+"_disc_val", expert_d.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
