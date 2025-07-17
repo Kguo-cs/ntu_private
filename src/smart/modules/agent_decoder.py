@@ -318,7 +318,7 @@ class SMARTAgentDecoder(nn.Module):
             detach_all_features=[]
             for feature in all_features:
                 if feature is not None:
-                    detach_all_features.append(feature.detach().clone())
+                    detach_all_features.append(feature.detach())#.clone()
             tokenized_agent["all_features"]=detach_all_features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features)
