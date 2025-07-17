@@ -159,7 +159,7 @@ def get_proposal_loss(proposal,tokenized_agent,start_step):
 
     counter_dist =torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask
 
-    target_sum=target_mask.sum()
+    target_sum=target_mask.sum()+1e-8
 
     proposal_loss = counter_dist.sum(-1).amin(-1).sum()/target_sum
 
