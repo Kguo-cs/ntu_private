@@ -355,10 +355,10 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                    # agent_wNLL=-(agent_log_prob*advantages).mean()
+                    agent_wNLL=-(agent_log_prob*advantages).mean()
 
 
-                    weights=(advantages>0).float()
+                    #weights=(advantages>0).float()
                 else:
 
                     #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
@@ -369,13 +369,13 @@ class IQ_SoftQ(LightningModule):
                     weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
 
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-                self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
 
-                agent_wNLL=-(agent_log_prob*weights).mean()
+                    agent_wNLL=-(agent_log_prob*weights).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
 
-                expert_nll=expert_nll+agent_wNLL+value_loss- 0.01 * agent_entropy.mean()
+                expert_nll=expert_nll+agent_wNLL+value_loss#- 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
@@ -390,7 +390,9 @@ class IQ_SoftQ(LightningModule):
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             loss = critic_loss+expert_proposal_loss+expert_nll #+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
-            self.encoder.agent_encoder.pred_light=True
+
+            if self.encoder.agent_encoder.use_light:
+                self.encoder.agent_encoder.pred_light=True
         else:
             loss = expert_nll + expert_proposal_loss
 
