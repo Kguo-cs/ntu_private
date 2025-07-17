@@ -223,7 +223,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
-                if self.global_step%2==0:
+                if self.global_step%4==0:
                     expert_score=self.encoder.discriminator(tokenized_agent["all_features"])[0]
 
                     expert_d = torch.sigmoid(expert_score[:,1:,0])
@@ -258,15 +258,16 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_rewards", agent_rewards.mean().item(), on_step=True, batch_size=1)
 
-                if self.global_step%2==0:
+                if self.automatic_optimization == False:
+                    policy_optimizer, discriminator_optimizer = self.optimizers ()
+
+                if self.global_step%4==0:
                     critic_loss = expert_loss + agent_loss
                     self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
                     if self.automatic_optimization==False:
-                        policy_optimizer, discriminator_optimizer = self.optimizers()
-
                         discriminator_optimizer.zero_grad()
-                        critic_loss.backward()#retain_graph=True
+                        self.manual_backward(critic_loss)
                         torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
                         discriminator_optimizer.step()
 
@@ -325,6 +326,8 @@ class IQ_SoftQ(LightningModule):
                 nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())
                                                +list(self.encoder.value_network.parameters()), 0.5)
                 policy_optimizer.step()
+
+            #print(self.global_step)
 
             if self.encoder.agent_encoder.use_light:
                 self.encoder.agent_encoder.pred_light=True
