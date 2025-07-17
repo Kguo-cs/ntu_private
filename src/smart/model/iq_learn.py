@@ -23,12 +23,9 @@ class IQ_SoftQ(LightningModule):
         super(IQ_SoftQ, self).__init__(model_config)
         self.gamma = 0.99
         self.iq_learn=self.encoder.iq_learn
-        self.output_gmm=self.encoder.output_gmm
         self.alpha = self.encoder.alpha
         self.n_token_agent=self.encoder.agent_encoder.n_token_agent
 
-        if self.iq_learn and self.output_gmm:
-            self.automatic_optimization = False
 
         self.use_target_q=False
 
@@ -36,6 +33,9 @@ class IQ_SoftQ(LightningModule):
 
         self.use_gail=self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
+
+        if self.use_gail:
+            self.automatic_optimization = False
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -47,117 +47,32 @@ class IQ_SoftQ(LightningModule):
 
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
-        if self.output_gmm:
-            dist =  GMM_Dist(q_value)
+        action = action.unsqueeze(-1)  # .reshape(-1)
 
-            cov = q_value[...,q_value.shape[-1]//2+1:].reshape(-1,3)
+        q = q_value[:, :-1]
 
-            self.log("train/" + key + "_xCov", cov[...,0].mean().item(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_yCov", cov[...,1].mean().item(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_headingCov", cov[...,2].mean().item(), on_step=True, batch_size=1)
+        current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
-            entropy=get_entropy(q_value)
+        V =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
-            action, action_valid = get_euclidean_targets(
-                pred_pos=tokenized_agent["sampled_pos"],
-                pred_head=tokenized_agent["sampled_heading"],
-                pred_valid=tokenized_agent["valid_mask"],
-                gt_pos=tokenized_agent["sampled_pos"],
-                gt_head=tokenized_agent["sampled_heading"],
-                gt_valid=tokenized_agent["valid_mask"]
-            )
-            if "target" in tokenized_agent.keys():
-                expert_action=tokenized_agent["target"]
-            else:
-                expert_action=action
+        current_V = V[:, :-1]
 
-            log_prob = dist.log_prob(expert_action)[:,:-1].clamp_min(min=np.log(1e-5))
+        next_V = V[:, 1:]
 
-            if self.iq_learn:
+        pi = torch.softmax( q / self.alpha, dim=-1)
 
-                sample_num=32
+        logpi= torch.log(pi+ 1e-10)#.clamp_min(min=1e-10)
 
-                sampled_action=dist.sample([sample_num*2])
+        log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+        entropy = -torch.sum(pi * logpi, dim=-1)
 
-                sampled_log_prob=dist.log_prob(sampled_action)
-
-                sampled_action=torch.cat([sampled_action,action[None]],dim=0)
-
-                pred=network(tokenized_map, tokenized_agent,True)
-
-                feat_a=pred["feat_a"][None].repeat_interleave(sample_num*2+1,dim=0)
-
-                Q=network.get_Q(feat_a,sampled_action)
-
-                current_Q=Q[-1,:,:-1]
-
-                V = Q[:sample_num*2]-self.alpha*sampled_log_prob.detach()
-
-                v_value=V.mean(0)
-
-                current_V= V[:sample_num,:,:-1].mean(0)
-
-                next_V =V[sample_num:,:,1:].mean(0)
-
-                rsampled_action=dist.rsample([sample_num])
-                rsampled_log_prob=dist.log_prob(rsampled_action)
-                feat_a=pred["feat_a"][None,:,:-1].detach().repeat_interleave(sample_num,dim=0)
-
-                actor_loss=self.alpha * rsampled_log_prob[:,:,:-1] - network.get_Q(feat_a, rsampled_action[:,:,:-1])
-
-                actor_loss=actor_loss.mean(0)
-
-            else:
-                next_V =current_Q=current_V=actor_loss= torch.zeros_like(log_prob)
-                v_value = torch.zeros_like(torch.cat([log_prob, torch.zeros_like(log_prob[:,:1])],dim=1))
-        else:
-            action = action.unsqueeze(-1)  # .reshape(-1)
-
-            q = q_value[:, :-1]
-
-            current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
-
-            V =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-
-            current_V = V[:, :-1]
-
-            next_V = V[:, 1:]
-
-            pi = torch.softmax( q / self.alpha, dim=-1)
-
-            logpi= torch.log(pi+ 1e-10)#.clamp_min(min=1e-10)
-
-            #next_Q=torch.sum(q_value[:,1:]*torch.softmax( q_value[:,1:] / self.alpha, dim=-1),dim=-1)
-
-            # log_pi_stack=torch.log_softmax(all_q_value[:, :-1]/ self.alpha, dim=-1)
-            #
-            # rolling_action = torch.stack([
-            #             torch.roll(action, shifts=-i, dims=1)
-            #             for i in range(log_pi_stack.shape[2])
-            #         ], dim=-2)  # [B, Tm1, T_a]
-            #
-            # log_prob1=torch.gather(log_pi_stack, dim=-1, index=rolling_action).squeeze(-1)
-            #
-            # valid_mask=torch.ones_like(log_prob1)
-            # for i in range(log_pi_stack.shape[2]):
-            #     log_prob1[:,rolling_action.shape[1]-i:,i]=0
-            #     valid_mask[:,rolling_action.shape[1]-i:,i]=0
-            #
-            # log_prob=log_prob1.sum(-1)/valid_mask.sum(-1)
-            # act=action.reshape(-1)
-            # log_prob=logpi.reshape(len(act), -1)[torch.arange(len(act)), act].reshape(q.shape[0], q.shape[1])
-
-            log_prob=torch.gather(logpi, dim=-1, index=action).squeeze(-1)
-            entropy = -torch.sum(pi * logpi, dim=-1)
-
-            actor_loss = self.alpha * log_prob - current_Q
+        actor_loss = self.alpha * log_prob - current_Q
 
         dones = torch.zeros_like(next_V)
         dones[:, -1] = 1
         y=self.gamma *(1 - dones) * next_V
         reward = current_Q - y
         value_loss = current_V - y
-
 
         return log_prob,logpi,actor_loss,entropy,current_Q,V,value_loss,reward
 
@@ -339,6 +254,14 @@ class IQ_SoftQ(LightningModule):
                 agent_return,agent_rewards=get_return(agent_d,self.gamma)
                 critic_loss = expert_loss + agent_loss
 
+                if self.automatic_optimization==False:
+                    policy_optimizer, discriminator_optimizer = self.optimizers()
+
+                    discriminator_optimizer.zero_grad()
+                    critic_loss.backward()#retain_graph=True
+                    torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
+                    discriminator_optimizer.step()
+
                 self.log("train/agent_dis_loss", agent_loss, on_step=True, batch_size=1)
                 self.log("train/agent_disc_val", agent_d.mean().item(), on_step=True, batch_size=1)
                 self.log("train/agent_return", agent_return.mean().item(), on_step=True, batch_size=1)
@@ -390,6 +313,14 @@ class IQ_SoftQ(LightningModule):
             self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             loss = critic_loss+expert_proposal_loss+expert_nll #+constraint_loss#+constraint_loss#critic_loss+constraint_loss #expert_nll #-0.01*agent_entropy.mean() #expert_nll+expert_nll+expert_nll+.square().square()expert_nll++(expert_target_loss+agent_target_loss) # #*0.1
+
+            if self.automatic_optimization == False:
+                policy_optimizer.zero_grad()
+                loss=expert_proposal_loss+expert_nll
+                self.manual_backward(loss)
+                nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())
+                                               +list(self.encoder.value_network.parameters()), 0.5)
+                policy_optimizer.step()
 
             if self.encoder.agent_encoder.use_light:
                 self.encoder.agent_encoder.pred_light=True
