@@ -375,7 +375,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
 
-                expert_nll=expert_nll+agent_wNLL+value_loss#- 0.01 * agent_entropy.mean()
+                expert_nll=expert_nll+agent_wNLL+value_loss- 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
