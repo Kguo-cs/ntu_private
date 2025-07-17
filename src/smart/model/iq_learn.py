@@ -265,7 +265,7 @@ class IQ_SoftQ(LightningModule):
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
-                alpha=0.5
+                alpha=10
                 critic_loss =-expert_rewards.mean()+expert_reward.square().mean() / (4 * alpha)+agent_rewards.mean()
                     #expert_loss + agent_loss
                 self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
