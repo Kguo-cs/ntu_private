@@ -297,8 +297,8 @@ class IQ_SoftQ(LightningModule):
 
         # if self.iq_learn:
         #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-        for key in ["sampled_pos", "sampled_heading"]:
-            tokenized_agent[key] = tokenized_agent[key]+  1e-3 * torch.randn_like(tokenized_agent[key])#.clamp(min=-3,max=1)
+        # for key in ["sampled_pos", "sampled_heading"]:
+        #     tokenized_agent[key] = tokenized_agent[key]+  1e-3 * torch.randn_like(tokenized_agent[key])#.clamp(min=-3,max=1)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
