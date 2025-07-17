@@ -203,9 +203,12 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
+
+        rewards=score
+
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss,score
+        return bce_loss,rewards
 
 
     def iq_update(self, tokenized_map, tokenized_agent):
@@ -262,9 +265,9 @@ class IQ_SoftQ(LightningModule):
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
-                #if self.global_step%(self.dis_freq+1)==0:
                 alpha=0.5
-                critic_loss =-expert_rewards.mean()+expert_reward.square().mean() / (4 * alpha)+agent_rewards.mean() #(expert_rewards+expert_reward.sq) #expert_loss + agent_loss
+                critic_loss =-expert_rewards.mean()+expert_reward.square().mean() / (4 * alpha)+agent_rewards.mean()
+                    #expert_loss + agent_loss
                 self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
                 if self.automatic_optimization==False:
