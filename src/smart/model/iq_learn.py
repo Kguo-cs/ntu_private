@@ -37,7 +37,7 @@ class IQ_SoftQ(LightningModule):
         if self.use_gail:
             self.automatic_optimization = False
 
-            self.dis_freq=1
+            self.dis_freq=2
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
@@ -239,8 +239,8 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
-                #if self.global_step%(self.dis_freq+1)==0:
-                expert_loss,_=self.get_reward(tokenized_agent["all_features"],"expert")
+                if self.global_step%(self.dis_freq+1)==0:
+                    expert_loss,_=self.get_reward(tokenized_agent["all_features"],"expert")
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -259,15 +259,15 @@ class IQ_SoftQ(LightningModule):
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
-                #if self.global_step%(self.dis_freq+1)==0:
-                critic_loss = expert_loss + agent_loss
-                self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+                if self.global_step%(self.dis_freq+1)==0:
+                    critic_loss = expert_loss + agent_loss
+                    self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-                if self.automatic_optimization==False:
-                    discriminator_optimizer.zero_grad()
-                    self.manual_backward(critic_loss)
-                    torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
-                    discriminator_optimizer.step()
+                    if self.automatic_optimization==False:
+                        discriminator_optimizer.zero_grad()
+                        self.manual_backward(critic_loss)
+                        torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
+                        discriminator_optimizer.step()
 
 
                 if self.encoder.use_value:
