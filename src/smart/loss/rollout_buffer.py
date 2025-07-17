@@ -194,7 +194,7 @@ def compute_advantages(rewards, values,gamma=0.99,lam=0.95):#0.95
 
     # advantages = returns - value_preds[:,:-1]
     # Normalize the advantages
-    #advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
+    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
     #
     # returns = []
     #
