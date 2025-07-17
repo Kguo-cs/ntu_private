@@ -243,7 +243,7 @@ class IQ_SoftQ(LightningModule):
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
                 #if self.global_step%(self.dis_freq+1)==0:
-                expert_loss,_=self.get_reward(tokenized_agent["all_features"],"expert")
+                expert_loss,expert_rewards=self.get_reward(tokenized_agent["all_features"],"expert")
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -263,7 +263,8 @@ class IQ_SoftQ(LightningModule):
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
                 #if self.global_step%(self.dis_freq+1)==0:
-                critic_loss = expert_loss + agent_loss
+                alpha=0.5
+                critic_loss =-expert_rewards.mean()+expert_reward.square().mean() / (4 * alpha)+agent_rewards.mean() #(expert_rewards+expert_reward.sq) #expert_loss + agent_loss
                 self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
                 if self.automatic_optimization==False:
@@ -279,7 +280,7 @@ class IQ_SoftQ(LightningModule):
 
                     advantages,returns=compute_advantages(agent_rewards,value_pred,gamma=self.gamma)
 
-                    value_loss =0.5* 0.5 * (returns - value_pred).pow(2).mean()
+                    value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
