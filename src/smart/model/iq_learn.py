@@ -223,7 +223,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
-                if self.global_step%4==0:
+                if self.global_step%3==0:
                     expert_score=self.encoder.discriminator(tokenized_agent["all_features"])[0]
 
                     expert_d = torch.sigmoid(expert_score[:,1:,0])
@@ -261,7 +261,7 @@ class IQ_SoftQ(LightningModule):
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
-                if self.global_step%4==0:
+                if self.global_step%3==0:
                     critic_loss = expert_loss + agent_loss
                     self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
