@@ -270,7 +270,7 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             V=(V-target_V)[all_valid_mask]
 
-        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob
+        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -300,7 +300,7 @@ class IQ_SoftQ(LightningModule):
         # for key in ["sampled_pos", "sampled_heading"]:
         #     tokenized_agent[key] = tokenized_agent[key]+  1e-3 * (2*torch.randn_like(tokenized_agent[key])-1)#.clamp(min=-3,max=1)
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
@@ -329,7 +329,7 @@ class IQ_SoftQ(LightningModule):
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent_rollout[key] = tokenized_agent_rollout[key]+1e-3 * torch.randn_like(tokenized_agent_rollout[key]) #+ 1e-4 * torch.randn_like(tokenized_agent[key])
 
-                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob = self.get_QV(
+                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
                 
                 agent_score=self.encoder.discriminator(tokenized_agent_rollout["all_features"])[0]
@@ -375,7 +375,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
 
-                expert_nll=expert_nll+agent_wNLL+value_loss
+                expert_nll=expert_nll+agent_wNLL+value_loss- 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
