@@ -204,11 +204,11 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
 
-        rewards=score
+        # rewards=score
 
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss,rewards
+        return bce_loss,rewards,returns
 
 
     def iq_update(self, tokenized_map, tokenized_agent):
@@ -234,9 +234,6 @@ class IQ_SoftQ(LightningModule):
             #     action_mask = valid_mask[:, 1:]
             #     train_mask = state_mask & action_mask
 
-        # for key in ["sampled_pos", "sampled_heading"]:
-        #     tokenized_agent[key] = tokenized_agent[key]+  1e-3 * (2*torch.randn_like(tokenized_agent[key])-1)#.clamp(min=-3,max=1)
-
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
@@ -246,7 +243,7 @@ class IQ_SoftQ(LightningModule):
                 # for key in ["sampled_pos", "sampled_heading"]:
                 #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
                 #if self.global_step%(self.dis_freq+1)==0:
-                expert_loss,expert_rewards=self.get_reward(tokenized_agent["all_features"],"expert")
+                expert_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert")
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -260,14 +257,14 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-                agent_loss,agent_rewards=self.get_reward(tokenized_agent_rollout["all_features"],"agent")
+                agent_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent")
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
                 alpha=10
-                critic_loss =-expert_rewards.mean()+expert_reward.square().mean() / (4 * alpha)+agent_rewards.mean()
-                    #expert_loss + agent_loss
+                # critic_loss =-expert_rewards.mean()+expert_reward.square().mean() / (4 * alpha)+agent_rewards.mean()
+                critic_loss=expert_loss + agent_loss
                 self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
                 if self.automatic_optimization==False:
@@ -296,19 +293,26 @@ class IQ_SoftQ(LightningModule):
 
                     #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
 
-                    advantages=agent_return-expert_return
+                    # advantages=agent_return-expert_return
+                    # value_loss=0
+                    # beta=1
+                    # weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
+                    #
+                    # self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
+                    #
+                    # agent_wNLL=-(agent_log_prob*weights).mean()
+
+                    advantages= F.normalize(agent_returns, p=2, dim=0)
+
                     value_loss=0
-                    beta=1
-                    weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
 
-                    self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-                    self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
 
-                    agent_wNLL=-(agent_log_prob*weights).mean()
+                agent_wNLL=-(agent_log_prob*advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
+                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                expert_nll=expert_nll+agent_wNLL+value_loss #- 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL + value_loss  # - 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
