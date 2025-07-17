@@ -355,10 +355,10 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                    #agent_wNLL=-(agent_log_prob*advantages).mean()
+                    agent_wNLL=-(agent_log_prob*advantages).mean()
 
 
-                    weights=(advantages>0).float()
+                    #weights=(advantages>0).float()
                 else:
 
                     #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
@@ -368,10 +368,10 @@ class IQ_SoftQ(LightningModule):
                     beta=1
                     weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
 
-                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-                self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
 
-                agent_wNLL=-(agent_log_prob*weights).mean()
+                    agent_wNLL=-(agent_log_prob*weights).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
 
