@@ -68,11 +68,12 @@ class SMARTAgentDecoder(nn.Module):
         self.time_span = time_span if time_span is not None else num_historical_steps
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
+        self.pt2a_neighbor = pt2a_neighbor
+        self.a2a_neighbor = a2a_neighbor
+
         self.num_layers = num_layers
         self.shift = token_processor.shift
         self.hist_drop_prob = hist_drop_prob
-        self.pt2a_neighbor = pt2a_neighbor
-        self.a2a_neighbor = a2a_neighbor
 
         self.alpha = alpha
 
@@ -84,7 +85,6 @@ class SMARTAgentDecoder(nn.Module):
 
         self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
-        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
@@ -92,8 +92,12 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
 
-        self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,num_layers,num_heads,head_dim,
-                                                    dropout,hist_drop_prob,n_token_agent,token_processor,output_gmm,pred_last_res,pred_all_res
+        self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+                                                    pl2a_radius,a2a_radius,num_freq_bands,
+                                                    num_layers,num_heads,head_dim,
+                                                    dropout,hist_drop_prob,n_token_agent,
+                                                    pt2a_neighbor,a2a_neighbor,
+                                                    token_processor,output_gmm,pred_last_res,pred_all_res
                                                     )
 
         # self.pt2a_attn_layers = nn.ModuleList(
@@ -249,31 +253,34 @@ class SMARTAgentDecoder(nn.Module):
         else:
             train_mask=None
 
-        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-            pos_pl=map_feature["position"],  # [n_pl, 2]
-            orient_pl=map_feature["orientation"],  # [n_pl]
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_a=head_a,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            mask=mask_a,  # [n_agent, n_step]
-            batch_s=batch_s,  # [n_agent*n_step]
-            batch_pl=batch_pl,  # [n_pl*n_step]
-            pl2a_radius=self.pl2a_radius,
-            max_num_neighbors=self.pt2a_neighbor,
-            train_mask=None
-        )
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
 
-        edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_a=head_a,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            batch_s=batch_s,  # [n_agent*n_step]
-            mask=mask_a,  # [n_agent, n_step]
-            max_radius=self.a2a_radius,
-            max_num_neighbors=self.a2a_neighbor,
-            proposal=None,
-            shape=tokenized_agent["shape"]
-        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+        # edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+        #     pos_pl=pos_pl,  # [n_pl, 2]
+        #     orient_pl=orient_pl,  # [n_pl]
+        #     pos_a=pos_a,  # [n_agent, n_step, 2]
+        #     head_a=head_a,  # [n_agent, n_step]
+        #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+        #     mask=mask_a,  # [n_agent, n_step]
+        #     batch_s=batch_s,  # [n_agent*n_step]
+        #     batch_pl=batch_pl,  # [n_pl*n_step]
+        #     pl2a_radius=self.pl2a_radius,
+        #     max_num_neighbors=self.pt2a_neighbor,
+        #     train_mask=None
+        # )
+        #
+        # edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
+        #     pos_a=pos_a,  # [n_agent, n_step, 2]
+        #     head_a=head_a,  # [n_agent, n_step]
+        #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+        #     batch_s=batch_s,  # [n_agent*n_step]
+        #     mask=mask_a,  # [n_agent, n_step]
+        #     max_radius=self.a2a_radius,
+        #     max_num_neighbors=self.a2a_neighbor,
+        #     proposal=None,
+        #     #shape=tokenized_agent["shape"]
+        # )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         if len(light_idx):
             feat_lg = self.light_encoder.light_embedding(light_idx)
@@ -312,7 +319,10 @@ class SMARTAgentDecoder(nn.Module):
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
 
-        all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
+        all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
+            pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl
+
+        # all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
 
         if self.training:
             detach_all_features=[]

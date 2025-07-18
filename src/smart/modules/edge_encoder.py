@@ -37,7 +37,7 @@ class EdgeEncoder(nn.Module):
             num_freq_bands=num_freq_bands,
         )
 
-        input_dim_r_t = 4
+        # input_dim_r_t = 4
 
         # self.r_t_emb = FourierEmbedding(
         #     input_dim=input_dim_r_t,
@@ -101,7 +101,7 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             max_radius,
             proposal=None,
-            shape=None
+            # shape=None
     ):
         mask = mask.transpose(0, 1).reshape(-1)
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)

@@ -18,6 +18,7 @@ import torch.nn as nn
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
+from src.smart.modules.edge_encoder import EdgeEncoder
 
 
 class InterativeDecoder(nn.Module):
@@ -27,12 +28,17 @@ class InterativeDecoder(nn.Module):
             num_historical_steps: int,
             num_future_steps: int,
             time_span: Optional[int],
+            pl2a_radius: float,
+            a2a_radius: float,
+            num_freq_bands: int,
             num_layers: int,
             num_heads: int,
             head_dim: int,
             dropout: float,
             hist_drop_prob: float,
             n_token_agent: int,
+            pt2a_neighbor: int,
+            a2a_neighbor: int,
             token_processor,
             output_gmm,
             pred_last_res,
@@ -54,6 +60,7 @@ class InterativeDecoder(nn.Module):
         # self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
         #                                   hist_len=self.agent_hist)
 
+        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
 
 
         self.pt2a_attn_layers = nn.ModuleList(
@@ -121,25 +128,61 @@ class InterativeDecoder(nn.Module):
                 self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
         self.start_step=10//self.shift-1
 
-    def forward(self,all_features ):
+        self.pl2a_radius = pl2a_radius
+        self.a2a_radius = a2a_radius
+        self.pt2a_neighbor = pt2a_neighbor
+        self.a2a_neighbor = a2a_neighbor
 
-        train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a=all_features
+    def forward(self,all_features ):
+        feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
+        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features #r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
+
+        if self.n_token_agent == 1:
+            train_mask = mask_a.all(-1)
+        else:
+            train_mask=None
+
+        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+            pos_pl=pos_pl,  # [n_pl, 2]
+            orient_pl=orient_pl,  # [n_pl]
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask_a,  # [n_agent, n_step]
+            batch_s=batch_s,  # [n_agent*n_step]
+            batch_pl=batch_pl,  # [n_pl*n_step]
+            pl2a_radius=self.pl2a_radius,
+            max_num_neighbors=self.pt2a_neighbor,
+            train_mask=train_mask
+        )
+
+        edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            batch_s=batch_s,  # [n_agent*n_step]
+            mask=mask_a,  # [n_agent, n_step]
+            max_radius=self.a2a_radius,
+            max_num_neighbors=self.a2a_neighbor,
+            proposal=None,
+            #shape=tokenized_agent["shape"]
+        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         n_agent = sampled_idx.shape[0]
 
         for layer_i in range(self.num_layers):
             if self.n_token_agent==1:
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                if layer_i == self.num_layers - 1 :
+                    feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a = feat_a.flatten(0, 1)
+
                 feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
             else:
                 feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-
-            if layer_i == self.num_layers-1 and train_mask is not None:
-                feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:,train_mask]
-                n_agent=feat_a.shape[1]
-                feat_a=feat_a.flatten(0, 1)
 
         feat_a = feat_a.view(-1, n_agent, self.hidden_dim).transpose(0, 1)
 

@@ -238,7 +238,7 @@ class IQ_SoftQ(LightningModule):
             self.encoder.agent_encoder.pred_light=False
 
             if self.use_gail:
-                expert_dis_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",train_mask)
+                expert_dis_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",None)
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-                agent_dis_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",train_mask)
+                agent_dis_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",None)
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
@@ -270,9 +270,9 @@ class IQ_SoftQ(LightningModule):
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
                     # value_pred = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"][:,:-1,0]
 
-                    advantages,returns=compute_advantages(agent_rewards,value_pred,all_valid,gamma=self.gamma)
+                    advantages,returns=compute_advantages(agent_rewards,value_pred,None,gamma=self.gamma)
 
-                    value_loss = 0.5 * (returns - value_pred)[all_valid].pow(2).mean()
+                    value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)

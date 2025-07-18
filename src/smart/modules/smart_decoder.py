@@ -128,12 +128,20 @@ class SMARTDecoder(nn.Module):
                 pred_all_res=token_processor.pred_all_res,
             )
             if self.use_gail:
-                self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,1,num_heads,head_dim,
-                                                    dropout,hist_drop_prob,1,token_processor,False,False,False
-                                                    )
+                self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+                                                    pl2a_radius,a2a_radius,num_freq_bands,
+                                                    1,num_heads,head_dim,
+                                                    dropout,hist_drop_prob,1,
+                                                    pt2a_neighbor//2,a2a_neighbor//2,
+                                                    token_processor,False,False,False
+                                                        )
                 if self.use_value:
-                    self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,1,num_heads,head_dim,
-                                                        dropout,hist_drop_prob,1,token_processor,False,False,False
+                    self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+                                                    pl2a_radius,a2a_radius,num_freq_bands,
+                                                    1,num_heads,head_dim,
+                                                    dropout,hist_drop_prob,1,
+                                                    pt2a_neighbor,a2a_neighbor,
+                                                    token_processor,False,False,False
                                                         )
                     # self.value_network = SMARTAgentDecoder(
                     #     hidden_dim=hidden_dim,
