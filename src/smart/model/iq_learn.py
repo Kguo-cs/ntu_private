@@ -264,7 +264,10 @@ class IQ_SoftQ(LightningModule):
 
                 if self.encoder.use_value:
 
-                    value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
+                    #value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
+                    pred_dict = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
+
+                    value_pred=pred_dict["agent_q"][:,:-1,0]
 
                     advantages,returns=compute_advantages(agent_rewards,value_pred,None,gamma=self.gamma)
 
