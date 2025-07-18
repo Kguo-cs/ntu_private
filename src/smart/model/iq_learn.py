@@ -222,18 +222,18 @@ class IQ_SoftQ(LightningModule):
         #     train_mask = valid_mask.all(-1)
         #     tokenized_agent["train_mask"]=train_mask
         # else:
-        # state_mask = valid_mask[:, :-1]
-        # action_mask = valid_mask[:, 1:]
-        # train_mask = state_mask & action_mask
-        train_mask = valid_mask.all(-1)
-
-        tokenized_agent["train_mask"] = valid_mask.all(-1)
+        state_mask = valid_mask[:, :-1]
+        action_mask = valid_mask[:, 1:]
+        train_mask = state_mask & action_mask
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
 
+            train_mask = valid_mask.all(-1)
+
+            tokenized_agent["train_mask"]= valid_mask.all(-1)
 
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",train_mask)

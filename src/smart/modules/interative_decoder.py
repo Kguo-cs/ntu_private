@@ -137,6 +137,11 @@ class InterativeDecoder(nn.Module):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
         pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features
 
+        if self.n_token_agent == 1:
+            map_a_mask=train_mask
+        else:
+            map_a_mask=None
+
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=pos_pl,  # [n_pl, 2]
             orient_pl=orient_pl,  # [n_pl]
@@ -148,7 +153,7 @@ class InterativeDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask
+            train_mask=map_a_mask
         )
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
