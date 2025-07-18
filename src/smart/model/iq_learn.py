@@ -268,12 +268,9 @@ class IQ_SoftQ(LightningModule):
                 if self.encoder.use_value:
 
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
-                    # pred_dict = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
-                    #
-                    # value_pred=pred_dict["agent_q"][:,:-1,0]
+                    # value_pred = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"][:,:-1,0]
 
-                    advantages,returns=compute_advantages(agent_rewards,value_pred,None,gamma=self.gamma)
-
+                    advantages,returns=compute_advantages(agent_rewards,value_pred,all_valid,gamma=self.gamma)
 
                     value_loss = 0.5 * (returns - value_pred)[all_valid].pow(2).mean()
 
@@ -297,7 +294,7 @@ class IQ_SoftQ(LightningModule):
                     value_loss=0
 
 
-                agent_wNLL=-(agent_log_prob*advantages)[all_valid].mean()
+                agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
