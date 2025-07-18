@@ -97,3 +97,5 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn, interval 0.1 ,unknown token, 2048 unknown token
 
 #pos , heading quantize 
+
+#road edge inter 1 no speed bump

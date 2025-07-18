@@ -260,7 +260,7 @@ class SMARTAgentDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask
+            train_mask=None
         )
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
