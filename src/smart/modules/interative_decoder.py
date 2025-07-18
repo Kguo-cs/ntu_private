@@ -134,13 +134,8 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
 
     def forward(self,all_features ):
-        feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
-        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features #r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
-
-        if self.n_token_agent == 1:
-            train_mask = mask_a.all(-1)
-        else:
-            train_mask=None
+        train_mask,feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
+        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=pos_pl,  # [n_pl, 2]
@@ -173,7 +168,7 @@ class InterativeDecoder(nn.Module):
         for layer_i in range(self.num_layers):
             if self.n_token_agent==1:
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-                if layer_i == self.num_layers - 1 :
+                if layer_i == self.num_layers - 1 and train_mask is not None :
                     feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
                     n_agent = feat_a.shape[1]
                     feat_a = feat_a.flatten(0, 1)
@@ -182,7 +177,10 @@ class InterativeDecoder(nn.Module):
             else:
                 feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-
+                if layer_i == self.num_layers - 1 and train_mask is not None:
+                    feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a = feat_a.flatten(0, 1)
 
         feat_a = feat_a.view(-1, n_agent, self.hidden_dim).transpose(0, 1)
 

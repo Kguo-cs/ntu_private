@@ -319,7 +319,7 @@ class SMARTAgentDecoder(nn.Module):
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
 
-        all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
+        all_features= train_mask,feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
             pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl
 
         # all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a

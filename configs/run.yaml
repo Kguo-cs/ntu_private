@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: gail64_nolight_amap1_BCDisSa_GailValid_edge #_advno
+task_name: gail64_nolight_amap1_edge10 #_BCDisSa_GailValid
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
