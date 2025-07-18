@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: gail64_amap_edge4_BCSa_GailValid
+task_name: bc64_amap_sa #edge4_BCSa_GailValid
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
