@@ -314,11 +314,13 @@ class SMARTAgentDecoder(nn.Module):
 
         all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
 
-        if train_mask is not None:
+        if self.training:
             detach_all_features=[]
             for feature in all_features:
                 if feature is not None:
                     detach_all_features.append(feature.detach())#.clone()
+                else:
+                    detach_all_features.append(feature)#.clone()
             tokenized_agent["all_features"]=detach_all_features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features)

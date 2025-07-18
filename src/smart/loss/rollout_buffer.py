@@ -168,7 +168,7 @@ def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
     return returns,rewards
 
 
-def compute_advantages(rewards, values,gamma=0.99,lam=0.95):#0.95
+def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
 
     dones = torch.zeros_like(rewards)
     dones[:,-1]=1
@@ -191,6 +191,9 @@ def compute_advantages(rewards, values,gamma=0.99,lam=0.95):#0.95
         delta = rewards[:,t] + gamma * next_value * next_non_terminal - values[:,t]
         advantages[:,t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
     returns = advantages + values
+
+    if train_mask is not None:
+        advantages = advantages[train_mask]
 
     # advantages = returns - value_preds[:,:-1]
     # Normalize the advantages
