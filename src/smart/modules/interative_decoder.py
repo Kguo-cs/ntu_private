@@ -133,8 +133,8 @@ class InterativeDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
 
-    def forward(self,all_features ):
-        train_mask,feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
+    def forward(self,all_features,train_mask ):
+        feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
         pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
