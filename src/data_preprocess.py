@@ -162,7 +162,7 @@ def get_map_features(map_infos, tf_current_light, dim=2):
 
             map_type.append(_seg["type"])
 
-            if _key == "lane":
+            if _key == "lane" and len(tf_current_light):
                 res = tf_current_light[tf_current_light["lane_id"] == _seg["id"]]
                 if len(res) != 0:
                     polygon_light_type[_idx] = _polygon_light_type.index(
@@ -387,7 +387,13 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
             xyz = np.array([[p.x, p.y, p.z] for p in feature.polygon])
             polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
             pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
-            cur_info = {"id": mf.id, "type": 9}
+
+            if feature_data_type=="crosswalk":
+               cur_info = {"id": mf.id, "type": 9}
+            elif feature_data_type=="driveway":
+                cur_info = {"id": mf.id, "type": 10}
+            elif feature_data_type=="speed_bump":
+                cur_info = {"id": mf.id, "type": 11}
 
             cur_polyline = np.stack(
                 [

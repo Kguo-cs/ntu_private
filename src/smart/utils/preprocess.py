@@ -149,7 +149,9 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
 
         if split_polyline is None:
             continue
-        split_polyline=split_polyline[::10]
+
+        if polygon_type !=1:
+            split_polyline=split_polyline[::10]
         split_polyline_pos.append(split_polyline[..., :2])
         split_polyline_theta.append(split_polyline[..., 2])
         split_polyline_type.append(cur_type[0].repeat(split_polyline.shape[0]))

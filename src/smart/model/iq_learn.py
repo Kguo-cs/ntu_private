@@ -229,13 +229,15 @@ class IQ_SoftQ(LightningModule):
         action_mask = valid_mask[:, 1:]
         train_mask = state_mask & action_mask
 
+        all_valid=valid_mask.all(-1)
+
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             self.encoder.agent_encoder.pred_light=False
 
             if self.use_gail:
-                expert_dis_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",train_mask)
+                expert_dis_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",all_valid)
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -246,7 +248,7 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-                agent_dis_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",train_mask)
+                agent_dis_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",all_valid)
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
@@ -264,10 +266,10 @@ class IQ_SoftQ(LightningModule):
 
                 if self.encoder.use_value:
 
-                    #value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
-                    pred_dict = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
-
-                    value_pred=pred_dict["agent_q"][:,:-1,0]
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
+                    # pred_dict = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])
+                    #
+                    # value_pred=pred_dict["agent_q"][:,:-1,0]
 
                     advantages,returns=compute_advantages(agent_rewards,value_pred,None,gamma=self.gamma)
 

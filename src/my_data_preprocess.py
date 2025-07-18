@@ -371,8 +371,13 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         # tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
         # map_data = get_map_features(map_infos, tf_current_light)
         # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
+        map_data = get_map_features(map_infos, [])
+        data = preprocess_map(map_data)
 
-        data= process_map(map_infos['all_polylines_list'])
+        del data['pt_token']['light_type']
+        del data['pt_token']['pl_type']
+
+        #data= process_map(map_infos['all_polylines_list'])
 
         # data = preprocess_map(map_data)
         #
@@ -428,7 +433,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/new"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
