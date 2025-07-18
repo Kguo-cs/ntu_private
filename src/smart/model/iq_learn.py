@@ -233,7 +233,7 @@ class IQ_SoftQ(LightningModule):
 
             train_mask = valid_mask.all(-1)
 
-            tokenized_agent["train_mask"]= valid_mask.all(-1)
+            tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",train_mask)
