@@ -122,30 +122,14 @@ class InterativeDecoder(nn.Module):
 
     def forward(self,all_features ):
 
-        #train_mask,feat_a_token,pos_a,head_a, n_step, n_current, mask,r_a2a, edge_index_a2a, feat_lg, r_lg2a, edge_index_lg2a, feat_map, r_pl2a, edge_index_pl2a=all_features
-
-
-        # n_agent, n_step = head_a.shape
-        #
-        # feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
-        #
-        # if self.training:
-        #     n_step=n_step-self.start_step
-        #     feat_a_t=feat_a_t[:,-n_step:]
         train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a=all_features
 
         n_agent = sampled_idx.shape[0]
 
-        # feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
-        #
-        # if len(feat_lg):
-        #     feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
-
         for layer_i in range(self.num_layers):
+            feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-
-            feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
             if layer_i == self.num_layers-1 and train_mask is not None:
                 feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:,train_mask]
@@ -155,7 +139,6 @@ class InterativeDecoder(nn.Module):
         feat_a = feat_a.view(-1, n_agent, self.hidden_dim).transpose(0, 1)
 
         proposal=None
-
 
         if self.pred_last_res:
             if self.training:

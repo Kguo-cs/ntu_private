@@ -117,7 +117,8 @@ class IQ_SoftQ(LightningModule):
 
         current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
-        log_prob=log_prob[train_mask]
+        if key == "expert":
+            log_prob=log_prob[train_mask]
 
         action_nll = -log_prob.mean()
 
@@ -220,25 +221,13 @@ class IQ_SoftQ(LightningModule):
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
 
-        if "col_mask" in tokenized_agent.keys():
-            col_mask = tokenized_agent["col_mask"][:, 1+self.start_step:]
-            state_mask=valid_mask[:,:-1]
-            action_mask=valid_mask[:,1:]
-
-            action_mask[:col_mask.shape[0]]=action_mask[:col_mask.shape[0]] & (~col_mask)
-
-            train_mask= state_mask & action_mask
-        else:
-            # train_mask = valid_mask.all(-1)
-            # tokenized_agent["train_mask"] = train_mask
-            #
-            # if self.iq_learn:
-            #     train_mask = valid_mask.all(-1)
-            #     tokenized_agent["train_mask"]=train_mask
-            # else:
-            state_mask = valid_mask[:, :-1]
-            action_mask = valid_mask[:, 1:]
-            train_mask = state_mask & action_mask
+        # if self.iq_learn:
+        #     train_mask = valid_mask.all(-1)
+        #     tokenized_agent["train_mask"]=train_mask
+        # else:
+        state_mask = valid_mask[:, :-1]
+        action_mask = valid_mask[:, 1:]
+        train_mask = state_mask & action_mask
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -257,7 +246,7 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-                agent_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",train_mask)
+                agent_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",None)
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
@@ -277,7 +266,7 @@ class IQ_SoftQ(LightningModule):
 
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
 
-                    advantages,returns=compute_advantages(agent_rewards,value_pred,train_mask,gamma=self.gamma)
+                    advantages,returns=compute_advantages(agent_rewards,value_pred,None,gamma=self.gamma)
 
                     value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
