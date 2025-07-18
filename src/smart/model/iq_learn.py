@@ -273,7 +273,6 @@ class IQ_SoftQ(LightningModule):
                     torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
                     discriminator_optimizer.step()
 
-
                 if self.encoder.use_value:
 
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["all_features"])[0][:,:-1,0]
