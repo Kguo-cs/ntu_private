@@ -189,16 +189,24 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
-    def get_reward(self,all_features,key):
+    def get_reward(self,all_features,key,train_mask=None):
         score = self.encoder.discriminator(all_features)[0][:, 1:, 0]
 
         disc_val = torch.sigmoid(score)
 
         returns, rewards = get_return(disc_val, self.gamma)
         if key == "expert":
-            bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
+            target=torch.ones_like(disc_val)
         else:
-            bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
+            target=torch.zeros_like(disc_val)
+
+        #if train_mask is not None:
+        bce_loss = self.bce_loss(disc_val, target)
+
+
+            # bce_loss=bce_loss[train_mask]
+
+
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
@@ -226,13 +234,13 @@ class IQ_SoftQ(LightningModule):
             # train_mask = valid_mask.all(-1)
             # tokenized_agent["train_mask"] = train_mask
             #
-            # if self.iq_learn:
-            #     train_mask = valid_mask.all(-1)
-            #     tokenized_agent["train_mask"]=train_mask
-            # else:
-            state_mask = valid_mask[:, :-1]
-            action_mask = valid_mask[:, 1:]
-            train_mask = state_mask & action_mask
+            if self.iq_learn:
+                train_mask = valid_mask.all(-1)
+                tokenized_agent["train_mask"]=train_mask
+            else:
+                state_mask = valid_mask[:, :-1]
+                action_mask = valid_mask[:, 1:]
+                train_mask = state_mask & action_mask
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -240,10 +248,7 @@ class IQ_SoftQ(LightningModule):
             self.encoder.agent_encoder.pred_light=False
 
             if self.use_gail:
-                # for key in ["sampled_pos", "sampled_heading"]:
-                #     tokenized_agent[key] = tokenized_agent[key] + 1e-4 * torch.randn_like(tokenized_agent[key])
-                #if self.global_step%(self.dis_freq+1)==0:
-                expert_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert")
+                expert_loss,expert_rewards,expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",None)
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -257,7 +262,7 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-                agent_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent")
+                agent_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",None)
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
