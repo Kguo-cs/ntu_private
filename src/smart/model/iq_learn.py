@@ -196,6 +196,7 @@ class IQ_SoftQ(LightningModule):
         disc_val = torch.sigmoid(score)
 
         returns, rewards = get_return(disc_val, self.gamma)
+
         if key == "expert":
             target=torch.ones_like(disc_val)
         else:

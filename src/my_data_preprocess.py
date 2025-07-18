@@ -434,7 +434,7 @@ if __name__ == "__main__":
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/new"
     )
     parser.add_argument("--split", type=str, default="training")
-    parser.add_argument("--num_workers", type=int, default=32)
+    parser.add_argument("--num_workers", type=int, default=2)
     args = parser.parse_args()
 
     batch_process9s_transformer(

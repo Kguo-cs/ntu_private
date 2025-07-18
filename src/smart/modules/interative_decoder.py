@@ -87,6 +87,7 @@ class InterativeDecoder(nn.Module):
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
+        self.n_token_agent=n_token_agent
 
         if self.output_gmm:
             self.k_ego_gmm=1
@@ -127,9 +128,13 @@ class InterativeDecoder(nn.Module):
         n_agent = sampled_idx.shape[0]
 
         for layer_i in range(self.num_layers):
+            if self.n_token_agent==1:
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+            else:
+                feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-            feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
             if layer_i == self.num_layers-1 and train_mask is not None:
                 feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:,train_mask]
