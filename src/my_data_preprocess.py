@@ -410,18 +410,18 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
 
     input_dir = Path(input_dir) / split
     packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[1:]
-    func = partial(
-        wm2argo,
-        split=split,
-        output_dir=output_dir,
-        output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
-    )
-
-    with multiprocessing.Pool(num_workers) as p:
-        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    # func = partial(
+    #     wm2argo,
+    #     split=split,
+    #     output_dir=output_dir,
+    #     output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
+    # )
+    #
+    # with multiprocessing.Pool(num_workers) as p:
+    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
     # print(len(packages))
-    # for file_path in tqdm(packages):
-    #     wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
+    for file_path in tqdm(packages):
+        wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -434,7 +434,7 @@ if __name__ == "__main__":
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/new"
     )
     parser.add_argument("--split", type=str, default="training")
-    parser.add_argument("--num_workers", type=int, default=2)
+    parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
     batch_process9s_transformer(

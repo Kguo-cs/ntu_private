@@ -274,7 +274,8 @@ class IQ_SoftQ(LightningModule):
 
                     advantages,returns=compute_advantages(agent_rewards,value_pred,None,gamma=self.gamma)
 
-                    value_loss = 0.5 * (returns - value_pred).pow(2).mean()
+
+                    value_loss = 0.5 * (returns - value_pred)[all_valid].pow(2).mean()
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
@@ -296,7 +297,7 @@ class IQ_SoftQ(LightningModule):
                     value_loss=0
 
 
-                agent_wNLL=-(agent_log_prob*advantages).mean()
+                agent_wNLL=-(agent_log_prob*advantages)[all_valid].mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
