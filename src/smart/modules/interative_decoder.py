@@ -133,6 +133,8 @@ class InterativeDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
 
+        self.token_processor=token_processor
+
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
         pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features
@@ -208,12 +210,19 @@ class InterativeDecoder(nn.Module):
 
             next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
-            next_token_traj_all = self.token_processor.token_local_traj[
-                torch.arange(n_agent)[:, None], next_token_idx]
+            token_local_traj = self.token_processor.token_local_traj
 
-            proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:, None], next_token_idx]
+            if train_mask is not None:
+                token_local_traj=token_local_traj[train_mask]
+                next_token_idx=next_token_idx[train_mask]
 
-            proposal = torch.tanh(proposal) * proposal_max_diff[:, :, None]
+            next_token_traj_all = token_local_traj[torch.arange(n_agent)[:, None], next_token_idx]
+
+            if self.token_processor.max_diff is not None:
+
+                proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:, None], next_token_idx]
+
+                proposal = torch.tanh(proposal) * proposal_max_diff[:, :, None]
 
             proposal = proposal + next_token_traj_all[:, :, None]
 

@@ -437,11 +437,13 @@ class SMARTAgentDecoder(nn.Module):
 
                 proposal_feature=feat_a[:,-1]+token_embedding
 
-                proposal=self.traj_head(proposal_feature).reshape(n_agent,-1,3)
+                proposal=self.interative_decoder.traj_head(proposal_feature).reshape(n_agent,-1,3)
 
-                proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent), next_token_idx]
+                if self.token_processor.max_diff is not None:
 
-                proposal = torch.tanh(proposal) * proposal_max_diff
+                    proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent), next_token_idx]
+
+                    proposal = torch.tanh(proposal) * proposal_max_diff
 
                 next_token_traj_all = self.token_processor.token_local_traj[torch.arange(n_agent), next_token_idx]
 

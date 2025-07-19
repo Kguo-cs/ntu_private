@@ -66,7 +66,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = False
+        self.pred_all_res = True
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -139,6 +139,8 @@ class TokenProcessor(torch.nn.Module):
 
         if "max_diff" in agent_token_data.keys():
             self.register_buffer(f"max_diff", 0.01*agent_token_data["max_diff"], persistent=False)
+        else:
+            self.max_diff=None
 
         if self.use_dynamic:
             module_dir = os.path.dirname(__file__)
@@ -445,34 +447,38 @@ class TokenProcessor(torch.nn.Module):
                 _valid_mask=token_valid & _valid_mask
 
             if self.pred_all_res:
-                token_local_traj= self.token_local_traj[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5,3]
-                
-                diff=self.token_diff[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5, 3]
-                
-                local_pos,local_heading=transform_to_local(
-                    pos_global=pos[:, i:i+1],  # [n_agent, 5, 2],
-                    head_global=heading[:, i:i+1],  # [n_agent, 5]
-                    pos_now=prev_pos,  # [n_agent, 2]
-                    head_now=prev_head,  # [n_agent]
-                )           
-                
-                local_traj=torch.cat([local_pos, local_heading[:, :, None]], dim=-1)  # [n_agent, 5, 3]
-                
-                real_diff=local_traj-token_local_traj  # [n_agent, 5, 3]
-                
-                token_diff=torch.minimum(real_diff,diff)
-                token_diff=torch.maximum(token_diff,-diff)
-                
-                local_token_traj=token_local_traj + token_diff
-                
-                global_pos,global_heading = transform_to_global(
-                        local_token_traj[:,:,:2],
-                        local_token_traj[:,:,2],
-                        prev_pos,  # [n_agent, 2]
-                        prev_head,  # [n_agent]
-                )
-                
-                token_contour_gt = cal_polygon_contour(global_pos[:,0], global_heading[:,0], agent_shape)  # [n_agent, 4, 2]
+                if self.max_diff is None:
+                    token_contour_gt=gt_contour[:,0]
+                    _valid_mask = valid[:, i]
+                else:
+                    token_local_traj= self.token_local_traj[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5,3]
+
+                    diff=self.token_diff[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5, 3]
+
+                    local_pos,local_heading=transform_to_local(
+                        pos_global=pos[:, i:i+1],  # [n_agent, 5, 2],
+                        head_global=heading[:, i:i+1],  # [n_agent, 5]
+                        pos_now=prev_pos,  # [n_agent, 2]
+                        head_now=prev_head,  # [n_agent]
+                    )
+
+                    local_traj=torch.cat([local_pos, local_heading[:, :, None]], dim=-1)  # [n_agent, 5, 3]
+
+                    real_diff=local_traj-token_local_traj  # [n_agent, 5, 3]
+
+                    token_diff=torch.minimum(real_diff,diff)
+                    token_diff=torch.maximum(token_diff,-diff)
+
+                    local_token_traj=token_local_traj + token_diff
+
+                    global_pos,global_heading = transform_to_global(
+                            local_token_traj[:,:,:2],
+                            local_token_traj[:,:,2],
+                            prev_pos,  # [n_agent, 2]
+                            prev_head,  # [n_agent]
+                    )
+
+                    token_contour_gt = cal_polygon_contour(global_pos[:,0], global_heading[:,0], agent_shape)  # [n_agent, 4, 2]
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -781,7 +787,8 @@ class TokenProcessor(torch.nn.Module):
             self.token_local_traj = torch.index_select(self.all_token_local_traj, dim=0,
                                                        index=agent_type.long())
 
-            self.token_diff = torch.index_select(self.max_diff, dim=0, index=agent_type.long())
+            if self.max_diff is not None:
+                self.token_diff = torch.index_select(self.max_diff, dim=0, index=agent_type.long())
 
         return agent_shape, token_traj_all, token_traj
 
