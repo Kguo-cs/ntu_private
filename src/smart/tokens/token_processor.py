@@ -496,7 +496,7 @@ class TokenProcessor(torch.nn.Module):
             if self.training and self.pred_all_res and self.max_diff is None:
                 pos_diff=(next_pos-prev_pos).abs().clamp_max(0.1)/3
 
-                next_pos = next_pos + pos_diff * torch.randn_like(pos_diff) # *( torch.rand_like(pos)-0.5)
+                next_pos = prev_pos + pos_diff * torch.randn_like(pos_diff) # *( torch.rand_like(pos)-0.5)
 
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 
