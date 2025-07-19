@@ -160,9 +160,8 @@ class TokenProcessor(torch.nn.Module):
         traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
         traj_theta = data["map_save"]["traj_theta"] # [n_pl]
         type = data["pt_token"]["type"]  # [n_pl]
-        pl_type = data["pt_token"]["pl_type"]  # [n_pl]
-        light_type= data["pt_token"]["light_type"]   # [n_pl]
-        batch = data["pt_token"]["batch"]
+        #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
+        #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -184,12 +183,14 @@ class TokenProcessor(torch.nn.Module):
             "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
-            "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
-            "type": type.long(),  # [n_pl]
-            "pl_type": pl_type.long(),  # [n_pl]
-            "light_type": light_type.long(),  # [n_pl]
-            "batch": batch,  # [n_pl]
+            #"token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
+            "type": type,  # [n_pl]
+            #"pl_type": pl_type.long(),  # [n_pl]
+            #"light_type": light_type.long(),  # [n_pl]
+           # "batch": batch,  # [n_pl]
         }
+        if "batch" in data["pt_token"].keys():
+            tokenized_map["batch"] = data["pt_token"]["batch"]
 
         return tokenized_map
 

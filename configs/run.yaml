@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: GAIL64_edge10_airlnormalize_novalue #detachvalue_airl #_noise00501s4 #_2048 #_learnvalue  | 637/1000
+task_name:  GAIL64_edge10_airl_nonorm #bc64_map10_s4 #GAIL64_edge10_airlnormalize_novalue #detachvalue_airl #_noise00501s4 #_2048 #_learnvalue  | 637/1000
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
