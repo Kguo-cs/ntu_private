@@ -207,7 +207,7 @@ class IQ_SoftQ(LightningModule):
 
         disc_val = torch.sigmoid(score)
 
-        returns, rewards = get_return(disc_val, self.gamma)#,reward_type='airl'
+        returns, rewards = get_return(disc_val, self.gamma,reward_type='airl')#
 
         if key == "expert":
             bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
