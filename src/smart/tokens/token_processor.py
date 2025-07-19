@@ -66,7 +66,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = True
+        self.pred_all_res = False
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -409,9 +409,6 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {
             "valid_mask": [],
-            "gt_idx": [],
-            "gt_pos": [],
-            "gt_heading": [],
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
@@ -480,7 +477,7 @@ class TokenProcessor(torch.nn.Module):
 
             if self.training and self.pred_all_res and self.max_diff is None:
 
-                head_diff=wrap_angle(next_head-prev_head).abs().clamp_max(0.05)/3
+                head_diff=wrap_angle(next_head-prev_head).abs().clamp_max(0.05)/4
 
                 next_head = prev_head + head_diff * torch.randn_like(next_head)  # *( torch.rand_like(pos)-0.5)
 
@@ -494,7 +491,7 @@ class TokenProcessor(torch.nn.Module):
             next_pos = token_contour_gt.mean(1)
 
             if self.training and self.pred_all_res and self.max_diff is None:
-                pos_diff=(next_pos-prev_pos).abs().clamp_max(0.1)/3
+                pos_diff=(next_pos-prev_pos).abs().clamp_max(0.1)/4
 
                 next_pos = prev_pos + pos_diff * torch.randn_like(pos_diff) # *( torch.rand_like(pos)-0.5)
 
@@ -506,57 +503,59 @@ class TokenProcessor(torch.nn.Module):
             _invalid_mask = ~valid[:, i]
 
             # add to output dict
-            out_dict["gt_idx"].append(token_idx_gt)
-            out_dict["gt_pos"].append(
+            out_dict["sampled_idx"].append(token_idx_gt)
+            out_dict["sampled_pos"].append(
                 prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
             )
-            out_dict["gt_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
+            out_dict["sampled_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
             out_dict["valid_mask"].append(_valid_mask)
 
             # ! tokenize from sampled rollout state
-            if num_k == 1:  # K=1 means no sampling
-                out_dict["sampled_idx"].append(out_dict["gt_idx"][-1])
-                out_dict["sampled_pos"].append(out_dict["gt_pos"][-1])
-                out_dict["sampled_heading"].append(out_dict["gt_heading"][-1])
-            else:
-                # contour: [n_agent, n_token, 4, 2], 2HZ, global coord
-                token_world_sample = transform_to_global(
-                    pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
-                    head_local=None,
-                    pos_now=prev_pos_sample,  # [n_agent, 2]
-                    head_now=prev_head_sample,  # [n_agent]
-                )[0].view(*token_traj.shape)
-
-                # dist: [n_agent, n_token]
-                dist = torch.norm(token_world_sample - gt_contour, dim=-1).mean(-1)
-                topk_dists, topk_indices = torch.topk(
-                    dist, num_k, dim=-1, largest=False, sorted=False
-                )  # [n_agent, K]
-
-                topk_logits = (-1.0 * topk_dists) / self.agent_token_sampling.temp
-                _samples = Categorical(logits=topk_logits).sample()  # [n_agent] in K
-                token_idx_sample = topk_indices[range_a, _samples]
-                token_contour_sample = token_world_sample[range_a, token_idx_sample]
-
-                # udpate prev_pos_sample, prev_head_sample
-                prev_head_sample = heading[:, i].clone()
-                dxy = token_contour_sample[:, 0] - token_contour_sample[:, 3]
-                prev_head_sample[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[
-                    _valid_mask
-                ]
-                prev_pos_sample = pos[:, i].clone()
-                prev_pos_sample[_valid_mask] = token_contour_sample.mean(1)[_valid_mask]
-                # add to output dict
-                out_dict["sampled_idx"].append(token_idx_sample)
-                out_dict["sampled_pos"].append(
-                    prev_pos_sample.masked_fill(_invalid_mask.unsqueeze(1), 0.0)
-                )
-                out_dict["sampled_heading"].append(
-                    prev_head_sample.masked_fill(_invalid_mask, 0.0)
-                )
+            # if num_k == 1:  # K=1 means no sampling
+            #     out_dict["sampled_idx"].append(out_dict["gt_idx"][-1])
+            #     out_dict["sampled_pos"].append(out_dict["gt_pos"][-1])
+            #     out_dict["sampled_heading"].append(out_dict["gt_heading"][-1])
+            # else:
+            #     # contour: [n_agent, n_token, 4, 2], 2HZ, global coord
+            #     token_world_sample = transform_to_global(
+            #         pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
+            #         head_local=None,
+            #         pos_now=prev_pos_sample,  # [n_agent, 2]
+            #         head_now=prev_head_sample,  # [n_agent]
+            #     )[0].view(*token_traj.shape)
+            #
+            #     # dist: [n_agent, n_token]
+            #     dist = torch.norm(token_world_sample - gt_contour, dim=-1).mean(-1)
+            #     topk_dists, topk_indices = torch.topk(
+            #         dist, num_k, dim=-1, largest=False, sorted=False
+            #     )  # [n_agent, K]
+            #
+            #     topk_logits = (-1.0 * topk_dists) / self.agent_token_sampling.temp
+            #     _samples = Categorical(logits=topk_logits).sample()  # [n_agent] in K
+            #     token_idx_sample = topk_indices[range_a, _samples]
+            #     token_contour_sample = token_world_sample[range_a, token_idx_sample]
+            #
+            #     # udpate prev_pos_sample, prev_head_sample
+            #     prev_head_sample = heading[:, i].clone()
+            #     dxy = token_contour_sample[:, 0] - token_contour_sample[:, 3]
+            #     prev_head_sample[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[
+            #         _valid_mask
+            #     ]
+            #     prev_pos_sample = pos[:, i].clone()
+            #     prev_pos_sample[_valid_mask] = token_contour_sample.mean(1)[_valid_mask]
+            #     # add to output dict
+            #     out_dict["sampled_idx"].append(token_idx_sample)
+            #     out_dict["sampled_pos"].append(
+            #         prev_pos_sample.masked_fill(_invalid_mask.unsqueeze(1), 0.0)
+            #     )
+            #     out_dict["sampled_heading"].append(
+            #         prev_head_sample.masked_fill(_invalid_mask, 0.0)
+            #     )
 
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
+        out_dict["pos"]= pos[:,5::5]
+        out_dict["heading"]= heading[:,5::5]
 
         def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
             B, T, D = tensor.shape
@@ -577,6 +576,8 @@ class TokenProcessor(torch.nn.Module):
 
         
         if self.pred_last_res or self.pred_all_res:
+
+
             gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
 
             gt_traj[~valid] = 0

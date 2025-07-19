@@ -154,8 +154,8 @@ def get_proposal_loss(proposal,tokenized_agent,start_step):
 
     proposal_contour = cal_polygon_contour(proposal[..., :2], proposal[..., 2], token_agent_shape)#B,T,N,F,4,2
 
-    pos_loss = (torch.linalg.norm(proposal[..., :2] - target_pos, dim=-1) * target_mask)
-    head_loss = (wrap_angle(proposal[..., 2] - target_head).abs() * target_mask)
+    pos_loss = (torch.linalg.norm(proposal[..., :2] - target_pos, dim=-1) * target_mask)[..., 4]
+    head_loss = (wrap_angle(proposal[..., 2] - target_head).abs() * target_mask)[..., 4]
 
     counter_dist =torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask
 
@@ -167,10 +167,8 @@ def get_proposal_loss(proposal,tokenized_agent,start_step):
 
     action = torch.argmin(proposal5_loss, dim=-1)
 
-    pos_dist = torch.gather(pos_loss[..., 4], index=action[:, :, None], dim=-1).sum()/target_sum
-    head_diff = torch.gather(head_loss[..., 4], index=action[:, :, None], dim=-1).sum()/target_sum
 
-    return proposal_loss, pos_dist, head_diff,action
+    return proposal_loss, pos_loss, head_loss,action
 
 
 def get_gaussian_loss(proposal,tokenized_agent):
