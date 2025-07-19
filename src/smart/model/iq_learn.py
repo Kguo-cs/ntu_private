@@ -207,7 +207,7 @@ class IQ_SoftQ(LightningModule):
 
         disc_val = torch.sigmoid(score)
 
-        returns, rewards = get_return(disc_val, self.gamma,reward_type='airl')
+        returns, rewards = get_return(disc_val, self.gamma)#,reward_type='airl'
 
         if key == "expert":
             bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
@@ -290,18 +290,9 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
 
-                    #advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
+                    # advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
 
-                    # advantages=agent_return-expert_return
-                    # value_loss=0
-                    # beta=1
-                    # weights = torch.exp(advantages / beta).clamp(max=1.0)  # avoid large weights
-                    #
-                    # self.log("train/weights", weights.mean().item(), on_step=True, batch_size=1)
-                    #
-                    # agent_wNLL=-(agent_log_prob*weights).mean()
-
-                    advantages= F.normalize(agent_returns, p=2, dim=0)
+                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5) #F.normalize(agent_returns, p=2, dim=0)
 
                     value_loss=0
 
