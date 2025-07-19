@@ -402,14 +402,14 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir = Path(output_dir)
     output_dir_tfrecords_splitted = None
-    if split == "validation":
-        output_dir_tfrecords_splitted = output_dir / "validation_tfrecords_splitted"
-        output_dir_tfrecords_splitted.mkdir(exist_ok=True, parents=True)
+    # if split == "validation":
+    #     output_dir_tfrecords_splitted = output_dir / "validation_tfrecords_splitted"
+    #     output_dir_tfrecords_splitted.mkdir(exist_ok=True, parents=True)
     output_dir = output_dir / split
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[636:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[636:]
     # func = partial(
     #     wm2argo,
     #     split=split,
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/new"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
