@@ -95,17 +95,18 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/" + key + "_pos_dist", pos_dist[all_valid_mask].mean().item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
 
-                sampled_pos=tokenized_agent['sampled_pos']
-                sampled_heading=tokenized_agent['sampled_heading']
+                if 'pos' in tokenized_agent.keys():
+                    sampled_pos=tokenized_agent['sampled_pos']
+                    sampled_heading=tokenized_agent['sampled_heading']
 
-                gt_pos=tokenized_agent['pos']
-                heading=tokenized_agent['heading']
+                    gt_pos = tokenized_agent['pos']
+                    heading = tokenized_agent['heading']
 
-                head_diff=wrap_angle(heading-sampled_heading).abs()
-                pos_dist=torch.linalg.norm(gt_pos-sampled_pos,dim=-1)
+                    head_diff=wrap_angle(heading-sampled_heading).abs()
+                    pos_dist=torch.linalg.norm(gt_pos-sampled_pos,dim=-1)
 
-                self.log("train/" + key + "_sample_head_diff", head_diff[all_valid_mask].mean().item(), on_step=True, batch_size=1)
-                self.log("train/" + key + "_sample_pos_dist", pos_dist[all_valid_mask].mean().item(), on_step=True, batch_size=1)
+                    self.log("train/" + key + "_sample_head_diff", head_diff[all_valid_mask].mean().item(), on_step=True, batch_size=1)
+                    self.log("train/" + key + "_sample_pos_dist", pos_dist[all_valid_mask].mean().item(), on_step=True, batch_size=1)
 
             else:
                 proposal_loss=0
