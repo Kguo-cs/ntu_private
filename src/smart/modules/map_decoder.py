@@ -95,23 +95,24 @@ class SMARTMapDecoder(nn.Module):
             return {}
 
         map_type=tokenized_map["type"].long()
+        map_type[map_type>9] = 9
+        
         mask = torch.ones_like(map_type, dtype=bool)
 
-        # type4_indices=torch.where((map_type==4) |(map_type==5))[0]
+        type4_indices=torch.where((map_type==4) |(map_type==5))[0]
 
-        # sampled_indices = type4_indices[1::5]
+        sampled_indices = type4_indices[1::5]
 
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[2::5]
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[2::5]
 
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[3::5]
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[4::5]
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[3::5]
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[4::5]
 
-        # mask[sampled_indices] = False
+        mask[sampled_indices] = False
 
-        mask[map_type>9] = False
 
         batch = tokenized_map["batch"][mask]
 
