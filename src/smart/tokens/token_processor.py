@@ -399,9 +399,6 @@ class TokenProcessor(torch.nn.Module):
         if self.use_dynamic:
             return self.dynamic_match(valid, pos, speed, heading,agent_shape, token_traj)
         
-        if self.training:
-            pos=pos+ 1e-3 *  torch.randn_like(pos)#*( torch.rand_like(pos)-0.5)
-            heading=heading+ 1e-3 *torch.randn_like(heading) #(torch.rand_like(heading)-0.5)
 
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
@@ -484,10 +481,18 @@ class TokenProcessor(torch.nn.Module):
             prev_head = heading[:, i].clone()
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
+
+            if self.training:
+                next_head = next_head + 1e-3 * torch.randn_like(next_head)  # *( torch.rand_like(pos)-0.5)
+
             prev_head[_valid_mask] = next_head[_valid_mask]
 
             prev_pos = pos[:, i].clone()
             next_pos = token_contour_gt.mean(1)
+
+            if self.training:
+                next_pos = next_pos + 1e-3 * torch.randn_like(next_pos)  # *( torch.rand_like(pos)-0.5)
+
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 
             if self.pred_last_res:

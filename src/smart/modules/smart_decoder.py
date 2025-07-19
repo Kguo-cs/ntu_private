@@ -129,7 +129,7 @@ class SMARTDecoder(nn.Module):
             )
             if self.use_gail:
                 self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                                                    20,20,num_freq_bands,
+                                                    10,10,num_freq_bands,
                                                     1,num_heads,head_dim,
                                                     dropout,hist_drop_prob,1,
                                                     pt2a_neighbor//2,a2a_neighbor//2,
