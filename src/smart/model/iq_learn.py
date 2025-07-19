@@ -292,7 +292,7 @@ class IQ_SoftQ(LightningModule):
 
                     # advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
 
-                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5) #F.normalize(agent_returns, p=2, dim=0)
+                    advantages= agent_returns#(agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5) #F.normalize(agent_returns, p=2, dim=0)
 
                     value_loss=0
 
