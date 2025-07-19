@@ -231,7 +231,7 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns=self.get_reward(tokenized_agent["all_features"],"expert",train_mask)
+                expert_dis_loss, expert_rewards, expert_returns=self.get_reward(tokenized_agent["detach_all_features"],"expert",train_mask)
 
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
@@ -242,7 +242,7 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
-                agent_dis_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["all_features"],"agent",train_mask)
+                agent_dis_loss,agent_rewards,agent_returns=self.get_reward(tokenized_agent_rollout["detach_all_features"],"agent",train_mask)
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
