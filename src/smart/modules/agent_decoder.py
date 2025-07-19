@@ -321,7 +321,7 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
-            tokenized_agent["all_features"]=all_features
+            #tokenized_agent["all_features"]=all_features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,train_mask)
 
