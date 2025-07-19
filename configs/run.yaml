@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: GAIL36_amap_edge10_noise0101s4 #_2048 #_learnvalue  | 637/1000
+task_name: GAIL36_amap_edge10_noise00101s4 #_2048 #_learnvalue  | 637/1000
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
