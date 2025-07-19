@@ -207,21 +207,16 @@ class IQ_SoftQ(LightningModule):
 
         disc_val = torch.sigmoid(score)
 
-        returns, rewards = get_return(disc_val, self.gamma)
+        returns, rewards = get_return(disc_val, self.gamma,reward_type='airl')
 
         if key == "expert":
-            target=torch.ones_like(disc_val)
+            bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
         else:
-            target=torch.zeros_like(disc_val)
-
-        bce_loss = self.bce_loss(disc_val, target)
+            bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
-
-        # rewards=score
-
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
         return bce_loss,rewards,returns,score
@@ -279,13 +274,13 @@ class IQ_SoftQ(LightningModule):
 
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["detach_all_features"],train_mask)[0][:,:,0]
                     # value_pred = self.encoder.value_network(tokenized_agent_rollout, tokenized_map["detach_map_feature"])["agent_q"][:,:-1,0]
-                    if self.use_airl:
-                        with torch.no_grad():
-                            r = agent_score
-                            v_s =value_pred[:,:-1]
-                            v_next = value_pred[:,1:]
-                            logits = r + v_next - v_s
-                            agent_rewards=torch.log(torch.sigmoid(logits) + 1e-8) - torch.log(1 - torch.sigmoid(logits) + 1e-8)
+                    # if self.use_airl:
+                    #     with torch.no_grad():
+                    #         r = agent_score
+                    #         v_s =value_pred[:,:-1]
+                    #         v_next = value_pred[:,1:]
+                    #         logits = r + v_next - v_s
+                    #         agent_rewards=torch.log(torch.sigmoid(logits) + 1e-8) - torch.log(1 - torch.sigmoid(logits) + 1e-8)
 
                     advantages,returns=compute_advantages(agent_rewards,value_pred[:,:-1].detach(),None,gamma=self.gamma)
 

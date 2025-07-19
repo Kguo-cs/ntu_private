@@ -192,11 +192,6 @@ def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
         advantages[:,t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
     returns = advantages + values
 
-    if train_mask is not None:
-        advantages = advantages[train_mask]
-
-    # advantages = returns - value_preds[:,:-1]
-    # Normalize the advantages
     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
     #
     # returns = []
