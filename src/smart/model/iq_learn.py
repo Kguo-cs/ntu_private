@@ -87,7 +87,6 @@ class IQ_SoftQ(LightningModule):
                 proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step )
 
                 self.log("train/" + key + "_head_diff", head_diff.item(), on_step=True, batch_size=1)
-
                 self.log("train/" + key + "_pos_dist", pos_dist.item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
             else:

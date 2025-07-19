@@ -480,7 +480,7 @@ class TokenProcessor(torch.nn.Module):
 
             if self.training and self.pred_all_res and self.max_diff is None:
 
-                head_diff=wrap_angle(next_head-prev_head).abs().clamp_max(0.1)/2
+                head_diff=wrap_angle(next_head-prev_head).abs().clamp_max(0.1)/4
 
                 next_head = prev_head + head_diff * torch.randn_like(next_head)  # *( torch.rand_like(pos)-0.5)
 
@@ -494,7 +494,7 @@ class TokenProcessor(torch.nn.Module):
             next_pos = token_contour_gt.mean(1)
 
             if self.training and self.pred_all_res and self.max_diff is None:
-                pos_diff=(next_pos-prev_pos).abs().clamp_max(0.5)/2
+                pos_diff=(next_pos-prev_pos).abs().clamp_max(0.5)/4
 
                 next_pos = prev_pos + pos_diff * torch.randn_like(pos_diff) # *( torch.rand_like(pos)-0.5)
 
