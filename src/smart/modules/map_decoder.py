@@ -61,7 +61,7 @@ class SMARTMapDecoder(nn.Module):
             if self.my_map:
                 self.token_emb = MLPEmbedding(input_dim=27, hidden_dim=hidden_dim)
             else:
-                self.token_emb = MLPEmbedding(input_dim=6, hidden_dim=hidden_dim)
+                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
             #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
             if self.gnn:

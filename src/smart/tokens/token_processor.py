@@ -109,7 +109,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(
             "map_token_traj_src",
-            torch.tensor(map_token_traj[:, indices], dtype=torch.float32).flatten(1, 2),
+            torch.tensor(map_token_traj, dtype=torch.float32).flatten(1, 2),
             persistent=False,
         )  # [n_token, 11*2]
 
