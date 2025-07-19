@@ -184,17 +184,6 @@ class SMARTAgentDecoder(nn.Module):
 
         else:
             self.pred_light=False
-            
-        self.pred_proposal=token_processor.pred_proposal
-        #
-        # if self.pred_proposal:
-        #     self.proposal_embedding=nn.Embedding(n_token_agent,hidden_dim)
-        #     self.proposal_head=MLPLayer(hidden_dim,hidden_dim, output_dim=3*5)#future 30 second
-
-        self.pred_gaussian=False
-
-        if self.pred_gaussian:
-            self.gaussian_head=MLPLayer(hidden_dim,hidden_dim, output_dim=4*6)#future 30 second
 
         self.use_dynamic=token_processor.use_dynamic
         self.start_step=10//self.shift-1
@@ -247,11 +236,6 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_pl = build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
 
-        if "train_mask" in tokenized_agent.keys() and self.training:
-            train_mask=tokenized_agent["train_mask"]
-            agent_token_emb=agent_token_emb[train_mask]
-        else:
-            train_mask=None
 
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
@@ -318,6 +302,11 @@ class SMARTAgentDecoder(nn.Module):
 
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
+
+        if "train_mask" in tokenized_agent.keys() and self.training:
+            train_mask=tokenized_agent["train_mask"]
+        else:
+            train_mask=None
 
         all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
             pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl

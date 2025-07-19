@@ -57,11 +57,7 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        # self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-        #                                   hist_len=self.agent_hist)
-
         self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
-
 
         self.pt2a_attn_layers = nn.ModuleList(
             [
@@ -96,36 +92,13 @@ class InterativeDecoder(nn.Module):
         self.pred_all_res = pred_all_res
         self.n_token_agent=n_token_agent
 
-        if self.output_gmm:
-            self.k_ego_gmm=1
-            self.cov_gmm=0.1 #[1.0, 0.1]
-            self.cov_learnable=True
-            self.use_GT=True
+        self.token_predict_head = MLPLayer(
+            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+        )
 
-            if self.k_ego_gmm>1:
-                self.gmm_logits_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm
-                )
-            self.gmm_pose_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * 3
-            )
-            self.output_dim=3
+        if self.pred_last_res or self.pred_all_res:
+            self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
 
-            if self.cov_learnable:
-                self.gmm_cov_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * self.output_dim
-                )
-
-            # self.cholesky_head = nn.Linear(
-            #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
-            # )
-        else:
-            self.token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
-
-            if self.pred_last_res or self.pred_all_res:
-                self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
         self.start_step=10//self.shift-1
 
         self.pl2a_radius = pl2a_radius
@@ -138,11 +111,6 @@ class InterativeDecoder(nn.Module):
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
         pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features
-
-        # if self.n_token_agent == 1:
-        #     map_a_mask=train_mask
-        # else:
-        #     map_a_mask=None
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=pos_pl,  # [n_pl, 2]
@@ -203,11 +171,6 @@ class InterativeDecoder(nn.Module):
             proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
         if self.pred_all_res and self.training:
-
-            proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
-            proposal = self.traj_head(proposal_feature)  #
-            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
-
             next_token_idx = sampled_idx[:, 1 + self.start_step:]
 
             token_local_traj = self.token_processor.token_local_traj
@@ -215,6 +178,11 @@ class InterativeDecoder(nn.Module):
             if train_mask is not None:
                 token_local_traj=token_local_traj[train_mask]
                 next_token_idx=next_token_idx[train_mask]
+                agent_token_emb=agent_token_emb[train_mask]
+
+            proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+            proposal = self.traj_head(proposal_feature)  #
+            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
             next_token_traj_all = token_local_traj[torch.arange(n_agent)[:, None], next_token_idx]
 
