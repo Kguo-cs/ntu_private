@@ -84,13 +84,9 @@ class IQ_SoftQ(LightningModule):
 
         if pred["proposal"] is not None:
             if key=="expert":
-                if self.encoder.agent_encoder.pred_gaussian:
-                    proposal_loss,pos_dist, head_diff=get_gaussian_loss(pred["proposal"],tokenized_agent )
-                    action = tokenized_agent["sampled_idx"][:, 2:]
-                else:
-                    proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step )
+                proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step )
 
-                    self.log("train/" + key + "_head_diff", head_diff.item(), on_step=True, batch_size=1)
+                self.log("train/" + key + "_head_diff", head_diff.item(), on_step=True, batch_size=1)
 
                 self.log("train/" + key + "_pos_dist", pos_dist.item(), on_step=True, batch_size=1)
                 self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
