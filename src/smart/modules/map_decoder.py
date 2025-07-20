@@ -113,7 +113,7 @@ class SMARTMapDecoder(nn.Module):
 
         mask[sampled_indices] = False
 
-        mask[map_type>10] = False
+        #mask[map_type>10] = False
 
 
         batch = tokenized_map["batch"][mask]
