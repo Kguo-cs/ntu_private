@@ -109,8 +109,6 @@ class SMARTMapDecoder(nn.Module):
 
         batch = tokenized_map["batch"][mask]
 
-        map_type=map_type[mask]
-
         if "orientation" in tokenized_map.keys():
             pos_pt = tokenized_map["position"][mask]
             orient_pt = tokenized_map["orientation"][mask]
@@ -125,10 +123,10 @@ class SMARTMapDecoder(nn.Module):
             x_pt=self.token_emb(relative_pos)
             
         pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3,3,3]).to(device=pos_pt.device, dtype=torch.long)
-        pl_type=pl_type_mapping[map_type]
+        pl_type=pl_type_mapping[map_type[mask]]
 
         x_pt_categorical_embs = [
-            self.type_pt_emb(map_type),  #
+            self.type_pt_emb(map_type[mask]),  #
             self.polygon_type_emb(pl_type),  #
             # self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]

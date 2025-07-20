@@ -249,9 +249,12 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
                 if self.rollout_freq>1:
-                    self.tokenized_map={"map_feature":{}}
-                    for key in tokenized_map["map_feature"].keys():
-                        self.tokenized_map["map_feature"][key]=tokenized_map["map_feature"][key].detach().clone()
+                    self.tokenized_map={}#"map_feature":{}
+                    # for key in tokenized_map["map_feature"].keys():
+                    #     self.tokenized_map["map_feature"][key]=tokenized_map["map_feature"][key].detach().clone()
+                    for key in tokenized_map.keys():
+                        if key!="map_feature":
+                            self.tokenized_map[key]=tokenized_map[key]
 
                     self.tokenized_agent_rollout={}
 
