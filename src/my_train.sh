@@ -12,4 +12,4 @@ source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
-python  run.py > bc64_map5_11.log  2>&1
+python  run.py > GAIL64_map5_11_airl_normR.log  2>&1
