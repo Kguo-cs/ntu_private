@@ -36,7 +36,7 @@ class IQ_SoftQ(LightningModule):
         self.bce_loss = nn.BCELoss()
 
 
-        self.rollout_freq=2
+        self.rollout_freq=1
 
 
         # if self.use_gail:
