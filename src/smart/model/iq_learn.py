@@ -312,18 +312,16 @@ class IQ_SoftQ(LightningModule):
                 if self.rollout_freq>1:
                     prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
                     ratio = torch.exp(agent_log_prob - prev_log_prob)
+                    clip_param = 0.2
+
+                    surr1 = ratio * advantages
+                    surr2 = torch.clamp(ratio,
+                                        1.0 - clip_param,
+                                        1.0 + clip_param) * advantages
+                    agent_wNLL = -torch.min(surr1, surr2).mean()
+
                 else:
-                    ratio=1
-
-                clip_param=0.2
-
-                surr1 = ratio * advantages
-                surr2 = torch.clamp(ratio,
-                                    1.0 - clip_param,
-                                    1.0 + clip_param) * advantages
-                agent_wNLL = -torch.min(surr1, surr2).mean()
-
-                # agent_wNLL=-(agent_log_prob*advantages).mean()
+                    agent_wNLL=-(agent_log_prob*advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
