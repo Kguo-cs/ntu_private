@@ -7,7 +7,7 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.metrics.utils import get_euclidean_targets
 from src.smart.loss.gmm_dist import  GMM_Dist,get_entropy
 from src.smart.loss.iq_loss import get_iqloss,soft_update,eval_light,get_proposal_loss,get_gaussian_loss
-from src.smart.loss.rollout_buffer import rollout,get_return_diff,get_return,compute_advantages
+from src.smart.loss.rollout_buffer import rollout, get_return_diff, get_return, compute_advantages, ReplayBuffer
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -33,6 +33,10 @@ class IQ_SoftQ(LightningModule):
 
         self.use_gail=self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
+
+
+        self.rollout_freq=4
+
 
         # if self.use_gail:
         #     self.automatic_optimization = False
@@ -224,10 +228,6 @@ class IQ_SoftQ(LightningModule):
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
 
-        # if self.iq_learn:
-        #     train_mask = valid_mask.all(-1)
-        #     tokenized_agent["train_mask"]=train_mask
-        # else:
         state_mask = valid_mask[:, :-1]
         action_mask = valid_mask[:, 1:]
         train_mask = state_mask & action_mask
@@ -244,16 +244,30 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns,_=self.get_reward(tokenized_agent["detach_all_features"],"expert",train_mask)
 
-            tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+            if self.global_step%self.rollout_freq==0:
+                tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+
+                if self.rollout_freq>1:
+                    self.tokenized_map={"map_feature":{}}
+                    for key in tokenized_map["map_feature"].keys():
+                        self.tokenized_map["map_feature"][key]=tokenized_map["map_feature"][key].detach().clone()
+
+                    self.tokenized_agent_rollout={}
+
+                    for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape","sampled_log_prob","light_idx","num_graphs","train_mask","detach_all_features"]:
+                        self.tokenized_agent_rollout[key] = tokenized_agent_rollout[key]
+            else:
+                tokenized_map=self.tokenized_map
+                tokenized_agent_rollout=self.tokenized_agent_rollout
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                    tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
+                    tokenized_map, tokenized_agent_rollout, tokenized_agent_rollout["train_mask"],key='agent')
 
-                agent_dis_loss,agent_rewards,agent_returns,agent_score=self.get_reward(tokenized_agent_rollout["detach_all_features"],"agent",train_mask)
+                agent_dis_loss,agent_rewards,agent_returns,agent_score=self.get_reward(tokenized_agent_rollout["detach_all_features"],"agent",tokenized_agent_rollout["train_mask"])
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
@@ -288,15 +302,24 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
-
-                    # advantages,returns=compute_advantages(agent_rewards,expert_return,gamma=self.gamma)
-
-                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5) #F.normalize(agent_returns, p=2, dim=0)
-
+                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)
                     value_loss=0
 
+                if self.rollout_freq>1:
+                    prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
+                    ratio = torch.exp(agent_log_prob - prev_log_prob)
+                else:
+                    ratio=1
 
-                agent_wNLL=-(agent_log_prob*advantages).mean()
+                clip_param=0.2
+
+                surr1 = ratio * advantages
+                surr2 = torch.clamp(ratio,
+                                    1.0 - clip_param,
+                                    1.0 + clip_param) * advantages
+                agent_wNLL = -torch.min(surr1, surr2).mean()
+
+                # agent_wNLL=-(agent_log_prob*advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)

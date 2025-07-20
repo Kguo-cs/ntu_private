@@ -14,6 +14,7 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
+from tensorflow_probability.substrates.jax.distributions.student_t import log_prob
 from torch_geometric.utils import subgraph
 
 from src.smart.layers import MLPLayer
@@ -317,11 +318,10 @@ class SMARTAgentDecoder(nn.Module):
             detach_all_features=[]
             for feature in all_features:
                 if feature is not None:
-                    detach_all_features.append(feature.detach())#.clone()
+                    detach_all_features.append(feature.detach().clone())#
                 else:
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
-            #tokenized_agent["all_features"]=all_features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,train_mask)
 
@@ -389,6 +389,8 @@ class SMARTAgentDecoder(nn.Module):
         pred_traj_10hz = []
         pred_head_10hz = []
 
+        sampled_log_prob=[]
+
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
@@ -419,8 +421,13 @@ class SMARTAgentDecoder(nn.Module):
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
             else:
-                next_token_idx = Categorical(
-                    logits=next_token_logits[:, -1, ] / self.alpha).sample()
+                dist=Categorical(
+                    logits=next_token_logits[:, -1, ] / self.alpha)
+                next_token_idx = dist.sample()
+
+                log_prob=dist.log_prob(next_token_idx)
+
+                sampled_log_prob.append(log_prob)
 
             if self.pred_all_res:
                 token_embedding=self.agent_token_embedding.embedding(next_token_idx)
@@ -513,6 +520,8 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light:
             self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
+        sampled_log_prob=torch.stack(sampled_log_prob,dim=1)
+
         out_dict = {
             "type": tokenized_agent["type"],
             "shape": tokenized_agent["shape"],
@@ -521,6 +530,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
+            "sampled_log_prob":sampled_log_prob
             #"light_idx": light_idx,
         }
 
