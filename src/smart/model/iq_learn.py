@@ -221,7 +221,6 @@ class IQ_SoftQ(LightningModule):
 
         return bce_loss,rewards,returns,score
 
-
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
 
