@@ -47,7 +47,7 @@ class SMARTMapDecoder(nn.Module):
         self.token_processor=token_processor
 
         if self.use_map:
-            self.type_pt_emb = nn.Embedding(10, hidden_dim)
+            self.type_pt_emb = nn.Embedding(12, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
 
             # if not self.token_processor.pred_light:
@@ -95,23 +95,23 @@ class SMARTMapDecoder(nn.Module):
             return {}
 
         map_type=tokenized_map["type"].long()
-        map_type[map_type>9] = 9
+       # map_type[map_type>9] = 9
         
         mask = torch.ones_like(map_type, dtype=bool)
 
         type4_indices=torch.where((map_type==4) |(map_type==5))[0]
 
-        sampled_indices = type4_indices[1::2]
+        sampled_indices = type4_indices[1::5]
 
         mask[sampled_indices] = False
-        # sampled_indices = type4_indices[2::5]
-        #
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[3::5]
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[4::5]
-        #
-        # mask[sampled_indices] = False
+        sampled_indices = type4_indices[2::5]
+
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[3::5]
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[4::5]
+
+        mask[sampled_indices] = False
 
         # mask[map_type>9] = False
 
@@ -133,7 +133,7 @@ class SMARTMapDecoder(nn.Module):
             relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2)
             x_pt=self.token_emb(relative_pos)
             
-        pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3]).to(device=pos_pt.device, dtype=torch.long)
+        pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3,3,3]).to(device=pos_pt.device, dtype=torch.long)
         pl_type=pl_type_mapping[map_type]
 
         x_pt_categorical_embs = [
