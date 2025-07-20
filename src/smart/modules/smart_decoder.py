@@ -15,6 +15,7 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
+from sympy import false
 from torch import Tensor
 
 from .agent_decoder import SMARTAgentDecoder
@@ -51,9 +52,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=True
+        self.iq_learn=False
         self.output_gmm=False
-        self.use_gail=True
+        self.use_gail=False
 
         self.use_value=False
 

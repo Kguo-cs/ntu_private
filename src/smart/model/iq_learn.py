@@ -319,7 +319,6 @@ class IQ_SoftQ(LightningModule):
                                         1.0 - clip_param,
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
-
                 else:
                     agent_wNLL=-(agent_log_prob*advantages).mean()
 
