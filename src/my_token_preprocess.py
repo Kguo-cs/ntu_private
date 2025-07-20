@@ -28,8 +28,10 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_raw_light/"
-token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049medium/"
+data_directory = "./waymo_data/full/training_inter10_raw_light/"
+token_data_directory = "./waymo_data/full/training_map10_2049high/"
+
+map_data_directory="./waymo_data/full/training_map10_2049/"
 
 # data_directory = "/home/ke/code/catk/src/waymo_data/new/training/"
 # agent_directory  = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049high/"
@@ -77,6 +79,14 @@ def process_file(filename):
     del data["tokenized_agent"]['gt_pos_raw']
     del data["tokenized_agent"]['gt_head_raw']
     del data["tokenized_agent"]['gt_valid_raw']
+
+    map_path = os.path.join(map_data_directory, filename)
+
+    with open(map_path, "rb") as f:
+        data2 = pickle.load(f)
+
+    data["tokenized_map"]=data2["tokenized_map"]
+
 
     # Save the tokenized data
     with open(output_path, "wb") as f:

@@ -101,4 +101,4 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #road edge inter 1 no speed bump
 
 #use continous , more bin 
-#no bc
+#no bc AdamW 
