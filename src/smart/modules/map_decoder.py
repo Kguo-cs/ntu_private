@@ -101,17 +101,17 @@ class SMARTMapDecoder(nn.Module):
 
         type4_indices=torch.where((map_type==4) |(map_type==5))[0]
 
-        sampled_indices = type4_indices[1::2]
+        sampled_indices = type4_indices[1::5]
 
         mask[sampled_indices] = False
-        # sampled_indices = type4_indices[2::5]
+        sampled_indices = type4_indices[2::5]
 
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[3::5]
-        # mask[sampled_indices] = False
-        # sampled_indices = type4_indices[4::5]
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[3::5]
+        mask[sampled_indices] = False
+        sampled_indices = type4_indices[4::5]
 
-        # mask[sampled_indices] = False
+        mask[sampled_indices] = False
 
         mask[map_type>10] = False
 
