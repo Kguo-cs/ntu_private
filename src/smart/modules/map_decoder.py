@@ -47,7 +47,7 @@ class SMARTMapDecoder(nn.Module):
         self.token_processor=token_processor
 
         if self.use_map:
-            self.type_pt_emb = nn.Embedding(12, hidden_dim)
+            self.type_pt_emb = nn.Embedding(10, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
 
             # if not self.token_processor.pred_light:
@@ -95,13 +95,13 @@ class SMARTMapDecoder(nn.Module):
             return {}
 
         map_type=tokenized_map["type"].long()
-       # map_type[map_type>9] = 9
+        map_type[map_type>9] = 9
         
         mask = torch.zeros_like(map_type, dtype=bool)
 
         type4_indices=torch.where((map_type==4) |(map_type==5))[0]
 
-        sampled_indices = type4_indices[::5]
+        sampled_indices = type4_indices[::4]
 
         mask[sampled_indices] = True
 
