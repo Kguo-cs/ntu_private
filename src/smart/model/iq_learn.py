@@ -53,7 +53,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_airl=False
 
-        self.reward_type='airl'
+        self.reward_type='raw'
 
 
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
@@ -280,9 +280,9 @@ class IQ_SoftQ(LightningModule):
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
-                #alpha=10
                 if self.reward_type=="raw":
-                    critic_loss =-expert_logit.mean()+agent_logit.mean()#+expert_reward.square().mean() / (4 * alpha)
+                    alpha=0.5
+                    critic_loss =-expert_logit.mean()+agent_logit.mean()+expert_logit.square().mean() / (4 * alpha)
                 else:
                     critic_loss=expert_dis_loss + agent_dis_loss
                 self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
