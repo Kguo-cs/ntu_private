@@ -43,7 +43,7 @@ class InterativeDecoder(nn.Module):
             output_gmm,
             pred_last_res,
             pred_all_res,
-            state_action=False
+            discriminator=False
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -109,7 +109,16 @@ class InterativeDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        self.state_action=state_action
+        self.state_action = False
+        self.reward_shaping = True
+
+        self.discriminator=discriminator
+        if self.discriminator:
+
+            if  self.reward_shaping:
+                self.reward_net = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
 
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
@@ -197,12 +206,18 @@ class InterativeDecoder(nn.Module):
 
             proposal = proposal + next_token_traj_all[:, :, None]
 
-        if self.state_action:
+        if self.discriminator and self.state_action:
             agent_token_emb = agent_token_emb[train_mask]
 
             feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
 
         next_token_logits = self.token_predict_head(feat_a)
+
+        if self.discriminator and self.reward_shaping:
+            r=self.reward_net(feat_a[:, :-1] )
+            v_s=next_token_logits[:, :-1]
+            v_next=next_token_logits[:,1 :]
+            next_token_logits = r + v_next - v_s
 
         return next_token_logits,feat_a,proposal
 
