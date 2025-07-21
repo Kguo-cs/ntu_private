@@ -106,5 +106,6 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #no bc 
 #AdamW 
 #continuous map point
-#airl , other reward learning method 
+
 #discriminator sa 
+#airl , other reward learning method 
