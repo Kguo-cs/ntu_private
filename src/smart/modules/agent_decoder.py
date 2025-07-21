@@ -14,7 +14,6 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
-from tensorflow_probability.substrates.jax.distributions.student_t import log_prob
 from torch_geometric.utils import subgraph
 
 from src.smart.layers import MLPLayer
