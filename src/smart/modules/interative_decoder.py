@@ -217,7 +217,7 @@ class InterativeDecoder(nn.Module):
             r=self.reward_net(feat_a[:, :-1] )
             v_s=next_token_logits[:, :-1]
             v_next=next_token_logits[:,1 :]
-            next_token_logits = r + v_next - v_s
+            next_token_logits = r + 0.99*v_next - v_s
 
         return next_token_logits,feat_a,proposal
 
