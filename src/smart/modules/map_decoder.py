@@ -95,7 +95,7 @@ class SMARTMapDecoder(nn.Module):
             return {}
 
         map_type=tokenized_map["type"].long()
-        #map_type[map_type>9] = 9
+        map_type[map_type>9] = 9
         
         #mask = torch.zeros_like(map_type, dtype=bool)
         mask = torch.ones_like(map_type, dtype=bool)
