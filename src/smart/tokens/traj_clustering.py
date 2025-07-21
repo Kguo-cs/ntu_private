@@ -54,7 +54,7 @@ def Kdisk_cluster(
 
         remain = X.shape[0] * 100.0 / n_total
         n_inside = (~res_mask).sum().item()
-        print(f"{i=}, {remain=:.2f}%, {n_inside=}")
+    print(f"{i=}, {remain=:.2f}%, {n_inside=}")
 
     return torch.cat(ret_traj_list, dim=0)  # [N, 6, 3]
 
@@ -63,13 +63,13 @@ if __name__ == "__main__":
     L.seed_everything(seed=2, workers=True)
     n_trajs = 2048 * 100  # 2e5
     load_data_from_file = True
-    data_cache_path = Path("/root/.cache/SMART")
-    out_file_name = "agent_vocab_555_s2.pkl"
-    tol_dist = [0.05, 0.05, 0.05]  # veh, ped, cyc
+    data_cache_path = Path("/home/ke/code/catk/src/waymo_data")
+    out_file_name = "agent_vocab_434_s2_4096.pkl"
+    tol_dist = [0.04, 0.03, 0.04]  # veh, ped, cyc
 
     # ! don't change these params
     shift = 5  # motion token time dimension
-    num_cluster = 2048  # vocabulary size
+    num_cluster = 4096  # vocabulary size
     n_step = 91
     data_file_path = data_cache_path / "kdisk_trajs.pkl"
     if load_data_from_file:

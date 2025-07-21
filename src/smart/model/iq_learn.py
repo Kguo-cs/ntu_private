@@ -196,8 +196,10 @@ class IQ_SoftQ(LightningModule):
        # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
-        # off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
-        # self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
+        off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
+        self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
+
+        print(off_ratio)
         
         if self.iq_learn and not self.use_gail:
             action_nll=0
