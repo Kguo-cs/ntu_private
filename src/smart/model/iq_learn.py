@@ -210,7 +210,7 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,all_features,key,train_mask=None):
-        score = self.encoder.discriminator(all_features,train_mask)[0][:, 1:, 0]
+        score = self.encoder.discriminator(all_features,train_mask)[0][:, :, 0]
 
         disc_val = torch.sigmoid(score)
 

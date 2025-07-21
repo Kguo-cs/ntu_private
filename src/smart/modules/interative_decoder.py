@@ -42,7 +42,8 @@ class InterativeDecoder(nn.Module):
             token_processor,
             output_gmm,
             pred_last_res,
-            pred_all_res
+            pred_all_res,
+            state_action=False
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -107,6 +108,8 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
 
         self.token_processor=token_processor
+
+        self.state_action=state_action
 
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
@@ -193,6 +196,11 @@ class InterativeDecoder(nn.Module):
                 proposal = torch.tanh(proposal) * proposal_max_diff[:, :, None]
 
             proposal = proposal + next_token_traj_all[:, :, None]
+
+        if self.state_action:
+            agent_token_emb = agent_token_emb[train_mask]
+
+            feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
 
         next_token_logits = self.token_predict_head(feat_a)
 

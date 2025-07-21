@@ -94,11 +94,17 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 # bc20_pt8_share_map_05mixx2_sa diverge 
 
 
-#to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn, interval 0.1 ,unknown token, 2048 unknown token
+#to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn, interval 0.1 ,, 2048 unknown token
 
-#pos , heading quantize 
+#pos, heading quantize 
 
-#road edge inter 1 no speed bump
+#road edge inter 1 
+#no speed bump
 
-#use continous , more bin 
-#no bc AdamW 
+#use continous  
+#more bin 
+#no bc 
+#AdamW 
+#continuous map point
+#airl , other reward learning method 
+#discriminator sa 

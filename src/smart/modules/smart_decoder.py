@@ -133,7 +133,7 @@ class SMARTDecoder(nn.Module):
                                                     1,num_heads,head_dim,
                                                     dropout,hist_drop_prob,1,
                                                     pt2a_neighbor//2,a2a_neighbor//2,
-                                                    token_processor,False,False,False
+                                                    token_processor,False,False,False,state_action=True
                                                         )
                 if self.use_value:
                     self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
