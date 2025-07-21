@@ -206,7 +206,7 @@ class InterativeDecoder(nn.Module):
 
             proposal = proposal + next_token_traj_all[:, :, None]
 
-        if self.discriminator
+        if self.discriminator:
             if self.state_action:
                 agent_token_emb = agent_token_emb[train_mask]
 
