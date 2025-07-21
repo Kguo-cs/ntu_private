@@ -3,7 +3,7 @@ import os
 import pickle
 from tqdm import tqdm
 import torch
-
+import math
 import sys
 
 
@@ -43,22 +43,49 @@ for type_id in [0,1,2]:#
     # veh_traj[...,1]=veh_traj[...,1].abs()
     # veh_traj[...,2]=veh_traj[...,2].abs()
 
+    # cluster_n=2048
+    #
+    # if type_id == 0:
+    #     x_min, x_max = -5, 20
+    #     y_max = 1.5
+    #     x_interval = 0.1 #0.1->2048
+    #     y_interval = 0.05
+    #     heding_bin = 2  # number of heading bins
+    # elif type_id == 1:
+    #     x_min, x_max = -1.5 , 4.5
+    #     y_max=2
+    #     x_interval = 0.05
+    #     y_interval = 0.05
+    #     heding_bin = 2  # number of heading bins
+    # elif type_id == 2:
+    #     x_min, x_max = -3, 8
+    #     y_max=1
+    #     x_interval = 0.05
+    #     y_interval = 0.05
+    #     heding_bin = 2  # number of heading bins
+
+    cluster_n=4096
+
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max = 1.5
-        x_interval =0.1#0.1
+        x_interval = 0.05 #0.1->2048
         y_interval = 0.05
+        heading_bin = 2  # number of heading bins
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
         x_interval = 0.05
-        y_interval = 0.05
+        y_interval = 0.025
+        heading_bin = 2  # number of heading bins
     elif type_id == 2:
         x_min, x_max = -3, 8
         y_max=1
         x_interval = 0.05
-        y_interval = 0.05
-    
+        y_interval = 0.025
+        heading_bin = 2  # number of heading bins
+
+
     y_max = y_max - y_interval/2
      
     y_min= -y_max
@@ -71,6 +98,7 @@ for type_id in [0,1,2]:#
     #print(len(veh_traj_in)/len(veh_traj))
 
     final_pos = veh_traj[..., -1, :2]
+    final_heading=veh_traj[..., -1, 2]
 
     x_bin= (x_max - x_min) / x_interval
     y_bin= (y_max - y_min) / y_interval
@@ -84,12 +112,16 @@ for type_id in [0,1,2]:#
     x_idx = x_idx.clamp(0, x_bin-1)
     y_idx = y_idx.clamp(0, y_bin-1)
 
-    joint_idx = x_idx * y_bin + y_idx
+    #joint_idx = x_idx * y_bin + y_idx
 
-    joint_hist = torch.bincount(joint_idx, minlength=x_bin * y_bin)#.reshape(250, 30)
+    heading_bin_size = 2 * math.pi / heading_bin
+
+    heading_idx = ((final_heading + math.pi) / heading_bin_size).long().clamp(0, heading_bin - 1)
+    joint_idx = x_idx * (y_bin * heading_bin) + y_idx * heading_bin + heading_idx
+
+    joint_hist = torch.bincount(joint_idx, minlength=x_bin * y_bin * heading_bin)#.reshape(250, 30)
 
     # Top-k
-    cluster_n=2048
 
     top_k_value, top_k_flat_idx = torch.topk(joint_hist, k=cluster_n)#.flatten()
 
@@ -204,91 +236,6 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("mid2048.pkl", "wb") as f:
+with open("mid4096_head2.pkl", "wb") as f:
     pickle.dump(res, f)
 
-
-# torch.Size([154079694, 5, 3])
-# 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
-# torch.Size([10534068, 5, 3])
-# 0.9997874515334437 tensor(0.9998, device='cuda:0') tensor(9, device='cuda:0')
-# torch.Size([1081674, 5, 3])
-# 0.993570151450437 tensor(0.9982, device='cuda:0') tensor(6, device='cuda:0')
-
-# torch.Size([154079694, 5, 3])
-# 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
-# torch.Size([10534068, 5, 3])
-# 0.9997874515334437 tensor(0.9998, device='cuda:0') tensor(9, device='cuda:0')
-# torch.Size([1081674, 5, 3])
-# 0.9993232711519368 tensor(0.9932, device='cuda:0') tensor(10, device='cuda:0')
-
-# torch.Size([154079694, 5, 3])
-# 0.9999526608613333 tensor(0.9980, device='cuda:0') tensor(1118, device='cuda:0')
-# torch.Size([10534068, 5, 3])
-# 0.9999438963181175 tensor(0.9997, device='cuda:0') tensor(10, device='cuda:0')
-# torch.Size([1081674, 5, 3])
-# 0.9993232711519368 tensor(0.9932, device='cuda:0') tensor(10, device='cuda:0')
-
-
-#
-# torch.Size([215685024, 5, 3])
-# tensor(0.9964, device='cuda:0') 0.9998906507296492 tensor(0.9966, device='cuda:0') tensor(2380, device='cuda:0')
-# torch.Size([16594332, 5, 3])
-# tensor(0.9989, device='cuda:0') 0.999764979994374 tensor(0.9991, device='cuda:0') tensor(36, device='cuda:0')
-# torch.Size([1608651, 5, 3])
-# tensor(0.9901, device='cuda:0') 0.9964125220448686 tensor(0.9937, device='cuda:0') tensor(18, device='cuda:0')
-
-
-# 0.1,0.2
-# torch.Size([215685024, 5, 3])
-# tensor(0.9999, device='cuda:0') 0.9998906507296492 tensor(1.0000, device='cuda:0') tensor(26, device='cuda:0')
-# torch.Size([16594332, 5, 3])
-# tensor(0.9989, device='cuda:0') 0.999764979994374 tensor(0.9991, device='cuda:0') tensor(36, device='cuda:0')
-# torch.Size([1608651, 5, 3])
-# tensor(0.9901, device='cuda:0') 0.9964125220448686 tensor(0.9937, device='cuda:0') tensor(18, device='cuda:0')
-
-
-#0.1 0.1  no sys
-# torch.Size([215685024, 5, 3])
-# tensor(0.9995, device='cuda:0') 0.999885272516649 tensor(0.9996, device='cuda:0') tensor(112, device='cuda:0')
-# torch.Size([16594332, 5, 3])
-# tensor(0.9989, device='cuda:0') 0.9997616053481394 tensor(0.9991, device='cuda:0') tensor(18, device='cuda:0')
-# torch.Size([1608651, 5, 3])
-# tensor(0.9905, device='cuda:0') 0.9963397902963415 tensor(0.9941, device='cuda:0') tensor(9, device='cuda:0')
-
-#0.2 0.05  no sys
-# torch.Size([215685024, 5, 3])
-# tensor(0.9995, device='cuda:0') 0.9998879291684155 tensor(0.9996, device='cuda:0') tensor(108, device='cuda:0')
-# torch.Size([16594332, 5, 3])
-# tensor(0.9989, device='cuda:0') 0.9997616053481394 tensor(0.9991, device='cuda:0') tensor(18, device='cuda:0')
-# torch.Size([1608651, 5, 3])
-# tensor(0.9905, device='cuda:0') 0.9963397902963415 tensor(0.9941, device='cuda:0') tensor(9, device='cuda:0')
-
-#no explo
-# 0.1 0.1  no sys
-# torch.Size([214326235, 5, 3])
-# tensor(0.9997, device='cuda:0') 0.99995539043552 tensor(0.9998, device='cuda:0') tensor(82, device='cuda:0')
-# torch.Size([16348428, 5, 3])
-# tensor(0.9995, device='cuda:0') 0.9999772455186517 tensor(0.9996, device='cuda:0') tensor(14, device='cuda:0')
-# torch.Size([1590937, 5, 3])
-# tensor(0.9980, device='cuda:0') 0.9993425258196899 tensor(0.9986, device='cuda:0') tensor(5, device='cuda:0')
-
-#no explo
-# 0.1 0.05  no sys
-# torch.Size([214326235, 5, 3])
-# tensor(0.9972, device='cuda:0') 0.9999571820967228 tensor(0.9973, device='cuda:0') tensor(1048, device='cuda:0')
-# torch.Size([16348428, 5, 3])
-# tensor(0.9995, device='cuda:0') 0.9999772455186517 tensor(0.9996, device='cuda:0') tensor(14, device='cuda:0')
-# torch.Size([1590937, 5, 3])
-# tensor(0.9980, device='cuda:0') 0.9993425258196899 tensor(0.9986, device='cuda:0') tensor(5, device='cuda:0')
-
-#4096
-# torch.Size([214326235, 5, 3])
-# tensor(0.9997, device='cuda:0') 0.9999571820967228 tensor(0.9998, device='cuda:0') tensor(40, device='cuda:0')
-# torch.Size([16348428, 5, 3])
-# tensor(0.9996, device='cuda:0') 0.9999773066866123 tensor(0.9996, device='cuda:0') tensor(7, device='cuda:0')
-# torch.Size([1590937, 5, 3])
-# tensor(0.9986, device='cuda:0') 0.9993475543029046 tensor(0.9992, device='cuda:0') tensor(2, device='cuda:0')
-
-
-#2048: 0.05 is better than 0.1
