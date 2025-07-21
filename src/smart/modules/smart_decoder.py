@@ -15,7 +15,6 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
-from sympy import false
 from torch import Tensor
 
 from .agent_decoder import SMARTAgentDecoder
