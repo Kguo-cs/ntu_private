@@ -110,4 +110,9 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #discriminator sa 
 #airl , other reward learning method 
 
-#noise to input to discriminator 
+#noise to input to discriminator
+
+#a parameter to disappear  other cannot see it ,it can see other
+#dropout 0.5 input and 0.75 hidden 
+#discount 0.97 − 0.99
+#t is best to use as large as possible replay buffers for sampling negative examples

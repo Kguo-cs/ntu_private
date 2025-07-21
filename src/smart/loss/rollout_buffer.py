@@ -142,13 +142,15 @@ def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
         rewards = (s + eps).log()
     elif reward_type == 'raw':
         rewards = s
+    elif reward_type=="positive":
+        rewards = - (1 - s + eps).log()
     elif reward_type == 'airl-positive':
         rewards = (s + eps).log() - (1 - s + eps).log() + 20
     elif reward_type == 'revise':
         d_x = (s + eps).log()
         rewards = d_x + (-1 - (-d_x).log())
 
-    rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+    #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
     returns = torch.zeros_like(rewards)
     running_return=returns[:,-1]

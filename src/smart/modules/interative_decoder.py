@@ -110,7 +110,7 @@ class InterativeDecoder(nn.Module):
         self.token_processor=token_processor
 
         self.state_action = False
-        self.reward_shaping = True
+        self.reward_shaping = False
 
         self.discriminator=discriminator
         if self.discriminator:
@@ -206,10 +206,13 @@ class InterativeDecoder(nn.Module):
 
             proposal = proposal + next_token_traj_all[:, :, None]
 
-        if self.discriminator and self.state_action:
-            agent_token_emb = agent_token_emb[train_mask]
+        if self.discriminator
+            if self.state_action:
+                agent_token_emb = agent_token_emb[train_mask]
 
-            feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
+                feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
+            else:
+                feat_a = feat_a[:, 1:]
 
         next_token_logits = self.token_predict_head(feat_a)
 
