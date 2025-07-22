@@ -96,7 +96,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(data_directory)[:2000]
+    files = os.listdir(data_directory)[:20000]
 
     for file in tqdm(files):
         process_file(file)

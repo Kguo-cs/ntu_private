@@ -6,8 +6,8 @@ num_workers: 4
 shuffle: true
 pin_memory: false
 persistent_workers: true
-train_raw_dir: ${paths.cache_root}/training_map2_2049 #training_inter10_2049high #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
-val_raw_dir: ${paths.cache_root}/validation_map2 #validation_light
+train_raw_dir: ${paths.cache_root}/training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
+val_raw_dir: ${paths.cache_root}/validation_map2
 val_tfrecords_splitted: ${paths.cache_root}/validation_tfrecords_splitted
 test_raw_dir: ${paths.cache_root}/testing
 train_max_num: 32

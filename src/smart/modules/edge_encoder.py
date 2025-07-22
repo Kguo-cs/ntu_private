@@ -13,7 +13,7 @@ from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal
     radiusGraphNearest,radiusGraphNearest_inv,visibility_aware_knn_with_radius_batch
 from torch_geometric.utils import dense_to_sparse, subgraph
 from torch_cluster import radius_graph
-
+import time
 
 class EdgeEncoder(nn.Module):
     def __init__(
@@ -109,11 +109,29 @@ class EdgeEncoder(nn.Module):
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
 
+        #time1=time.time()
+        # full_edge_index = radiusGraphNearest2(x=pos_s,
+        #                                       y=pos_s,
+        #                                       x_heading=head_s,
+        #                                       r=max_radius,
+        #                                       batch_x=batch_s,
+        #                                       batch_y=batch_s,
+        #                                       max_num_neighbors=max_num_neighbors)
+        # time2=time.time()
+
         if proposal is None:
             if vis_mask is not None:
                 vis_mask=vis_mask.transpose(0, 1).reshape(-1)
                 full_edge_index =visibility_aware_knn_with_radius_batch(pos_s, vis_mask,batch_s, max_num_neighbors, max_radius)
             else:
+                # full_edge_index = radiusGraphNearest2(x=pos_s,
+                #                                       y=pos_s,
+                #                                       x_heading=head_s,
+                #                                       r=max_radius,
+                #                                       batch_x=batch_s,
+                #                                       batch_y=batch_s,
+                #                                       max_num_neighbors=max_num_neighbors)
+
                 full_edge_index = radiusGraphNearest(x=pos_s,
                                                      r=max_radius,
                                                      batch=batch_s,
@@ -178,7 +196,11 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
+        #time2=time.time()
+
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
+
+       # time3=time.time()
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
@@ -193,7 +215,18 @@ class EdgeEncoder(nn.Module):
             ],
             dim=-1,
         )
+
+        #time4=time.time()
+
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
+
+        #time5=time.time()
+        #
+        #print(time2-time1)#0.0187225341796875
+        # print(time3-time2)
+        # print(time4-time3)
+       # print(time5-time2)#0.0008542537689208984
+
 
         return edge_index_a2a, r_a2a
 
@@ -227,6 +260,9 @@ class EdgeEncoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
         pos_pl = pos_pl.repeat(n_step, 1)
         orient_pl = orient_pl.repeat(n_step)
+
+       # time1=time.time()
+
         edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
                                               y=pos_pl[:, :2],
                                               x_heading=head_s,
@@ -234,6 +270,8 @@ class EdgeEncoder(nn.Module):
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
                                               max_num_neighbors=max_num_neighbors)
+
+       # time2=time.time()
 
         # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
         #                                       y=pos_pl[:, :2],
@@ -265,6 +303,11 @@ class EdgeEncoder(nn.Module):
         )
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+
+        #time3=time.time()
+
+       # print(time2-time1)#0.0044515132904052734
+     #   print(time3-time2)#0.001383066177368164
 
         return edge_index_pl2a, r_pl2a
 
