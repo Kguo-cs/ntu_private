@@ -501,10 +501,10 @@ class SMARTAgentDecoder(nn.Module):
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
 
             if self.pred_vis:
-                if vis_mask is not None:
-                    vis_mask=vis_mask & (torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
-                else:
-                    vis_mask=(torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
+                # if vis_mask is not None:
+                #     vis_mask=vis_mask & (torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
+                # else:
+                vis_mask=(torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
 
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light:

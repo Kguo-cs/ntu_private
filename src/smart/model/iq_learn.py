@@ -151,6 +151,8 @@ class IQ_SoftQ(LightningModule):
         #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
         #current_Q_diff=current_Q_diff[all_valid_mask]
         #V_diff=V_diff[all_valid_mask]
+        # self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
+        # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
         if key == "expert":
             log_prob=log_prob[train_mask]
@@ -208,15 +210,11 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
-        #self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
-       # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
         off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
         self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
 
-        #print(off_ratio)
-        
         if self.iq_learn and not self.use_gail:
             action_nll=0
 
@@ -270,9 +268,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
 
                 if self.rollout_freq>1:
-                    self.tokenized_map={}#"map_feature":{}
-                    # for key in tokenized_map["map_feature"].keys():
-                    #     self.tokenized_map["map_feature"][key]=tokenized_map["map_feature"][key].detach().clone()
+                    self.tokenized_map={}
                     for key in tokenized_map.keys():
                         if key!="map_feature":
                             self.tokenized_map[key]=tokenized_map[key]
@@ -300,7 +296,10 @@ class IQ_SoftQ(LightningModule):
                             tokenized_agent_rollout["detach_all_features"], "agent",
                             tokenized_agent_rollout["train_mask"])
 
-                    self.replay_buffer.append((tokenized_agent_rollout["detach_all_features"],tokenized_agent_rollout["train_mask"]))
+                    all_feats=[]
+                    for feat in tokenized_agent_rollout["detach_all_features"]:
+                        all_feats.append(feat.clone())
+                    self.replay_buffer.append((all_feats,tokenized_agent_rollout["train_mask"]))
 
                     detach_all_features,agent_train_mask=random.sample(self.replay_buffer,1)[0]
                     logit = self.encoder.discriminator(detach_all_features, agent_train_mask)[0][:, :, 0]
