@@ -209,6 +209,7 @@ class IQ_SoftQ(LightningModule):
                 log_prob=log_prob+vis_log_prob
 
             vis_nll=-vis_log_prob.mean()
+            self.log("train/"+key+"_vis_nll", vis_nll.item(), on_step=True, batch_size=1)
 
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
