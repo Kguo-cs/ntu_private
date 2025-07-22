@@ -186,9 +186,9 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_dynamic=token_processor.use_dynamic
         self.start_step=10//self.shift-1
-        self.pred_vis = True
+        self.pred_vis = False
 
-        if self.n_token_agent>1:
+        if self.pred_vis:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
         self.token_processor= token_processor

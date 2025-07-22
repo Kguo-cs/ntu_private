@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_novalue_normR_dropout01_vis #_Adamwbc64_map2 #_adamW #AIRL64_novalue_normR_Adamw_dropout01 #2_POS #bc48_map2_adamW #AIRL64_novalue_AdamW2_POS #_099_raw05 #_shape_sa_adamW2mid2048_05 #bc64_mid4096_head2 #mymid05 #GAIL64_normR_novalue_mid2048 #bc64_my_kdist #GAIL64_normR_novalue_4096 #bc64_map2_9_pt30 #GAIL64_map2_9_normR_novalue #_nomapshare_roll2 #bc60_map4_9 #GAIL64_map5_11_normR_novalue_nomapshare_roll2 #bc64_map5_11   #nospeedbump #GAIL64_edge10_airl #_nonorm #bc64_map10_s4 #GAIL64_edge10_airl_nonorm #bc64_map10_s4 #GAIL64_edge10_airlnormalize_novalue #detachvalue_airl #_noise00501s4 #_2048 #_learnvalue  | 637/1000
+task_name: AIRL64_novalue_normR_dropout01 #_vis #_Adamwbc64_map2 #_adamW #AIRL64_novalue_normR_Adamw_dropout01 #2_POS #bc48_map2_adamW #AIRL64_novalue_AdamW2_POS #_099_raw05 #_shape_sa_adamW2mid2048_05 #bc64_mid4096_head2 #mymid05 #GAIL64_normR_novalue_mid2048 #bc64_my_kdist #GAIL64_normR_novalue_4096 #bc64_map2_9_pt30 #GAIL64_map2_9_normR_novalue #_nomapshare_roll2 #bc60_map4_9 #GAIL64_map5_11_normR_novalue_nomapshare_roll2 #bc64_map5_11   #nospeedbump #GAIL64_edge10_airl #_nonorm #bc64_map10_s4 #GAIL64_edge10_airl_nonorm #bc64_map10_s4 #GAIL64_edge10_airlnormalize_novalue #detachvalue_airl #_noise00501s4 #_2048 #_learnvalue  | 637/1000
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
