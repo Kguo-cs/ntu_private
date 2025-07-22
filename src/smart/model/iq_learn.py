@@ -291,7 +291,7 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
-                tokenized_agent_rollout["train_mask"]=tokenized_agent_rollout["vis_mask"][:, self.start_step:].all(-1)
+                #tokenized_agent_rollout["train_mask"]=tokenized_agent_rollout["vis_mask"][:, self.start_step:].all(-1)
 
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, tokenized_agent_rollout["train_mask"],key='agent')
