@@ -33,7 +33,6 @@ token_processor.eval()
 # Set paths
 data_directory = "./waymo_data/full/training_inter10_raw_light/"
 token_data_directory = "./waymo_data/full/training_map10_2049high/"
-
 map_data_directory="./waymo_data/full/training_map10_2049/"
 
 # data_directory = "/home/ke/code/catk/src/waymo_data/new/training/"
