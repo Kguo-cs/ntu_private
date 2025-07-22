@@ -334,9 +334,10 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 mask_lg,
                                                                                 post_sampling=post_sampling)
 
-        # tokenized_agent["next_token_logits"] = next_token_logits
-        # tokenized_agent["next_light_logits"] = next_light_logits
-        #tokenized_agent["feat_a"] = feat_a
+        tokenized_agent["next_token_logits"] = next_token_logits
+        tokenized_agent["next_light_logits"] = next_light_logits
+        tokenized_agent["visibility"] = visibility
+        tokenized_agent["proposal"] = proposal
 
         return {
             "proposal":proposal,
@@ -369,18 +370,21 @@ class SMARTAgentDecoder(nn.Module):
         pred_head_10hz = []
         sampled_log_prob=[]
 
-        vis_mask=None
+        vis_mask=None#[:,-1:]
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
-                    next_token_logits = tokenized_agent["next_token_logits"][:, -1:]
+                    next_token_logits = tokenized_agent["next_token_logits"][:, :1]
 
                     if tokenized_agent["proposal"] is not None:
-                        proposal=tokenized_agent["proposal"][:, -1:]
+                        proposal=tokenized_agent["proposal"][:, :1]
+
+                    if tokenized_agent["visibility"] is not None:
+                        visibility=tokenized_agent["visibility"][:, :1]
 
                     if self.pred_light:
-                        next_light_logits = tokenized_agent["next_light_logits"][:, :current_step]
+                        next_light_logits = tokenized_agent["next_light_logits"][:, :1]
                     else:
                         next_light_logits = []
                 else:
@@ -497,7 +501,10 @@ class SMARTAgentDecoder(nn.Module):
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
 
             if self.pred_vis:
-                vis_mask=vis_mask & torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0]
+                if vis_mask is not None:
+                    vis_mask=vis_mask & (torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
+                else:
+                    vis_mask=(torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
 
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light:
