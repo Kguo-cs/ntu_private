@@ -186,7 +186,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_dynamic=token_processor.use_dynamic
         self.start_step=10//self.shift-1
-        self.pred_vis = False
+        self.pred_vis = True
 
         if self.pred_vis:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
@@ -194,7 +194,7 @@ class SMARTAgentDecoder(nn.Module):
         self.token_processor= token_processor
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,post_sampling=False):
+    def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,vis_mask=None,post_sampling=False):
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -238,7 +238,6 @@ class SMARTAgentDecoder(nn.Module):
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 
         batch_pl = build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
-
 
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
@@ -286,13 +285,13 @@ class SMARTAgentDecoder(nn.Module):
             train_mask=None
 
         all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
-            pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl
+            pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl,vis_mask
 
         if self.training:
             detach_all_features=[]
             for feature in all_features:
                 if feature is not None:
-                    detach_all_features.append(feature.detach().clone())#
+                    detach_all_features.append(feature.detach())#.clone()
                 else:
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
@@ -302,7 +301,7 @@ class SMARTAgentDecoder(nn.Module):
         visibility=None
 
         if self.pred_vis and train_mask is None:
-            visibility=self.vis_head(feat_a[:,:-1])
+            visibility=self.vis_head(feat_a)#
 
         return next_token_logits,next_light_logits,feat_a,proposal,visibility
 
@@ -368,8 +367,9 @@ class SMARTAgentDecoder(nn.Module):
 
         pred_traj_10hz = []
         pred_head_10hz = []
-
         sampled_log_prob=[]
+
+        vis_mask=None
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -388,7 +388,7 @@ class SMARTAgentDecoder(nn.Module):
                     if self.pred_light:
                         self.light_encoder.lg_t_roformer.attn.caching=True
                     next_token_logits,next_light_logits,feat_a,proposal,visibility = self.predict_agent(sampled_idx, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,post_sampling)
+                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,vis_mask,post_sampling)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
                 if self.pred_light:
@@ -396,7 +396,7 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 next_token_logits,next_light_logits,feat_a,proposal,visibility  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
-                                                                                    mask_lg[:,-self.light_hist:],t - 1,post_sampling)
+                                                                                    mask_lg[:,-self.light_hist:],t - 1,vis_mask,post_sampling)
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
@@ -495,6 +495,9 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
+
+            if self.pred_vis:
+                vis_mask=vis_mask & torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0]
 
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light:

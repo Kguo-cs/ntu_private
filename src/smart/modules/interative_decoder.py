@@ -120,10 +120,9 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
-        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl=all_features
+        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl,vis_mask=all_features
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=pos_pl,  # [n_pl, 2]
@@ -148,6 +147,7 @@ class InterativeDecoder(nn.Module):
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
+            vis_mask=vis_mask
             #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 

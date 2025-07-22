@@ -101,6 +101,7 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             max_radius,
             proposal=None,
+            vis_mask=None
             # shape=None
     ):
         mask = mask.transpose(0, 1).reshape(-1)
@@ -174,6 +175,31 @@ class EdgeEncoder(nn.Module):
             full_edge_index=full_edge_index[:,intersecting]
 
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
+
+        if vis_mask is not None:
+            # full_edge_index: [2, num_edges]
+            src, dst = edge_index_a2a  # each of shape [num_edges]
+
+            # vis_mask: [T*N], dtype=bool
+            # For each edge (src[i], dst[i]), check the visibility rule
+
+            # Condition 1: src is visible -> dst must also be visible
+            # Condition 2: src is not visible -> no constraint
+
+            # Get mask for src visible and dst also visible
+            src_visible = vis_mask[src]
+            dst_visible = vis_mask[dst]
+            valid_visible_to_visible = src_visible & dst_visible
+
+            # Get mask for src not visible (they can see anyone)
+            src_not_visible = ~vis_mask[src]
+
+            # Final mask for edges
+            valid_edges_mask = valid_visible_to_visible | src_not_visible
+
+            # Apply the mask
+            edge_index_a2a = edge_index_a2a[:, valid_edges_mask]
+
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
         r_a2a = torch.stack(

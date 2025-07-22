@@ -38,7 +38,7 @@ class IQ_SoftQ(LightningModule):
         self.bce_loss = nn.BCELoss()
 
 
-        self.buffer_len=100
+        self.buffer_len=1
 
         self.replay_buffer = deque(maxlen=self.buffer_len)
 
@@ -131,8 +131,10 @@ class IQ_SoftQ(LightningModule):
         if pred["visibility"] is None:
             vis_nll=0
         else:
-            visibility=torch.sigmoid(pred["visibility"][:,:,0])
+            visibility=torch.sigmoid(pred["visibility"][:,:-1,0])
             vis_nll = self.bce_loss(visibility, valid_mask.to(torch.float)[:,1:])
+            # v=valid_mask.float()
+            # print(torch.all(v[:,1:]<=v[:,:-1]))
 
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
