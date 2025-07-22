@@ -122,6 +122,13 @@ class IQ_SoftQ(LightningModule):
 
         action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
+        if pred["visibility"] is None:
+            vis_nll=0
+        else:
+            visibility=pred["visibility"]
+            target_visibility=valid_mask
+            vis_nll=0
+
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
 
@@ -209,7 +216,8 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             V=(V-target_V)[all_valid_mask]
 
-        return  reward,value_loss,V,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
+
+        return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,all_features,key,train_mask=None):
         logit = self.encoder.discriminator(all_features,train_mask)[0][:, :, 0]

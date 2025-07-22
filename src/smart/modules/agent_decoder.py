@@ -85,7 +85,6 @@ class SMARTAgentDecoder(nn.Module):
 
         self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
-
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
 
@@ -187,6 +186,10 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_dynamic=token_processor.use_dynamic
         self.start_step=10//self.shift-1
+        self.pred_vis = False
+
+        if self.n_token_agent>1:
+            self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
         self.token_processor= token_processor
         self.apply(weight_init)
@@ -240,32 +243,6 @@ class SMARTAgentDecoder(nn.Module):
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
 
-        # edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-        #     pos_pl=pos_pl,  # [n_pl, 2]
-        #     orient_pl=orient_pl,  # [n_pl]
-        #     pos_a=pos_a,  # [n_agent, n_step, 2]
-        #     head_a=head_a,  # [n_agent, n_step]
-        #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-        #     mask=mask_a,  # [n_agent, n_step]
-        #     batch_s=batch_s,  # [n_agent*n_step]
-        #     batch_pl=batch_pl,  # [n_pl*n_step]
-        #     pl2a_radius=self.pl2a_radius,
-        #     max_num_neighbors=self.pt2a_neighbor,
-        #     train_mask=None
-        # )
-        #
-        # edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
-        #     pos_a=pos_a,  # [n_agent, n_step, 2]
-        #     head_a=head_a,  # [n_agent, n_step]
-        #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-        #     batch_s=batch_s,  # [n_agent*n_step]
-        #     mask=mask_a,  # [n_agent, n_step]
-        #     max_radius=self.a2a_radius,
-        #     max_num_neighbors=self.a2a_neighbor,
-        #     proposal=None,
-        #     #shape=tokenized_agent["shape"]
-        # )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
-
         if len(light_idx):
             feat_lg = self.light_encoder.light_embedding(light_idx)
 
@@ -311,8 +288,6 @@ class SMARTAgentDecoder(nn.Module):
         all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
             pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl
 
-        # all_features=train_mask, feat_a, agent_token_emb,sampled_idx,r_a2a, edge_index_a2a, feat_map, r_pl2a, edge_index_pl2a
-
         if self.training:
             detach_all_features=[]
             for feature in all_features:
@@ -324,7 +299,12 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,train_mask)
 
-        return next_token_logits,next_light_logits,feat_a,proposal
+        visibility=None
+
+        if self.pred_vis:
+            visibility=self.vis_head(feat_a)
+
+        return next_token_logits,next_light_logits,feat_a,proposal,visibility
 
     def forward(
             self,
@@ -345,7 +325,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_lg=light_idx<self.light_type
 
-        next_token_logits,next_light_logits,feat_a,proposal= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,next_light_logits,feat_a,proposal,visibility= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
                                                                                 tokenized_agent["sampled_heading"] ,
@@ -361,6 +341,7 @@ class SMARTAgentDecoder(nn.Module):
 
         return {
             "proposal":proposal,
+            "visibility":visibility,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
          }
@@ -406,14 +387,14 @@ class SMARTAgentDecoder(nn.Module):
                     self.a_t_roformer.attn.caching=True
                     if self.pred_light:
                         self.light_encoder.lg_t_roformer.attn.caching=True
-                    next_token_logits,next_light_logits,feat_a,proposal = self.predict_agent(sampled_idx, mask, pos_a,
+                    next_token_logits,next_light_logits,feat_a,proposal,visibility = self.predict_agent(sampled_idx, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,post_sampling)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
                 if self.pred_light:
                     self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist)
             else:
-                next_token_logits,next_light_logits,feat_a,proposal  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
+                next_token_logits,next_light_logits,feat_a,proposal,visibility  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
                                                                                     mask_lg[:,-self.light_hist:],t - 1,post_sampling)
 

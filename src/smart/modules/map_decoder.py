@@ -59,7 +59,7 @@ class SMARTMapDecoder(nn.Module):
             self.my_map=False
 
             if self.my_map:
-                self.token_emb = MLPEmbedding(input_dim=27, hidden_dim=hidden_dim)
+                self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
             else:
                 self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
             #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
@@ -98,7 +98,7 @@ class SMARTMapDecoder(nn.Module):
         map_type[map_type>9] = 9
         
         #mask = torch.zeros_like(map_type, dtype=bool)
-        mask = torch.ones_like(map_type, dtype=bool)
+        #mask = torch.ones_like(map_type, dtype=bool)
 
         # type4_indices=torch.where((map_type==4) |(map_type==5))[0]
         #
@@ -108,26 +108,22 @@ class SMARTMapDecoder(nn.Module):
         #
         # mask[(map_type!=4)&(map_type!=5)] = True
         #
-        batch = tokenized_map["batch"][mask]
+        batch = tokenized_map["batch"]#[mask]
 
-        if "orientation" in tokenized_map.keys():
-            pos_pt = tokenized_map["position"][mask]
-            orient_pt = tokenized_map["orientation"][mask]
-            pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
-            x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()[mask]]#
-            #x_pt = self.token_emb(tokenized_map["token_idx"].long())
+        if self.my_map:
+            traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
+            x_pt = self.token_emb(traj_pos_local)
         else:
-            traj_pos= tokenized_map["traj_pos"]
-            pos_pt=traj_pos[:,0,:2]
-            orient_pt=traj_pos[:,0,2]
-            relative_pos=(traj_pos[:,1:]-traj_pos[:,:1]).flatten(1,2)
-            x_pt=self.token_emb(relative_pos)
-            
+            pos_pt = tokenized_map["position"]#[mask]
+            orient_pt = tokenized_map["orientation"]#[mask]
+            pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
+            x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]#[mask]]#
+
         pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3,3,3]).to(device=pos_pt.device, dtype=torch.long)
-        pl_type=pl_type_mapping[map_type[mask]]
+        pl_type=pl_type_mapping[map_type]#mask]]
 
         x_pt_categorical_embs = [
-            self.type_pt_emb(map_type[mask]),  #
+            self.type_pt_emb(map_type),  #[mask]
             self.polygon_type_emb(pl_type),  #
             # self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]

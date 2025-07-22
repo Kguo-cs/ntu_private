@@ -31,14 +31,14 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 # Set paths
-data_directory = "./waymo_data/full/training_inter10_raw_light/"
-token_data_directory = "./waymo_data/full/training_map10_2049high/"
-map_data_directory="./waymo_data/full/training_map10_2049/"
+# data_directory = "./waymo_data/full/training_inter10_raw_light/"
+# token_data_directory = "./waymo_data/full/training_map10_2049high/"
+# map_data_directory="./waymo_data/full/training_map10_2049/"
 
-# data_directory = "/home/ke/code/catk/src/waymo_data/new/training/"
-# agent_directory  = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049high/"
-#
-# token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map10_2049/"
+data_directory = "/home/ke/code/catk/src/waymo_data/map/training/"
+agent_directory  = "/home/ke/code/catk/src/waymo_data/full/training_inter10_2049high/"
+
+token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_2049/"
 
 os.makedirs(token_data_directory, exist_ok=True)
 
@@ -51,43 +51,43 @@ def process_file(filename):
 
     data1= HeteroData(data).cuda()
 
-    # tokenized_map = token_processor.tokenize_map(data1)
+    tokenized_map = token_processor.tokenize_map(data1)
+
+    agent_path = os.path.join(agent_directory, filename)
+
+    with open(agent_path, "rb") as f:
+        data = pickle.load(f)
+
+    for key in tokenized_map.keys():
+        tokenized_map[key] = tokenized_map[key].cpu()
+
+    data["tokenized_map"]=tokenized_map
+    data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
+
+    # agent = data1["tokenized_agent"]
     #
-    # agent_path = os.path.join(agent_directory, filename)
+    # agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
+    #     agent['type']
+    # )
+    # token_dict = token_processor._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+    #                                     agent["gt_head_raw"],
+    #                                     agent_shape, token_traj  )
     #
-    # with open(agent_path, "rb") as f:
-    #     data = pickle.load(f)
     #
-    # for key in tokenized_map.keys():
-    #     tokenized_map[key] = tokenized_map[key].cpu()
+    # for key in ["valid_mask","sampled_idx","sampled_pos","sampled_heading","target_global_traj","target_mask"]:
+    #     data["tokenized_agent"][key] = token_dict[key].cpu()
+    # data["tokenized_agent"]["sampled_idx"]= data["tokenized_agent"]["sampled_idx"].to(torch.int16)
     #
-    # data["tokenized_map"]=tokenized_map
-    # data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
-
-    agent = data1["tokenized_agent"]
-
-    agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
-        agent['type']
-    )
-    token_dict = token_processor._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                        agent["gt_head_raw"],
-                                        agent_shape, token_traj  )
-
-
-    for key in ["valid_mask","sampled_idx","sampled_pos","sampled_heading","target_global_traj","target_mask"]:
-        data["tokenized_agent"][key] = token_dict[key].cpu()
-    data["tokenized_agent"]["sampled_idx"]= data["tokenized_agent"]["sampled_idx"].to(torch.int16)
-
-    del data["tokenized_agent"]['gt_pos_raw']
-    del data["tokenized_agent"]['gt_head_raw']
-    del data["tokenized_agent"]['gt_valid_raw']
-
-    map_path = os.path.join(map_data_directory, filename)
-
-    with open(map_path, "rb") as f:
-        data2 = pickle.load(f)
-
-    data["tokenized_map"]=data2["tokenized_map"]
+    # del data["tokenized_agent"]['gt_pos_raw']
+    # del data["tokenized_agent"]['gt_head_raw']
+    # del data["tokenized_agent"]['gt_valid_raw']
+    #
+    # map_path = os.path.join(map_data_directory, filename)
+    #
+    # with open(map_path, "rb") as f:
+    #     data2 = pickle.load(f)
+    #
+    # data["tokenized_map"]=data2["tokenized_map"]
 
 
     # Save the tokenized data
@@ -96,7 +96,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(data_directory)
+    files = os.listdir(data_directory)[:2000]
 
     for file in tqdm(files):
         process_file(file)

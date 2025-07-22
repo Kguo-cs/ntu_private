@@ -113,12 +113,13 @@ class InterativeDecoder(nn.Module):
         self.reward_shaping = False
 
         self.discriminator=discriminator
-        if self.discriminator:
 
+        if self.discriminator:
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
+
 
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
