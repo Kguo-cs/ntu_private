@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc64_map2 #AIRL64_novalue_normR_agentall_stateLogpdetach
+task_name: bc64_map2_vis #AIRL64_novalue_normR_agentall_stateLogpdetach
 
 
 # simply provide checkpoint path to resume training
