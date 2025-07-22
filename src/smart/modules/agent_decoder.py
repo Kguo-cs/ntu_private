@@ -186,7 +186,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.use_dynamic=token_processor.use_dynamic
         self.start_step=10//self.shift-1
-        self.pred_vis = False
+        self.pred_vis = True
 
         if self.n_token_agent>1:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
@@ -301,8 +301,8 @@ class SMARTAgentDecoder(nn.Module):
 
         visibility=None
 
-        if self.pred_vis:
-            visibility=self.vis_head(feat_a)
+        if self.pred_vis and train_mask is None:
+            visibility=self.vis_head(feat_a[:,:-1])
 
         return next_token_logits,next_light_logits,feat_a,proposal,visibility
 

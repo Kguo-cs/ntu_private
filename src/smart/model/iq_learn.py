@@ -125,9 +125,8 @@ class IQ_SoftQ(LightningModule):
         if pred["visibility"] is None:
             vis_nll=0
         else:
-            visibility=pred["visibility"]
-            target_visibility=valid_mask
-            vis_nll=0
+            visibility=torch.sigmoid(pred["visibility"][:,:,0])
+            vis_nll = self.bce_loss(visibility, valid_mask.to(torch.float)[:,1:])
 
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
@@ -142,6 +141,8 @@ class IQ_SoftQ(LightningModule):
         log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
 
         #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
+        #current_Q_diff=current_Q_diff[all_valid_mask]
+        #V_diff=V_diff[all_valid_mask]
 
         if key == "expert":
             log_prob=log_prob[train_mask]
@@ -190,8 +191,6 @@ class IQ_SoftQ(LightningModule):
 
         last_V=last_V[all_valid_mask]
 
-        #current_Q_diff=current_Q_diff[all_valid_mask]
-        #V_diff=V_diff[all_valid_mask]
 
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
@@ -215,7 +214,6 @@ class IQ_SoftQ(LightningModule):
 
         if self.use_target_q:
             V=(V-target_V)[all_valid_mask]
-
 
         return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
