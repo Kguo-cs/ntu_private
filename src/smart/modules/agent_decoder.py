@@ -300,7 +300,7 @@ class SMARTAgentDecoder(nn.Module):
 
         visibility=None
 
-        if self.pred_vis and train_mask is None:
+        if self.pred_vis:
             visibility=self.vis_head(feat_a)#
 
         return next_token_logits,next_light_logits,feat_a,proposal,visibility
@@ -370,7 +370,7 @@ class SMARTAgentDecoder(nn.Module):
         pred_head_10hz = []
         sampled_log_prob=[]
 
-        vis_mask=None#[:,-1:]
+        vis_mask=mask.clone()
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -400,7 +400,7 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 next_token_logits,next_light_logits,feat_a,proposal,visibility  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
-                                                                                    mask_lg[:,-self.light_hist:],t - 1,vis_mask,post_sampling)
+                                                                                    mask_lg[:,-self.light_hist:],t - 1,vis_mask[:, -1:],post_sampling)
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
@@ -504,7 +504,9 @@ class SMARTAgentDecoder(nn.Module):
                 # if vis_mask is not None:
                 #     vis_mask=vis_mask & (torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
                 # else:
-                vis_mask=(torch.rand_like(visibility[:,-1,0])<visibility[:,-1,0])
+                vis=torch.rand_like(visibility[:,-1:,0])<visibility[:,-1:,0]
+
+                vis_mask=torch.cat([vis_mask,vis],dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light:
@@ -520,7 +522,8 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            "sampled_log_prob":sampled_log_prob
+            "sampled_log_prob":sampled_log_prob,
+            "vis_mask": vis_mask,
             #"light_idx": light_idx,
         }
 

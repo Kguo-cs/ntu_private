@@ -177,6 +177,7 @@ class EdgeEncoder(nn.Module):
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
 
         if vis_mask is not None:
+            vis_mask=vis_mask.transpose(0, 1).reshape(-1)
             # full_edge_index: [2, num_edges]
             src, dst = edge_index_a2a  # each of shape [num_edges]
 

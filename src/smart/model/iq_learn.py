@@ -61,7 +61,6 @@ class IQ_SoftQ(LightningModule):
 
         self.reward_type='airl'
 
-
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
         action = action.unsqueeze(-1)  # .reshape(-1)
@@ -131,10 +130,16 @@ class IQ_SoftQ(LightningModule):
         if pred["visibility"] is None:
             vis_nll=0
         else:
-            visibility=torch.sigmoid(pred["visibility"][:,:-1,0])
-            vis_nll = self.bce_loss(visibility, valid_mask.to(torch.float)[:,1:])
-            # v=valid_mask.float()
-            # print(torch.all(v[:,1:]<=v[:,:-1]))
+            visibility=pred["visibility"][:,:-1,0]
+
+            if key=="expert":
+                vis_mask=valid_mask.to(torch.float)[:,1:]
+                vis_nll = -F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='mean')
+            else:
+                vis_mask=tokenized_agent["vis_mask"][:, self.start_step+1:][train_mask]
+
+                vis_nll = -F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='none')
+
 
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
@@ -200,7 +205,6 @@ class IQ_SoftQ(LightningModule):
         init_V=init_V[all_valid_mask]
 
         last_V=last_V[all_valid_mask]
-
 
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
