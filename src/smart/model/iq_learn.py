@@ -134,11 +134,16 @@ class IQ_SoftQ(LightningModule):
 
             if key=="expert":
                 vis_mask=valid_mask.to(torch.float)[:,1:]
-                vis_nll = -F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='mean')
             else:
                 vis_mask=tokenized_agent["vis_mask"][:, self.start_step+1:][train_mask]
 
-                vis_nll = -F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='none')
+            vis_log_prob = F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='none')
+
+            if key=="expert": #state =True
+                state_mask=valid_mask[:,:-1]
+                vis_log_prob=vis_log_prob[state_mask]
+
+            vis_nll=-vis_log_prob.mean()
 
 
         if pred["agent_q"] is None:
