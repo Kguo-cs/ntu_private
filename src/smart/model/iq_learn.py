@@ -38,7 +38,7 @@ class IQ_SoftQ(LightningModule):
         self.bce_loss = nn.BCELoss()
 
 
-        self.buffer_len=10
+        self.buffer_len=100
 
         self.replay_buffer = deque(maxlen=self.buffer_len)
 
