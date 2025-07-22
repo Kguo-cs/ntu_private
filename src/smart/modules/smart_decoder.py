@@ -131,7 +131,7 @@ class SMARTDecoder(nn.Module):
                 self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
                                                     10,10,num_freq_bands,
                                                     1,num_heads,head_dim,
-                                                    0.1,hist_drop_prob,1,
+                                                    0,hist_drop_prob,1,
                                                     pt2a_neighbor//2,a2a_neighbor//2,
                                                     token_processor,False,False,False,discriminator=True
                                                         )
