@@ -332,6 +332,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 map_feature,
                                                                                 light_idx,
                                                                                 mask_lg,
+                                                                                vis_mask=tokenized_agent["vis_mask"],
                                                                                 post_sampling=post_sampling)
 
         tokenized_agent["next_token_logits"] = next_token_logits

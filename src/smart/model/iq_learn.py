@@ -253,6 +253,8 @@ class IQ_SoftQ(LightningModule):
         action_mask = valid_mask[:, 1:]
         train_mask = state_mask & action_mask
 
+        tokenized_agent["vis_mask"] = None
+
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
 
