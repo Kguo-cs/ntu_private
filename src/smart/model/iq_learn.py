@@ -127,6 +127,71 @@ class IQ_SoftQ(LightningModule):
 
         action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
+        if pred["agent_q"] is None:
+            return 0,0,0,0,0,proposal_loss
+
+        if "train_mask" in tokenized_agent.keys():
+            valid_mask=valid_mask[train_mask]
+            action=action[train_mask]
+
+        all_valid_mask=valid_mask.all(-1)
+
+        log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
+
+        #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
+        #current_Q_diff=current_Q_diff[all_valid_mask]
+        #V_diff=V_diff[all_valid_mask]
+        # self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
+        # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
+
+        if self.use_target_q and key=="expert":
+            with torch.no_grad():
+                pred = self.target_net(tokenized_map, tokenized_agent)
+
+                target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
+            self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
+        else:
+            target_V=0
+
+        init_V = V[:, 0]
+        last_V= V[:,-1]
+
+        if key == "expert":
+            log_prob=log_prob[train_mask]
+
+            reward = reward[train_mask]
+
+            value_loss=value_loss[train_mask]
+
+            V=V[all_valid_mask]
+
+            current_Q=current_Q[all_valid_mask]
+
+            entropy =entropy[all_valid_mask]
+
+            init_V=init_V[all_valid_mask]
+
+            last_V=last_V[all_valid_mask]
+            off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
+            self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
+
+        action_nll = -log_prob.mean()
+
+        self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
+
+        if self.iq_learn and not self.use_gail:
+            action_nll=0
+
+        if self.use_target_q:
+            V=(V-target_V)[all_valid_mask]
+
         if pred["visibility"] is None:
             vis_nll=0
         else:
@@ -142,32 +207,12 @@ class IQ_SoftQ(LightningModule):
             if key=="expert": #state =True
                 state_mask=valid_mask[:,:-1]
                 vis_log_prob=vis_log_prob[state_mask]
+            else:
+                log_prob=log_prob+vis_log_prob
 
             vis_nll=-vis_log_prob.mean()
 
 
-        if pred["agent_q"] is None:
-            return 0,0,0,0,0,proposal_loss
-
-        if "train_mask" in tokenized_agent.keys():
-            valid_mask=valid_mask[train_mask]
-            action=action[train_mask]
-            train_mask=train_mask[train_mask]
-
-        all_valid_mask=valid_mask.all(-1)
-
-        log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
-
-        #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
-        #current_Q_diff=current_Q_diff[all_valid_mask]
-        #V_diff=V_diff[all_valid_mask]
-        # self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
-        # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
-
-        if key == "expert":
-            log_prob=log_prob[train_mask]
-
-        action_nll = -log_prob.mean()
 
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
@@ -183,52 +228,6 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        if self.use_target_q and key=="expert":
-            with torch.no_grad():
-                pred = self.target_net(tokenized_map, tokenized_agent)
-
-                target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
-            self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
-        else:
-            target_V=0
-
-        init_V = V[:, 0]
-        last_V= V[:,-1]
-
-        actor_loss = actor_loss[all_valid_mask]
-
-        reward = reward[train_mask]
-
-        value_loss=value_loss[train_mask]
-
-        V=V[all_valid_mask]
-
-        current_Q=current_Q[all_valid_mask]
-
-        entropy =entropy[all_valid_mask]
-
-        init_V=init_V[all_valid_mask]
-
-        last_V=last_V[all_valid_mask]
-
-        self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_entropy", entropy.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_reward", reward.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_lastV", last_V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_initV", init_V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_actor_loss", actor_loss.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
-
-        off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
-        self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
-
-        if self.iq_learn and not self.use_gail:
-            action_nll=0
-
-        if self.use_target_q:
-            V=(V-target_V)[all_valid_mask]
 
         return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
