@@ -284,6 +284,9 @@ class SMARTAgentDecoder(nn.Module):
         else:
             train_mask=None
 
+        if vis_mask is not None:
+            vis_mask = vis_mask[:, -n_step:]
+
         all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
             pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl,vis_mask
 
@@ -301,7 +304,7 @@ class SMARTAgentDecoder(nn.Module):
         visibility=None
 
         if self.pred_vis:
-            visibility=self.vis_head(feat_a.detach())+3#
+            visibility=self.vis_head(feat_a.detach())
 
         return next_token_logits,next_light_logits,feat_a,proposal,visibility
 

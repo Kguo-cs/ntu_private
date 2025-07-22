@@ -2,6 +2,74 @@ from torch_geometric.nn.pool import knn_graph,knn
 import torch.nn.functional as F
 import torch
 import  math
+import torch
+
+import torch
+
+
+import torch
+
+def visibility_aware_knn_with_radius_batch(pos, vis_mask, batch, k, max_radius):
+    device = pos.device
+    edge_src = []
+    edge_dst = []
+
+    # For each batch (scene), process independently
+    unique_batches = batch.unique(sorted=True)
+    for b in unique_batches:
+        # Get agents in batch b
+        idx = (batch == b)
+        pos_b = pos[idx]                # [Nb, 2]
+        vis_mask_b = vis_mask[idx]      # [Nb]
+        num_agents = pos_b.size(0)
+
+        if num_agents == 0:
+            continue
+
+        # Pairwise distance
+        dists = torch.cdist(pos_b, pos_b, p=2)  # [Nb, Nb]
+        dists.fill_diagonal_(float('inf'))
+
+        # Visibility constraint
+        vis_mask_b = vis_mask_b.bool()
+        src_visible = vis_mask_b.unsqueeze(1)        # [Nb, 1]
+        dst_visible = vis_mask_b.unsqueeze(0)        # [1, Nb]
+        visibility_mask = (~src_visible) | dst_visible  # [Nb, Nb]
+
+        # Radius constraint
+        radius_mask = dists <= max_radius
+
+        # Combine both
+        allow_mask = visibility_mask & radius_mask
+        dists[~allow_mask] = float('inf')
+
+        k=min(k,num_agents)
+
+        # Top-k nearest
+        knn_dists, knn_indices = torch.topk(dists, k, dim=1, largest=False)
+
+        # Valid edges (skip infs if too few neighbors)
+        valid_mask = torch.isfinite(knn_dists)
+        src_local = torch.arange(num_agents, device=device).unsqueeze(1).expand(num_agents, k)
+
+        src_valid = src_local[valid_mask]
+        dst_valid = knn_indices[valid_mask]
+
+        # Map local indices to global
+        global_idx = idx.nonzero(as_tuple=False).squeeze(1)
+        src_global = global_idx[src_valid]
+        dst_global = global_idx[dst_valid]
+
+        edge_src.append(src_global)
+        edge_dst.append(dst_global)
+
+    # Final edge index
+    edge_index = torch.stack([
+        torch.cat(edge_dst, dim=0),
+        torch.cat(edge_src, dim=0),
+    ], dim=0)  # [2, E]
+
+    return edge_index
 
 
 # def nearest_mask(padd_pos,nearest_k,max_dist,mask):

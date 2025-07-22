@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name:  AIRL64_stateLogpdetach_diffmask3 #bc64_map2_vis
+task_name:  AIRL64_stateLogpdetach_near #mask #3 #bc64_map2_vis
 
 
 # simply provide checkpoint path to resume training

@@ -10,7 +10,7 @@ from src.smart.utils import (
     wrap_angle,
 )
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest,radiusGraphNearest_inv
+    radiusGraphNearest,radiusGraphNearest_inv,visibility_aware_knn_with_radius_batch
 from torch_geometric.utils import dense_to_sparse, subgraph
 from torch_cluster import radius_graph
 
@@ -110,11 +110,15 @@ class EdgeEncoder(nn.Module):
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
 
         if proposal is None:
-            full_edge_index = radiusGraphNearest(x=pos_s,
-                                                 r=max_radius,
-                                                 batch=batch_s,
-                                                 loop=False,
-                                                 max_num_neighbors=max_num_neighbors)
+            if vis_mask is not None:
+                vis_mask=vis_mask.transpose(0, 1).reshape(-1)
+                full_edge_index =visibility_aware_knn_with_radius_batch(pos_s, vis_mask,batch_s, max_num_neighbors, max_radius)
+            else:
+                full_edge_index = radiusGraphNearest(x=pos_s,
+                                                     r=max_radius,
+                                                     batch=batch_s,
+                                                     loop=False,
+                                                     max_num_neighbors=max_num_neighbors)
         else:
             proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
 
@@ -175,31 +179,6 @@ class EdgeEncoder(nn.Module):
             full_edge_index=full_edge_index[:,intersecting]
 
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
-
-        if vis_mask is not None:
-            vis_mask=vis_mask.transpose(0, 1).reshape(-1)
-            # full_edge_index: [2, num_edges]
-            src, dst = edge_index_a2a  # each of shape [num_edges]
-
-            # vis_mask: [T*N], dtype=bool
-            # For each edge (src[i], dst[i]), check the visibility rule
-
-            # Condition 1: src is visible -> dst must also be visible
-            # Condition 2: src is not visible -> no constraint
-
-            # Get mask for src visible and dst also visible
-            src_visible = vis_mask[src]
-            dst_visible = vis_mask[dst]
-            valid_visible_to_visible = src_visible & dst_visible
-
-            # Get mask for src not visible (they can see anyone)
-            src_not_visible = ~vis_mask[src]
-
-            # Final mask for edges
-            valid_edges_mask = valid_visible_to_visible | src_not_visible
-
-            # Apply the mask
-            edge_index_a2a = edge_index_a2a[:, valid_edges_mask]
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
