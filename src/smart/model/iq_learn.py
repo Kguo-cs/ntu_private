@@ -44,11 +44,9 @@ class IQ_SoftQ(LightningModule):
 
         self.rollout_freq=1
 
-
         # if self.use_gail:
         #     self.automatic_optimization = False
-
-           # self.dis_freq=2
+       # self.dis_freq=2
 
         if  self.use_target_q:
             self.target_net = SMARTDecoder(
