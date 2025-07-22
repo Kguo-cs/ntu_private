@@ -17,6 +17,8 @@ from src.smart.utils import (
 import torch.nn.functional as F
 import torch.nn as nn
 import time
+from collections import deque
+import random
 
 class IQ_SoftQ(LightningModule):
 
@@ -35,6 +37,10 @@ class IQ_SoftQ(LightningModule):
         self.use_gail=self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
 
+
+        self.buffer_len=10
+
+        self.replay_buffer = deque(maxlen=self.buffer_len)
 
         self.rollout_freq=1
 
@@ -283,6 +289,22 @@ class IQ_SoftQ(LightningModule):
 
                 agent_dis_loss,agent_rewards,agent_returns,agent_logit=self.get_reward(tokenized_agent_rollout["detach_all_features"],"agent",tokenized_agent_rollout["train_mask"])
 
+                if self.buffer_len>1:
+                    with torch.no_grad():
+                        agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
+                            tokenized_agent_rollout["detach_all_features"], "agent",
+                            tokenized_agent_rollout["train_mask"])
+
+                    self.replay_buffer.append((tokenized_agent_rollout["detach_all_features"],tokenized_agent_rollout["train_mask"]))
+
+                    detach_all_features,agent_train_mask=random.sample(self.replay_buffer,1)[0]
+                    logit = self.encoder.discriminator(detach_all_features, agent_train_mask)[0][:, :, 0]
+                    agent_dis_loss = self.bce_loss( torch.sigmoid(logit), torch.zeros_like(logit))
+
+                else:
+                    agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
+                        tokenized_agent_rollout["detach_all_features"], "agent", tokenized_agent_rollout["train_mask"])
+
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
 
@@ -329,7 +351,7 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                expert_nll =  agent_wNLL + value_loss  #expert_nll + # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL + value_loss  # - 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
