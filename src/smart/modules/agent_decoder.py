@@ -502,7 +502,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.pred_vis:
                 vis=torch.rand_like(visibility[:,-1:,0])<torch.sigmoid(visibility[:,-1:,0])
-
+                vis=vis_mask[:,-1:] & vis
                 vis_mask=torch.cat([vis_mask,vis],dim=1)
 
         self.a_t_roformer.attn.kv_caching(0)
