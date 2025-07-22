@@ -167,7 +167,6 @@ def get_proposal_loss(proposal,tokenized_agent,start_step):
 
     action = torch.argmin(proposal5_loss, dim=-1)
 
-
     return proposal_loss, pos_loss, head_loss,action
 
 

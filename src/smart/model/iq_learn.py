@@ -119,7 +119,6 @@ class IQ_SoftQ(LightningModule):
 
                     self.log("train/" + key + "_sample_head_diff", head_diff[all_valid_mask].mean().item(), on_step=True, batch_size=1)
                     self.log("train/" + key + "_sample_pos_dist", pos_dist[all_valid_mask].mean().item(), on_step=True, batch_size=1)
-
             else:
                 proposal_loss=0
         else:
@@ -159,7 +158,7 @@ class IQ_SoftQ(LightningModule):
         if key == "expert":
             log_prob=log_prob[train_mask]
 
-            reward = reward[train_mask]
+            reward=reward[train_mask]
 
             value_loss=value_loss[train_mask]
 
@@ -172,6 +171,7 @@ class IQ_SoftQ(LightningModule):
             init_V=init_V[all_valid_mask]
 
             last_V=last_V[all_valid_mask]
+
             off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
             self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
 
@@ -212,8 +212,6 @@ class IQ_SoftQ(LightningModule):
 
             vis_nll=-vis_log_prob.mean()
 
-
-
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
             light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
@@ -227,7 +225,6 @@ class IQ_SoftQ(LightningModule):
             self.log("train/" + key + "_light_nll", light_nll.item(), on_step=True, batch_size=1)
         else:
             light_nll=0
-
 
         return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
