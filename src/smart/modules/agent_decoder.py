@@ -223,6 +223,7 @@ class SMARTAgentDecoder(nn.Module):
             feat_lg_t=feat_a_lg_t[len(mask):]
         else:
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
+            feat_lg_t=None
 
         if self.training:
             n_step=n_step-self.start_step
