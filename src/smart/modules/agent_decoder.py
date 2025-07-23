@@ -374,7 +374,10 @@ class SMARTAgentDecoder(nn.Module):
         pred_head_10hz = []
         sampled_log_prob=[]
 
-        vis_mask=mask.clone()
+        if self.pred_vis:
+            vis_mask=mask.clone()
+        else:
+            vis_mask=None
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
