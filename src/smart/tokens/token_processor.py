@@ -54,7 +54,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.use_light=False
+        self.use_light=True
 
         self.pred_proposal=False
 
