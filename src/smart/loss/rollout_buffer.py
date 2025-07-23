@@ -155,9 +155,9 @@ def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
         d_x = (s + eps).log()
         rewards = d_x + (-1 - (-d_x).log())
 
-    rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+    #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
-    #rewards=F.normalize(rewards,dim=0)
+    rewards=F.normalize(rewards,dim=0)
 
     returns = torch.zeros_like(rewards)
     running_return=returns[:,-1]

@@ -121,12 +121,11 @@ class SMARTDecoder(nn.Module):
         self.rollout_stream = torch.cuda.Stream()
 
     def run_async_rollout(self, tokenized_agent, detach_map_feature, post_sampling):
-        rollout_result = [None]
         encoder_was_training = self.agent_encoder.training
 
         with torch.no_grad(), torch.cuda.stream(self.rollout_stream):
             self.agent_encoder.eval()
-            rollout_result[0] = self.agent_encoder.inference(
+            rollout_result = self.agent_encoder.inference(
                 tokenized_agent, detach_map_feature, post_sampling
             )
             if encoder_was_training:
@@ -142,8 +141,8 @@ class SMARTDecoder(nn.Module):
             map_feature = tokenized_map["map_feature"]
         else:
             map_feature = self.map_encoder(tokenized_map)
-            # tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-            # tokenized_map["map_feature"] = map_feature
+            tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+            tokenized_map["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
 
         if use_critic:
@@ -168,7 +167,7 @@ class SMARTDecoder(nn.Module):
         post_sampling=False,
     ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_map:
-            map_feature = tokenized_map["map_feature"]
+            map_feature = tokenized_map["detach_map_feature"]
         else:
             if post_sampling:
                 map_feature = None

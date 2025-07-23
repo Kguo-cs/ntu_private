@@ -1,6 +1,7 @@
 from lightning import LightningModule
 import numpy as np
 import torch
+from triton.language.semantic import reduction
 
 from TrafficManager.LimSim.utils.data_copy import deepcopy
 from src.smart.modules.smart_decoder import SMARTDecoder
@@ -221,13 +222,14 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,all_features,key,train_mask=None):
-        logit = self.encoder.discriminator(all_features,train_mask)[0][:, :, 0]
+        logit = self.encoder.discriminator(all_features,None)[0][:, :, 0]
 
         disc_val = torch.sigmoid(logit)
 
         returns, rewards = get_return(disc_val, self.gamma,reward_type=self.reward_type)#
 
         if key == "expert":
+            disc_val = disc_val[train_mask]
             bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
         else:
             bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
@@ -248,50 +250,51 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["vis_mask"] = None
 
-        map_feature = self.encoder.map_encoder(tokenized_map)
-        tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-        tokenized_map["map_feature"] = map_feature
-        rollout_result = self.encoder.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"],  False)
 
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
             if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                 self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
+        # map_feature = self.encoder.map_encoder(tokenized_map)
+        # tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+        # tokenized_map["map_feature"] = map_feature
+        # rollout_result = self.encoder.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"],  False)
+
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False
 
-            train_mask = valid_mask.all(-1)
-
-            tokenized_agent["train_mask"]= train_mask
+            # train_mask = valid_mask.all(-1)
+            #
+            # tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent["detach_all_features"],"expert",train_mask)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
-            torch.cuda.synchronize()
-            tokenized_agent.update(rollout_result[0])
-            tokenized_agent_rollout=tokenized_agent
+            # torch.cuda.synchronize()
+            # tokenized_agent.update(rollout_result[0])
+            # tokenized_agent_rollout=tokenized_agent
 
-            # if self.global_step%self.rollout_freq==0:
-            #     tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
-            #
-            #     if self.rollout_freq>1:
-            #         self.tokenized_map={}
-            #         for key in tokenized_map.keys():
-            #             if key!="map_feature":
-            #                 self.tokenized_map[key]=tokenized_map[key]
-            #
-            #         self.tokenized_agent_rollout={}
-            #
-            #         for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape","sampled_log_prob","light_idx","num_graphs","train_mask","detach_all_features"]:
-            #             self.tokenized_agent_rollout[key] = tokenized_agent_rollout[key]
-            # else:
-            #     tokenized_map=self.tokenized_map
-            #     tokenized_agent_rollout=self.tokenized_agent_rollout
+            if self.global_step%self.rollout_freq==0:
+                tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+
+                if self.rollout_freq>1:
+                    self.tokenized_map={}
+                    for key in tokenized_map.keys():
+                        if key!="map_feature":
+                            self.tokenized_map[key]=tokenized_map[key]
+
+                    self.tokenized_agent_rollout={}
+
+                    for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape","sampled_log_prob","light_idx","num_graphs","train_mask","detach_all_features"]:
+                        self.tokenized_agent_rollout[key] = tokenized_agent_rollout[key]
+            else:
+                tokenized_map=self.tokenized_map
+                tokenized_agent_rollout=self.tokenized_agent_rollout
 
             tokenized_agent_rollout["train_mask"]=None
 
