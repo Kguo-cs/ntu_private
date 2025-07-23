@@ -14,6 +14,7 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
+from tensorflow.python.layers.core import dropout
 from torch_geometric.utils import subgraph
 
 from src.smart.layers import MLPLayer
@@ -213,14 +214,15 @@ class SMARTAgentDecoder(nn.Module):
 
         if len(light_idx):
             feat_lg = self.light_encoder.light_embedding(light_idx)
-            if self.light_encoder.share:
-                feat_a_lg_token=torch.cat((feat_a_token,feat_lg),dim=0)
-                mask_a_lg=torch.cat((mask,mask_lg),dim=0)
-                feat_a_lg_t = self.a_t_roformer.temporal_embed(feat_a_lg_token, None, None, n_step, n_current, mask_a_lg)
-                feat_a_t=feat_a_lg_t[:len(mask)]
-                feat_lg_t=feat_a_lg_t[len(mask):]
-            else:
-                feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
+
+        if len(light_idx) and self.light_encoder.share:
+            feat_a_lg_token=torch.cat((feat_a_token,feat_lg),dim=0)
+            mask_a_lg=torch.cat((mask,mask_lg),dim=0)
+            feat_a_lg_t = self.a_t_roformer.temporal_embed(feat_a_lg_token, None, None, n_step, n_current, mask_a_lg)
+            feat_a_t=feat_a_lg_t[:len(mask)]
+            feat_lg_t=feat_a_lg_t[len(mask):]
+        else:
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
 
         if self.training:
             n_step=n_step-self.start_step
@@ -229,9 +231,10 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a[:,-n_step:]
             agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
-            if self.light_encoder.share:
-                feat_lg_t=feat_lg_t[:,-n_step:]
-                feat_lg=feat_lg_t[:,-n_step:]
+            if len(light_idx) and self.light_encoder.share:
+                feat_lg_t = feat_lg_t[:, -n_step:]
+                feat_lg=feat_lg[:, -n_step:]
+                light_idx=light_idx[:, -n_step:]
 
         mask_a=mask[:,-n_step:]
 

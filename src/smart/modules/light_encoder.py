@@ -201,7 +201,6 @@ class LightEncoder(nn.Module):
 
                 feat_lg_t = feat_lg[:, -n_step:]
 
-
             mask_lg=mask_lg[:, -n_step:]
 
             if self.use_gnn:
@@ -221,7 +220,7 @@ class LightEncoder(nn.Module):
 
                 feat_lg_t = self.lg2lg_layers(feat_lg_t.transpose(0, 1).flatten(0, 1), r_lg2lg, edge_index_lg2lg)
 
-                feat_lg=feat_lg.reshape( n_step, n_light, -1).swapaxes(0, 1)
+                feat_lg=feat_lg_t.reshape( n_step, n_light, -1).swapaxes(0, 1)
 
             else:
                 lengths=tokenized_agent["lengths_lg"]
