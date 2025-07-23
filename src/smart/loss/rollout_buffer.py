@@ -92,7 +92,7 @@ def rollout(encoder, tokenized_map, tokenized_agent,post_sampling=False):
         )
     encoder.train()
 
-    tokenized_agent.update(pred)
+    #tokenized_agent.update(pred)
     # tokenized_agent_rollout = tokenized_agent
     # tokenized_agent_rollout['num_graphs'] = tokenized_agent['num_graphs']
     #
@@ -116,7 +116,7 @@ def rollout(encoder, tokenized_map, tokenized_agent,post_sampling=False):
     #
     #     self.replay_buffer.append((tokenized_map_rollout, tokenized_agent_rollout))
 
-    return tokenized_agent
+    return pred
 
 
 def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):

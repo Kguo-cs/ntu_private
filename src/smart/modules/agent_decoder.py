@@ -243,10 +243,6 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_s_repeat=tokenized_agent["batch"].unsqueeze(0).repeat(n_step,1).flatten(0, 1)
 
-        batch_pl = map_feature["batch"] #build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
-
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
 
         if len(light_idx):
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
@@ -276,7 +272,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
-        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
@@ -291,8 +286,7 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-        all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
-            pos_a, head_a, head_vector_a, mask_a, batch_s,batch_s_repeat, batch_pl,vis_mask
+        all_features= feat_a, agent_token_emb, sampled_idx, pos_a, head_a, head_vector_a, mask_a, batch_s,batch_s_repeat
 
         if self.training:
             detach_all_features=[]
@@ -303,7 +297,7 @@ class SMARTAgentDecoder(nn.Module):
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
 
-        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,train_mask)
+        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 
         visibility=None
 
@@ -345,12 +339,12 @@ class SMARTAgentDecoder(nn.Module):
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
-        tokenized_agent["visibility"] = visibility
+        #tokenized_agent["visibility"] = visibility
         tokenized_agent["proposal"] = proposal
 
         return {
             "proposal":proposal,
-            "visibility":visibility,
+            # "visibility":visibility,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
          }
@@ -392,8 +386,8 @@ class SMARTAgentDecoder(nn.Module):
                     if tokenized_agent["proposal"] is not None:
                         proposal=tokenized_agent["proposal"][:, :1]
 
-                    if tokenized_agent["visibility"] is not None:
-                        visibility=tokenized_agent["visibility"][:, :1]
+                    # if tokenized_agent["visibility"] is not None:
+                    #     visibility=tokenized_agent["visibility"][:, :1]
 
                     if self.pred_light:
                         next_light_logits = tokenized_agent["next_light_logits"][:, :1]
@@ -489,11 +483,10 @@ class SMARTAgentDecoder(nn.Module):
                 cat_dist = Categorical(logits=next_light_logits[:, -1] / self.alpha)
 
                 next_light_idx= cat_dist.sample()
+            else:
+                next_light_idx = tokenized_agent["light_idx"][:,t]
 
-                light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
-
-            elif self.use_light:
-                light_idx = tokenized_agent["light_idx"][:,t:t+1]
+            light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
 
             if post_sampling:
                 prev_valid=gt_valid[:,t-1]
@@ -523,7 +516,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light and not self.light_encoder.share:
             self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
-        sampled_log_prob=torch.stack(sampled_log_prob,dim=1)
+        # sampled_log_prob=torch.stack(sampled_log_prob,dim=1)
 
         out_dict = {
             "type": tokenized_agent["type"],
@@ -533,8 +526,8 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            "sampled_log_prob":sampled_log_prob,
-            "vis_mask": vis_mask,
+            #"sampled_log_prob":sampled_log_prob,
+           # "vis_mask": vis_mask,
             "light_idx": light_idx,
         }
 
