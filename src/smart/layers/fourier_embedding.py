@@ -19,10 +19,10 @@ class FourierEmbedding(nn.Module):
 
         if self.share:
             self.mlp = nn.Sequential(
-                nn.Linear((num_freq_bands * 2 + 1)*input_dim, hidden_dim*input_dim),
-                nn.LayerNorm(hidden_dim*input_dim),
+                nn.Linear((num_freq_bands * 2 + 1)*input_dim, hidden_dim),
+                nn.LayerNorm(hidden_dim),
                 nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim*input_dim, hidden_dim),
+                nn.Linear(hidden_dim, hidden_dim),
             )
         else:
             self.mlps = nn.ModuleList(
