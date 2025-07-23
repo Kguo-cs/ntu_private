@@ -122,7 +122,7 @@ class InterativeDecoder(nn.Module):
 
     def forward(self,all_features,train_mask ):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
-        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl,vis_mask=all_features
+        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_s_repeat,batch_pl,vis_mask=all_features
 
         #time1=time.time()
 
@@ -147,7 +147,7 @@ class InterativeDecoder(nn.Module):
             head_a=head_a,  # [n_agent, n_step]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             mask=mask_a,  # [n_agent, n_step]
-            batch_s=batch_s,  # [n_agent*n_step]
+            batch_s=batch_s_repeat,  # [n_agent*n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,

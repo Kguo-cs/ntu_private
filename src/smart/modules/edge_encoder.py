@@ -251,13 +251,13 @@ class EdgeEncoder(nn.Module):
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-        pos_pl = pos_pl.repeat(n_step, 1)
-        orient_pl = orient_pl.repeat(n_step)
+        # pos_pl = pos_pl.repeat(n_step, 1)
+        # orient_pl = orient_pl.repeat(n_step)
 
        # time1=time.time()
 
-        edge_index_pl2a = radiusGraphNearest2(x=pos_s[:, :2],
-                                              y=pos_pl[:, :2],
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s,
+                                              y=pos_pl,
                                               x_heading=head_s,
                                               r=pl2a_radius,
                                               batch_x=batch_s,

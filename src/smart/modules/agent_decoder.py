@@ -241,7 +241,9 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 
-        batch_pl = build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
+        batch_s_repeat=tokenized_agent["batch"].unsqueeze(0).repeat(n_step,1).flatten(0, 1)
+
+        batch_pl = map_feature["batch"] #build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
 
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
@@ -274,7 +276,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
-        feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
@@ -290,7 +292,7 @@ class SMARTAgentDecoder(nn.Module):
             vis_mask = vis_mask[:, -n_step:]
 
         all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
-            pos_a, head_a, head_vector_a, mask_a, batch_s, batch_pl,vis_mask
+            pos_a, head_a, head_vector_a, mask_a, batch_s,batch_s_repeat, batch_pl,vis_mask
 
         if self.training:
             detach_all_features=[]
