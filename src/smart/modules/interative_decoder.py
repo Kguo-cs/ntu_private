@@ -124,7 +124,7 @@ class InterativeDecoder(nn.Module):
         feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
         pos_a,head_a,head_vector_a,mask_a,batch_s,batch_pl,vis_mask=all_features
 
-        time1=time.time()
+        #time1=time.time()
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -166,7 +166,7 @@ class InterativeDecoder(nn.Module):
 
 
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-            time5=time.time()
+           #time5=time.time()
             # else:
             #     feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
             #     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
@@ -177,7 +177,7 @@ class InterativeDecoder(nn.Module):
         # print(time2-time1)
         # print(time3-time2)
         # print(time4-time3)
-        print(time5-time1)
+      #  print(time5-time1)
 
         # 0.005043983459472656
         # 0.01948380470275879

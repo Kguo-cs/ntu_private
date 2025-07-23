@@ -109,16 +109,6 @@ class EdgeEncoder(nn.Module):
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
 
-        #time1=time.time()
-        # full_edge_index = radiusGraphNearest2(x=pos_s,
-        #                                       y=pos_s,
-        #                                       x_heading=head_s,
-        #                                       r=max_radius,
-        #                                       batch_x=batch_s,
-        #                                       batch_y=batch_s,
-        #                                       max_num_neighbors=max_num_neighbors)
-        # time2=time.time()
-
         if proposal is None:
             if vis_mask is not None:
                 vis_mask=vis_mask.transpose(0, 1).reshape(-1)
