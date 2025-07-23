@@ -487,6 +487,7 @@ class SMARTAgentDecoder(nn.Module):
                 next_light_idx= cat_dist.sample()
 
                 light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
+
             elif self.use_light:
                 light_idx = tokenized_agent["light_idx"][:,t:t+1]
 
@@ -503,10 +504,10 @@ class SMARTAgentDecoder(nn.Module):
 
                 mask =torch.cat([mask,valid_mask[:,None]], dim=1)
             else:
-                if "gt_z_raw" in tokenized_agent.keys():
-                    mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
-                else:
-                    mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+                #if "gt_z_raw" in tokenized_agent.keys():
+                mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
+                # else:
+                #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
 
             if self.pred_vis:

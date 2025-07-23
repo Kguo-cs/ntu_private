@@ -54,7 +54,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.use_light=True
+        self.use_light=False
 
         self.pred_proposal=False
 
@@ -100,11 +100,13 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
-        lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
+        if self.use_light:
 
-        tokenized_agent["lengths_lg"] = lengths_lg
-        tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
-        tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
+            lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
+
+            tokenized_agent["lengths_lg"] = lengths_lg
+            tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
+            tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
 
         return tokenized_map, tokenized_agent
 
