@@ -216,9 +216,6 @@ class RoFormerSelfAttention(nn.Module):
         #     outputs = outputs + (past_key_value,)
 
         if self.caching_len:
-            # if self.cached_k is None:
-            #     self.cached_k = key_layer; self.cached_v = value_layer
-            # else:
             key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len*n_agent:]
             value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len*n_agent:]
             #attention_mask=None
@@ -244,8 +241,8 @@ class RoFormerSelfAttention(nn.Module):
             attn_bias = torch.where(attention_mask, -1e9, 0.)
             attn.add_(attn_bias)
         attn = attn.softmax(dim=-1)
-        if attention_mask is not None:
-            attn = attn.masked_fill(attention_mask, 0)
+        # if attention_mask is not None:
+        #     attn = attn.masked_fill(attention_mask, 0)
         attn=F.dropout(attn, p=self.dropout_p, inplace=True) if self.dropout_p > 0 else attn
 
         #if attention_mask.shape[-1]>20:

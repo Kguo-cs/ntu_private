@@ -255,11 +255,13 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
+            if self.encoder.agent_encoder.pred_light:
+                self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
-            self.encoder.agent_encoder.pred_light=False
+            # self.encoder.agent_encoder.pred_light=False
 
             train_mask = valid_mask.all(-1)
 
@@ -387,8 +389,8 @@ class IQ_SoftQ(LightningModule):
 
             #print(self.global_step)
 
-            if self.encoder.agent_encoder.use_light:
-                self.encoder.agent_encoder.pred_light=True
+            # if self.encoder.agent_encoder.use_light:
+            #     self.encoder.agent_encoder.pred_light=True
         else:
             loss = expert_nll + expert_proposal_loss
 

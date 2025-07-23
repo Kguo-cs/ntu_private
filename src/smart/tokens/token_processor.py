@@ -29,6 +29,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from src.smart.loss.iq_loss import padding
 
 class TokenProcessor(torch.nn.Module):
 
@@ -53,7 +54,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.light_type=5
 
-        self.use_light=False
+        self.use_light=True
 
         self.pred_proposal=False
 
@@ -98,6 +99,12 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["light_idx"]=torch.zeros([0,18])
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
+
+        lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
+
+        tokenized_agent["lengths_lg"] = lengths_lg
+        tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
+        tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
 
         return tokenized_map, tokenized_agent
 
@@ -797,6 +804,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["batch_lg"] = tokenized_light["batch"]
             tokenized_agent["pos_lg"] = tokenized_light["pos_lg"]#[shuffle_Id]
             tokenized_agent["orient_lg"] = tokenized_light["orient_lg"]#[shuffle_Id]
+
         else:
             tokenized_agent["light_idx"] = torch.zeros([0, 18])
 

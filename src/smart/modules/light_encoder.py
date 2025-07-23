@@ -83,20 +83,6 @@ class LightEncoder(nn.Module):
             if not self.share:
                 self.lg_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=self.light_dropout,hist_len=self.light_hist)
 
-        # self.lg2a_attn_layers = nn.ModuleList(
-        #     [
-        #         AttentionLayer(
-        #             hidden_dim=hidden_dim,
-        #             num_heads=num_heads,
-        #             head_dim=self.head_dim,
-        #             dropout=self.light_dropout,
-        #             bipartite=True,
-        #             has_pos_emb=True,
-        #         )
-        #         for _ in range(1)
-        #     ]
-        # )
-
         self.light_token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
                                                  output_dim=self.light_type)
 
@@ -149,21 +135,16 @@ class LightEncoder(nn.Module):
         n_light, light_step = light_idx.shape[0], light_idx.shape[1]
 
         if self.autoRegressive_light:
-
-            lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
+            lengths_lg=tokenized_agent["lengths_lg"]
+            pad_pos=tokenized_agent["pad_pos_lg"]
+            pad_orient=tokenized_agent["pad_orient_lg"]
 
             padded_lg_feature = padding(feat_lg, lengths_lg)#b,agent,t,
 
             feature_mask = (padded_lg_feature[:, :, 0] != 0).any(-1)
 
-            pos_lg = tokenized_agent["pos_lg"]
-            head_lg = tokenized_agent["orient_lg"]
-
-            pad_pos=padding(pos_lg, lengths_lg)
-            pad_head=padding(head_lg, lengths_lg)
-
             pad_pos_lg=pad_pos[:,:,None].repeat(1,1,light_step,1).flatten(1,2)
-            pad_head_lg=pad_head[:,:,None].repeat(1,1,light_step).flatten(1,2)
+            pad_head_lg=pad_orient[:,:,None].repeat(1,1,light_step).flatten(1,2)
 
             feat_lg=padded_lg_feature.flatten(1,2)
 

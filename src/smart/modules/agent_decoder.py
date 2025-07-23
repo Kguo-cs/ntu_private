@@ -57,7 +57,6 @@ class SMARTAgentDecoder(nn.Module):
             token_processor,
             alpha,
             output_gmm,
-            pred_light,
             pred_last_res,
             pred_all_res
     ) -> None:
@@ -160,12 +159,12 @@ class SMARTAgentDecoder(nn.Module):
         #         self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
 
         self.use_light = token_processor.use_light
-        self.pred_light=pred_light
+        self.pred_light=True
         self.light_type = token_processor.light_type
         self.light_hist = self.agent_hist
 
         if self.use_light:
-            self.light_encoder = LightEncoder(self.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
+            self.light_encoder = LightEncoder(self.interative_decoder.edge_encoder,hidden_dim,self.light_hist,num_heads,self.light_type,self.shift,self.pred_light,alpha)
 
             self.lg2a_attn_layers = nn.ModuleList(
                 [
@@ -254,7 +253,7 @@ class SMARTAgentDecoder(nn.Module):
 
             mask_lg = mask_lg[:, -n_step:]
 
-            edge_index_lg2a, r_lg2a = self.edge_encoder.build_map2agent_edge(
+            edge_index_lg2a, r_lg2a = self.interative_decoder.edge_encoder.build_map2agent_edge(
                 pos_pl= tokenized_agent["pos_lg"],  # [n_pl, 2]
                 orient_pl=tokenized_agent["orient_lg"],  # [n_pl]
                 pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -264,7 +263,7 @@ class SMARTAgentDecoder(nn.Module):
                 batch_s=batch_s,  # [n_agent*n_step]
                 batch_pl=batch_lg,  # [n_pl*n_step]
                 pl2a_radius=100,
-                max_num_neighbors=8,
+                max_num_neighbors=10,
                 mask_pl=mask_lg[:,-n_step:]
             )
 
@@ -403,7 +402,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
                 if self.pred_light:
-                    self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist)
+                    lg_num = tokenized_agent["pad_pos_lg"].shape[1]
+                    self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist,current_step*lg_num)
             else:
                 next_token_logits,next_light_logits,feat_a,proposal,visibility  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],

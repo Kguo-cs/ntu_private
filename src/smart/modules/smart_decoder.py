@@ -51,9 +51,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
-        self.use_gail=False
+        self.use_gail=True
 
         self.use_value=False
 
@@ -76,33 +76,7 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor
             )
 
-            if self.output_gmm:
-                self.alpha=1e-2
-            else:
-                self.alpha=0.1
-
-            if self.iq_learn and self.output_gmm:
-
-                self.critic = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=time_span,
-                    pl2a_radius=pl2a_radius,
-                    a2a_radius=a2a_radius,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=num_agent_layers,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    hist_drop_prob=hist_drop_prob,
-                    n_token_agent=1,
-                    pt2a_neighbor=pt2a_neighbor,
-                    a2a_neighbor=a2a_neighbor,
-                    token_processor=token_processor,
-                    alpha=self.alpha,
-                    output_gmm=False
-                )
+            self.alpha=0.1
 
             self.agent_encoder = SMARTAgentDecoder(
                 hidden_dim=hidden_dim,
@@ -123,7 +97,6 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor,
                 alpha=self.alpha,
                 output_gmm=self.output_gmm,
-                pred_light=True,
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
