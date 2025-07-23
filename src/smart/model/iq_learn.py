@@ -223,14 +223,14 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,all_features,key,train_mask=None):
-        logit = self.encoder.discriminator(all_features,None)[0][:, :, 0]
+        logit = self.encoder.discriminator(all_features,train_mask)[0][:, :, 0]
 
         disc_val = torch.sigmoid(logit)
 
         returns, rewards = get_return(disc_val, self.gamma,reward_type=self.reward_type)#
 
         if key == "expert":
-            disc_val = disc_val[train_mask]
+           # disc_val = disc_val[train_mask]
             bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
         else:
             bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
@@ -267,9 +267,9 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False
 
-            # train_mask = valid_mask.all(-1)
-            #
-            # tokenized_agent["train_mask"]= train_mask
+            train_mask = valid_mask.all(-1)
+
+            tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent["detach_all_features"],"expert",train_mask)
@@ -355,7 +355,7 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
-                    advantages= F.normalize(agent_returns,dim=0)#(agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)
+                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     value_loss=0
 
                 if self.rollout_freq>1:
