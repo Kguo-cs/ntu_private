@@ -35,7 +35,7 @@ Gk@140286
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
 
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=5:30:00 -P 12002486
 
 export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
