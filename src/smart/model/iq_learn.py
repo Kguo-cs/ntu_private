@@ -124,7 +124,7 @@ class IQ_SoftQ(LightningModule):
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
 
-        if "train_mask" in tokenized_agent.keys():
+        if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             valid_mask=valid_mask[train_mask]
             action=action[train_mask]
 
@@ -248,6 +248,10 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["vis_mask"] = None
 
+        map_feature = self.encoder.map_encoder(tokenized_map)
+        tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+        tokenized_map["map_feature"] = map_feature
+        rollout_result = self.encoder.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"],  False)
 
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
@@ -268,22 +272,28 @@ class IQ_SoftQ(LightningModule):
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
-            if self.global_step%self.rollout_freq==0:
-                tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+            torch.cuda.synchronize()
+            tokenized_agent.update(rollout_result[0])
+            tokenized_agent_rollout=tokenized_agent
 
-                if self.rollout_freq>1:
-                    self.tokenized_map={}
-                    for key in tokenized_map.keys():
-                        if key!="map_feature":
-                            self.tokenized_map[key]=tokenized_map[key]
+            # if self.global_step%self.rollout_freq==0:
+            #     tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+            #
+            #     if self.rollout_freq>1:
+            #         self.tokenized_map={}
+            #         for key in tokenized_map.keys():
+            #             if key!="map_feature":
+            #                 self.tokenized_map[key]=tokenized_map[key]
+            #
+            #         self.tokenized_agent_rollout={}
+            #
+            #         for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape","sampled_log_prob","light_idx","num_graphs","train_mask","detach_all_features"]:
+            #             self.tokenized_agent_rollout[key] = tokenized_agent_rollout[key]
+            # else:
+            #     tokenized_map=self.tokenized_map
+            #     tokenized_agent_rollout=self.tokenized_agent_rollout
 
-                    self.tokenized_agent_rollout={}
-
-                    for key in ["sampled_idx","sampled_pos", "sampled_heading", "valid_mask","batch", "type", "shape","sampled_log_prob","light_idx","num_graphs","train_mask","detach_all_features"]:
-                        self.tokenized_agent_rollout[key] = tokenized_agent_rollout[key]
-            else:
-                tokenized_map=self.tokenized_map
-                tokenized_agent_rollout=self.tokenized_agent_rollout
+            tokenized_agent_rollout["train_mask"]=None
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
