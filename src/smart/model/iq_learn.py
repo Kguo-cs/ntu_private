@@ -248,6 +248,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["vis_mask"] = None
 
+
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
             if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
@@ -264,6 +265,8 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent["detach_all_features"],"expert",train_mask)
+
+            expert_light_idx=tokenized_agent["light_idx"].clone()
 
             if self.global_step%self.rollout_freq==0:
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
@@ -283,7 +286,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_agent_rollout=self.tokenized_agent_rollout
 
             if self.encoder.agent_encoder.pred_light:
-                eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
+                eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
 

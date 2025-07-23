@@ -72,17 +72,17 @@ def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,exp
 
     return critic_loss
 
-def eval_light(tokenized_agent,tokenized_agent_rollout,logger,light_type):
-    real_light = tokenized_agent["light_idx"][:, 2:]
+def eval_light(expert_light_idx,tokenized_agent_rollout,logger,light_type):
+    real_light = expert_light_idx[:, 2:]
 
-    batch_lg = tokenized_agent["batch_lg"]
+    batch_lg = tokenized_agent_rollout["batch_lg"]
 
     batch_mask = batch_lg[:, None] == batch_lg[None]
 
     real_light_mask = (real_light < light_type).all(
         -1)
 
-    repeat_pred = tokenized_agent["light_idx"][:, 1:2].repeat(1, real_light.shape[1])
+    repeat_pred = expert_light_idx[:, 1:2].repeat(1, real_light.shape[1])
 
     repeat_light_acc = (repeat_pred == real_light)[real_light_mask].float().mean()
 
