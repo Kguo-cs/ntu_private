@@ -29,7 +29,6 @@ class IQ_SoftQ(LightningModule):
         self.alpha = self.encoder.alpha
         self.n_token_agent=self.encoder.agent_encoder.n_token_agent
 
-
         self.use_target_q=False
 
         self.start_step=10//self.token_processor.shift-1
@@ -134,10 +133,6 @@ class IQ_SoftQ(LightningModule):
         log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
 
         #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
-        #current_Q_diff=current_Q_diff[all_valid_mask]
-        #V_diff=V_diff[all_valid_mask]
-        # self.log("train/"+key+"_Q_diff", current_Q_diff.mean().item(), on_step=True, batch_size=1)
-        # self.log("train/"+key+"_V_diff", V_diff.mean().item(), on_step=True, batch_size=1)
 
         if self.use_target_q and key=="expert":
             with torch.no_grad():
@@ -255,7 +250,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-            if self.encoder.agent_encoder.pred_light:
+            if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                 self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
@@ -291,7 +286,6 @@ class IQ_SoftQ(LightningModule):
                 eval_light(tokenized_agent, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             if self.use_gail:
-                #tokenized_agent_rollout["train_mask"]=tokenized_agent_rollout["vis_mask"][:, self.start_step:].all(-1)
 
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, tokenized_agent_rollout["train_mask"],key='agent')

@@ -61,11 +61,11 @@ class LightEncoder(nn.Module):
         self.pred_light=pred_light
 
         if pred_light:
-            self.autoRegressive_light=True
+            self.autoRegressive_light=False
 
             if not self.autoRegressive_light:
                 self.use_gnn=True
-                # self.share=True
+                self.share=True
 
                 if self.use_gnn:
                     self.edge_encoder=edge_encoder
@@ -131,7 +131,7 @@ class LightEncoder(nn.Module):
 
         return feat_a
 
-    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg,n_step, n_current, feat_lg=None):
+    def forward(self, tokenized_agent,light_idx, mask_lg, batch_lg,n_step, n_current, feat_lg=None,feat_lg_t=None):
         n_light, light_step = light_idx.shape[0], light_idx.shape[1]
 
         if self.autoRegressive_light:
@@ -199,7 +199,8 @@ class LightEncoder(nn.Module):
             if not self.share:
                 feat_lg = self.lg_t_roformer.temporal_embed(feat_lg, None, None, light_step, n_current,  mask_lg)
 
-                feat_lg = feat_lg[:, -n_step:]
+                feat_lg_t = feat_lg[:, -n_step:]
+
 
             mask_lg=mask_lg[:, -n_step:]
 
@@ -218,7 +219,7 @@ class LightEncoder(nn.Module):
                     max_num_neighbors=10
                 )
 
-                feat_lg = self.lg2lg_layers(feat_lg.transpose(0, 1).flatten(0, 1), r_lg2lg, edge_index_lg2lg)
+                feat_lg_t = self.lg2lg_layers(feat_lg_t.transpose(0, 1).flatten(0, 1), r_lg2lg, edge_index_lg2lg)
 
                 feat_lg=feat_lg.reshape( n_step, n_light, -1).swapaxes(0, 1)
 
