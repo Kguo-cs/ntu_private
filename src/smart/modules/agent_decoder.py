@@ -531,7 +531,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_idx": sampled_idx,  # [n_agent, 18]
             "sampled_log_prob":sampled_log_prob,
             "vis_mask": vis_mask,
-            #"light_idx": light_idx,
+            "light_idx": light_idx,
         }
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
