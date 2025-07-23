@@ -51,9 +51,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=True
+        self.iq_learn=False
         self.output_gmm=False
-        self.use_gail=True
+        self.use_gail=False
 
         self.use_value=False
 
@@ -117,8 +117,8 @@ class SMARTDecoder(nn.Module):
                                                     token_processor,False,False,False
                                                         )
 
-        # 创建 rollout 用的异步 CUDA stream
-        self.rollout_stream = torch.cuda.Stream()
+            # 创建 rollout 用的异步 CUDA stream
+            self.rollout_stream = torch.cuda.Stream()
 
     def run_async_rollout(self, tokenized_agent, detach_map_feature, post_sampling):
         encoder_was_training = self.agent_encoder.training

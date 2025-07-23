@@ -89,34 +89,36 @@ class SMARTMapDecoder(nn.Module):
         map_type=tokenized_map["type"].long()
         map_type[map_type>9] = 9
         
-        #mask = torch.zeros_like(map_type, dtype=bool)
-        # mask = torch.ones_like(map_type, dtype=bool)
+        mask = torch.zeros_like(map_type, dtype=bool)
+        #mask = torch.ones_like(map_type, dtype=bool)
+
+        type4_indices=torch.where((map_type==4) |(map_type==5))[0]
+
+        sampled_indices = type4_indices[::2]
+
+        mask[sampled_indices] = True
+
+        mask[(map_type!=4)&(map_type!=5)] = True
         #
-        # type4_indices=torch.where((map_type==4) |(map_type==5))[0]
-        #
-        # sampled_indices = type4_indices[::2]
-        #
-        # mask[sampled_indices] = True
-        #
-        # mask[(map_type!=4)&(map_type!=5)] = True
-        #
-        batch = tokenized_map["batch"]#[mask]
-        pos_pt = tokenized_map["position"]  # [mask]
-        orient_pt = tokenized_map["orientation"]  # [mask]
+        batch = tokenized_map["batch"][mask]
+        pos_pt = tokenized_map["position"][mask]
+        orient_pt = tokenized_map["orientation"][mask]
+        map_type=map_type[mask]
+        token_idx=tokenized_map["token_idx"].long()[mask]
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
             x_pt = self.token_emb(traj_pos_local)
         else:
             pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
-            x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]#[mask]]#
+            x_pt = pt_token_emb_src[token_idx]
 
         pl_type_mapping= torch.tensor([0,0,0,0,1,1,2,2,2,3,3,3]).to(device=pos_pt.device, dtype=torch.long)
-        pl_type=pl_type_mapping[map_type]#mask]]
+        pl_type=pl_type_mapping[map_type]
 
         x_pt_categorical_embs = [
-            self.type_pt_emb(map_type),  #[mask]
-            self.polygon_type_emb(pl_type),  #
+            self.type_pt_emb(map_type),
+            self.polygon_type_emb(pl_type),
             # self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]
 
