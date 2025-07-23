@@ -264,13 +264,17 @@ class IQ_SoftQ(LightningModule):
             tokenized_map["detach_map_feature"] = detach_map_feature
             tokenized_map["map_feature"] = map_feature
 
+            tokenized_agent["batch_all"]=tokenized_agent["batch"]
+
             pred_dict = rollout(self.encoder, tokenized_map, tokenized_agent)
             n_agent=len(tokenized_agent["batch"])
 
-            pred_dict["batch"] = tokenized_agent["batch"] + tokenized_agent["num_graphs"]
+            pred_dict["batch_all"] = tokenized_agent["batch"] + tokenized_agent["num_graphs"]
 
             for key in pred_dict:
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pred_dict[key]])
+
+            tokenized_agent["num_graphs"]=tokenized_agent["num_graphs"]*2
 
             pred = self.encoder(tokenized_map, tokenized_agent)  # ,post_sampling=(key=='expert')
             expert_pred={}
