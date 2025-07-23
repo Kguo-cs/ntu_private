@@ -8,14 +8,14 @@ from src.smart.utils import weight_init
 
 class FourierEmbedding(nn.Module):
 
-    def __init__(self, input_dim: int, hidden_dim: int, num_freq_bands: int) -> None:
+    def __init__(self, input_dim: int, hidden_dim: int, num_freq_bands: int,share=False) -> None:
         super(FourierEmbedding, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
 
         self.freqs = nn.Embedding(input_dim, num_freq_bands) if input_dim != 0 else None
 
-        self.share=False
+        self.share=share
 
         if self.share:
             self.mlp = nn.Sequential(

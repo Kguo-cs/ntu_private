@@ -40,55 +40,49 @@ class SMARTMapDecoder(nn.Module):
         super(SMARTMapDecoder, self).__init__()
         self.pl2pl_radius = pl2pl_radius
         self.num_layers = num_layers
-        self.use_map=True
         self.pt2pt_neighbor=pt2pt_neighbor
 
-        self.gnn= True
         self.token_processor=token_processor
 
-        if self.use_map:
-            self.type_pt_emb = nn.Embedding(10, hidden_dim)
-            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+        self.type_pt_emb = nn.Embedding(10, hidden_dim)
+        self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+        # if not self.token_processor.pred_light:
+        #     self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
-            # if not self.token_processor.pred_light:
-            #     self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
-            self.head_dim=head_dim
+        self.head_dim=head_dim
 
-            # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-            self.my_map=True
+        # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
+        self.my_map=True
 
-            if self.my_map:
-                self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
-            else:
-                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
-            #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
+        if self.my_map:
+            self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
+        else:
+            self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+        #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
-            if self.gnn:
-                input_dim_r_pt2pt = 3
-                self.r_pt2pt_emb = FourierEmbedding(
-                    input_dim=input_dim_r_pt2pt,
+        input_dim_r_pt2pt = 3
+        self.r_pt2pt_emb = FourierEmbedding(
+            input_dim=input_dim_r_pt2pt,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+        )
+        self.pt2pt_layers = nn.ModuleList(
+            [
+                AttentionLayer(
                     hidden_dim=hidden_dim,
-                    num_freq_bands=num_freq_bands,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    bipartite=False,
+                    has_pos_emb=True,
                 )
-                self.pt2pt_layers = nn.ModuleList(
-                    [
-                        AttentionLayer(
-                            hidden_dim=hidden_dim,
-                            num_heads=num_heads,
-                            head_dim=head_dim,
-                            dropout=dropout,
-                            bipartite=False,
-                            has_pos_emb=True,
-                        )
-                        for _ in range(num_layers)
-                    ]
-                )
-            # else:
-            #     self.pt2pt_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=dropout)
+                for _ in range(num_layers)
+            ]
+        )
 
 
-            self.apply(weight_init)
+        self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict):
         if not self.use_map:

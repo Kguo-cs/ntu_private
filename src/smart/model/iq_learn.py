@@ -55,8 +55,6 @@ class IQ_SoftQ(LightningModule):
             )
             self.target_net.load_state_dict(self.encoder.state_dict())
 
-        self.use_airl=False
-
         self.reward_type='airl'
 
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):

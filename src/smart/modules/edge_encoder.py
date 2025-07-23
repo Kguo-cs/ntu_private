@@ -19,7 +19,8 @@ class EdgeEncoder(nn.Module):
     def __init__(
             self,
             hidden_dim: int,
-            num_freq_bands:int
+            num_freq_bands:int,
+            share
     ) -> None:
         super(EdgeEncoder, self).__init__()
         input_dim_r_pt2a = 3
@@ -29,12 +30,14 @@ class EdgeEncoder(nn.Module):
             input_dim=input_dim_r_pt2a,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
+            share=share
         )
 
         self.r_a2a_emb = FourierEmbedding(
             input_dim=input_dim_r_a2a,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
+            share=share
         )
 
         # input_dim_r_t = 4

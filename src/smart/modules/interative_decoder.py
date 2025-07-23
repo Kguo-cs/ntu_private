@@ -58,7 +58,7 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands)
+        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands,share=discriminator)
 
         self.pt2a_attn_layers = nn.ModuleList(
             [
@@ -163,26 +163,7 @@ class InterativeDecoder(nn.Module):
                 n_agent = feat_a.shape[1]
                 feat_a = feat_a.flatten(0, 1)
 
-
-
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-           #time5=time.time()
-            # else:
-            #     feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-            #     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-            #     if layer_i == self.num_layers - 1 and train_mask is not None:
-            #         feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
-            #         n_agent = feat_a.shape[1]
-            #         feat_a = feat_a.flatten(0, 1)
-        # print(time2-time1)
-        # print(time3-time2)
-        # print(time4-time3)
-      #  print(time5-time1)
-
-        # 0.005043983459472656
-        # 0.01948380470275879
-        # 0.011182785034179688
-        # 0.009334325790405273
 
         feat_a = feat_a.view(-1, n_agent, self.hidden_dim).transpose(0, 1)
 
