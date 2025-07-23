@@ -122,34 +122,33 @@ class SMARTMapDecoder(nn.Module):
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-        if self.gnn:
-            orient_vector_pt = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
+        orient_vector_pt = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
-            edge_index_pt2pt = radiusGraphNearest(
-                x=pos_pt,
-                r=self.pl2pl_radius,
-                batch=batch,
-                loop=False,
-                max_num_neighbors=self.pt2pt_neighbor,
-            )
-            rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
-            rel_orient_pt2pt = wrap_angle(
-                orient_pt[edge_index_pt2pt[0]] - orient_pt[edge_index_pt2pt[1]]
-            )
-            r_pt2pt = torch.stack(
-                [
-                    torch.norm(rel_pos_pt2pt[:, :2], p=2, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=orient_vector_pt[edge_index_pt2pt[1]],
-                        nbr_vector=rel_pos_pt2pt[:, :2],
-                    ),
-                    rel_orient_pt2pt,
-                ],
-                dim=-1,
-            )
-            r_pt2pt = self.r_pt2pt_emb(continuous_inputs=r_pt2pt, categorical_embs=None)
-            for i in range(self.num_layers):
-                x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
+        edge_index_pt2pt = radiusGraphNearest(
+            x=pos_pt,
+            r=self.pl2pl_radius,
+            batch=batch,
+            loop=False,
+            max_num_neighbors=self.pt2pt_neighbor,
+        )
+        rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
+        rel_orient_pt2pt = wrap_angle(
+            orient_pt[edge_index_pt2pt[0]] - orient_pt[edge_index_pt2pt[1]]
+        )
+        r_pt2pt = torch.stack(
+            [
+                torch.norm(rel_pos_pt2pt[:, :2], p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=orient_vector_pt[edge_index_pt2pt[1]],
+                    nbr_vector=rel_pos_pt2pt[:, :2],
+                ),
+                rel_orient_pt2pt,
+            ],
+            dim=-1,
+        )
+        r_pt2pt = self.r_pt2pt_emb(continuous_inputs=r_pt2pt, categorical_embs=None)
+        for i in range(self.num_layers):
+            x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
         # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
         #mask=(tokenized_map["type"]!=90) #& (tokenized_map["type"]!=4)#tensor([  589, 29076,  1180,  2036,  8661,  1502,  3782,  4237,  1011,  7563],
