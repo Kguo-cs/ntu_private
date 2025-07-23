@@ -61,7 +61,7 @@ class LightEncoder(nn.Module):
         self.pred_light=pred_light
 
         if pred_light:
-            self.autoRegressive_light=False
+            self.autoRegressive_light=True
 
             if not self.autoRegressive_light:
                 self.use_gnn=True
