@@ -102,13 +102,13 @@ def eval_light(tokenized_agent,tokenized_agent_rollout,logger,light_type):
 
     light_acc = (light_rollout == real_light)[real_light_mask].float().mean()
 
-    logger("train/agent_light_acc", (light_acc - repeat_light_acc).item(), on_step=True, batch_size=1)
+    logger("train/agent_light_acc", light_acc.item(), on_step=True, batch_size=1)
 
     agent_relation = (light_rollout[:, None] == light_rollout[None])[batch_mask]
 
     agent_relation_acc = (real_relation == agent_relation)[real_relation_mask].float().mean()
 
-    logger("train/agent_relation_acc", (agent_relation_acc - repeat_relation_acc).item(), on_step=True, batch_size=1)
+    logger("train/agent_relation_acc", agent_relation_acc.item(), on_step=True, batch_size=1)
 
 
 
