@@ -407,7 +407,7 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 next_token_logits,next_light_logits,feat_a,proposal,visibility  = self.predict_agent(sampled_idx[:, -1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
-                                                                                    mask_lg[:,-self.light_hist:],t - 1,vis_mask[:, -1:],post_sampling)
+                                                                                    mask_lg[:,-self.light_hist:],t - 1,vis_mask,post_sampling)
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
