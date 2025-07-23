@@ -109,13 +109,13 @@ class SMARTMapDecoder(nn.Module):
         # mask[(map_type!=4)&(map_type!=5)] = True
         #
         batch = tokenized_map["batch"]#[mask]
+        pos_pt = tokenized_map["position"]  # [mask]
+        orient_pt = tokenized_map["orientation"]  # [mask]
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
             x_pt = self.token_emb(traj_pos_local)
         else:
-            pos_pt = tokenized_map["position"]#[mask]
-            orient_pt = tokenized_map["orientation"]#[mask]
             pt_token_emb_src = self.token_emb(self.token_processor.map_token_traj_src)
             x_pt = pt_token_emb_src[tokenized_map["token_idx"].long()]#[mask]]#
 
