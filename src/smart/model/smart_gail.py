@@ -39,7 +39,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
 
     def configure_optimizers(self):
         if  self.automatic_optimization:
-            optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
             def lr_lambda(current_step):
                 current_step = self.current_epoch + 1
