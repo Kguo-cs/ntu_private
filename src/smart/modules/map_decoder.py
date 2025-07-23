@@ -85,8 +85,6 @@ class SMARTMapDecoder(nn.Module):
         self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict):
-        if not self.use_map:
-            return {}
 
         map_type=tokenized_map["type"].long()
         map_type[map_type>9] = 9
