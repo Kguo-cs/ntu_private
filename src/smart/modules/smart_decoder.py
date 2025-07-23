@@ -51,9 +51,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
-        self.use_gail=False
+        self.use_gail=True
 
         self.use_value=False
 
@@ -120,16 +120,16 @@ class SMARTDecoder(nn.Module):
             # 创建 rollout 用的异步 CUDA stream
             self.rollout_stream = torch.cuda.Stream()
 
-    def run_async_rollout(self, tokenized_agent, detach_map_feature, post_sampling):
-        encoder_was_training = self.agent_encoder.training
+    def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
+        encoder_was_training = agent_encoder.training
 
         with torch.no_grad(), torch.cuda.stream(self.rollout_stream):
-            self.agent_encoder.eval()
-            rollout_result = self.agent_encoder.inference(
+            agent_encoder.eval()
+            rollout_result = agent_encoder.inference(
                 tokenized_agent, detach_map_feature, post_sampling
             )
             if encoder_was_training:
-                self.agent_encoder.train()
+                agent_encoder.train()
 
         return rollout_result
 

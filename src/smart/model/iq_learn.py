@@ -20,6 +20,7 @@ import torch.nn as nn
 import time
 from collections import deque
 import random
+import copy
 
 class IQ_SoftQ(LightningModule):
 
@@ -259,7 +260,7 @@ class IQ_SoftQ(LightningModule):
         # map_feature = self.encoder.map_encoder(tokenized_map)
         # tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         # tokenized_map["map_feature"] = map_feature
-        # rollout_result = self.encoder.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"],  False)
+        # rollout_result = self.encoder.run_async_rollout(self.encoder.agent_encoder,tokenized_agent, tokenized_map["detach_map_feature"],  False)
 
         expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
@@ -276,7 +277,7 @@ class IQ_SoftQ(LightningModule):
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
             # torch.cuda.synchronize()
-            # tokenized_agent.update(rollout_result[0])
+            # tokenized_agent.update(rollout_result)
             # tokenized_agent_rollout=tokenized_agent
 
             if self.global_step%self.rollout_freq==0:
@@ -354,7 +355,7 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
                     self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
-                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)
+                    advantages= F.normalize(agent_returns,dim=0)#(agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)
                     value_loss=0
 
                 if self.rollout_freq>1:
