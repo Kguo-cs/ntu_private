@@ -179,7 +179,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_a=mask[:,-n_step:]
 
-        batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,n_agent).transpose(0,1).flatten()
+        batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,n_agent).transpose(0,1)
 
         if len(light_idx):
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
@@ -222,26 +222,26 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-        batch_s_repeat = tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step).flatten(0, 1)
+        batch_s_repeat = tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step)
 
-        mask = mask_a.flatten(0, 1)
-        pos_s = pos_a.flatten(0, 1)#[mask]
-        head_s = head_a.flatten(0, 1)#[mask]
-        head_vector_s = head_vector_a.flatten(0, 1)#[mask]
+
         # feat_a=feat_a[mask]
         # batch_s=batch_s[mask]
         # batch_s_repeat=batch_s_repeat[mask]
 
-        all_features= feat_a,pos_s, head_s, head_vector_s,mask, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx
+        all_features= feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s,batch_s_repeat #,vis_mask,agent_token_emb, sampled_idx
 
         if self.training:
+            features=[]
             detach_all_features=[]
             for feature in all_features:
                 if feature is not None:
-                    detach_all_features.append(feature.detach())#.clone()
+                    features.append(feature[:,:-1])
+                    detach_all_features.append(feature.detach()[:,1:])#.clone()
                 else:
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
+            all_features=features
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 

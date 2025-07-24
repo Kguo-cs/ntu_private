@@ -62,14 +62,15 @@ class IQ_SoftQ(LightningModule):
 
         action = action.unsqueeze(-1)  # .reshape(-1)
 
-        q = q_value[:, :-1]
+        q = q_value#[:, :-1]
 
         current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
-        V =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+        current_V =  self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+
+        V=torch.cat([current_V,torch.zeros_like(current_V[:,:1])],dim=-1)
 
         current_V = V[:, :-1]
-
         next_V = V[:, 1:]
 
         pi = torch.softmax( q / self.alpha, dim=-1)

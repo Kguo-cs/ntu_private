@@ -121,9 +121,16 @@ class InterativeDecoder(nn.Module):
                 )
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a,pos_s, head_s, head_vector_s,mask_a, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx=all_features
+        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s,batch_s_repeat,=all_features#,vis_mask,agent_token_emb, sampled_idx
 
        # n_step=mask_a.shape[1]
+        feat_a=feat_a_t.flatten(0, 1)
+        mask_s = mask_a.flatten(0, 1)
+        pos_s = pos_a.flatten(0, 1)#[mask]
+        head_s = head_a.flatten(0, 1)#[mask]
+        head_vector_s = head_vector_a.flatten(0, 1)#[mask]
+        batch_s = batch_s.flatten(0, 1)
+        batch_s_repeat = batch_s_repeat.flatten(0, 1)
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]#.repeat(n_step, 1)
@@ -135,11 +142,11 @@ class InterativeDecoder(nn.Module):
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
             batch_s=batch_s,  # [n_agent*n_step]
-            mask=mask_a,  # [n_agent, n_step]
+            mask=mask_s,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
-            vis_mask=vis_mask
+            vis_mask=None
             #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
@@ -150,14 +157,14 @@ class InterativeDecoder(nn.Module):
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-            mask=mask_a,  # [n_agent, n_step]
+            mask=mask_s,  # [n_agent, n_step]
             batch_s=batch_s_repeat,  # [n_agent*n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
         )
 
-        n_agent = sampled_idx.shape[0]
+        n_agent = mask_a.shape[0]
         # n_step= mask_a.shape[1]
 
         for layer_i in range(self.num_layers):
@@ -174,7 +181,7 @@ class InterativeDecoder(nn.Module):
 
         if self.pred_last_res:
             if self.training:
-                proposal_feature = feat_a[:, :-1].detach()#
+                proposal_feature = feat_a.detach()#[:, :-1]
             else:
                 proposal_feature = feat_a[:, -1:]
 
@@ -210,8 +217,8 @@ class InterativeDecoder(nn.Module):
                 agent_token_emb = agent_token_emb[train_mask]
 
                 feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
-            else:
-                feat_a = feat_a[:, 1:]
+            # else:
+            #     feat_a = feat_a[:, 1:]
 
         next_token_logits = self.token_predict_head(feat_a)
 
