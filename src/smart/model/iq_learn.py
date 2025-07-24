@@ -305,9 +305,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
 
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                    tokenized_map, tokenized_agent_rollout, tokenized_agent_rollout["train_mask"],key='agent')
-
-                agent_dis_loss,agent_rewards,agent_returns,agent_logit=self.get_reward(tokenized_agent_rollout["detach_all_features"],"agent",tokenized_agent_rollout["train_mask"])
+                    tokenized_map, tokenized_agent_rollout, None,key='agent')
 
                 if self.buffer_len>1:
                     with torch.no_grad():
@@ -326,7 +324,7 @@ class IQ_SoftQ(LightningModule):
 
                 else:
                     agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
-                        tokenized_agent_rollout["detach_all_features"], "agent", tokenized_agent_rollout["train_mask"])
+                        tokenized_agent_rollout["detach_all_features"], "agent", None)
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
