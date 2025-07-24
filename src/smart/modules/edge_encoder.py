@@ -188,9 +188,9 @@ class EdgeEncoder(nn.Module):
         if mask is not None:
             edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
 
-        # if self.training:
-        #     keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.2
-        #     edge_index_a2a = edge_index_a2a[:, keep_mask]
+        if self.training:
+            keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.1
+            edge_index_a2a = edge_index_a2a[:, keep_mask]
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
@@ -215,9 +215,9 @@ class EdgeEncoder(nn.Module):
             self,
             pos_pl,  # [n_pl, 2]
             orient_pl,  # [n_pl]
-            pos_s,  # [n_agent, n_step, 2]
-            head_s,  # [n_agent, n_step]
-            head_vector_s,  # [n_agent, n_step, 2]
+            pos_a,  # [n_agent, n_step, 2]
+            head_a,  # [n_agent, n_step]
+            head_vector_a,  # [n_agent, n_step, 2]
             mask,  # [n_agent, n_step]
             batch_s,  # [n_agent*n_step]
             batch_pl,  # [n_pl*n_step]
@@ -226,6 +226,15 @@ class EdgeEncoder(nn.Module):
             mask_pl=None,
             train_mask=None
     ):
+        n_step=pos_a.shape[1]
+        n_agent=pos_a.shape[0]
+
+        pos_s=pos_a.flatten(0,1)
+        head_s=head_a.flatten(0,1)
+        batch_s=batch_s.flatten(0,1)
+
+
+
         if train_mask is not None:
             mask=mask[train_mask]
             pos_a=pos_a[train_mask]
@@ -248,6 +257,14 @@ class EdgeEncoder(nn.Module):
         #                                       batch_x=batch_s,
         #                                       batch_y=batch_pl,
         #                                       max_num_neighbors=8)
+
+        edge_index_pl2a[1] = (edge_index_pl2a[1] % n_step) * n_agent + edge_index_pl2a[1] // n_step
+
+        pos_s=pos_a.transpose(0,1).flatten(0,1)
+        head_s=head_a.transpose(0,1).flatten(0,1)
+        head_vector_s=head_vector_a.transpose(0,1).flatten(0,1)
+        mask=mask.transpose(0,1).flatten(0,1)
+
         if mask is not None:
             edge_index_pl2a = edge_index_pl2a[:, mask[edge_index_pl2a[1]]]
         #
