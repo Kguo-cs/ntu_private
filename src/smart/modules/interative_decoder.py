@@ -223,7 +223,6 @@ class InterativeDecoder(nn.Module):
             v_next=next_token_logits[:,1 :]
             next_token_logits = r + 0.99*v_next - v_s
 
-
         # next_token_logits=torch.zeros([n_agent,n_step,token_logits.shape[-1]],device=feat_a.device)
         #
         # next_token_logits[mask_a]=token_logits
