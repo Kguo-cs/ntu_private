@@ -120,14 +120,13 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-    def forward(self,all_features,train_mask ):
-        feat_a, agent_token_emb,sampled_idx,feat_map,pos_pl,orient_pl,\
-        pos_a,head_a,head_vector_a,mask_a,batch_s,batch_s_repeat,batch_pl,vis_mask=all_features
+    def forward(self,all_features,map_feature,train_mask ):
+        feat_a, agent_token_emb,sampled_idx,pos_s, head_s, head_vector_s,mask_a,batch_s,batch_s_repeat,vis_mask=all_features
 
-        mask_a = mask_a.reshape(-1)#.transpose(0, 1)
-        pos_s = pos_a.flatten(0, 1)#.transpose(0, 1)
-        head_s = head_a.reshape(-1)#.transpose(0, 1)
-        head_vector_s = head_vector_a.reshape(-1, 2)#.transpose(0, 1)
+        batch_pl = map_feature["batch"]
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = map_feature["pt_token"]
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]

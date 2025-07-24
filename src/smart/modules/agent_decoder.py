@@ -241,14 +241,6 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 
-        batch_s_repeat=tokenized_agent["batch"].unsqueeze(1).repeat(1,n_step).flatten(0, 1) #batch_s #tokenized_agent["batch"].unsqueeze(0).repeat(n_step,1).flatten(0, 1)
-
-        batch_pl =map_feature["batch"]#
-        #batch_pl =build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)#map_feature["batch"] #map_feature["batch"]  #
-
-        pos_pl = map_feature["position"]#[None].repeat(n_step,1, 1).flatten(0, 1)
-        orient_pl = map_feature["orientation"]#[None].repeat(n_step,1).flatten(0, 1)
-        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         if len(light_idx):
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
@@ -278,7 +270,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
-
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
         if len(feat_lg):
@@ -292,8 +283,14 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-        all_features= feat_a, agent_token_emb, sampled_idx, feat_map, pos_pl, orient_pl, \
-            pos_a, head_a, head_vector_a, mask_a, batch_s,batch_s_repeat, batch_pl,vis_mask
+        batch_s_repeat = tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step).flatten(0, 1)
+
+        mask_a = mask_a.flatten(0, 1)
+        pos_s = pos_a.flatten(0, 1)
+        head_s = head_a.flatten(0, 1)
+        head_vector_s = head_vector_a.flatten(0, 1)
+
+        all_features= feat_a, agent_token_emb, sampled_idx, pos_s, head_s, head_vector_s, mask_a, batch_s,batch_s_repeat,vis_mask
 
         if self.training:
             detach_all_features=[]
@@ -304,7 +301,7 @@ class SMARTAgentDecoder(nn.Module):
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
 
-        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,train_mask)
+        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 
         visibility=None
 

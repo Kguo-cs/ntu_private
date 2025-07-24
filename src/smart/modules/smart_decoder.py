@@ -137,18 +137,15 @@ class SMARTDecoder(nn.Module):
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,
             use_critic=False
     ) -> Dict[str, Tensor]:
-        if "map_feature" in tokenized_map:
-            map_feature = tokenized_map["map_feature"]
+        if "map_feature" in tokenized_agent:
+            map_feature = tokenized_agent["map_feature"]
         else:
             map_feature = self.map_encoder(tokenized_map)
-            tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-            tokenized_map["map_feature"] = map_feature
+            tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+            tokenized_agent["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
 
-        if use_critic:
-            pred_dict = self.critic(tokenized_agent, tokenized_map["detach_map_feature"])
-        else:
-            pred_dict = self.agent_encoder(tokenized_agent, map_feature, post_sampling)
+        pred_dict = self.agent_encoder(tokenized_agent, map_feature, post_sampling)
 
         return pred_dict
 
@@ -166,8 +163,8 @@ class SMARTDecoder(nn.Module):
         tokenized_agent: Dict[str, Tensor],
         post_sampling=False,
     ) -> Dict[str, Tensor]:
-        if "map_feature" in tokenized_map:
-            map_feature = tokenized_map["detach_map_feature"]
+        if "map_feature" in tokenized_agent:
+            map_feature = tokenized_agent["detach_map_feature"]
         else:
             if post_sampling:
                 map_feature = None

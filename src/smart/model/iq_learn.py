@@ -222,8 +222,12 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
 
-    def get_reward(self,all_features,key,train_mask=None):
-        logit = self.encoder.discriminator(all_features,None)[0][:, :, 0]
+    def get_reward(self,tokenized_agent,key,train_mask=None):
+
+        all_features=tokenized_agent["detach_all_features"]
+        map_feature=tokenized_agent["detach_map_feature"]
+
+        logit = self.encoder.discriminator(all_features,map_feature,None)[0][:, :, 0]
 
         disc_val = torch.sigmoid(logit)
 
@@ -272,7 +276,7 @@ class IQ_SoftQ(LightningModule):
             #tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent["detach_all_features"],"expert",train_mask)
+                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,"expert",train_mask)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -307,24 +311,24 @@ class IQ_SoftQ(LightningModule):
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, None,key='agent')
 
-                if self.buffer_len>1:
-                    with torch.no_grad():
-                        agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
-                            tokenized_agent_rollout["detach_all_features"], "agent",
-                            tokenized_agent_rollout["train_mask"])
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent", None)
 
-                    all_feats=[]
-                    for feat in tokenized_agent_rollout["detach_all_features"]:
-                        all_feats.append(feat.clone())
-                    self.replay_buffer.append((all_feats,tokenized_agent_rollout["train_mask"]))
-
-                    detach_all_features,agent_train_mask=random.sample(self.replay_buffer,1)[0]
-                    logit = self.encoder.discriminator(detach_all_features, agent_train_mask)[0][:, :, 0]
-                    agent_dis_loss = self.bce_loss( torch.sigmoid(logit), torch.zeros_like(logit))
-
-                else:
-                    agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
-                        tokenized_agent_rollout["detach_all_features"], "agent", None)
+                # if self.buffer_len>1:
+                #     with torch.no_grad():
+                #         agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
+                #             tokenized_agent_rollout["detach_all_features"], "agent",
+                #             tokenized_agent_rollout["train_mask"])
+                #
+                #     all_feats=[]
+                #     for feat in tokenized_agent_rollout["detach_all_features"]:
+                #         all_feats.append(feat.clone())
+                #     self.replay_buffer.append((all_feats,tokenized_agent_rollout["train_mask"]))
+                #
+                #     detach_all_features,agent_train_mask=random.sample(self.replay_buffer,1)[0]
+                #     logit = self.encoder.discriminator(detach_all_features, agent_train_mask)[0][:, :, 0]
+                #     agent_dis_loss = self.bce_loss( torch.sigmoid(logit), torch.zeros_like(logit))
+                #
+                # else:
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers ()
