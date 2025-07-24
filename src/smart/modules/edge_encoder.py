@@ -264,6 +264,8 @@ class EdgeEncoder(nn.Module):
                                               batch_y=batch_pl,
                                               max_num_neighbors=max_num_neighbors)
 
+
+
        # time2=time.time()
 
         # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
@@ -274,6 +276,10 @@ class EdgeEncoder(nn.Module):
         #                                       max_num_neighbors=8)
 
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
+
+        if self.training:
+            keep_mask=torch.rand_like(edge_index_pl2a[:,0])>0.1
+            edge_index_pl2a=edge_index_pl2a[keep_mask]
 
         if mask_pl is not None:
             mask_a2pl = mask_pl.transpose(0, 1).reshape(-1)
