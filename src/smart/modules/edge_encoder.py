@@ -193,7 +193,9 @@ class EdgeEncoder(nn.Module):
 
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
 
-       # time3=time.time()
+        if self.training:
+            keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.1
+            edge_index_a2a = edge_index_a2a[:, keep_mask]
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
