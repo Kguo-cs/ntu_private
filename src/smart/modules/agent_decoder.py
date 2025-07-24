@@ -226,14 +226,14 @@ class SMARTAgentDecoder(nn.Module):
         batch_s_repeat = tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step).flatten(0, 1)
 
         mask = mask_a.flatten(0, 1)
-        pos_s = pos_a.flatten(0, 1)[mask]
-        head_s = head_a.flatten(0, 1)[mask]
-        head_vector_s = head_vector_a.flatten(0, 1)[mask]
-        feat_a=feat_a[mask]
-        batch_s=batch_s[mask]
-        batch_s_repeat=batch_s_repeat[mask]
+        pos_s = pos_a.flatten(0, 1)#[mask]
+        head_s = head_a.flatten(0, 1)#[mask]
+        head_vector_s = head_vector_a.flatten(0, 1)#[mask]
+        # feat_a=feat_a[mask]
+        # batch_s=batch_s[mask]
+        # batch_s_repeat=batch_s_repeat[mask]
 
-        all_features= feat_a,pos_s, head_s, head_vector_s,mask_a, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx
+        all_features= feat_a,pos_s, head_s, head_vector_s,mask, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx
 
         if self.training:
             detach_all_features=[]
@@ -244,11 +244,11 @@ class SMARTAgentDecoder(nn.Module):
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
 
-        next_token_logits,feat_a,proposal_=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 
-        proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
-        proposal[mask_a]=proposal_
-        proposal=proposal.reshape([n_agent,n_step,1,5,3])
+        # proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
+        # proposal[mask_a]=proposal_
+        # proposal=proposal.reshape([n_agent,n_step,1,5,3])
 
         visibility=None
 
@@ -294,7 +294,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["proposal"] = proposal
 
         return {
-            "proposal":proposal[:,:-1],
+            "proposal":proposal,#[:,:-1],
             "visibility":visibility,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
