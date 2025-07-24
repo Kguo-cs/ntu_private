@@ -96,9 +96,9 @@ class EdgeEncoder(nn.Module):
 
     def build_interaction_edge(
             self,
-            pos_a,  # [n_agent, n_step, 2]
-            head_a,  # [n_agent, n_step]
-            head_vector_a,  # [n_agent, n_step, 2]
+            pos_s,  # [n_agent, n_step, 2]
+            head_s,  # [n_agent, n_step]
+            head_vector_s,  # [n_agent, n_step, 2]
             batch_s,  # [n_agent*n_step]
             mask,  # [n_agent, n_step]
             max_num_neighbors,
@@ -107,11 +107,6 @@ class EdgeEncoder(nn.Module):
             vis_mask=None
             # shape=None
     ):
-        mask = mask.transpose(0, 1).reshape(-1)
-        pos_s = pos_a.transpose(0, 1).flatten(0, 1)
-        head_s = head_a.transpose(0, 1).reshape(-1)
-        head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-
         if proposal is None:
             if vis_mask is not None:
                 vis_mask=vis_mask.transpose(0, 1).reshape(-1)
@@ -189,13 +184,11 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
-        #time2=time.time()
-
         edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
 
-        if self.training:
-            keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.1
-            edge_index_a2a = edge_index_a2a[:, keep_mask]
+        # if self.training:
+        #     keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.2
+        #     edge_index_a2a = edge_index_a2a[:, keep_mask]
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
@@ -211,16 +204,7 @@ class EdgeEncoder(nn.Module):
             dim=-1,
         )
 
-        #time4=time.time()
-
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
-
-        #time5=time.time()
-        #
-        #print(time2-time1)#0.0187225341796875
-        # print(time3-time2)
-        # print(time4-time3)
-       # print(time5-time2)#0.0008542537689208984
 
 
         return edge_index_a2a, r_a2a
@@ -229,9 +213,9 @@ class EdgeEncoder(nn.Module):
             self,
             pos_pl,  # [n_pl, 2]
             orient_pl,  # [n_pl]
-            pos_a,  # [n_agent, n_step, 2]
-            head_a,  # [n_agent, n_step]
-            head_vector_a,  # [n_agent, n_step, 2]
+            pos_s,  # [n_agent, n_step, 2]
+            head_s,  # [n_agent, n_step]
+            head_vector_s,  # [n_agent, n_step, 2]
             mask,  # [n_agent, n_step]
             batch_s,  # [n_agent*n_step]
             batch_pl,  # [n_pl*n_step]
@@ -240,8 +224,6 @@ class EdgeEncoder(nn.Module):
             mask_pl=None,
             train_mask=None
     ):
-        n_step = pos_a.shape[1]
-
         if train_mask is not None:
             mask=mask[train_mask]
             pos_a=pos_a[train_mask]
@@ -249,14 +231,6 @@ class EdgeEncoder(nn.Module):
             head_vector_a=head_vector_a[train_mask]
             batch_s=batch_s.reshape(n_step,-1)[:,train_mask].flatten(0,1)
 
-        mask_pl2a = mask.transpose(0, 1).reshape(-1)
-        pos_s = pos_a.transpose(0, 1).flatten(0, 1)
-        head_s = head_a.transpose(0, 1).reshape(-1)
-        head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-        # pos_pl = pos_pl.repeat(n_step, 1)
-        # orient_pl = orient_pl.repeat(n_step)
-
-       # time1=time.time()
 
         edge_index_pl2a = radiusGraphNearest2(x=pos_s,
                                               y=pos_pl,
@@ -266,10 +240,6 @@ class EdgeEncoder(nn.Module):
                                               batch_y=batch_pl,
                                               max_num_neighbors=max_num_neighbors)
 
-
-
-       # time2=time.time()
-
         # edge_index_pl2a = radiusGraphNearest_inv(x=pos_s[:, :2],
         #                                       y=pos_pl[:, :2],
         #                                       r=pl2a_radius,
@@ -277,11 +247,11 @@ class EdgeEncoder(nn.Module):
         #                                       batch_y=batch_pl,
         #                                       max_num_neighbors=8)
 
-        edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
-
-        if self.training:
-            keep_mask=torch.rand(len(edge_index_pl2a[0]))>0.1
-            edge_index_pl2a=edge_index_pl2a[:,keep_mask]
+        edge_index_pl2a = edge_index_pl2a[:, mask[edge_index_pl2a[1]]]
+        #
+        # if self.training:
+        #     keep_mask=torch.rand(len(edge_index_pl2a[0]))>0.1
+        #     edge_index_pl2a=edge_index_pl2a[:,keep_mask]
 
         if mask_pl is not None:
             mask_a2pl = mask_pl.transpose(0, 1).reshape(-1)
@@ -304,11 +274,6 @@ class EdgeEncoder(nn.Module):
         )
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
-
-        #time3=time.time()
-
-       # print(time2-time1)#0.0044515132904052734
-     #   print(time3-time2)#0.001383066177368164
 
         return edge_index_pl2a, r_pl2a
 

@@ -244,7 +244,7 @@ def get_mask(rel,theta,forward=40,back=20,width=20):
     return mask
 
 def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
-    edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x)
+    edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x) # for each object in x, the nearest point in y
     row, col = edge_index# row is
     distances = (x[row] - y[col]).norm(dim=1)
 
@@ -254,6 +254,9 @@ def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
     # rel = y[col]-x[row]
     # theta = x_heading[row]
     # mask = get_mask(rel,theta,forward=r,back=r//2,width=r//2)
+    #tensor(0.214, device='cuda:0')
+    #tensor(0.756, device='cuda:0')
+    # tensor(4071.166, device='cuda:0')
 
     final_edge_index = edge_index[:, mask]
 

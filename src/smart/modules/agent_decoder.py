@@ -241,12 +241,14 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step)
 
-        batch_s_repeat=tokenized_agent["batch"].unsqueeze(0).repeat(n_step,1).flatten(0, 1)
+        batch_s_repeat=tokenized_agent["batch"].unsqueeze(1).repeat(1,n_step).flatten(0, 1) #batch_s #tokenized_agent["batch"].unsqueeze(0).repeat(n_step,1).flatten(0, 1)
 
-        batch_pl = map_feature["batch"] #build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)
+        batch_pl =map_feature["batch"]#
+        #batch_pl =build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step)#map_feature["batch"] #map_feature["batch"]  #
 
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
+        pos_pl = map_feature["position"]#[None].repeat(n_step,1, 1).flatten(0, 1)
+        orient_pl = map_feature["orientation"]#[None].repeat(n_step,1).flatten(0, 1)
+        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         if len(light_idx):
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
@@ -276,7 +278,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
-        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
 
