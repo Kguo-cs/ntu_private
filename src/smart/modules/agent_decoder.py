@@ -209,7 +209,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
-        feat_a = feat_a_t#.transpose(0, 1).flatten(0, 1)
+        feat_a = feat_a_t.flatten(0, 1)#.transpose(0, 1)
 
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
