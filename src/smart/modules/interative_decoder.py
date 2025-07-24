@@ -121,23 +121,23 @@ class InterativeDecoder(nn.Module):
                 )
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s,batch_s_repeat=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
+        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s,batch_s_repeat,batch_pl=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
 
         n_step=mask_a.shape[1]
         n_agent = mask_a.shape[0]
 
-        feat_a=feat_a_t.flatten(0, 1)
-        mask_s = mask_a.flatten(0, 1)
-        pos_s = pos_a.flatten(0, 1)#[mask]
-        head_s = head_a.flatten(0, 1)#[mask]
-        head_vector_s = head_vector_a.flatten(0, 1)#[mask]
-        batch_s = batch_s.flatten(0, 1)
-        batch_s_repeat = batch_s_repeat.flatten(0, 1)
+        feat_a=feat_a_t.transpose(0, 1).flatten(0, 1)
+        mask_s = mask_a.transpose(0, 1).flatten(0, 1)
+        pos_s = pos_a.transpose(0, 1).flatten(0, 1)#[mask]
+        head_s = head_a.transpose(0, 1).flatten(0, 1)#[mask]
+        head_vector_s = head_vector_a.transpose(0, 1).flatten(0, 1)#[mask]
+        batch_s = batch_s.transpose(0, 1).flatten(0, 1)
+        batch_s_repeat = batch_s_repeat.transpose(0, 1).flatten(0, 1)
 
-        batch_pl = map_feature["batch"]#batch_pl.flatten(0, 1) #
-        pos_pl = map_feature["position"]#[None].repeat(n_step, 1,1).flatten(0, 1)
-        orient_pl = map_feature["orientation"]#[None].repeat(n_step, 1).flatten(0, 1)
-        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        batch_pl = batch_pl.transpose(0, 1).flatten(0, 1) #map_feature["batch"]#batch_pl.flatten(0, 1) #
+        pos_pl = map_feature["position"][None].repeat(n_step, 1,1).flatten(0, 1)
+        orient_pl = map_feature["orientation"][None].repeat(n_step, 1).flatten(0, 1)
+        feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
@@ -174,7 +174,8 @@ class InterativeDecoder(nn.Module):
 
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        feat_a = feat_a.view(n_agent,-1,  self.hidden_dim)
+        feat_a = feat_a.view(-1, n_agent, self.hidden_dim).transpose(0, 1)
+
 
         proposal=None
 
