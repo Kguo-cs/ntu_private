@@ -227,7 +227,7 @@ class IQ_SoftQ(LightningModule):
         all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
 
-        logit = self.encoder.discriminator(all_features,map_feature,None)[0][:, :, 0]
+        logit = self.encoder.discriminator(all_features,map_feature,None)[0][:, 1:, 0]
 
         disc_val = torch.sigmoid(logit)
 

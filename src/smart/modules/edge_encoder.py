@@ -110,7 +110,7 @@ class EdgeEncoder(nn.Module):
         if proposal is None:
             if vis_mask is not None:
                 vis_mask=vis_mask.transpose(0, 1).reshape(-1)
-                full_edge_index =visibility_aware_knn_with_radius_batch(pos_s, vis_mask,batch_s, max_num_neighbors, max_radius)
+                edge_index_a2a =visibility_aware_knn_with_radius_batch(pos_s, vis_mask,batch_s, max_num_neighbors, max_radius)
             else:
                 # full_edge_index = radiusGraphNearest2(x=pos_s,
                 #                                       y=pos_s,
@@ -120,7 +120,7 @@ class EdgeEncoder(nn.Module):
                 #                                       batch_y=batch_s,
                 #                                       max_num_neighbors=max_num_neighbors)
 
-                full_edge_index = radiusGraphNearest(x=pos_s,
+                edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                      r=max_radius,
                                                      batch=batch_s,
                                                      loop=False,
@@ -184,7 +184,9 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
-        edge_index_a2a = subgraph(subset=mask, edge_index=full_edge_index)[0]
+
+        if mask is not None:
+            edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
 
         # if self.training:
         #     keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.2
@@ -246,12 +248,12 @@ class EdgeEncoder(nn.Module):
         #                                       batch_x=batch_s,
         #                                       batch_y=batch_pl,
         #                                       max_num_neighbors=8)
-
-        edge_index_pl2a = edge_index_pl2a[:, mask[edge_index_pl2a[1]]]
+        if mask is not None:
+            edge_index_pl2a = edge_index_pl2a[:, mask[edge_index_pl2a[1]]]
         #
-        if self.training:
-            keep_mask=torch.rand(len(edge_index_pl2a[0]))>0.1
-            edge_index_pl2a=edge_index_pl2a[:,keep_mask]
+        # if self.training:
+        #     keep_mask=torch.rand(len(edge_index_pl2a[0]))>0.1
+        #     edge_index_pl2a=edge_index_pl2a[:,keep_mask]
 
         if mask_pl is not None:
             mask_a2pl = mask_pl.transpose(0, 1).reshape(-1)

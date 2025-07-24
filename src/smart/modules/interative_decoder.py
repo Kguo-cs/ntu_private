@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
                 )
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a, agent_token_emb,sampled_idx,pos_s, head_s, head_vector_s,mask_a,batch_s,batch_s_repeat,vis_mask=all_features
+        feat_a,pos_s, head_s, head_vector_s,mask_a, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx=all_features
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]
@@ -133,7 +133,7 @@ class InterativeDecoder(nn.Module):
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
             batch_s=batch_s,  # [n_agent*n_step]
-            mask=mask_a,  # [n_agent, n_step]
+            mask=None,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
@@ -148,15 +148,15 @@ class InterativeDecoder(nn.Module):
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-            mask=mask_a,  # [n_agent, n_step]
+            mask=None,  # [n_agent, n_step]
             batch_s=batch_s_repeat,  # [n_agent*n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask
         )
 
-        n_agent = sampled_idx.shape[0]
+        n_agent = mask_a.shape[0]
+        n_step= mask_a.shape[1]
 
         for layer_i in range(self.num_layers):
             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
@@ -166,18 +166,18 @@ class InterativeDecoder(nn.Module):
 
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        feat_a = feat_a.view(n_agent,-1,  self.hidden_dim)
+        #feat_a = feat_a.view(n_agent,-1,  self.hidden_dim)
 
         proposal=None
 
         if self.pred_last_res:
             if self.training:
-                proposal_feature = feat_a[:, :-1].detach()
+                proposal_feature = feat_a.detach()#[:, :-1]
             else:
-                proposal_feature = feat_a[:, -1:]
+                proposal_feature = feat_a#[:, -1:]
 
             proposal = self.traj_head(proposal_feature)  #
-            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
+            #proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
         if self.pred_all_res and self.training:
             next_token_idx = sampled_idx[:, 1 + self.start_step:]
@@ -208,16 +208,21 @@ class InterativeDecoder(nn.Module):
                 agent_token_emb = agent_token_emb[train_mask]
 
                 feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
-            else:
-                feat_a = feat_a[:, 1:]
+            # else:
+            #     feat_a = feat_a[:, 1:]
 
-        next_token_logits = self.token_predict_head(feat_a)
+        token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.reward_shaping:
             r=self.reward_net(feat_a[:, :-1] )
             v_s=next_token_logits[:, :-1]
             v_next=next_token_logits[:,1 :]
             next_token_logits = r + 0.99*v_next - v_s
+
+
+        next_token_logits=torch.zeros([n_agent,n_step,token_logits.shape[-1]],device=feat_a.device)
+
+        next_token_logits[mask_a]=token_logits
 
         return next_token_logits,feat_a,proposal
 

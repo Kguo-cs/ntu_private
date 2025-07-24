@@ -99,66 +99,6 @@ class SMARTAgentDecoder(nn.Module):
                                                     token_processor,output_gmm,pred_last_res,pred_all_res
                                                     )
 
-        # self.pt2a_attn_layers = nn.ModuleList(
-        #     [
-        #         AttentionLayer(
-        #             hidden_dim=hidden_dim,
-        #             num_heads=num_heads,
-        #             head_dim=head_dim,
-        #             dropout=dropout,
-        #             bipartite=True,
-        #             has_pos_emb=True,
-        #         )
-        #         for _ in range(num_layers)
-        #     ]
-        # )
-        #
-        # self.a2a_attn_layers = nn.ModuleList(
-        #     [
-        #         AttentionLayer(
-        #             hidden_dim=hidden_dim,
-        #             num_heads=num_heads,
-        #             head_dim=head_dim,
-        #             dropout=dropout,
-        #             bipartite=False,
-        #             has_pos_emb=True,
-        #         )
-        #         for _ in range(num_layers)
-        #     ]
-        # )
-        #
-        #
-        # if self.output_gmm:
-        #     self.k_ego_gmm=1
-        #     self.cov_gmm=0.1 #[1.0, 0.1]
-        #     self.cov_learnable=True
-        #     self.use_GT=True
-        #
-        #     if self.k_ego_gmm>1:
-        #         self.gmm_logits_head = MLPLayer(
-        #             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm
-        #         )
-        #     self.gmm_pose_head = MLPLayer(
-        #         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * 3
-        #     )
-        #     self.output_dim=3
-        #
-        #     if self.cov_learnable:
-        #         self.gmm_cov_head = MLPLayer(
-        #             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.k_ego_gmm * self.output_dim
-        #         )
-        #
-        #     # self.cholesky_head = nn.Linear(
-        #     #     hidden_dim, k_ego_gmm * (self.output_dim * (self.output_dim + 1) // 2)
-        #     # )
-        # else:
-        #     self.token_predict_head = MLPLayer(
-        #         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-        #     )
-        #
-        #     if self.pred_last_res or self.pred_all_res:
-        #         self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
-
         self.use_light = token_processor.use_light
         self.pred_light=True
         self.light_type = token_processor.light_type
@@ -285,12 +225,15 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_s_repeat = tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step).flatten(0, 1)
 
-        mask_a = mask_a.flatten(0, 1)
-        pos_s = pos_a.flatten(0, 1)
-        head_s = head_a.flatten(0, 1)
-        head_vector_s = head_vector_a.flatten(0, 1)
+        mask = mask_a.flatten(0, 1)
+        pos_s = pos_a.flatten(0, 1)[mask]
+        head_s = head_a.flatten(0, 1)[mask]
+        head_vector_s = head_vector_a.flatten(0, 1)[mask]
+        feat_a=feat_a[mask]
+        batch_s=batch_s[mask]
+        batch_s_repeat=batch_s_repeat[mask]
 
-        all_features= feat_a, agent_token_emb, sampled_idx, pos_s, head_s, head_vector_s, mask_a, batch_s,batch_s_repeat,vis_mask
+        all_features= feat_a,pos_s, head_s, head_vector_s,mask_a, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx
 
         if self.training:
             detach_all_features=[]
@@ -301,7 +244,11 @@ class SMARTAgentDecoder(nn.Module):
                     detach_all_features.append(feature)#.clone()
             tokenized_agent["detach_all_features"]=detach_all_features
 
-        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal_=self.interative_decoder(all_features,map_feature,train_mask)
+
+        proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
+        proposal[mask_a]=proposal_
+        proposal=proposal.reshape([n_agent,n_step,1,5,3])
 
         visibility=None
 
@@ -347,7 +294,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["proposal"] = proposal
 
         return {
-            "proposal":proposal,
+            "proposal":proposal[:,:-1],
             "visibility":visibility,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
