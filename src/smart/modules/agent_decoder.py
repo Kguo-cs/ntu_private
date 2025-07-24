@@ -209,7 +209,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
 
-        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+        feat_a = feat_a_t#.transpose(0, 1).flatten(0, 1)
 
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
@@ -231,8 +231,6 @@ class SMARTAgentDecoder(nn.Module):
         # feat_a=feat_a[mask]
         # batch_s=batch_s[mask]
         # batch_s_repeat=batch_s_repeat[mask]
-
-
 
         all_features= feat_a,pos_s, head_s, head_vector_s,mask, batch_s,batch_s_repeat,vis_mask,agent_token_emb, sampled_idx
 
