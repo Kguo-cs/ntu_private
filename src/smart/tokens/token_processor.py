@@ -228,7 +228,7 @@ class TokenProcessor(torch.nn.Module):
 
         # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
 
-        # if not self.pred_last_res:
+        # if not (self.pred_last_res and self.pred_all_res):
         #     heading = self._clean_heading(valid, heading)
         #     # ! extrapolate to previous 5th step.
         #     valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
@@ -409,8 +409,8 @@ class TokenProcessor(torch.nn.Module):
 
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 
-            if self.pred_last_res:
-                _valid_mask=valid[:, i]
+            #if self.pred_last_res:
+            _valid_mask=valid[:, i]
 
             _invalid_mask = ~valid[:, i]
 

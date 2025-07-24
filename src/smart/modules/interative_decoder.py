@@ -143,6 +143,7 @@ class InterativeDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
+            dropout=self.discriminator
         )
 
         all_features=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features ]#
