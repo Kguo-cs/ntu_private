@@ -180,8 +180,7 @@ class SMARTAgentDecoder(nn.Module):
         mask_a=mask[:,-n_step:]
 
         batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,n_agent).transpose(0,1)
-        #batch_s_repeat =tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step)
-        batch_s_repeat=batch_s
+        batch_s_repeat =batch_s#tokenized_agent["batch"].unsqueeze(0).repeat( n_step,1).transpose(0, 1)
 
         batch_pl=build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,-1).transpose(0,1)
         #batch_pl=map_feature["batch"]
