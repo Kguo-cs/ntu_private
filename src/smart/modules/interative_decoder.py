@@ -133,9 +133,9 @@ class InterativeDecoder(nn.Module):
         batch_s_repeat = batch_s_repeat.flatten(0, 1)
 
         batch_pl = map_feature["batch"]#batch_pl.flatten(0, 1) #
-        pos_pl = map_feature["position"][None].repeat(n_step, 1,1).flatten(0, 1)
-        orient_pl = map_feature["orientation"][None].repeat(n_step, 1).flatten(0, 1)
-        feat_map = map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+        pos_pl = map_feature["position"]#[None].repeat(n_step, 1,1).flatten(0, 1)
+        orient_pl = map_feature["orientation"]#[None].repeat(n_step, 1).flatten(0, 1)
+        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
 
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
