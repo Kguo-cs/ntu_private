@@ -191,29 +191,6 @@ def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
 
     a2a_mask[b_idx, nq_idx, nk_idx] = False
     return a2a_mask
-# def nearest_mask2(padd_pos,padd_pos1,nearest_k,max_dist,mask):
-#     # padd_pos: [B, N, D]
-#     B, N, D = padd_pos.shape
-#     B, N1, D = padd_pos1.shape
-#
-#     # Compute squared distances (faster than full norm)
-#     diff = padd_pos[:, :, None, :] - padd_pos1[:, None, :, :]  # [B, N, N1, D]
-#     sq_dist = (diff ** 2).sum(-1)  # [B, N, N]
-#
-#     # Optional: mask out distances greater than max_dist
-#     #sq_dist[sq_dist > max_dist ** 2] = float('inf')  # skip far neighbors
-#
-#     # Get indices of 10 nearest (squared) distances
-#     topk_idx = torch.topk(sq_dist, k=nearest_k, dim=-1, largest=False).indices  # [B, N, 10]
-#
-#     # Build nearest-10 mask efficiently (all True except topk)
-#     a2a_mask = torch.ones((B, N, N1), dtype=torch.bool, device=padd_pos.device)
-#     batch = torch.arange(B, device=padd_pos.device)[:, None, None]
-#     rows = torch.arange(N, device=padd_pos.device)[None, :, None]
-#     a2a_mask[batch, rows, topk_idx] = False
-#
-#     return a2a_mask
-
 
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
@@ -254,10 +231,6 @@ def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
     # rel = y[col]-x[row]
     # theta = x_heading[row]
     # mask = get_mask(rel,theta,forward=r,back=r//2,width=r//2)
-    #tensor(0.214, device='cuda:0')
-    #tensor(0.756, device='cuda:0')
-    # tensor(4071.166, device='cuda:0')
-
     final_edge_index = edge_index[:, mask]
 
     return final_edge_index.flip(0)
@@ -308,84 +281,3 @@ def generate_limited_causal_mask(seq_len, history_len,n_agent=1, device='cpu'):
     mask = (j> i) | (j < i - history_len+ 1)  # True means masked
 
     return mask  # shape: [seq_len, seq_len]
-
-
-
-def build_map2agent_edge(
-        pos_pl,  # [n_pl, 2]
-        orient_pl,  # [n_pl]
-        pos_a,  # [n_agent, n_step, 2]
-        head_a,  # [n_agent, n_step]
-        head_vector_a,  # [n_agent, n_step, 2]
-        mask,  # [n_agent, n_step]
-        batch_s,  # [n_agent*n_step]
-        batch_pl,  # [n_pl*n_step]
-):
-    n_step = pos_a.shape[1]
-    mask_pl2a = mask.transpose(0, 1).reshape(-1)
-    pos_s = pos_a.transpose(0, 1).flatten(0, 1)
-    head_s = head_a.transpose(0, 1).reshape(-1)
-    head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-
-    pos_pl = pos_pl.repeat(n_step, 1)
-    orient_pl = orient_pl.repeat(n_step)
-
-    num_pl=len(pos_pl)
-
-    pos_pls=torch.cat((pos_pl, pos_s), dim=0)
-
-    mask_pl2a_all=torch.cat((torch.ones_like(batch_pl).to(torch.bool), torch.zeros_like(batch_s).to(torch.bool)), dim=0)
-    mask_a2a_all=torch.cat((torch.zeros_like(batch_pl).to(torch.bool), mask_pl2a), dim=0)
-    batch_pls=torch.cat((batch_pl, batch_s), dim=0)
-
-    edge_index_pl2a_a2a = radiusGraphNearest2(x=pos_s[:, :2],
-                                          y=pos_pls[:, :2],
-                                          r=self.pl2a_radius,
-                                          batch_x=batch_s,
-                                          batch_y=batch_pls,
-                                          max_num_neighbors=self.pt2a_neighbor)# edge 0 :pl , edge 1: [pl, a]
-
-    edge_index_pl2a_a2a = edge_index_pl2a_a2a[:, mask_pl2a[edge_index_pl2a_a2a[1]]]
-
-    edge_index_pl2a = edge_index_pl2a_a2a[:,mask_pl2a_all[edge_index_pl2a_a2a[0]]]
-
-    edge_index_a2a = edge_index_pl2a_a2a[:,mask_a2a_all[edge_index_pl2a_a2a[0]]]
-
-    edge_index_a2a[0]-=num_pl
-
-    rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
-    rel_orient_pl2a = wrap_angle(
-        orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
-    )
-    r_pl2a = torch.stack(
-        [
-            torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-            angle_between_2d_vectors(
-                ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                nbr_vector=rel_pos_pl2a[:, :2],
-            ),
-            rel_orient_pl2a,
-        ],
-        dim=-1,
-    )
-
-    r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
-
-    rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
-    rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
-    r_a2a = torch.stack(
-        [
-            torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
-            angle_between_2d_vectors(
-                ctr_vector=head_vector_s[edge_index_a2a[1]],
-                nbr_vector=rel_pos_a2a[:, :2],
-            ),
-            rel_head_a2a,
-        ],
-        dim=-1,
-    )
-
-
-    r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
-
-    return edge_index_pl2a, r_pl2a,edge_index_a2a, r_a2a
