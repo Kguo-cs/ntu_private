@@ -306,14 +306,14 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
-        if "gt_z_raw" not in tokenized_agent.keys():
-
-            current_mask=tokenized_agent["valid_mask"][:,1]
-            keep_mask=torch.rand(current_mask.sum())>0.05
-
-            for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch',
-                        'shape', 'valid_mask', 'sampled_idx', 'next_token_logits'                       ]:
-                tokenized_agent[key]=tokenized_agent[key][current_mask][keep_mask]
+        # if "gt_z_raw" not in tokenized_agent.keys():
+        #
+        #     current_mask=tokenized_agent["valid_mask"][:,1]
+        #     keep_mask=torch.rand(current_mask.sum())>0.05
+        #
+        #     for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch',
+        #                 'shape', 'valid_mask', 'sampled_idx', 'next_token_logits'                       ]:
+        #         tokenized_agent[key]=tokenized_agent[key][current_mask][keep_mask]
 
 
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
@@ -350,7 +350,7 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_logits = tokenized_agent["next_token_logits"][:, :1]
 
                     if tokenized_agent["proposal"] is not None:
-                        proposal=tokenized_agent["proposal"][:, :1][current_mask][keep_mask]
+                        proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
 
                     if tokenized_agent["visibility"] is not None:
                         visibility=tokenized_agent["visibility"][:, :1]
@@ -360,8 +360,8 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         next_light_logits = []
 
-                    self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
-                    self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
+                    # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
+                    # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
                     self.a_t_roformer.attn.caching=True
                     if self.pred_light and not self.light_encoder.share:
