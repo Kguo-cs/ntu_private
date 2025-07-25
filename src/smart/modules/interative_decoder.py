@@ -181,7 +181,7 @@ class InterativeDecoder(nn.Module):
             if self.training:
                 proposal_feature = feat_a.detach()#[:, :-1]
             else:
-                proposal_feature = feat_a[:, -1:]
+                proposal_feature = feat_a#[:, -1:]
 
             proposal = self.traj_head(proposal_feature)  #
             proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)

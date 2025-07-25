@@ -227,13 +227,6 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-
-        # feat_a=feat_a[mask]
-        # batch_s=batch_s[mask]
-        # batch_s_repeat=batch_s_repeat[mask]
-
- #batch_s,batch_s_repeat #,batch_pl#,batch_pl #,vis_mask,agent_token_emb, sampled_idx
-
         if n_step>1:
             all_features=[]
             detach_all_features=[]
@@ -245,6 +238,9 @@ class SMARTAgentDecoder(nn.Module):
             all_features.append(batch_s)
 
             tokenized_agent["detach_all_features"]=detach_all_features
+
+            if not self.training:
+                all_features=detach_all_features
         else:
             all_features=feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s
 
