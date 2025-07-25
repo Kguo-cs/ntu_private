@@ -469,7 +469,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_light and not self.light_encoder.share:
             self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
-        sampled_log_prob=torch.stack(sampled_log_prob,dim=1)
+        #sampled_log_prob=torch.stack(sampled_log_prob,dim=1)
 
         out_dict = {
             "type": tokenized_agent["type"],
@@ -479,8 +479,8 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            "sampled_log_prob":sampled_log_prob,
-            "vis_mask": vis_mask,
+           # "sampled_log_prob":sampled_log_prob,
+           # "vis_mask": vis_mask,
             "light_idx": light_idx,
         }
 
