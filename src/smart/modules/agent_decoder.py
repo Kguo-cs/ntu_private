@@ -368,9 +368,9 @@ class SMARTAgentDecoder(nn.Module):
                     logits=next_token_logits[:, -1, ] / self.alpha)
                 next_token_idx = dist.sample()
 
-                log_prob=dist.log_prob(next_token_idx)
-
-                sampled_log_prob.append(log_prob)
+                # log_prob=dist.log_prob(next_token_idx)
+                #
+                # sampled_log_prob.append(log_prob)
 
             if self.pred_all_res:
                 token_embedding=self.agent_token_embedding.embedding(next_token_idx)
