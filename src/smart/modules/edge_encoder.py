@@ -228,20 +228,19 @@ class EdgeEncoder(nn.Module):
             dropout=True
     ):
         n_step=pos_a.shape[1]
-        n_agent=pos_a.shape[0]
-
-        pos_s=pos_a.flatten(0,1)
-        head_s=head_a.flatten(0,1)
-        batch_s=batch_s.flatten(0,1)
-
-
 
         if train_mask is not None:
             mask=mask[train_mask]
             pos_a=pos_a[train_mask]
             head_a=head_a[train_mask]
             head_vector_a=head_vector_a[train_mask]
-            batch_s=batch_s.reshape(n_step,-1)[:,train_mask].flatten(0,1)
+            batch_s=batch_s[train_mask]
+
+        n_agent=pos_a.shape[0]
+
+        pos_s=pos_a.flatten(0,1)
+        head_s=head_a.flatten(0,1)
+        batch_s=batch_s.flatten(0,1).contiguous()
 
 
         edge_index_pl2a = radiusGraphNearest2(x=pos_s,

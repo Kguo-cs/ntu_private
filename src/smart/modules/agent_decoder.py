@@ -177,11 +177,13 @@ class SMARTAgentDecoder(nn.Module):
                 light_idx=light_idx[:, -n_step:]
 
         mask_a=mask[:,-n_step:]
+        batch_a=tokenized_agent["batch"]
 
-        batch_s = build_batch(tokenized_agent["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,n_agent).transpose(0,1)
-        batch_s_repeat =tokenized_agent["batch"].unsqueeze(1).repeat( 1,n_step)
+        batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], max(1, n_step - 1)).reshape(-1,n_agent).transpose(
+            0, 1)
+        batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
 
-        batch_pl=build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,-1).transpose(0,1)
+        #batch_pl=build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,-1).transpose(0,1)
         #batch_pl=map_feature["batch"]
 
         if len(light_idx):
@@ -230,19 +232,21 @@ class SMARTAgentDecoder(nn.Module):
         # batch_s=batch_s[mask]
         # batch_s_repeat=batch_s_repeat[mask]
 
-        all_features= feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s,batch_s_repeat,batch_pl#,batch_pl #,vis_mask,agent_token_emb, sampled_idx
+ #batch_s,batch_s_repeat #,batch_pl#,batch_pl #,vis_mask,agent_token_emb, sampled_idx
 
-        if self.training:
-            features=[]
+        if n_step>1:
+            all_features=[]
             detach_all_features=[]
-            for feature in all_features:
-                if feature is not None:
-                    features.append(feature[:,:-1])
-                    detach_all_features.append(feature.detach())#.clone()[:,1:]
-                else:
-                    detach_all_features.append(feature)#.clone()
+            for feature in [feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat]:
+                all_features.append(feature[:, :-1])
+                detach_all_features.append(feature.detach()[:, 1:])  # .clone()[:,1:]
+
+            detach_all_features.append(batch_s)
+            all_features.append(batch_s)
+
             tokenized_agent["detach_all_features"]=detach_all_features
-            all_features=features
+        else:
+            all_features=feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 
@@ -288,10 +292,10 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 vis_mask=tokenized_agent["vis_mask"],
                                                                                 post_sampling=post_sampling)
 
-        # tokenized_agent["next_token_logits"] = next_token_logits
-        # tokenized_agent["next_light_logits"] = next_light_logits
-        # tokenized_agent["visibility"] = visibility
-        # tokenized_agent["proposal"] = proposal
+        tokenized_agent["next_token_logits"] = next_token_logits
+        tokenized_agent["next_light_logits"] = next_light_logits
+        tokenized_agent["visibility"] = visibility
+        tokenized_agent["proposal"] = proposal
 
         return {
             "proposal":proposal,#[:,:-1],
@@ -307,7 +311,8 @@ class SMARTAgentDecoder(nn.Module):
             current_mask=tokenized_agent["valid_mask"][:,1]
             keep_mask=torch.rand(current_mask.sum())>0.05
 
-            for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch', 'shape', 'valid_mask', 'sampled_idx']:
+            for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch',
+                        'shape', 'valid_mask', 'sampled_idx', 'next_token_logits', 'proposal'                        ]:
                 tokenized_agent[key]=tokenized_agent[key][current_mask][keep_mask]
 
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
@@ -353,6 +358,9 @@ class SMARTAgentDecoder(nn.Module):
                         next_light_logits = tokenized_agent["next_light_logits"][:, :1]
                     else:
                         next_light_logits = []
+
+                    self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
+                    self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
                     self.a_t_roformer.attn.caching=True
                     if self.pred_light and not self.light_encoder.share:

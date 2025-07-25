@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
                 )
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s,batch_s_repeat,batch_pl=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
+        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
 
         n_agent = mask_a.shape[0]
         n_step=mask_a.shape[1]
@@ -143,11 +143,12 @@ class InterativeDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            dropout=self.discriminator
+            dropout=self.discriminator,
+            train_mask=train_mask
         )
 
         all_features=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features ]#
-        feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s,batch_s_repeat,batch_pl=all_features
+        feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=all_features
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
 
@@ -167,8 +168,9 @@ class InterativeDecoder(nn.Module):
         for layer_i in range(self.num_layers):
             feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
             if layer_i == self.num_layers - 1 and train_mask is not None :
-                feat_a = feat_a.view(n_agent,-1,  self.hidden_dim)[ train_mask]
-                n_agent = feat_a.shape[0]
+                feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
+                n_agent = feat_a.shape[1]
+                feat_a=feat_a.flatten(0,1)
 
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
@@ -213,8 +215,8 @@ class InterativeDecoder(nn.Module):
                 agent_token_emb = agent_token_emb[train_mask]
 
                 feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
-            else:
-                feat_a = feat_a[:, 1:]
+            # else:
+            #     feat_a = feat_a[:, 1:]
 
         next_token_logits = self.token_predict_head(feat_a)
 
