@@ -1,6 +1,8 @@
 import multiprocessing
 import os
 import pickle
+
+from sympy.physics.units import current
 from tqdm import tqdm
 import torch
 from pathlib import Path
@@ -37,9 +39,9 @@ token_processor.eval()
 # token_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_2049/"
 
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/agent/training/"
+agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_2049/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_all_2049/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean/"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
@@ -69,10 +71,16 @@ def process_file(filename):
     agent_shape, token_traj_all, token_traj = token_processor._get_agent_shape_and_token_traj(
         agent['type']
     )
-    valid = data1["agent"]["valid_mask"]  # [n_agent, n_step]
-    heading = data1["agent"]["heading"]  # [n_agent, n_step]
-    pos = data1["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-    #vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+    valid = agent["valid_mask"]  # [n_agent, n_step]
+    heading = agent["heading"]   ## [n_agent, n_step]
+    pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
+    vel = agent["velocity"]   ## [n_agent, n_step, 2]
+
+    heading = token_processor._clean_heading(valid, heading)
+    # ! extrapolate to previous 5th step.
+    valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
+        valid, pos, heading, vel
+    )
 
     tokenized_agent = token_processor._match_agent_token(valid, pos,
                                         heading,
@@ -100,6 +108,18 @@ def process_file(filename):
 
     with open(map_path, "rb") as f:
         data2 = pickle.load(f)
+
+    map=data2["tokenized_map"]
+
+    # [1, n_token, 3, 2] - [n_pl, 1, 3, 2]
+    dist = torch.sum(
+        (token_processor.map_token_sample_pt[:, :, 1:] - map["traj_pos_local"].cuda().unsqueeze(1)) ** 2,
+        dim=(-2, -1),
+    )  # [n_pl, n_token]
+
+    data2["tokenized_map"]["token_idx"] = torch.argmin(dist, dim=-1).to(torch.int16).cpu()
+
+    del data2["tokenized_map"]["traj_pos_local"]
 
     data2["tokenized_agent"]=tokenized_agent
 
