@@ -81,6 +81,13 @@ def process_file(filename):
     for key in ["type", "shape"]:#
         tokenized_agent[key] = agent[key]
 
+    for key in tokenized_agent.keys():
+        tokenized_agent[key] = tokenized_agent[key].cpu()
+
+    tokenized_agent["sampled_idx"]= tokenized_agent["sampled_idx"].to(torch.int16)
+
+    tokenized_agent["num_nodes"]=len(tokenized_agent["sampled_idx"])
+
     # for key in ["valid_mask","sampled_idx","sampled_pos","sampled_heading","target_global_traj","target_mask"]:
     #     data["tokenized_agent"][key] = token_dict[key].cpu()
     # data["tokenized_agent"]["sampled_idx"]= data["tokenized_agent"]["sampled_idx"].to(torch.int16)
@@ -96,11 +103,13 @@ def process_file(filename):
 
     data2["tokenized_agent"]=tokenized_agent
 
+    del data2["tokenized_light"]
+
     output_path = os.path.join(ouput_data_directory, filename)
 
     # Save the tokenized data
     with open(output_path, "wb") as f:
-        pickle.dump(data, f)
+        pickle.dump(data2, f)
 
 
 if __name__ == "__main__":

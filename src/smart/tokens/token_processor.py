@@ -465,8 +465,8 @@ class TokenProcessor(torch.nn.Module):
             #     )
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
-        out_dict["pos"]= pos[:,5::5]
-        out_dict["heading"]= heading[:,5::5]
+        # out_dict["pos"]= pos[:,5::5]
+        # out_dict["heading"]= heading[:,5::5]
 
         def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
             B, T, D = tensor.shape
