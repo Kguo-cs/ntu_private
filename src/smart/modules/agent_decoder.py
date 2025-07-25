@@ -310,8 +310,6 @@ class SMARTAgentDecoder(nn.Module):
             for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch', 'shape', 'valid_mask', 'sampled_idx']:
                 tokenized_agent[key]=tokenized_agent[key][current_mask][keep_mask]
 
-
-
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()

@@ -269,9 +269,9 @@ class EdgeEncoder(nn.Module):
         if mask is not None:
             edge_index_pl2a = edge_index_pl2a[:, mask[edge_index_pl2a[1]]]
 
-        # if dropout:
-        #     keep_mask=torch.rand(len(edge_index_pl2a[0]))>0.1
-        #     edge_index_pl2a=edge_index_pl2a[:,keep_mask]
+        if dropout:
+            keep_mask=torch.rand(len(edge_index_pl2a[0]))>0.1
+            edge_index_pl2a=edge_index_pl2a[:,keep_mask]
 
         if mask_pl is not None:
             mask_a2pl = mask_pl.transpose(0, 1).reshape(-1)
