@@ -288,10 +288,10 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 vis_mask=tokenized_agent["vis_mask"],
                                                                                 post_sampling=post_sampling)
 
-        tokenized_agent["next_token_logits"] = next_token_logits
-        tokenized_agent["next_light_logits"] = next_light_logits
-        tokenized_agent["visibility"] = visibility
-        tokenized_agent["proposal"] = proposal
+        # tokenized_agent["next_token_logits"] = next_token_logits
+        # tokenized_agent["next_light_logits"] = next_light_logits
+        # tokenized_agent["visibility"] = visibility
+        # tokenized_agent["proposal"] = proposal
 
         return {
             "proposal":proposal,#[:,:-1],
@@ -302,17 +302,23 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
+        keep_mask=torch.rand(len(tokenized_agent["sampled_idx"]))>0.05
+
+        for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch', 'shape', 'valid_mask', 'sampled_idx']:
+            tokenized_agent[key]=tokenized_agent[key][keep_mask]
+
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
         head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
         token_agent_shape=tokenized_agent["token_agent_shape"]
         token_traj=tokenized_agent["token_traj"]
-        n_agent = sampled_idx.shape[0]
-        light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
+        light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
         mask_lg=light_idx<self.light_type
+
+        n_agent = sampled_idx.shape[0]
 
         if post_sampling:
             gt_valid=tokenized_agent["valid_mask"]
