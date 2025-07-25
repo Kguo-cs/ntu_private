@@ -302,10 +302,11 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
-        # keep_mask=torch.rand(len(tokenized_agent["sampled_idx"]))>0.05
-        #
-        # for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch', 'shape', 'valid_mask', 'sampled_idx']:
-        #     tokenized_agent[key]=tokenized_agent[key][keep_mask]
+        if "gt_z_raw" not in tokenized_agent.keys():
+            keep_mask=torch.rand(len(tokenized_agent["sampled_idx"]))>0.05
+
+            for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch', 'shape', 'valid_mask', 'sampled_idx']:
+                tokenized_agent[key]=tokenized_agent[key][keep_mask]
 
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()

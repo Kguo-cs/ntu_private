@@ -71,7 +71,10 @@ def get_agent_features(
 
     idx_agents_to_add = []
     for i in range(len(track_infos["object_id"])):
-        add_agent = track_infos["valid"][i, num_historical_steps - 1]
+        if "train" in split:
+            add_agent = track_infos["valid"][i, ::5].any()
+        else:
+            add_agent = track_infos["valid"][i, num_historical_steps - 1]
 
         if add_agent:
             idx_agents_to_add.append(i)
@@ -98,8 +101,8 @@ def get_agent_features(
         valid = track_infos["valid"][idx]  # [n_step]
         states = track_infos["states"][idx]
 
-        object_shape = states[:11, 3:6]  # [n_step, 3], length, width, height
-        object_shape = object_shape[valid[:11]].mean(axis=0)  # [3]
+        object_shape = states[:, 3:6]  # [n_step, 3], length, width, height
+        object_shape = object_shape[valid].mean(axis=0)  # [3] #[:11]
         out_dict["shape"][i] = torch.from_numpy(object_shape)
 
         valid_steps = np.where(valid)[0]
