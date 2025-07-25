@@ -31,7 +31,6 @@ from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.utils.rollout import cal_polygon_contour
 from src.smart.loss.gmm_dist import  GMM_Dist
-from src.smart.loss.iq_loss import padding
 from src.smart.modules.light_encoder import LightEncoder
 from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
