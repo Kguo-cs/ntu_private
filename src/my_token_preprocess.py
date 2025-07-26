@@ -41,7 +41,7 @@ token_processor.eval()
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_2049/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_noclean/"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
@@ -76,7 +76,7 @@ def process_file(filename):
     pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
     vel = agent["velocity"]   ## [n_agent, n_step, 2]
 
-    heading = token_processor._clean_heading(valid, heading)
+    # heading = token_processor._clean_heading(valid, heading)
     # ! extrapolate to previous 5th step.
     valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
         valid, pos, heading, vel
