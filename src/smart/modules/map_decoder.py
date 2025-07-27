@@ -100,11 +100,13 @@ class SMARTMapDecoder(nn.Module):
         #
         # mask[(map_type!=4)&(map_type!=5)] = True
         # #
-        batch = tokenized_map["batch"]#[mask]
-        pos_pt = tokenized_map["position"]#[mask]
-        orient_pt = tokenized_map["orientation"]#[mask]
-        #map_type=map_type[mask]
-        token_idx=tokenized_map["token_idx"].long()#[mask]
+        mask = (map_type == 4) | (map_type == 5)
+
+        batch = tokenized_map["batch"][mask]
+        pos_pt = tokenized_map["position"][mask]
+        orient_pt = tokenized_map["orientation"][mask]
+        map_type=map_type[mask]
+        token_idx=tokenized_map["token_idx"].long()[mask]
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
@@ -153,7 +155,7 @@ class SMARTMapDecoder(nn.Module):
             x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
         # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
-        mask=(map_type==4)  |(map_type==5)
+        #mask=(map_type==4)  |(map_type==5)
         #tensor([0.010, 0.488, 0.020, 0.034, 0.145, 0.025, 0.063, 0.071, 0.017, 0.127],
         # polyline_type = {
         #     # for lane
@@ -173,10 +175,10 @@ class SMARTMapDecoder(nn.Module):
         # }
 
         return {
-            "pt_token": x_pt[mask],
-            "position": pos_pt[mask],
-            "orientation": orient_pt[mask],
-            "batch": batch[mask],
+            "pt_token": x_pt,#[mask],
+            "position": pos_pt,#[mask],
+            "orientation": orient_pt,#[mask],
+            "batch": batch,#[mask],
         }
         #
         # lengths = torch.bincount(batch).tolist()
