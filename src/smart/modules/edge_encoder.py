@@ -20,7 +20,8 @@ class EdgeEncoder(nn.Module):
             self,
             hidden_dim: int,
             num_freq_bands:int,
-            share
+            share,
+            a2a=True,
     ) -> None:
         super(EdgeEncoder, self).__init__()
         input_dim_r_pt2a = 3
@@ -33,12 +34,14 @@ class EdgeEncoder(nn.Module):
             share=share
         )
 
-        self.r_a2a_emb = FourierEmbedding(
-            input_dim=input_dim_r_a2a,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-            share=share
-        )
+        if a2a:
+
+            self.r_a2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_a2a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                share=share
+            )
 
         # input_dim_r_t = 4
 
@@ -211,6 +214,48 @@ class EdgeEncoder(nn.Module):
 
         return edge_index_a2a, r_a2a
 
+    def build_map2map_edge(self,
+                           pos_pl,  # [n_pl, 2]
+                           orient_pl,  # [n_pl]
+                           pos_s,  # [n_agent, n_step, 2]
+                           head_s,  # [n_agent, n_step]
+                           head_vector_s,  # [n_agent, n_step, 2]
+                           batch_s,  # [n_agent*n_step]
+                           batch_pl,  # [n_pl*n_step]
+                           pl2a_radius,
+                           max_num_neighbors,
+                           ):
+
+        edge_index_pl2a = radiusGraphNearest2(x=pos_s,
+                                              y=pos_pl,
+                                              x_heading=head_s,
+                                              r=pl2a_radius,
+                                              batch_x=batch_s,
+                                              batch_y=batch_pl,
+                                              max_num_neighbors=max_num_neighbors)
+
+
+        rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
+        rel_orient_pl2a = wrap_angle(
+            orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
+        )
+        r_pl2a = torch.stack(
+            [
+                torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
+                    nbr_vector=rel_pos_pl2a[:, :2],
+                ),
+                rel_orient_pl2a,
+            ],
+            dim=-1,
+        )
+
+        r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
+
+        return edge_index_pl2a, r_pl2a
+
+
     def build_map2agent_edge(
             self,
             pos_pl,  # [n_pl, 2]
@@ -241,7 +286,6 @@ class EdgeEncoder(nn.Module):
         pos_s=pos_a.flatten(0,1)
         head_s=head_a.flatten(0,1)
         batch_s=batch_s.flatten(0,1).contiguous()
-
 
         edge_index_pl2a = radiusGraphNearest2(x=pos_s,
                                               y=pos_pl,

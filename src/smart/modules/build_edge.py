@@ -225,7 +225,7 @@ def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
     row, col = edge_index# row is
     distances = (x[row] - y[col]).norm(dim=1)
 
-    mask = (distances < r) #& (distances>0)
+    mask = (distances < r) & (distances>0)
 
     # Step 2: Get relative vectors: y - x (N_edges, 2)
     # rel = y[col]-x[row]

@@ -21,7 +21,7 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, padding
 from .build_edge import radiusGraphNearest
-
+from .edge_encoder import EdgeEncoder
 
 class SMARTMapDecoder(nn.Module):
 
@@ -61,12 +61,8 @@ class SMARTMapDecoder(nn.Module):
             self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
         #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
-        input_dim_r_pt2pt = 3
-        self.r_pt2pt_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2pt,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-        )
+        self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,share=False,a2a=False)
+
         self.pt2pt_layers = nn.ModuleList(
             [
                 AttentionLayer(
@@ -74,7 +70,7 @@ class SMARTMapDecoder(nn.Module):
                     num_heads=num_heads,
                     head_dim=head_dim,
                     dropout=dropout,
-                    bipartite=False,
+                    bipartite=True,
                     has_pos_emb=True,
                 )
                 for _ in range(num_layers)
@@ -102,11 +98,11 @@ class SMARTMapDecoder(nn.Module):
         # #
         mask = (map_type == 4) | (map_type == 5)
 
-        batch = tokenized_map["batch"][mask]
-        pos_pt = tokenized_map["position"][mask]
-        orient_pt = tokenized_map["orientation"][mask]
-        map_type=map_type[mask]
-        token_idx=tokenized_map["token_idx"].long()[mask]
+        batch = tokenized_map["batch"]#[mask]
+        pos_pt = tokenized_map["position"]#[mask]
+        orient_pt = tokenized_map["orientation"]#[mask]
+        #map_type=map_type[mask]
+        token_idx=tokenized_map["token_idx"].long()#[mask]
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
@@ -126,33 +122,34 @@ class SMARTMapDecoder(nn.Module):
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-        orient_vector_pt = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
+        edge_pt=x_pt[mask]
+        pos_edge=pos_pt[mask]
+        orient_edge=orient_pt[mask]
+        batch_edge=batch[mask]
 
-        edge_index_pt2pt = radiusGraphNearest(
-            x=pos_pt,
-            r=self.pl2pl_radius,
-            batch=batch,
-            loop=False,
-            max_num_neighbors=self.pt2pt_neighbor,
-        )
-        rel_pos_pt2pt = pos_pt[edge_index_pt2pt[0]] - pos_pt[edge_index_pt2pt[1]]
-        rel_orient_pt2pt = wrap_angle(
-            orient_pt[edge_index_pt2pt[0]] - orient_pt[edge_index_pt2pt[1]]
-        )
-        r_pt2pt = torch.stack(
-            [
-                torch.norm(rel_pos_pt2pt[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=orient_vector_pt[edge_index_pt2pt[1]],
-                    nbr_vector=rel_pos_pt2pt[:, :2],
-                ),
-                rel_orient_pt2pt,
-            ],
-            dim=-1,
-        )
-        r_pt2pt = self.r_pt2pt_emb(continuous_inputs=r_pt2pt, categorical_embs=None)
-        for i in range(self.num_layers):
-            x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
+        head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
+
+        edge_index_pt2pt,r_pt2pt=self.edge_encoder.build_map2map_edge(
+                            pos_pt,  # [n_pl, 2]
+                            orient_pt,  # [n_pl]
+                            pos_edge,  # [n_agent, n_step, 2]
+                            orient_edge,  # [n_agent, n_step]
+                            head_vector_edge,  # [n_agent, n_step, 2]
+                            batch_edge,  # [n_agent*n_step]
+                            batch,  # [n_pl*n_step]
+                            self.pl2pl_radius,
+                            self.pt2pt_neighbor,
+                        )
+
+        edge_pt = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
+
+        x_pt=edge_pt
+        pos_pt=pos_edge
+        orient_pt=orient_edge
+        batch=batch_edge
+
+        # for i in range(self.num_layers):
+        #     x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
         # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
         #mask=(map_type==4)  |(map_type==5)
