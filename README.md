@@ -19,7 +19,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_inter10_8192 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc64_pt20_detach_l12/2025-07-14_21-27-38/sim/egdylohh/checkpoints/epoch=14-step=114150-val_closed_wosac=0.7771.ckpt ./
 
 
-rsync -avz /home/ke/PAD/exp/map.pkl lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ 
+rsync -avz /home/ke/PAD/Bench2DriveZoo/data/bench2drive/maps lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/Bench2DriveZoo/data/bench2drive/maps
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
@@ -39,7 +39,7 @@ Gk@140286
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
 
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=1:00:00 -P 12002486
 
 export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
