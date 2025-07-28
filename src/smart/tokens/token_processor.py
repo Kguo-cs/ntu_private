@@ -786,7 +786,7 @@ class TokenProcessor(torch.nn.Module):
 
             valid_mask[:,1:]=valid_mask[:,:-1] & valid_mask[:,1:]
 
-            tokenized_agent['valid_mask'][:,1:]=valid_mask
+            tokenized_agent['valid_mask']=valid_mask
 
         if self.use_light:
 
