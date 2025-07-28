@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_map2clean_edge_valid2 #_gamma95 #edge #_a8 #_anorm #_a8_keep005_allbc #_nolast_dis01 #_keep005 #16 #_anorm_A #notrans #rep #_Aedge01 #02 #anorm #light01 #_sharelight #share_sharedis #bc64_map2 #AIRL64_map2_sharedis #bc64_map2 #AIRL64_map2 #bc64_map10 #2_vis #bc48_map2_adamw #_vis #AIRL64_stateLogpdetach_near #mask #3 #bc64_map2_vis
+task_name: AIRL64_map2clean_edge_dis20 #_gamma95 #edge #_a8 #_anorm #_a8_keep005_allbc #_nolast_dis01 #_keep005 #16 #_anorm_A #notrans #rep #_Aedge01 #02 #anorm #light01 #_sharelight #share_sharedis #bc64_map2 #AIRL64_map2_sharedis #bc64_map2 #AIRL64_map2 #bc64_map10 #2_vis #bc48_map2_adamw #_vis #AIRL64_stateLogpdetach_near #mask #3 #bc64_map2_vis
 
 
 # simply provide checkpoint path to resume training

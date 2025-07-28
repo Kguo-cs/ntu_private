@@ -191,7 +191,7 @@ class TokenProcessor(torch.nn.Module):
             "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
-            "traj_pos_local":traj_pos_local[:,1:],
+           # "traj_pos_local":traj_pos_local[:,1:],
             #"token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
             "type": type,  # [n_pl]
             #"pl_type": pl_type.long(),  # [n_pl]
@@ -410,7 +410,7 @@ class TokenProcessor(torch.nn.Module):
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 
             #if self.pred_last_res:
-            #_valid_mask=valid[:, i]
+            _valid_mask=valid[:, i]
 
             _invalid_mask = ~valid[:, i]
 

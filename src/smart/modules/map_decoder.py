@@ -70,7 +70,7 @@ class SMARTMapDecoder(nn.Module):
                     num_heads=num_heads,
                     head_dim=head_dim,
                     dropout=dropout,
-                    bipartite=True,
+                    bipartite=False,
                     has_pos_emb=True,
                 )
                 for _ in range(num_layers)

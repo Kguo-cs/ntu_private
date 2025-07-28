@@ -6,7 +6,7 @@ Lyuchen2025!
 export PBS_JOBID=68041.pbs111
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_noclean shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_all2_clean shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_noclean ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
@@ -19,7 +19,9 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_inter10_8192 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc64_pt20_detach_l12/2025-07-14_21-27-38/sim/egdylohh/checkpoints/epoch=14-step=114150-val_closed_wosac=0.7771.ckpt ./
 
 
-rsync -avz /home/ke/PAD/Bench2DriveZoo/data/bench2drive/maps lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/Bench2DriveZoo/data/bench2drive/maps
+rsync -avz /home/ke/PAD/dataset/train_logs.npy lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/dataset/train_logs.npy
+
+rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_nosubscore/07.27_17.52/pad/f7c2mahe/checkpoints/epoch=18-step=58368.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
@@ -39,7 +41,7 @@ Gk@140286
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
 
-qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
+qsub -I -l select=1:ngpus=1 -l walltime=10:00:00 -P 12002486
 
 export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
 source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
