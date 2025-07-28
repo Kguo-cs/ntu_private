@@ -21,7 +21,7 @@ rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc
 
 rsync -avz /home/ke/PAD/dataset/train_logs.npy lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/dataset/train_logs.npy
 
-rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_nosubscore/07.27_17.52/pad/f7c2mahe/checkpoints/epoch=18-step=58368.ckpt ./
+rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/B2d_nosubscore_cam1/07.27_22.16/pad/jmu4hngr/checkpoints/epoch=18-step=58368.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
