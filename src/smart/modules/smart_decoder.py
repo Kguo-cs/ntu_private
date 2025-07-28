@@ -105,7 +105,7 @@ class SMARTDecoder(nn.Module):
                                                     10,10,num_freq_bands,
                                                     1,num_heads,head_dim,
                                                     0,hist_drop_prob,1,
-                                                    pt2a_neighbor//2,a2a_neighbor//2,
+                                                    pt2a_neighbor,a2a_neighbor,
                                                     token_processor,False,False,False,discriminator=True
                                                         )
                 if self.use_value:
