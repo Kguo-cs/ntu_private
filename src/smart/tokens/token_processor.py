@@ -410,7 +410,7 @@ class TokenProcessor(torch.nn.Module):
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 
             #if self.pred_last_res:
-            _valid_mask=valid[:, i]
+            #_valid_mask=valid[:, i]
 
             _invalid_mask = ~valid[:, i]
 
@@ -782,6 +782,11 @@ class TokenProcessor(torch.nn.Module):
                 for key in ["target_global_traj","target_mask"]:
                     tokenized_agent[key] = agent[key]
 
+            valid_mask = agent["valid_mask"]
+
+            valid_mask[:,1:]=valid_mask[:,:-1] & valid_mask[:,1:]
+
+            tokenized_agent['valid_mask'][:,1:]=valid_mask
 
         if self.use_light:
 
