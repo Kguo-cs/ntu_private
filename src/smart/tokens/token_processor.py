@@ -411,7 +411,7 @@ class TokenProcessor(torch.nn.Module):
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 
             #if self.pred_last_res:
-            #_valid_mask=valid[:, i]
+            _valid_mask=valid[:, i]
 
             _invalid_mask = ~valid[:, i]
 
