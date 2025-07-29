@@ -348,7 +348,7 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             if  self.pred_last_res:
-                token_valid=min_dist<0.5
+                token_valid=min_dist<0.3
                 # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
                 # _valid_mask=token_valid & _valid_mask
                 _valid_mask[~token_valid]=False
@@ -783,29 +783,15 @@ class TokenProcessor(torch.nn.Module):
                 for key in ["target_global_traj","target_mask"]:
                     tokenized_agent[key] = agent[key]
 
-            valid_mask = agent["valid_mask"]
-
-            valid_mask[:,1:]=valid_mask[:,:-1] & valid_mask[:,1:]
-
-            tokenized_agent['valid_mask']=valid_mask
+            # valid_mask = agent["valid_mask"]
+            #
+            # valid_mask[:,1:]=valid_mask[:,:-1] & valid_mask[:,1:]
+            #
+            # tokenized_agent['valid_mask']=valid_mask
 
         if self.use_light:
 
             tokenized_light = data["tokenized_light"]
-
-            def get_shuffle_within_group_idx(group_ids):
-                shuffle_idx = torch.empty_like(group_ids, dtype=torch.long)
-
-                unique_ids = torch.unique(group_ids)
-                for gid in unique_ids:
-                    mask = group_ids == gid
-                    idx = torch.nonzero(mask, as_tuple=True)[0]
-                    perm = idx[torch.randperm(len(idx), device=group_ids.device)]
-                    shuffle_idx[mask] = perm
-
-                return shuffle_idx
-
-            #shuffle_Id=get_shuffle_within_group_idx(tokenized_light["batch"])
 
             light_idx = tokenized_light["light_idx"]
             tokenized_agent["light_idx"] = light_idx.long()#[shuffle_Id]

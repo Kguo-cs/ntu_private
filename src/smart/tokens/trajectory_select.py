@@ -5,7 +5,7 @@ from tqdm import tqdm
 import torch
 import math
 import sys
-
+from kinematic_compute import  kinematic_likelihood
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
@@ -26,7 +26,7 @@ diff_list=[]
 q = torch.tensor([0.001, 0.999]).cuda()
 mid=torch.tensor([0.5]).cuda()
 
-for type_id in [0,1,2]:#
+for type_id in [1,2]:#0,
     #veh_traj=traj[type==type_id]
     #veh_traj = veh_traj.reshape(-1, 5, 3)  # [N, 5, 2]
 
@@ -43,47 +43,47 @@ for type_id in [0,1,2]:#
     # veh_traj[...,1]=veh_traj[...,1].abs()
     # veh_traj[...,2]=veh_traj[...,2].abs()
 
-    # cluster_n=2048
-    #
-    # if type_id == 0:
-    #     x_min, x_max = -5, 20
-    #     y_max = 1.5
-    #     x_interval = 0.1 #0.1->2048
-    #     y_interval = 0.05
-    #     heding_bin = 2  # number of heading bins
-    # elif type_id == 1:
-    #     x_min, x_max = -1.5 , 4.5
-    #     y_max=2
-    #     x_interval = 0.05
-    #     y_interval = 0.05
-    #     heding_bin = 2  # number of heading bins
-    # elif type_id == 2:
-    #     x_min, x_max = -3, 8
-    #     y_max=1
-    #     x_interval = 0.05
-    #     y_interval = 0.05
-    #     heding_bin = 2  # number of heading bins
-
-    cluster_n=4096
+    cluster_n=2048
 
     if type_id == 0:
         x_min, x_max = -5, 20
         y_max = 1.5
-        x_interval = 0.05 #0.1->2048
+        x_interval = 0.1 #0.1->2048
         y_interval = 0.05
         heading_bin = 2  # number of heading bins
     elif type_id == 1:
         x_min, x_max = -1.5 , 4.5
         y_max=2
         x_interval = 0.05
-        y_interval = 0.025
+        y_interval = 0.05
         heading_bin = 2  # number of heading bins
     elif type_id == 2:
         x_min, x_max = -3, 8
         y_max=1
         x_interval = 0.05
-        y_interval = 0.025
+        y_interval = 0.05
         heading_bin = 2  # number of heading bins
+
+    # cluster_n=4096
+    #
+    # if type_id == 0:
+    #     x_min, x_max = -5, 20
+    #     y_max = 1.5
+    #     x_interval = 0.05 #0.1->2048
+    #     y_interval = 0.05
+    #     heading_bin = 2  # number of heading bins
+    # elif type_id == 1:
+    #     x_min, x_max = -1.5 , 4.5
+    #     y_max=2
+    #     x_interval = 0.05
+    #     y_interval = 0.025
+    #     heading_bin = 2  # number of heading bins
+    # elif type_id == 2:
+    #     x_min, x_max = -3, 8
+    #     y_max=1
+    #     x_interval = 0.05
+    #     y_interval = 0.025
+    #     heading_bin = 2  # number of heading bins
 
 
     y_max = y_max - y_interval/2
@@ -157,6 +157,13 @@ for type_id in [0,1,2]:#
         #meaning_traj=traj_q.mean(dim=0)
 
         meaning_traj=torch.quantile(traj2.to(torch.float32),mid, dim=0)[0]
+
+        # log_values=kinematic_likelihood(meaning_traj[:,:2].transpose(0,1),meaning_traj[:,2])
+        #
+        # sim_values=kinematic_likelihood(traj2[:,:,:2].permute(2,0,1),traj2[:,:,2])
+
+        # log_likelihood = histogram_estimate(
+        #     feature_config.histogram, log_values, sim_values)
 
         #meaning_traj= traj2.mean(dim=0) #.numpy()
         #max_diff=traj_q[1]-meaning_traj
@@ -236,6 +243,6 @@ for type_id in [0,1,2]:#
 
 res["max_diff"]=torch.stack(diff_list)
 
-with open("mid4096_head2.pkl", "wb") as f:
+with open("mid2048_head2k.pkl", "wb") as f:
     pickle.dump(res, f)
 

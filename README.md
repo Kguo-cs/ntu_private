@@ -6,9 +6,9 @@ Lyuchen2025!
 export PBS_JOBID=68041.pbs111
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_all2_clean shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_noclean ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.67.68:/home/ke/code/catk/src/waymo_data/full/training_inter10_8192 ./
 
@@ -123,4 +123,7 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #discount 0.97 − 0.99
 #t is best to use as large as possible replay buffers for sampling negative examples
 
-#less agent 
+#less agent:  bad 
+
+
+# token : train 
