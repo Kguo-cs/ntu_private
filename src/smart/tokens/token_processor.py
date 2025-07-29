@@ -416,7 +416,7 @@ class TokenProcessor(torch.nn.Module):
 
             _invalid_mask = ~valid[:, i]
 
-            out_dict["token_valid"].append(token_valid)
+            out_dict["token_valid"].append(token_valid &_valid_mask)
 
             # add to output dict
             out_dict["sampled_idx"].append(token_idx_gt)
