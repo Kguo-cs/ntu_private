@@ -324,6 +324,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
+            'token_valid':[]
         }
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
@@ -348,7 +349,7 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             #if  self.pred_last_res:
-            token_valid=min_dist<0.3
+            token_valid=min_dist<0.5
             # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
             # _valid_mask=token_valid & _valid_mask
             _valid_mask[~token_valid]=False
@@ -414,6 +415,8 @@ class TokenProcessor(torch.nn.Module):
             _valid_mask=valid[:, i]
 
             _invalid_mask = ~valid[:, i]
+
+            out_dict["token_valid"].append(token_valid)
 
             # add to output dict
             out_dict["sampled_idx"].append(token_idx_gt)
