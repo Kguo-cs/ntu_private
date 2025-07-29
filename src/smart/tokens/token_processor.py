@@ -229,11 +229,11 @@ class TokenProcessor(torch.nn.Module):
         # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
 
         # # if not (self.pred_last_res and self.pred_all_res):
-        # heading = self._clean_heading(valid, heading)
-        # # ! extrapolate to previous 5th step.
-        # valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
-        #     valid, pos, heading, vel
-        # )
+        heading = self._clean_heading(valid, heading)
+        # ! extrapolate to previous 5th step.
+        valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
+            valid, pos, heading, vel
+        )
 
         # ! prepare output dict
         tokenized_agent = {
@@ -347,11 +347,11 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
-            if  self.pred_last_res:
-                token_valid=min_dist<0
-                # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
-                # _valid_mask=token_valid & _valid_mask
-                _valid_mask[~token_valid]=False
+            #if  self.pred_last_res:
+            token_valid=min_dist<0.5
+            # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
+            # _valid_mask=token_valid & _valid_mask
+            _valid_mask[~token_valid]=False
 
             if self.pred_all_res and self.max_diff is not None:
                 token_local_traj= self.token_local_traj[torch.arange(n_agent), token_idx_gt][:,-1:]  # [n_agent, 5,3]
