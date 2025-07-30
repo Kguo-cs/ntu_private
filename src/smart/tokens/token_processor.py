@@ -324,7 +324,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
-            'token_valid':[]
+           # 'token_valid':[]
         }
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
