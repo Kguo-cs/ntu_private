@@ -443,9 +443,9 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map2"
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map1"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
