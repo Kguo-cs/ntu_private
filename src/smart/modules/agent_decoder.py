@@ -318,8 +318,8 @@ class SMARTAgentDecoder(nn.Module):
             heading=tokenized_agent["gt_head_raw"] [:,:current_step+1]
             valid=tokenized_agent["gt_valid_raw"][:,:current_step+1]
 
-            pos[:,0]=pos[:,0]+torch.randn_like(pos[:,0])*0.1
-            heading[:,0]=heading[:,0]+torch.randn_like(heading[:,0])*0.1
+            # pos[:,0]=pos[:,0]+torch.randn_like(pos[:,0])*0.1
+            # heading[:,0]=heading[:,0]+torch.randn_like(heading[:,0])*0.1
 
             agent_dict=self.token_processor._match_agent_token(valid,pos,heading,
                                                               tokenized_agent["token_agent_shape"],
