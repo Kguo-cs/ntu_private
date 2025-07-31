@@ -288,7 +288,8 @@ class TokenProcessor(torch.nn.Module):
         heading: Tensor,  # [n_agent, n_step]
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-        speed=None
+        speed=None,
+        shift=5
     ) -> Dict[str, Tensor]:
         """n_step_token=n_step//5
         n_step_token=18 for train with BC.
@@ -312,7 +313,7 @@ class TokenProcessor(torch.nn.Module):
         if self.use_dynamic:
             return self.dynamic_match(valid, pos, speed, heading,agent_shape, token_traj)
 
-        num_k = self.agent_token_sampling.num_k if self.training else 1
+        #num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
         range_a = torch.arange(n_agent)
 
@@ -327,8 +328,8 @@ class TokenProcessor(torch.nn.Module):
            # 'token_valid':[]
         }
 
-        for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
-            _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
+        for i in range(shift, n_step, shift):  # [5, 10, 15, ..., 90]
+            _valid_mask = valid[:, i - shift] & valid[:, i]  # [n_agent]
 
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
@@ -469,8 +470,7 @@ class TokenProcessor(torch.nn.Module):
             #     )
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
-        # out_dict["pos"]= pos[:,5::5]
-        # out_dict["heading"]= heading[:,5::5]
+
 
         def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
             B, T, D = tensor.shape
@@ -505,6 +505,7 @@ class TokenProcessor(torch.nn.Module):
             if self.pred_last_res:
                 token_mask=out_dict["sampled_idx"]==self.agent_token_all_veh.shape[0]
                 out_dict["target_mask"] = out_dict["target_mask"] & token_mask[:, :, None]
+
 
         return out_dict
 
@@ -775,6 +776,9 @@ class TokenProcessor(torch.nn.Module):
                                                          speed,
                                                             )
             tokenized_agent.update(token_dict)
+            tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,::5]
+            tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,::5]
+            tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,::5]
 
         else:
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
