@@ -313,27 +313,27 @@ class SMARTAgentDecoder(nn.Module):
         #                 'shape', 'valid_mask', 'sampled_idx', 'next_token_logits'                       ]:
         #         tokenized_agent[key]=tokenized_agent[key][current_mask][keep_mask]
 
-        if "gt_z_raw" not in tokenized_agent.keys():
-            pos=tokenized_agent["gt_pos_raw"][:,:current_step+1]
-            heading=tokenized_agent["gt_head_raw"] [:,:current_step+1]
-            valid=tokenized_agent["gt_valid_raw"][:,:current_step+1]
-
-            # pos[:,0]=pos[:,0]+torch.randn_like(pos[:,0])*0.1
-            # heading[:,0]=heading[:,0]+torch.randn_like(heading[:,0])*0.1
-
-            agent_dict=self.token_processor._match_agent_token(valid,pos,heading,
-                                                              tokenized_agent["token_agent_shape"],
-                                                              tokenized_agent["token_traj"],shift=1)
-
-            sampled_idx=agent_dict["sampled_idx"]
-            mask=agent_dict["valid_mask"]
-            pos_a=agent_dict["sampled_pos"]
-            head_a=agent_dict["sampled_heading"]
-        else:
-            sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
-            mask = tokenized_agent["valid_mask"][:, :current_step].clone()
-            pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
-            head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
+        # if "gt_z_raw" not in tokenized_agent.keys():
+        #     pos=tokenized_agent["gt_pos_raw"][:,:current_step+1]
+        #     heading=tokenized_agent["gt_head_raw"] [:,:current_step+1]
+        #     valid=tokenized_agent["gt_valid_raw"][:,:current_step+1]
+        #
+        #     # pos[:,0]=pos[:,0]+torch.randn_like(pos[:,0])*0.1
+        #     # heading[:,0]=heading[:,0]+torch.randn_like(heading[:,0])*0.1
+        #
+        #     agent_dict=self.token_processor._match_agent_token(valid,pos,heading,
+        #                                                       tokenized_agent["token_agent_shape"],
+        #                                                       tokenized_agent["token_traj"],shift=1)
+        #
+        #     sampled_idx=agent_dict["sampled_idx"]
+        #     mask=agent_dict["valid_mask"]
+        #     pos_a=agent_dict["sampled_pos"]
+        #     head_a=agent_dict["sampled_heading"]
+        # else:
+        sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
+        mask = tokenized_agent["valid_mask"][:, :current_step].clone()
+        pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
+        head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
 
         token_agent_shape=tokenized_agent["token_agent_shape"]
         token_traj=tokenized_agent["token_traj"]
