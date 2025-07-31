@@ -26,7 +26,7 @@ diff_list=[]
 q = torch.tensor([0.001, 0.999]).cuda()
 mid=torch.tensor([0.5]).cuda()
 
-for type_id in [1,2]:#0,
+for type_id in [0,1,2]:#
     #veh_traj=traj[type==type_id]
     #veh_traj = veh_traj.reshape(-1, 5, 3)  # [N, 5, 2]
 

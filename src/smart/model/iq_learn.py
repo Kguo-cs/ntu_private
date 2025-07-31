@@ -220,10 +220,18 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self,tokenized_agent,key,train_mask=None,agent_mask=None):
 
-        all_features=tokenized_agent["detach_all_features"]
+        # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
 
-        logit = self.encoder.discriminator(all_features,map_feature,agent_mask)[0][:, :, 0]
+        # logit = self.encoder.discriminator(all_features,map_feature,agent_mask)[0][:, :, 0]
+        logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                    tokenized_agent["valid_mask"],
+                                    tokenized_agent["sampled_pos"],
+                                    tokenized_agent["sampled_heading"] ,
+                                    tokenized_agent,
+                                    map_feature,
+                                    tokenized_agent["light_idx"],
+                                    None)[0][:, :, 0]
 
         disc_val = torch.sigmoid(logit)
 

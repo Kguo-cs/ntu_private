@@ -101,13 +101,38 @@ class SMARTDecoder(nn.Module):
                 pred_all_res=token_processor.pred_all_res,
             )
             if self.use_gail:
-                self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                                                    10,10,num_freq_bands,
-                                                    1,num_heads,head_dim,
-                                                    0,hist_drop_prob,1,
-                                                    pt2a_neighbor//2,a2a_neighbor//2,
-                                                    token_processor,False,False,False,discriminator=True
-                                                        )
+                # self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+                #                                     10,10,num_freq_bands,
+                #                                     1,num_heads,head_dim,
+                #                                     0,hist_drop_prob,1,
+                #                                     pt2a_neighbor//2,a2a_neighbor//2,
+                #                                     token_processor,False,False,False,discriminator=True
+                #                                         )
+                self.discriminator = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=10,
+                    pl2a_radius=10,
+                    a2a_radius=10,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=num_agent_layers,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    hist_drop_prob=hist_drop_prob,
+                    n_token_agent=1,
+                    pt2a_neighbor=pt2a_neighbor//2,
+                    a2a_neighbor=a2a_neighbor//2,
+                    token_processor=token_processor,
+                    alpha=self.alpha,
+                    output_gmm=self.output_gmm,
+                    pred_last_res=False,
+                    pred_all_res=False,
+                    discriminator=True
+                )
+
+
                 if self.use_value:
                     self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
                                                     pl2a_radius,a2a_radius,num_freq_bands,
@@ -116,9 +141,6 @@ class SMARTDecoder(nn.Module):
                                                     pt2a_neighbor,a2a_neighbor,
                                                     token_processor,False,False,False
                                                         )
-
-            # 创建 rollout 用的异步 CUDA stream
-            self.rollout_stream = torch.cuda.Stream()
 
     def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
         encoder_was_training = agent_encoder.training

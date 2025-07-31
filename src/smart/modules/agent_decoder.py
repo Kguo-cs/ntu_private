@@ -58,7 +58,8 @@ class SMARTAgentDecoder(nn.Module):
             alpha,
             output_gmm,
             pred_last_res,
-            pred_all_res
+            pred_all_res,
+            discriminator=False
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -131,6 +132,7 @@ class SMARTAgentDecoder(nn.Module):
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
         self.token_processor= token_processor
+        self.discriminator=discriminator
         self.apply(weight_init)
 
     def predict_agent(self, sampled_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,vis_mask=None,post_sampling=False):
@@ -229,18 +231,18 @@ class SMARTAgentDecoder(nn.Module):
 
         if n_step>1:
             all_features=[]
-            detach_all_features=[]
+            next_all_features=[]
             for feature in [feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat]:
                 all_features.append(feature[:, :-1])
-                detach_all_features.append(feature.detach()[:, 1:])  # .clone()[:,1:]
+                next_all_features.append(feature[:, 1:])  # .clone()[:,1:]
 
-            detach_all_features.append(batch_s)
+            next_all_features.append(batch_s)
             all_features.append(batch_s)
 
-            tokenized_agent["detach_all_features"]=detach_all_features
+            # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
-            if not self.training:
-                all_features=detach_all_features
+            if not self.training or self.discriminator:
+                all_features=next_all_features
         else:
             all_features=feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s
 
