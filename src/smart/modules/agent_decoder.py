@@ -290,10 +290,10 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 vis_mask=tokenized_agent["vis_mask"],
                                                                                 post_sampling=post_sampling)
 
-        # tokenized_agent["next_token_logits"] = next_token_logits
-        # tokenized_agent["next_light_logits"] = next_light_logits
-        # tokenized_agent["visibility"] = visibility
-        # tokenized_agent["proposal"] = proposal
+        tokenized_agent["next_token_logits"] = next_token_logits
+        tokenized_agent["next_light_logits"] = next_light_logits
+        tokenized_agent["visibility"] = visibility
+        tokenized_agent["proposal"] = proposal
 
         return {
             "proposal":proposal,#[:,:-1],
