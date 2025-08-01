@@ -76,7 +76,7 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor
             )
 
-            self.alpha=1
+            self.alpha=0.1
 
             self.agent_encoder = SMARTAgentDecoder(
                 hidden_dim=hidden_dim,

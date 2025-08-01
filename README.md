@@ -129,3 +129,4 @@ no done:
 
 # noise to input to discriminator
 #dropout 0.5 input and 0.75 hidden 
+#c-gail: discriminator constrain to 1/2
