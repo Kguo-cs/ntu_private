@@ -79,7 +79,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.head_dim = hidden_dim // num_heads
 
-        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
+        if not discriminator:
+            self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
 
         self.agent_hist = self.time_span // self.shift
 
@@ -139,17 +140,21 @@ class SMARTAgentDecoder(nn.Module):
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
-        # ! get agent token embeddings
-        feat_a_token,agent_token_emb = self.agent_token_embedding(
-            agent_token_index=sampled_idx,  # [n_ag, n_step]
-            trajectory_token_veh=self.token_processor.agent_token_all_veh,
-            trajectory_token_ped=self.token_processor.agent_token_all_ped,
-            trajectory_token_cyc=self.token_processor.agent_token_all_cyc,
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            agent_type=tokenized_agent["type"],  # [n_agent]
-            agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
-        )  # feat_a: [n_agent, n_step, hidden_dim]
+
+        if self.discriminator:
+            feat_a_token=tokenized_agent["feat_a_token"]
+        else:
+            # ! get agent token embeddings
+            feat_a_token,agent_token_emb = self.agent_token_embedding(
+                agent_token_index=sampled_idx,  # [n_ag, n_step]
+                trajectory_token_veh=self.token_processor.agent_token_all_veh,
+                trajectory_token_ped=self.token_processor.agent_token_all_ped,
+                trajectory_token_cyc=self.token_processor.agent_token_all_cyc,
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                agent_type=tokenized_agent["type"],  # [n_agent]
+                agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
+            )  # feat_a: [n_agent, n_step, hidden_dim]
 
         pos_a=pos_a[:,-n_step:]
 
@@ -171,7 +176,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=pos_a[:,-n_step:]
             head_a=head_a[:,-n_step:]
             head_vector_a=head_vector_a[:,-n_step:]
-            agent_token_emb=agent_token_emb[:,-n_step:]
+            #agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
             if len(light_idx) and self.light_encoder.share:
                 feat_lg_t = feat_lg_t[:, -n_step:]
@@ -229,7 +234,7 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-        if n_step>1 and not self.discriminator:
+        if n_step>1:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step - 1).reshape(-1,n_agent).transpose(
                 0, 1)
 
@@ -244,7 +249,7 @@ class SMARTAgentDecoder(nn.Module):
 
             # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
-            if not self.training :#or self.discriminator
+            if not self.training or self.discriminator:
                 all_features=next_all_features
         else:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
@@ -263,7 +268,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_vis:
             visibility=self.vis_head(feat_a.detach())
 
-        return next_token_logits,next_light_logits,feat_a,proposal,visibility
+        return next_token_logits,next_light_logits,feat_a_token.detach(),proposal,visibility
 
     def forward(
             self,
@@ -285,7 +290,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_lg=light_idx<self.light_type
 
-        next_token_logits,next_light_logits,feat_a,proposal,visibility= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,next_light_logits,feat_a_token,proposal,visibility= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
                                                                                 tokenized_agent["sampled_heading"] ,
@@ -300,6 +305,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["next_light_logits"] = next_light_logits
         tokenized_agent["visibility"] = visibility
         tokenized_agent["proposal"] = proposal
+        tokenized_agent["feat_a_token"]=feat_a_token
 
         return {
             "proposal":proposal,#[:,:-1],

@@ -114,7 +114,6 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #continuous map point
 
 #discriminator sa 
-#airl , other reward learning method 
 
 
 #a parameter to disappear  other cannot see it ,it can see other
@@ -123,10 +122,12 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 
 #less agent:  bad 
 #token : train
-#temporal full discrimiantor 
-
-no done:
-
-# noise to input to discriminator
-#dropout 0.5 input and 0.75 hidden 
+#temporal full discrimiantor
+#noise to input to discriminator
 #c-gail: discriminator constrain to 1/2
+
+#not done
+#dropout 0.5 input and 0.75 hidden 
+#airl , other reward learning method
+#other tokenize
+#goal prediction and conditioned
