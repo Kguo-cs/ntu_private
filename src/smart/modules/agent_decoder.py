@@ -96,7 +96,7 @@ class SMARTAgentDecoder(nn.Module):
                                                     num_layers,num_heads,head_dim,
                                                     dropout,hist_drop_prob,n_token_agent,
                                                     pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,output_gmm,pred_last_res,pred_all_res
+                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator
                                                     )
 
         self.use_light = token_processor.use_light
@@ -229,7 +229,10 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-        if n_step>1:
+        if n_step>1 and not self.discriminator:
+            batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step - 1).reshape(-1,n_agent).transpose(
+                0, 1)
+
             all_features=[]
             next_all_features=[]
             for feature in [feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat]:
@@ -241,9 +244,12 @@ class SMARTAgentDecoder(nn.Module):
 
             # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
-            if not self.training or self.discriminator:
+            if not self.training :#or self.discriminator
                 all_features=next_all_features
         else:
+            batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
+                0, 1)
+
             all_features=feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
