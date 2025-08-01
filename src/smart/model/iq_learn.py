@@ -224,12 +224,12 @@ class IQ_SoftQ(LightningModule):
         map_feature=tokenized_agent["detach_map_feature"]
 
         # logit = self.encoder.discriminator(all_features,map_feature,agent_mask)[0][:, :, 0]
+        pos=tokenized_agent["sampled_pos"].clone()
+        heading=tokenized_agent["sampled_heading"].clone()
 
-        pos=tokenized_agent["sampled_pos"]#.clone()
-        heading=tokenized_agent["sampled_heading"]#.clone()
-
-        # pos=pos+torch.randn_like(pos)*0.01
-        # heading=heading+torch.randn_like(heading)*0.01
+        if key=="expert":
+            pos=pos+torch.randn_like(pos)*0.01
+            heading=heading+torch.randn_like(heading)*0.01
 
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                     tokenized_agent["valid_mask"],
