@@ -248,7 +248,7 @@ class IQ_SoftQ(LightningModule):
         #     heading=heading+torch.randn_like(heading)*0.01
 
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                        None,
+                                                        tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
                                                         pos,
                                                         heading ,
