@@ -79,8 +79,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.head_dim = hidden_dim // num_heads
 
-        if not discriminator:
-            self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
+       # if not discriminator:
+        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
 
         self.agent_hist = self.time_span // self.shift
 
@@ -141,20 +141,20 @@ class SMARTAgentDecoder(nn.Module):
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-        if self.discriminator:
-            feat_a_token=tokenized_agent["feat_a_token"]
-        else:
-            # ! get agent token embeddings
-            feat_a_token,agent_token_emb = self.agent_token_embedding(
-                agent_token_index=sampled_idx,  # [n_ag, n_step]
-                trajectory_token_veh=self.token_processor.agent_token_all_veh,
-                trajectory_token_ped=self.token_processor.agent_token_all_ped,
-                trajectory_token_cyc=self.token_processor.agent_token_all_cyc,
-                pos_a=pos_a,  # [n_agent, n_step, 2]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                agent_type=tokenized_agent["type"],  # [n_agent]
-                agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
-            )  # feat_a: [n_agent, n_step, hidden_dim]
+        # if self.discriminator:
+        #     feat_a_token=tokenized_agent["feat_a_token"]
+        # else:
+        # ! get agent token embeddings
+        feat_a_token,agent_token_emb = self.agent_token_embedding(
+            agent_token_index=sampled_idx,  # [n_ag, n_step]
+            trajectory_token_veh=self.token_processor.agent_token_all_veh,
+            trajectory_token_ped=self.token_processor.agent_token_all_ped,
+            trajectory_token_cyc=self.token_processor.agent_token_all_cyc,
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            agent_type=tokenized_agent["type"],  # [n_agent]
+            agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
+        )  # feat_a: [n_agent, n_step, hidden_dim]
 
         pos_a=pos_a[:,-n_step:]
 
@@ -305,7 +305,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["next_light_logits"] = next_light_logits
         tokenized_agent["visibility"] = visibility
         tokenized_agent["proposal"] = proposal
-        tokenized_agent["feat_a_token"]=feat_a_token
+       # tokenized_agent["feat_a_token"]=feat_a_token
 
         return {
             "proposal":proposal,#[:,:-1],

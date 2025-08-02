@@ -115,6 +115,7 @@ class InterativeDecoder(nn.Module):
         self.discriminator=discriminator
 
         if self.discriminator:
+            self.map_proj=nn.Sequential(nn.Linear(128, hidden_dim),nn.ReLU())
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -130,6 +131,9 @@ class InterativeDecoder(nn.Module):
         pos_pl = map_feature["position"]#[None].repeat(n_step,1,1).flatten(0, 1)
         orient_pl = map_feature["orientation"]#[None].repeat(n_step,1).flatten(0, 1)
         feat_map = map_feature["pt_token"]#.unsqueeze(0).expand( n_step,-1, -1).flatten(0, 1)
+
+        if self.discriminator:
+            feat_map=self.map_proj(feat_map)
 
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
