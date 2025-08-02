@@ -81,10 +81,9 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_goal=token_processor.pred_goal
 
-        if self.pred_goal:
+        if self.pred_goal and not discriminator:
             self.goal_embedding=nn.Embedding(11, hidden_dim)
-            if not discriminator:
-                self.goal_head = MLPLayer(hidden_dim, hidden_dim, 11)
+            self.goal_head = MLPLayer(hidden_dim, hidden_dim, 11)
 
         # if not discriminator:
         self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
@@ -163,7 +162,7 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
-        if self.pred_goal :#and not self.discriminator
+        if self.pred_goal and not self.discriminator:
             goal_token_emb=self.goal_embedding(goal_idx)
             feat_a_token=feat_a_token+goal_token_emb
 

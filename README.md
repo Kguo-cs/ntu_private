@@ -127,7 +127,14 @@ Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 #c-gail: discriminator constrain to 1/2
 
 #not done
+
 #dropout 0.5 input and 0.75 hidden 
 #airl , other reward learning method
 #other tokenize
 #goal prediction and conditioned
+
+
+#bc+ finetune 
+
+
+
