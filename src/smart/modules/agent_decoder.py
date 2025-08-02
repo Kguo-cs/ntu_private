@@ -543,7 +543,6 @@ class SMARTAgentDecoder(nn.Module):
 
                 goal_idx = torch.cat([goal_idx, next_goal_idx[:, None]], dim=1)
 
-
         self.a_t_roformer.attn.kv_caching(0)
         if self.pred_light and not self.light_encoder.share:
             self.light_encoder.lg_t_roformer.attn.kv_caching(0)

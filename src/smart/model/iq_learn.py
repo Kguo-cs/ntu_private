@@ -202,14 +202,18 @@ class IQ_SoftQ(LightningModule):
         #     vis_nll=-vis_log_prob.mean()
         #     self.log("train/"+key+"_vis_nll", vis_nll.item(), on_step=True, batch_size=1)
 
-        if len(pred["goal_q"]) and key=="expert":
-            vis_nll=0
+        if len(pred["goal_q"]):
             goal_idx=tokenized_agent["goal_idx"][:, 2:]
 
             log_prob_goal,goal_logpi=self.get_network_QV(pred["goal_q"], tokenized_map, tokenized_agent,goal_idx,key)[:2]
 
-            goal_nll=-log_prob_goal[train_mask].mean()
-            self.log("train/" + key + "_goal_nll", goal_nll.item(), on_step=True, batch_size=1)
+            if key == "expert":
+                goal_nll=-log_prob_goal[train_mask].mean()
+                self.log("train/" + key + "_goal_nll", goal_nll.item(), on_step=True, batch_size=1)
+            else:
+                log_prob=log_prob_goal+log_prob
+                goal_nll=0
+
         else:
             goal_nll=0
 
