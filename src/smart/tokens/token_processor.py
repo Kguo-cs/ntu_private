@@ -74,7 +74,7 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_agent=self.agent_token_all_veh.shape[0]
             self.pred_last_res=False
 
-        self.pred_goal=True
+        self.pred_goal=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
