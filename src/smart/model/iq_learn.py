@@ -181,26 +181,37 @@ class IQ_SoftQ(LightningModule):
         if self.use_target_q:
             V=(V-target_V)[all_valid_mask]
 
-        if pred["visibility"] is None:
+        # if pred["visibility"] is None:
+        #     vis_nll=0
+        # else:
+        #     visibility=pred["visibility"][:,:-1,0]
+        #
+        #     if key=="expert":
+        #         vis_mask=valid_mask.to(torch.float)[:,1:]
+        #     else:
+        #         vis_mask=tokenized_agent["vis_mask"][:, self.start_step+1:][train_mask]
+        #
+        #     vis_log_prob = F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='none')
+        #
+        #     if key=="expert": #state =True
+        #         state_mask=valid_mask[:,:-1]
+        #         vis_log_prob=vis_log_prob[state_mask]
+        #     else:
+        #         log_prob=log_prob+vis_log_prob
+        #
+        #     vis_nll=-vis_log_prob.mean()
+        #     self.log("train/"+key+"_vis_nll", vis_nll.item(), on_step=True, batch_size=1)
+
+        if len(pred["goal_q"]) and key=="expert":
             vis_nll=0
+            goal_idx=tokenized_agent["goal_idx"][:, 2:]
+
+            log_prob_goal,goal_logpi=self.get_network_QV(pred["goal_q"], tokenized_map, tokenized_agent,goal_idx,key)[:2]
+
+            goal_nll=-log_prob_goal[train_mask].mean()
+            self.log("train/" + key + "_goal_nll", goal_nll.item(), on_step=True, batch_size=1)
         else:
-            visibility=pred["visibility"][:,:-1,0]
-
-            if key=="expert":
-                vis_mask=valid_mask.to(torch.float)[:,1:]
-            else:
-                vis_mask=tokenized_agent["vis_mask"][:, self.start_step+1:][train_mask]
-
-            vis_log_prob = F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='none')
-
-            if key=="expert": #state =True
-                state_mask=valid_mask[:,:-1]
-                vis_log_prob=vis_log_prob[state_mask]
-            else:
-                log_prob=log_prob+vis_log_prob
-
-            vis_nll=-vis_log_prob.mean()
-            self.log("train/"+key+"_vis_nll", vis_nll.item(), on_step=True, batch_size=1)
+            goal_nll=0
 
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
@@ -216,7 +227,7 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        return  reward,value_loss,V,action_nll+light_nll+vis_nll,current_Q,proposal_loss,log_prob,entropy
+        return  reward,value_loss,V,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,tokenized_agent,key,train_mask=None,agent_mask=None):
 
@@ -233,13 +244,14 @@ class IQ_SoftQ(LightningModule):
         #     heading=heading+torch.randn_like(heading)*0.01
 
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                    tokenized_agent["valid_mask"],
-                                    pos,
-                                    heading ,
-                                    tokenized_agent,
-                                    map_feature,
-                                    tokenized_agent["light_idx"],
-                                    None)[0][:, :, 0]
+                                                        None,
+                                                        tokenized_agent["valid_mask"],
+                                                        pos,
+                                                        heading ,
+                                                        tokenized_agent,
+                                                        map_feature,
+                                                        tokenized_agent["light_idx"],
+                                                        None)[0][:, :, 0]
 
         disc_val = torch.sigmoid(logit)
 
@@ -260,9 +272,6 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
-
-        #valid_mask=tokenized_agent["token_valid"][:, self.start_step:]
-
         state_mask = valid_mask[:, :-1]
         action_mask = valid_mask[:, 1:]
         train_mask = state_mask & action_mask

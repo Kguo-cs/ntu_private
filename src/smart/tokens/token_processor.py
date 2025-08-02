@@ -28,6 +28,7 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
+    angle_between_2d_vectors
 )
 from src.smart.loss.iq_loss import padding
 
@@ -72,6 +73,8 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
             self.pred_last_res=False
+
+        self.pred_goal=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -506,7 +509,6 @@ class TokenProcessor(torch.nn.Module):
                 token_mask=out_dict["sampled_idx"]==self.agent_token_all_veh.shape[0]
                 out_dict["target_mask"] = out_dict["target_mask"] & token_mask[:, :, None]
 
-
         return out_dict
 
     def my_match_agent_token(
@@ -808,6 +810,31 @@ class TokenProcessor(torch.nn.Module):
 
         else:
             tokenized_agent["light_idx"] = torch.zeros([0, 18])
+
+
+        if self.pred_goal:
+            sampled_pos=tokenized_agent["sampled_pos"]
+            valid_mask=tokenized_agent["valid_mask"]
+
+            goal_pos=sampled_pos[:,-1]
+            goal_valid=valid_mask[:,-1:] & valid_mask
+
+            goal_valid[:,:2]=False
+
+            goal_vector=goal_pos[:,None]-sampled_pos
+            head_a=tokenized_agent["sampled_heading"]
+
+            head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+            goal_heading=angle_between_2d_vectors(
+                ctr_vector=head_vector_a, nbr_vector=goal_vector
+            )
+
+            goal_idx=(goal_heading+np.pi)//(np.pi/5) #10 directory
+
+            goal_idx[~goal_valid]=10
+
+            tokenized_agent["goal_idx"]=goal_idx.to(torch.long)
 
         return tokenized_map, tokenized_agent
 
