@@ -393,10 +393,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             vis_mask=None
 
-        if self.pred_goal:
-            goal_idx=tokenized_agent["goal_idx"][:,:2]
-        else:
-            goal_idx=None
+        goal_idx=tokenized_agent["goal_idx"][:,:2]
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:

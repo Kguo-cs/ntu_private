@@ -134,6 +134,8 @@ class TokenProcessor(torch.nn.Module):
             goal_idx[~goal_valid]=10
 
             tokenized_agent["goal_idx"]=goal_idx.to(torch.long)
+        else:
+            tokenized_agent["goal_idx"]=torch.zeros([0,18])
 
         return tokenized_map, tokenized_agent
 
