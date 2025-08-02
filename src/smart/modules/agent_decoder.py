@@ -274,7 +274,7 @@ class SMARTAgentDecoder(nn.Module):
         # proposal=proposal.reshape([n_agent,n_step,1,5,3])
 
         if self.pred_goal and not self.discriminator:
-            next_goal_logits=self.goal_head(feat_a)
+            next_goal_logits=self.goal_head(feat_a.detach())
         else:
             next_goal_logits=[]
 
