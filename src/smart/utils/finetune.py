@@ -27,8 +27,8 @@ def set_model_for_finetuning(model: torch.nn.Module, finetune: bool) -> None:
         for p in model.map_encoder.parameters():
             p.requires_grad = False
 
-        for p in model.agent_encoder.agent_token_embedding.parameters():
-            p.requires_grad = False
+        # for p in model.agent_encoder.agent_token_embedding.parameters():
+        #     p.requires_grad = False
         #
         # for p in model.agent_encoder.interative_decoder.edge_encoder.parameters():
         #     p.requires_grad = False
