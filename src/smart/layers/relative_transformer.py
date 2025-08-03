@@ -243,7 +243,7 @@ class RoFormerSelfAttention(nn.Module):
         attn = attn.softmax(dim=-1)
         # if attention_mask is not None:
         #     attn = attn.masked_fill(attention_mask, 0)
-        attn=F.dropout(attn, p=self.dropout_p, inplace=True) if self.dropout_p > 0 else attn
+        attn=F.dropout(attn, p=self.dropout_p, inplace=False) if self.dropout_p > 0 else attn
 
         #if attention_mask.shape[-1]>20:
 
