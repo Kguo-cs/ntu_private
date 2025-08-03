@@ -25,6 +25,7 @@ model:
       temp: 1.0
     val_open_loop: False
     #val_closed_loop: False
+    finetune: true
 
 ckpt_path : './ckpts/bc128_l2_epoch=25-step=98930-val_closed_wosac=0.7771.ckpt'#'./ckpts/bc64_pt20_map_epoch=19-step=152200-val_closed_wosac=0.7689.ckpt'
 
@@ -37,7 +38,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data: 
-  train_batch_size: 48
+  train_batch_size: 64
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 28
