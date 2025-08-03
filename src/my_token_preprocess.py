@@ -36,7 +36,7 @@ token_processor.eval()
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_05/"
 
 
 # agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean/"

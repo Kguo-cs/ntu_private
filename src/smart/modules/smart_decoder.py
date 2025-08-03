@@ -51,9 +51,9 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
-        self.use_gail=False
+        self.use_gail=True
 
         self.use_value=False
 
@@ -109,16 +109,16 @@ class SMARTDecoder(nn.Module):
                 #                                     token_processor,False,False,False,discriminator=True
                 #                                         )
                 self.discriminator = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim//2,
+                    hidden_dim=hidden_dim,
                     num_historical_steps=num_historical_steps,
                     num_future_steps=num_future_steps,
                     time_span=10,
                     pl2a_radius=10,
                     a2a_radius=10,
-                    num_freq_bands=num_freq_bands//2,
-                    num_layers=num_agent_layers,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=1,
                     num_heads=num_heads,
-                    head_dim=head_dim//2,
+                    head_dim=head_dim,
                     dropout=dropout,
                     hist_drop_prob=hist_drop_prob,
                     n_token_agent=1,

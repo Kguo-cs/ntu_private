@@ -26,10 +26,7 @@ model:
     val_open_loop: False
     #val_closed_loop: False
 
-#ckpt_path: './logs/bc_shareaptemp100_pt10_layer24_route10/2025-05-22_22-19-01/sim/ajf1dx68/checkpoints/epoch=25-step=49478-acc=0.8085.ckpt'
-#ckpt_path: './logs/bc_shareaptemp100_pt10_layer24/2025-05-22_22-16-02/sim/klso3md5/checkpoints/epoch=35-step=54792-acc=0.8071.ckpt'
-# ckpt_path: './waymo_data/epoch=35-step=58976-acc=0.8073.ckpt'
-#ckpt_path : './ckpts/bc64_pt20_map_epoch=19-step=152200-val_closed_wosac=0.7689.ckpt'
+ckpt_path : './ckpts/bc128_l2_epoch=25-step=98930-val_closed_wosac=0.7771.ckpt'#'./ckpts/bc64_pt20_map_epoch=19-step=152200-val_closed_wosac=0.7689.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -40,11 +37,11 @@ trainer:
   #gradient_clip_val: 0.0
 
 data: 
-  train_batch_size: 128
+  train_batch_size: 64
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 28
 
 #action: validate
-
+action: finetune
 # nohup python run.py > 1.txt 2>&1 &

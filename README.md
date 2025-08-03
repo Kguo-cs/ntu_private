@@ -16,7 +16,10 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_inter10_8192 /home/ke/code/catk/src/waymo_data/ #full/
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc64_pt20_detach_l12/2025-07-14_21-27-38/sim/egdylohh/checkpoints/epoch=14-step=114150-val_closed_wosac=0.7771.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:/scratch/users/ntu/shanhelo/keguo_projects/sim/src/logs/bc128_l2/2025-08-02_14-34-33/sim/sr5y45u0/checkpoints/epoch=25-step=98930-val_closed_wosac=0.7771.ckpt ./
+
+
+
 
 
 rsync -avz /home/ke/PAD/exp/navsim_result/pad64_share/05.10_21.45/epoch=17-step=23922.ckpt lyuchen@aspire2pntu.nscc.sg:/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/exp/ke/pad_64_share/05.12_15.32/pad/m6vultai/checkpoints/epoch=17-step=23922.ckpt
