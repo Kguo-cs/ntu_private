@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     finetune: true
 
-ckpt_path : './ckpts/bc128_l3_epoch=24-step=95125-val_closed_wosac=0.7779.ckpt'
+ckpt_path : './ckpts/bc128_l2_epoch=25-step=98930-val_closed_wosac=0.7771.ckpt'
 
 trainer:
   limit_train_batches: 1.0

@@ -33,6 +33,9 @@ def set_model_for_finetuning(model: torch.nn.Module, finetune: bool) -> None:
         for p in model.agent_encoder.interative_decoder.edge_encoder.parameters():
             p.requires_grad = False
 
+        for p in model.agent_encoder.a_t_roformer.parameters():
+            p.requires_grad = False
+
         # for p in model.agent_encoder.a_t_roformer.parameters():
         #     p.requires_grad = False
 
