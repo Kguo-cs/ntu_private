@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL40_l3_fineall #_dropout01bc32_l3_adamw_histdrop01 #AIRL64_map2_03_l2_finetune_not #bc128_l3_adamw #discon #_a12_expertnoise001_alpha01 #AIRL48_map2_03_l2_finetune #
+task_name: AIRL48_l3_fine #all #_dropout01bc32_l3_adamw_histdrop01 #AIRL64_map2_03_l2_finetune_not #bc128_l3_adamw #discon #_a12_expertnoise001_alpha01 #AIRL48_map2_03_l2_finetune #
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
