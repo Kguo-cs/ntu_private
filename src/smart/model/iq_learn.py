@@ -239,8 +239,8 @@ class IQ_SoftQ(LightningModule):
         map_feature=tokenized_agent["detach_map_feature"]
 
         # logit = self.encoder.discriminator(all_features,map_feature,agent_mask)[0][:, :, 0]
-        pos=tokenized_agent["sampled_pos"]#.clone()
-        heading=tokenized_agent["sampled_heading"]#.clone()
+        #pos=tokenized_agent["sampled_pos"]#.clone()
+        #heading=tokenized_agent["sampled_heading"]#.clone()
 
         # if key=="expert":
         #
@@ -250,8 +250,8 @@ class IQ_SoftQ(LightningModule):
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
-                                                        pos,
-                                                        heading ,
+                                                        tokenized_agent["sampled_pos"],
+                                                        tokenized_agent["sampled_heading"] ,
                                                         tokenized_agent,
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
@@ -374,15 +374,23 @@ class IQ_SoftQ(LightningModule):
                     discriminator_optimizer.step()
 
                 if self.encoder.use_value:
+                    value_pred = self.encoder.value_network.predict_agent(tokenized_agent_rollout["sampled_idx"],
+                                                                     tokenized_agent_rollout["goal_idx"],
+                                                                     tokenized_agent_rollout["valid_mask"],
+                                                                     tokenized_agent_rollout["sampled_pos"],
+                                                                     tokenized_agent_rollout["sampled_heading"],
+                                                                     tokenized_agent_rollout,
+                                                                     tokenized_agent_rollout["detach_map_feature"],
+                                                                     tokenized_agent_rollout["light_idx"],
+                                                                     None)[0][:, :, 0]
 
-                    value_pred=self.encoder.value_network(tokenized_agent_rollout["detach_all_features"],train_mask)[0][:,:,0]
+                    #value_pred=self.encoder.value_network(tokenized_agent_rollout["detach_all_features"],train_mask)[0][:,:,0]
 
-                    advantages,returns=compute_advantages(agent_rewards,value_pred[:,:-1].detach(),None,gamma=self.gamma)
+                    advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)
 
-                    value_loss = 0.5 * (returns - value_pred[:,:-1]).pow(2).mean()
+                    value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
                 else:
                     advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     value_loss=0
