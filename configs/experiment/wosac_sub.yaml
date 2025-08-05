@@ -26,7 +26,7 @@ model:
       account_name: ntu
 
 #ckpt_path: './logs/bc_shareaptemp100_pt10_layer24_35/2025-05-23_10-33-36/sim/gi8wv02d/checkpoints/epoch=35-step=58976-acc=0.8073.ckpt'#/home/ke/code/catk/src/waymo_data/epoch=35-step=57074-acc=0.8069.ckpt
-ckpt_path: '/home/ke/code/catk/src/ckpts/bc32_l3_adamw_histdrop01_epoch=16-step=258723-val_closed_wosac=0.7793.ckpt' #'/home/ke/code/catk/src/ckpts/bc128_l2_epoch=25-step=98930-val_closed_wosac=0.7771.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL64_l3_noRnorm_value_fineall_epoch=5-step=45660-val_closed_wosac=0.7829.ckpt' #'/home/ke/code/catk/src/ckpts/bc128_l2_epoch=25-step=98930-val_closed_wosac=0.7771.ckpt'
 
 trainer:
   limit_train_batches: 1.0
