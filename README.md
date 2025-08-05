@@ -14,7 +14,7 @@ rsync -avz ke@10.87.67.68:/home/ke/code/catk/src/waymo_data/full/training_inter1
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_l3_adamw_drop01_a16/2025-08-04_21-06-37/sim/1a7t8j2k/checkpoints/epoch=20-step=319599-val_closed_wosac=0.7803.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_l3_adamw_drop01_a16/2025-08-04_21-06-37/sim/1a7t8j2k/checkpoints/epoch=22-step=350037-val_closed_wosac=0.7807.ckpt ./
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_l3_noRnorm_value_fineall/2025-08-04_13-33-17/sim/sz8e7agn/checkpoints/epoch=5-step=45660-val_closed_wosac=0.7829.ckpt ./
 
