@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 5e-4
+    lr: 1e-4
     lr_min_ratio: 1e-2
     token_processor:
       map_token_sampling: # open-loop
@@ -34,7 +34,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.00002
-  max_epochs: 32
+  max_epochs: 16
   #gradient_clip_val: 0.0
 
 data:
