@@ -85,7 +85,7 @@ class SMARTAgentDecoder(nn.Module):
             self.goal_embedding=nn.Embedding(11, hidden_dim)
             self.goal_head = MLPLayer(hidden_dim, hidden_dim, 11)
 
-        if not discriminator:
+        if n_token_agent>1:
             self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor)
 
         self.agent_hist = self.time_span // self.shift
@@ -147,10 +147,10 @@ class SMARTAgentDecoder(nn.Module):
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-        if self.discriminator:
+        if self.n_token_agent==1:
             feat_a_token=tokenized_agent["feat_a_token"]
         else:
-        # ! get agent token embeddings
+            # ! get agent token embeddings
             feat_a_token,agent_token_emb = self.agent_token_embedding(
                 agent_token_index=sampled_idx,  # [n_ag, n_step]
                 trajectory_token_veh=self.token_processor.agent_token_all_veh,
