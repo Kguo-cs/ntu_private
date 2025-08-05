@@ -58,6 +58,7 @@ class WOSACMetrics(Metric):
             "min_average_displacement_error",
             "simulated_collision_rate",
             "simulated_offroad_rate",
+            "traffic_light_violation"
         ]
         for k in self.field_names:
             self.add_state(k, default=tensor(0.0), dist_reduce_fx="sum")
