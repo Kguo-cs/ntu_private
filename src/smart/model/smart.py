@@ -267,13 +267,17 @@ class SMART(LightningModule):
 
     def test_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
+        map_feature = self.encoder.map_encoder(tokenized_map)
 
         # ! only closed-loop vlidation
         pred_traj, pred_z, pred_head = [], [], []
         for _ in range(self.n_rollout_closed_val):
-            pred = self.encoder.inference(
-                tokenized_map, tokenized_agent, self.validation_rollout_sampling
+            pred = self.encoder.agent_encoder.inference(
+                tokenized_agent, map_feature,  # post_sampling=True
             )
+            # pred = self.encoder.inference(
+            #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
+            # )
             pred_traj.append(pred["pred_traj_10hz"])
             pred_z.append(pred["pred_z_10hz"])
             pred_head.append(pred["pred_head_10hz"])
