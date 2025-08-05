@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_finenotoken_valuenotoken_a16_pre16 #bc32_l3_adamw_drop01 #_a16 #AIRL64_l3_finemap #_noRnorm_value_dropout01 #AIRL64_map2_03_l2_finetune_not #bc128_l3_adamw #discon #_a12_expertnoise001_alpha01 #AIRL48_map2_03_l2_finetune #
+task_name: AIRL64_finenotoken_valuenotoken_a16_disnot_pre16 #bc32_l3_adamw_drop01 #_a16 #AIRL64_l3_finemap #_noRnorm_value_dropout01 #AIRL64_map2_03_l2_finetune_not #bc128_l3_adamw #discon #_a12_expertnoise001_alpha01 #AIRL48_map2_03_l2_finetune #
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
