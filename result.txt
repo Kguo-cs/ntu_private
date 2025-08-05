@@ -34,4 +34,37 @@ bc32_l3_adamw:
 
 
 bc128_l3:
+| **Metric**                            | **Value**  |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.77841496 |
+| Linear Speed Likelihood               | 0.37465635 |
+| Linear Acceleration Likelihood        | 0.4055961  |
+| Angular Speed Likelihood              | 0.51454264 |
+| Angular Acceleration Likelihood       | 0.6607651  |
+| Distance To Nearest Object Likelihood | 0.38791874 |
+| Collision Likelihood                  | 0.96022093 |
+| Time To Collision Likelihood          | 0.82934934 |
+| Distance To Road Edge Likelihood      | 0.6751795  |
+| Offroad Likelihood                    | 0.9449753  |
+| minADE                                | 1.4894888  |
+
+
+
+bc32_l3_histdrop01:
+
+| **Metric**                            | **Value**  |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.7780498  |
+| Linear Speed Likelihood               | 0.37648925 |
+| Linear Acceleration Likelihood        | 0.40690947 |
+| Angular Speed Likelihood              | 0.51582414 |
+| Angular Acceleration Likelihood       | 0.6609379  |
+| Distance To Nearest Object Likelihood | 0.388428   |
+| Collision Likelihood                  | 0.9590356  |
+| Time To Collision Likelihood          | 0.82942474 |
+| Distance To Road Edge Likelihood      | 0.6759884  |
+| Offroad Likelihood                    | 0.9430619  |
+| minADE                                | 1.4784325  |
+
+
 
