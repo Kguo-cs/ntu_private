@@ -58,7 +58,7 @@ class WOSACMetrics(Metric):
             "min_average_displacement_error",
             "simulated_collision_rate",
             "simulated_offroad_rate",
-            "traffic_light_violation"
+            "simulated_traffic_light_violation_rate"
         ]
         for k in self.field_names:
             self.add_state(k, default=tensor(0.0), dist_reduce_fx="sum")
@@ -154,6 +154,10 @@ class WOSACMetrics(Metric):
             )
             self.simulated_collision_rate += scenario_metrics.simulated_collision_rate
             self.simulated_offroad_rate += scenario_metrics.simulated_offroad_rate
+
+            self.simulated_traffic_light_violation_rate+= (
+                scenario_metrics.simulated_traffic_light_violation_rate
+            )
 
     def compute(self) -> Dict[str, Tensor]:
         metrics_dict = {}
