@@ -14,12 +14,12 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: iq_finetune #wosac_sub #iq_finetune #wosac_sub #iq_finetune #wosac_sub #_val #iq #ego_gmm_pre_bc  #wosac_sub #iq #iq
+  - experiment: iq #wosac_sub #iq_finetune #wosac_sub #iq_finetune #wosac_sub #_val #iq #ego_gmm_pre_bc  #wosac_sub #iq #iq
 
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name:  AIRL64_finenotoken_disnot_pre8_w1000 #bc32_l3_adamw_histdrop01_a16 #AIRL64_fine1e4notoken_disnot_pre8_w1000_a16 #AIRL64_l3_finemap #_noRnorm_value_dropout01 #AIRL64_map2_03_l2_finetune_not #bc128_l3_adamw #discon #_a12_expertnoise001_alpha01 #AIRL48_map2_03_l2_finetune #
+task_name: bc32_l3_adamw_histdrop01_a20  #AIRL64_finenotoken_disnot_pre8_w1000
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

@@ -156,6 +156,8 @@ class WOSACMetrics(Metric):
             self.simulated_collision_rate += scenario_metrics.simulated_collision_rate
             self.simulated_offroad_rate += scenario_metrics.simulated_offroad_rate
 
+            self.simulated_traffic_light_violation_rate+= scenario_metrics.simulated_traffic_light_violation_rate
+
             self.traffic_light_violation_likelihood+= (
                 scenario_metrics.traffic_light_violation_likelihood
             )
