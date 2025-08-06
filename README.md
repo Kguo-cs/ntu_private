@@ -80,11 +80,12 @@ wsl -d Ubuntu
 ssh guoke@sprl-server9.dynip.ntu.edu.sg -p 32884
 140286
 
+ulimit -n 65535
 source "/home/guoke/miniconda3/bin/activate"
 cd /home/guoke/sim/src
 conda activate catk
 git pull
-CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 -m run trainer=ddp
+CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
 
 
 
