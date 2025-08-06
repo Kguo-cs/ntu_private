@@ -538,7 +538,7 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/waymo_data/full"
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
     parser.add_argument("--split", type=str, default="testing")
     parser.add_argument("--num_workers", type=int, default=12)

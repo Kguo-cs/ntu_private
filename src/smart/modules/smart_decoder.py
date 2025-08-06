@@ -51,7 +51,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=True
+        self.iq_learn=False
         self.output_gmm=False
         self.use_gail=True
 
@@ -99,7 +99,7 @@ class SMARTDecoder(nn.Module):
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
-            if self.use_gail:
+            if self.iq_learn and self.use_gail:
                 # self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
                 #                                     10,10,num_freq_bands,
                 #                                     1,num_heads,head_dim,

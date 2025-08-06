@@ -19,13 +19,13 @@ model:
     wosac_submission:
       is_active: true
       method_name: "sim"
-      authors: ke
-      affiliation: ntu
-      description: ntu
-      method_link: ntu
-      account_name: ntu
+      authors: anonymous
+      affiliation: anonymous
+      description: anonymous
+      method_link: anonymous
+      account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/epoch=22-step=350037-val_closed_wosac=0.7807.ckpt'
+ckpt_path: '/home/ke/code/catk/src/ckpts/bc32_l3_adamw_histdrop01_a16_epoch=18-step=289161-val_closed_wosac=0.7823.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -41,4 +41,4 @@ data:
   shuffle: false
   pin_memory: false
 
-action: validate
+action: test

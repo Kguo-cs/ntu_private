@@ -163,7 +163,7 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
 
     data = {}
     if len(split_polyline_pos) == 0:  # add dummy empty map
-        data["tokenized_map"] = {
+        data["map_save"] = {
             # 6e4 such that it's within the range of float16.
             "traj_pos": torch.zeros([1, 3, 2], dtype=torch.float32) + 6e4,
             "traj_theta": torch.zeros([1], dtype=torch.float32),
