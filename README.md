@@ -69,7 +69,6 @@ pip install torch_geometric
 pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+cu121.html
 
 sudo apt-get install sumo sumo-tools sumo-doc
-
 pip install -r TrafficManager/requirements.txt
 
 nohup python run.py >  1.log 2>&1 &
