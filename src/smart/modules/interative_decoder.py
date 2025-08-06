@@ -165,13 +165,13 @@ class InterativeDecoder(nn.Module):
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         for layer_i in range(self.num_layers):
-            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
             # if layer_i == self.num_layers - 1 and train_mask is not None :
             #     feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
             #     n_agent = feat_a.shape[1]
             #     feat_a=feat_a.flatten(0,1)
 
             feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+            feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
         feat_a = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
         proposal=None
