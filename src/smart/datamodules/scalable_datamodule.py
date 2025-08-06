@@ -81,7 +81,7 @@ class MultiDataModule(LightningDataModule):
             shuffle=self.shuffle,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            persistent_workers=self.persistent_workers,
+            persistent_workers=False,
             drop_last=False
         )
 
