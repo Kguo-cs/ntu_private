@@ -413,11 +413,11 @@ class IQ_SoftQ(LightningModule):
 
                 gail_weight=1 #min(self.global_step/1000,1)
 
-                agent_density=agent_log_prob.mean() #torch.cumsum(agent_log_prob,dim=1).mean()
+                agent_density=torch.cumsum(agent_log_prob,dim=1).mean() #agent_log_prob.mean() #
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss-agent_density  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss-0.1*agent_density  # - 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
