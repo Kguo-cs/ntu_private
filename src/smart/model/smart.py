@@ -230,6 +230,8 @@ class SMART(LightningModule):
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
+                    print("Logged keys:", epoch_wosac_metrics.keys())
+
                     for key, value in epoch_wosac_metrics.items():
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
 
@@ -239,6 +241,8 @@ class SMART(LightningModule):
             if self.global_rank == 0:
                 if self.wosac_submission.is_active:
                     self.wosac_submission.save_sub_file()
+
+            print("Callback metrics:", self.trainer.callback_metrics.keys())
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
