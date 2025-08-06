@@ -140,3 +140,5 @@ CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29500  -m run
 #finetune less learning rate 
 
 # value network to reject sampling
+#counterfact 
+#less pt2pt
