@@ -93,7 +93,7 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) -> None:
-        if  'keguo' in working_dir:#os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
+        if  'keguo' in working_dir or "guoke" in working_dir:#os.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)

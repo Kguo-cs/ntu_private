@@ -10,6 +10,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03 shanhelo@aspi
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+
+
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_l3_adamw_histdrop01_a16/2025-08-05_18-24-17/sim/iiikl7cv/checkpoints/epoch=18-step=289161-val_closed_wosac=0.7823.ckpt ./
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
@@ -75,21 +78,16 @@ nohup python run.py >  1.log 2>&1 &
 wsl -d Ubuntu
 
 
-pt8 1  1.6 M
-Epoch 0:   0%|          | 83/24350 [00:22<1:50:22,  3.66it/s, v_num=fktv]
+ssh guoke@sprl-server9.dynip.ntu.edu.sg -p 32884
+140286
 
-share 
-Epoch 0:   2%|▏         | 584/24350 [02:11<1:29:05,  4.45it/s, v_num=8-02]
-
-
-share + map encoder
-
-Epoch 0:   2%|▏         | 417/24350 [01:35<1:31:42,  4.35it/s, v_num=7-50]
+source "/home/guoke/miniconda3/bin/activate"
+cd /home/guoke/sim/src
+conda activate catk
+git pull
+python run.py
 
 
-share + map encoder + a30
-
-Epoch 0:   2%|▏         | 599/24350 [02:41<1:46:45,  3.71it/s, v_num=1-41]
 
 
 # bc20_pt8_share_map_tv diverge

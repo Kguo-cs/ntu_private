@@ -33,7 +33,7 @@ opencv_python==4.10.0.82
 pynput==1.7.7
 pyquaternion==0.9.9
 pexpect
-matplotlib==3.5.3
+#matplotlib==3.5.3
 
 # License for packages installed with command line
 # ffmpeg # GPL or LGPL License: https://ffmpeg.org/legal.html
