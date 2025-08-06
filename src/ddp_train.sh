@@ -6,7 +6,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 
 # ! below is for training with ddp
-torchrun --nproc_per_node=4 -m run trainer=ddp
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 -m run trainer=ddp
 
 
 # torchrun \

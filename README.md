@@ -84,7 +84,7 @@ source "/home/guoke/miniconda3/bin/activate"
 cd /home/guoke/sim/src
 conda activate catk
 git pull
-python run.py
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 -m run trainer=ddp
 
 
 
