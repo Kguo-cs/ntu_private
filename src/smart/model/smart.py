@@ -71,8 +71,8 @@ class SMART(LightningModule):
 
         self.training_rollout_sampling = model_config.training_rollout_sampling
         self.validation_rollout_sampling = model_config.validation_rollout_sampling
-        self.log("val_closed/wosac_likelihood/metametric", float("-inf"), prog_bar=False, on_epoch=True,
-                 rank_zero_only=True)
+        # self.log("val_closed/wosac_likelihood/metametric", float("-inf"), prog_bar=False, on_epoch=True,
+        #          rank_zero_only=True)
 
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)

@@ -12,11 +12,11 @@ defaults:
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
   dirpath: null
-  filename: "epoch={epoch}-step={step}-val_closed_wosac={val_closed/wosac_likelihood/metametric:.4f}"
-  monitor: "val_closed/wosac_likelihood/metametric"
+  filename: "epoch={epoch}-step={step}" #-val_closed_wosac={val_closed/wosac_likelihood/metametric:.4f}
+  monitor: "step"
   verbose: false
   save_last: true
-  save_top_k: 1
+  save_top_k: 16
   mode: "max"
   auto_insert_metric_name: false
   save_weights_only: false
