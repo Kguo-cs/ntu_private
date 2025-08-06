@@ -231,8 +231,8 @@ class SMART(LightningModule):
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
                     for key, value in epoch_wosac_metrics.items():
-                        print(key, value)
-                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+                        # print(key, value)
+                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False)
 
                 self.wosac_metrics.reset()
                 self.minADE.reset()
