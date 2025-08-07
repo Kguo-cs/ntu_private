@@ -31,11 +31,12 @@ class MultiDataset(Dataset):
         transform: Callable,
         tfrecord_dir: Optional[str] = None,
     ) -> None:
+        self.val='val' in raw_dir
+
         raw_dir = Path(raw_dir)
         self._raw_paths = [p.as_posix() for p in sorted(raw_dir.glob("*"))]  # [::1600]
 
 
-        self.val='val' in raw_dir
 
         if 'val' in raw_dir:
             self.selected_files = [
