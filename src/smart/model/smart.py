@@ -234,7 +234,7 @@ class SMART(LightningModule):
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
-                    #print("Logged keys:", epoch_wosac_metrics.keys())
+                    print("Logged keys:", epoch_wosac_metrics.keys())
                     # Convert to tensor and broadcast to other ranks
                     broadcast_metrics = {
                         key: torch.tensor(value, device=self.device)
