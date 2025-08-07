@@ -225,9 +225,10 @@ class SMART(LightningModule):
     def on_validation_epoch_end(self):
         if self.val_closed_loop:
             if not self.wosac_submission.is_active:
-                epoch_wosac_metrics = self.wosac_metrics.compute()
-                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
                 if self.global_rank == 0:
+                    epoch_wosac_metrics = self.wosac_metrics.compute()
+                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
+
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
                     # )
@@ -235,10 +236,10 @@ class SMART(LightningModule):
                     #print("Logged keys:", epoch_wosac_metrics.keys())
 
                     for key, value in epoch_wosac_metrics.items():
-                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
+                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
 
-                self.wosac_metrics.reset()
-                self.minADE.reset()
+                    self.wosac_metrics.reset()
+                    self.minADE.reset()
 
             if self.global_rank == 0:
                 if self.wosac_submission.is_active:
