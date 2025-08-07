@@ -99,7 +99,7 @@ class MultiDataset(Dataset):
         #     data=self.cache_data[idx]
         # else:
         if self.val:
-            with open('./waymo_data/full/validation_map2/'+self.selected_files[idx], "rb") as handle:
+            with open('./waymo_data/full/validation_map2/'+self.selected_files[idx%32], "rb") as handle:
                 data = pickle.load(handle)
         else:
             with open(self.raw_paths[idx], "rb") as handle:
