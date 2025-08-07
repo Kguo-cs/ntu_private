@@ -234,12 +234,41 @@ class SMART(LightningModule):
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
                     #print("Logged keys:", epoch_wosac_metrics.keys())
+                    # Convert to tensor and broadcast to other ranks
+                    broadcast_metrics = {
+                        key: torch.tensor(value, device=self.device)
+                        for key, value in epoch_wosac_metrics.items()
+                    }
 
-                    for key, value in epoch_wosac_metrics.items():
-                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
+                    for t in broadcast_metrics.values():
+                        torch.distributed.broadcast(t, src=0)
 
-                    self.wosac_metrics.reset()
-                    self.minADE.reset()
+                else:
+                    # Other ranks receive broadcasted tensors
+                    keys = list(self.wosac_metrics.keys()) + ["val_closed/ADE"]
+                    broadcast_metrics = {
+                        key: torch.empty(1, device=self.device) for key in keys
+                    }
+
+                    for t in broadcast_metrics.values():
+                        torch.distributed.broadcast(t, src=0)
+
+                # for key, value in epoch_wosac_metrics.items():
+                #     self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
+                # All ranks log the same values
+                for key, value in broadcast_metrics.items():
+                    self.log(
+                        key,
+                        value.item(),
+                        on_step=False,
+                        on_epoch=True,
+                        prog_bar=True,
+                        sync_dist=False,  # Already synced manually
+                        rank_zero_only=True  # Log only on rank 0
+                    )
+
+                self.wosac_metrics.reset()
+                self.minADE.reset()
 
             if self.global_rank == 0:
                 if self.wosac_submission.is_active:
