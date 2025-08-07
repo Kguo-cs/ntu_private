@@ -151,8 +151,9 @@ class SMART(LightningModule):
             #self.wosac_metrics = WOSACMetrics("val_closed")
 
             torch.save(pred_traj.cpu(),"pred_traj.pt")
-            torch.save(pred_z.cpu(),"pred_traj.pt")
-            torch.save(pred_head.cpu(),"pred_traj.pt")
+            torch.save(pred_z.cpu(),"pred_z.pt")
+            torch.save(pred_head.cpu(),"pred_head.pt")
+
 
             # ! WOSAC
             scenario_rollouts = None
