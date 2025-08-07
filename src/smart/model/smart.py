@@ -225,9 +225,10 @@ class SMART(LightningModule):
     def on_validation_epoch_end(self):
         if self.val_closed_loop:
             if not self.wosac_submission.is_active:
+                epoch_wosac_metrics = self.wosac_metrics.compute()
+                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
+
                 if self.global_rank == 0:
-                    epoch_wosac_metrics = self.wosac_metrics.compute()
-                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
 
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
@@ -245,7 +246,7 @@ class SMART(LightningModule):
 
                 else:
                     # Other ranks receive broadcasted tensors
-                    keys = list(self.wosac_metrics.keys()) + ["val_closed/ADE"]
+                    keys = epoch_wosac_metrics.keys()
                     broadcast_metrics = {
                         key: torch.empty(1, device=self.device) for key in keys
                     }
