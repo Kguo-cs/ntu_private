@@ -24,8 +24,6 @@ import torch
 log = RankedLogger(__name__, rank_zero_only=True)
 working_dir = os.getcwd()
 
-device_number = torch.cuda.current_device()
-print("Current GPU device number:", device_number)
 
 class MultiDataset(Dataset):
     def __init__(
@@ -105,7 +103,7 @@ class MultiDataset(Dataset):
         #     with open('./waymo_data/full/validation_map2/'+self.selected_files[idx//device_number], "rb") as handle:
         #         data = pickle.load(handle)
         # else:
-        idx=idx//device_number
+        idx=idx//4
 
         with open(self.raw_paths[idx], "rb") as handle:
             data = pickle.load(handle)
