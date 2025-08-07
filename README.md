@@ -80,6 +80,8 @@ wsl -d Ubuntu
 ssh guoke@sprl-server9.dynip.ntu.edu.sg -p 32884
 140286
 
+export PATH=/home/guoke/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/home/guoke/cuda/lib64:$LD_LIBRARY_PATH
 ulimit -n 65535
 source "/home/guoke/miniconda3/bin/activate"
 cd /home/guoke/sim/src

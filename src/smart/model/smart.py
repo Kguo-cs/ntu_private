@@ -227,46 +227,15 @@ class SMART(LightningModule):
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
                 epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
-
                 if self.global_rank == 0:
-
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
-                    print("Logged keys:", epoch_wosac_metrics.keys(),epoch_wosac_metrics.values())
-                    # Convert to tensor and broadcast to other ranks
-                    broadcast_metrics = {
-                        key: torch.tensor(value, device=self.device)
-                        for key, value in epoch_wosac_metrics.items()
-                    }
+                    #print("Logged keys:", epoch_wosac_metrics.keys())
 
-                    for t in broadcast_metrics.values():
-                        torch.distributed.broadcast(t, src=0)
-
-                else:
-                    # Other ranks receive broadcasted tensors
-                    keys = epoch_wosac_metrics.keys()
-                    broadcast_metrics = {
-                        key: torch.empty(1, device=self.device) for key in keys
-                    }
-
-                    for t in broadcast_metrics.values():
-                        torch.distributed.broadcast(t, src=0)
-
-                # for key, value in epoch_wosac_metrics.items():
-                #     self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=False, rank_zero_only=True)
-                # All ranks log the same values
-                for key, value in broadcast_metrics.items():
-                    self.log(
-                        key,
-                        value.item(),
-                        on_step=False,
-                        on_epoch=True,
-                        prog_bar=True,
-                        sync_dist=False,  # Already synced manually
-                        rank_zero_only=True  # Log only on rank 0
-                    )
+                    for key, value in epoch_wosac_metrics.items():
+                        self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
 
                 self.wosac_metrics.reset()
                 self.minADE.reset()
