@@ -38,7 +38,7 @@ class MultiDataset(Dataset):
 
 
 
-        if 'val' in raw_dir:
+        if self.val:
             self.selected_files = [
                 "1000a444aa94927d.pkl",
                 "1001824289d8eed3.pkl",

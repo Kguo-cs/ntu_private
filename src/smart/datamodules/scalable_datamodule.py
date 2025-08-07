@@ -68,6 +68,7 @@ class MultiDataModule(LightningDataModule):
                 self.val_raw_dir,
                 self.val_transform,
                 tfrecord_dir=self.val_tfrecords_splitted,
+
             )
         elif stage == "test":
             self.test_dataset = MultiDataset(self.test_raw_dir, self.test_transform)
