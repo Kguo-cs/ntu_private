@@ -36,9 +36,12 @@ class MultiDataset(Dataset):
         transform: Callable,
         tfrecord_dir: Optional[str] = None,
     ) -> None:
+        # self.val='val' in raw_dir
 
         raw_dir = Path(raw_dir)
         self._raw_paths = [p.as_posix() for p in sorted(raw_dir.glob("*"))]  # [::1600]
+
+
 
        # shuffle(self._raw_paths)
         self._num_samples = len(self._raw_paths)
