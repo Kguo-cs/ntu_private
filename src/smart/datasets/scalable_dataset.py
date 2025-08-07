@@ -34,6 +34,9 @@ class MultiDataset(Dataset):
         raw_dir = Path(raw_dir)
         self._raw_paths = [p.as_posix() for p in sorted(raw_dir.glob("*"))]  # [::1600]
 
+
+        self.val='val' in raw_dir
+
         if 'val' in raw_dir:
             self.selected_files = [
                 "1000a444aa94927d.pkl",
@@ -77,8 +80,6 @@ class MultiDataset(Dataset):
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
 
 
-        #self.cache_data={}
-
         log.info("Length of {} dataset is ".format(raw_dir) + str(self._num_samples))
         super(MultiDataset, self).__init__(
             transform=transform, pre_transform=None, pre_filter=None
@@ -96,7 +97,7 @@ class MultiDataset(Dataset):
         # if  idx in self.cache_data.keys():
         #     data=self.cache_data[idx]
         # else:
-        if 'val' in self._raw_paths[idx]:
+        if self.val:
             with open('./waymo_data/full/validation_map2/'+self.selected_files[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
