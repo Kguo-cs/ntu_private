@@ -20,9 +20,12 @@ from torch_geometric.data import Dataset
 from src.utils import RankedLogger
 from random import shuffle
 import os
+import torch
 log = RankedLogger(__name__, rank_zero_only=True)
 working_dir = os.getcwd()
 
+device_number = torch.cuda.current_device()
+print("Current GPU device number:", device_number)
 
 class MultiDataset(Dataset):
     def __init__(
@@ -98,12 +101,14 @@ class MultiDataset(Dataset):
         # if  idx in self.cache_data.keys():
         #     data=self.cache_data[idx]
         # else:
-        if self.val:
-            with open('./waymo_data/full/validation_map2/'+self.selected_files[idx%32], "rb") as handle:
-                data = pickle.load(handle)
-        else:
-            with open(self.raw_paths[idx], "rb") as handle:
-                data = pickle.load(handle)
+        # if self.val:
+        #     with open('./waymo_data/full/validation_map2/'+self.selected_files[idx//device_number], "rb") as handle:
+        #         data = pickle.load(handle)
+        # else:
+        idx=idx//device_number
+
+        with open(self.raw_paths[idx], "rb") as handle:
+            data = pickle.load(handle)
 
 
         # if 'keguo' in working_dir:

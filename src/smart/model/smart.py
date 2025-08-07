@@ -148,6 +148,13 @@ class SMART(LightningModule):
             pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
             print(data.scenario_id)
             #['1000a444aa94927d', '1001824289d8eed3', '1001ebb6d3905d92', '1002fdc9826fc6d1', '10040e572b831a04', '10042b19381bfbcd', '10067cf7cc2506c7', '1006b706483b11f9', '10071ee58db4bd92', '10083669957ee5f8', '10089d1384111b08', '1008aa4114dbc237', '1008b7b63e2d60', '1008f05c233dd975', '100b939eefa4a0de', '100bbbc583f55cbd', '100cf5864d3bfbed', '100d033b60683a9f', '100f370df1797a88', '100f9b9f8af6036f', '1010cc7e3a91ebc5', '1015e9446e86cfa0', '1016c21f14ba11e2', '10195df1c4a2c3ad', '101a844960d63c3f', '101aa4d1dc71df5e', '101acf02f749093f', '101b00dd28e01037', '101ba4c98d705f0', '101c25888a0fcf63', '101d7af08d9b56ae', '101f37bb58da79c']
+            # ['1000a444aa94927d', '10040e572b831a04', '10071ee58db4bd92', '1008b7b63e2d60', '100cf5864d3bfbed',
+            #  '1010cc7e3a91ebc5', '101a844960d63c3f', '101ba4c98d705f0', '1000a444aa94927d', '10040e572b831a04',
+            #  '10071ee58db4bd92', '1008b7b63e2d60', '100cf5864d3bfbed', '1010cc7e3a91ebc5', '101a844960d63c3f',
+            #  '101ba4c98d705f0', '1000a444aa94927d', '10040e572b831a04', '10071ee58db4bd92', '1008b7b63e2d60',
+            #  '100cf5864d3bfbed', '1010cc7e3a91ebc5', '101a844960d63c3f', '101ba4c98d705f0', '1000a444aa94927d',
+            #  '10040e572b831a04', '10071ee58db4bd92', '1008b7b63e2d60', '100cf5864d3bfbed', '1010cc7e3a91ebc5',
+            #  '101a844960d63c3f', '101ba4c98d705f0']
 
             # pred_traj=torch.load("/home/ke/code/catk/src/waymo_data/pred_traj.pt").cuda()
             # pred_z=torch.load("/home/ke/code/catk/src/waymo_data/pred_z.pt").cuda()
