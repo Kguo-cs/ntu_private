@@ -41,7 +41,7 @@ class RunningMeanStdTorch(nn.Module):
     def normalize(self, x):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
 
-        return torch.clamp_(res, min=-1.0, max=1.0)
+        return res
 
 class ReplayBuffer:
     def __init__(self, max_len=1):
