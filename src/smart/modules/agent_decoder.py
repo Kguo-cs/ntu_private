@@ -149,7 +149,7 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
         if self.discriminator:
-            feat_a_token=tokenized_agent["feat_a_token"]
+            feat_a_token,agent_token_emb=tokenized_agent["feat_a_token"]
         else:
             # ! get agent token embeddings
             feat_a_token,agent_token_emb = self.agent_token_embedding(
@@ -263,13 +263,18 @@ class SMARTAgentDecoder(nn.Module):
 
             # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
-            if not self.training or self.discriminator:
+            if not self.training :
                 all_features=next_all_features
+
+            if self.discriminator:
+                all_features.append(agent_token_emb[:,2:])
+            else:
+                all_features.append(None)
         else:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
                 0, 1)
 
-            all_features=feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s
+            all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None]
 
         next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 
@@ -287,7 +292,7 @@ class SMARTAgentDecoder(nn.Module):
         # if self.pred_vis:
         #     visibility=self.vis_head(feat_a.detach())
 
-        return next_token_logits,next_light_logits,feat_a_token.detach(),proposal,next_goal_logits
+        return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,next_goal_logits
 
     def forward(
             self,

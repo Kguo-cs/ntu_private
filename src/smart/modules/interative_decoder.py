@@ -109,7 +109,7 @@ class InterativeDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        self.state_action = False
+        self.state_action = True
         self.reward_shaping = False
 
         self.discriminator=discriminator
@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
                 )
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
+        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
 
         n_agent = mask_a.shape[0]
         #n_step=mask_a.shape[1]
@@ -146,8 +146,7 @@ class InterativeDecoder(nn.Module):
             train_mask=train_mask
         )
 
-        all_features=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features ]#
-        feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=all_features
+        feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
 
@@ -211,9 +210,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             if self.state_action:
-                agent_token_emb = agent_token_emb[train_mask]
-
-                feat_a = feat_a[:, :-1] + agent_token_emb[:, 1:]
+                feat_a = feat_a + agent_token_emb
             # else:
             #     feat_a = feat_a[:, 1:]
 

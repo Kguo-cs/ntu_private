@@ -407,14 +407,14 @@ class IQ_SoftQ(LightningModule):
                         target_Q = agent_rewards + self.gamma * next_Q
 
                     q = self.encoder.critic.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                                     tokenized_agent_rollout["goal_idx"],
-                                                                     tokenized_agent_rollout["valid_mask"],
-                                                                     tokenized_agent_rollout["sampled_pos"],
-                                                                     tokenized_agent_rollout["sampled_heading"],
-                                                                     tokenized_agent_rollout,
-                                                                     tokenized_agent_rollout["detach_map_feature"],
-                                                                     tokenized_agent_rollout["light_idx"],
-                                                                     None)[0]
+                                                             tokenized_agent_rollout["goal_idx"],
+                                                             tokenized_agent_rollout["valid_mask"],
+                                                             tokenized_agent_rollout["sampled_pos"],
+                                                             tokenized_agent_rollout["sampled_heading"],
+                                                             tokenized_agent_rollout,
+                                                             tokenized_agent_rollout["detach_map_feature"],
+                                                             tokenized_agent_rollout["light_idx"],
+                                                             None)[0]
 
                     current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
@@ -452,7 +452,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss+0.1*agent_entropy.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss#+0.1*agent_entropy.mean()  # - 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
