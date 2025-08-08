@@ -432,16 +432,16 @@ class IQ_SoftQ(LightningModule):
 
                 else:
 
-                    #self.running_meanstd.update(agent_returns.reshape(-1))
+                    self.running_meanstd.update(agent_returns.reshape(-1))
 
-                    # advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
-                    #
-                    # self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
-                    # self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
-                    #
-                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
+                    advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
 
-                    advantages=torch.clamp_(advantages, min=-1.0, max=1.0)
+                    self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
+                    self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
+                    #
+                    # advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
+                    #
+                    # advantages=torch.clamp_(advantages, min=-1.0, max=1.0)
                     value_loss=0
 
 

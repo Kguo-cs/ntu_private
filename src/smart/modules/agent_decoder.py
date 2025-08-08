@@ -263,13 +263,13 @@ class SMARTAgentDecoder(nn.Module):
 
             # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
-            if not self.training :
+            if not self.training or self.discriminator:
                 all_features=next_all_features
 
-            if self.discriminator:
-                all_features.append(agent_token_emb[:,2:])
-            else:
-                all_features.append(None)
+            # if self.discriminator:
+            #     all_features.append(agent_token_emb[:,2:])
+            # else:
+            all_features.append(None)
         else:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
                 0, 1)
