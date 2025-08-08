@@ -282,10 +282,10 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_goal_logits=[]
 
-        visibility=None
-
-        if self.pred_vis:
-            visibility=self.vis_head(feat_a.detach())
+        # visibility=None
+        #
+        # if self.pred_vis:
+        #     visibility=self.vis_head(feat_a.detach())
 
         return next_token_logits,next_light_logits,feat_a_token.detach(),proposal,next_goal_logits
 
