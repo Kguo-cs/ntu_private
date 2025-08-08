@@ -51,11 +51,13 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
         self.use_gail=True
 
         self.use_value=False
+
+        self.use_critic=True
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
@@ -100,13 +102,6 @@ class SMARTDecoder(nn.Module):
                 pred_all_res=token_processor.pred_all_res,
             )
             if self.iq_learn and self.use_gail:
-                # self.discriminator=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                #                                     10,10,num_freq_bands,
-                #                                     1,num_heads,head_dim,
-                #                                     0,hist_drop_prob,1,
-                #                                     pt2a_neighbor//2,a2a_neighbor//2,
-                #                                     token_processor,False,False,False,discriminator=True
-                #                                         )
                 self.discriminator = SMARTAgentDecoder(
                     hidden_dim=hidden_dim,
                     num_historical_steps=num_historical_steps,
@@ -130,14 +125,32 @@ class SMARTDecoder(nn.Module):
                     pred_all_res=False,
                     discriminator=True
                 )
-                if self.use_value:
-                    # self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                    #                                 pl2a_radius,a2a_radius,num_freq_bands,
-                    #                                 1,num_heads,head_dim,
-                    #                                 dropout,hist_drop_prob,1,
-                    #                                 pt2a_neighbor,a2a_neighbor,
-                    #                                 token_processor,False,False,False  )
+                if self.use_critic:
+                    self.critic = SMARTAgentDecoder(
+                        hidden_dim=hidden_dim,
+                        num_historical_steps=num_historical_steps,
+                        num_future_steps=num_future_steps,
+                        time_span=time_span,
+                        pl2a_radius=pl2a_radius,
+                        a2a_radius=a2a_radius,
+                        num_freq_bands=num_freq_bands,
+                        num_layers=1,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        hist_drop_prob=hist_drop_prob,
+                        n_token_agent=n_token_agent,
+                        pt2a_neighbor=pt2a_neighbor,
+                        a2a_neighbor=a2a_neighbor,
+                        token_processor=token_processor,
+                        alpha=self.alpha,
+                        output_gmm=False,
+                        pred_last_res=False,
+                        pred_all_res=False,
+                    )
 
+
+                if self.use_value:
                     self.value_network = SMARTAgentDecoder(
                         hidden_dim=hidden_dim,
                         num_historical_steps=num_historical_steps,

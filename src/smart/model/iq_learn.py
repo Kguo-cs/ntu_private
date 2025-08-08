@@ -231,7 +231,7 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        return  reward,value_loss,V,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
+        return  reward,value_loss,logpi,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,tokenized_agent,key,train_mask=None,agent_mask=None):
 
@@ -293,7 +293,7 @@ class IQ_SoftQ(LightningModule):
 
         #agent_mask=valid_mask[:,0]
 
-        expert_reward,expert_value_loss,expert_V_diff,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_logpi,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False
@@ -335,7 +335,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
 
-                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
+                agent_reward, agent_value_loss, agent_logpi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, None,key='agent')
 
                 agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent")
@@ -384,16 +384,38 @@ class IQ_SoftQ(LightningModule):
                                                                      tokenized_agent_rollout["light_idx"],
                                                                      None)[0][:, :, 0]
 
-                    #value_pred=self.encoder.value_network(tokenized_agent_rollout["detach_all_features"],train_mask)[0][:,:,0]
-
                     advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)
 
                     value_loss = 0.5 * (returns - value_pred).pow(2).mean()
+                elif self.encoder.use_critic:
+                    q = self.encoder.critic.predict_agent(tokenized_agent_rollout["sampled_idx"],
+                                                                     tokenized_agent_rollout["goal_idx"],
+                                                                     tokenized_agent_rollout["valid_mask"],
+                                                                     tokenized_agent_rollout["sampled_pos"],
+                                                                     tokenized_agent_rollout["sampled_heading"],
+                                                                     tokenized_agent_rollout,
+                                                                     tokenized_agent_rollout["detach_map_feature"],
+                                                                     tokenized_agent_rollout["light_idx"],
+                                                                     None)[0]
 
-                    self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+                    action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)
+
+                    current_Q = torch.gather(q, dim=-1, index=action ).squeeze(-1)  # [B, Tm1, T_a]
+
+                    current_value=torch.sum(agent_logpi*q,dim=-1)
+
+                    next_Q=torch.cat([current_value[:,1:],torch.zeros_like(current_value[:,:1])],dim=1)
+
+                    target_Q=agent_rewards+self.gamma*next_Q
+
+                    value_loss= 0.5 * (current_Q - target_Q.detach()).pow(2).mean()
+
+                    advantages=(current_Q-current_value).detach()
                 else:
                     advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     value_loss=0
+
+                self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 if self.rollout_freq>1:
                     prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
