@@ -43,10 +43,10 @@ class IQ_SoftQ(LightningModule):
         # if self.use_gail:
         #     self.automatic_optimization = False
        # self.dis_freq=2
-
-        if  self.use_target_q:
-            self.target_net = copy.deepcopy(self.encoder.critic)
-            self.target_net.load_state_dict(self.encoder.critic.state_dict())
+        with torch.no_grad():
+            if  self.use_target_q:
+                self.target_net = copy.deepcopy(self.encoder.critic)
+                self.target_net.load_state_dict(self.encoder.critic.state_dict())
 
         self.reward_type='airl'
 
