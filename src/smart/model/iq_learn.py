@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         self.alpha = self.encoder.alpha
         self.n_token_agent=self.encoder.agent_encoder.n_token_agent
 
-        self.use_target_q=False
+        self.use_target_q=True
 
         self.start_step=10//self.token_processor.shift-1
 
@@ -45,11 +45,8 @@ class IQ_SoftQ(LightningModule):
        # self.dis_freq=2
 
         if  self.use_target_q:
-            self.target_net = SMARTDecoder(
-                **model_config.decoder, n_token_agent=self.token_processor.n_token_agent,
-                token_processor=self.token_processor
-            )
-            self.target_net.load_state_dict(self.encoder.state_dict())
+            self.target_net = copy.deepcopy(self.encoder.critic)
+            self.target_net.load_state_dict(self.encoder.critic.state_dict())
 
         self.reward_type='airl'
 
@@ -132,14 +129,14 @@ class IQ_SoftQ(LightningModule):
 
         #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
-        if self.use_target_q and key=="expert":
-            with torch.no_grad():
-                pred = self.target_net(tokenized_map, tokenized_agent)
-
-                target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
-            self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
-        else:
-            target_V=0
+        # if self.use_target_q and key=="expert":
+        #     with torch.no_grad():
+        #         pred = self.target_net(tokenized_map, tokenized_agent)
+        #
+        #         target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
+        #     self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
+        # else:
+        #     target_V=0
 
         init_V = V[:, 0]
         last_V= V[:,-1]
@@ -178,8 +175,8 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and not self.use_gail:
             action_nll=0
 
-        if self.use_target_q:
-            V=(V-target_V)[all_valid_mask]
+        # if self.use_target_q:
+        #     V=(V-target_V)[all_valid_mask]
 
         # if pred["visibility"] is None:
         #     vis_nll=0
@@ -388,6 +385,25 @@ class IQ_SoftQ(LightningModule):
 
                     value_loss = 0.5 * (returns - value_pred).pow(2).mean()
                 elif self.encoder.use_critic:
+                    action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)
+
+                    with torch.no_grad():
+                        target_q=self.target_net.predict_agent(tokenized_agent_rollout["sampled_idx"],
+                                                                     tokenized_agent_rollout["goal_idx"],
+                                                                     tokenized_agent_rollout["valid_mask"],
+                                                                     tokenized_agent_rollout["sampled_pos"],
+                                                                     tokenized_agent_rollout["sampled_heading"],
+                                                                     tokenized_agent_rollout,
+                                                                     tokenized_agent_rollout["detach_map_feature"],
+                                                                     tokenized_agent_rollout["light_idx"],
+                                                                     None)[0]
+
+                        next_Q = torch.sum(agent_pi[:, 1:] * target_q[:, 1:], dim=-1)
+
+                        next_Q = torch.cat([next_Q, torch.zeros_like(next_Q[:, :1])], dim=1)
+
+                        target_Q = agent_rewards + self.gamma * next_Q
+
                     q = self.encoder.critic.predict_agent(tokenized_agent_rollout["sampled_idx"],
                                                                      tokenized_agent_rollout["goal_idx"],
                                                                      tokenized_agent_rollout["valid_mask"],
@@ -398,17 +414,11 @@ class IQ_SoftQ(LightningModule):
                                                                      tokenized_agent_rollout["light_idx"],
                                                                      None)[0]
 
-                    action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)
+                    current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
-                    current_Q = torch.gather(q, dim=-1, index=action ).squeeze(-1)  # [B, Tm1, T_a]
+                    value_loss= 0.5 * (current_Q - target_Q).pow(2).mean()
 
-                    current_value=torch.sum(agent_pi*q,dim=-1)
-
-                    next_Q=torch.cat([current_value[:,1:],torch.zeros_like(current_value[:,:1])],dim=1)
-
-                    target_Q=agent_rewards+self.gamma*next_Q
-
-                    value_loss= 0.5 * (current_Q - target_Q.detach()).pow(2).mean()
+                    current_value = torch.sum(agent_pi * q, dim=-1)
 
                     advantages=(current_Q-current_value).detach()
                 else:
@@ -481,7 +491,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
         if self.use_target_q :
-            soft_update(self.encoder.agent_encoder, self.target_net.agent_encoder, tau = 2e-4)
+            soft_update(self.encoder.critic, self.target_net, tau = 2e-4)
 
         return loss
 
