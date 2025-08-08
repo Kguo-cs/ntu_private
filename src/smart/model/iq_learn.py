@@ -384,6 +384,8 @@ class IQ_SoftQ(LightningModule):
                     advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)
 
                     value_loss = 0.5 * (returns - value_pred).pow(2).mean()
+                    self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+
                 elif self.encoder.use_critic:
                     action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)
 
@@ -421,11 +423,12 @@ class IQ_SoftQ(LightningModule):
                     current_value = torch.sum(agent_pi * q, dim=-1)
 
                     advantages=(current_Q-current_value).detach()
+                    self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+
                 else:
                     advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     value_loss=0
 
-                self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 if self.rollout_freq>1:
                     prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
