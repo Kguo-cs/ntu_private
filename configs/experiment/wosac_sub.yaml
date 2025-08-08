@@ -18,14 +18,14 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "sim"
+      method_name: "ntu"
       authors: anonymous
       affiliation: anonymous
       description: anonymous
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL128_finenotoken_disnot_a20_novalue_epoch=14-step=57075_78611.ckpt'
 
 trainer:
   limit_train_batches: 1.0

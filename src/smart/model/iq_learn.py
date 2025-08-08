@@ -16,6 +16,7 @@ import time
 from collections import deque
 import random
 import copy
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch
 
 class IQ_SoftQ(LightningModule):
 
@@ -26,7 +27,7 @@ class IQ_SoftQ(LightningModule):
         self.alpha = self.encoder.alpha
         self.n_token_agent=self.encoder.agent_encoder.n_token_agent
 
-        self.use_target_q=True
+        self.use_target_q=False
 
         self.start_step=10//self.token_processor.shift-1
 
@@ -47,10 +48,12 @@ class IQ_SoftQ(LightningModule):
         if  self.use_target_q:
             self.target_net = copy.deepcopy(self.encoder.critic)
             self.target_net.load_state_dict(self.encoder.critic.state_dict())
-        for param in self.target_net.parameters():
-            param.requires_grad = False
+            for param in self.target_net.parameters():
+                param.requires_grad = False
 
         self.reward_type='airl'
+
+        self.running_meanstd=RunningMeanStdTorch(shape=(1))
 
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
@@ -428,7 +431,15 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:
-                    advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
+
+                    self.running_meanstd.update(agent_returns.reshape(-1))
+
+                    advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
+
+                    self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
+                    self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
+
+                    #advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     value_loss=0
 
 
@@ -454,7 +465,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss#+0.1*agent_entropy.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss#+0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(

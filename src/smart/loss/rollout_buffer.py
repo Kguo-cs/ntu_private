@@ -6,6 +6,37 @@ import random
 
 import torch.nn.functional as F
 
+import torch
+
+class RunningMeanStdTorch:
+    def __init__(self, epsilon=1e-4, shape=(), device='cpu'):
+        self.mean = torch.zeros(shape, dtype=torch.float64, device=device)
+        self.var = torch.ones(shape, dtype=torch.float64, device=device)
+        self.count = torch.tensor(epsilon, dtype=torch.float64, device=device)
+
+    def update(self, x):
+        x = x.double()
+        batch_mean = torch.mean(x, dim=0)
+        batch_var = torch.var(x, dim=0, unbiased=False)
+        batch_count = x.size(0)
+        self._update_from_moments(batch_mean, batch_var, batch_count)
+
+    def _update_from_moments(self, batch_mean, batch_var, batch_count):
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * self.count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + delta**2 * self.count * batch_count / tot_count
+        new_var = M2 / tot_count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = tot_count
+
+    def normalize(self, x):
+        return (x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
 
 class ReplayBuffer:
     def __init__(self, max_len=1):
