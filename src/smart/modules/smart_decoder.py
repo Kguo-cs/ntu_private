@@ -57,7 +57,7 @@ class SMARTDecoder(nn.Module):
 
         self.use_value=False
 
-        self.use_critic=True
+        self.use_critic=False
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
