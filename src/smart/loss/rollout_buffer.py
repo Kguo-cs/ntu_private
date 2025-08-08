@@ -7,12 +7,15 @@ import random
 import torch.nn.functional as F
 
 import torch
+import torch.nn as nn
 
-class RunningMeanStdTorch:
-    def __init__(self, epsilon=1e-4, shape=(), device='cpu'):
-        self.mean = torch.zeros(shape, dtype=torch.float64, device=device)
-        self.var = torch.ones(shape, dtype=torch.float64, device=device)
-        self.count = torch.tensor(epsilon, dtype=torch.float64, device=device)
+class RunningMeanStdTorch(nn.Module):
+    def __init__(self, shape=(), epsilon=1e-4):
+        super().__init__()
+
+        self.register_buffer('mean', torch.zeros(shape, dtype=torch.float64))
+        self.register_buffer('var', torch.ones(shape, dtype=torch.float64))
+        self.register_buffer('count', torch.tensor(epsilon, dtype=torch.float64))
 
     def update(self, x):
         x = x.double()
