@@ -83,7 +83,7 @@ class IQ_SoftQ(LightningModule):
         reward = current_Q - y
         value_loss = current_V - y
 
-        return log_prob,logpi,actor_loss,entropy,current_Q,V,value_loss,reward
+        return log_prob,pi,actor_loss,entropy,current_Q,V,value_loss,reward
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
@@ -128,7 +128,7 @@ class IQ_SoftQ(LightningModule):
 
         all_valid_mask=valid_mask.all(-1)
 
-        log_prob,logpi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
+        log_prob,pi,actor_loss,entropy, current_Q, V,  value_loss, reward=self.get_network_QV(pred["agent_q"], tokenized_map, tokenized_agent,action,key)
 
         #current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
@@ -231,7 +231,7 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        return  reward,value_loss,logpi,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
+        return  reward,value_loss,pi,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,tokenized_agent,key,train_mask=None,agent_mask=None):
 
@@ -293,7 +293,7 @@ class IQ_SoftQ(LightningModule):
 
         #agent_mask=valid_mask[:,0]
 
-        expert_reward,expert_value_loss,expert_logpi,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False
@@ -335,7 +335,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
 
-                agent_reward, agent_value_loss, agent_logpi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
+                agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, None,key='agent')
 
                 agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent")
@@ -402,7 +402,7 @@ class IQ_SoftQ(LightningModule):
 
                     current_Q = torch.gather(q, dim=-1, index=action ).squeeze(-1)  # [B, Tm1, T_a]
 
-                    current_value=torch.sum(agent_logpi*q,dim=-1)
+                    current_value=torch.sum(agent_pi*q,dim=-1)
 
                     next_Q=torch.cat([current_value[:,1:],torch.zeros_like(current_value[:,:1])],dim=1)
 
