@@ -26,7 +26,7 @@ class IQ_SoftQ(LightningModule):
         self.alpha = self.encoder.alpha
         self.n_token_agent=self.encoder.agent_encoder.n_token_agent
 
-        self.use_target_q=False
+        self.use_target_q=True
 
         self.start_step=10//self.token_processor.shift-1
 
