@@ -39,7 +39,9 @@ class RunningMeanStdTorch(nn.Module):
         self.count = tot_count
 
     def normalize(self, x):
-        return (x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
+        res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
+
+        return torch.clamp_(res, min=-1.0, max=1.0)
 
 class ReplayBuffer:
     def __init__(self, max_len=1):

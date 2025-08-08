@@ -149,4 +149,6 @@ torchrun --nproc_per_node=4  -m run trainer=ddp
 
 #running mean and std of advanatage 
 
+# KL+REVERSE kl
+
 #post sampling to solve goal-conditioned
