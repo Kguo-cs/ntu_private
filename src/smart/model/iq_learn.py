@@ -432,10 +432,10 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:
-                    advantages=agent_returns
-                    # self.running_meanstd.update(agent_returns.reshape(-1))
-                    #
-                    # advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
+                    #advantages=agent_returns
+                    self.running_meanstd.update(agent_returns.reshape(-1))
+
+                    advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
                     #
                     self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
                     self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
