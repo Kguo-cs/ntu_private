@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL128_finenotoken_disnot_a20_novalue_epoch=14-step=57075_78611.ckpt'
+ckpt_path: '/home/ke/code/catk/src/ckpts/bc32_l3_adamw_nonedge_epoch=17-step=273942_0.7785.ckpt'
 
 trainer:
   limit_train_batches: 1.0
