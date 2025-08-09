@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     finetune: true
 
-ckpt_path : './ckpts/bc32_l3_adamw_nonedge_epoch=17-step=273942_0.7785.ckpt'
+ckpt_path : './ckpts/bc32_l3_adamw_epoch=23-step=365256_0.7772.ckpt'
 
 trainer:
   limit_train_batches: 1.0
