@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.loss.iq_loss import get_iqloss,soft_update,eval_light,get_proposal_loss,get_gaussian_loss
-from src.smart.loss.rollout_buffer import rollout, get_return_diff, get_return, compute_advantages, ReplayBuffer
+from src.smart.loss.rollout_buffer import rollout, compute_advantages, ReplayBuffer
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
