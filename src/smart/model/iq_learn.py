@@ -53,7 +53,8 @@ class IQ_SoftQ(LightningModule):
 
         self.reward_type='airl'
 
-        self.running_meanstd=RunningMeanStdTorch(shape=(1))
+        if self.use_gail:
+            self.running_meanstd=RunningMeanStdTorch(shape=(1))
 
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
