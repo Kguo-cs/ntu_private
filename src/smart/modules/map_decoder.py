@@ -128,11 +128,11 @@ class SMARTMapDecoder(nn.Module):
         batch_edge=batch[mask]
 
         head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
-
-        x_pt=x_pt[~mask]
-        pos_pt=pos_pt[~mask]
-        orient_pt=orient_pt[~mask]
-        batch=batch[~mask]
+        #
+        # x_pt=x_pt[~mask]
+        # pos_pt=pos_pt[~mask]
+        # orient_pt=orient_pt[~mask]
+        # batch=batch[~mask]
 
         edge_index_pt2pt,r_pt2pt=self.edge_encoder.build_map2map_edge(
                             pos_pt,  # [n_pl, 2]
