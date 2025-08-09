@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_disnot_runningreward99_d30 #syskl #density1 #_edge #bc32_l3_adamw_nonedge #AIRL64_disnotSA_clip #novalue #_entropy01 #bc32_l3_adamw #AIRL64_disnot_novalue_entropy01 #bc32_l3_adamw_histdrop01_apt15 #AIRL64_disnot_novalue_entropy01 #targetcritic #bc32_l3_adamw_histdrop01_a25pt15 #AIRL128_disnot_a20_novalue
+task_name: AIRL64_disnot_runningreward99 #_d30 #syskl #density1 #_edge #bc32_l3_adamw_nonedge #AIRL64_disnotSA_clip #novalue #_entropy01 #bc32_l3_adamw #AIRL64_disnot_novalue_entropy01 #bc32_l3_adamw_histdrop01_apt15 #AIRL64_disnot_novalue_entropy01 #targetcritic #bc32_l3_adamw_histdrop01_a25pt15 #AIRL128_disnot_a20_novalue
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
