@@ -38,6 +38,9 @@ class RunningMeanStdTorch(nn.Module):
         self.var = new_var
         self.count = tot_count
 
+        self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
+        self.log("train/running_var", self.var, on_step=True, batch_size=1)
+
     def normalize(self, x):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
 
@@ -65,11 +68,11 @@ class RunningMeanStdTorch(nn.Module):
             d_x = (s + eps).log()
             rewards = d_x + (-1 - (-d_x).log())
 
-        if key=='agent':
-
-            self.update(rewards.reshape(-1))
-
-            rewards=self.normalize(rewards)
+        # if key=='agent':
+        #
+        #     self.update(rewards.reshape(-1))
+        #
+        #     rewards=self.normalize(rewards)
 
             #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
