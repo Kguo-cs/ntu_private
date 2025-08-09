@@ -16,34 +16,51 @@ class RunningMeanStdTorch(nn.Module):
         self.register_buffer('mean', torch.zeros(shape, dtype=torch.float64))
         self.register_buffer('var', torch.ones(shape, dtype=torch.float64))
         self.register_buffer('count', torch.tensor(epsilon, dtype=torch.float64))
+        self.initialized = False
+        self.alpha = 0.99
 
     def update(self, x):
-        x = x.double()
+        x = x.to(self.device).double()
         batch_mean = torch.mean(x, dim=0)
         batch_var = torch.var(x, dim=0, unbiased=False)
-        batch_count = x.size(0)
-        self._update_from_moments(batch_mean, batch_var, batch_count)
 
-    def _update_from_moments(self, batch_mean, batch_var, batch_count):
-        delta = batch_mean - self.mean
-        tot_count = self.count + batch_count
-
-        new_mean = self.mean + delta * batch_count / tot_count
-        m_a = self.var * self.count
-        m_b = batch_var * batch_count
-        M2 = m_a + m_b + delta**2 * self.count * batch_count / tot_count
-        new_var = M2 / tot_count
-
-        self.mean = new_mean
-        self.var = new_var
-        self.count = tot_count
+        if not self.initialized:
+            self.mean = batch_mean
+            self.var = batch_var
+            self.initialized = True
+        else:
+            self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
+            self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
 
         self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
         self.log("train/running_var", self.var, on_step=True, batch_size=1)
 
+    # def update(self, x):
+    #     x = x.double()
+    #     batch_mean = torch.mean(x, dim=0)
+    #     batch_var = torch.var(x, dim=0, unbiased=False)
+    #     batch_count = x.size(0)
+    #     self._update_from_moments(batch_mean, batch_var, batch_count)
+    #
+    # def _update_from_moments(self, batch_mean, batch_var, batch_count):
+    #     delta = batch_mean - self.mean
+    #     tot_count = self.count + batch_count
+    #
+    #     new_mean = self.mean + delta * batch_count / tot_count
+    #     m_a = self.var * self.count
+    #     m_b = batch_var * batch_count
+    #     M2 = m_a + m_b + delta**2 * self.count * batch_count / tot_count
+    #     new_var = M2 / tot_count
+    #
+    #     self.mean = new_mean
+    #     self.var = new_var
+    #     self.count = tot_count
+    #
+    #     self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
+    #     self.log("train/running_var", self.var, on_step=True, batch_size=1)
+
     def normalize(self, x):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
-
         return res
 
     def get_return(self,s, gamma,key, eps=1e-20, reward_type="gail"):
@@ -68,11 +85,11 @@ class RunningMeanStdTorch(nn.Module):
             d_x = (s + eps).log()
             rewards = d_x + (-1 - (-d_x).log())
 
-        # if key=='agent':
-        #
-        #     self.update(rewards.reshape(-1))
-        #
-        #     rewards=self.normalize(rewards)
+        if key=='agent':
+
+            self.update(rewards.reshape(-1))
+
+            rewards=self.normalize(rewards)
 
             #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
