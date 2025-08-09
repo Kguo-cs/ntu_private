@@ -51,7 +51,7 @@ class IQ_SoftQ(LightningModule):
             for param in self.target_net.parameters():
                 param.requires_grad = False
 
-        self.reward_type='airl'
+        self.reward_type='symmetric_kl'
 
         self.running_meanstd=RunningMeanStdTorch(shape=(1))
 
@@ -467,7 +467,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss-agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss#-agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
             else:
                 agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(

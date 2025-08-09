@@ -187,6 +187,10 @@ def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
         rewards = - (1 - s + eps).log()
     elif reward_type == 'airl-positive':
         rewards = (s + eps).log() - (1 - s + eps).log() + 20
+    elif reward_type == 'symmetric_kl':
+        rkl = (s + eps).log() - (1 - s + eps).log()
+        kl= rkl.exp()*(-rkl)
+        rewards = rkl + kl
     elif reward_type == 'revise':
         d_x = (s + eps).log()
         rewards = d_x + (-1 - (-d_x).log())
