@@ -20,7 +20,6 @@ class RunningMeanStdTorch(nn.Module):
         self.alpha = 0.99
 
     def update(self, x):
-        x = x.to(self.device).double()
         batch_mean = torch.mean(x, dim=0)
         batch_var = torch.var(x, dim=0, unbiased=False)
 
