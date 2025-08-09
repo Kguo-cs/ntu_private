@@ -82,11 +82,11 @@ class RunningMeanStdTorch(nn.Module):
             d_x = (s + eps).log()
             rewards = d_x + (-1 - (-d_x).log())
 
-        if key=='agent':
-
-            self.update(rewards.reshape(-1))
-
-            rewards=self.normalize(rewards)
+        # if key=='agent':
+        #
+        #     self.update(rewards.reshape(-1))
+        #
+        #     rewards=self.normalize(rewards)
 
             #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
