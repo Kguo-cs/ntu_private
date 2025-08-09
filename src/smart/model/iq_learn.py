@@ -51,7 +51,7 @@ class IQ_SoftQ(LightningModule):
             for param in self.target_net.parameters():
                 param.requires_grad = False
 
-        self.reward_type='symmetric_kl'
+        self.reward_type='airl'
 
         self.running_meanstd=RunningMeanStdTorch(shape=(1))
 
@@ -261,7 +261,7 @@ class IQ_SoftQ(LightningModule):
 
         disc_val = torch.sigmoid(logit)
 
-        returns, rewards = get_return(disc_val, self.gamma,reward_type=self.reward_type)#
+        returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)#
 
         if key == "expert":
             disc_val = disc_val[train_mask]#[agent_mask]
@@ -431,13 +431,13 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:
-
-                    self.running_meanstd.update(agent_returns.reshape(-1))
-
-                    advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
-
-                    self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
-                    self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
+                    advantages=agent_returns
+                    # self.running_meanstd.update(agent_returns.reshape(-1))
+                    #
+                    # advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
+                    #
+                    # self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
+                    # self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
                     #
                     # advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     #

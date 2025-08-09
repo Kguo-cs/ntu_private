@@ -43,6 +43,58 @@ class RunningMeanStdTorch(nn.Module):
 
         return res
 
+    def get_return(self,s, gamma,key, eps=1e-20, reward_type="gail"):
+
+        s = s.detach()
+
+        if reward_type == 'airl':
+            rewards = (s + eps).log() - (1 - s + eps).log()
+        elif reward_type == 'gail':
+            rewards = (s + eps).log()
+        elif reward_type == 'raw':
+            rewards = s
+        elif reward_type == "positive":
+            rewards = - (1 - s + eps).log()
+        elif reward_type == 'airl-positive':
+            rewards = (s + eps).log() - (1 - s + eps).log() + 20
+        elif reward_type == 'symmetric_kl':
+            rkl = (s + eps).log() - (1 - s + eps).log()
+            kl = rkl.exp() * (-rkl)
+            rewards = rkl + kl
+        elif reward_type == 'revise':
+            d_x = (s + eps).log()
+            rewards = d_x + (-1 - (-d_x).log())
+
+        if key=='agent':
+
+            self.update(rewards.reshape(-1))
+
+            rewards=self.normalize(rewards)
+
+            #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+
+        # rewards=F.normalize(rewards,dim=0)
+
+        returns = torch.zeros_like(rewards)
+        running_return = returns[:, -1]
+
+        for i in reversed(range(rewards.shape[1])):
+            running_return = rewards[:, i] + gamma * running_return
+            returns[:, i] = running_return
+
+        # dones = torch.zeros_like(rewards)
+        # dones[:,-1]=1
+        # * (1.0 - dones[:, i])
+
+        # returns1 = torch.zeros_like(rewards)
+        # R = 0
+        # for t in reversed(range(len(rewards))):
+        #     R = rewards[t] + gamma * R * (1.0 - dones[t])
+        #     returns1[t] = R
+
+        return returns, rewards
+
+
 class ReplayBuffer:
     def __init__(self, max_len=1):
 
@@ -173,50 +225,6 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
     return current_Q_diff, V_diff
 
-def get_return(s,gamma,eps = 1e-20,reward_type="gail"):
-
-    s=s.detach()
-
-    if reward_type == 'airl':
-        rewards = (s + eps).log() - (1 - s + eps).log()
-    elif reward_type == 'gail':
-        rewards = (s + eps).log()
-    elif reward_type == 'raw':
-        rewards = s
-    elif reward_type=="positive":
-        rewards = - (1 - s + eps).log()
-    elif reward_type == 'airl-positive':
-        rewards = (s + eps).log() - (1 - s + eps).log() + 20
-    elif reward_type == 'symmetric_kl':
-        rkl = (s + eps).log() - (1 - s + eps).log()
-        kl= rkl.exp()*(-rkl)
-        rewards = rkl + kl
-    elif reward_type == 'revise':
-        d_x = (s + eps).log()
-        rewards = d_x + (-1 - (-d_x).log())
-
-    #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-
-    #rewards=F.normalize(rewards,dim=0)
-
-    returns = torch.zeros_like(rewards)
-    running_return=returns[:,-1]
-
-    for i in reversed(range(rewards.shape[1])):
-        running_return = rewards[:, i] + gamma *running_return
-        returns[:, i] = running_return
-
-    # dones = torch.zeros_like(rewards)
-    # dones[:,-1]=1
-    #* (1.0 - dones[:, i])
-
-    # returns1 = torch.zeros_like(rewards)
-    # R = 0
-    # for t in reversed(range(len(rewards))):
-    #     R = rewards[t] + gamma * R * (1.0 - dones[t])
-    #     returns1[t] = R
-
-    return returns,rewards
 
 
 def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
