@@ -13,6 +13,6 @@ cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
 #python  run.py > bc128_l3_adamw.log  2>&1
-torchrun --nproc_per_node=2  -m run trainer=ddp  > AIRL120_disnot_targetcritic.log  2>&1
+torchrun --nproc_per_node=2  -m run trainer=ddp  > AIRL128_disnot_running_edge.log  2>&1
 
 ##python -m torch.distributed.run --nproc_per_node=4 --master_port=29502 run.py > pad064_32_noshare.log  2>&1
