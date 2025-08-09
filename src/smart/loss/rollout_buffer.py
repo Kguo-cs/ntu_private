@@ -31,8 +31,6 @@ class RunningMeanStdTorch(nn.Module):
             self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
             self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
 
-        self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
-        self.log("train/running_var", self.var, on_step=True, batch_size=1)
 
     # def update(self, x):
     #     x = x.double()

@@ -436,6 +436,8 @@ class IQ_SoftQ(LightningModule):
                     #
                     # advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
                     #
+                    self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
+                    self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
                     #
                     # advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
                     #
