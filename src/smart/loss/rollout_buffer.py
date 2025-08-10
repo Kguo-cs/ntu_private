@@ -19,42 +19,41 @@ class RunningMeanStdTorch(nn.Module):
         self.initialized = False
         self.alpha = 0.99
 
+    # def update(self, x):
+    #     batch_mean = torch.mean(x, dim=0)
+    #     batch_var = torch.var(x, dim=0, unbiased=False)
+    #
+    #     if not self.initialized:
+    #         self.mean = batch_mean
+    #         self.var = batch_var
+    #         self.initialized = True
+    #     else:
+    #         self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
+    #         self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
+
+
     def update(self, x):
         batch_mean = torch.mean(x, dim=0)
         batch_var = torch.var(x, dim=0, unbiased=False)
+        batch_count = x.size(0)
+        self._update_from_moments(batch_mean, batch_var, batch_count)
 
-        if not self.initialized:
-            self.mean = batch_mean
-            self.var = batch_var
-            self.initialized = True
-        else:
-            self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
-            self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
+    def _update_from_moments(self, batch_mean, batch_var, batch_count):
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
 
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * self.count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + delta**2 * self.count * batch_count / tot_count
+        new_var = M2 / tot_count
 
-    # def update(self, x):
-    #     x = x.double()
-    #     batch_mean = torch.mean(x, dim=0)
-    #     batch_var = torch.var(x, dim=0, unbiased=False)
-    #     batch_count = x.size(0)
-    #     self._update_from_moments(batch_mean, batch_var, batch_count)
-    #
-    # def _update_from_moments(self, batch_mean, batch_var, batch_count):
-    #     delta = batch_mean - self.mean
-    #     tot_count = self.count + batch_count
-    #
-    #     new_mean = self.mean + delta * batch_count / tot_count
-    #     m_a = self.var * self.count
-    #     m_b = batch_var * batch_count
-    #     M2 = m_a + m_b + delta**2 * self.count * batch_count / tot_count
-    #     new_var = M2 / tot_count
-    #
-    #     self.mean = new_mean
-    #     self.var = new_var
-    #     self.count = tot_count
-    #
-    #     self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
-    #     self.log("train/running_var", self.var, on_step=True, batch_size=1)
+        self.mean = new_mean
+        self.var = new_var
+        self.count = tot_count
+
+        self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
+        self.log("train/running_var", self.var, on_step=True, batch_size=1)
 
     def normalize(self, x):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
