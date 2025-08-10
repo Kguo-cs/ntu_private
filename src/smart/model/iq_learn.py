@@ -337,7 +337,7 @@ class IQ_SoftQ(LightningModule):
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, None,key='agent')
+                tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
             if self.use_gail:
                 agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent")
@@ -367,7 +367,6 @@ class IQ_SoftQ(LightningModule):
                     critic_loss =-expert_logit.mean()+agent_logit.mean()+expert_logit.square().mean() / (4 * alpha)
                 else:
                     critic_loss=expert_dis_loss + agent_dis_loss
-                self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
                 if self.automatic_optimization==False:
                     discriminator_optimizer.zero_grad()
@@ -470,16 +469,14 @@ class IQ_SoftQ(LightningModule):
                 expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
             else:
-
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
-
-                self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
-
                 # constraint_loss=expert_V_diff.square().mean()*5
                 #
                 # self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss+expert_nll#expert_nll #-0.01*agent_entropy.mean()
+            self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+
+            loss = critic_loss+expert_proposal_loss+expert_nll
 
             if self.automatic_optimization == False:
                 policy_optimizer.zero_grad()
@@ -489,10 +486,6 @@ class IQ_SoftQ(LightningModule):
                                                +list(self.encoder.value_network.parameters()), 0.5)
                 policy_optimizer.step()
 
-            #print(self.global_step)
-
-            # if self.encoder.agent_encoder.use_light:
-            #     self.encoder.agent_encoder.pred_light=True
         else:
             loss = expert_nll + expert_proposal_loss
 
