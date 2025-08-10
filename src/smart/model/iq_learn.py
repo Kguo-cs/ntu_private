@@ -476,7 +476,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss#+expert_nll
+            loss = critic_loss+expert_proposal_loss+expert_nll
 
             if self.automatic_optimization == False:
                 policy_optimizer.zero_grad()
