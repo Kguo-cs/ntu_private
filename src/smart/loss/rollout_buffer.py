@@ -52,9 +52,6 @@ class RunningMeanStdTorch(nn.Module):
         self.var = new_var
         self.count = tot_count
 
-        self.log("train/running_mean", self.mean, on_step=True, batch_size=1)
-        self.log("train/running_var", self.var, on_step=True, batch_size=1)
-
     def normalize(self, x):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
         return res
