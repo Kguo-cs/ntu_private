@@ -17,7 +17,7 @@ def hard_update(source, target):
         target_param.data.copy_(param.data)
 
 def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q   ):
-    div = 'x2'
+    div = 'rkl'
     alpha = 0.5
     eps = 1e-3
     if div == "lsif":
@@ -30,8 +30,8 @@ def get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,exp
         critic_loss = (-expert_reward).exp().mean() + agent_reward.exp().mean()
     elif div == 'rkl':
         value_loss = (agent_value_loss.mean() + expert_value_loss.mean()) / 2
-
-        critic_loss = alpha * (-expert_reward / alpha).exp().mean() + value_loss
+        alpha=1
+        critic_loss = alpha * ((-expert_reward-1) / alpha).exp().mean() + value_loss
     elif div == 'recoil':
         chi_loss=(expert_reward.square().mean()+agent_reward.square().mean())/2
         critic_loss = -expert_Q.mean() + agent_Q.mean()+chi_loss/(4*0.02)
