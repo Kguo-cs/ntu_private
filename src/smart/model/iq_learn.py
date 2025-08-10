@@ -336,11 +336,10 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
+            agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
+                tokenized_map, tokenized_agent_rollout, None,key='agent')
+
             if self.use_gail:
-
-                agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                    tokenized_map, tokenized_agent_rollout, None,key='agent')
-
                 agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent")
 
                 # if self.buffer_len>1:
@@ -471,8 +470,6 @@ class IQ_SoftQ(LightningModule):
                 expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
             else:
-                agent_reward, agent_value_loss, agent_V_diff, agent_nll,agent_Q,agent_proposal_loss = self.get_QV(
-                    tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
 
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
 
