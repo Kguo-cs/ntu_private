@@ -125,9 +125,9 @@ class IQ_SoftQ(LightningModule):
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss
 
-        if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
-            valid_mask=valid_mask[train_mask]
-            action=action[train_mask]
+        # if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
+        #     valid_mask=valid_mask[train_mask]
+        #     action=action[train_mask]
 
         all_valid_mask=valid_mask.all(-1)
 
@@ -147,7 +147,7 @@ class IQ_SoftQ(LightningModule):
         init_V = V[:, 0]
         last_V= V[:,-1]
 
-        if key == "expert":
+        if train_mask is not None:
             log_prob=log_prob[train_mask]
 
             reward=reward[train_mask]
