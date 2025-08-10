@@ -262,10 +262,15 @@ class IQ_SoftQ(LightningModule):
 
         disc_val = torch.sigmoid(logit)
 
-        returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)#
+
+        returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
+
+        if train_mask is not None:
+            disc_val=disc_val[train_mask]
+            returns=returns[train_mask]
+            rewards=rewards[train_mask]
 
         if key == "expert":
-            disc_val = disc_val[train_mask]#[agent_mask]
             bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #+ (disc_val-0.5).square().mean()
         else:
             bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) #+ (disc_val-0.5).square().mean()
@@ -324,16 +329,18 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map=self.tokenized_map
                 tokenized_agent_rollout=self.tokenized_agent_rollout
 
-            tokenized_agent_rollout["train_mask"]=None
+                # tokenized_agent_rollout["train_mask"]=None
+
+            val_train_mask=train_mask
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
+                tokenized_map, tokenized_agent_rollout, val_train_mask,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent")
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent",val_train_mask)
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
