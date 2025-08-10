@@ -53,7 +53,7 @@ class SMARTDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.iq_learn=True
         self.output_gmm=False
-        self.use_gail=True
+        self.use_gail=False
 
         self.use_value=False
 
