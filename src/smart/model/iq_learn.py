@@ -286,7 +286,7 @@ class IQ_SoftQ(LightningModule):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
         state_mask = valid_mask[:, :-1]
         action_mask = valid_mask[:, 1:]
-        train_mask = valid_mask.all(-1)#state_mask & action_mask
+        train_mask =state_mask & action_mask# valid_mask.all(-1)#
         tokenized_agent["vis_mask"] = None
 
         if self.iq_learn:
@@ -331,7 +331,7 @@ class IQ_SoftQ(LightningModule):
 
                 # tokenized_agent_rollout["train_mask"]=None
 
-            val_train_mask=train_mask
+            val_train_mask=None
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
