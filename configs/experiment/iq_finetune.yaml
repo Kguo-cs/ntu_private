@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 5e-4
+    lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
       map_token_sampling: # open-loop
@@ -38,7 +38,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 32
+  train_batch_size: 64
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 28
