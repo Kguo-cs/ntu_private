@@ -289,13 +289,6 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                 self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
-        # map_feature = self.encoder.map_encoder(tokenized_map)
-        # tokenized_map["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-        # tokenized_map["map_feature"] = map_feature
-        # rollout_result = self.encoder.run_async_rollout(self.encoder.agent_encoder,tokenized_agent, tokenized_map["detach_map_feature"],  False)
-
-        #agent_mask=valid_mask[:,0]
-
         expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
@@ -476,7 +469,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss+expert_nll
+            loss = critic_loss+expert_proposal_loss#+expert_nll
 
             if self.automatic_optimization == False:
                 policy_optimizer.zero_grad()
