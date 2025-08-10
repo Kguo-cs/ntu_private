@@ -51,7 +51,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.output_gmm=False
         self.use_gail=True
 
@@ -108,7 +108,7 @@ class SMARTDecoder(nn.Module):
                     num_future_steps=num_future_steps,
                     time_span=10,
                     pl2a_radius=10,
-                    a2a_radius=10,
+                    a2a_radius=20,
                     num_freq_bands=num_freq_bands,
                     num_layers=1,
                     num_heads=num_heads,
