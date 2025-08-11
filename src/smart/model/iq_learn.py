@@ -267,7 +267,7 @@ class IQ_SoftQ(LightningModule):
 
         if train_mask is not None:
             disc_val=disc_val[train_mask]
-            #returns=returns[train_mask]
+            returns=returns[train_mask]
             rewards=rewards[train_mask]
 
         if key == "expert":
@@ -338,7 +338,7 @@ class IQ_SoftQ(LightningModule):
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, val_train_mask,key='agent')
+                tokenized_map, tokenized_agent_rollout, all_valid,key='agent')
 
             if self.use_gail:
                 agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent",all_valid)
