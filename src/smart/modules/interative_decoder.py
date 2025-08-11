@@ -216,7 +216,7 @@ class InterativeDecoder(nn.Module):
         next_token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.reward_shaping:
-            r=self.reward_net(feat_a[:,1 :] )
+            r=self.reward_net(feat_a[:, :-1]+ agent_token_emb )
             v_s=next_token_logits[:, :-1]
             v_next=next_token_logits[:,1 :]
             done=torch.ones_like(v_s)
