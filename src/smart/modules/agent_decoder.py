@@ -264,10 +264,14 @@ class SMARTAgentDecoder(nn.Module):
             # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
             if self.discriminator:
-                batch_s = build_batch(batch_a, tokenized_agent["num_graphs"],n_step).reshape(-1, n_agent).transpose(
-                    0, 1)
+                if self.interative_decoder.reward_shaping:
+                    batch_s = build_batch(batch_a, tokenized_agent["num_graphs"],n_step).reshape(-1, n_agent).transpose(
+                        0, 1)
 
-                all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:]]
+                    all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:]]
+                else:
+                    all_features=next_all_features
+                    all_features.append(None)
             else:
                 if not self.training:
                     all_features=next_all_features

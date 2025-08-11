@@ -110,7 +110,7 @@ class InterativeDecoder(nn.Module):
         self.token_processor=token_processor
 
         self.state_action = False
-        self.reward_shaping = True
+        self.reward_shaping = False
         self.use_bottleneck = False
 
         self.discriminator=discriminator
@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-            self.use_bottleneck=True
+            self.use_bottleneck=False
 
             if self.use_bottleneck:
                 z_dim=self.hidden_dim//2
