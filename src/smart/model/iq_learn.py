@@ -148,8 +148,6 @@ class IQ_SoftQ(LightningModule):
         last_V= V[:,-1]
 
         if train_mask is not None:
-            log_prob=log_prob[train_mask]
-
             reward=reward[train_mask]
 
             value_loss=value_loss[train_mask]
@@ -167,7 +165,7 @@ class IQ_SoftQ(LightningModule):
             off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
             self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
 
-        action_nll = -log_prob.mean()
+        action_nll = -log_prob[train_mask].mean()
 
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
@@ -460,7 +458,7 @@ class IQ_SoftQ(LightningModule):
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
                 else:
-                    agent_wNLL=-(agent_log_prob*advantages).mean()
+                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
