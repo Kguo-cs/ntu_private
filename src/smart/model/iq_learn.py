@@ -492,7 +492,7 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:
-                    #agent_returns=agent_returns[all_valid]
+                    agent_returns=agent_returns[all_valid]
                     self.running_meanstd.update(agent_returns.reshape(-1))
 
                     advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
@@ -517,7 +517,7 @@ class IQ_SoftQ(LightningModule):
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
                 else:
-                    agent_wNLL=-(agent_log_prob*advantages).mean()#[all_valid]
+                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()#
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
