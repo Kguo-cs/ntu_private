@@ -136,6 +136,8 @@ class SMARTAgentDecoder(nn.Module):
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
+        self.use_kl_penalty=True
+
         if self.pred_vis:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
@@ -162,6 +164,9 @@ class SMARTAgentDecoder(nn.Module):
                 agent_type=tokenized_agent["type"],  # [n_agent]
                 agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
             )  # feat_a: [n_agent, n_step, hidden_dim]
+
+            # if self.use_kl_penalty and "feat_a_token" not in tokenized_agent.keys():
+            #     return None,None,(feat_a_token.detach(),agent_token_emb.detach()),None,None
 
         if self.pred_goal and not self.discriminator:
             goal_token_emb=self.goal_embedding(goal_idx)

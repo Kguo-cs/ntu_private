@@ -1,3 +1,4 @@
+from jax.example_libraries.stax import logsoftmax
 from lightning import LightningModule
 import numpy as np
 import torch
@@ -50,6 +51,14 @@ class IQ_SoftQ(LightningModule):
             self.target_net.load_state_dict(self.encoder.critic.state_dict())
             for param in self.target_net.parameters():
                 param.requires_grad = False
+
+        self.use_kl_penalty=self.encoder.agent_encoder.use_kl_penalty
+
+        if self.use_kl_penalty:
+            self.target_net = copy.deepcopy(self.encoder.agent_encoder)
+            for param in self.target_net.parameters():
+                param.requires_grad = False
+
 
         self.reward_type='airl'
 
@@ -123,7 +132,7 @@ class IQ_SoftQ(LightningModule):
         action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
         if pred["agent_q"] is None:
-            return 0,0,0,0,0,proposal_loss
+            return 0,0,0,0,0,proposal_loss,0,0
 
         # if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
         #     valid_mask=valid_mask[train_mask]
@@ -234,7 +243,7 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,pi,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
 
-    def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,agent_mask=None):
+    def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,agent_mask=None):
 
         # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
@@ -291,7 +300,25 @@ class IQ_SoftQ(LightningModule):
 
         else:
             disc_val = torch.sigmoid(logit[:, :, 0])
-            returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
+
+            if key == "agent" and self.use_kl_penalty:
+                with torch.no_grad():
+                    target_q = self.target_net(tokenized_agent, map_feature)[
+                        "agent_q"]
+
+                    ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+
+                    # KL per token: sum_a p(a) * (log p(a) - log q(a))
+                    kl_coef=0.1
+
+                    kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
+
+                self.log("train/" + key + "_kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
+
+            else:
+                kl_per_token=0
+
+            returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,kl_per_token)
 
             bottleneck_loss=0
 
@@ -303,8 +330,6 @@ class IQ_SoftQ(LightningModule):
 
         if train_mask is not None:
             disc_val=disc_val[train_mask]
-            #returns=returns[train_mask]
-            rewards=rewards[train_mask]
 
         if key == "expert":
             bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #+ (disc_val-0.5).square().mean()
@@ -371,11 +396,13 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
+
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",train_mask)
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid)
+
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
