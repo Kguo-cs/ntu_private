@@ -110,7 +110,7 @@ class InterativeDecoder(nn.Module):
         self.token_processor=token_processor
 
         self.state_action = False
-        self.reward_shaping = False
+        self.reward_shaping = True
 
         self.discriminator=discriminator
 
@@ -124,7 +124,6 @@ class InterativeDecoder(nn.Module):
         feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
 
         n_agent = mask_a.shape[0]
-        #n_step=mask_a.shape[1]
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]#[None].repeat(n_step,1,1).flatten(0, 1)
@@ -220,7 +219,9 @@ class InterativeDecoder(nn.Module):
             r=self.reward_net(feat_a[:,1 :] )
             v_s=next_token_logits[:, :-1]
             v_next=next_token_logits[:,1 :]
-            next_token_logits = r + 0.99*v_next - v_s
+            done=torch.ones_like(v_s)
+            done[:,-1]=0
+            next_token_logits = r + (0.99*v_next - v_s)*done
 
         # next_token_logits=torch.zeros([n_agent,n_step,token_logits.shape[-1]],device=feat_a.device)
         #

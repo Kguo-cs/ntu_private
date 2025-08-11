@@ -258,11 +258,11 @@ class IQ_SoftQ(LightningModule):
                                                         tokenized_agent["light_idx"],
                                                         None)[0][:, :, 0]
 
-        # disc_val = torch.sigmoid(logit)
+        disc_val = torch.sigmoid(logit)
 
-        exp_f=logit.exp()
-
-        disc_val=exp_f/(exp_f + torch.exp(log_prob.detach()))
+        # exp_f=logit.exp()
+        #
+        # disc_val=exp_f/(exp_f + torch.exp(log_prob.detach()))
 
 
         returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
