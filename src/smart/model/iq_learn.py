@@ -262,7 +262,7 @@ class IQ_SoftQ(LightningModule):
 
         exp_f=logit.exp()
 
-        disc_val=exp_f/(exp_f + torch.exp(log_prob))
+        disc_val=exp_f/(exp_f + torch.exp(log_prob.detach()))
 
 
         returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
