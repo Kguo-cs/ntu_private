@@ -236,7 +236,7 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,pi,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
 
-    def get_reward(self,tokenized_agent,key,train_mask=None,agent_mask=None):
+    def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,agent_mask=None):
 
         # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
@@ -260,7 +260,11 @@ class IQ_SoftQ(LightningModule):
                                                         tokenized_agent["light_idx"],
                                                         None)[0][:, :, 0]
 
-        disc_val = torch.sigmoid(logit)
+        # disc_val = torch.sigmoid(logit)
+
+        exp_f=logit.exp()
+
+        disc_val=exp_f/(exp_f + torch.exp(log_prob))
 
 
         returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
@@ -295,7 +299,7 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                 self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
-        expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,_,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False
@@ -305,7 +309,7 @@ class IQ_SoftQ(LightningModule):
             #tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,"expert",all_valid,None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -341,7 +345,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map, tokenized_agent_rollout, all_valid,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout,  "agent",all_valid)
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid)
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
