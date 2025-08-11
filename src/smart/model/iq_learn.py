@@ -301,22 +301,22 @@ class IQ_SoftQ(LightningModule):
         else:
             disc_val = torch.sigmoid(logit[:, :, 0])
 
-            if key == "agent" and self.use_kl_penalty:
-                with torch.no_grad():
-                    target_q = self.target_net(tokenized_agent, map_feature)[
-                        "agent_q"]
-
-                    ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
-
-                    # KL per token: sum_a p(a) * (log p(a) - log q(a))
-                    kl_coef=0.1
-
-                    kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
-
-                self.log("train/" + key + "_kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
-
-            else:
-                kl_per_token=0
+            # if key == "agent" and self.use_kl_penalty:
+            #     with torch.no_grad():
+            #         target_q = self.target_net(tokenized_agent, map_feature)[
+            #             "agent_q"]
+            #
+            #         ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+            #
+            #         # KL per token: sum_a p(a) * (log p(a) - log q(a))
+            #         kl_coef=0.01
+            #
+            #         kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
+            #
+            #     self.log("train/" + key + "_kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
+            #
+            # else:
+            kl_per_token=0
 
             returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,kl_per_token)
 
@@ -366,7 +366,7 @@ class IQ_SoftQ(LightningModule):
             #tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",train_mask,None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -401,7 +401,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",train_mask)
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid)
 
 
                 # if self.buffer_len>1:
@@ -494,15 +494,9 @@ class IQ_SoftQ(LightningModule):
                 else:
                     agent_returns=agent_returns[all_valid]
                     self.running_meanstd.update(agent_returns.reshape(-1))
-
                     advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
-                    #
                     self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
                     self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
-                    #
-                    # advantages= (agent_returns - agent_returns.mean()) / (agent_returns.std() + 1e-5)#F.normalize(agent_returns,dim=0)#
-                    #
-                    # advantages=torch.clamp_(advantages, min=-1.0, max=1.0)
                     value_loss=0
 
 
@@ -529,6 +523,30 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
                 expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+
+                if self.use_kl_penalty:
+                    with torch.no_grad():
+                        target_q = self.target_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[
+                            "agent_q"]
+
+                        ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+
+                        # KL per token: sum_a p(a) * (log p(a) - log q(a))
+                        kl_coef=0.1
+
+                        kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()  # (B,T)
+
+                        self.log("train/kl_penalty", kl_per_token.item(), on_step=True, batch_size=1)
+
+                        expert_nll=expert_nll+kl_per_token
+                        # dist=torch.distributions.Categorical(
+                        #     probs=agent_pi)
+                        #
+                        # kl_loss = torch.distributions.kl_divergence(dist, torch.distributions.Categorical(
+                        #     logits=target_q / self.alpha))
+
+                        #print(1)
+
 
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
