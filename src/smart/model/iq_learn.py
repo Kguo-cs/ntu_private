@@ -375,7 +375,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid)
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",train_mask)
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
