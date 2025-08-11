@@ -341,7 +341,7 @@ class IQ_SoftQ(LightningModule):
             #tokenized_agent["train_mask"]= train_mask
 
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",train_mask,None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -368,16 +368,14 @@ class IQ_SoftQ(LightningModule):
 
                 # tokenized_agent_rollout["train_mask"]=None
 
-            val_train_mask=None
-
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, train_mask,key='agent')
+                tokenized_map, tokenized_agent_rollout, None,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",train_mask)
+                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid)
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
@@ -467,7 +465,7 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:
-                    agent_returns=agent_returns[all_valid]
+                    #agent_returns=agent_returns[all_valid]
                     self.running_meanstd.update(agent_returns.reshape(-1))
 
                     advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
@@ -492,7 +490,7 @@ class IQ_SoftQ(LightningModule):
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
                 else:
-                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()
+                    agent_wNLL=-(agent_log_prob*advantages).mean()#[all_valid]
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
