@@ -35,7 +35,6 @@ class EdgeEncoder(nn.Module):
         )
 
         if a2a:
-
             self.r_a2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_a2a,
                 hidden_dim=hidden_dim,

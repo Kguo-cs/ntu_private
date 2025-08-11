@@ -256,16 +256,49 @@ class IQ_SoftQ(LightningModule):
                                                         tokenized_agent,
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
-                                                        None)[0][:, :, 0]
+                                                        None)[0]
+        if len(logit)==3:
 
-        disc_val = torch.sigmoid(logit)
+            logit,mu,sigma=logit
+            disc_val = torch.sigmoid(logit[:, :, 0])
+
+            if key == "agent":
+                with torch.no_grad():
+                    self.encoder.discriminator.eval()
+
+                    logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                                     tokenized_agent["goal_idx"],
+                                                                     tokenized_agent["valid_mask"],
+                                                                     tokenized_agent["sampled_pos"],
+                                                                     tokenized_agent["sampled_heading"],
+                                                                     tokenized_agent,
+                                                                     map_feature,
+                                                                     tokenized_agent["light_idx"],
+                                                                     None)[0]
+                    logit, mu, sigma = logit
+
+                    returns, rewards = self.running_meanstd.get_return(torch.sigmoid(logit[:, :, 0]), self.gamma, key,
+                                                                       reward_type=self.reward_type)
+                    self.encoder.discriminator.train()
+            else:
+                returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma, key,
+                                                                   reward_type=self.reward_type)
+
+            bottleneck_loss =  torch.mean(-sigma+(torch.square(mu)+torch.square(torch.exp(sigma))-1.)/2.) #self.get_latent_kl_div(mu,sigma)
+
+
+
+        else:
+            disc_val = torch.sigmoid(logit[:, :, 0])
+            returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
+
+            bottleneck_loss=0
 
         # exp_f=logit.exp()
         #
         # disc_val=exp_f/(exp_f + torch.exp(log_prob.detach()))
 
 
-        returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,key,reward_type=self.reward_type)
 
         if train_mask is not None:
             disc_val=disc_val[train_mask]
@@ -281,8 +314,9 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_bottleneck_loss", bottleneck_loss.item(), on_step=True, batch_size=1)
 
-        return bce_loss,rewards,returns,logit
+        return bce_loss+bottleneck_loss,rewards,returns,logit
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]

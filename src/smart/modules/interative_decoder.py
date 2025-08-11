@@ -111,6 +111,7 @@ class InterativeDecoder(nn.Module):
 
         self.state_action = False
         self.reward_shaping = True
+        self.use_bottleneck = False
 
         self.discriminator=discriminator
 
@@ -119,6 +120,13 @@ class InterativeDecoder(nn.Module):
                 self.reward_net = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
+
+            self.use_bottleneck=True
+
+            if self.use_bottleneck:
+                z_dim=self.hidden_dim//2
+                # self.a2pl_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
+                self.a2a_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
 
     def forward(self,all_features,map_feature,train_mask ):
         feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
@@ -145,6 +153,8 @@ class InterativeDecoder(nn.Module):
             train_mask=train_mask
         )
 
+
+
         feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
@@ -161,6 +171,18 @@ class InterativeDecoder(nn.Module):
             vis_mask=None
             #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+        if self.use_bottleneck:
+            mu,sigma=r_a2a.chunk(2,dim=-1)
+
+            if self.training:
+                std = torch.exp(sigma / 2)
+                eps = torch.randn_like(std)
+                z=mu+eps*std
+            else:
+                z=mu
+
+            r_a2a=self.a2a_linear(z)
 
         for layer_i in range(self.num_layers):
             # if layer_i == self.num_layers - 1 and train_mask is not None :
@@ -216,7 +238,7 @@ class InterativeDecoder(nn.Module):
         next_token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.reward_shaping:
-            r=self.reward_net(feat_a[:, :-1]+ agent_token_emb )
+            r=self.reward_net(feat_a[:, 1:] )#+ agent_token_emb
             v_s=next_token_logits[:, :-1]
             v_next=next_token_logits[:,1 :]
             done=torch.ones_like(v_s)
@@ -226,6 +248,9 @@ class InterativeDecoder(nn.Module):
         # next_token_logits=torch.zeros([n_agent,n_step,token_logits.shape[-1]],device=feat_a.device)
         #
         # next_token_logits[mask_a]=token_logits
+
+        if self.use_bottleneck:
+            next_token_logits=(next_token_logits,mu,sigma)
 
         return next_token_logits,feat_a,proposal
 

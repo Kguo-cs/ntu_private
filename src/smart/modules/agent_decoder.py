@@ -185,7 +185,7 @@ class SMARTAgentDecoder(nn.Module):
                 feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             feat_lg_t=None
 
-        if self.training:
+        if self.training or self.discriminator:
             n_step=n_step-self.start_step
             pos_a=pos_a[:,-n_step:]
             head_a=head_a[:,-n_step:]
@@ -263,15 +263,15 @@ class SMARTAgentDecoder(nn.Module):
 
             # tokenized_agent["detach_all_features"]=[feature.detach() for feature in next_all_features]
 
-            if not self.training:
-                all_features=next_all_features
-
             if self.discriminator:
                 batch_s = build_batch(batch_a, tokenized_agent["num_graphs"],n_step).reshape(-1, n_agent).transpose(
                     0, 1)
 
                 all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:]]
             else:
+                if not self.training:
+                    all_features=next_all_features
+
                 all_features.append(None)
         else:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
