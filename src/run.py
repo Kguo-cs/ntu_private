@@ -121,7 +121,7 @@ def run(cfg: DictConfig) -> None:
     elif cfg.action == "finetune":
         log.info("Starting finetuning!")
         model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
-        model.target_net.load_state_dict(model.encoder.agent_encoder.state_dict())
+        #model.target_net.load_state_dict(model.encoder.agent_encoder.state_dict())
         trainer.fit(model=model, datamodule=datamodule)
     elif cfg.action == "validate":
         log.info("Starting validating!")
