@@ -185,6 +185,9 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
+        self.log("train/"+key+"_a_ratio", self.encoder.agent_encoder.interative_decoder.a_ratio.item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_pt_ratio", self.encoder.agent_encoder.interative_decoder.pt_ratio.item(), on_step=True, batch_size=1)
+
         if self.iq_learn and not self.use_gail:
             action_nll=0
 
@@ -355,6 +358,7 @@ class IQ_SoftQ(LightningModule):
                 self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
         expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+
 
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False

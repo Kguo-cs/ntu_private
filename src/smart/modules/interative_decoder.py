@@ -186,6 +186,9 @@ class InterativeDecoder(nn.Module):
 
             r_a2a=self.a2a_linear(z)
 
+        n_a=len(r_a2a)
+        n_pt=len(r_pl2a)
+
         for layer_i in range(self.num_layers):
             # if layer_i == self.num_layers - 1 and train_mask is not None :
             #     feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
@@ -195,7 +198,7 @@ class InterativeDecoder(nn.Module):
 
             feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            if self.num_layers>1:
+            if self.num_layers>1 and layer_i<self.num_layers-1:
                 a2a_mask=a2a_attn>0.1
                 r_a2a=r_a2a[a2a_mask]
                 edge_index_a2a=edge_index_a2a[:,a2a_mask]
@@ -204,6 +207,10 @@ class InterativeDecoder(nn.Module):
 
                 r_pl2a=r_pl2a[pt_mask]
                 edge_index_pl2a=edge_index_pl2a[:,pt_mask]
+
+        if self.num_layers>1:
+            self.a_ratio=len(r_a2a)/n_a
+            self.pt_ratio=len(r_pl2a)/n_pt
 
         feat_a = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
         proposal=None
