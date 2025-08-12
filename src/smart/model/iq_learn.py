@@ -185,8 +185,9 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
-        self.log("train/"+key+"_a_ratio", self.encoder.agent_encoder.interative_decoder.a_ratio.item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_pt_ratio", self.encoder.agent_encoder.interative_decoder.pt_ratio.item(), on_step=True, batch_size=1)
+        if self.encoder.agent_encoder.interative_decoder.filter_ratio>0:
+            self.log("train/"+key+"_a_ratio", self.encoder.agent_encoder.interative_decoder.a_ratio, on_step=True, batch_size=1)
+            self.log("train/"+key+"_pt_ratio", self.encoder.agent_encoder.interative_decoder.pt_ratio, on_step=True, batch_size=1)
 
         if self.iq_learn and not self.use_gail:
             action_nll=0

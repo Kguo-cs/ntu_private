@@ -115,6 +115,8 @@ class InterativeDecoder(nn.Module):
 
         self.discriminator=discriminator
 
+        self.filter_ratio=0.1
+
         if self.discriminator:
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(
@@ -198,12 +200,12 @@ class InterativeDecoder(nn.Module):
 
             feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            if self.num_layers>1 and layer_i<self.num_layers-1:
-                a2a_mask=a2a_attn>0.1
+            if layer_i<self.num_layers-1 and self.filter_ratio>0:
+                a2a_mask=a2a_attn>self.filter_ratio
                 r_a2a=r_a2a[a2a_mask]
                 edge_index_a2a=edge_index_a2a[:,a2a_mask]
 
-                pt_mask=pt_attn>0.1
+                pt_mask=pt_attn>self.filter_ratio
 
                 r_pl2a=r_pl2a[pt_mask]
                 edge_index_pl2a=edge_index_pl2a[:,pt_mask]
