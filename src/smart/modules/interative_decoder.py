@@ -115,7 +115,7 @@ class InterativeDecoder(nn.Module):
 
         self.discriminator=discriminator
 
-        self.filter_ratio=0.1
+        self.filter_ratio=0
 
         if self.discriminator:
             if  self.reward_shaping:
