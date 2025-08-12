@@ -136,7 +136,7 @@ class SMARTAgentDecoder(nn.Module):
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
-        self.use_kl_penalty=False
+        self.use_kl_penalty=True
 
         if self.pred_vis:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
