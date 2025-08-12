@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-#ckpt_path : './ckpts/bc128_l2_epoch=25-step=98930-val_closed_wosac=0.7771.ckpt'#'./ckpts/bc64_pt20_map_epoch=19-step=152200-val_closed_wosac=0.7689.ckpt'
+ckpt_path : '/home/ke/code/catk/src/logs/bc32_histdrop01_mask01/2025-08-12_15-58-53/sim/9nbcwrbu/checkpoints/epoch=4-step=76095.ckpt'
 
 trainer:
   limit_train_batches: 1.0
