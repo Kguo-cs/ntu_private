@@ -146,7 +146,7 @@ class SMARTMapDecoder(nn.Module):
                             self.pt2pt_neighbor,
                         )
 
-        edge_pt = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
+        edge_pt,_ = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
 
         x_pt=edge_pt
         pos_pt=pos_edge

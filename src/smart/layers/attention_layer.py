@@ -72,7 +72,7 @@ class AttentionLayer(MessagePassing):
             r = self.attn_prenorm_r(r)
         x = x + self.attn_postnorm(self._attn_block(x_src, x_dst, r, edge_index))
         x = x + self.ff_postnorm(self._ff_block(self.ff_prenorm(x)))
-        return x
+        return x,self.attention_weight
 
     def message(
         self,
@@ -88,7 +88,7 @@ class AttentionLayer(MessagePassing):
             v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
         sim = (q_i * k_j).sum(dim=-1) * self.scale
         attn = softmax(sim, index, ptr)
-        self.attention_weight = attn.sum(-1).detach()
+        self.attention_weight = attn.amax(-1).detach()
         attn = self.attn_drop(attn)
         return v_j * attn.unsqueeze(-1)
 
