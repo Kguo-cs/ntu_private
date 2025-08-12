@@ -56,7 +56,7 @@ class RunningMeanStdTorch(nn.Module):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
         return res
 
-    def get_return(self,s, gamma,kl_per_token, eps=1e-20, reward_type="gail"):
+    def get_return(self,s, gamma,kl_per_token, eps=1e-20, reward_type="airl"):
 
         s = s.detach()
 
