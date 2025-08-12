@@ -110,12 +110,12 @@ class InterativeDecoder(nn.Module):
         self.token_processor=token_processor
 
         self.state_action = False
-        self.reward_shaping = True
+        self.reward_shaping = False
         self.use_bottleneck = False
 
         self.discriminator=discriminator
 
-        self.filter_ratio=0.1
+        self.filter_ratio=0
 
         if self.discriminator:
             if  self.reward_shaping:
