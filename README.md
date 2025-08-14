@@ -158,3 +158,6 @@ nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 
 https://github.com/seolhokim/InverseRL-Pytorch/tree/main
 # VAIL 
+
+all2_clean
+
