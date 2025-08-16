@@ -455,7 +455,7 @@ class IQ_SoftQ(LightningModule):
 
                     vf_loss = torch.pow(returns - value_pred, 2.0)
 
-                    value_loss = torch.clamp(vf_loss, 0, 10).mean()
+                    value_loss = torch.clamp(vf_loss, 0, 100).mean()
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
