@@ -448,13 +448,14 @@ class IQ_SoftQ(LightningModule):
                                                                      tokenized_agent_rollout,
                                                                      tokenized_agent_rollout["detach_map_feature"],
                                                                      tokenized_agent_rollout["light_idx"],
-                                                                     None)[0][:, :, 0]
+                                                                     None)[0][:, :, 0][all_valid]
 
-                    advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)
+                    advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
 
-                    value_loss = 0.5 * (returns - value_pred).pow(2).mean()
 
-                    value_loss = torch.clamp(value_loss, 0, 10)
+                    vf_loss = torch.pow(returns - value_pred, 2.0)
+
+                    value_loss = torch.clamp(vf_loss, 0, 10).mean()
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
