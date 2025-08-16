@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-ckpt_path : '~/code/sim/src/logs/bc32_histdrop01_clean/2025-08-15_08-47-06/sim/h0uztue8/checkpoints/epoch=24-step=380475.ckpt'
+#ckpt_path : '~/code/sim/src/logs/bc32_histdrop01_clean/2025-08-15_08-47-06/sim/h0uztue8/checkpoints/epoch=24-step=380475.ckpt'
 
 trainer:
   limit_train_batches: 1.0
