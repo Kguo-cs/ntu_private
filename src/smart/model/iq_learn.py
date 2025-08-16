@@ -453,6 +453,9 @@ class IQ_SoftQ(LightningModule):
                     advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)
 
                     value_loss = 0.5 * (returns - value_pred).pow(2).mean()
+
+                    value_loss = torch.clamp(value_loss, 0, 10)
+
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 elif self.encoder.use_critic:
