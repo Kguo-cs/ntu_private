@@ -90,8 +90,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-       # if not discriminator:
-        self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
+        if not discriminator:
+           self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
@@ -141,6 +141,14 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_vis:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
+        if not discriminator:
+            self.use_lcf=True
+
+            if self.use_lcf:
+                self.lcf_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
+
+
+
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)
@@ -184,10 +192,10 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_t=feat_a_lg_t[:len(mask)]
             feat_lg_t=feat_a_lg_t[len(mask):]
         else:
-            # if self.discriminator:
-            #     feat_a_t=feat_a_token
-            # else:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
+            if self.discriminator:
+                feat_a_t=feat_a_token
+            else:
+                feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             feat_lg_t=None
 
         if self.training or self.discriminator:
@@ -299,12 +307,14 @@ class SMARTAgentDecoder(nn.Module):
         else:
             next_goal_logits=[]
 
+
+
         # visibility=None
         #
         # if self.pred_vis:
         #     visibility=self.vis_head(feat_a.detach())
 
-        return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,next_goal_logits
+        return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,feat_a
 
     def forward(
             self,
@@ -326,7 +336,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_lg=light_idx<self.light_type
 
-        next_token_logits,next_light_logits,feat_a_token,proposal,next_goal_logits= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,next_light_logits,feat_a_token,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["goal_idx"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -338,15 +348,21 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 vis_mask=tokenized_agent["vis_mask"],
                                                                                 post_sampling=post_sampling)
 
+        if self.use_lcf:
+            lcf=torch.sigmoid(self.lcf_head(feat_a))*torch.pi/2
+        else:
+            lcf=None
+
+
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
-        tokenized_agent["next_goal_logits"] = next_goal_logits
+        tokenized_agent["lcf"] = lcf
         tokenized_agent["proposal"] = proposal
         tokenized_agent["feat_a_token"]=feat_a_token
 
         return {
             "proposal":proposal,#[:,:-1],
-            "goal_q":next_goal_logits,
+            "goal_q":None,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
          }

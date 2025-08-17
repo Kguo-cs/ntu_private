@@ -65,9 +65,14 @@ class IQ_SoftQ(LightningModule):
         if self.use_gail:
             self.running_meanstd=RunningMeanStdTorch(shape=(1))
 
-        self.use_lcf=True
+        self.use_lcf=self.encoder.agent_encoder.use_lcf
 
-    def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
+        # if self.use_lcf:
+        #     lcf_parameters = [0.0, np.log(0.1)]
+        #
+        #     self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
+
+    def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
         action = action.unsqueeze(-1)  # .reshape(-1)
 
@@ -218,20 +223,20 @@ class IQ_SoftQ(LightningModule):
         #     vis_nll=-vis_log_prob.mean()
         #     self.log("train/"+key+"_vis_nll", vis_nll.item(), on_step=True, batch_size=1)
 
-        if len(pred["goal_q"]):
-            goal_idx=tokenized_agent["goal_idx"][:, 2:]
-
-            log_prob_goal,goal_logpi=self.get_network_QV(pred["goal_q"], tokenized_map, tokenized_agent,goal_idx,key)[:2]
-
-            if key == "expert":
-                goal_nll=-log_prob_goal[train_mask].mean()
-                self.log("train/" + key + "_goal_nll", goal_nll.item(), on_step=True, batch_size=1)
-            else:
-                log_prob=log_prob_goal+log_prob
-                goal_nll=0
-
-        else:
-            goal_nll=0
+        # if len(pred["goal_q"]):
+        #     goal_idx=tokenized_agent["goal_idx"][:, 2:]
+        #
+        #     log_prob_goal,goal_logpi=self.get_network_QV(pred["goal_q"], tokenized_map, tokenized_agent,goal_idx,key)[:2]
+        #
+        #     if key == "expert":
+        #         goal_nll=-log_prob_goal[train_mask].mean()
+        #         self.log("train/" + key + "_goal_nll", goal_nll.item(), on_step=True, batch_size=1)
+        #     else:
+        #         log_prob=log_prob_goal+log_prob
+        #         goal_nll=0
+        #
+        # else:
+        #     goal_nll=0
 
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
@@ -247,7 +252,7 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        return  reward,value_loss,pi,action_nll+light_nll+goal_nll,current_Q,proposal_loss,log_prob,entropy
+        return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,agent_mask=None):
 
@@ -324,25 +329,42 @@ class IQ_SoftQ(LightningModule):
             else:
                 kl_per_token=0
 
-            rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
+            with torch.no_grad():
 
-            returns = self.running_meanstd.get_return(rewards, self.gamma)
+                rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
 
-            if key == "agent" and self.use_lcf:
-                batch=tokenized_agent["batch"]
-                global_rewards=scatter_mean(rewards,batch,dim=0)
-                #global_rewards_per_agent = global_rewards[batch]  # [N]
+                returns = self.running_meanstd.get_return(rewards, self.gamma)
 
-                self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
+                if key == "agent" and self.use_lcf:
 
+                    batch=tokenized_agent["batch"]
+                    global_rewards=scatter_mean(rewards,batch,dim=0)
+                    global_rewards_per_agent = global_rewards[batch]  # [N]
+                    self.global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
 
-                nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
-                self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
+                    #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
 
-                lcf=0.5* np.pi / 2
+                    nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
+                    self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
-                returns=np.cos(lcf)*returns+nei_returns*np.sin(lcf)
+                    # current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
+                    # current_lcf_std = torch.exp(torch.clamp(self.lcf_parameters[1], -20, 2))
+                    #
+                    # self.log("train/" + key + "_lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
+                    # self.log("train/" + key + "_lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
+                    #
+                    # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
+                    # step_lcf = torch.clamp(lcf, -1, 1)
+                    # # Note: step_lcf is in [-1, 1]
+                    # used_lcf = step_lcf * np.pi / 2
 
+                    used_lcf=tokenized_agent["lcf"][:,:,0]
+
+                    returns=torch.cos(used_lcf)*returns+torch.sin(used_lcf)*nei_returns
+
+                    # self._raw_lcf_adv_mean = returns.mean()
+                    # self._raw_lcf_adv_std = max(1e-4, returns.std())
 
             bottleneck_loss=0
 
@@ -523,6 +545,16 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
                     value_loss=0
 
+                    # if self.use_lcf:
+                    #     global_returns=self.global_returns[all_valid]
+                    #     global_advantages=(global_returns - global_returns.mean()) / (global_returns.std() + 1e-8)
+                    #
+                    #     new_policy_loss=-(agent_log_prob[all_valid]*global_advantages).mean()
+                    #
+                    #     self.encoder.agent_encoder.
+                    #
+                    #     new_policy_grad=torch.autograd.grad(new_policy_loss,self.encoder.agent_encoder.parameters())
+                    #     new_policy_grad = [g for g in new_policy_grad if g is not None]
 
                 if self.rollout_freq>1:
                     prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
