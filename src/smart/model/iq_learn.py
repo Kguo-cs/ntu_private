@@ -325,14 +325,14 @@ class IQ_SoftQ(LightningModule):
 
             rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
 
+            returns = self.running_meanstd.get_return(rewards, self.gamma)
+
             if key == "agent" and self.use_lcf:
 
-                neighbor_mean_rewards=self.running_meanstd.get_nei_reward(tokenized_agent,rewards)
-                self.log("train/" + key + "_nei_rewards", neighbor_mean_rewards.mean().item(), on_step=True, batch_size=1)
+                nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
+                self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
-                rewards=0.75*rewards+neighbor_mean_rewards*0.25
-
-            returns = self.running_meanstd.get_return(rewards, self.gamma)
+                returns=0.75*returns+nei_returns*0.25
 
             bottleneck_loss=0
 
