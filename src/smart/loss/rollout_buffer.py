@@ -9,6 +9,17 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 
+def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
+    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
+    row, col = edge_index
+    distances = (x[col] - x[row]).norm(dim=1)
+    mask = distances <= r
+    # Step 2: Get relative vectors: y - x (N_edges, 2)
+
+    final_edge_index = edge_index[:, mask]
+
+    return final_edge_index
+
 class RunningMeanStdTorch(nn.Module):
     def __init__(self, shape=(), epsilon=1e-4):
         super().__init__()
@@ -56,8 +67,7 @@ class RunningMeanStdTorch(nn.Module):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
         return res
 
-    def get_return(self,s, gamma,kl_per_token, eps=1e-20, reward_type="airl"):
-
+    def get_reward(self,s,kl_per_token, eps=1e-20, reward_type="airl"):
         s = s.detach()
 
         if reward_type == 'airl':
@@ -79,7 +89,6 @@ class RunningMeanStdTorch(nn.Module):
             rewards = d_x + (-1 - (-d_x).log())
 
         rewards=rewards-kl_per_token
-
         # if key=='agent':
         #
         #     self.update(rewards.reshape(-1))
@@ -90,6 +99,11 @@ class RunningMeanStdTorch(nn.Module):
 
         # rewards=F.normalize(rewards,dim=0)
 
+        return rewards
+
+
+    def get_return(self,rewards, gamma):
+
         returns = torch.zeros_like(rewards)
         running_return = returns[:, -1]
 
@@ -97,17 +111,30 @@ class RunningMeanStdTorch(nn.Module):
             running_return = rewards[:, i] + gamma * running_return
             returns[:, i] = running_return
 
-        # dones = torch.zeros_like(rewards)
-        # dones[:,-1]=1
-        # * (1.0 - dones[:, i])
+        return returns
 
-        # returns1 = torch.zeros_like(rewards)
-        # R = 0
-        # for t in reversed(range(len(rewards))):
-        #     R = rewards[t] + gamma * R * (1.0 - dones[t])
-        #     returns1[t] = R
+    def get_nei_reward(self,tokenized_agent,reward,neighbor_dist=10):
+        pos = tokenized_agent["sampled_pos"][:,1:-1]
+        batch = tokenized_agent["batch"]
 
-        return returns, rewards
+        M = pos.size(0)
+
+        # Pairwise distances [M, M]
+        diff = pos.unsqueeze(1) - pos.unsqueeze(0)  # [M, M, 2]
+        dist = torch.norm(diff, dim=-1)  # [M, M]
+
+        # Mask: same batch & within distance & not self
+        same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
+        within_dist = dist < neighbor_dist
+        not_self = ~torch.eye(M, dtype=torch.bool,device=pos.device)
+        mask = same_batch[:,:,None] & within_dist & not_self[:,:,None]
+
+        # Gather neighbor rewards
+        neighbor_rewards = (mask * reward.unsqueeze(0)).sum(dim=1)  # [M]
+        neighbor_counts = mask.sum(dim=1)
+        neighbor_mean_rewards = neighbor_rewards / (neighbor_counts+1e-6)
+
+        return neighbor_mean_rewards
 
 
 class ReplayBuffer:

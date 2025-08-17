@@ -59,11 +59,12 @@ class IQ_SoftQ(LightningModule):
             for param in self.target_net.parameters():
                 param.requires_grad = False
 
-
         self.reward_type='airl'
 
         if self.use_gail:
             self.running_meanstd=RunningMeanStdTorch(shape=(1))
+
+        self.use_lcf=True
 
     def get_network_QV(self,q_value,tokenized_map, tokenized_agent,action,key):
 
@@ -322,7 +323,16 @@ class IQ_SoftQ(LightningModule):
             else:
                 kl_per_token=0
 
-            returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma,kl_per_token)
+            rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
+
+            if key == "agent" and self.use_lcf:
+
+                neighbor_mean_rewards=self.running_meanstd.get_nei_reward(tokenized_agent,rewards)
+                self.log("train/" + key + "_nei_rewards", neighbor_mean_rewards.mean().item(), on_step=True, batch_size=1)
+
+                rewards=0.5*rewards+neighbor_mean_rewards*0.5
+
+            returns = self.running_meanstd.get_return(rewards, self.gamma)
 
             bottleneck_loss=0
 
@@ -360,7 +370,6 @@ class IQ_SoftQ(LightningModule):
 
         expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
-
         if self.iq_learn:
             # self.encoder.agent_encoder.pred_light=False
 
@@ -393,12 +402,10 @@ class IQ_SoftQ(LightningModule):
             else:
                 tokenized_map=self.tokenized_map
                 tokenized_agent_rollout=self.tokenized_agent_rollout
-
                 # tokenized_agent_rollout["train_mask"]=None
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
-
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
