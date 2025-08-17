@@ -330,7 +330,7 @@ class IQ_SoftQ(LightningModule):
                 neighbor_mean_rewards=self.running_meanstd.get_nei_reward(tokenized_agent,rewards)
                 self.log("train/" + key + "_nei_rewards", neighbor_mean_rewards.mean().item(), on_step=True, batch_size=1)
 
-                rewards=0.5*rewards+neighbor_mean_rewards*0.5
+                rewards=0.75*rewards+neighbor_mean_rewards*0.25
 
             returns = self.running_meanstd.get_return(rewards, self.gamma)
 
