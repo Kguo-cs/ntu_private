@@ -191,6 +191,8 @@ class InterativeDecoder(nn.Module):
         n_a=len(r_a2a)
         n_pt=len(r_pl2a)
 
+        a2a_list=[]
+
         for layer_i in range(self.num_layers):
             # if layer_i == self.num_layers - 1 and train_mask is not None :
             #     feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
@@ -209,6 +211,10 @@ class InterativeDecoder(nn.Module):
 
                 r_pl2a=r_pl2a[pt_mask]
                 edge_index_pl2a=edge_index_pl2a[:,pt_mask]
+
+            a2a_list.append(a2a_attn)
+
+        a2a_feature=torch.cat(a2a_list,dim=-1)
 
         if self.num_layers>1:
             self.a_ratio=len(r_a2a)/n_a
@@ -273,7 +279,7 @@ class InterativeDecoder(nn.Module):
         if self.use_bottleneck:
             next_token_logits=(next_token_logits,mu,sigma)
 
-        return next_token_logits,feat_a,proposal
+        return next_token_logits,feat_a,proposal,a2a_feature,edge_index_a2a
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)

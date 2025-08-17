@@ -329,35 +329,36 @@ class IQ_SoftQ(LightningModule):
             else:
                 kl_per_token=0
 
-            with torch.no_grad():
+                with torch.no_grad():
 
-                rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
+                    rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
 
-                returns = self.running_meanstd.get_return(rewards, self.gamma)
+                    returns = self.running_meanstd.get_return(rewards, self.gamma)
 
                 if key == "agent" and self.use_lcf:
+                    with torch.no_grad():
 
-                    batch=tokenized_agent["batch"]
-                    global_rewards=scatter_mean(rewards,batch,dim=0)
-                    global_rewards_per_agent = global_rewards[batch]  # [N]
-                    self.global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
+                        batch = tokenized_agent["batch"]
+                        global_rewards=scatter_mean(rewards,batch,dim=0)
+                        global_rewards_per_agent = global_rewards[batch]  # [N]
+                        self.global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
 
-                    self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
-                    #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
+                        self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
+                        #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
 
-                    nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
-                    self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
+                        nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
+                        self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
-                    # current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
-                    # current_lcf_std = torch.exp(torch.clamp(self.lcf_parameters[1], -20, 2))
-                    #
-                    # self.log("train/" + key + "_lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
-                    # self.log("train/" + key + "_lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
-                    #
-                    # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
-                    # step_lcf = torch.clamp(lcf, -1, 1)
-                    # # Note: step_lcf is in [-1, 1]
-                    # used_lcf = step_lcf * np.pi / 2
+                        # current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
+                        # current_lcf_std = torch.exp(torch.clamp(self.lcf_parameters[1], -20, 2))
+                        #
+                        # self.log("train/" + key + "_lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
+                        # self.log("train/" + key + "_lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
+                        #
+                        # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
+                        # step_lcf = torch.clamp(lcf, -1, 1)
+                        # # Note: step_lcf is in [-1, 1]
+                        # used_lcf = step_lcf * np.pi / 2
 
                     used_lcf=tokenized_agent["lcf"][:,:,0]
 
@@ -542,7 +543,7 @@ class IQ_SoftQ(LightningModule):
 
                 else:
                     agent_returns=agent_returns[all_valid]
-                    self.running_meanstd.update(agent_returns.reshape(-1))
+                    self.running_meanstd.update(agent_returns.reshape(-1).detach())
                     advantages=self.running_meanstd.normalize(agent_returns.reshape(-1)).reshape(agent_returns.shape)
                     self.log("train/running_mean", self.running_meanstd.mean, on_step=True, batch_size=1)
                     self.log("train/running_var", self.running_meanstd.var, on_step=True, batch_size=1)
