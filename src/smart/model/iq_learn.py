@@ -358,14 +358,16 @@ class IQ_SoftQ(LightningModule):
                         # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
                         # step_lcf = torch.clamp(lcf, -1, 1)
                         # # Note: step_lcf is in [-1, 1]
-                        # used_lcf = step_lcf * np.pi / 2
 
-                    used_lcf=tokenized_agent["lcf"][:,:,0]
+                        step_lcf=0.5
+                        #used_lcf = step_lcf * np.pi / 2
 
-                    self.log("train/" + key + "_lcf_mean", used_lcf.mean(), on_step=True, batch_size=1)
-                    self.log("train/" + key + "_lcf_std", used_lcf.std(), on_step=True, batch_size=1)
+                        # used_lcf=tokenized_agent["lcf"][:,:,0]
+                        #
+                        # self.log("train/" + key + "_lcf_mean", torch.cos(used_lcf).mean(), on_step=True, batch_size=1)
+                        # self.log("train/" + key + "_lcf_std", torch.cos(used_lcf).std(), on_step=True, batch_size=1)
 
-                    returns=torch.cos(used_lcf)*returns+torch.sin(used_lcf)*nei_returns
+                        returns=0.5*returns+0.5*nei_returns
 
                     # self._raw_lcf_adv_mean = returns.mean()
                     # self._raw_lcf_adv_std = max(1e-4, returns.std())

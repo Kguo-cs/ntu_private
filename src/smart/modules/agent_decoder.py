@@ -348,15 +348,15 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 vis_mask=tokenized_agent["vis_mask"],
                                                                                 post_sampling=post_sampling)
 
-        if self.use_lcf:
-            lcf=torch.sigmoid(self.lcf_head(feat_a))*torch.pi/2
-        else:
-            lcf=None
+        # if self.use_lcf:
+        #     lcf=torch.sigmoid(self.lcf_head(feat_a))*torch.pi/2
+        # else:
+        #     lcf=None
 
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
-        tokenized_agent["lcf"] = lcf
+        tokenized_agent["lcf"] = 0.5
         tokenized_agent["proposal"] = proposal
         tokenized_agent["feat_a_token"]=feat_a_token
 
