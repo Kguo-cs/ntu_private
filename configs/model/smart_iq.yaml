@@ -13,9 +13,9 @@ model_config:
     num_agent_layers: 3
     pl2pl_radius: 20
     pl2a_radius: 40
-    a2a_radius: 70
+    a2a_radius: 60
     dropout: 0
-    hist_drop_prob: 0.1
+    hist_drop_prob: 0
     pt2pt_neighbor: 20
     pt2a_neighbor: 20
     a2a_neighbor: 20
