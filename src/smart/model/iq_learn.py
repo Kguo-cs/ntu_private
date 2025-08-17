@@ -18,6 +18,7 @@ from collections import deque
 import random
 import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch
+from torch_scatter import scatter_mean
 
 class IQ_SoftQ(LightningModule):
 
@@ -328,11 +329,20 @@ class IQ_SoftQ(LightningModule):
             returns = self.running_meanstd.get_return(rewards, self.gamma)
 
             if key == "agent" and self.use_lcf:
+                batch=tokenized_agent["batch"]
+                global_rewards=scatter_mean(rewards,batch,dim=0)
+                #global_rewards_per_agent = global_rewards[batch]  # [N]
+
+                self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
+
 
                 nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
                 self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
-                returns=0.75*returns+nei_returns*0.25
+                lcf=0.5* np.pi / 2
+
+                returns=np.cos(lcf)*returns+nei_returns*np.sin(lcf)
+
 
             bottleneck_loss=0
 
