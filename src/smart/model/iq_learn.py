@@ -67,7 +67,7 @@ class IQ_SoftQ(LightningModule):
             self.ego_return_meanstd=RunningMeanStdTorch(shape=(1,))
             self.global_return_meanstd=RunningMeanStdTorch(shape=(1,))
 
-        self.use_lcf=False#self.encoder.agent_encoder.use_lcf
+        self.use_lcf=self.encoder.agent_encoder.use_lcf
 
         # if self.use_lcf:
         #     lcf_parameters = [0.0, np.log(0.1)]
@@ -337,7 +337,7 @@ class IQ_SoftQ(LightningModule):
 
                     returns = get_return(rewards, self.gamma)
 
-                if  self.use_lcf:
+                if  self.use_lcf and not self.encoder.use_value:
                     with torch.no_grad():
 
                         batch = tokenized_agent["batch"]
@@ -515,11 +515,25 @@ class IQ_SoftQ(LightningModule):
 
                     advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
 
-                    vf_loss = torch.pow(returns - value_pred, 2.0)
+                    value_loss = torch.clamp(torch.pow(returns - value_pred, 2.0), 0, 100).mean()
 
-                    value_loss = torch.clamp(vf_loss, 0, 100).mean()
+                    if self.use_lcf:
+                        nei_rewards = get_nei_returns(tokenized_agent, agent_rewards)
+
+                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
+
+                        nei_advantages,nei_returns=compute_advantages(nei_rewards[all_valid],nei_value_pred.detach(),None,gamma=self.gamma)
+
+                        nei_value_loss = torch.clamp(torch.pow(nei_returns - nei_value_pred, 2.0), 0, 100).mean()
+
+                        value_loss= nei_value_loss+value_loss
+
+                        advantages=0.5*(advantages+nei_advantages)
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+
+
+
 
                 elif self.encoder.use_critic:
                     action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)

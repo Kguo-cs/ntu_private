@@ -152,6 +152,9 @@ class SMARTDecoder(nn.Module):
 
                 if self.use_value:
                     self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
+
+                    self.nei_value_network =MLPLayer(hidden_dim,hidden_dim,1)
+
                     # self.value_network = SMARTAgentDecoder(
                     #     hidden_dim=hidden_dim,
                     #     num_historical_steps=num_historical_steps,
