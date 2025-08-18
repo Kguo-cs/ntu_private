@@ -125,7 +125,7 @@ class EdgeEncoder(nn.Module):
                 edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                      r=max_radius,
                                                      batch=batch_s,
-                                                     loop=True,
+                                                     loop=False,
                                                      max_num_neighbors=max_num_neighbors)
         else:
             proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
