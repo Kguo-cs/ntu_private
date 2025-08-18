@@ -361,7 +361,7 @@ class SMARTAgentDecoder(nn.Module):
             "proposal":proposal,#[:,:-1],
             "goal_q":None,
             "light_q": next_light_logits,
-            "agent_q": next_token_logits[:,1:],            # action that goes from [(10->15), ..., (85->90)]
+            "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
