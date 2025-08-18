@@ -261,7 +261,7 @@ class SMARTAgentDecoder(nn.Module):
         if vis_mask is not None:
             vis_mask = vis_mask[:, -n_step:]
 
-        if n_step>1:
+        if n_step>1 and self.discriminator:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step - 1).reshape(-1,n_agent).transpose(
                 0, 1)
 
@@ -301,14 +301,10 @@ class SMARTAgentDecoder(nn.Module):
         # proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
         # proposal[mask_a]=proposal_
         # proposal=proposal.reshape([n_agent,n_step,1,5,3])
-
-        if self.pred_goal and not self.discriminator:
-            next_goal_logits=self.goal_head(feat_a.detach())
-        else:
-            next_goal_logits=[]
-
-
-
+        # if self.pred_goal and not self.discriminator:
+        #     next_goal_logits=self.goal_head(feat_a.detach())
+        # else:
+        #     next_goal_logits=[]
         # visibility=None
         #
         # if self.pred_vis:
@@ -354,8 +350,9 @@ class SMARTAgentDecoder(nn.Module):
         #     lcf=None
 
 
-        tokenized_agent["next_token_logits"] = next_token_logits
+        tokenized_agent["next_token_logits"] = next_token_logits[:,1:]
         tokenized_agent["next_light_logits"] = next_light_logits
+        tokenized_agent["feat_a"] =feat_a[:,:-1].detach()
         tokenized_agent["lcf"] = 0.5
         tokenized_agent["proposal"] = proposal
         tokenized_agent["feat_a_token"]=feat_a_token
@@ -364,7 +361,7 @@ class SMARTAgentDecoder(nn.Module):
             "proposal":proposal,#[:,:-1],
             "goal_q":None,
             "light_q": next_light_logits,
-            "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
+            "agent_q": next_token_logits[:,1:],            # action that goes from [(10->15), ..., (85->90)]
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):

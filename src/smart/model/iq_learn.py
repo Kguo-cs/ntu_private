@@ -501,15 +501,17 @@ class IQ_SoftQ(LightningModule):
                     discriminator_optimizer.step()
 
                 if self.encoder.use_value:
-                    value_pred = self.encoder.value_network.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                                     tokenized_agent_rollout["goal_idx"],
-                                                                     tokenized_agent_rollout["valid_mask"],
-                                                                     tokenized_agent_rollout["sampled_pos"],
-                                                                     tokenized_agent_rollout["sampled_heading"],
-                                                                     tokenized_agent_rollout,
-                                                                     tokenized_agent_rollout["detach_map_feature"],
-                                                                     tokenized_agent_rollout["light_idx"],
-                                                                     None)[0][:, :, 0][all_valid]
+                    # value_pred = self.encoder.value_network.predict_agent(tokenized_agent_rollout["sampled_idx"],
+                    #                                                  tokenized_agent_rollout["goal_idx"],
+                    #                                                  tokenized_agent_rollout["valid_mask"],
+                    #                                                  tokenized_agent_rollout["sampled_pos"],
+                    #                                                  tokenized_agent_rollout["sampled_heading"],
+                    #                                                  tokenized_agent_rollout,
+                    #                                                  tokenized_agent_rollout["detach_map_feature"],
+                    #                                                  tokenized_agent_rollout["light_idx"],
+                    #                                                  None)[0][:, :, 0][all_valid]
+
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 
                     advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
 
