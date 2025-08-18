@@ -63,11 +63,11 @@ class IQ_SoftQ(LightningModule):
         self.reward_type='airl'
 
         if self.use_gail:
-            self.return_meanstd=RunningMeanStdTorch(shape=(1,16))
-            self.ego_return_meanstd=RunningMeanStdTorch(shape=(1,16))
-            self.global_return_meanstd=RunningMeanStdTorch(shape=(1,16))
+            self.return_meanstd=RunningMeanStdTorch(shape=(1,))
+            self.ego_return_meanstd=RunningMeanStdTorch(shape=(1,))
+            self.global_return_meanstd=RunningMeanStdTorch(shape=(1,))
 
-        self.use_lcf=self.encoder.agent_encoder.use_lcf
+        self.use_lcf=False#self.encoder.agent_encoder.use_lcf
 
         # if self.use_lcf:
         #     lcf_parameters = [0.0, np.log(0.1)]
@@ -579,7 +579,7 @@ class IQ_SoftQ(LightningModule):
                     #     new_policy_grad=torch.autograd.grad(new_policy_loss,self.encoder.agent_encoder.parameters())
                     #     new_policy_grad = [g for g in new_policy_grad if g is not None]
 
-                self.return_meanstd.update(advantages.detach())
+                self.return_meanstd.update(advantages.detach().reshape(-1))
                 advantages=self.return_meanstd.normalize(advantages)
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
