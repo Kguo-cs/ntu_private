@@ -340,13 +340,18 @@ class IQ_SoftQ(LightningModule):
 
                         batch = tokenized_agent["batch"]
                         global_rewards=scatter_mean(rewards,batch,dim=0)
-                        global_rewards_per_agent = global_rewards[batch]  # [N]
-                        self.global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
+                        # global_rewards_per_agent = global_rewards[batch]  # [N]
+
+                        #global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
 
                         self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
+
+                        global_returns_per_agent=scatter_mean(returns,batch,dim=0)[batch]
+
+
                         #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
 
-                        nei_returns=self.running_meanstd.get_nei_reward(tokenized_agent,returns)
+                        nei_returns=self.running_meanstd.get_nei_returns(tokenized_agent,returns)
                         self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
                         # current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
@@ -371,7 +376,7 @@ class IQ_SoftQ(LightningModule):
                         # nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
 
-                        returns=0.5*returns+0.5*nei_returns
+                        returns=0.5*returns+0.5*global_returns_per_agent
 
                     # self._raw_lcf_adv_mean = returns.mean()
                     # self._raw_lcf_adv_std = max(1e-4, returns.std())

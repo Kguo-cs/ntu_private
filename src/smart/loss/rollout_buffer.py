@@ -113,7 +113,7 @@ class RunningMeanStdTorch(nn.Module):
 
         return returns
 
-    def get_nei_reward(self,tokenized_agent,reward,neighbor_dist=10):
+    def get_nei_returns(self,tokenized_agent,reward,neighbor_dist=10):
         pos = tokenized_agent["sampled_pos"][:,1:-1]
         batch = tokenized_agent["batch"]
 
