@@ -367,8 +367,8 @@ class IQ_SoftQ(LightningModule):
                         # self.log("train/" + key + "_lcf_mean", torch.cos(used_lcf).mean(), on_step=True, batch_size=1)
                         # self.log("train/" + key + "_lcf_std", torch.cos(used_lcf).std(), on_step=True, batch_size=1)
 
-                        returns=(returns-returns.mean())/(returns.std()+1e-4)
-                        nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
+                        # returns=(returns-returns.mean())/(returns.std()+1e-4)
+                        # nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
 
                         returns=0.5*returns+0.5*nei_returns
