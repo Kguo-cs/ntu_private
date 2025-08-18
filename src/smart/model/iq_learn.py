@@ -63,7 +63,9 @@ class IQ_SoftQ(LightningModule):
         self.reward_type='airl'
 
         if self.use_gail:
-            self.running_meanstd=RunningMeanStdTorch(shape=(1,16))
+            self.return_meanstd=RunningMeanStdTorch(shape=(1,16))
+            self.ego_return_meanstd=RunningMeanStdTorch(shape=(1,16))
+            self.global_return_meanstd=RunningMeanStdTorch(shape=(1,16))
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
@@ -346,7 +348,7 @@ class IQ_SoftQ(LightningModule):
 
                         self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
 
-                        global_returns_per_agent=scatter_mean(returns,batch,dim=0)[batch]
+                        global_returns=scatter_mean(returns,batch,dim=0)[batch]
 
 
                         #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
@@ -375,8 +377,13 @@ class IQ_SoftQ(LightningModule):
                         # returns=(returns-returns.mean())/(returns.std()+1e-4)
                         # nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
+                        self.ego_return_meanstd.update(returns)
+                        ego_returns = self.ego_return_meanstd.normalize(returns)
 
-                        returns=0.5*returns+0.5*global_returns_per_agent
+                        self.global_return_meanstd.update(global_returns)
+                        global_returns = self.global_return_meanstd.normalize(global_returns)
+
+                        returns=0.5*ego_returns+0.5*global_returns
 
                     # self._raw_lcf_adv_mean = returns.mean()
                     # self._raw_lcf_adv_std = max(1e-4, returns.std())
@@ -554,8 +561,8 @@ class IQ_SoftQ(LightningModule):
 
                 else:
                     agent_returns=agent_returns[all_valid]
-                    self.running_meanstd.update(agent_returns.detach())
-                    advantages=self.running_meanstd.normalize(agent_returns)
+                    self.return_meanstd.update(agent_returns.detach())
+                    advantages=self.return_meanstd.normalize(agent_returns)
                     self.log("train/running_mean", self.running_meanstd.mean.mean(), on_step=True, batch_size=1)
                     self.log("train/running_var", self.running_meanstd.var.mean(), on_step=True, batch_size=1)
                     value_loss=0
