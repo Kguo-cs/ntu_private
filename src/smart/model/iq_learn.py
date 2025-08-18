@@ -335,7 +335,7 @@ class IQ_SoftQ(LightningModule):
 
                     returns = self.running_meanstd.get_return(rewards, self.gamma)
 
-                if key == "agent" and self.use_lcf:
+                if  self.use_lcf:
                     with torch.no_grad():
 
                         batch = tokenized_agent["batch"]
@@ -359,7 +359,7 @@ class IQ_SoftQ(LightningModule):
                         # step_lcf = torch.clamp(lcf, -1, 1)
                         # # Note: step_lcf is in [-1, 1]
 
-                        step_lcf=0.5
+                        #step_lcf=0.5
                         #used_lcf = step_lcf * np.pi / 2
 
                         # used_lcf=tokenized_agent["lcf"][:,:,0]
@@ -555,6 +555,13 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/running_var", self.running_meanstd.var.mean(), on_step=True, batch_size=1)
                     value_loss=0
 
+
+                    expert_returns=expert_returns[all_valid]
+                    expert_advantages=self.running_meanstd.normalize(expert_returns)
+                    expert_wNLL=-(expert_log_prob[all_valid]*expert_advantages).mean()
+
+                    self.log("train/expert_wNLL", expert_wNLL.item(), on_step=True, batch_size=1)
+
                     # if self.use_lcf:
                     #     global_returns=self.global_returns[all_valid]
                     #     global_advantages=(global_returns - global_returns.mean()) / (global_returns.std() + 1e-8)
@@ -577,18 +584,16 @@ class IQ_SoftQ(LightningModule):
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
                 else:
-                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()#
+                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-
-                gail_weight=1 #min(self.global_step/1000,1)
 
                 agent_density=torch.cumsum(agent_log_prob,dim=1).mean() #agent_log_prob.mean() #
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + gail_weight*agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 if self.use_kl_penalty:
                     with torch.no_grad():
