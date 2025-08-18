@@ -154,6 +154,7 @@ class SMARTDecoder(nn.Module):
                     self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
                     self.nei_value_network =MLPLayer(hidden_dim,hidden_dim,1)
+                    self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
                     # self.value_network = SMARTAgentDecoder(
                     #     hidden_dim=hidden_dim,

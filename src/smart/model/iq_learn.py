@@ -43,10 +43,6 @@ class IQ_SoftQ(LightningModule):
 
         self.rollout_freq=1
 
-        # if self.use_gail:
-        #     self.automatic_optimization = False
-       # self.dis_freq=2
-        #with torch.no_grad():
         if  self.use_target_q:
             self.target_net = copy.deepcopy(self.encoder.critic)
             self.target_net.load_state_dict(self.encoder.critic.state_dict())
@@ -62,17 +58,19 @@ class IQ_SoftQ(LightningModule):
 
         self.reward_type='airl'
 
-        if self.use_gail:
-            self.return_meanstd=RunningMeanStdTorch(shape=(1,))
-            self.ego_return_meanstd=RunningMeanStdTorch(shape=(1,))
-            self.global_return_meanstd=RunningMeanStdTorch(shape=(1,))
+        if self.iq_learn and self.use_gail:
+            self.return_meanstd=RunningMeanStdTorch(shape=(1,16))
+            self.ego_return_meanstd=RunningMeanStdTorch(shape=(1,16))
+            self.global_return_meanstd=RunningMeanStdTorch(shape=(1,16))
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
-        # if self.use_lcf:
-        #     lcf_parameters = [0.0, np.log(0.1)]
-        #
-        #     self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
+        if self.use_lcf:
+            lcf_parameters = [0.0, np.log(0.1)]
+
+            self.automatic_optimization=False
+
+            self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -356,11 +354,6 @@ class IQ_SoftQ(LightningModule):
                         nei_returns=get_nei_returns(tokenized_agent,returns)
                         self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
-                        # current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
-                        # current_lcf_std = torch.exp(torch.clamp(self.lcf_parameters[1], -20, 2))
-                        #
-                        # self.log("train/" + key + "_lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
-                        # self.log("train/" + key + "_lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
                         #
                         # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
                         # step_lcf = torch.clamp(lcf, -1, 1)
@@ -411,9 +404,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
-        state_mask = valid_mask[:, :-1]
-        action_mask = valid_mask[:, 1:]
-        train_mask = state_mask & action_mask##
+        train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
         all_valid=valid_mask.all(-1)
 
@@ -425,20 +416,10 @@ class IQ_SoftQ(LightningModule):
         expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         if self.iq_learn:
-            # self.encoder.agent_encoder.pred_light=False
-
-            #train_mask = valid_mask.all(-1)
-
-            #tokenized_agent["train_mask"]= train_mask
-
             if self.use_gail:
                 expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
-
-            # torch.cuda.synchronize()
-            # tokenized_agent.update(rollout_result)
-            # tokenized_agent_rollout=tokenized_agent
 
             if self.global_step%self.rollout_freq==0:
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
@@ -485,8 +466,6 @@ class IQ_SoftQ(LightningModule):
                 #
                 # else:
 
-                if self.automatic_optimization == False:
-                    policy_optimizer, discriminator_optimizer = self.optimizers ()
 
                 if self.reward_type=="raw":
                     alpha=0.5
@@ -494,28 +473,12 @@ class IQ_SoftQ(LightningModule):
                 else:
                     critic_loss=expert_dis_loss + agent_dis_loss
 
-                if self.automatic_optimization==False:
-                    discriminator_optimizer.zero_grad()
-                    self.manual_backward(critic_loss)
-                    torch.nn.utils.clip_grad_norm_(self.encoder.discriminator.parameters(), max_norm=0.5)
-                    discriminator_optimizer.step()
-
                 if self.encoder.use_value:
-                    # value_pred = self.encoder.value_network.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                    #                                                  tokenized_agent_rollout["goal_idx"],
-                    #                                                  tokenized_agent_rollout["valid_mask"],
-                    #                                                  tokenized_agent_rollout["sampled_pos"],
-                    #                                                  tokenized_agent_rollout["sampled_heading"],
-                    #                                                  tokenized_agent_rollout,
-                    #                                                  tokenized_agent_rollout["detach_map_feature"],
-                    #                                                  tokenized_agent_rollout["light_idx"],
-                    #                                                  None)[0][:, :, 0][all_valid]
-
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 
-                    advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
+                    ego_advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
 
-                    value_loss = torch.clamp(torch.pow(returns - value_pred, 2.0), 0, 100).mean()
+                    value_loss = torch.pow(returns - value_pred, 2.0).mean()
 
                     if self.use_lcf:
                         nei_rewards = get_nei_returns(tokenized_agent, agent_rewards)
@@ -524,16 +487,43 @@ class IQ_SoftQ(LightningModule):
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards[all_valid],nei_value_pred.detach(),None,gamma=self.gamma)
 
-                        nei_value_loss = torch.clamp(torch.pow(nei_returns - nei_value_pred, 2.0), 0, 100).mean()
+                        nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).mean()
 
-                        value_loss= nei_value_loss+value_loss
+                        batch = tokenized_agent["batch"]
 
-                        advantages=0.5*(advantages+nei_advantages)
+                        global_rewards=scatter_mean(agent_rewards,batch,dim=0)[batch]
+
+                        global_value_pred=self.encoder.global_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
+
+                        global_advantages,global_returns=compute_advantages(global_rewards[all_valid],nei_value_pred.detach(),None,gamma=1.0)
+
+                        self.global_return_meanstd.update(global_advantages)
+                        global_advantages = self.global_return_meanstd.normalize(global_advantages)
+
+                        global_value_loss = torch.pow(global_returns - global_value_pred, 2.0).mean()
+
+                        value_loss= nei_value_loss+value_loss+global_value_loss
+
+                        current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
+                        current_lcf_std = torch.exp(torch.clamp(self.lcf_parameters[1], -20, 2))
+
+                        self.log("train/lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
+                        self.log("train/lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
+
+                        step_lcf=torch.randn_like(ego_advantages[:,:1])*current_lcf_std+current_lcf_mean
+
+                        used_lcf = step_lcf.detach() * np.pi / 2
+
+                        advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
+
+                        # _raw_lcf_adv_mean = advantages.mean()
+                        # _raw_lcf_adv_std = max(1e-4, advantages.std())
+
+                        # advantages=0.5*(advantages+nei_advantages)
+                    else:
+                        advantages=ego_advantages
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-
-
 
                 elif self.encoder.use_critic:
                     action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)
@@ -593,7 +583,7 @@ class IQ_SoftQ(LightningModule):
                     #     new_policy_grad=torch.autograd.grad(new_policy_loss,self.encoder.agent_encoder.parameters())
                     #     new_policy_grad = [g for g in new_policy_grad if g is not None]
 
-                self.return_meanstd.update(advantages.detach().reshape(-1))
+                self.return_meanstd.update(advantages.detach())#.reshape(-1)
                 advantages=self.return_meanstd.normalize(advantages)
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
@@ -654,12 +644,47 @@ class IQ_SoftQ(LightningModule):
             loss = critic_loss+expert_proposal_loss+expert_nll
 
             if self.automatic_optimization == False:
+                old_policy_loss = agent_log_prob.mean()
+                params = [p for p in self.encoder.parameters() if p.requires_grad]
+
+                self.encoder.zero_grad()
+                old_policy_grad = torch.autograd.grad(old_policy_loss, params,retain_graph=True,allow_unused=True)
+                old_policy_grad = [g for g in old_policy_grad if g is not None]
+
+                policy_optimizer,lcf_optimizer=self.optimizers()
+
                 policy_optimizer.zero_grad()
-                loss=expert_proposal_loss+expert_nll
                 self.manual_backward(loss)
-                nn.utils.clip_grad_norm_(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())
-                                               +list(self.encoder.value_network.parameters()), 0.5)
+                nn.utils.clip_grad_norm_(params, 0.5)
                 policy_optimizer.step()
+
+                self.encoder.zero_grad()
+
+                agent_reward, agent_value_loss, agent_pi, agent_nll, agent_Q, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
+                    tokenized_map, tokenized_agent_rollout, None, key='agent')
+
+                new_policy_loss=-(agent_log_prob[all_valid]*global_advantages).mean()
+
+                new_policy_grad = torch.autograd.grad(new_policy_loss, params, allow_unused=True)
+                new_policy_grad = [g for g in new_policy_grad if g is not None]
+
+                grad_value = 0
+
+                for a, b in zip(new_policy_grad, old_policy_grad):
+                    assert a.shape == b.shape
+                    grad_value += (a * b).sum()
+
+                step_lcf = torch.randn_like(ego_advantages[:, :1]) * current_lcf_std + current_lcf_mean
+                used_lcf = step_lcf * np.pi / 2
+
+                advantages = torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) * nei_advantages
+
+                lcf_advantages = self.return_meanstd.normalize(advantages)
+                lcf_lcf_adv_loss = lcf_advantages.mean()
+                lcf_final_loss = grad_value * lcf_lcf_adv_loss
+                lcf_optimizer.zero_grad()
+                lcf_final_loss.backward()
+                lcf_optimizer.step()
 
         else:
             loss = expert_nll + expert_proposal_loss

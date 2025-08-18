@@ -64,12 +64,14 @@ class SMART_IQ(IQ_SoftQ, SMART):
             return [optimizer], [lr_scheduler]
 
         else:
-            actor_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())
-                                               +list(self.encoder.value_network.parameters())
-                                               , lr=self.lr)
-            critic_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(), lr=self.lr)
+            # actor_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())
+            #                                    +list(self.encoder.value_network.parameters())
+            #                                    , lr=self.lr)
+            # critic_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(), lr=self.lr)
+            actor_optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+            lcf_optimizer = torch.optim.Adam([self.lcf_parameters], lr=self.lr)
 
-            return [actor_optimizer, critic_optimizer]
+            return [actor_optimizer, lcf_optimizer]
 
 
 
