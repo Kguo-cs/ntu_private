@@ -2,6 +2,8 @@ from jax.example_libraries.stax import logsoftmax
 from lightning import LightningModule
 import numpy as np
 import torch
+
+from src.smart.layers import MLPLayer
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.loss.iq_loss import get_iqloss,soft_update,eval_light,get_proposal_loss,get_gaussian_loss
 from src.smart.loss.rollout_buffer import rollout, compute_advantages, ReplayBuffer
@@ -65,12 +67,12 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
-        if self.use_lcf:
-            lcf_parameters = [0.0, np.log(0.1)]
+        if self.use_lcf and self.iq_learn:
+            self.lcf_parameters = MLPLayer(128,128,1)#[0.0, np.log(0.1)]
 
             self.automatic_optimization=False
 
-            self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
+            # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -504,13 +506,19 @@ class IQ_SoftQ(LightningModule):
 
                         value_loss= nei_value_loss+value_loss+global_value_loss
 
-                        current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
-                        current_lcf_std = torch.exp(torch.clamp(self.lcf_parameters[1], -20, 2))
 
-                        self.log("train/lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
-                        self.log("train/lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
 
-                        step_lcf=torch.randn_like(ego_advantages[:,:1])*current_lcf_std+current_lcf_mean
+                        lcf_parameters=self.lcf_parameters(tokenized_agent_rollout["feat_a"][all_valid])
+
+                        # current_lcf_mean = torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
+                        # current_lcf_std = torch.exp(torch.clamp(lcf_parameters[...,1], -20, 2))
+
+                        # self.log("train/lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
+                        # self.log("train/lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
+                        #
+                        # step_lcf=torch.randn_like(ego_advantages[:,:1])*current_lcf_std+current_lcf_mean
+
+                        step_lcf=torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
 
                         used_lcf = step_lcf.detach() * np.pi / 2
 
@@ -658,13 +666,13 @@ class IQ_SoftQ(LightningModule):
                 nn.utils.clip_grad_norm_(params, 0.5)
                 policy_optimizer.step()
 
-                self.encoder.zero_grad()
 
                 agent_reward, agent_value_loss, agent_pi, agent_nll, agent_Q, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
                     tokenized_map, tokenized_agent_rollout, None, key='agent')
 
                 new_policy_loss=-(agent_log_prob[all_valid]*global_advantages).mean()
 
+                self.encoder.zero_grad()
                 new_policy_grad = torch.autograd.grad(new_policy_loss, params, allow_unused=True)
                 new_policy_grad = [g for g in new_policy_grad if g is not None]
 
@@ -674,7 +682,7 @@ class IQ_SoftQ(LightningModule):
                     assert a.shape == b.shape
                     grad_value += (a * b).sum()
 
-                step_lcf = torch.randn_like(ego_advantages[:, :1]) * current_lcf_std + current_lcf_mean
+                #step_lcf = torch.randn_like(ego_advantages[:, :1]) * current_lcf_std + current_lcf_mean
                 used_lcf = step_lcf * np.pi / 2
 
                 advantages = torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) * nei_advantages
