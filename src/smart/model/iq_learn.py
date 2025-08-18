@@ -506,8 +506,6 @@ class IQ_SoftQ(LightningModule):
 
                         value_loss= nei_value_loss+value_loss+global_value_loss
 
-
-
                         lcf_parameters=self.lcf_parameters(tokenized_agent_rollout["feat_a"][all_valid])
 
                         # current_lcf_mean = torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
@@ -519,6 +517,9 @@ class IQ_SoftQ(LightningModule):
                         # step_lcf=torch.randn_like(ego_advantages[:,:1])*current_lcf_std+current_lcf_mean
 
                         step_lcf=torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
+
+                        self.log("train/lcf_mean", step_lcf.mean().item(), on_step=True, batch_size=1)
+                        self.log("train/lcf_std", step_lcf.std().item(), on_step=True, batch_size=1)
 
                         used_lcf = step_lcf.detach() * np.pi / 2
 
