@@ -293,7 +293,7 @@ def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
         advantages[:,t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
     returns = advantages + values
 
-    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
+    #advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
     #
     # returns = []
     #

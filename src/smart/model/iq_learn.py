@@ -515,7 +515,6 @@ class IQ_SoftQ(LightningModule):
 
                     advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
 
-
                     vf_loss = torch.pow(returns - value_pred, 2.0)
 
                     value_loss = torch.clamp(vf_loss, 0, 100).mean()
@@ -562,20 +561,13 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:
-                    agent_returns=agent_returns[all_valid]
-                    self.return_meanstd.update(agent_returns.detach())
-                    advantages=self.return_meanstd.normalize(agent_returns)
-                    self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
-                    self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
+                    advantages=agent_returns[all_valid]
                     value_loss=0
-
-
-                    expert_returns=expert_returns[all_valid]
-                    expert_advantages=self.return_meanstd.normalize(expert_returns)
-                    expert_wNLL=-(expert_log_prob[all_valid]*expert_advantages).mean()
-
-                    self.log("train/expert_wNLL", expert_wNLL.item(), on_step=True, batch_size=1)
-
+                    # expert_returns=expert_returns[all_valid]
+                    # expert_advantages=self.return_meanstd.normalize(expert_returns)
+                    # expert_wNLL=-(expert_log_prob[all_valid]*expert_advantages).mean()
+                    #
+                    # self.log("train/expert_wNLL", expert_wNLL.item(), on_step=True, batch_size=1)
                     # if self.use_lcf:
                     #     global_returns=self.global_returns[all_valid]
                     #     global_advantages=(global_returns - global_returns.mean()) / (global_returns.std() + 1e-8)
@@ -586,6 +578,11 @@ class IQ_SoftQ(LightningModule):
                     #
                     #     new_policy_grad=torch.autograd.grad(new_policy_loss,self.encoder.agent_encoder.parameters())
                     #     new_policy_grad = [g for g in new_policy_grad if g is not None]
+
+                self.return_meanstd.update(advantages.detach())
+                advantages=self.return_meanstd.normalize(advantages)
+                self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
+                self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
 
                 if self.rollout_freq>1:
                     prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
