@@ -67,74 +67,74 @@ class RunningMeanStdTorch(nn.Module):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
         return res
 
-    def get_reward(self,s,kl_per_token, eps=1e-20, reward_type="airl"):
-        s = s.detach()
+def get_reward(s,kl_per_token, eps=1e-20, reward_type="airl"):
+    s = s.detach()
 
-        if reward_type == 'airl':
-            rewards = (s + eps).log() - (1 - s + eps).log()
-        elif reward_type == 'gail':
-            rewards = (s + eps).log()
-        elif reward_type == 'raw':
-            rewards = s
-        elif reward_type == "positive":
-            rewards = - (1 - s + eps).log()
-        elif reward_type == 'airl-positive':
-            rewards = (s + eps).log() - (1 - s + eps).log() + 20
-        elif reward_type == 'symmetric_kl':
-            rkl = (s + eps).log() - (1 - s + eps).log()
-            kl = rkl.exp() * (-rkl)
-            rewards = rkl + kl
-        elif reward_type == 'revise':
-            d_x = (s + eps).log()
-            rewards = d_x + (-1 - (-d_x).log())
+    if reward_type == 'airl':
+        rewards = (s + eps).log() - (1 - s + eps).log()
+    elif reward_type == 'gail':
+        rewards = (s + eps).log()
+    elif reward_type == 'raw':
+        rewards = s
+    elif reward_type == "positive":
+        rewards = - (1 - s + eps).log()
+    elif reward_type == 'airl-positive':
+        rewards = (s + eps).log() - (1 - s + eps).log() + 20
+    elif reward_type == 'symmetric_kl':
+        rkl = (s + eps).log() - (1 - s + eps).log()
+        kl = rkl.exp() * (-rkl)
+        rewards = rkl + kl
+    elif reward_type == 'revise':
+        d_x = (s + eps).log()
+        rewards = d_x + (-1 - (-d_x).log())
 
-        rewards=rewards-kl_per_token
-        # if key=='agent':
-        #
-        #     self.update(rewards.reshape(-1))
-        #
-        #     rewards=self.normalize(rewards)
+    rewards=rewards-kl_per_token
+    # if key=='agent':
+    #
+    #     self.update(rewards.reshape(-1))
+    #
+    #     rewards=self.normalize(rewards)
 
-            #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
-        # rewards=F.normalize(rewards,dim=0)
+    # rewards=F.normalize(rewards,dim=0)
 
-        return rewards
+    return rewards
 
 
-    def get_return(self,rewards, gamma):
+def get_return(rewards, gamma):
 
-        returns = torch.zeros_like(rewards)
-        running_return = returns[:, -1]
+    returns = torch.zeros_like(rewards)
+    running_return = returns[:, -1]
 
-        for i in reversed(range(rewards.shape[1])):
-            running_return = rewards[:, i] + gamma * running_return
-            returns[:, i] = running_return
+    for i in reversed(range(rewards.shape[1])):
+        running_return = rewards[:, i] + gamma * running_return
+        returns[:, i] = running_return
 
-        return returns
+    return returns
 
-    def get_nei_returns(self,tokenized_agent,reward,neighbor_dist=10):
-        pos = tokenized_agent["sampled_pos"][:,1:-1]
-        batch = tokenized_agent["batch"]
+def get_nei_returns(tokenized_agent,reward,neighbor_dist=10):
+    pos = tokenized_agent["sampled_pos"][:,1:-1]
+    batch = tokenized_agent["batch"]
 
-        M = pos.size(0)
+    M = pos.size(0)
 
-        # Pairwise distances [M, M]
-        diff = pos.unsqueeze(1) - pos.unsqueeze(0)  # [M, M, 2]
-        dist = torch.norm(diff, dim=-1)  # [M, M]
+    # Pairwise distances [M, M]
+    diff = pos.unsqueeze(1) - pos.unsqueeze(0)  # [M, M, 2]
+    dist = torch.norm(diff, dim=-1)  # [M, M]
 
-        # Mask: same batch & within distance & not self
-        same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
-        within_dist = dist < neighbor_dist
-        not_self = ~torch.eye(M, dtype=torch.bool,device=pos.device)
-        mask = same_batch[:,:,None] & within_dist & not_self[:,:,None]
+    # Mask: same batch & within distance & not self
+    same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
+    within_dist = dist < neighbor_dist
+    not_self = ~torch.eye(M, dtype=torch.bool,device=pos.device)
+    mask = same_batch[:,:,None] & within_dist & not_self[:,:,None]
 
-        # Gather neighbor rewards
-        neighbor_rewards = (mask * reward.unsqueeze(0)).sum(dim=1)  # [M]
-        neighbor_counts = mask.sum(dim=1)
-        neighbor_mean_rewards = neighbor_rewards / (neighbor_counts+1e-6)
+    # Gather neighbor rewards
+    neighbor_rewards = (mask * reward.unsqueeze(0)).sum(dim=1)  # [M]
+    neighbor_counts = mask.sum(dim=1)
+    neighbor_mean_rewards = neighbor_rewards / (neighbor_counts+1e-6)
 
-        return neighbor_mean_rewards
+    return neighbor_mean_rewards
 
 
 class ReplayBuffer:

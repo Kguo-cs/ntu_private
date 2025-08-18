@@ -17,7 +17,7 @@ import time
 from collections import deque
 import random
 import copy
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return
 from torch_scatter import scatter_mean
 
 class IQ_SoftQ(LightningModule):
@@ -333,9 +333,9 @@ class IQ_SoftQ(LightningModule):
 
                 with torch.no_grad():
 
-                    rewards=self.running_meanstd.get_reward(disc_val,kl_per_token)
+                    rewards=get_reward(disc_val,kl_per_token)
 
-                    returns = self.running_meanstd.get_return(rewards, self.gamma)
+                    returns = get_return(rewards, self.gamma)
 
                 if  self.use_lcf:
                     with torch.no_grad():
@@ -353,7 +353,7 @@ class IQ_SoftQ(LightningModule):
 
                         #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
 
-                        nei_returns=self.running_meanstd.get_nei_returns(tokenized_agent,returns)
+                        nei_returns=get_nei_returns(tokenized_agent,returns)
                         self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
                         # current_lcf_mean = torch.clamp(torch.tanh(self.lcf_parameters[0]), -1 + 1e-6, 1 - 1e-6)
@@ -563,13 +563,13 @@ class IQ_SoftQ(LightningModule):
                     agent_returns=agent_returns[all_valid]
                     self.return_meanstd.update(agent_returns.detach())
                     advantages=self.return_meanstd.normalize(agent_returns)
-                    self.log("train/running_mean", self.running_meanstd.mean.mean(), on_step=True, batch_size=1)
-                    self.log("train/running_var", self.running_meanstd.var.mean(), on_step=True, batch_size=1)
+                    self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
+                    self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
                     value_loss=0
 
 
                     expert_returns=expert_returns[all_valid]
-                    expert_advantages=self.running_meanstd.normalize(expert_returns)
+                    expert_advantages=self.return_meanstd.normalize(expert_returns)
                     expert_wNLL=-(expert_log_prob[all_valid]*expert_advantages).mean()
 
                     self.log("train/expert_wNLL", expert_wNLL.item(), on_step=True, batch_size=1)
