@@ -173,7 +173,7 @@ class SimulationManager:
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = self.config["max_sim_time"]
 
-        self.recording = False
+        self.recording = True
 
         if self.recording:
             self.record_path = "./results/video/record.mp4"
@@ -281,9 +281,9 @@ class SimulationManager:
                 pred_bev_img = pred_bev_img.resize(
                     (800, 800), Image.Resampling.LANCZOS)
                 ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
-                ci = CameraImages()
-                # bev_map=self.gui.draw_input(data,agent_pos)
-                # ci.PRED_BEV =bev_map
+                #ci = CameraImages()
+                #bev_map=self.gui.draw_input(data,agent_pos)
+                #ci.PRED_BEV =bev_map
 
                 self.gui.imageQueue.put(ci)
 
