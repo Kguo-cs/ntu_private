@@ -275,15 +275,17 @@ class IQ_SoftQ(LightningModule):
         #     pos=pos+torch.randn_like(pos)*0.01
         #     heading=heading+torch.randn_like(heading)*0.01
 
-        logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                        tokenized_agent["goal_idx"],
-                                                        tokenized_agent["valid_mask"],
-                                                        tokenized_agent["sampled_pos"],
-                                                        tokenized_agent["sampled_heading"] ,
-                                                        tokenized_agent,
-                                                        map_feature,
-                                                        tokenized_agent["light_idx"],
-                                                        None)[0]
+        logit=self.encoder.discriminator(tokenized_agent["feat_a"].detach())
+
+        # logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+        #                                                 tokenized_agent["goal_idx"],
+        #                                                 tokenized_agent["valid_mask"],
+        #                                                 tokenized_agent["sampled_pos"],
+        #                                                 tokenized_agent["sampled_heading"] ,
+        #                                                 tokenized_agent,
+        #                                                 map_feature,
+        #                                                 tokenized_agent["light_idx"],
+        #                                                 None)[0]
         if len(logit)==3:
 
             logit,mu,sigma=logit
