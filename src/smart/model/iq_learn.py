@@ -339,8 +339,23 @@ class IQ_SoftQ(LightningModule):
                 kl_per_token=0
 
                 with torch.no_grad():
+                    if key=="agent":
+                        self.encoder.discriminator.eval()
+                        logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                                     tokenized_agent["goal_idx"],
+                                                                     tokenized_agent["valid_mask"],
+                                                                     tokenized_agent["sampled_pos"],
+                                                                     tokenized_agent["sampled_heading"],
+                                                                     tokenized_agent,
+                                                                     map_feature,
+                                                                     tokenized_agent["light_idx"],
+                                                                     None)[0]
+                        disc_val_eval = torch.sigmoid(logit[:, :, 0])
+                        self.encoder.discriminator.train()
+                    else:
+                        disc_val_eval=disc_val
 
-                    rewards=get_reward(disc_val,kl_per_token)
+                    rewards=get_reward(disc_val_eval,kl_per_token)
 
                     returns = get_return(rewards, self.gamma)
 

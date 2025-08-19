@@ -281,9 +281,8 @@ class SimulationManager:
                 pred_bev_img = pred_bev_img.resize(
                     (800, 800), Image.Resampling.LANCZOS)
                 ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
-                #ci = CameraImages()
-                #bev_map=self.gui.draw_input(data,agent_pos)
-                #ci.PRED_BEV =bev_map
+                # bev_map=self.gui.draw_input(data,agent_pos)
+                # ci.PRED_BEV =bev_map
 
                 self.gui.imageQueue.put(ci)
 
@@ -360,7 +359,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(0.01)
+        sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -397,7 +396,7 @@ class SimulationManager:
                     "role": np.ones([1,3]).astype(bool),
                 }
 
-                pos=np.array([0,20])[None]+20*np.arange(-1,8.1,0.1)[:,None]
+                pos=np.array([2,20])[None]+20*np.arange(-1,8.1,0.1)[:,None]
 
                 track_infos['states'][0,:,:2]=pos
                 track_infos['states'][:,:,3]=4.8
