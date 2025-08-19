@@ -188,8 +188,8 @@ class InterativeDecoder(nn.Module):
 
             r_a2a=self.a2a_linear(z)
 
-        n_a=len(r_a2a)
-        n_pt=len(r_pl2a)
+        #n_a=len(r_a2a)
+        #n_pt=len(r_pl2a)
 
         a2a_list=[]
 
@@ -216,9 +216,9 @@ class InterativeDecoder(nn.Module):
 
         a2a_feature=torch.cat(a2a_list,dim=-1)
 
-        if self.num_layers>1:
-            self.a_ratio=len(r_a2a)/n_a
-            self.pt_ratio=len(r_pl2a)/n_pt
+        # if self.num_layers>1:
+        #     self.a_ratio=len(r_a2a)/n_a
+        #     self.pt_ratio=len(r_pl2a)/n_pt
 
         feat_a = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
         proposal=None

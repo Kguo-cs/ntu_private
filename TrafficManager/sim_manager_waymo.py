@@ -57,7 +57,7 @@ import time
 import tracemalloc
 import psutil
 from pynvml import *
-
+from waymo.decay_data_process import decode_map_features_from_json
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -362,7 +362,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-       # sleep(1000)
+        sleep(0.1)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -374,222 +374,248 @@ class SimulationManager:
         all_scenarios.sort()
        #i=0
         for scenario in all_scenarios:
-            dataset = tf.data.TFRecordDataset(
-                [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
-            )
+            # 记录系统层进程内存
+            rss_before = get_process_memory()
 
-            for tf_data in dataset:
-                # 记录系统层进程内存
-                rss_before = get_process_memory()
+            start_time = time.time()
 
-                start_time=time.time()
+            if 'desay' not in input_dir:
+
+                dataset = tf.data.TFRecordDataset(
+                    [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
+                )
+                tf_data = next(iter(dataset))
 
                 tf_data = tf_data.numpy()
                 scenario = scenario_pb2.Scenario()
                 scenario.ParseFromString(bytes(tf_data))
                 track_infos = decode_tracks_from_proto(scenario)
+            else:
+                track_infos = {
+                    "object_id": np.zeros([1]),
+                    "object_type": np.zeros([1]),
+                    "states": np.zeros([1,91,9]),
+                    "valid": np.ones([1,91]).astype(bool),
+                    "role": np.ones([1,3]).astype(bool),
+                }
 
-                remove_map_object=self.config["map_object"]["remove"]
-                add_map_object=self.config["map_object"]["add"]
+                pos=np.array([10,85])[None]+30*np.arange(-1,8.1,0.1)[:,None]
 
-                remove_mapid=[]
+                track_infos['states'][0,:,:2]=pos
+                track_infos['states'][:,:,3]=4.8
+                track_infos['states'][:,:,4]=1.8
+                track_infos['states'][:,:,5]=1.6
+                track_infos['states'][:,:,6]=np.pi/2
+                # track_infos['states'][:,:,8]=10
 
-                if remove_map_object is not None:
+            remove_map_object=self.config["map_object"]["remove"]
+            add_map_object=self.config["map_object"]["add"]
 
-                    for polyline in remove_map_object:
-                        remove_mapid.append(polyline["id"])
+            remove_mapid=[]
 
-                if add_map_object is not None:
+            if remove_map_object is not None:
 
-                    for polyline in add_map_object:
-                        remove_mapid.append(polyline["id"])
+                for polyline in remove_map_object:
+                    remove_mapid.append(polyline["id"])
 
+            if add_map_object is not None:
+
+                for polyline in add_map_object:
+                    remove_mapid.append(polyline["id"])
+
+            if 'desay' not in input_dir:
                 map_infos = decode_map_features_from_proto(scenario.map_features,remove_mapid)
+            else:
+                with open(input_dir+'/'+scenario, "r") as f:
+                    data = json.load(f)
 
-                point_cnt=len(map_infos['all_polylines'])
+                map_infos = decode_map_features_from_json(data['annotation'],remove_mapid)
 
-                if add_map_object is not None:
+            point_cnt=len(map_infos['all_polylines'])
 
-                    for polyline in add_map_object:
-                        feature_data_type= polyline["polygon_type"]
-                        cur_info = {"id": polyline["id"]}
-                        cur_info["type"] = polyline["polyline_type"]
+            if add_map_object is not None:
 
-                        cur_polyline = np.stack(
-                            [
-                                np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
-                                for p in polyline["points"]
-                            ],
-                            axis=0,
-                        )
-                        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+                for polyline in add_map_object:
+                    feature_data_type= polyline["polygon_type"]
+                    cur_info = {"id": polyline["id"]}
+                    cur_info["type"] = polyline["polyline_type"]
 
-                        map_infos[feature_data_type].append(cur_info)
-                        map_infos["all_polylines_list"].append(cur_polyline)
-                        point_cnt += len(cur_polyline)
+                    cur_polyline = np.stack(
+                        [
+                            np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
+                            for p in polyline["points"]
+                        ],
+                        axis=0,
+                    )
+                    cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
 
-                    map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
+                    map_infos[feature_data_type].append(cur_info)
+                    map_infos["all_polylines_list"].append(cur_polyline)
+                    point_cnt += len(cur_polyline)
 
-                dynamic_map_infos = decode_dynamic_map_states_from_proto(
-                    scenario.dynamic_map_states
-                )
-                current_time_index = scenario.current_time_index
+                map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
 
-                data_loadding_time=time.time()
+            # dynamic_map_infos = decode_dynamic_map_states_from_proto(
+            #     scenario.dynamic_map_states
+            # )
+            # tf_lights = process_dynamic_map(dynamic_map_infos)
+            # tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+            tf_current_light={}
 
-                print("data load time:", data_loadding_time-start_time)
+            current_time_index = 10 #scenario.current_time_index
 
-                data_loadding_memory = get_process_memory()
-                print(f"data load memory  : {data_loadding_memory - rss_before:.1f} MB")
-                #print(get_self_gpu_usage())
-                #print(print_cpu_usage())
+            data_loadding_time=time.time()
 
-                tf_lights = process_dynamic_map(dynamic_map_infos)
-                tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+            print("data load time:", data_loadding_time-start_time)
 
-                map_data = get_map_features(map_infos, tf_current_light)
+            data_loadding_memory = get_process_memory()
+            print(f"data load memory  : {data_loadding_memory - rss_before:.1f} MB")
+            #print(get_self_gpu_usage())
+            #print(print_cpu_usage())
 
-                data = preprocess_map(map_data)
+            map_data = get_map_features(map_infos, tf_current_light)
 
-                #add agent
-                add_agents=self.config["agent"]["add"]
+            data = preprocess_map(map_data)
 
-                # delete agent
-                mask = np.ones(len(track_infos["object_id"])).astype(bool)
+            #add agent
+            add_agents=self.config["agent"]["add"]
 
-                if self.config["agent"]["remove"] is not None:
-                    for agent in self.config["agent"]["remove"]:
-                        mask[track_infos["object_id"] == agent["id"]] = False
+            # delete agent
+            mask = np.ones(len(track_infos["object_id"])).astype(bool)
 
-                if add_agents is not None:
-                    for agent in add_agents:
-                        mask[track_infos["object_id"] == agent["id"]] = False
+            if self.config["agent"]["remove"] is not None:
+                for agent in self.config["agent"]["remove"]:
+                    mask[track_infos["object_id"] == agent["id"]] = False
 
-                    add_agent_num=len(add_agents)
-                else:
-                    add_agent_num=0
+            if add_agents is not None:
+                for agent in add_agents:
+                    mask[track_infos["object_id"] == agent["id"]] = False
 
-                track_infos["object_id"] = track_infos["object_id"][mask]
-                track_infos["object_type"] = track_infos["object_type"][mask]
-                track_infos["states"] = track_infos["states"][mask]
-                track_infos["valid"] = track_infos["valid"][mask]
-                track_infos["role"] = track_infos["role"][mask]
+                add_agent_num=len(add_agents)
+            else:
+                add_agent_num=0
 
-                new_state=np.zeros([add_agent_num,91,9])
-                agent_type=[]
-                object_id=[]
+            track_infos["object_id"] = track_infos["object_id"][mask]
+            track_infos["object_type"] = track_infos["object_type"][mask]
+            track_infos["states"] = track_infos["states"][mask]
+            track_infos["valid"] = track_infos["valid"][mask]
+            track_infos["role"] = track_infos["role"][mask]
 
-                for i in range(add_agent_num):
-                    agent=add_agents[i]
-                    pos=np.array(agent["position"])[None]+np.array(agent["velocity"])[None]*np.arange(-1,8.1,0.1)[:,None]
+            new_state=np.zeros([add_agent_num,91,9])
+            agent_type=[]
+            object_id=[]
 
-                    new_state[i, :, :2] = pos
-                    new_state[i, :, 3:6] =np.array( agent["shape"])[None]
-                    new_state[i, :, 6] = np.arctan2(agent["velocity"][1],agent["velocity"][0])
-                    new_state[i,:, 7:9] =np.array(agent["velocity"])[None]
+            for i in range(add_agent_num):
+                agent=add_agents[i]
+                pos=np.array(agent["position"])[None]+np.array(agent["velocity"])[None]*np.arange(-1,8.1,0.1)[:,None]
 
-                    agent_type.append(agent["type"])
-                    object_id.append(agent["id"])
+                new_state[i, :, :2] = pos
+                new_state[i, :, 3:6] =np.array( agent["shape"])[None]
+                new_state[i, :, 6] = np.arctan2(agent["velocity"][1],agent["velocity"][0])
+                new_state[i,:, 7:9] =np.array(agent["velocity"])[None]
 
-                track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(agent_type)])
+                agent_type.append(agent["type"])
+                object_id.append(agent["id"])
+
+            track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(agent_type)])
+            track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+            track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.array(object_id)])
+            track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
+            track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
+
+            track_infos["role"][:,-1]=True#control
+
+            # add static object
+            add_static = self.config["static_object"]["add"]
+
+            if add_static is not None:
+                add_static_num=len(add_static)
+                new_state=np.zeros([add_static_num,91,9])
+
+                for i in range(add_static_num):
+                    static=add_static[i]
+                    new_state[i, :, :2] = np.array(static["position"])[None]
+                    new_state[i, :, 3:6] =np.array( static["shape"])[None]
+                    new_state[i, :, 6] = static["heading"]
+
                 track_infos["states"]=np.concatenate([track_infos["states"],new_state])
-                track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.array(object_id)])
-                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
-                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
 
-                track_infos["role"][:,-1]=True#control
-
-                # add static object
-                add_static = self.config["static_object"]["add"]
-
-                if add_static is not None:
-                    add_static_num=len(add_static)
-                    new_state=np.zeros([add_static_num,91,9])
-
-                    for i in range(add_static_num):
-                        static=add_static[i]
-                        new_state[i, :, :2] = np.array(static["position"])[None]
-                        new_state[i, :, 3:6] =np.array( static["shape"])[None]
-                        new_state[i, :, 6] = static["heading"]
-
-                    track_infos["states"]=np.concatenate([track_infos["states"],new_state])
-
-                    track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
-                    track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
-                    track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
-                    track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([add_static_num])])
+                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(add_static_num)])
+                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
+                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
+                track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([add_static_num])])
 
 
-                if self.config["agent"]["stop"] is not None:
-                    for agent in self.config["agent"]["stop"]:
-                        id=agent["id"]
-                        mask=track_infos["object_id"]==id
-                        track_infos["valid"][mask]=True
-                        track_infos["states"][mask]=track_infos["states"][mask,10:11]
-                        track_infos["role"][mask,-1]=False
+            if self.config["agent"]["stop"] is not None:
+                for agent in self.config["agent"]["stop"]:
+                    id=agent["id"]
+                    mask=track_infos["object_id"]==id
+                    track_infos["valid"][mask]=True
+                    track_infos["states"][mask]=track_infos["states"][mask,10:11]
+                    track_infos["role"][mask,-1]=False
 
-                if self.config["agent"]["recording"] is not None:
-                    for agent in self.config["agent"]["recording"]:
-                        id=agent["id"]
-                        mask=track_infos["object_id"]==id
-                        track_infos["role"][mask,-1]=False
-
-
-                data["agent"] = get_agent_features(
-                    track_infos,
-                    split="validation",
-                    num_historical_steps=current_time_index + 1,
-                    num_steps=91,
-                )
-                data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
-                data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
-
-                data["light"] = process_light(map_infos, tf_lights, tf_current_light)
-                data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
-
-                self.initialize_simulation(map_data,data)
-
-                self.control_mask=data["agent"]["role"][:,-1]
-
-                batch_data = HeteroData(data).cuda()
-                batch_data.num_graphs=1
+            if self.config["agent"]["recording"] is not None:
+                for agent in self.config["agent"]["recording"]:
+                    id=agent["id"]
+                    mask=track_infos["object_id"]==id
+                    track_infos["role"][mask,-1]=False
 
 
-                tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
+            data["agent"] = get_agent_features(
+                track_infos,
+                split="validation",
+                num_historical_steps=current_time_index + 1,
+                num_steps=91,
+            )
+            data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
+            data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
 
-                data_preproces_time=time.time()
+            # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
+            # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
 
-                print("data preprocess time:", data_preproces_time-data_loadding_time)
-                data_preproces_memory = get_process_memory()
-                print(f"data preprocess memory  : {data_preproces_memory - data_loadding_memory:.1f} MB")
-                #print(get_self_gpu_usage())
-               # print(print_cpu_usage())
+            self.initialize_simulation(map_data,data)
 
-                map_feature = self.planner.encoder.map_encoder(tokenized_map)
+            self.control_mask=data["agent"]["role"][:,-1]
 
-                map_embedding_time=time.time()
+            batch_data = HeteroData(data).cuda()
+            batch_data.num_graphs=1
 
-                print("map embedding time:", map_embedding_time-data_preproces_time)
-                map_embedding_memory = get_process_memory()
-                print(f"map embedding memory  : {map_embedding_memory - data_preproces_memory:.1f} MB")
-                #print(get_self_gpu_usage())
-                #print(print_cpu_usage())
 
-                # self.control_mask = tokenized_agent["type"]<3
-                #
-                # tokenized_agent["type"][tokenized_agent["type"]==3]=0
+            tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
 
-                while True:
-                    if not self.process_frame(map_feature, tokenized_agent):
-                        break
+            data_preproces_time=time.time()
 
-                print("camera_rendering_time:",np.mean(self.camera_rendering_time))
-                print("traffic_model_time:",np.mean(self.traffic_model_time))
-                print("output_time:",np.mean(self.output_time))
+            print("data preprocess time:", data_preproces_time-data_loadding_time)
+            data_preproces_memory = get_process_memory()
+            print(f"data preprocess memory  : {data_preproces_memory - data_loadding_memory:.1f} MB")
+            #print(get_self_gpu_usage())
+           # print(print_cpu_usage())
 
-                self.cleanup()
+            map_feature = self.planner.encoder.map_encoder(tokenized_map)
 
-                return
+            map_embedding_time=time.time()
+
+            print("map embedding time:", map_embedding_time-data_preproces_time)
+            map_embedding_memory = get_process_memory()
+            print(f"map embedding memory  : {map_embedding_memory - data_preproces_memory:.1f} MB")
+            #print(get_self_gpu_usage())
+            #print(print_cpu_usage())
+
+            # self.control_mask = tokenized_agent["type"]<3
+            #
+            # tokenized_agent["type"][tokenized_agent["type"]==3]=0
+
+            while True:
+                if not self.process_frame(map_feature, tokenized_agent):
+                    break
+
+            print("camera_rendering_time:",np.mean(self.camera_rendering_time))
+            print("traffic_model_time:",np.mean(self.traffic_model_time))
+            print("output_time:",np.mean(self.output_time))
+
+            self.cleanup()
+
+            return
 
     def capture_viewport_frame(self):
         if not self.recording or self.video_writer is None:
@@ -726,7 +752,7 @@ class SimulationManager:
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
-        self.planner.load_state_dict(state_dict)
+        self.planner.load_state_dict(state_dict,strict=False)
         self.planner.cuda()
         self.planner.eval()
 
