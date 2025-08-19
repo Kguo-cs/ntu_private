@@ -61,6 +61,8 @@ class IQ_SoftQ(LightningModule):
         self.reward_type='airl'
 
         if self.iq_learn and self.use_gail:
+            #self.running_meanstd=RunningMeanStdTorch(shape=(1))
+
             self.return_meanstd=RunningMeanStdTorch(shape=(1))
             self.ego_return_meanstd=RunningMeanStdTorch(shape=(1))
             self.global_return_meanstd=RunningMeanStdTorch(shape=(1))
@@ -370,7 +372,7 @@ class IQ_SoftQ(LightningModule):
 
                         self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
 
-                        global_returns=scatter_mean(returns,batch,dim=0)[batch]
+                        #global_returns=scatter_mean(returns,batch,dim=0)[batch]
 
 
                         #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
@@ -397,10 +399,10 @@ class IQ_SoftQ(LightningModule):
                         self.ego_return_meanstd.update(returns)
                         ego_returns = self.ego_return_meanstd.normalize(returns)
 
-                        self.global_return_meanstd.update(global_returns)
-                        global_returns = self.global_return_meanstd.normalize(global_returns)
+                        self.global_return_meanstd.update(nei_returns)
+                        nei_returns = self.global_return_meanstd.normalize(nei_returns)
 
-                        returns=0.5*ego_returns+0.5*global_returns
+                        returns=0.5*ego_returns+0.5*nei_returns
 
                     # self._raw_lcf_adv_mean = returns.mean()
                     # self._raw_lcf_adv_std = max(1e-4, returns.std())
@@ -471,7 +473,6 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
                 agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid)
-
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():

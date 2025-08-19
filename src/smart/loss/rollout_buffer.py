@@ -136,7 +136,7 @@ def get_return(rewards, gamma):
 #
 #     return neighbor_mean_rewards
 
-def get_nei_returns(tokenized_agent, reward, neighbor_dist=10.0):
+def get_nei_returns(tokenized_agent, reward, neighbor_dist=30.0):
     pos = tokenized_agent["sampled_pos"][:, 1:-1]  # [M, T, 2]
     batch = tokenized_agent["batch"]               # [M]
     M = pos.size(0)
