@@ -58,6 +58,7 @@ class SMARTDecoder(nn.Module):
         self.use_value=True
 
         self.use_critic=False
+        self.learn_lcf=False
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
@@ -154,7 +155,6 @@ class SMARTDecoder(nn.Module):
                     self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
                     self.nei_value_network =MLPLayer(hidden_dim,hidden_dim,1)
-                    self.learn_lcf = False
 
                     if self.learn_lcf :
                         self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
