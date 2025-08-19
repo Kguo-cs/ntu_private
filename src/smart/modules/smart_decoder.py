@@ -103,30 +103,30 @@ class SMARTDecoder(nn.Module):
                 pred_all_res=token_processor.pred_all_res,
             )
             if self.iq_learn and self.use_gail:
-                # self.discriminator = SMARTAgentDecoder(
-                #     hidden_dim=hidden_dim,
-                #     num_historical_steps=num_historical_steps,
-                #     num_future_steps=num_future_steps,
-                #     time_span=10,
-                #     pl2a_radius=10,
-                #     a2a_radius=10,#20 bad
-                #     num_freq_bands=num_freq_bands,
-                #     num_layers=1,
-                #     num_heads=num_heads,
-                #     head_dim=head_dim,
-                #     dropout=dropout,
-                #     hist_drop_prob=hist_drop_prob,
-                #     n_token_agent=1,
-                #     pt2a_neighbor=10,
-                #     a2a_neighbor=10,
-                #     token_processor=token_processor,
-                #     alpha=self.alpha,
-                #     output_gmm=self.output_gmm,
-                #     pred_last_res=False,
-                #     pred_all_res=False,
-                #     discriminator=True
-                # )
-                self.discriminator = MLPLayer(hidden_dim, hidden_dim, 1)
+                self.discriminator = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=10,
+                    pl2a_radius=10,
+                    a2a_radius=10,#20 bad
+                    num_freq_bands=num_freq_bands,
+                    num_layers=1,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=0.1,
+                    hist_drop_prob=0,
+                    n_token_agent=1,
+                    pt2a_neighbor=10,
+                    a2a_neighbor=10,
+                    token_processor=token_processor,
+                    alpha=self.alpha,
+                    output_gmm=False,
+                    pred_last_res=False,
+                    pred_all_res=False,
+                    discriminator=True
+                )
+
 
                 if self.use_value:
                     self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
