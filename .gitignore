@@ -26,3 +26,4 @@ exp/
 nuplan_data/
 TrafficManager/outputs/
 TrafficManager/results/
+**/labels_occluded.json
