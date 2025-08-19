@@ -55,7 +55,7 @@ class SMARTDecoder(nn.Module):
         self.output_gmm=False
         self.use_gail=True
 
-        self.use_value=False
+        self.use_value=True
 
         self.use_critic=False
         self.learn_lcf=False
