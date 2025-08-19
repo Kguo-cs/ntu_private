@@ -653,10 +653,10 @@ class GUI(Process):
         # light_type= data["pt_token"]["light_type"]   # [n_pl]
         # batch = data["pt_token"]["batch"]
 
-        mask=np.isin(type,np.array([0,1,2,3,4]))
+        #mask=np.isin(type,np.array([0,1,2,3,4]))
 
-        type=type[mask]
-        traj_pos=traj_pos[mask]
+        #type=type[mask]
+        #traj_pos=traj_pos[mask]
 
         ego_position=current_pos[self.ego_idx][None]
 

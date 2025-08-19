@@ -171,7 +171,7 @@ class SimulationManager:
         self.data_template = torch.load(self.DATA_TEMPLATE_PATH,weights_only=False)
 
         self.timestamp = self.initial_step
-        self.MAX_SIM_TIME = 90
+        self.MAX_SIM_TIME = self.config["max_sim_time"]
 
         self.recording = False
 
@@ -234,24 +234,19 @@ class SimulationManager:
 
         return bev_map,gt_vecs_pts_loc,bev_image
 
-    def process_frame(self,map_feature,tokenized_agent):
+    def process_frame(self,data,map_feature,tokenized_agent):
         if self.timestamp >= self.MAX_SIM_TIME:
             print("Simulation time end.")
             return False
         agent_type=tokenized_agent["type"].cpu().numpy()
 
         if self.timestamp % 5 == 0:
-
-
             if self.GUI_DISPLAY:
                 camera_rendering_start = time.time()
                 #rss_before = get_process_memory()
 
                 agent_pos = tokenized_agent['sampled_pos'][:,self.timestamp//5-1].cpu().numpy()
                 agent_heading=tokenized_agent['sampled_heading'][:,self.timestamp//5-1].cpu().numpy()
-                #ci = CameraImages()
-                #bev_map=self.gui.draw_input(data,agent_pos)
-                #ci.PRED_BEV =bev_map
 
                 diffusion_data = self.gui.limsim2diffusion(
                     agent_pos,agent_heading,agent_type,self.data_template
@@ -286,6 +281,9 @@ class SimulationManager:
                 pred_bev_img = pred_bev_img.resize(
                     (800, 800), Image.Resampling.LANCZOS)
                 ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
+                ci = CameraImages()
+                # bev_map=self.gui.draw_input(data,agent_pos)
+                # ci.PRED_BEV =bev_map
 
                 self.gui.imageQueue.put(ci)
 
@@ -344,7 +342,7 @@ class SimulationManager:
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
 
-        light_idx = tokenized_agent["light_idx"][:,(self.timestamp-5)//5].cpu().numpy()
+        light_idx = []#tokenized_agent["light_idx"][:,(self.timestamp-5)//5].cpu().numpy()
         agent_pos=pos[:,self.timestamp].cpu().numpy()
         agent_head=heading[:,self.timestamp].cpu().numpy()
 
@@ -362,7 +360,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(0.1)
+        sleep(0.01)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -399,7 +397,7 @@ class SimulationManager:
                     "role": np.ones([1,3]).astype(bool),
                 }
 
-                pos=np.array([10,85])[None]+30*np.arange(-1,8.1,0.1)[:,None]
+                pos=np.array([0,20])[None]+20*np.arange(-1,8.1,0.1)[:,None]
 
                 track_infos['states'][0,:,:2]=pos
                 track_infos['states'][:,:,3]=4.8
@@ -475,7 +473,10 @@ class SimulationManager:
 
             map_data = get_map_features(map_infos, tf_current_light)
 
-            data = preprocess_map(map_data)
+            if 'desay' not in input_dir:
+                data = preprocess_map(map_data,break_dist=3)
+            else:
+                data = preprocess_map(map_data,break_dist=30)
 
             #add agent
             add_agents=self.config["agent"]["add"]
@@ -583,6 +584,15 @@ class SimulationManager:
 
             tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
 
+            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
+                pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME//5-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
+                tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
+
+            for key in ["pred_traj_10hz","pred_head_10hz","all_valid"]:
+                pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
+                tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
+
+
             data_preproces_time=time.time()
 
             print("data preprocess time:", data_preproces_time-data_loadding_time)
@@ -606,7 +616,7 @@ class SimulationManager:
             # tokenized_agent["type"][tokenized_agent["type"]==3]=0
 
             while True:
-                if not self.process_frame(map_feature, tokenized_agent):
+                if not self.process_frame(data,map_feature, tokenized_agent):
                     break
 
             print("camera_rendering_time:",np.mean(self.camera_rendering_time))

@@ -834,49 +834,5 @@
     ],
     "velocity": [],
     "occluded": []
-  },
-  "86": {
-    "bboxes": [],
-    "labels": [
-      "car"
-    ],
-    "tracking_id": [
-      0
-    ],
-    "velocity": [],
-    "occluded": []
-  },
-  "87": {
-    "bboxes": [],
-    "labels": [
-      "car"
-    ],
-    "tracking_id": [
-      0
-    ],
-    "velocity": [],
-    "occluded": []
-  },
-  "88": {
-    "bboxes": [],
-    "labels": [
-      "car"
-    ],
-    "tracking_id": [
-      0
-    ],
-    "velocity": [],
-    "occluded": []
-  },
-  "89": {
-    "bboxes": [],
-    "labels": [
-      "car"
-    ],
-    "tracking_id": [
-      0
-    ],
-    "velocity": [],
-    "occluded": []
   }
 }

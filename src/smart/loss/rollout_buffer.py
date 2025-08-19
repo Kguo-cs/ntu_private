@@ -112,29 +112,67 @@ def get_return(rewards, gamma):
         returns[:, i] = running_return
 
     return returns
+#
+# def get_nei_returns(tokenized_agent,reward,neighbor_dist=10):
+#     pos = tokenized_agent["sampled_pos"][:,1:-1]
+#     batch = tokenized_agent["batch"]
+#
+#     M = pos.size(0)
+#
+#     # Pairwise distances [M, M]
+#     diff = pos.unsqueeze(1) - pos.unsqueeze(0)  # [M, M, 2]
+#     dist = torch.norm(diff, dim=-1)  # [M, M]
+#
+#     # Mask: same batch & within distance & not self
+#     same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
+#     within_dist = dist < neighbor_dist
+#     not_self = ~torch.eye(M, dtype=torch.bool,device=pos.device)
+#     mask = same_batch[:,:,None] & within_dist & not_self[:,:,None]
+#
+#     # Gather neighbor rewards
+#     neighbor_rewards = (mask * reward.unsqueeze(0)).sum(dim=1)  # [M]
+#     neighbor_counts = mask.sum(dim=1)
+#     neighbor_mean_rewards = neighbor_rewards / (neighbor_counts+1e-6)
+#
+#     return neighbor_mean_rewards
 
-def get_nei_returns(tokenized_agent,reward,neighbor_dist=10):
-    pos = tokenized_agent["sampled_pos"][:,1:-1]
-    batch = tokenized_agent["batch"]
-
+def get_nei_returns(tokenized_agent, reward, neighbor_dist=10.0):
+    pos = tokenized_agent["sampled_pos"][:, 1:-1]  # [M, T, 2]
+    batch = tokenized_agent["batch"]               # [M]
     M = pos.size(0)
 
-    # Pairwise distances [M, M]
-    diff = pos.unsqueeze(1) - pos.unsqueeze(0)  # [M, M, 2]
-    dist = torch.norm(diff, dim=-1)  # [M, M]
+    # Pairwise distances across trajectory
+    diff = pos.unsqueeze(1) - pos.unsqueeze(0)  # [M, M, T, 2]
+    dist = torch.norm(diff, dim=-1)             # [M, M, T]
 
-    # Mask: same batch & within distance & not self
+
+    # Mask out different batches and self
     same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
-    within_dist = dist < neighbor_dist
-    not_self = ~torch.eye(M, dtype=torch.bool,device=pos.device)
-    mask = same_batch[:,:,None] & within_dist & not_self[:,:,None]
+    not_self = ~torch.eye(M, dtype=torch.bool, device=pos.device)
+    mask = same_batch & not_self
 
-    # Gather neighbor rewards
-    neighbor_rewards = (mask * reward.unsqueeze(0)).sum(dim=1)  # [M]
-    neighbor_counts = mask.sum(dim=1)
-    neighbor_mean_rewards = neighbor_rewards / (neighbor_counts+1e-6)
+    dist_masked = dist.masked_fill(~mask[:,:,None], float("inf"))
 
-    return neighbor_mean_rewards
+    # Reduce across time (choose your criterion: min/mean/last)
+    nn_dist,nn_idx = dist_masked.min(dim=1) #.values  # [M, T]
+
+    # Gather rewards
+    M, T = nn_idx.shape
+
+    # make timestep indices [M, T]
+    t_idx = torch.arange(T, device=nn_idx.device).expand(M, T)
+
+    # gather neighbor rewards
+    nn_reward = reward[nn_idx, t_idx]  # [M, T]
+
+    # Optionally zero if too far
+    nn_reward = torch.where(nn_dist < neighbor_dist,
+                            nn_reward,
+                            torch.zeros_like(nn_reward))
+
+    return nn_reward
+
+
 
 
 class ReplayBuffer:

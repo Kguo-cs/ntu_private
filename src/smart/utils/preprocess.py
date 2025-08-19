@@ -43,13 +43,13 @@ def get_polylines_from_polygon(polygon: np.ndarray) -> np.ndarray:
     return np.concatenate([pl1, pl1[::-1], pl2, pl2[::-1]], axis=0)
 
 
-def _interplating_polyline(polylines, distance=0.5, split_distace=5):
+def _interplating_polyline(polylines, break_dist=3,distance=0.5, split_distace=5):
     # Calculate the cumulative distance along the path, up-sample the polyline to 0.5 meter
     dist_along_path_list = []
     polylines_list = []
     euclidean_dists = np.linalg.norm(polylines[1:, :2] - polylines[:-1, :2], axis=-1)
     euclidean_dists = np.concatenate([[0], euclidean_dists])
-    breakpoints = np.where(euclidean_dists > 3)[0]
+    breakpoints = np.where(euclidean_dists > break_dist)[0]
     breakpoints = np.concatenate([[0], breakpoints, [polylines.shape[0]]])
     for i in range(1, breakpoints.shape[0]):
         start = breakpoints[i - 1]
@@ -122,7 +122,7 @@ def _interplating_polyline(polylines, distance=0.5, split_distace=5):
     return multi_polylines_list
 
 
-def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
+def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
     pt2pl = map_data[("map_point", "to", "map_polygon")]["edge_index"]
     split_polyline_type = []
     split_polyline_pos = []
@@ -143,7 +143,7 @@ def preprocess_map(map_data: Dict[str, Any]) -> Dict[str, Any]:
 
         # assert len(np.unique(cur_type)) == 1
 
-        split_polyline = _interplating_polyline(cur_pos.numpy())
+        split_polyline = _interplating_polyline(cur_pos.numpy(),break_dist)
 
         #split_polyline1 = _interplating_polyline(cur_pos.numpy(), distance=5, split_distace=50)
 
