@@ -396,11 +396,13 @@ class IQ_SoftQ(LightningModule):
                         # returns=(returns-returns.mean())/(returns.std()+1e-4)
                         # nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
-                        self.ego_return_meanstd.update(returns)
-                        ego_returns = self.ego_return_meanstd.normalize(returns)
-
-                        self.global_return_meanstd.update(nei_returns)
-                        nei_returns = self.global_return_meanstd.normalize(nei_returns)
+                        # self.ego_return_meanstd.update(returns)
+                        # ego_returns = self.ego_return_meanstd.normalize(returns)
+                        #
+                        # self.global_return_meanstd.update(nei_returns)
+                        # nei_returns = self.global_return_meanstd.normalize(nei_returns)
+                        ego_returns=(returns-returns.mean())/(returns.std()+1e-4)
+                        nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
                         returns=0.5*ego_returns+0.5*nei_returns
 
