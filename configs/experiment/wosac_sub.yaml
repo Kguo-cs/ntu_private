@@ -18,7 +18,7 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "ntu"
+      method_name: "sim"
       authors: anonymous
       affiliation: anonymous
       description: anonymous
