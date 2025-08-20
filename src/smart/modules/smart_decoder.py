@@ -108,8 +108,8 @@ class SMARTDecoder(nn.Module):
                     num_historical_steps=num_historical_steps,
                     num_future_steps=num_future_steps,
                     time_span=10,
-                    pl2a_radius=10,
-                    a2a_radius=10,#20 bad
+                    pl2a_radius=20,
+                    a2a_radius=20,#20 bad
                     num_freq_bands=num_freq_bands,
                     num_layers=1,
                     num_heads=num_heads,
@@ -117,8 +117,8 @@ class SMARTDecoder(nn.Module):
                     dropout=0.5,
                     hist_drop_prob=0.5,
                     n_token_agent=1,
-                    pt2a_neighbor=10,
-                    a2a_neighbor=10,
+                    pt2a_neighbor=20,
+                    a2a_neighbor=20,
                     token_processor=token_processor,
                     alpha=self.alpha,
                     output_gmm=False,

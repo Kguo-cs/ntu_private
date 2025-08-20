@@ -143,11 +143,11 @@ class SMARTAgentDecoder(nn.Module):
 
         if not discriminator:
             self.use_lcf=True
-            #
-            # if self.use_lcf:
-            #     self.lcf_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
+            if self.use_lcf:
+                self.lcf_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=10 )
 
+                self.svo_embedding=nn.Embedding(10, hidden_dim)
 
         self.token_processor= token_processor
         self.discriminator=discriminator
