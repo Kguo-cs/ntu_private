@@ -418,10 +418,15 @@ class IQ_SoftQ(LightningModule):
         if train_mask is not None:
             disc_val=disc_val[train_mask]
 
+
+        entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
+
+        #entropy1= (1. - disc_val) * logit[:,:,0][train_mask] - torch.log(disc_val)
+
         if key == "expert":
-            bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #+ (disc_val-0.5).square().mean()
+            bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))-0.03*entropy
         else:
-            bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) #+ (disc_val-0.5).square().mean()
+            bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))-0.03*entropy
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
