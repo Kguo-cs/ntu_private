@@ -115,7 +115,7 @@ class SMARTDecoder(nn.Module):
                     num_heads=num_heads,
                     head_dim=head_dim,
                     dropout=0.5,
-                    hist_drop_prob=0,
+                    hist_drop_prob=0.5,
                     n_token_agent=1,
                     pt2a_neighbor=20,
                     a2a_neighbor=20,
