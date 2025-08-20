@@ -77,7 +77,6 @@ class SMART_IQ(IQ_SoftQ, SMART):
                     ]
                 )
 
-
             else:
                 optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
 
