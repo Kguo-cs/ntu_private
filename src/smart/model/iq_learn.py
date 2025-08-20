@@ -69,7 +69,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
-        self.dis_loss="gail"
+        self.dis_loss="pugail"
 
         self.learn_lcf=self.encoder.learn_lcf
 
@@ -427,23 +427,25 @@ class IQ_SoftQ(LightningModule):
 
 
         if  self.dis_loss=="pugail":
-            positive_class_prior = 1
-            pugail_beta=1
+            positive_class_prior = 0.7
+            pugail_beta=None
 
             if key == "expert":
                 # positive loss: prior * -ln(D(expert)) = prior * -logsigmoid(logits)
-                bce_loss = positive_class_prior * -disc_val.log().mean()
+                bce_loss = positive_class_prior * -disc_val.log()
             else:
                 bce_loss = -(1 - disc_val).log() - positive_class_prior * -(1 - expert_disc_val).log()
 
                 # negative loss: -ln(1 - D(policy)) - prior * -ln(1 - D(expert))
                 if pugail_beta is not None:
-                    bce_loss = torch.clamp(bce_loss, min=-1.0 * pugail_beta).mean()
+                    bce_loss = torch.clamp(bce_loss, min=-1.0 * pugail_beta)
+
+            bce_loss = bce_loss.mean()
         else:
             if key == "expert":
-                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
+                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
             else:
-                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
+                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
@@ -467,7 +469,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns,expert_disc_val=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_disc_val=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 

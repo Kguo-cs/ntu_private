@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_dis075d10_ent003 #pugail1e6_dr20 #bc32_histdrop01_03_t60_drop02 #AIRL128_normreturn_grad0_dis02
+task_name: AIRL64_dis075d10_ent003_pugail1e6 #_dr20 #bc32_histdrop01_03_t60_drop02 #AIRL128_normreturn_grad0_dis02
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

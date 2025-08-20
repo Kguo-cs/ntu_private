@@ -72,7 +72,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
                 optimizer = torch.optim.AdamW(
                     [
                         {"params": list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), "lr": self.lr, "weight_decay": 0.01},
-                        {"params": self.encoder.discriminator.parameters(), "lr": 1e-4, "weight_decay": 10.0},
+                        {"params": self.encoder.discriminator.parameters(), "lr": 1e-6, "weight_decay": 10.0},
                         {"params": list(self.encoder.value_network.parameters())+list(self.encoder.nei_value_network.parameters()), "lr": 3e-4, "weight_decay": 0.01},
                     ]
                 )
