@@ -58,7 +58,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
                 )
                 )
 
-            if self.encoder.use_gail:
+            if self.encoder.use_gail and self.encoder.iq_learn:
                 # policy_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())  , lr=self.lr)
                 # discriminator_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(),weight_decay=1, lr=3e-4)
                 # value_optimizer = torch.optim.AdamW(list(self.encoder.value_network.parameters())+list(self.encoder.nei_value_network.parameters()), lr=3e-4)
