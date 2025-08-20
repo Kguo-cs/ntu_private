@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/TrafficManager/waymo/model_checkpoint/sim.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL128_lcf45_vf100_detach_grad0_Near60_epoch=2-step=11415_0.7902.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -41,4 +41,4 @@ data:
   shuffle: false
   pin_memory: false
 
-action: test
+action: validate
