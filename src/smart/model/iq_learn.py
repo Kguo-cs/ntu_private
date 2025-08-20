@@ -69,6 +69,8 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
+        self.dis_loss="gail"
+
         self.learn_lcf=self.encoder.learn_lcf
 
         if self.use_lcf and self.iq_learn:
@@ -263,7 +265,7 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
-    def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,agent_mask=None):
+    def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,expert_disc_val=0):
 
         # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
@@ -423,17 +425,32 @@ class IQ_SoftQ(LightningModule):
 
         #entropy1= (1. - disc_val) * logit[:,:,0][train_mask] - torch.log(disc_val)
 
-        if key == "expert":
-            bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))-0.03*entropy
+
+        if  self.dis_loss=="pugail":
+            positive_class_prior = 1
+            pugail_beta=1
+
+            if key == "expert":
+                # positive loss: prior * -ln(D(expert)) = prior * -logsigmoid(logits)
+                bce_loss = positive_class_prior * -disc_val.log().mean()
+            else:
+                bce_loss = -(1 - disc_val).log() - positive_class_prior * -(1 - expert_disc_val).log()
+
+                # negative loss: -ln(1 - D(policy)) - prior * -ln(1 - D(expert))
+                if pugail_beta is not None:
+                    bce_loss = torch.clamp(bce_loss, min=-1.0 * pugail_beta).mean()
         else:
-            bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))-0.03*entropy
+            if key == "expert":
+                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val))
+            else:
+                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val))
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss+bottleneck_loss,rewards,returns,logit
+        return bce_loss+bottleneck_loss-0.03*entropy,rewards,returns,disc_val
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -450,7 +467,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail:
-                expert_dis_loss, expert_rewards, expert_returns,expert_logit=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_disc_val=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid,None)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -479,7 +496,7 @@ class IQ_SoftQ(LightningModule):
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid)
+                agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid,expert_disc_val)
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
