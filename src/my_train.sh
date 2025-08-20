@@ -12,7 +12,7 @@ source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
-python  run.py > AIRL64_lcf45_grad0_vf100_disnodetach.log  2>&1
+python  run.py > AIRL64_grad0_near60_dist05_dr20.log  2>&1
 #torchrun --nproc_per_node=1  -m run trainer=ddp  > AIRL128_1e4_03_Return05_normt.log  2>&1
 
 ##python -m torch.distributed.run --nproc_per_node=4 --master_port=29502 run.py > pad064_32_noshare.log  2>&1
