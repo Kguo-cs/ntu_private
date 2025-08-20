@@ -19,7 +19,7 @@ import time
 from collections import deque
 import random
 import copy
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return,get_near_returns
 from torch_scatter import scatter_mean
 
 class IQ_SoftQ(LightningModule):
@@ -508,7 +508,7 @@ class IQ_SoftQ(LightningModule):
                     value_loss = torch.pow(returns - value_pred, 2.0).clamp(min=0,max=100).mean()
 
                     if self.use_lcf:
-                        nei_rewards = get_nei_returns(tokenized_agent, agent_rewards)
+                        nei_rewards = get_near_returns(tokenized_agent, agent_rewards)
 
                         nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 

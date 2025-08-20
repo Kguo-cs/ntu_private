@@ -19,4 +19,4 @@ model_config:
     pt2pt_neighbor: 20
     pt2a_neighbor: 20
     a2a_neighbor: 20
-    time_span: 30
+    #time_span: 30
