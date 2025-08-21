@@ -138,7 +138,7 @@ def get_nei_returns(tokenized_agent,reward,neighbor_dist=10):
 
 
 
-def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=3):
+def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=1):
     """
     Average reward of the k nearest *valid* neighbors (same batch, not self)
     for each agent at each timestep. If fewer than k are within neighbor_dist,
