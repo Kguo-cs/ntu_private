@@ -497,6 +497,8 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
+            tokenized_agent_rollout["train_mask"]=None
+
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
@@ -681,7 +683,7 @@ class IQ_SoftQ(LightningModule):
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
                 else:
-                    agent_wNLL=-(agent_log_prob*advantages).mean()#[all_valid]
+                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()#
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)

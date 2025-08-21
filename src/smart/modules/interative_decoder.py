@@ -220,6 +220,7 @@ class InterativeDecoder(nn.Module):
         feat_a = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
         proposal=None
 
+
         if self.pred_last_res:
             if self.training:
                 proposal_feature = feat_a.detach()#[:, :-1]
