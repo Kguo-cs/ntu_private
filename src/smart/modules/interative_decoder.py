@@ -281,7 +281,7 @@ class InterativeDecoder(nn.Module):
         if self.use_bottleneck:
             next_token_logits=(next_token_logits,mu,sigma)
 
-        return next_token_logits,feat_a,proposal
+        return next_token_logits,feat_a_all,proposal
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)
