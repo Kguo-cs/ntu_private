@@ -310,7 +310,7 @@ class SMARTAgentDecoder(nn.Module):
         # if self.pred_vis:
         #     visibility=self.vis_head(feat_a.detach())
 
-        return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,feat_a
+        return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,all_features
 
     def forward(
             self,
@@ -332,7 +332,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_lg=light_idx<self.light_type
 
-        next_token_logits,next_light_logits,feat_a_token,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,next_light_logits,feat_a_token,proposal,all_features= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["goal_idx"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -352,7 +352,7 @@ class SMARTAgentDecoder(nn.Module):
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
-        tokenized_agent["feat_a"] =feat_a.detach()
+        tokenized_agent["all_features"] =all_features
         tokenized_agent["lcf"] = 0.5
         tokenized_agent["proposal"] = proposal
         tokenized_agent["feat_a_token"]=feat_a_token

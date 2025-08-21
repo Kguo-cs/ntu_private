@@ -151,8 +151,8 @@ class InterativeDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            dropout=self.discriminator,
-            train_mask=train_mask
+            train_mask=train_mask,
+            num_layers=self.num_layers
         )
 
         feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
@@ -192,7 +192,7 @@ class InterativeDecoder(nn.Module):
         for layer_i in range(self.num_layers):
             feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-            if layer_i == self.num_layers - 1 and train_mask is not None :
+            if layer_i == self.num_layers - 1 and train_mask is not None and self.num_layers==1:
                 feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
                 n_agent = feat_a.shape[1]
                 feat_a=feat_a.flatten(0,1)
@@ -217,9 +217,13 @@ class InterativeDecoder(nn.Module):
         #     self.a_ratio=len(r_a2a)/n_a
         #     self.pt_ratio=len(r_pl2a)/n_pt
 
-        feat_a = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
+        feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
         proposal=None
 
+        if self.num_layers>1 and train_mask is not None:
+            feat_a=feat_a_all[train_mask]
+        else:
+            feat_a=feat_a_all
 
         if self.pred_last_res:
             if self.training:

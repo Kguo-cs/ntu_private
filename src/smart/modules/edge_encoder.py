@@ -269,11 +269,11 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             mask_pl=None,
             train_mask=None,
-            dropout=True
+            num_layers=True
     ):
         n_step=pos_a.shape[1]
 
-        if train_mask is not None:
+        if train_mask is not None and num_layers==1:
             mask=mask[train_mask]
             pos_a=pos_a[train_mask]
             head_a=head_a[train_mask]
@@ -340,7 +340,6 @@ class EdgeEncoder(nn.Module):
         return edge_index_pl2a, r_pl2a
 
 
-    #
     # def forward(self, tokenized_agent,map_feature, ):
     #
     #
