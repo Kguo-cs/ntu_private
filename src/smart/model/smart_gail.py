@@ -58,27 +58,27 @@ class SMART_IQ(IQ_SoftQ, SMART):
                 )
                 )
 
-            if self.encoder.use_gail and self.encoder.iq_learn:
-                # policy_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())  , lr=self.lr)
-                # discriminator_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(),weight_decay=1, lr=3e-4)
-                # value_optimizer = torch.optim.AdamW(list(self.encoder.value_network.parameters())+list(self.encoder.nei_value_network.parameters()), lr=3e-4)
-                #
-                # lr_scheduler = LambdaLR(policy_optimizer, lr_lambda=lr_lambda)
-                #
-                # return (
-                #     [policy_optimizer, discriminator_optimizer,value_optimizer],
-                #     [lr_scheduler, None,None],  # no scheduler for discriminator
-                # )
-                optimizer = torch.optim.AdamW(
-                    [
-                        {"params": list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), "lr": self.lr, "weight_decay": 0.01},
-                        {"params": self.encoder.discriminator.parameters(), "lr": 3e-5, "weight_decay": 0.01},
-                        {"params": list(self.encoder.value_network.parameters())+list(self.encoder.nei_value_network.parameters()), "lr": 3e-4, "weight_decay": 0.01},
-                    ]
-                )
-
-            else:
-                optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+            # if self.encoder.use_gail and self.encoder.iq_learn:
+            #     # policy_optimizer = torch.optim.AdamW(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters())  , lr=self.lr)
+            #     # discriminator_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(),weight_decay=1, lr=3e-4)
+            #     # value_optimizer = torch.optim.AdamW(list(self.encoder.value_network.parameters())+list(self.encoder.nei_value_network.parameters()), lr=3e-4)
+            #     #
+            #     # lr_scheduler = LambdaLR(policy_optimizer, lr_lambda=lr_lambda)
+            #     #
+            #     # return (
+            #     #     [policy_optimizer, discriminator_optimizer,value_optimizer],
+            #     #     [lr_scheduler, None,None],  # no scheduler for discriminator
+            #     # )
+            #     optimizer = torch.optim.AdamW(
+            #         [
+            #             {"params": list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.parameters()), "lr": self.lr, "weight_decay": 0.01},
+            #             {"params": self.encoder.discriminator.parameters(), "lr": 3e-5, "weight_decay": 0.01},
+            #             {"params": list(self.encoder.value_network.parameters())+list(self.encoder.nei_value_network.parameters()), "lr": 3e-4, "weight_decay": 0.01},
+            #         ]
+            #     )
+            #
+            # else:
+            optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
 
 
             lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
