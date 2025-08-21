@@ -122,36 +122,63 @@ class SMARTMapDecoder(nn.Module):
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
 
-        edge_pt=x_pt[mask]
-        pos_edge=pos_pt[mask]
-        orient_edge=orient_pt[mask]
-        batch_edge=batch[mask]
-
-        head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
 
         # x_pt=x_pt[~mask]
         # pos_pt=pos_pt[~mask]
         # orient_pt=orient_pt[~mask]
         # batch=batch[~mask]
 
-        edge_index_pt2pt,r_pt2pt=self.edge_encoder.build_map2map_edge(
-                            pos_pt,  # [n_pl, 2]
-                            orient_pt,  # [n_pl]
-                            pos_edge,  # [n_agent, n_step, 2]
-                            orient_edge,  # [n_agent, n_step]
-                            head_vector_edge,  # [n_agent, n_step, 2]
-                            batch_edge,  # [n_agent*n_step]
-                            batch,  # [n_pl*n_step]
-                            self.pl2pl_radius,
-                            self.pt2pt_neighbor,
-                        )
+        if self.num_layers>1:
+            head_vector = torch.stack([orient_pt.cos(), orient_pt.sin()], dim=-1)
 
-        edge_pt,_ = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
+            edge_index_pt2pt, r_pt2pt = self.edge_encoder.build_map2map_edge(
+                pos_pt,  # [n_pl, 2]
+                orient_pt,  # [n_pl]
+                pos_pt,  # [n_agent, n_step, 2]
+                orient_pt,  # [n_agent, n_step]
+                head_vector,  # [n_agent, n_step, 2]
+                batch,  # [n_agent*n_step]
+                batch,  # [n_pl*n_step]
+                self.pl2pl_radius,
+                self.pt2pt_neighbor,
+            )
 
-        x_pt=edge_pt
-        pos_pt=pos_edge
-        orient_pt=orient_edge
-        batch=batch_edge
+            for i in range(self.num_layers):
+                x_pt ,_= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
+
+
+            x_pt=x_pt[mask]
+            pos_pt=pos_pt[mask]
+            orient_pt=orient_pt[mask]
+            batch=batch[mask]
+
+        else:
+
+            edge_pt=x_pt[mask]
+            pos_edge=pos_pt[mask]
+            orient_edge=orient_pt[mask]
+            batch_edge=batch[mask]
+
+            head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
+
+            edge_index_pt2pt, r_pt2pt = self.edge_encoder.build_map2map_edge(
+                pos_pt,  # [n_pl, 2]
+                orient_pt,  # [n_pl]
+                pos_edge,  # [n_agent, n_step, 2]
+                                orient_edge,  # [n_agent, n_step]
+                                head_vector_edge,  # [n_agent, n_step, 2]
+                                batch_edge,  # [n_agent*n_step]
+                                batch,  # [n_pl*n_step]
+                                self.pl2pl_radius,
+                                self.pt2pt_neighbor,
+                            )
+
+            edge_pt,_ = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
+
+            x_pt=edge_pt
+            pos_pt=pos_edge
+            orient_pt=orient_edge
+            batch=batch_edge
 
         # for i in range(self.num_layers):
         #     x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
