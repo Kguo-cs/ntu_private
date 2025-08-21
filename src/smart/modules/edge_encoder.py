@@ -294,16 +294,16 @@ class EdgeEncoder(nn.Module):
             train_mask=None,
             num_layers=True
     ):
-        n_step=pos_a.shape[1]
 
         if train_mask is not None and num_layers==1:
-            mask=mask[train_mask]
-            pos_a=pos_a[train_mask]
-            head_a=head_a[train_mask]
-            head_vector_a=head_vector_a[train_mask]
-            batch_s=batch_s[train_mask]
+            mask=mask[train_mask,:16]
+            pos_a=pos_a[train_mask,:16]
+            head_a=head_a[train_mask,:16]
+            head_vector_a=head_vector_a[train_mask,:16]
+            batch_s=batch_s[train_mask,:16]
 
         n_agent=pos_a.shape[0]
+        n_step=pos_a.shape[1]
 
         pos_s=pos_a.flatten(0,1)
         head_s=head_a.flatten(0,1)
