@@ -310,7 +310,7 @@ class SMARTAgentDecoder(nn.Module):
         # if self.pred_vis:
         #     visibility=self.vis_head(feat_a.detach())
 
-        all_features[0]=feat_a.detach()
+        all_features[0]=all_features[0].detach()
 
         return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,all_features
 
