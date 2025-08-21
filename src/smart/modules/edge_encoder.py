@@ -106,7 +106,8 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             max_radius,
             proposal=None,
-            vis_mask=None
+            vis_mask=None,
+            value=False
             # shape=None
     ):
         if proposal is None:
@@ -122,7 +123,29 @@ class EdgeEncoder(nn.Module):
                 #                                       batch_y=batch_s,
                 #                                       max_num_neighbors=max_num_neighbors)
 
-                edge_index_a2a = radiusGraphNearest(x=pos_s,
+                if value:
+                    pos_a=pos_s.reshape(17,-1,2)
+                    batch_s1=batch_s.reshape(17,-1) [:-1].flatten()
+
+                    pos_a1=pos_a[:-1].flatten(0,1)
+                    pos_a2=pos_a[1:].flatten(0,1)
+
+
+                    edge_index_a2a = radiusGraphNearest2(x=pos_a1,
+                                                          y=pos_a2,
+                                                          x_heading=head_s,
+                                                          r=max_radius,
+                                                          batch_x=batch_s1,
+                                                          batch_y=batch_s1,
+                                                          max_num_neighbors=max_num_neighbors)
+
+                    n_agent= pos_a.shape[1]
+
+                    edge_index_a2a[0]=edge_index_a2a[0]+n_agent
+
+
+                else:
+                    edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                      r=max_radius,
                                                      batch=batch_s,
                                                      loop=False,

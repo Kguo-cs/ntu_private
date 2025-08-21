@@ -43,7 +43,8 @@ class InterativeDecoder(nn.Module):
             output_gmm,
             pred_last_res,
             pred_all_res,
-            discriminator=False
+            discriminator=False,
+            value_network=False
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -114,6 +115,7 @@ class InterativeDecoder(nn.Module):
         self.use_bottleneck = False
 
         self.discriminator=discriminator
+        self.value_network=value_network
 
         self.filter_ratio=0
 
@@ -168,7 +170,8 @@ class InterativeDecoder(nn.Module):
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
-            vis_mask=None
+            vis_mask=None,
+            value=self.value_network
             #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
@@ -217,7 +220,7 @@ class InterativeDecoder(nn.Module):
         #     self.a_ratio=len(r_a2a)/n_a
         #     self.pt_ratio=len(r_pl2a)/n_pt
 
-        feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
+        feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim)[:16].transpose(0, 1)
         proposal=None
 
         if self.num_layers>1 and train_mask is not None:

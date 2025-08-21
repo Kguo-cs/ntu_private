@@ -141,7 +141,7 @@ class SMARTDecoder(nn.Module):
                                                     1,num_heads,head_dim,
                                                     dropout,hist_drop_prob,2,
                                                     pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,False,False,False,False
+                                                    token_processor,False,False,False,False,value_network=True
                                                     )
 
                     # self.value_network = SMARTAgentDecoder(
