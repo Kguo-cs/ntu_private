@@ -130,8 +130,6 @@ class InterativeDecoder(nn.Module):
                 # self.a2pl_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
                 self.a2a_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
 
-
-
     def forward(self,all_features,map_feature,train_mask ):
         feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
 
@@ -156,8 +154,6 @@ class InterativeDecoder(nn.Module):
             dropout=self.discriminator,
             train_mask=train_mask
         )
-
-
 
         feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
 
@@ -194,27 +190,28 @@ class InterativeDecoder(nn.Module):
         a2a_list=[]
 
         for layer_i in range(self.num_layers):
-            # if layer_i == self.num_layers - 1 and train_mask is not None :
-            #     feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
-            #     n_agent = feat_a.shape[1]
-            #     feat_a=feat_a.flatten(0,1)
             feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+            if layer_i == self.num_layers - 1 and train_mask is not None :
+                feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
+                n_agent = feat_a.shape[1]
+                feat_a=feat_a.flatten(0,1)
 
             feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            if layer_i<self.num_layers-1 and self.filter_ratio>0:
-                a2a_mask=a2a_attn>self.filter_ratio
-                r_a2a=r_a2a[a2a_mask]
-                edge_index_a2a=edge_index_a2a[:,a2a_mask]
-
-                pt_mask=pt_attn>self.filter_ratio
-
-                r_pl2a=r_pl2a[pt_mask]
-                edge_index_pl2a=edge_index_pl2a[:,pt_mask]
-
-            a2a_list.append(a2a_attn)
-
-        a2a_feature=torch.cat(a2a_list,dim=-1)
+        #     if layer_i<self.num_layers-1 and self.filter_ratio>0:
+        #         a2a_mask=a2a_attn>self.filter_ratio
+        #         r_a2a=r_a2a[a2a_mask]
+        #         edge_index_a2a=edge_index_a2a[:,a2a_mask]
+        #
+        #         pt_mask=pt_attn>self.filter_ratio
+        #
+        #         r_pl2a=r_pl2a[pt_mask]
+        #         edge_index_pl2a=edge_index_pl2a[:,pt_mask]
+        #
+        #     a2a_list.append(a2a_attn)
+        #
+        # a2a_feature=torch.cat(a2a_list,dim=-1)
 
         # if self.num_layers>1:
         #     self.a_ratio=len(r_a2a)/n_a
@@ -279,7 +276,7 @@ class InterativeDecoder(nn.Module):
         if self.use_bottleneck:
             next_token_logits=(next_token_logits,mu,sigma)
 
-        return next_token_logits,feat_a,proposal,a2a_feature,edge_index_a2a
+        return next_token_logits,feat_a,proposal
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)

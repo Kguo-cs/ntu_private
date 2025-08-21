@@ -296,7 +296,7 @@ class SMARTAgentDecoder(nn.Module):
 
             all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None]
 
-        next_token_logits,feat_a,proposal,a2a_feature,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
 
         # proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
         # proposal[mask_a]=proposal_
