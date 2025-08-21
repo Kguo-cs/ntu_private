@@ -8,7 +8,7 @@ export PBS_JOBID=68041.pbs111
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_clean shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_all2_03 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_clean guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 

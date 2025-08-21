@@ -130,7 +130,6 @@ class EdgeEncoder(nn.Module):
                     pos_a1=pos_a[:-1].flatten(0,1)
                     pos_a2=pos_a[1:].flatten(0,1)
 
-
                     edge_index_a2a = radiusGraphNearest2(x=pos_a1,
                                                           y=pos_a2,
                                                           x_heading=head_s,
@@ -141,8 +140,11 @@ class EdgeEncoder(nn.Module):
 
                     n_agent= pos_a.shape[1]
 
-                    edge_index_a2a[0]=edge_index_a2a[0]+n_agent
+                    mask_ego=edge_index_a2a[0]!=edge_index_a2a[1]
 
+                    edge_index_a2a = edge_index_a2a[:,mask_ego]
+
+                    edge_index_a2a[0]=edge_index_a2a[0]+n_agent
 
                 else:
                     edge_index_a2a = radiusGraphNearest(x=pos_s,
