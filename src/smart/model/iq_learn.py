@@ -502,7 +502,7 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
-            tokenized_agent_rollout["train_mask"]=all_valid
+            # tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
                 agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid,expert_disc_val)

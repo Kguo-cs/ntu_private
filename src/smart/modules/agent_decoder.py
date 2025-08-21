@@ -310,6 +310,8 @@ class SMARTAgentDecoder(nn.Module):
         # if self.pred_vis:
         #     visibility=self.vis_head(feat_a.detach())
 
+        all_features[0]=feat_a.detach()
+
         return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,all_features
 
     def forward(
@@ -348,6 +350,7 @@ class SMARTAgentDecoder(nn.Module):
         #     lcf=torch.sigmoid(self.lcf_head(feat_a))*torch.pi/2
         # else:
         #     lcf=None
+
 
 
         tokenized_agent["next_token_logits"] = next_token_logits
