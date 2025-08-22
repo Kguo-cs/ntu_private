@@ -268,7 +268,7 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_d(self,f,log_prob):
-        return torch.sigmoid(f/self.alpha-log_prob.detach())
+        return torch.sigmoid(f/self.alpha)#-log_prob.detach()
 
     def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,expert_disc_val=0):
 
@@ -328,7 +328,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/"+key+"_bottleneck_loss", bottleneck_loss.item(), on_step=True, batch_size=1)
 
         else:
-            disc_val = self.get_d(logit[:, :, 0],log_prob[train_mask])
+            disc_val = self.get_d(logit[:, :, 0],log_prob)
 
             if key == "agent" and self.use_kl_penalty:
                 with torch.no_grad():
@@ -500,12 +500,12 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            tokenized_agent_rollout["train_mask"]=None
+            # tokenized_agent_rollout["train_mask"]=None
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
-            tokenized_agent_rollout["train_mask"]=all_valid
+            # tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
                 agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
@@ -688,7 +688,7 @@ class IQ_SoftQ(LightningModule):
                                         1.0 + clip_param) * advantages
                     agent_wNLL = -torch.min(surr1, surr2).mean()
                 else:
-                    agent_wNLL=-(agent_log_prob[all_valid]*advantages).mean()#[all_valid]
+                    agent_wNLL=-(agent_log_prob*advantages).mean()#[all_valid]
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
