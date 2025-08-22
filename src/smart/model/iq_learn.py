@@ -267,6 +267,9 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
+    def get_d(self,f):
+        return torch.sigmoid(f/self.alpha)
+
     def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,expert_disc_val=0):
 
         # all_features=tokenized_agent["detach_all_features"]
@@ -325,7 +328,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/"+key+"_bottleneck_loss", bottleneck_loss.item(), on_step=True, batch_size=1)
 
         else:
-            disc_val = torch.sigmoid(logit[:, :, 0])
+            disc_val = self.get_d(logit[:, :, 0])
 
             if key == "agent" and self.use_kl_penalty:
                 with torch.no_grad():
@@ -356,7 +359,7 @@ class IQ_SoftQ(LightningModule):
                                                                      map_feature,
                                                                      tokenized_agent["light_idx"],
                                                                      None)[0]
-                        disc_val_eval = torch.sigmoid(logit[:, :, 0])
+                        disc_val_eval = self.get_d(logit[:, :, 0])
                         self.encoder.discriminator.train()
                     else:
                         disc_val_eval=disc_val
@@ -423,7 +426,7 @@ class IQ_SoftQ(LightningModule):
         #     disc_val=disc_val[train_mask]
 
 
-        entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
+        #entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
 
         #entropy1= (1. - disc_val) * logit[:,:,0][train_mask] - torch.log(disc_val)
 
