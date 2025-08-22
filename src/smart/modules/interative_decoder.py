@@ -223,10 +223,10 @@ class InterativeDecoder(nn.Module):
         feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
         proposal=None
 
-        if self.num_layers>1 and train_mask is not None:
-            feat_a=feat_a_all[train_mask]
-        else:
-            feat_a=feat_a_all
+        # if self.num_layers>1 and train_mask is not None:
+        #     feat_a=feat_a_all[train_mask]
+        # else:
+        feat_a=feat_a_all
 
         if self.pred_last_res:
             if self.training:
