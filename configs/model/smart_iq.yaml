@@ -9,8 +9,8 @@ model_config:
   n_vis_scenario: 1
   n_vis_rollout: 1
   decoder:
-    num_map_layers: 1
-    num_agent_layers: 4
+    num_map_layers: 2
+    num_agent_layers: 3
     pl2pl_radius: 20
     pl2a_radius: 40
     a2a_radius: 60
@@ -19,4 +19,4 @@ model_config:
     pt2pt_neighbor: 20
     pt2a_neighbor: 20
     a2a_neighbor: 20
-    #time_span: 20  #less
+    #time_span: 40  #less
