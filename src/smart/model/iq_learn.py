@@ -329,13 +329,13 @@ class IQ_SoftQ(LightningModule):
 
         else:
 
-            svo=torch.sigmoid(logit[:,:,1])
 
             disc_val = self.get_d(logit[:, :, 0],log_prob)
-
-            nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
-
-            disc_val = svo*disc_val +(1-svo)* nei_disval
+            # svo=torch.sigmoid(logit[:,:,1])
+            #
+            # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
+            #
+            # disc_val = svo*disc_val +(1-svo)* nei_disval
 
             if key == "agent" and self.use_kl_penalty:
                 with torch.no_grad():
@@ -368,11 +368,11 @@ class IQ_SoftQ(LightningModule):
                                                                      None)[0]
                         disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
 
-                        svo = torch.sigmoid(logit[:, :, 1])
-
-                        nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
-
-                        disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
+                        # svo = torch.sigmoid(logit[:, :, 1])
+                        #
+                        # nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
+                        #
+                        # disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
 
                         self.encoder.discriminator.train()
                     else:
@@ -432,7 +432,7 @@ class IQ_SoftQ(LightningModule):
 
             bottleneck_loss=0
 
-        #entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
+        entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
 
         #entropy1= (1. - disc_val) * logit[:,:,0][train_mask] - torch.log(disc_val)
         if  self.dis_loss=="pugail":
@@ -461,7 +461,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss+bottleneck_loss,rewards,returns,disc_val
+        return bce_loss+bottleneck_loss-0.03*entropy,rewards,returns,disc_val
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
