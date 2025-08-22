@@ -309,11 +309,11 @@ class SMARTAgentDecoder(nn.Module):
         #
         # if self.pred_vis:
         #     visibility=self.vis_head(feat_a.detach())
-        if n_step>1:
-            batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
-            0, 1)
-
-            all_features = [feat_a_t.detach(), pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s, None]
+        # if n_step>1:
+        #     batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
+        #     0, 1)
+        #
+        #     all_features = [feat_a_t.detach(), pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s, None]
 
         return next_token_logits,next_light_logits,(feat_a_token.detach(),agent_token_emb.detach()),proposal,all_features
 
