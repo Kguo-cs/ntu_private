@@ -532,7 +532,6 @@ class IQ_SoftQ(LightningModule):
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.use_value:
-                    # value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
                     # logit = self.encoder.value_network.predict_agent(tokenized_agent_rollout["sampled_idx"],
                     #                                                  tokenized_agent_rollout["goal_idx"],
                     #                                                  tokenized_agent_rollout["valid_mask"],
@@ -542,9 +541,10 @@ class IQ_SoftQ(LightningModule):
                     #                                                  tokenized_agent_rollout["detach_map_feature"],
                     #                                                  tokenized_agent_rollout["light_idx"],
                     #                                                  None)[0]#[all_valid]
-                    logit=self.encoder.value_network(tokenized_agent_rollout["all_features"],tokenized_agent_rollout["detach_map_feature"],all_valid)[0]
+                    # logit=self.encoder.value_network(tokenized_agent_rollout["all_features"],tokenized_agent_rollout["detach_map_feature"],all_valid)[0]
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 
-                    value_pred=logit[:,:,0]
+                    #value_pred=logit[:,:,0]
 
                     ego_advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
 
@@ -553,9 +553,9 @@ class IQ_SoftQ(LightningModule):
                     if self.use_lcf:
                         nei_rewards = get_near_returns(tokenized_agent, agent_rewards)
 
-                        nei_value_pred=logit[:,:,1]
+                        # nei_value_pred=logit[:,:,1]
 
-                        # nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
+                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards[all_valid],nei_value_pred.detach(),None,gamma=self.gamma)
 

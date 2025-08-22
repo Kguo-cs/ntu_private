@@ -114,7 +114,7 @@ class SMARTDecoder(nn.Module):
                     num_layers=1,
                     num_heads=num_heads,
                     head_dim=head_dim,
-                    dropout=0.5,
+                    dropout=0.75,
                     hist_drop_prob=0,
                     n_token_agent=1,
                     pt2a_neighbor=10,
@@ -129,20 +129,20 @@ class SMARTDecoder(nn.Module):
 
 
                 if self.use_value:
-                    # self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
-                    #
-                    # self.nei_value_network =MLPLayer(hidden_dim,hidden_dim,1)
+                    self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
+
+                    self.nei_value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
                     if self.learn_lcf :
                         self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
-                    self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                                                    pl2a_radius,a2a_radius,num_freq_bands,
-                                                    1,num_heads,head_dim,
-                                                    dropout,hist_drop_prob,2,
-                                                    pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,False,False,False,False,value_network=True
-                                                    )
+                    # self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+                    #                                 pl2a_radius,a2a_radius,num_freq_bands,
+                    #                                 1,num_heads,head_dim,
+                    #                                 dropout,hist_drop_prob,2,
+                    #                                 pt2a_neighbor,a2a_neighbor,
+                    #                                 token_processor,False,False,False,False,value_network=True
+                    #                                 )
 
                     # self.value_network = SMARTAgentDecoder(
                     #     hidden_dim=hidden_dim,
