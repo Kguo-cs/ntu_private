@@ -113,9 +113,13 @@ def get_return(rewards, gamma):
 
     return returns
 
-def get_nei_returns(tokenized_agent,reward,neighbor_dist=10):
+def get_nei_returns(tokenized_agent,reward,neighbor_dist=10,train_mask=None):
     pos = tokenized_agent["sampled_pos"][:,1:-1]
     batch = tokenized_agent["batch"]
+
+    if train_mask is not None:
+        pos = pos[train_mask]
+        batch = batch[train_mask]
 
     M = pos.size(0)
 
@@ -138,7 +142,7 @@ def get_nei_returns(tokenized_agent,reward,neighbor_dist=10):
 
 
 
-def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=1):
+def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=1,train_mask=None):
     """
     Average reward of the k nearest *valid* neighbors (same batch, not self)
     for each agent at each timestep. If fewer than k are within neighbor_dist,
@@ -158,6 +162,11 @@ def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=1):
     """
     pos   = tokenized_agent["sampled_pos"][:, 1:-1]   # [M, T, 2]
     batch = tokenized_agent["batch"]                  # [M]
+
+    if train_mask is not None:
+        pos = pos[train_mask]
+        batch = batch[train_mask]
+
     M, T, _ = pos.shape
     device = pos.device
 

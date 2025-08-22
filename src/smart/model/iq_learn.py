@@ -268,7 +268,7 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_d(self,f,log_prob):
-        return torch.sigmoid(f/self.alpha)#-log_prob.detach()
+        return torch.sigmoid(f)#-log_prob.detach()
 
     def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,expert_disc_val=0):
 
@@ -328,7 +328,14 @@ class IQ_SoftQ(LightningModule):
             self.log("train/"+key+"_bottleneck_loss", bottleneck_loss.item(), on_step=True, batch_size=1)
 
         else:
+
+            svo=torch.sigmoid(logit[:,:,1])
+
             disc_val = self.get_d(logit[:, :, 0],log_prob)
+
+            nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
+
+            disc_val = svo*disc_val +(1-svo)* nei_disval
 
             if key == "agent" and self.use_kl_penalty:
                 with torch.no_grad():
@@ -360,6 +367,13 @@ class IQ_SoftQ(LightningModule):
                                                                      tokenized_agent["light_idx"],
                                                                      None)[0]
                         disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
+
+                        svo = torch.sigmoid(logit[:, :, 1])
+
+                        nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
+
+                        disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
+
                         self.encoder.discriminator.train()
                     else:
                         disc_val_eval=disc_val
@@ -418,19 +432,9 @@ class IQ_SoftQ(LightningModule):
 
             bottleneck_loss=0
 
-        # exp_f=logit.exp()
-        #
-        # disc_val=exp_f/(exp_f + torch.exp(log_prob.detach()))
-
-        # if train_mask is not None:
-        #     disc_val=disc_val[train_mask]
-
-
         #entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
 
         #entropy1= (1. - disc_val) * logit[:,:,0][train_mask] - torch.log(disc_val)
-
-
         if  self.dis_loss=="pugail":
             positive_class_prior = 0.7
             pugail_beta=None
