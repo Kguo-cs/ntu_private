@@ -81,6 +81,9 @@ pip install -r TrafficManager/requirements.txt
 
 nohup python run.py >  1.log 2>&1 &
 
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
+pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 
 wsl -d Ubuntu
 
@@ -97,7 +100,34 @@ conda activate catk
 git pull
 setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 
-CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29500  -m run trainer=ddp
+CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
+
+
+
+
+
+
+
+ssh 10.87.114.128
+ulimit -n 65535
+source "/home/ke/miniconda3/bin/activate"
+cd /home/ke/keguo/sim/src
+conda activate sim
+git pull
+
+nohup python run.py >  1.log 2>&1 &
+
+
+
+
+
+
+
+
+
+
+
+
 
 # bc20_pt8_share_map_tv diverge
 
