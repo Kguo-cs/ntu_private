@@ -432,7 +432,7 @@ class IQ_SoftQ(LightningModule):
 
             bottleneck_loss=0
 
-        entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
+        #entropy = -(disc_val * torch.log(disc_val + 1e-8) + (1 - disc_val) * torch.log(1 - disc_val + 1e-8)).mean()
 
         #entropy1= (1. - disc_val) * logit[:,:,0][train_mask] - torch.log(disc_val)
         if  self.dis_loss=="pugail":
@@ -461,7 +461,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss+bottleneck_loss-0.03*entropy,rewards,returns,disc_val
+        return bce_loss+bottleneck_loss,rewards,returns,disc_val #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
