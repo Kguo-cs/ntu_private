@@ -500,6 +500,10 @@ class IQ_SoftQ(LightningModule):
 
                     agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
 
+                    expert_dis_loss=0
+                    agent_dis_loss=0
+
+
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
