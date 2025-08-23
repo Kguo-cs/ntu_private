@@ -128,7 +128,9 @@ class SMARTDecoder(nn.Module):
                 #     discriminator=True
                 # )
 
-                self.discriminator= Discriminator(hidden_dim, hidden_dim, False, num_units=128)
+               # self.discriminator= Discriminator(hidden_dim, hidden_dim, False, num_units=128)
+
+                self.discriminator=MLPLayer(hidden_dim*2,hidden_dim,1)
 
 
                 if self.use_value:
