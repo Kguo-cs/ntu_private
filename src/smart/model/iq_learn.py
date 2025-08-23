@@ -81,7 +81,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.automatic_optimization=False
 
-        self.use_distance =True
+        self.use_distance =False
 
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
@@ -290,19 +290,21 @@ class IQ_SoftQ(LightningModule):
 
         #distance_to_expert=1
 
-
-        logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                        tokenized_agent["goal_idx"],
-                                                        tokenized_agent["valid_mask"],
-                                                        tokenized_agent["sampled_pos"],
-                                                        tokenized_agent["sampled_heading"] ,
-                                                        tokenized_agent,
-                                                        map_feature,
-                                                        tokenized_agent["light_idx"],
-                                                        None)[0]
+        disc_val=self.encoder.discriminator._compute_disc_val(tokenized_agent["feat_a"][train_mask].reshape(-1,128), tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
 
 
-        disc_val = self.get_d(logit[:, :, 0],log_prob)
+        # logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+        #                                                 tokenized_agent["goal_idx"],
+        #                                                 tokenized_agent["valid_mask"],
+        #                                                 tokenized_agent["sampled_pos"],
+        #                                                 tokenized_agent["sampled_heading"] ,
+        #                                                 tokenized_agent,
+        #                                                 map_feature,
+        #                                                 tokenized_agent["light_idx"],
+        #                                                 None)[0]
+
+
+        #disc_val = self.get_d(logit[:, :, 0],log_prob)
         # svo=torch.sigmoid(logit[:,:,1])
         #
         # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
@@ -327,28 +329,28 @@ class IQ_SoftQ(LightningModule):
             kl_per_token=0
 
             with torch.no_grad():
-                if key=="agent":
-                    self.encoder.discriminator.eval()
-                    logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                                 tokenized_agent["goal_idx"],
-                                                                 tokenized_agent["valid_mask"],
-                                                                 tokenized_agent["sampled_pos"],
-                                                                 tokenized_agent["sampled_heading"],
-                                                                 tokenized_agent,
-                                                                 map_feature,
-                                                                 tokenized_agent["light_idx"],
-                                                                 None)[0]
-                    disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
-
-                    # svo = torch.sigmoid(logit[:, :, 1])
-                    #
-                    # nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
-                    #
-                    # disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
-
-                    self.encoder.discriminator.train()
-                else:
-                    disc_val_eval=disc_val
+                # if key=="agent":
+                #     self.encoder.discriminator.eval()
+                #     logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                #                                                  tokenized_agent["goal_idx"],
+                #                                                  tokenized_agent["valid_mask"],
+                #                                                  tokenized_agent["sampled_pos"],
+                #                                                  tokenized_agent["sampled_heading"],
+                #                                                  tokenized_agent,
+                #                                                  map_feature,
+                #                                                  tokenized_agent["light_idx"],
+                #                                                  None)[0]
+                #     disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
+                #
+                #     # svo = torch.sigmoid(logit[:, :, 1])
+                #     #
+                #     # nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
+                #     #
+                #     # disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
+                #
+                #     self.encoder.discriminator.train()
+                # else:
+                disc_val_eval=disc_val
 
                 rewards=get_reward(disc_val_eval,kl_per_token)
 

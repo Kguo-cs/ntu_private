@@ -21,6 +21,7 @@ from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
 from src.smart.layers import MLPLayer
 from .interative_decoder import InterativeDecoder
+from src.smart.modules.diffusion_discriminator import Discriminator
 
 class SMARTDecoder(nn.Module):
 
@@ -126,6 +127,8 @@ class SMARTDecoder(nn.Module):
                 #     pred_all_res=False,
                 #     discriminator=True
                 # )
+
+                self.discriminator= Discriminator(hidden_dim, hidden_dim, False, num_units=128)
 
 
                 if self.use_value:
