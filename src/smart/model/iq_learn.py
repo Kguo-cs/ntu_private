@@ -500,8 +500,8 @@ class IQ_SoftQ(LightningModule):
 
                     agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
 
-                    expert_dis_loss=0
-                    agent_dis_loss=0
+                    expert_dis_loss=torch.tensor(0.0)
+                    agent_dis_loss=torch.tensor(0.0)
 
 
 
@@ -544,7 +544,7 @@ class IQ_SoftQ(LightningModule):
 
                     #value_pred=logit[:,:,0]
 
-                    ego_advantages,returns=compute_advantages(agent_rewards[all_valid],value_pred.detach(),None,gamma=self.gamma)
+                    ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
                     value_loss = torch.pow(returns - value_pred, 2.0).clamp(min=0,max=100).mean()
 
