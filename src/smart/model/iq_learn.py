@@ -81,6 +81,8 @@ class IQ_SoftQ(LightningModule):
 
                 self.automatic_optimization=False
 
+        self.use_distance =True
+
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
@@ -286,6 +288,9 @@ class IQ_SoftQ(LightningModule):
 
         # logit=self.encoder.discriminator(tokenized_agent["feat_a"])#.detach()
 
+        #distance_to_expert=1
+
+
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
@@ -295,140 +300,107 @@ class IQ_SoftQ(LightningModule):
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
                                                         None)[0]
-        if len(logit)==3:
-
-            logit,mu,sigma=logit
-            disc_val = torch.sigmoid(logit[:, :, 0])
-
-            if key == "agent":
-                with torch.no_grad():
-                    self.encoder.discriminator.eval()
-
-                    logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                                     tokenized_agent["goal_idx"],
-                                                                     tokenized_agent["valid_mask"],
-                                                                     tokenized_agent["sampled_pos"],
-                                                                     tokenized_agent["sampled_heading"],
-                                                                     tokenized_agent,
-                                                                     map_feature,
-                                                                     tokenized_agent["light_idx"],
-                                                                     None)[0]
-                    logit, mu, sigma = logit
-
-                    returns, rewards = self.running_meanstd.get_return(torch.sigmoid(logit[:, :, 0]), self.gamma, key,
-                                                                       reward_type=self.reward_type)
-                    self.encoder.discriminator.train()
-            else:
-                returns, rewards = self.running_meanstd.get_return(disc_val, self.gamma, key,
-                                                                   reward_type=self.reward_type)
-
-            bottleneck_loss =  torch.mean(-sigma+(torch.square(mu)+torch.square(torch.exp(sigma))-1.)/2.) #self.get_latent_kl_div(mu,sigma)
 
 
-            self.log("train/"+key+"_bottleneck_loss", bottleneck_loss.item(), on_step=True, batch_size=1)
+        disc_val = self.get_d(logit[:, :, 0],log_prob)
+        # svo=torch.sigmoid(logit[:,:,1])
+        #
+        # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
+        #
+        # disc_val = svo*disc_val +(1-svo)* nei_disval
+
+        if key == "agent" and self.use_kl_penalty:
+            with torch.no_grad():
+                target_q = self.target_net(tokenized_agent, map_feature)[
+                    "agent_q"]
+
+                ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+
+                # KL per token: sum_a p(a) * (log p(a) - log q(a))
+                kl_coef=1
+
+                kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
+
+            self.log("train/" + key + "_kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
 
         else:
+            kl_per_token=0
 
+            with torch.no_grad():
+                if key=="agent":
+                    self.encoder.discriminator.eval()
+                    logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                                 tokenized_agent["goal_idx"],
+                                                                 tokenized_agent["valid_mask"],
+                                                                 tokenized_agent["sampled_pos"],
+                                                                 tokenized_agent["sampled_heading"],
+                                                                 tokenized_agent,
+                                                                 map_feature,
+                                                                 tokenized_agent["light_idx"],
+                                                                 None)[0]
+                    disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
 
-            disc_val = self.get_d(logit[:, :, 0],log_prob)
-            # svo=torch.sigmoid(logit[:,:,1])
-            #
-            # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
-            #
-            # disc_val = svo*disc_val +(1-svo)* nei_disval
+                    # svo = torch.sigmoid(logit[:, :, 1])
+                    #
+                    # nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
+                    #
+                    # disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
 
-            if key == "agent" and self.use_kl_penalty:
+                    self.encoder.discriminator.train()
+                else:
+                    disc_val_eval=disc_val
+
+                rewards=get_reward(disc_val_eval,kl_per_token)
+
+                returns = get_return(rewards, self.gamma)
+
+            if  self.use_lcf and not self.encoder.use_value:
                 with torch.no_grad():
-                    target_q = self.target_net(tokenized_agent, map_feature)[
-                        "agent_q"]
 
-                    ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+                    batch = tokenized_agent["batch"]
+                    global_rewards=scatter_mean(rewards,batch,dim=0)
+                    # global_rewards_per_agent = global_rewards[batch]  # [N]
 
-                    # KL per token: sum_a p(a) * (log p(a) - log q(a))
-                    kl_coef=1
+                    #global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
 
-                    kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
+                    self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
 
-                self.log("train/" + key + "_kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
-
-            else:
-                kl_per_token=0
-
-                with torch.no_grad():
-                    if key=="agent":
-                        self.encoder.discriminator.eval()
-                        logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                                     tokenized_agent["goal_idx"],
-                                                                     tokenized_agent["valid_mask"],
-                                                                     tokenized_agent["sampled_pos"],
-                                                                     tokenized_agent["sampled_heading"],
-                                                                     tokenized_agent,
-                                                                     map_feature,
-                                                                     tokenized_agent["light_idx"],
-                                                                     None)[0]
-                        disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
-
-                        # svo = torch.sigmoid(logit[:, :, 1])
-                        #
-                        # nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
-                        #
-                        # disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
-
-                        self.encoder.discriminator.train()
-                    else:
-                        disc_val_eval=disc_val
-
-                    rewards=get_reward(disc_val_eval,kl_per_token)
-
-                    returns = get_return(rewards, self.gamma)
-
-                if  self.use_lcf and not self.encoder.use_value:
-                    with torch.no_grad():
-
-                        batch = tokenized_agent["batch"]
-                        global_rewards=scatter_mean(rewards,batch,dim=0)
-                        # global_rewards_per_agent = global_rewards[batch]  # [N]
-
-                        #global_returns=self.running_meanstd.get_return(global_rewards_per_agent, self.gamma)
-
-                        self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
-
-                        #global_returns=scatter_mean(returns,batch,dim=0)[batch]
+                    #global_returns=scatter_mean(returns,batch,dim=0)[batch]
 
 
-                        #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
+                    #self.log("train/" + key + "_global_returns", global_returns.mean().item(), on_step=True, batch_size=1)
 
-                        nei_returns=get_nei_returns(tokenized_agent,returns)
-                        self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
+                    nei_returns=get_nei_returns(tokenized_agent,returns)
+                    self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
 
-                        #
-                        # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
-                        # step_lcf = torch.clamp(lcf, -1, 1)
-                        # # Note: step_lcf is in [-1, 1]
+                    #
+                    # lcf =current_lcf_mean+ torch.randn_like(returns)*current_lcf_std
+                    # step_lcf = torch.clamp(lcf, -1, 1)
+                    # # Note: step_lcf is in [-1, 1]
 
-                        #step_lcf=0.5
-                        #used_lcf = step_lcf * np.pi / 2
+                    #step_lcf=0.5
+                    #used_lcf = step_lcf * np.pi / 2
 
-                        # used_lcf=tokenized_agent["lcf"][:,:,0]
-                        #
-                        # self.log("train/" + key + "_lcf_mean", torch.cos(used_lcf).mean(), on_step=True, batch_size=1)
-                        # self.log("train/" + key + "_lcf_std", torch.cos(used_lcf).std(), on_step=True, batch_size=1)
+                    # used_lcf=tokenized_agent["lcf"][:,:,0]
+                    #
+                    # self.log("train/" + key + "_lcf_mean", torch.cos(used_lcf).mean(), on_step=True, batch_size=1)
+                    # self.log("train/" + key + "_lcf_std", torch.cos(used_lcf).std(), on_step=True, batch_size=1)
 
-                        # returns=(returns-returns.mean())/(returns.std()+1e-4)
-                        # nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
+                    # returns=(returns-returns.mean())/(returns.std()+1e-4)
+                    # nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
-                        # self.ego_return_meanstd.update(returns)
-                        # ego_returns = self.ego_return_meanstd.normalize(returns)
-                        #
-                        # self.global_return_meanstd.update(nei_returns)
-                        # nei_returns = self.global_return_meanstd.normalize(nei_returns)
-                        ego_returns=(returns-returns.mean())/(returns.std()+1e-4)
-                        nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
+                    # self.ego_return_meanstd.update(returns)
+                    # ego_returns = self.ego_return_meanstd.normalize(returns)
+                    #
+                    # self.global_return_meanstd.update(nei_returns)
+                    # nei_returns = self.global_return_meanstd.normalize(nei_returns)
+                    ego_returns=(returns-returns.mean())/(returns.std()+1e-4)
+                    nei_returns=(nei_returns-nei_returns.mean())/(nei_returns.std()+1e-4)
 
-                        returns=0.5*ego_returns+0.5*nei_returns
+                    returns=0.5*ego_returns+0.5*nei_returns
 
-                    # self._raw_lcf_adv_mean = returns.mean()
-                    # self._raw_lcf_adv_std = max(1e-4, returns.std())
+                # self._raw_lcf_adv_mean = returns.mean()
+                # self._raw_lcf_adv_std = max(1e-4, returns.std())
 
             bottleneck_loss=0
 
@@ -479,10 +451,14 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent["train_mask"]=all_valid
 
         if self.iq_learn:
-            if self.use_gail:
+            if self.use_gail and not self.use_distance:
                 expert_dis_loss, expert_rewards, expert_returns,expert_disc_val=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
+
+            if self.use_distance:
+                gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
+
 
             if self.global_step%self.rollout_freq==0:
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
@@ -512,7 +488,18 @@ class IQ_SoftQ(LightningModule):
             # tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
-                agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
+                if not self.use_distance:
+
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
+                else:
+                    agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
+                                                     tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:],
+                                                     tokenized_agent_rollout["token_agent_shape"][all_valid][:, None])
+
+                    agent_reward= -torch.linalg.norm(agent_contour-gt_contour,dim=-1).mean(-1)
+
+                    agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
+
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():
