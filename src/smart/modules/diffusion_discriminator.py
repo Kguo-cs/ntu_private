@@ -2,7 +2,6 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 import torch.optim.lr_scheduler
 
 def cosine_beta_schedule(timesteps, s=0.008):
