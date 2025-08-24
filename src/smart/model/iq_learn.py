@@ -477,16 +477,22 @@ class IQ_SoftQ(LightningModule):
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
 
-                pos=tokenized_agent["sampled_pos"].clone()#use original pos
-                heading=tokenized_agent["sampled_heading"].clone()#use original pos
+                pos=tokenized_agent["gt_pos_raw"].clone()#use original pos
+                heading=tokenized_agent["gt_head_raw"].clone()#use original pos
                 token_agent_shape=tokenized_agent["token_agent_shape"][:,None][all_valid]
 
-                pos_noise=torch.randn_like(pos)*0.05#*torch.rand_like(pos)
+                # pos_noise=torch.randn_like(pos)*0.05#*torch.rand_like(pos)
+                #
+                # heading_noise=torch.randn_like(heading)*0.05#*torch.rand_like(heading)
 
-                heading_noise=torch.randn_like(heading)*0.05#*torch.rand_like(heading)
+                # noised_pos=pos+pos_noise
+                # noised_heading=wrap_angle(heading+heading_noise)
 
-                noised_pos=pos+pos_noise
-                noised_heading=wrap_angle(heading+heading_noise)
+                noised_pos= tokenized_agent["sampled_pos"]
+                noised_heading=tokenized_agent["sampled_heading"]
+
+                pos_noise=noised_pos-pos
+                heading_noise=wrap_angle(noised_heading-heading)
 
                 noise_pred = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                                  tokenized_agent["goal_idx"],
