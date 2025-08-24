@@ -35,8 +35,8 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
-map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_all2_clean/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_all2_03/"
+map_data_directory  = "/home/ke/code/catk/src/waymo_data/map1_10/training/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_edge1_03/"
 
 
 
@@ -105,17 +105,17 @@ def process_file(filename):
 
     with open(map_path, "rb") as f:
         data2 = pickle.load(f)
-    #
-    # data1=HeteroData(data2).cuda()
-    #
-    # tokenized_map = token_processor.tokenize_map(data1)
-    #
-    # for key in tokenized_map.keys():
-    #     tokenized_map[key] = tokenized_map[key].cpu()
-    #
-    # data["tokenized_map"]=tokenized_map
-    # data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
-    # data["tokenized_map"]["token_idx"]=data["tokenized_map"]["token_idx"].to(torch.int16)
+
+    data1=HeteroData(data2).cuda()
+
+    tokenized_map = token_processor.tokenize_map(data1)
+
+    for key in tokenized_map.keys():
+        tokenized_map[key] = tokenized_map[key].cpu()
+
+    data["tokenized_map"]=tokenized_map
+    data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
+    data["tokenized_map"]["token_idx"]=data["tokenized_map"]["token_idx"].to(torch.int16)
     # map=data2["tokenized_map"]
     #
     # # [1, n_token, 3, 2] - [n_pl, 1, 3, 2]
@@ -128,7 +128,7 @@ def process_file(filename):
     #
     # del data2["tokenized_map"]["traj_pos_local"]
 
-    data2["tokenized_agent"]=data["tokenized_agent"]
+    #data2["tokenized_agent"]=data["tokenized_agent"]
     #
     #del data2["tokenized_light"]
 
@@ -136,7 +136,7 @@ def process_file(filename):
 
     # Save the tokenized data
     with open(output_path, "wb") as f:
-        pickle.dump(data2, f)
+        pickle.dump(data, f)
 
 
 if __name__ == "__main__":
