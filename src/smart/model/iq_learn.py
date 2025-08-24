@@ -581,9 +581,9 @@ class IQ_SoftQ(LightningModule):
 
                         pred_contour = cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
 
-                        agent_reward =-torch.linalg.norm(gt_contour-pred_contour,dim=-1).mean(-1) #torch.linalg.norm(error_pred,ord=1,dim=-1)
+                        agent_rewards =-torch.linalg.norm(gt_contour-pred_contour,dim=-1).mean(-1) #torch.linalg.norm(error_pred,ord=1,dim=-1)
 
-                        agent_rewards = (agent_reward - agent_reward.mean()) / (agent_reward.std() + 1e-4)
+                        #agent_rewards = (agent_rewards - agent_rewards.mean()) / (agent_rewards.std() + 1e-4)
 
                     expert_dis_loss=noise_error
                     agent_dis_loss=torch.tensor(0.0)
