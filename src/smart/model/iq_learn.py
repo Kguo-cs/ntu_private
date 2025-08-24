@@ -80,7 +80,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.automatic_optimization=False
 
-        self.use_distance =True
+        self.use_distance =False
 
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
