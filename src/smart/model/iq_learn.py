@@ -481,9 +481,9 @@ class IQ_SoftQ(LightningModule):
                 heading=tokenized_agent["sampled_heading"].clone()#use original pos
                 token_agent_shape=tokenized_agent["token_agent_shape"][:,None][all_valid]
 
-                pos_noise=torch.randn_like(pos)*0.1#*torch.rand_like(pos)
+                pos_noise=torch.randn_like(pos)*0.05#*torch.rand_like(pos)
 
-                heading_noise=torch.randn_like(heading)*0.1#*torch.rand_like(heading)
+                heading_noise=torch.randn_like(heading)*0.05#*torch.rand_like(heading)
 
                 noised_pos=pos+pos_noise
                 noised_heading=wrap_angle(heading+heading_noise)
@@ -516,7 +516,6 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
                 self.log("train/expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
-
 
             if self.global_step%self.rollout_freq==0:
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
