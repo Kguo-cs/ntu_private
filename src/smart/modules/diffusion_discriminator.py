@@ -31,10 +31,10 @@ class MLPConditionDiffusion(nn.Module):
         self.linears = nn.ModuleList(linears_list)#.to(device)
 
         embed_list = []
-        for i in range(depth - 1):
+        for i in range(depth):
             embed_list.append(nn.Embedding(n_steps, num_units))
-        if depth == 1:
-            embed_list.append(nn.Embedding(n_steps, num_units))
+        # if depth == 1:
+        #     embed_list.append(nn.Embedding(n_steps, num_units))
         self.step_embeddings = nn.ModuleList(embed_list)#.to(device)
 
     def forward(self, x, c, t):

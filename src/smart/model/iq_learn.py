@@ -38,7 +38,6 @@ class IQ_SoftQ(LightningModule):
         self.use_gail=self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
 
-
         self.buffer_len=1
 
         self.replay_buffer = deque(maxlen=self.buffer_len)
@@ -84,6 +83,11 @@ class IQ_SoftQ(LightningModule):
         self.use_distance =False
 
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
+
+    # def on_after_backward(self):
+    #     for name, param in self.named_parameters():
+    #         if param.grad is None:
+    #             print(f"Unused parameter: {name}")
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -718,15 +722,6 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/kl_penalty", kl_per_token.item(), on_step=True, batch_size=1)
 
                     expert_nll=expert_nll+kl_per_token
-                        # dist=torch.distributions.Categorical(
-                        #     probs=agent_pi)
-                        #
-                        # kl_loss = torch.distributions.kl_divergence(dist, torch.distributions.Categorical(
-                        #     logits=target_q / self.alpha))
-
-                        #print(1)
-
-
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
                 # constraint_loss=expert_V_diff.square().mean()*5
