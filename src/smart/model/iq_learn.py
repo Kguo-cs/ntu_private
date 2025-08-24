@@ -479,6 +479,7 @@ class IQ_SoftQ(LightningModule):
 
                 pos=tokenized_agent["sampled_pos"].clone()
                 heading=tokenized_agent["sampled_heading"].clone()
+                token_agent_shape=tokenized_agent["token_agent_shape"][:,None][all_valid]
 
                 pos_noise=torch.randn_like(pos)*torch.rand_like(pos)
 
@@ -497,9 +498,18 @@ class IQ_SoftQ(LightningModule):
                                                                  tokenized_agent["light_idx"],
                                                                  None)[0]
 
+                pred_pos=noised_pos[all_valid][:,2:]-noise_pred[:,:,:2]
+                pred_heading=noised_heading[all_valid][:,2:]-noise_pred[:,:,2]
+
+                pred_contour=cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
+
+                real_contour=cal_polygon_contour(pos[all_valid][:,2:], heading[all_valid][:,2:], token_agent_shape)
+
+                noise_error=torch.linalg.norm(pred_contour-real_contour,dim=-1).mean()
+
                 real_noise=torch.cat([pos_noise,heading_noise[:,:,None]],dim=-1)[all_valid][:,2:]
 
-                noise_error=torch.linalg.norm(noise_pred-real_noise,ord=1,dim=-1).mean()
+                #noise_error=torch.linalg.norm(noise_pred-real_noise,ord=1,dim=-1).mean()
 
                 pos_error=torch.linalg.norm(noise_pred[:,:,:2]-real_noise[:,:,:2],dim=-1).mean()
                 heading_error=(noise_pred[:,:,2]-real_noise[:,:,2]).abs().mean()
@@ -564,7 +574,14 @@ class IQ_SoftQ(LightningModule):
                         self.log("train/agent_pos_error", pos_error.item(), on_step=True, batch_size=1)
                         self.log("train/agent_heading_error", heading_error.item(), on_step=True, batch_size=1)
 
-                        agent_reward =-torch.linalg.norm(error_pred,ord=1,dim=-1)
+                        gt_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:,2:], tokenized_agent_rollout["sampled_heading"][all_valid][:,2:], token_agent_shape)
+
+                        pred_pos=tokenized_agent_rollout["sampled_pos"][all_valid][:,2:]+error_pred[:,:,:2]
+                        pred_heading=tokenized_agent_rollout["sampled_heading"][all_valid][:,2:]+error_pred[:,:,2]
+
+                        pred_contour = cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
+
+                        agent_reward =-torch.linalg.norm(gt_contour-pred_contour,dim=-1).mean(-1) #torch.linalg.norm(error_pred,ord=1,dim=-1)
 
                         agent_rewards = (agent_reward - agent_reward.mean()) / (agent_reward.std() + 1e-4)
 
