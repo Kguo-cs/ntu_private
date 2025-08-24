@@ -290,7 +290,11 @@ class IQ_SoftQ(LightningModule):
 
         #distance_to_expert=1
 
-        disc_val=self.encoder.discriminator._compute_disc_val(tokenized_agent["feat_a"][train_mask].reshape(-1,128), tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
+        state=tokenized_agent["feat_a"][train_mask].reshape(-1,128)
+
+        state=(state-state.mean(0,keepdim=True))/(state.std(0,keepdim=True) + 1e-5)
+
+        disc_val=self.encoder.discriminator._compute_disc_val(state, tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
         # sa=torch.cat([tokenized_agent["feat_a"],tokenized_agent["agent_token_emb"][:,2:]],dim=-1)[train_mask]
         #
         # logit =self.encoder.discriminator(sa)
