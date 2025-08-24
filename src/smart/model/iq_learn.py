@@ -482,7 +482,7 @@ class IQ_SoftQ(LightningModule):
 
                 pos_noise=torch.randn_like(pos)*torch.rand_like(pos)
 
-                heading_noise=torch.rand_like(heading)*torch.rand_like(heading)*0.1
+                heading_noise=torch.randn_like(heading)*torch.rand_like(heading)*0.1
 
                 noised_pos=pos+pos_noise
                 noised_heading=wrap_angle(heading+heading_noise)
