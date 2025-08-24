@@ -504,8 +504,8 @@ class IQ_SoftQ(LightningModule):
                 pos_error=torch.linalg.norm(noise_pred[:,:,:2]-real_noise[:,:,:2],dim=-1).mean()
                 heading_error=(noise_pred[:,:,2]-real_noise[:,:,2]).abs().mean()
 
-                self.log("expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
-                self.log("expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
+                self.log("train/expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
+                self.log("train/expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
 
 
             if self.global_step%self.rollout_freq==0:
@@ -561,8 +561,8 @@ class IQ_SoftQ(LightningModule):
                     pos_error = torch.linalg.norm(error_pred[:, :, :2], dim=-1).mean()
                     heading_error = (error_pred[:, :, 2]).abs().mean()
 
-                    self.log("agent_pos_error", pos_error.item(), on_step=True, batch_size=1)
-                    self.log("agent_heading_error", heading_error.item(), on_step=True, batch_size=1)
+                    self.log("train/agent_pos_error", pos_error.item(), on_step=True, batch_size=1)
+                    self.log("train/agent_heading_error", heading_error.item(), on_step=True, batch_size=1)
 
                     agent_reward =-torch.linalg.norm(error_pred,ord=1,dim=-1)
 
