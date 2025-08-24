@@ -80,7 +80,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.automatic_optimization=False
 
-        self.use_distance =False
+        self.use_distance =True
 
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
@@ -294,27 +294,31 @@ class IQ_SoftQ(LightningModule):
 
         #distance_to_expert=1
 
-        state=tokenized_agent["feat_a"][train_mask].reshape(-1,128)
+        # state=tokenized_agent["feat_a"][train_mask].reshape(-1,128)
+        #
+        # state=(state-state.mean(0,keepdim=True))/(state.std(0,keepdim=True) + 1e-5)
+        #
+        # disc_val=self.encoder.discriminator._compute_disc_val(state, tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
 
-        state=(state-state.mean(0,keepdim=True))/(state.std(0,keepdim=True) + 1e-5)
 
-        disc_val=self.encoder.discriminator._compute_disc_val(state, tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
+
+
         # sa=torch.cat([tokenized_agent["feat_a"],tokenized_agent["agent_token_emb"][:,2:]],dim=-1)[train_mask]
         #
         # logit =self.encoder.discriminator(sa)
 
-        # logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-        #                                                 tokenized_agent["goal_idx"],
-        #                                                 tokenized_agent["valid_mask"],
-        #                                                 tokenized_agent["sampled_pos"],
-        #                                                 tokenized_agent["sampled_heading"] ,
-        #                                                 tokenized_agent,
-        #                                                 map_feature,
-        #                                                 tokenized_agent["light_idx"],
-        #                                                 None)[0]
+        logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                        tokenized_agent["goal_idx"],
+                                                        tokenized_agent["valid_mask"],
+                                                        tokenized_agent["sampled_pos"],
+                                                        tokenized_agent["sampled_heading"] ,
+                                                        tokenized_agent,
+                                                        map_feature,
+                                                        tokenized_agent["light_idx"],
+                                                        None)[0]
 
 
-        #disc_val = self.get_d(logit[:, :, 0],log_prob)
+        disc_val = self.get_d(logit[:, :, 0],log_prob)
         # svo=torch.sigmoid(logit[:,:,1])
         #
         # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
@@ -471,7 +475,37 @@ class IQ_SoftQ(LightningModule):
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
             if self.use_distance:
-                gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
+                #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
+
+                pos=tokenized_agent["sampled_pos"].clone()
+                heading=tokenized_agent["sampled_heading"].clone()
+
+                pos_noise=torch.randn_like(pos)*torch.rand_like(pos)
+
+                heading_noise=torch.rand_like(heading)*torch.rand_like(heading)*0.1
+
+                noised_pos=pos+pos_noise
+                noised_heading=wrap_angle(heading+heading_noise)
+
+                noise_pred = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                                 tokenized_agent["goal_idx"],
+                                                                 tokenized_agent["valid_mask"],
+                                                                 noised_pos,
+                                                                 noised_heading,
+                                                                 tokenized_agent,
+                                                                 tokenized_agent["detach_map_feature"],
+                                                                 tokenized_agent["light_idx"],
+                                                                 None)[0]
+
+                real_noise=torch.cat([pos_noise,heading_noise[:,:,None]],dim=-1)[all_valid][:,2:]
+
+                noise_error=torch.linalg.norm(noise_pred-real_noise,ord=1,dim=-1).mean()
+
+                pos_error=torch.linalg.norm(noise_pred[:,:,:2]-real_noise[:,:,:2],dim=-1).mean()
+                heading_error=(noise_pred[:,:,2]-real_noise[:,:,2]).abs().mean()
+
+                self.log("expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
+                self.log("expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
 
 
             if self.global_step%self.rollout_freq==0:
@@ -506,15 +540,35 @@ class IQ_SoftQ(LightningModule):
 
                     agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
                 else:
-                    agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
-                                                     tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:],
-                                                     tokenized_agent_rollout["token_agent_shape"][all_valid][:, None])
+                    # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
+                    #                                  tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:],
+                    #                                  tokenized_agent_rollout["token_agent_shape"][all_valid][:, None])
+                    #
+                    # agent_reward= -torch.linalg.norm(agent_contour-gt_contour,dim=-1).mean(-1)
+                    #
+                    # agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
 
-                    agent_reward= -torch.linalg.norm(agent_contour-gt_contour,dim=-1).mean(-1)
+                    error_pred = self.encoder.discriminator.predict_agent(tokenized_agent_rollout["sampled_idx"],
+                                                                          tokenized_agent_rollout["goal_idx"],
+                                                                          tokenized_agent_rollout["valid_mask"],
+                                                                          tokenized_agent_rollout["sampled_pos"],
+                                                                          tokenized_agent_rollout["sampled_heading"],
+                                                                          tokenized_agent_rollout,
+                                                                          tokenized_agent_rollout["detach_map_feature"],
+                                                                          tokenized_agent_rollout["light_idx"],
+                                                                          None)[0]
 
-                    agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
+                    pos_error = torch.linalg.norm(error_pred[:, :, :2], dim=-1).mean()
+                    heading_error = (error_pred[:, :, 2]).abs().mean()
 
-                    expert_dis_loss=torch.tensor(0.0)
+                    self.log("agent_pos_error", pos_error.item(), on_step=True, batch_size=1)
+                    self.log("agent_heading_error", heading_error.item(), on_step=True, batch_size=1)
+
+                    agent_reward =-torch.linalg.norm(error_pred,ord=1,dim=-1)
+
+                    agent_rewards = (agent_reward - agent_reward.mean()) / (agent_reward.std() + 1e-4)
+
+                    expert_dis_loss=noise_error
                     agent_dis_loss=torch.tensor(0.0)
 
 

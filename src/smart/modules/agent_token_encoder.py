@@ -14,7 +14,8 @@ class AgentTokenEncoder(nn.Module):
             self,
             hidden_dim: int,
             num_freq_bands:int,
-            token_processor
+            token_processor,
+            discriminator=False
     ) -> None:
         super(AgentTokenEncoder, self).__init__()
         self.type_a_emb = nn.Embedding(3, hidden_dim)
@@ -38,10 +39,14 @@ class AgentTokenEncoder(nn.Module):
         # self.token_emb_cyc = MLPEmbedding(
         #     input_dim=input_dim_token, hidden_dim=hidden_dim
         # )
-        self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
-        self.fusion_emb = MLPEmbedding(
-            input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
-        )
+
+        self.discriminator=discriminator
+
+        if not self.discriminator:
+            self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
+            self.fusion_emb = MLPEmbedding(
+                input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
+            )
 
     def forward(
             self,
@@ -57,7 +62,11 @@ class AgentTokenEncoder(nn.Module):
     ):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
         _device = pos_a.device
-        agent_token_emb=self.embedding(agent_token_index)
+
+        if not self.discriminator:
+            agent_token_emb=self.embedding(agent_token_index)
+        else:
+            agent_token_emb = None
 
         # veh_mask = agent_type == 0
         # ped_mask = agent_type == 1
@@ -107,8 +116,11 @@ class AgentTokenEncoder(nn.Module):
         )  # [n_agent*n_step, hidden_dim]
         x_a = x_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
 
-        feat_a = torch.cat((agent_token_emb, x_a), dim=-1)
-        feat_a = self.fusion_emb(feat_a)
+        if not self.discriminator:
+            feat_a = torch.cat((agent_token_emb, x_a), dim=-1)
+            feat_a = self.fusion_emb(feat_a)
+        else:
+            feat_a=x_a
 
         return feat_a, agent_token_emb  # [n_agent, n_step, hidden_dim]
 
