@@ -360,7 +360,7 @@ class IQ_SoftQ(LightningModule):
 
                 rewards=get_reward(disc_val_eval,kl_per_token)
 
-               # rewards=(rewards-rewards.mean())/(rewards.std()+1e-4)
+                rewards=(rewards-rewards.mean())/(rewards.std()+1e-4)
 
                 returns = get_return(rewards, self.gamma)
 
