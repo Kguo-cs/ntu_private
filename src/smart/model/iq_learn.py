@@ -529,7 +529,7 @@ class IQ_SoftQ(LightningModule):
                 #noise_error=torch.linalg.norm(noise_pred-real_noise,ord=1,dim=-1).mean()
 
                 pos_error=torch.linalg.norm(noise_pred[:,:,:2]-real_noise[:,:,:2],dim=-1).mean()
-                heading_error=(noise_pred[:,:,2]-real_noise[:,:,2]).abs().mean()
+                heading_error=wrap_angle(noise_pred[:,:,2]-real_noise[:,:,2]).abs().mean()
 
                 self.log("train/expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
                 self.log("train/expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
