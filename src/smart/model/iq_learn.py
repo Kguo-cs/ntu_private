@@ -477,8 +477,8 @@ class IQ_SoftQ(LightningModule):
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
 
-                pos=tokenized_agent["sampled_pos"].clone()
-                heading=tokenized_agent["sampled_heading"].clone()
+                pos=tokenized_agent["gt_pos_raw"]#.clone()#use original pos
+                heading=tokenized_agent["gt_head_raw"]#.clone()#use original pos
                 token_agent_shape=tokenized_agent["token_agent_shape"][:,None][all_valid]
 
                 pos_noise=torch.randn_like(pos)*torch.rand_like(pos)

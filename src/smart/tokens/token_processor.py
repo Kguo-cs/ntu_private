@@ -804,9 +804,9 @@ class TokenProcessor(torch.nn.Module):
                                                          speed,
                                                             )
             tokenized_agent.update(token_dict)
-            tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,::5]
-            tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,::5]
-            tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,::5]
+            tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
+            tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
+            tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
 
         else:
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
