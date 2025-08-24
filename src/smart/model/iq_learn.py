@@ -290,10 +290,10 @@ class IQ_SoftQ(LightningModule):
 
         #distance_to_expert=1
 
-        #disc_val=self.encoder.discriminator._compute_disc_val(tokenized_agent["feat_a"][train_mask].reshape(-1,128), tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
-        sa=torch.cat([tokenized_agent["feat_a"],tokenized_agent["agent_token_emb"][:,2:]],dim=-1)[train_mask]
-
-        logit =self.encoder.discriminator(sa)
+        disc_val=self.encoder.discriminator._compute_disc_val(tokenized_agent["feat_a"][train_mask].reshape(-1,128), tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
+        # sa=torch.cat([tokenized_agent["feat_a"],tokenized_agent["agent_token_emb"][:,2:]],dim=-1)[train_mask]
+        #
+        # logit =self.encoder.discriminator(sa)
 
         # logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
         #                                                 tokenized_agent["goal_idx"],
@@ -306,7 +306,7 @@ class IQ_SoftQ(LightningModule):
         #                                                 None)[0]
 
 
-        disc_val = self.get_d(logit[:, :, 0],log_prob)
+        #disc_val = self.get_d(logit[:, :, 0],log_prob)
         # svo=torch.sigmoid(logit[:,:,1])
         #
         # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
@@ -355,6 +355,8 @@ class IQ_SoftQ(LightningModule):
                 disc_val_eval=disc_val
 
                 rewards=get_reward(disc_val_eval,kl_per_token)
+
+                rewards=(rewards-rewards.mean())/(rewards.std()+1e-4)
 
                 returns = get_return(rewards, self.gamma)
 

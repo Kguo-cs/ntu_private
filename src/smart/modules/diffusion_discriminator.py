@@ -65,7 +65,7 @@ class Discriminator(nn.Module):
         alphas_bar_sqrt = torch.sqrt(alphas_prod)#.to(self.args.device)
         one_minus_alphas_bar_sqrt = torch.sqrt(1 - alphas_prod)#.to(self.args.device)
 
-        d_model = MLPConditionDiffusion(n_steps, 1, input_dim, num_units=num_units,depth=1) #.to(self.args.device)
+        d_model = MLPConditionDiffusion(n_steps, 1, input_dim, num_units=num_units,depth=2) #.to(self.args.device)
         try:
             self.base_net = base_net.net #.to(self.args.device)
         except:
