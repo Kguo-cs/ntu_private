@@ -307,11 +307,18 @@ class IQ_SoftQ(LightningModule):
         #
         # logit =self.encoder.discriminator(sa)
 
+        if key=="expert":
+            pos=tokenized_agent["gt_pos_raw"]
+            heading=tokenized_agent["gt_head_raw"]
+        else:
+            pos=tokenized_agent["sampled_pos"]
+            heading=tokenized_agent["sampled_heading"]
+
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
-                                                        tokenized_agent["sampled_pos"],
-                                                        tokenized_agent["sampled_heading"] ,
+                                                        pos,
+                                                        heading ,
                                                         tokenized_agent,
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
