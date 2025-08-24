@@ -80,7 +80,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.automatic_optimization=False
 
-        self.use_distance =False
+        self.use_distance =True
 
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
@@ -307,18 +307,11 @@ class IQ_SoftQ(LightningModule):
         #
         # logit =self.encoder.discriminator(sa)
 
-        if key=="expert":
-            pos=tokenized_agent["gt_pos_raw"]
-            heading=tokenized_agent["gt_head_raw"]
-        else:
-            pos=tokenized_agent["sampled_pos"]
-            heading=tokenized_agent["sampled_heading"]
-
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
-                                                        pos,
-                                                        heading ,
+                                                        tokenized_agent["sampled_pos"],
+                                                        tokenized_agent["sampled_heading"] ,
                                                         tokenized_agent,
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
@@ -498,8 +491,12 @@ class IQ_SoftQ(LightningModule):
                 noised_pos= tokenized_agent["sampled_pos"]
                 noised_heading=tokenized_agent["sampled_heading"]
 
-                pos_noise=noised_pos-pos
-                heading_noise=wrap_angle(noised_heading-heading)
+                pos_local, heading_local=transform_to_local(pos.reshape(-1,1,2),heading.reshape(-1,1),noised_pos.reshape(-1,2),noised_heading.reshape(-1))
+
+                pos_noise=pos_local.reshape(pos.shape)
+                heading_noise=heading_local.reshape(heading.shape)
+                # pos_noise=noised_pos-pos
+                # heading_noise=wrap_angle(noised_heading-heading)
 
                 noise_pred = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                                  tokenized_agent["goal_idx"],
@@ -511,8 +508,15 @@ class IQ_SoftQ(LightningModule):
                                                                  tokenized_agent["light_idx"],
                                                                  None)[0]
 
-                pred_pos=noised_pos[all_valid][:,2:]-noise_pred[:,:,:2]
-                pred_heading=noised_heading[all_valid][:,2:]-noise_pred[:,:,2]
+                pos_global, head_global=transform_to_global(noise_pred[:,:,:2].reshape(-1,1,2),noise_pred[:,:,2].reshape(-1,1),
+                                                            noised_pos[all_valid][:,2:].reshape(-1,2),noised_heading[all_valid][:,2:].reshape(-1))
+
+                pred_pos = pos_global.reshape(noise_pred.shape[0],noise_pred.shape[1],2)
+
+                pred_heading = head_global.reshape(noise_pred.shape[0],noise_pred.shape[1])
+
+                # pred_pos=noised_pos[all_valid][:,2:]-noise_pred[:,:,:2]
+                # pred_heading=noised_heading[all_valid][:,2:]-noise_pred[:,:,2]
 
                 pred_contour=cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
 
@@ -586,14 +590,24 @@ class IQ_SoftQ(LightningModule):
                         self.log("train/agent_pos_error", pos_error.item(), on_step=True, batch_size=1)
                         self.log("train/agent_heading_error", heading_error.item(), on_step=True, batch_size=1)
 
-                        gt_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:,2:], tokenized_agent_rollout["sampled_heading"][all_valid][:,2:], token_agent_shape)
+                        agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:,2:],
+                                                            tokenized_agent_rollout["sampled_heading"][all_valid][:,2:], token_agent_shape)
 
-                        pred_pos=tokenized_agent_rollout["sampled_pos"][all_valid][:,2:]+error_pred[:,:,:2]
-                        pred_heading=tokenized_agent_rollout["sampled_heading"][all_valid][:,2:]+error_pred[:,:,2]
+                        # pred_pos=tokenized_agent_rollout["sampled_pos"][all_valid][:,2:]+error_pred[:,:,:2]
+                        # pred_heading=tokenized_agent_rollout["sampled_heading"][all_valid][:,2:]+error_pred[:,:,2]
+
+                        pos_global, head_global = transform_to_global(error_pred[:, :, :2].reshape(-1, 1, 2),
+                                                                      error_pred[:, :, 2].reshape(-1, 1),
+                                                                      tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:].reshape(-1, 2),
+                                                                      tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:].reshape(-1))
+
+                        pred_pos = pos_global.reshape(error_pred.shape[0], error_pred.shape[1], 2)
+
+                        pred_heading = head_global.reshape(error_pred.shape[0], error_pred.shape[1])
 
                         pred_contour = cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
 
-                        agent_rewards =-torch.linalg.norm(gt_contour-pred_contour,dim=-1).mean(-1) #torch.linalg.norm(error_pred,ord=1,dim=-1)
+                        agent_rewards =-torch.linalg.norm(agent_contour-pred_contour,dim=-1).mean(-1) #torch.linalg.norm(error_pred,ord=1,dim=-1)
 
                         #agent_rewards = (agent_rewards - agent_rewards.mean()) / (agent_rewards.std() + 1e-4)
 
