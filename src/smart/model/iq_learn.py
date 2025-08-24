@@ -481,7 +481,7 @@ class IQ_SoftQ(LightningModule):
                 heading=tokenized_agent["sampled_heading"].clone()#use original pos
                 token_agent_shape=tokenized_agent["token_agent_shape"][:,None][all_valid]
 
-                pos_noise=torch.randn_like(pos)#*torch.rand_like(pos)
+                pos_noise=torch.randn_like(pos)*0.1#*torch.rand_like(pos)
 
                 heading_noise=torch.randn_like(heading)*0.1#*torch.rand_like(heading)
 
