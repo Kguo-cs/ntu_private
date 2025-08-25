@@ -68,7 +68,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
-        self.dis_loss="gail"
+        self.dis_loss="wgan"
 
         self.learn_lcf=self.encoder.learn_lcf
 
@@ -274,7 +274,7 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_d(self,f,log_prob):
-        return f #torch.sigmoid(f)#-log_prob.detach()
+        return torch.sigmoid(f)#-log_prob.detach()
 
     def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,expert_disc_val=0):
 
@@ -365,8 +365,10 @@ class IQ_SoftQ(LightningModule):
                 #     self.encoder.discriminator.train()
                 # else:
                 disc_val_eval=disc_val
-
-                rewards=disc_val_eval.detach()#get_reward(disc_val_eval,kl_per_token)
+                if  self.dis_loss == "wgan":
+                    rewards=logit[:, :, 0].detach()
+                else:
+                    rewards=get_reward(disc_val_eval,kl_per_token)
 
                 rewards=(rewards-rewards.mean())/(rewards.std()+1e-4)
 
@@ -440,16 +442,66 @@ class IQ_SoftQ(LightningModule):
                     bce_loss = torch.clamp(bce_loss, min=-1.0 * pugail_beta)
 
             bce_loss = bce_loss.mean()
+        elif self.dis_loss=="wgan":
+            if key == "expert":
+                bce_loss = -logit[:, :, 0].mean()#self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
+            else:
+                bce_loss = logit[:, :, 0].mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
         else:
             if key == "expert":
-                bce_loss = -disc_val.mean()#self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
+                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
             else:
-                bce_loss = disc_val.mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
+                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+
+        if self.dis_loss == "wgan" and key == "agent":
+            expert_pos=tokenized_agent["expert_sampled_pos"]
+            expert_sampled_heading=tokenized_agent["expert_sampled_heading"]
+            expert_valid_mask=tokenized_agent["expert_valid_mask"]
+            pos=tokenized_agent["sampled_pos"]
+            heading=tokenized_agent["sampled_heading"]
+
+            alpha= torch.rand((expert_pos.size(0), expert_pos.size(1)), device=expert_pos.device)
+            interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
+            interpolate_heading = alpha * expert_sampled_heading + (1 - alpha) * heading
+
+            interpolates=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
+
+            interpolates = interpolates.clone().detach().requires_grad_(True)  # IMPORTANT
+
+            scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                            tokenized_agent["goal_idx"],
+                                                            expert_valid_mask,
+                                                            interpolates[:,:,:2],
+                                                            interpolates[:,:,2] ,
+                                                            tokenized_agent,
+                                                            map_feature,
+                                                            tokenized_agent["light_idx"],
+                                                            None)[0]
+            score_sum = scores.sum()
+
+            # gradient wrt interpolates
+            gradients = torch.autograd.grad(
+                outputs=score_sum,
+                inputs=interpolates,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True,
+            )[0]  # shape: [B, T, 3]
+
+            gradients=gradients[:,2:][expert_valid_mask[:,2:]]
+
+            grad_norm = gradients.view(gradients.size(0), -1).norm(2, dim=1)
+            gp = ((grad_norm - 1) ** 2).mean() * 10
+
+
+            self.log("train/grad_norm", grad_norm, on_step=True, batch_size=1)
+
+            bce_loss=gp+bce_loss
 
         return bce_loss+bottleneck_loss,rewards,returns,disc_val #-0.03*entropy
 
@@ -473,6 +525,11 @@ class IQ_SoftQ(LightningModule):
                 expert_dis_loss, expert_rewards, expert_returns,expert_disc_val=self.get_reward(tokenized_agent,expert_log_prob,"expert",all_valid)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
+
+            if self.dis_loss=="wgan":
+                tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
+                tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
+                tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
 
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
@@ -565,6 +622,7 @@ class IQ_SoftQ(LightningModule):
                 if not self.use_distance:
 
                     agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
+
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
                     #                                  tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:],
