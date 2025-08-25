@@ -27,10 +27,16 @@ import torch
 import numpy as np
 import random
 
+#import torch.multiprocessing as mp
+
+# mp.set_start_method("spawn", force=True)
 
 os.environ["WANDB_SILENT"] = "true"
 
 wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+wandb.require("service")  # forces the new service backend
+# Optional: use thread start (very robust in multiprocess settings)
+settings = wandb.Settings(start_method="thread")
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
