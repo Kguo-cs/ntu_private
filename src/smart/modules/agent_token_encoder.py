@@ -87,13 +87,23 @@ class AgentTokenEncoder(nn.Module):
         #     agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
         #     agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
 
-        motion_vector_a = torch.cat(
-            [
-                pos_a.new_zeros(agent_token_index.shape[0], 1, 2),
-                pos_a[:, 1:] - pos_a[:, :-1],
-            ],
-            dim=1,
-        ) [:,-n_step:] # [n_agent, n_step, 2]
+        if self.discriminator:
+            motion_vector_a = torch.cat(
+                [
+                    pos_a[:,:1],
+                    pos_a[:, 1:] - pos_a[:, :-1],
+                ],
+                dim=1,
+            ) [:,-n_step:] # [n_agent, n_step, 2]
+
+        else:
+            motion_vector_a = torch.cat(
+                [
+                    pos_a.new_zeros(agent_token_index.shape[0], 1, 2),
+                    pos_a[:, 1:] - pos_a[:, :-1],
+                ],
+                dim=1,
+            ) [:,-n_step:] # [n_agent, n_step, 2]
         feature_a = torch.stack(
             [
                 torch.norm(motion_vector_a[:, :, :2], p=2, dim=-1),

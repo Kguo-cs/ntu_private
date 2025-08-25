@@ -469,15 +469,21 @@ class IQ_SoftQ(LightningModule):
             interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
             interpolate_heading = alpha * expert_sampled_heading + (1 - alpha) * heading
 
-            interpolates=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
+            interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
 
-            interpolates = interpolates.clone().detach().requires_grad_(True)  # IMPORTANT
+            interpolates=interpolates_pos[train_mask,2:]
 
+            interpolates.requires_grad_(True)  # IMPORTANT
+
+            interpolates_pos[train_mask,2:]=interpolates
+
+            # input_pos=torch.cat([interpolates_pos[:,:2],interpolates],dim=1)
+            #scores=self.encoder.discriminator1(interpolates_pos)
             scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["goal_idx"],
                                                             expert_valid_mask,
-                                                            interpolates[:,:,:2],
-                                                            interpolates[:,:,2] ,
+                                                            interpolates_pos[:,:,:2],
+                                                            interpolates_pos[:,:,2] ,
                                                             tokenized_agent,
                                                             map_feature,
                                                             tokenized_agent["light_idx"],
@@ -493,11 +499,10 @@ class IQ_SoftQ(LightningModule):
                 only_inputs=True,
             )[0]  # shape: [B, T, 3]
 
-            gradients=gradients[:,2:][expert_valid_mask[:,2:]]
-
             grad_norm = gradients.view(gradients.size(0), -1).norm(2, dim=1)
             gp = ((grad_norm - 1) ** 2).mean() * 10
 
+            #print(gp)
 
             self.log("train/gp", gp, on_step=True, batch_size=1)
 
