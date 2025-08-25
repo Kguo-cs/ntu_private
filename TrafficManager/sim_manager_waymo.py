@@ -281,8 +281,8 @@ class SimulationManager:
                 pred_bev_img = pred_bev_img.resize(
                     (800, 800), Image.Resampling.LANCZOS)
                 ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
-                # bev_map=self.gui.draw_input(data,agent_pos)
-                # ci.PRED_BEV =bev_map
+                bev_map=self.gui.draw_input(data,agent_pos)
+                ci.PRED_BEV =bev_map
 
                 self.gui.imageQueue.put(ci)
 
@@ -359,7 +359,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(100)
+        #sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
