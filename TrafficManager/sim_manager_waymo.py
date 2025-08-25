@@ -59,6 +59,7 @@ import psutil
 from pynvml import *
 from waymo.decay_data_process import decode_map_features_from_json
 from waymo.lane_graph import route_from_centerlines
+from waymo.idm_policy import idm_planner
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -307,7 +308,24 @@ class SimulationManager:
 
             for id,route in self.route.items():
 
-                idx=tokenized_agent["id"]==1
+                idx=torch.where(tokenized_agent["id"]==id)[0]
+
+                all_pos=tokenized_agent["pred_traj_10hz"][:,self.timestamp]
+
+                all_heading=tokenized_agent["pred_head_10hz"][:,self.timestamp]
+
+                all_shape=tokenized_agent["shape"] [:,:2]#length, width
+
+                #route [n,2]
+                prev_pos=tokenized_agent["pred_traj_10hz"][:,self.timestamp-5]
+
+                all_velocity=(all_pos-prev_pos)/0.5
+
+                new_pos,new_heading=idm_planner(route,idx,all_pos,all_heading,all_velocity,all_shape,desired_speed=10) #plan 0.5 second
+
+                print(new_pos,new_heading)
+
+
 
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
 
@@ -577,9 +595,9 @@ class SimulationManager:
 
             # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
             # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
-            #
-            for lane in map_infos["centerline_list"]:
-                plt.plot(lane[:,0],lane[:,1])
+            # #
+            # for lane in map_infos["centerline_list"]:
+            #     plt.plot(lane[:,0],lane[:,1])
 
             # plt.show()
             control_id=1010
@@ -591,7 +609,7 @@ class SimulationManager:
             route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
 
             self.route={}
-            self.route[control_id]=np.array(route)
+            self.route[control_id]=torch.FloatTensor(np.array(route)).cuda()
             #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
             #plt.show()
 
