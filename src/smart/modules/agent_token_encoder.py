@@ -90,7 +90,7 @@ class AgentTokenEncoder(nn.Module):
         if self.discriminator:
             motion_vector_a = torch.cat(
                 [
-                    pos_a[:,:1],
+                    1e-4*pos_a[:,:1],
                     pos_a[:, 1:] - pos_a[:, :-1],
                 ],
                 dim=1,

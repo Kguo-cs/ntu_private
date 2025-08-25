@@ -68,7 +68,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.agent_encoder.use_lcf
 
-        self.dis_loss="gail"
+        self.dis_loss="wgan"
 
         self.learn_lcf=self.encoder.learn_lcf
 
@@ -500,9 +500,9 @@ class IQ_SoftQ(LightningModule):
             )[0]  # shape: [B, T, 3]
 
             grad_norm = gradients.view(gradients.size(0), -1).norm(2, dim=1)
-            gp = ((grad_norm - 1) ** 2).mean() * 1
+            gp = ((grad_norm - 1) ** 2).mean() * 0.01
 
-            #print(gp)
+            print(gp)
 
             self.log("train/gp", gp, on_step=True, batch_size=1)
 
