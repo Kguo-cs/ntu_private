@@ -499,7 +499,7 @@ class IQ_SoftQ(LightningModule):
             gp = ((grad_norm - 1) ** 2).mean() * 10
 
 
-            self.log("train/grad_norm", grad_norm, on_step=True, batch_size=1)
+            self.log("train/gp", gp, on_step=True, batch_size=1)
 
             bce_loss=gp+bce_loss
 
