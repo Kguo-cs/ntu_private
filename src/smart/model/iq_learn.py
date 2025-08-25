@@ -274,7 +274,7 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_d(self,f,log_prob):
-        return torch.sigmoid(f)#-log_prob.detach()
+        return f #torch.sigmoid(f)#-log_prob.detach()
 
     def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,expert_disc_val=0):
 
@@ -366,7 +366,7 @@ class IQ_SoftQ(LightningModule):
                 # else:
                 disc_val_eval=disc_val
 
-                rewards=get_reward(disc_val_eval,kl_per_token)
+                rewards=disc_val_eval.detach()#get_reward(disc_val_eval,kl_per_token)
 
                 rewards=(rewards-rewards.mean())/(rewards.std()+1e-4)
 
@@ -442,9 +442,9 @@ class IQ_SoftQ(LightningModule):
             bce_loss = bce_loss.mean()
         else:
             if key == "expert":
-                bce_loss = -logit.mean()#self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
+                bce_loss = -disc_val.mean()#self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
             else:
-                bce_loss = logit.mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
+                bce_loss = disc_val.mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
