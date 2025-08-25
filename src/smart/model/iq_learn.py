@@ -442,9 +442,9 @@ class IQ_SoftQ(LightningModule):
             bce_loss = bce_loss.mean()
         else:
             if key == "expert":
-                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
+                bce_loss = -logit.mean()#self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
             else:
-                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
+                bce_loss = logit.mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
