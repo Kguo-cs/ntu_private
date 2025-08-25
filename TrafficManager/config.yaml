@@ -8,7 +8,7 @@ image:
   target_size: [560, 315]
 
 
-data_path: "./waymo/desay_map"
+data_path: "./waymo/waymo_data" #"./waymo/desay_map"
 
 planner_path: "./waymo/model_checkpoint/sim.ckpt"
 
@@ -22,7 +22,7 @@ gui_display: True
 
 lidar_height: 1.84
 
-max_sim_time: 300 #9s
+max_sim_time: 90 #300 #9s
 
 static_object:
   add:
