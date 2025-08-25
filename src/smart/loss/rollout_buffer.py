@@ -73,7 +73,7 @@ def get_reward(s,kl_per_token, eps=1e-20, reward_type="airl"):
     if reward_type == 'airl':
         rewards = (s + eps).log() - (1 - s + eps).log()
 
-        rewards=torch.tanh(rewards)
+     #   rewards=torch.tanh(rewards)
     elif reward_type == 'gail':
         rewards = (s + eps).log()
     elif reward_type == 'raw':
