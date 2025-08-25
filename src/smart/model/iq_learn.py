@@ -317,6 +317,8 @@ class IQ_SoftQ(LightningModule):
                                                         tokenized_agent["light_idx"],
                                                         None)[0]
 
+        logit=torch.tanh(logit)*10
+
 
         disc_val = self.get_d(logit[:, :, 0],log_prob)
         # svo=torch.sigmoid(logit[:,:,1])
