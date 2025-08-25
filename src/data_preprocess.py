@@ -293,68 +293,13 @@ def decode_tracks_from_proto(scenario):
     track_infos["object_type"] = np.array(track_infos["object_type"], dtype=np.uint8)
     return track_infos
 
-
-def decode_map_features_from_json(map_features,remove_mapid=[]):
-    map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
-    polylines = []
-    # other_id=[]
-    point_cnt = 0
-
-    map_features=map_features['lines']+map_features["traffic_elements"]
-
-    for mf in map_features:
-        id=mf['global_id']
-
-        if id in remove_mapid:
-            continue
-
-        feature_data_type=mf['class']
-        xyz=np.array(mf['xyz']).T
-        cur_info = {"id": id}
-
-        if feature_data_type=="lane_line":
-            line_type = mf['attrs']["laneline_type"]
-            if line_type=="solid":
-                cur_info["type"] = 7
-            else:
-                cur_info["type"] = 6
-        elif feature_data_type=="boundary":
-            cur_info["type"] = 4
-        elif feature_data_type=="speed_bump" or feature_data_type=="crosswalk":
-            cur_info["type"] = 9
-        # elif feature_data_type=="arrow":
-        #     continue
-        else:
-            continue
-
-        cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
-
-        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-        polylines.append(cur_polyline)
-        point_cnt += len(cur_polyline)
-
-        if feature_data_type=="lane_line":
-            map_infos["road_line"].append(cur_info)
-        elif feature_data_type == "boundary":
-            map_infos["road_edge"].append(cur_info)
-        elif feature_data_type == "speed_bump":
-            map_infos["crosswalk"].append(cur_info)
-
-    map_infos["all_polylines_list"] = polylines
-
-    try:
-        polylines = np.concatenate(polylines, axis=0).astype(np.float32)
-    except:
-        polylines = np.zeros((0, 8), dtype=np.float32)
-        print("Empty polylines.")
-    map_infos["all_polylines"] = polylines
-    return map_infos
-
 def decode_map_features_from_proto(map_features,remove_mapid=[]):
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
     polylines = []
     # other_id=[]
     point_cnt = 0
+    centerline_list=[]
+
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
         # pip install waymo-open-dataset-tf-2-6-0==1.4.9, not updated, should be driveway
@@ -389,6 +334,7 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 map_infos["lane"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
+                centerline_list.append(cur_polyline[:,:2])
 
         elif feature_data_type == "road_edge":
             if len(feature.polyline) > 1:
@@ -478,6 +424,7 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 # not necessary found, some stop sign lanes are for lane with length 1
                 # assert is_found
     map_infos["all_polylines_list"] = polylines
+    map_infos["centerline_list"]=centerline_list
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)

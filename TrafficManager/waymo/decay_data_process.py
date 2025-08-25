@@ -71,7 +71,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         elif feature_data_type == "speed_bump":
             map_infos["crosswalk"].append(cur_info)
 
-
+    centerline_list=[]
     for i,group in enumerate(annotation['lane_line_groups']):
 
         lane1=line_dict[group['lane_line_ids'][0]]
@@ -81,6 +81,8 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         cur_info = {"id": 900+i}
 
         cur_info["type"] = 0
+
+        centerline_list.append(xyz[:,:2])
 
         cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
         cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
@@ -96,6 +98,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         # print(1)
 
     map_infos["all_polylines_list"] = polylines
+    map_infos["centerline_list"]=centerline_list
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)

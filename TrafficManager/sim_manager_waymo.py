@@ -58,6 +58,7 @@ import tracemalloc
 import psutil
 from pynvml import *
 from waymo.decay_data_process import decode_map_features_from_json
+from waymo.lane_graph import route_from_centerlines
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -304,6 +305,10 @@ class SimulationManager:
             for key in ["pred_traj_10hz","pred_head_10hz"]:
                 tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
 
+            for id,route in self.route.items():
+
+                idx=tokenized_agent["id"]==1
+
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
 
             self.traffic_model_time.append(time.time()-traffic_model_start)
@@ -359,7 +364,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        #sleep(100)
+        sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -572,6 +577,23 @@ class SimulationManager:
 
             # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
             # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
+            #
+            for lane in map_infos["centerline_list"]:
+                plt.plot(lane[:,0],lane[:,1])
+
+            # plt.show()
+            control_id=1010
+            current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
+
+           # goal_pos=np.array([370,6325])
+            goal_pos=np.array([370,6435])
+
+            route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
+
+            self.route={}
+            self.route[control_id]=np.array(route)
+            #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
+            #plt.show()
 
             self.initialize_simulation(map_data,data)
 
