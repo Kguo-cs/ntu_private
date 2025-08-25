@@ -2,28 +2,32 @@ import torch
 from typing import Tuple
 
 def idm_planner(
-    route: torch.Tensor,                 # [L,2] dense polyline (world coords)
-    idx: torch.Tensor,                   # scalar LongTensor index for ego
+    route: torch.Tensor,                 # [L,2] dense polyline in world coords
+    idx: torch.Tensor,                   # scalar LongTensor of ego index
     all_pos: torch.Tensor,               # [N,2] current positions
-    all_heading: torch.Tensor,           # [N]   current headings (rad) — for output only
-    all_velocity: torch.Tensor,          # [N,2] current velocities (m/s) in world frame
+    all_heading: torch.Tensor,           # [N]   current headings (rad) – unused here except for API parity
+    all_velocity: torch.Tensor,          # [N,2] current velocities (m/s)
     all_shape: torch.Tensor,             # [N,2] (length, width) in meters
     desired_speed: float = 10.0,         # m/s
-    *,
-    tau: float = 0.5,                    # horizon (s)
-    lane_width_default: float = 3.5,     # m, for lateral gating
-    a_max: float = 2.0,                  # IDM accel (m/s^2)
-    b_comf: float = 3.0,                 # IDM comfortable decel (m/s^2)
-    T_headway: float = 1.0,              # s
-    s0: float = 2.0,                     # m
-    delta: int = 4,                      # IDM exponent
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    One-shot 0.5s IDM step along `route`. Uses per-agent (length,width) for gap,
-    and longitudinal speeds from projected velocities for dv and spacing dynamics.
+    Returns:
+      future_pos     : [5,2] positions at 0.1s, 0.2s, ..., 0.5s
+      future_heading : [5]   headings (rad) at those times
     """
     device = route.device
     ego_idx = int(idx.item()) if isinstance(idx, torch.Tensor) else int(idx)
+
+    # ---- hyperparams as tensors (avoid float vs tensor issues) ----
+    steps = 5
+    dt = torch.tensor(0.1, device=device)                 # 10 Hz
+    a_max = torch.tensor(3.0, device=device)              # m/s^2
+    b_comf = torch.tensor(5.0, device=device)             # m/s^2
+    T_headway = torch.tensor(1.0, device=device)          # s
+    s0 = torch.tensor(2.0, device=device)                 # m
+    delta = 4                                             # exponent (int okay)
+    lane_width_default = torch.tensor(3.5, device=device) # m
+    v0 = torch.tensor(float(desired_speed), device=device)
 
     # ---------- geometry helpers ----------
     def poly_s(route_xy: torch.Tensor):
@@ -52,11 +56,10 @@ def idm_planner(
         seg_len = torch.linalg.norm(V[seg_idx], dim=-1).clamp_min(1e-9)
         s = s_at_P + t_star * seg_len                         # [N]
 
-        v_seg = V[seg_idx] / seg_len.unsqueeze(-1)            # [N,2] unit tangent along route at proj
+        v_seg = V[seg_idx] / seg_len.unsqueeze(-1)            # [N,2] unit tangent
         rel = (pts - proj_star)
-        cross_z = v_seg[:,0]*rel[:,1] - v_seg[:,1]*rel[:,0]   # signed lateral (left positive)
+        cross_z = v_seg[:,0]*rel[:,1] - v_seg[:,1]*rel[:,0]   # signed lateral
         lat = cross_z
-
         return s, lat, proj_star, v_seg
 
     def pose_at_s(poly: torch.Tensor, s_query: torch.Tensor):
@@ -75,63 +78,69 @@ def idm_planner(
         heading = torch.atan2(tan[:,1], tan[:,0])
         return pos, heading
 
-    # ---------- project to route & get longitudinal speeds ----------
-    s_all, lat_all, proj_all, tan_all = project_pts_to_poly(all_pos, route)   # [N], [N], [N,2], [N,2]
-    # project agent velocities onto the tangent to get longitudinal speeds (signed)
-    v_lon_all = (all_velocity * tan_all).sum(-1)                               # [N] m/s
+    # ---------- project agents & get longitudinal speeds ----------
+    s_all, lat_all, _, tan_all = project_pts_to_poly(all_pos, route)  # [N], [N], [N,2], [N,2]
+    v_lon_all = (all_velocity * tan_all).sum(-1)                      # [N] m/s
 
-    s_ego = s_all[ego_idx]
-    v_ego = v_lon_all[ego_idx]
+    s = s_all[ego_idx].clone()
+    v = v_lon_all[ego_idx].clone()
     ego_len = all_shape[ego_idx, 0].clamp_min(0.0)
     ego_w = all_shape[ego_idx, 1].clamp_min(0.0)
+    lat_tol = torch.maximum(1.2 * ego_w, lane_width_default * 0.5)
 
-    # Lateral gating band width set by ego width (or half-lane fallback)
-    lat_tol = torch.maximum(1.2 * ego_w, torch.tensor(lane_width_default*0.5, device=device))
-
-    # ---------- leader selection (same lane band, ahead) ----------
+    # ---------- pick leader (same lane band & ahead) ----------
     N = all_pos.size(0)
-    not_ego = torch.ones(N, dtype=torch.bool, device=device)
-    not_ego[ego_idx] = False
-
+    mask = torch.ones(N, dtype=torch.bool, device=device); mask[ego_idx] = False
     same_lane = lat_all.abs() <= lat_tol
-    ahead = s_all > (s_ego + 0.5)  # 0.5 m ahead
-    cand = same_lane & ahead & not_ego
+    ahead = s_all > (s + 0.5)  # at least 0.5 m ahead
+    cand = same_lane & ahead & mask
 
     has_leader = cand.any()
     if has_leader:
-        L_lead = all_shape[:, 0].clamp_min(0.0)
-        raw_gap = s_all[cand] - s_ego
-        eff_gap = raw_gap - (0.5 * ego_len + 0.5 * L_lead[cand])     # front-to-back
+        L_all = all_shape[:, 0].clamp_min(0.0)
+        raw_gap = s_all[cand] - s
+        eff_gap = raw_gap - (0.5 * ego_len + 0.5 * L_all[cand])  # front-to-back gap
         min_gap, rel_idx = torch.min(eff_gap, dim=0)
-        s_lead = s_all[cand][rel_idx]
-        v_lead = v_lon_all[cand][rel_idx]
-        s_gap = torch.maximum(min_gap, torch.tensor(0.0, device=device))
+        s_lead = s_all[cand][rel_idx].clone()
+        v_lead = v_lon_all[cand][rel_idx].clone()
+        L_lead = L_all[cand][rel_idx].clone()
     else:
-        v_lead = torch.tensor(float(desired_speed), device=device)    # fallback
-        s_gap = None
+        # no leader: emulate a distant leader moving at v0
+        s_lead = s + 1e6
+        v_lead = v0.clone()
+        L_lead = torch.tensor(4.5, device=device)  # nominal car length
 
-    # ---------- IDM longitudinal update over tau ----------
-    v0 = torch.as_tensor(float(desired_speed), device=device)
-    v = v_ego.clone() if isinstance(v_ego, torch.Tensor) else torch.as_tensor(v_ego, device=device)
+    # ---------- rollout 5 substeps ----------
+    future_pos = []
+    future_heading = []
+    sqrt_ab = torch.sqrt(a_max * b_comf)  # tensor-safe
 
-    if has_leader and s_gap is not None:
-        dv = v - v_lead                 # approaching rate (>0 means closing in)
-        # desired dynamical spacing
-        s_star = s0 + v.clamp_min(0) * T_headway + (v * dv).clamp_min(0) / (2.0 * torch.sqrt(a_max * b_comf))
-        # guard rails
-        s_gap_safe = torch.clamp(s_gap, min=0.1)
-        a = a_max * (1.0 - (v / v0).pow(delta) - (s_star / s_gap_safe).pow(2))
+    for _ in range(steps):
+        # spacing to leader (front-to-back)
+        gap = (s_lead - s) - (0.5 * ego_len + 0.5 * L_lead)
+        gap = gap.clamp_min(0.1)
+
+        dv = v - v_lead  # >0 means closing in
+
+        # desired spacing s*
+        s_star = s0 + v.clamp_min(0.0) * T_headway + (v * dv).clamp_min(0.0) / (2.0 * sqrt_ab)
+
+        # IDM accel
+        a = a_max * (1.0 - (v / v0).clamp_min(0.0).pow(delta) - (s_star / gap).pow(2))
         a = torch.clamp(a, min=-2.0 * b_comf, max=a_max)
-    else:
-        # free road
-        a = a_max * (1.0 - (v / v0).pow(delta))
 
-    # advance arclength using 1D kinematics (along centerline)
-    v_new = v + a * tau
-    v_new = torch.clamp(v_new, min=0.0)                        # no reversing
-    ds = torch.clamp(v * tau + 0.5 * a * (tau ** 2), min=0.0)  # forward-only
-    s_new = s_ego + ds
+        # --- Euler–Cromer / semi-implicit Euler ---
+        v = (v + a * dt).clamp_min(0.0)  # 1) update to new_v
+        s = s + v * dt  # 2) move using new_v over the 0.1 s interval
 
-    # ---------- pose on route ----------
-    new_pos, new_heading = pose_at_s(route, s_new.unsqueeze(0))
-    return new_pos[0], new_heading[0]
+        # advance leader at constant speed (simplest)
+        s_lead = s_lead + v_lead * dt
+
+        pos_i, hdg_i = pose_at_s(route, s.unsqueeze(0))
+        future_pos.append(pos_i[0])
+        future_heading.append(hdg_i[0])
+
+    future_pos = torch.stack(future_pos, dim=0)  # [5,2]
+    future_heading = torch.stack(future_heading, dim=0)  # [5]
+
+    return future_pos, future_heading

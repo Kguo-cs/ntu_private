@@ -283,8 +283,8 @@ class SimulationManager:
                 pred_bev_img = pred_bev_img.resize(
                     (800, 800), Image.Resampling.LANCZOS)
                 ci.PRED_BEV = np.array(pred_bev_img, dtype=np.float32)
-                bev_map=self.gui.draw_input(data,agent_pos)
-                ci.PRED_BEV =bev_map
+                # bev_map=self.gui.draw_input(data,agent_pos)
+                # ci.PRED_BEV =bev_map
 
                 self.gui.imageQueue.put(ci)
 
@@ -306,28 +306,37 @@ class SimulationManager:
             for key in ["pred_traj_10hz","pred_head_10hz"]:
                 tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
 
-            for id,route in self.route.items():
-
-                idx=torch.where(tokenized_agent["id"]==id)[0]
-
-                all_pos=tokenized_agent["pred_traj_10hz"][:,self.timestamp]
-
-                all_heading=tokenized_agent["pred_head_10hz"][:,self.timestamp]
-
-                all_shape=tokenized_agent["shape"] [:,:2]#length, width
-
-                #route [n,2]
-                prev_pos=tokenized_agent["pred_traj_10hz"][:,self.timestamp-5]
-
-                all_velocity=(all_pos-prev_pos)/0.5
-
-                new_pos,new_heading=idm_planner(route,idx,all_pos,all_heading,all_velocity,all_shape,desired_speed=10) #plan 0.5 second
-
-                print(new_pos,new_heading)
-
-
-
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
+
+            for id, route in self.route.items():
+                idx = torch.where(tokenized_agent["id"] == id)[0]
+
+                all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
+
+                all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
+
+                all_shape = tokenized_agent["shape"][:, :2]  # length, width
+
+                # route [n,2]
+                prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
+
+                all_velocity = (all_pos - prev_pos) / 0.1
+
+                new_pos, new_heading = idm_planner(route, idx, all_pos, all_heading, all_velocity, all_shape,
+                                                   desired_speed=20)  # plan 0.5 second
+
+                tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
+                tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
+
+                token_dict = self.planner.token_processor._match_agent_token(
+                    tokenized_agent["all_valid"],
+                    tokenized_agent['pred_traj_10hz'],
+                    tokenized_agent['pred_head_10hz'],
+                    tokenized_agent["token_agent_shape"],
+                    tokenized_agent["token_traj"],
+                )
+
+                tokenized_agent.update(token_dict)
 
             self.traffic_model_time.append(time.time()-traffic_model_start)
            # print(get_process_memory() - rss_before)
@@ -382,7 +391,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(100)
+        #sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -596,22 +605,24 @@ class SimulationManager:
             # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
             # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
             # #
-            # for lane in map_infos["centerline_list"]:
-            #     plt.plot(lane[:,0],lane[:,1])
+          #  for lane in map_infos["centerline_list"]:
+           #     plt.plot(lane[:,0],lane[:,1])
 
             # plt.show()
             control_id=1010
             current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
 
            # goal_pos=np.array([370,6325])
-            goal_pos=np.array([370,6435])
+            goal_pos=np.array([355,6355])
 
             route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
 
+            route=np.array(route)
+
             self.route={}
-            self.route[control_id]=torch.FloatTensor(np.array(route)).cuda()
+            self.route[control_id]=torch.FloatTensor(route).cuda()
             #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
-            #plt.show()
+           # plt.show()
 
             self.initialize_simulation(map_data,data)
 
