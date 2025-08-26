@@ -188,14 +188,14 @@ class SMARTAgentDecoder(nn.Module):
         if len(light_idx) and self.light_encoder.share:
             feat_a_lg_token=torch.cat((feat_a_token,feat_lg),dim=0)
             mask_a_lg=torch.cat((mask,mask_lg),dim=0)
-            feat_a_lg_t = self.a_t_roformer.temporal_embed(feat_a_lg_token, None, None, n_step, n_current, mask_a_lg)
+            feat_a_lg_t = self.a_t_roformer.temporal_embed(feat_a_lg_token, pos_a, head_a, n_step, n_current, mask_a_lg)
             feat_a_t=feat_a_lg_t[:len(mask)]
             feat_lg_t=feat_a_lg_t[len(mask):]
         else:
             if self.discriminator:
                 feat_a_t=feat_a_token
             else:
-                feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, None, None, n_step, n_current, mask)
+                feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             feat_lg_t=None
 
         if self.training or self.discriminator:
