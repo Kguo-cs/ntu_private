@@ -149,10 +149,10 @@ class SMARTAgentDecoder(nn.Module):
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
 
-        self.use_latent=False
+        self.use_latent=True
 
         if self.use_latent and not discriminator:
-            self.k_dim=2
+            self.k_dim=4
             self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
 
         self.token_processor= token_processor
@@ -207,7 +207,7 @@ class SMARTAgentDecoder(nn.Module):
             # if self.discriminator:
             #     feat_a_t=feat_a_token
             # else:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, None, None, n_step, n_current, mask)
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             feat_lg_t=None
 
         if self.training or self.discriminator:
