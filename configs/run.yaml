@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_learntokenmap_dist_shareagentlatent2 #bc32_histdrop01_03_formert #AIRL64_learntokenmap_dist_latent2_info
+task_name: AIRL64_learntokenmap_dist_priorlatent2 #bc32_histdrop01_03_formert #AIRL64_learntokenmap_dist_latent2_info
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

@@ -130,11 +130,24 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head = [], [], []
             #tokenized_map,tokenized_agent = self.encoder.preprocess(tokenized_map, tokenized_agent)
             map_feature = self.encoder.map_encoder(tokenized_map)
+            logits = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
+                                                  tokenized_agent["goal_idx"],
+                                                  tokenized_agent["valid_mask"][:, :2],
+                                                  tokenized_agent["sampled_pos"][:, :2],
+                                                  tokenized_agent["sampled_heading"][:, :2],
+                                                  tokenized_agent,
+                                                  map_feature,
+                                                  tokenized_agent["light_idx"],
+                                                  None)[0]  # [all_valid]
+            logits_p = logits[:, -1]
+            probs = logits_p.softmax(-1)
 
             for _ in range(self.n_rollout_closed_val):
                 # pred = self.encoder.inference(
                 #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
                 # )
+                latent_z = torch.multinomial(probs, 1) # [B]
+                tokenized_agent["latent_z"] = latent_z
 
                 pred = self.encoder.agent_encoder.inference(
                     tokenized_agent, map_feature,#post_sampling=True
