@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_learntokenmap #_dist #_tanh10  #AIRL64_learntoken_dist_tanh10 #wgangp1 #_rawexpert #_range10cout_noRnorm #_003ent #detach #bc32_histdrop01_03_l14 #_t20 #AIRL64_dis05_inter1detach_nextA #_ent01value #_3e5 #AIRL128_dis075d01_ent003_3e5_nei3 #bc32_histdrop01_03_l4 #AIRL64_dis075d10_ent01_3e5 #pugail_dr20 #bc32_histdrop01_03_t60_drop02 #AIRL128_normreturn_grad0_dis02
+task_name: AIRL64_learntokenmap_bc01 #_dist #_tanh10  #AIRL64_learntoken_dist_tanh10 #wgangp1 #_rawexpert #_range10cout_noRnorm #_003ent #detach #bc32_histdrop01_03_l14 #_t20 #AIRL64_dis05_inter1detach_nextA #_ent01value #_3e5 #AIRL128_dis075d01_ent003_3e5_nei3 #bc32_histdrop01_03_l4 #AIRL64_dis075d10_ent01_3e5 #pugail_dr20 #bc32_histdrop01_03_t60_drop02 #AIRL128_normreturn_grad0_dis02
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
