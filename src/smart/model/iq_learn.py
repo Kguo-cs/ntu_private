@@ -681,7 +681,16 @@ class IQ_SoftQ(LightningModule):
 
 
                 if self.encoder.agent_encoder.use_latent:
-                    logits = self.encoder.RecognitionQ(tokenized_agent_rollout["feat_a"][all_valid])
+                    logits = self.encoder.RecognitionQ.predict_agent(tokenized_agent_rollout["sampled_idx"],
+                                                         tokenized_agent_rollout["goal_idx"],
+                                                         tokenized_agent_rollout["valid_mask"],
+                                                         tokenized_agent_rollout["sampled_pos"],
+                                                         tokenized_agent_rollout["sampled_heading"],
+                                                         tokenized_agent_rollout,
+                                                         tokenized_agent_rollout["detach_map_feature"],
+                                                         tokenized_agent_rollout["light_idx"],
+                                                         None)[0]#[all_valid]
+
                     log_q = F.log_softmax(logits, dim=-1)
                     z_idx=tokenized_agent_rollout["latent_z"][all_valid]
                     action=z_idx[:,None].repeat(1,log_q.shape[1],1)

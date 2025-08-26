@@ -130,7 +130,30 @@ class SMARTDecoder(nn.Module):
 
                 if self.agent_encoder.use_latent:
 
-                    self.RecognitionQ=MLPLayer(hidden_dim,hidden_dim,self.agent_encoder.k_dim)
+                    self.RecognitionQ=SMARTAgentDecoder(
+                                        hidden_dim=hidden_dim,
+                                        num_historical_steps=num_historical_steps,
+                                        num_future_steps=num_future_steps,
+                                        time_span=10,
+                                        pl2a_radius=10,
+                                        a2a_radius=10,#20 bad
+                                        num_freq_bands=num_freq_bands,
+                                        num_layers=1,
+                                        num_heads=num_heads,
+                                        head_dim=head_dim,
+                                        dropout=0,
+                                        hist_drop_prob=0,
+                                        n_token_agent=self.agent_encoder.k_dim,
+                                        pt2a_neighbor=10,
+                                        a2a_neighbor=10,
+                                        token_processor=token_processor,
+                                        alpha=self.alpha,
+                                        output_gmm=False,
+                                        pred_last_res=False,
+                                        pred_all_res=False,
+                                        discriminator=True
+                                    )
+                #MLPLayer(hidden_dim,hidden_dim,self.agent_encoder.k_dim)
 
 
                 #self.discriminator= Discriminator(hidden_dim, hidden_dim, False, num_units=128)
