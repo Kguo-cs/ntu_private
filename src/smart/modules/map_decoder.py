@@ -175,10 +175,10 @@ class SMARTMapDecoder(nn.Module):
 
             edge_pt,_ = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
 
-            x_pt=edge_pt[::2]
-            pos_pt=pos_edge[::2]
-            orient_pt=orient_edge[::2]
-            batch=batch_edge[::2]
+            x_pt=edge_pt[::2].contiguous()
+            pos_pt=pos_edge[::2].contiguous()
+            orient_pt=orient_edge[::2].contiguous()
+            batch=batch_edge[::2].contiguous()
 
         # for i in range(self.num_layers):
         #     x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
