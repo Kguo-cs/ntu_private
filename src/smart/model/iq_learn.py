@@ -725,13 +725,13 @@ class IQ_SoftQ(LightningModule):
                     value_loss = torch.pow(returns - value_pred, 2.0).clamp(min=0,max=100).mean()
 
                     if self.use_lcf:
-                        nei_rewards = get_near_returns(tokenized_agent, agent_rewards)
+                        nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
 
                         # nei_value_pred=logit[:,:,1]
 
                         nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 
-                        nei_advantages,nei_returns=compute_advantages(nei_rewards[all_valid],nei_value_pred.detach(),None,gamma=self.gamma)
+                        nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
 
                         nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).clamp(min=0,max=100).mean()
 
