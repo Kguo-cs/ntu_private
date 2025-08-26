@@ -86,7 +86,7 @@ class SMARTAgentDecoder(nn.Module):
             self.goal_head = MLPLayer(hidden_dim, hidden_dim, 11)
 
         #if not discriminator:
-        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,True)
+        self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,discriminator)
 
         self.agent_hist = self.time_span // self.shift
 
