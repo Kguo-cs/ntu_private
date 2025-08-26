@@ -605,8 +605,8 @@ class SimulationManager:
             # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
             # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
             # #
-            for lane in map_infos["centerline_list"]:
-               plt.plot(lane[:,0],lane[:,1])
+          #  for lane in map_infos["centerline_list"]:
+           #     plt.plot(lane[:,0],lane[:,1])
 
             # plt.show()
             control_id=1010
@@ -618,11 +618,11 @@ class SimulationManager:
             route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
 
             route=np.array(route)
-            plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
-            plt.show()
 
             self.route={}
             self.route[control_id]=torch.FloatTensor(route).cuda()
+            #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
+           # plt.show()
 
             self.initialize_simulation(map_data,data)
 
