@@ -84,10 +84,10 @@ class IQ_SoftQ(LightningModule):
 
             # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
-    # def on_after_backward(self):
-    #     for name, param in self.named_parameters():
-    #         if param.grad is None:
-    #             print(f"Unused parameter: {name}")
+    def on_after_backward(self):
+        for name, param in self.named_parameters():
+            if param.grad is None:
+                print(f"Unused parameter: {name}")
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -724,6 +724,8 @@ class IQ_SoftQ(LightningModule):
                     log_p = F.log_softmax(logits_p, dim=-1)[:,None].repeat(1,q_probs.shape[1],1)
 
                     loss_prior = (q_probs * (q_probs.clamp_min(1e-8).log() - log_p)).sum(-1).mean()
+
+                    expert_nll=loss_prior+expert_nll
 
                     # # Optional entropy regularizer on P to avoid overconfidence
                     # p_probs = log_p.exp()
