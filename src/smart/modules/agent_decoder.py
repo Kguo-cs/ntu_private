@@ -142,13 +142,19 @@ class SMARTAgentDecoder(nn.Module):
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
         if not discriminator:
-            self.use_lcf=True
+            self.use_lcf=False
 
             # if self.use_lcf:
             #     self.lcf_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=10 )
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
 
+        # self.use_latent=True
+        #
+        # if self.use_latent:
+        #
+        #     self.use_latent
+        #
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)
@@ -163,6 +169,7 @@ class SMARTAgentDecoder(nn.Module):
         #     agent_token_emb=tokenized_agent["agent_token_emb"]
         # else:
         # ! get agent token embeddings
+
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             trajectory_token_veh=self.token_processor.agent_token_all_veh,
@@ -176,6 +183,10 @@ class SMARTAgentDecoder(nn.Module):
 
             # if self.use_kl_penalty and "feat_a_token" not in tokenized_agent.keys():
             #     return None,None,(feat_a_token.detach(),agent_token_emb.detach()),None,None
+        # if self.use_latent:
+        #     z_idx = torch.randint(low=0, high=3, size=(10,))
+        #
+        #     print(1)
 
         if self.pred_goal and not self.discriminator:
             goal_token_emb=self.goal_embedding(goal_idx)
