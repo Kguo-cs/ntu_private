@@ -354,8 +354,9 @@ class SMARTAgentDecoder(nn.Module):
                 latent_z = tokenized_agent["latent_z"]
             else:
                 batch_idx = tokenized_agent['batch']
-                latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
-                latent_z = latent_z[batch_idx]
+                #latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
+                #latent_z = latent_z[batch_idx]
+                latent_z=torch.randint(low=0, high=self.k_dim, size=(len(batch_idx), 1),device=batch_idx.device)
 
                 tokenized_agent["latent_z"]=latent_z
         else:
@@ -458,11 +459,15 @@ class SMARTAgentDecoder(nn.Module):
         # else:
         #     vis_mask=None
         if self.use_latent:
-            batch_idx = tokenized_agent['batch']
-            latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
-            latent_z = latent_z[batch_idx]
+            if "latent_z" in tokenized_agent.keys():
+                latent_z = tokenized_agent["latent_z"]
+            else:
+                batch_idx = tokenized_agent['batch']
+                #latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
+                #latent_z = latent_z[batch_idx]
+                latent_z=torch.randint(low=0, high=self.k_dim, size=(len(batch_idx), 1),device=batch_idx.device)
 
-            tokenized_agent["latent_z"] = latent_z
+                tokenized_agent["latent_z"] = latent_z
         else:
             latent_z=None
 
