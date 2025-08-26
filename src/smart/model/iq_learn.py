@@ -680,6 +680,31 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss=torch.tensor(0.0)
 
 
+                if self.encoder.agent_encoder.use_latent:
+                    logits = self.encoder.RecognitionQ(tokenized_agent_rollout["feat_a"][all_valid])
+                    log_q = F.log_softmax(logits, dim=-1)
+                    z_idx=tokenized_agent_rollout["latent_z"][all_valid]
+                    action=z_idx[:,None].repeat(1,log_q.shape[1],1)
+
+                    #s=one_hot(action[:,:,0],K=2)
+
+                    # 1) Cross-entropy for Q (supervised)
+                    # logits_flat = logits.reshape(-1, 2)  # [B*T, K]
+                    # targets_flat = action.reshape(-1)  # [B*T]
+                    # loss_q = F.cross_entropy(logits_flat, targets_flat)  # scalar
+
+                    bonus = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a] #larger z likelihood
+
+                    loss_q=-bonus.mean() # increase the z likelihood
+
+                    self.log("train/loss_q", loss_q.item(), on_step=True, batch_size=1)
+
+                    expert_nll=expert_nll+loss_q
+
+                    mi_beta=0.1
+                    r_mi = mi_beta * bonus
+
+                    agent_rewards=agent_rewards+r_mi.detach()
 
                 # if self.buffer_len>1:
                 #     with torch.no_grad():

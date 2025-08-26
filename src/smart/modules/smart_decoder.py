@@ -128,6 +128,9 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
+                if self.agent_encoder.use_latent:
+
+                    self.RecognitionQ=MLPLayer(hidden_dim,hidden_dim,self.agent_encoder.k_dim)
 
 
                 #self.discriminator= Discriminator(hidden_dim, hidden_dim, False, num_units=128)
