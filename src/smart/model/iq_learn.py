@@ -531,7 +531,6 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
             expert_log_prob=None
 
-            tokenized_agent["train_mask"]=all_valid
         else:
             if self.iq_learn:
                 self.encoder.agent_encoder.a_t_roformer.attn.caching = True
@@ -540,6 +539,7 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
+        tokenized_agent["train_mask"] = all_valid
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
