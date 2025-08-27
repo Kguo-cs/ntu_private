@@ -713,6 +713,7 @@ class IQ_SoftQ(LightningModule):
                         log_q = F.log_softmax(logits, dim=-1)
                         action=latent_z.repeat(1,log_q.shape[1],1)
                         z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
+                        kl_prior=0
                     else:
                         mu = logits[:,:, :self.encoder.agent_encoder.k_dim]
                         logvar = logits[:,:, self.encoder.agent_encoder.k_dim:]
@@ -725,8 +726,17 @@ class IQ_SoftQ(LightningModule):
 
                         z_logp = dist.log_prob(z)  # shape: [...]
 
+
+                        mu_p = torch.zeros_like(mu)
+                        logvar_p = torch.zeros_like(logvar)
+
+                        var_q = logvar.exp()
+                        var_p = logvar_p.exp()
+
+                        kl_prior = 0.5 * (logvar_p - logvar + (var_q + (mu - mu_p).pow(2)) / var_p - 1 )
+
                     loss_q=-z_logp.mean() # increase the z likelihood
-                    expert_nll=expert_nll+loss_q
+                    expert_nll=expert_nll+loss_q+kl_prior
                     self.log("train/mu", mu.mean().item(), on_step=True, batch_size=1)
                     self.log("train/std", std.mean().item(), on_step=True, batch_size=1)
 
