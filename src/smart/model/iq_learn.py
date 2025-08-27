@@ -716,16 +716,16 @@ class IQ_SoftQ(LightningModule):
 
                     agent_rewards=agent_rewards+r_mi.detach()
 
-                    logits_p=tokenized_agent["logits_p"][all_valid]
-
-                    q_probs =log_q.detach()
-
-                    # KL(Q || P) averaged
-                    log_p = F.log_softmax(logits_p, dim=-1)[:,None].repeat(1,q_probs.shape[1],1)
-
-                    loss_prior = (q_probs * (q_probs.clamp_min(1e-8).log() - log_p)).sum(-1).mean()
-
-                    expert_nll=loss_prior+expert_nll
+                    # logits_p=tokenized_agent["logits_p"][all_valid]
+                    #
+                    # q_probs =log_q.detach()
+                    #
+                    # # KL(Q || P) averaged
+                    # log_p = F.log_softmax(logits_p, dim=-1)[:,None].repeat(1,q_probs.shape[1],1)
+                    #
+                    # loss_prior = (q_probs * (q_probs.clamp_min(1e-8).log() - log_p)).sum(-1).mean()
+                    #
+                    # expert_nll=loss_prior+expert_nll
 
                     # # Optional entropy regularizer on P to avoid overconfidence
                     # p_probs = log_p.exp()
@@ -735,7 +735,7 @@ class IQ_SoftQ(LightningModule):
                     #
                     # loss_prior = kl_qp - tau * H_p  # tau ~ 0.01–0.1
 
-                    self.log("train/loss_prior", loss_prior.item(), on_step=True, batch_size=1)
+                    #@self.log("train/loss_prior", loss_prior.item(), on_step=True, batch_size=1)
 
 
                 # if self.buffer_len>1:
