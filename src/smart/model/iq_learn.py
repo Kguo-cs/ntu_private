@@ -727,6 +727,8 @@ class IQ_SoftQ(LightningModule):
 
                     loss_q=-z_logp.mean() # increase the z likelihood
                     expert_nll=expert_nll+loss_q
+                    self.log("train/mu", mu.mean().item(), on_step=True, batch_size=1)
+                    self.log("train/std", std.mean().item(), on_step=True, batch_size=1)
 
                     self.log("train/loss_q", loss_q.item(), on_step=True, batch_size=1)
                     mi_beta=0.1
