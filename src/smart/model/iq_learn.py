@@ -521,12 +521,17 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent["vis_mask"] = None
         all_valid=valid_mask.all(-1)
 
-        if self.iq_learn:
-            self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-            if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
-                self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
+        # if self.iq_learn:
+        #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
+        #     if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
+        #         self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
-        expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        # expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+
+        expert_nll=0
+        map_feature = self.encoder.map_encoder(tokenized_map)
+        tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+        expert_log_prob=None
 
         tokenized_agent["train_mask"]=all_valid
 
@@ -935,9 +940,10 @@ class IQ_SoftQ(LightningModule):
                     #     target_q = self.target_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
                     #
                     #     ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+                    with torch.no_grad():
 
-                    target_q = self.target_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
-                    ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+                        target_q = self.target_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
+                        ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
                     kl_coef=1
 
@@ -954,7 +960,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-            loss = critic_loss+expert_proposal_loss+expert_nll
+            loss = critic_loss+expert_nll
 
             if self.automatic_optimization == False:
                 old_policy_loss = agent_log_prob.mean()
