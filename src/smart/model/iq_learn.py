@@ -719,7 +719,7 @@ class IQ_SoftQ(LightningModule):
 
                     expert_nll=expert_nll+loss_q
 
-                    mi_beta=1
+                    mi_beta=0.1
                     r_mi = mi_beta * bonus
 
                     agent_rewards=agent_rewards+r_mi.detach()
@@ -945,7 +945,7 @@ class IQ_SoftQ(LightningModule):
                         target_q = self.target_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
                         ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
-                    kl_coef=1
+                    kl_coef=10
 
                     kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()
 

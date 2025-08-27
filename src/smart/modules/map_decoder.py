@@ -162,16 +162,16 @@ class SMARTMapDecoder(nn.Module):
             head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
 
             edge_index_pt2pt, r_pt2pt = self.edge_encoder.build_map2map_edge(
-                pos_pt,  # [n_pl, 2]
-                orient_pt,  # [n_pl]
-                pos_edge,  # [n_agent, n_step, 2]
-                                orient_edge,  # [n_agent, n_step]
-                                head_vector_edge,  # [n_agent, n_step, 2]
-                                batch_edge,  # [n_agent*n_step]
-                                batch,  # [n_pl*n_step]
-                                self.pl2pl_radius,
-                                self.pt2pt_neighbor,
-                            )
+                                                            pos_pt,  # [n_pl, 2]
+                                                            orient_pt,  # [n_pl]
+                                                            pos_edge,  # [n_agent, n_step, 2]
+                                                            orient_edge,  # [n_agent, n_step]
+                                                            head_vector_edge,  # [n_agent, n_step, 2]
+                                                            batch_edge,  # [n_agent*n_step]
+                                                            batch,  # [n_pl*n_step]
+                                                            self.pl2pl_radius,
+                                                            self.pt2pt_neighbor,
+                                                        )
 
             edge_pt,_ = self.pt2pt_layers[0]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
 

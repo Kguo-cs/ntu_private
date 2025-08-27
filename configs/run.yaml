@@ -14,12 +14,12 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: iq_finetune #iq_finetune  #
+  - experiment: iq_finetune #wosac_sub #iq_finetune  #
 
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_map2_kl1_nobc #sharelatent2 #bc32_histdrop01_03_formert
+task_name: AIRL128_map2_kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
