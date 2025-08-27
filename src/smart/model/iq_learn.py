@@ -703,7 +703,7 @@ class IQ_SoftQ(LightningModule):
                     # targets_flat = action.reshape(-1)  # [B*T]
                     # loss_q = F.cross_entropy(logits_flat, targets_flat)  # scalar
 
-                    bonus = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a] #larger z likelihood
+                    bonus = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
 
                     loss_q=-bonus.mean() # increase the z likelihood
 
@@ -711,7 +711,7 @@ class IQ_SoftQ(LightningModule):
 
                     expert_nll=expert_nll+loss_q
 
-                    mi_beta=0.1
+                    mi_beta=1
                     r_mi = mi_beta * bonus
 
                     agent_rewards=agent_rewards+r_mi.detach()

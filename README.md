@@ -12,7 +12,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_edge1_03 ke@10.87.216
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_edge1 ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_raw guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/validation_edge1 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 wlp100s0
 
@@ -22,7 +22,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_histdrop01_03_edge1_pt30/202
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_running_1e4_all/2025-08-10_15-47-33/sim/h18vqbsi/checkpoints/epoch=2-step=22830.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL128_learntokenmap/2025-08-25_07-52-59/sim/3gvxjdv5/checkpoints/epoch=2-step=11415.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:/home/ke/code/catk/src/waymo_data/full/training_edge1_03 ./
 
 
 rsync -avz /home/ke/PAD/exp/navsim_result/pad64_share/05.10_21.45/epoch=17-step=23922.ckpt lyuchen@aspire2pntu.nscc.sg:/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/exp/ke/pad_64_share/05.12_15.32/pad/m6vultai/checkpoints/epoch=17-step=23922.ckpt
