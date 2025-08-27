@@ -947,11 +947,11 @@ class IQ_SoftQ(LightningModule):
 
                     kl_coef=10
 
-                    kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()
+                    kl_per_token =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()
 
                     self.log("train/kl_penalty", kl_per_token.item(), on_step=True, batch_size=1)
 
-                    expert_nll=expert_nll+kl_per_token
+                    expert_nll=expert_nll+kl_coef *kl_per_token
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
                 # constraint_loss=expert_V_diff.square().mean()*5
