@@ -1,20 +1,40 @@
 # https://wandb.ai
 #
+#wandb:
+# _target_: lightning.pytorch.loggers.wandb.WandbLogger
+# name: ${task_name}
+# save_dir: "${paths.output_dir}"
+# offline: True
+# id: null # pass correct id to resume experiment!
+# anonymous: null # enable anonymous logging
+# project: sim
+# log_model: False # upload lightning ckpts
+# prefix: "" # a string to put at the beginning of metric keys
+# entity: u3006612
+# group: ""
+# tags: []
+# job_type: ""
+# resume: allow
 wandb:
- _target_: lightning.pytorch.loggers.wandb.WandbLogger
- name: ${task_name}
- save_dir: "${paths.output_dir}"
- offline: True
- id: null # pass correct id to resume experiment!
- anonymous: null # enable anonymous logging
- project: sim
- log_model: False # upload lightning ckpts
- prefix: "" # a string to put at the beginning of metric keys
- entity: u3006612
- group: ""
- tags: []
- job_type: ""
- resume: allow
+  _target_: lightning.pytorch.loggers.wandb.WandbLogger
+  name: ${task_name}
+  save_dir: ${paths.output_dir}
+  project: sim
+  entity: u3006612
+  log_model: false
+  offline: true          # stays fully offline
+  id: null               # don't use resume ids in offline
+  resume: "never"        # avoid the "resume ignored" warning
+  group: ""
+  tags: []
+  job_type: ""
+  prefix: ""
+
+  # Pass settings through to wandb.init(...)
+  init:
+    settings:
+      start_method: thread   # robust with DataLoader workers
+      mode: offline          # redundant with offline=True, but explicit
 
 # tensorboard:
 #   _target_: lightning.pytorch.loggers.tensorboard.TensorBoardLogger
