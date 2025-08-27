@@ -6,11 +6,11 @@ Lyuchen2025!
 export PBS_JOBID=68041.pbs111
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_edge1_clean shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_edge1 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_edge1_03 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_edge1_03 ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_edge1 ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_raw guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
@@ -18,7 +18,7 @@ wlp100s0
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_l3_adamw_nonedge_d30/2025-08-09_10-55-17/sim/yencyyd6/checkpoints/epoch=21-step=334818.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_histdrop01_03_edge1_pt30/2025-08-25_10-44-26/sim/97jyj3i8/checkpoints/epoch=22-step=350037.ckpt ./
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_running_1e4_all/2025-08-10_15-47-33/sim/h18vqbsi/checkpoints/epoch=2-step=22830.ckpt ./
 
