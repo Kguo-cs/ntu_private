@@ -136,7 +136,9 @@ class SMARTAgentDecoder(nn.Module):
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
-        self.use_kl_penalty=False
+        self.use_kl_penalty=True
+
+        self.target_net=False
 
         if self.pred_vis:
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
@@ -149,7 +151,7 @@ class SMARTAgentDecoder(nn.Module):
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
 
-        self.use_latent=True
+        self.use_latent=False
 
         if self.use_latent and not discriminator:
             self.k_dim=2
@@ -210,7 +212,7 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             feat_lg_t=None
 
-        if self.training or self.discriminator:
+        if self.training or self.discriminator or self.target_net:
             n_step=n_step-self.start_step
             pos_a=pos_a[:,-n_step:]
             head_a=head_a[:,-n_step:]
@@ -265,7 +267,7 @@ class SMARTAgentDecoder(nn.Module):
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
 
-        if "train_mask" in tokenized_agent.keys() and self.training:
+        if ("train_mask" in tokenized_agent.keys() and self.training) or self.target_net:
             train_mask=tokenized_agent["train_mask"]
         else:
             train_mask=None
@@ -298,7 +300,7 @@ class SMARTAgentDecoder(nn.Module):
                     all_features=next_all_features
                     all_features.append(None)
             else:
-                if not self.training:
+                if not (self.training or self.target_net):
                     all_features=next_all_features
 
                 all_features.append(None)
@@ -308,7 +310,7 @@ class SMARTAgentDecoder(nn.Module):
 
             all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None]
 
-        next_token_logits,feat_a,proposal=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal,r_a2a,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 
         # proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
         # proposal[mask_a]=proposal_
@@ -327,7 +329,7 @@ class SMARTAgentDecoder(nn.Module):
         #
         #     all_features = [feat_a_t.detach(), pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s, None]
 
-        return next_token_logits,next_light_logits,feat_a_token.detach(),agent_token_emb,proposal,feat_a
+        return next_token_logits,next_light_logits,pos_a.detach(),agent_token_emb,proposal,feat_a
 
     def forward(
             self,
