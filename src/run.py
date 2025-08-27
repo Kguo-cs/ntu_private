@@ -30,14 +30,16 @@ import random
 #import torch.multiprocessing as mp
 
 # mp.set_start_method("spawn", force=True)
-os.environ["WANDB_MODE"] = "offline"
+os.environ["WANDB_MODE"] = "offline"  # offline logs to ./wandb, no server
+os.environ["WANDB_START_METHOD"] = "thread"  # safer with dataloader workers
+os.environ.setdefault("WANDB__SERVICE_WAIT", "300")
+# Optional: fully disable the service process (prevents socket at all)
+os.environ["WANDB__DISABLE_SERVICE"] = "true"
 
-os.environ["WANDB_SILENT"] = "true"
-
-wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
-wandb.require("service")  # forces the new service backend
-# Optional: use thread start (very robust in multiprocess settings)
-settings = wandb.Settings(start_method="thread")
+# wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+# wandb.require("service")  # forces the new service backend
+# # Optional: use thread start (very robust in multiprocess settings)
+# settings = wandb.Settings(start_method="thread")
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
