@@ -21,6 +21,7 @@ import random
 import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return,get_near_returns
 from torch_scatter import scatter_mean
+from torch.distributions import Categorical, Normal, Independent
 
 class IQ_SoftQ(LightningModule):
 
@@ -706,29 +707,30 @@ class IQ_SoftQ(LightningModule):
                                                          tokenized_agent_rollout["light_idx"],
                                                          None)[0]#[all_valid]
 
-                    log_q = F.log_softmax(logits, dim=-1)
-                    z_idx=tokenized_agent_rollout["latent_z"][all_valid]
-                    action=z_idx[:,None].repeat(1,log_q.shape[1],1)
+                    latent_z = tokenized_agent_rollout["latent_z"][all_valid]
 
-                    #s=one_hot(action[:,:,0],K=2)
+                    if logits.shape[-1]==self.encoder.agent_encoder.k_dim:
+                        log_q = F.log_softmax(logits, dim=-1)
+                        action=latent_z.repeat(1,log_q.shape[1],1)
+                        z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
+                    else:
+                        mu = logits[:,:, :self.encoder.agent_encoder.k_dim]
+                        logvar = logits[:,:, self.encoder.agent_encoder.k_dim:]
 
-                    # 1) Cross-entropy for Q (supervised)
-                    # logits_flat = logits.reshape(-1, 2)  # [B*T, K]
-                    # targets_flat = action.reshape(-1)  # [B*T]
-                    # loss_q = F.cross_entropy(logits_flat, targets_flat)  # scalar
+                        z = latent_z.expand_as(mu)  # [B, T, k_dim]
+                        std = torch.exp(0.5 * logvar)
 
-                    bonus = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
+                        base = Normal(loc=mu, scale=std)
+                        dist = Independent(base, reinterpreted_batch_ndims=1)  # event dim = last
 
-                    loss_q=-bonus.mean() # increase the z likelihood
+                        z_logp = dist.log_prob(z)  # shape: [...]
 
-                    self.log("train/loss_q", loss_q.item(), on_step=True, batch_size=1)
-
+                    loss_q=-z_logp.mean() # increase the z likelihood
                     expert_nll=expert_nll+loss_q
 
+                    self.log("train/loss_q", loss_q.item(), on_step=True, batch_size=1)
                     mi_beta=0.1
-                    r_mi = mi_beta * bonus
-
-                    agent_rewards=agent_rewards+r_mi.detach()
+                    agent_rewards=agent_rewards+mi_beta * z_logp.detach()
 
                     # logits_p=tokenized_agent["logits_p"][all_valid]
                     #
@@ -777,19 +779,7 @@ class IQ_SoftQ(LightningModule):
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.use_value:
-                    # logit = self.encoder.value_network.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                    #                                                  tokenized_agent_rollout["goal_idx"],
-                    #                                                  tokenized_agent_rollout["valid_mask"],
-                    #                                                  tokenized_agent_rollout["sampled_pos"],
-                    #                                                  tokenized_agent_rollout["sampled_heading"],
-                    #                                                  tokenized_agent_rollout,
-                    #                                                  tokenized_agent_rollout["detach_map_feature"],
-                    #                                                  tokenized_agent_rollout["light_idx"],
-                    #                                                  None)[0]#[all_valid]
-                    # logit=self.encoder.value_network(tokenized_agent_rollout["all_features"],tokenized_agent_rollout["detach_map_feature"],all_valid)[0]
                     value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
-
-                    #value_pred=logit[:,:,0]
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
@@ -854,45 +844,6 @@ class IQ_SoftQ(LightningModule):
                     else:
                         advantages=ego_advantages
 
-                    self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-                elif self.encoder.use_critic:
-                    action=tokenized_agent_rollout["sampled_idx"][:,2:].unsqueeze(-1)
-
-                    with torch.no_grad():
-                        target_q=self.target_net.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                                     tokenized_agent_rollout["goal_idx"],
-                                                                     tokenized_agent_rollout["valid_mask"],
-                                                                     tokenized_agent_rollout["sampled_pos"],
-                                                                     tokenized_agent_rollout["sampled_heading"],
-                                                                     tokenized_agent_rollout,
-                                                                     tokenized_agent_rollout["detach_map_feature"],
-                                                                     tokenized_agent_rollout["light_idx"],
-                                                                     None)[0]
-
-                        next_Q = torch.sum(agent_pi[:, 1:] * target_q[:, 1:], dim=-1)
-
-                        next_Q = torch.cat([next_Q, torch.zeros_like(next_Q[:, :1])], dim=1)
-
-                        target_Q = agent_rewards + self.gamma * next_Q
-
-                    q = self.encoder.critic.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                             tokenized_agent_rollout["goal_idx"],
-                                                             tokenized_agent_rollout["valid_mask"],
-                                                             tokenized_agent_rollout["sampled_pos"],
-                                                             tokenized_agent_rollout["sampled_heading"],
-                                                             tokenized_agent_rollout,
-                                                             tokenized_agent_rollout["detach_map_feature"],
-                                                             tokenized_agent_rollout["light_idx"],
-                                                             None)[0]
-
-                    current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
-
-                    value_loss= 0.5 * (current_Q - target_Q).pow(2).mean()
-
-                    current_value = torch.sum(agent_pi * q, dim=-1)
-
-                    advantages=(current_Q-current_value).detach()
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
                 else:

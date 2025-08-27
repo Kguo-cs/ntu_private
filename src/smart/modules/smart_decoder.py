@@ -130,29 +130,30 @@ class SMARTDecoder(nn.Module):
                 )
 
                 if self.agent_encoder.use_latent:
-                    # self.prior_net=SMARTAgentDecoder(
-                    #                     hidden_dim=hidden_dim,
-                    #                     num_historical_steps=num_historical_steps,
-                    #                     num_future_steps=num_future_steps,
-                    #                     time_span=10,
-                    #                     pl2a_radius=10,
-                    #                     a2a_radius=10,#20 bad
-                    #                     num_freq_bands=num_freq_bands,
-                    #                     num_layers=1,
-                    #                     num_heads=num_heads,
-                    #                     head_dim=head_dim,
-                    #                     dropout=0,
-                    #                     hist_drop_prob=0,
-                    #                     n_token_agent=self.agent_encoder.k_dim,
-                    #                     pt2a_neighbor=10,
-                    #                     a2a_neighbor=10,
-                    #                     token_processor=token_processor,
-                    #                     alpha=self.alpha,
-                    #                     output_gmm=False,
-                    #                     pred_last_res=False,
-                    #                     pred_all_res=False,
-                    #                     discriminator=True
-                    #                 )
+                    self.k_dim=self.agent_encoder.k_dim
+                    self.prior_net=SMARTAgentDecoder(
+                                        hidden_dim=hidden_dim,
+                                        num_historical_steps=num_historical_steps,
+                                        num_future_steps=num_future_steps,
+                                        time_span=10,
+                                        pl2a_radius=10,
+                                        a2a_radius=10,#20 bad
+                                        num_freq_bands=num_freq_bands,
+                                        num_layers=1,
+                                        num_heads=num_heads,
+                                        head_dim=head_dim,
+                                        dropout=0,
+                                        hist_drop_prob=0,
+                                        n_token_agent=self.agent_encoder.k_dim*2,
+                                        pt2a_neighbor=10,
+                                        a2a_neighbor=10,
+                                        token_processor=token_processor,
+                                        alpha=self.alpha,
+                                        output_gmm=False,
+                                        pred_last_res=False,
+                                        pred_all_res=False,
+                                        discriminator=True
+                                    )
 
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,
@@ -167,7 +168,7 @@ class SMARTDecoder(nn.Module):
                                         head_dim=head_dim,
                                         dropout=0,
                                         hist_drop_prob=0,
-                                        n_token_agent=self.agent_encoder.k_dim,
+                                        n_token_agent=self.agent_encoder.k_dim*2,
                                         pt2a_neighbor=10,
                                         a2a_neighbor=10,
                                         token_processor=token_processor,
@@ -250,38 +251,46 @@ class SMARTDecoder(nn.Module):
             tokenized_agent["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
 
-        # if self.agent_encoder.use_latent:
-        #     if "latent_z" not  in tokenized_agent.keys():
-        #         # train_mask=tokenized_agent["train_mask"].clone()
-        #         # tokenized_agent["train_mask"]=None
-        #         # logits = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
-        #         #                                      tokenized_agent["goal_idx"],
-        #         #                                      tokenized_agent["valid_mask"][:,:2],
-        #         #                                      tokenized_agent["sampled_pos"][:,:2],
-        #         #                                      tokenized_agent["sampled_heading"][:,:2],
-        #         #                                      tokenized_agent,
-        #         #                                      tokenized_agent["detach_map_feature"],
-        #         #                                      tokenized_agent["light_idx"],
-        #         #                                      None)[0]  # [all_valid]
-        #         #
-        #         # #tokenized_agent["train_mask"]=train_mask
-        #         #
-        #         # logits_p=logits[:,-1]
-        #         # probs = logits_p.softmax(-1)
-        #         # latent_z = torch.multinomial(probs, 1)#.squeeze(-1)  # [B]
-        #         # z_oh = F.one_hot(z_idx, num_classes=probs.shape[-1]).float()
-        #         #
-        #         # print(1)
-        #
-        #         batch_idx = tokenized_agent['batch']
-        #         #latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
-        #         #latent_z = latent_z[batch_idx]
-        #         latent_z=torch.randint(low=0, high=self.k_dim, size=(len(batch_idx), 1),device=batch_idx.device)
-        #         #
-        #         tokenized_agent["latent_z"]=latent_z
-        #        # tokenized_agent["logits_p"]=logits_p#[train_mask]
-        # else:
-        #     tokenized_agent["latent_z"]=None
+        if self.agent_encoder.use_latent:
+            if "latent_z" not  in tokenized_agent.keys():
+                #train_mask=tokenized_agent["train_mask"].clone()
+                #tokenized_agent["train_mask"]=None
+                logits = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
+                                                     tokenized_agent["goal_idx"],
+                                                     tokenized_agent["valid_mask"][:,:2],
+                                                     tokenized_agent["sampled_pos"][:,:2],
+                                                     tokenized_agent["sampled_heading"][:,:2],
+                                                     tokenized_agent,
+                                                     tokenized_agent["detach_map_feature"],
+                                                     tokenized_agent["light_idx"],
+                                                     None)[0] # [all_valid]
+
+                logits_p=logits[:,-1:]
+
+                mu=logits_p[:,:,:self.k_dim]
+                logvar=logits_p[:,:,self.k_dim:]
+
+                std = torch.exp(0.5 * logvar)
+                latent_z= mu + torch.randn_like(std) * std
+
+                #tokenized_agent["train_mask"]=train_mask
+                #
+                # logits_p=logits[:,-1]
+                # probs = logits_p.softmax(-1)
+                # latent_z = torch.multinomial(probs, 1)#.squeeze(-1)  # [B]
+                # z_oh = F.one_hot(z_idx, num_classes=probs.shape[-1]).float()
+                #
+                # print(1)
+
+                # batch_idx = tokenized_agent['batch']
+                # #latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
+                # #latent_z = latent_z[batch_idx]
+                # latent_z=torch.randint(low=0, high=self.k_dim, size=(len(batch_idx), 1),device=batch_idx.device)
+                #
+                tokenized_agent["latent_z"]=latent_z
+                tokenized_agent["logits_p"]=logits_p#[train_mask]
+        else:
+            tokenized_agent["latent_z"]=None
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature, post_sampling)
 
