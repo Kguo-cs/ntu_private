@@ -733,7 +733,7 @@ class IQ_SoftQ(LightningModule):
                         var_q = logvar.exp()
                         var_p = logvar_p.exp()
 
-                        kl_prior = 0.5 * (logvar_p - logvar + (var_q + (mu - mu_p).pow(2)) / var_p - 1 )
+                        kl_prior = 0.5 * (logvar_p - logvar + (var_q + (mu - mu_p).pow(2)) / var_p - 1 ).mean()
 
                     loss_q=-z_logp.mean() # increase the z likelihood
                     expert_nll=expert_nll+loss_q+kl_prior
