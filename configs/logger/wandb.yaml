@@ -22,19 +22,18 @@ wandb:
   project: sim
   entity: u3006612
   log_model: false
-  offline: true          # stays fully offline
-  id: null               # don't use resume ids in offline
-  resume: "never"        # avoid the "resume ignored" warning
+  offline: true
+  id: null
+  resume: "never"
   group: ""
   tags: []
   job_type: ""
   prefix: ""
 
-  # Pass settings through to wandb.init(...)
-  init:
-    settings:
-      start_method: thread   # robust with DataLoader workers
-      mode: offline          # redundant with offline=True, but explicit
+  # pass directly to wandb.init()
+  settings:
+    start_method: thread   # safer with multiprocessing
+    mode: offline          # explicit, though offline: true is enough
 
 # tensorboard:
 #   _target_: lightning.pytorch.loggers.tensorboard.TensorBoardLogger
