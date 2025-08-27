@@ -521,19 +521,21 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent["vis_mask"] = None
         all_valid=valid_mask.all(-1)
 
-        # if self.iq_learn:
-        #     self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-        #     if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
-        #         self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
+        if self.use_kl_penalty:
+            expert_nll=0
+            map_feature = self.encoder.map_encoder(tokenized_map)
+            tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+            expert_log_prob=None
 
-        # expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+            tokenized_agent["train_mask"]=all_valid
+        else:
+            if self.iq_learn:
+                self.encoder.agent_encoder.a_t_roformer.attn.caching = True
+                if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
+                    self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
-        expert_nll=0
-        map_feature = self.encoder.map_encoder(tokenized_map)
-        tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-        expert_log_prob=None
+            expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
-        tokenized_agent["train_mask"]=all_valid
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:

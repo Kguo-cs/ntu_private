@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL128_map2_kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
+task_name: AIRL64_map2 #kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
