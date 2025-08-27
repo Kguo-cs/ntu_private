@@ -445,7 +445,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map1_10"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
@@ -453,18 +453,18 @@ if __name__ == "__main__":
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     )
 
-    args.split='validation'
-
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    )
-
-    args.split='testing'
-
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    )
-
+    # args.split='validation'
+    #
+    # batch_process9s_transformer(
+    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    # )
+    #
+    # args.split='testing'
+    #
+    # batch_process9s_transformer(
+    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    # )
+    #
     #
     # files = os.listdir(data_directory)
     #
