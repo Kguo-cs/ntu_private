@@ -154,10 +154,10 @@ class SMARTMapDecoder(nn.Module):
 
         else:
 
-            edge_pt=x_pt[mask][::3].contiguous()
-            pos_edge=pos_pt[mask][::3].contiguous()
-            orient_edge=orient_pt[mask][::3].contiguous()
-            batch_edge=batch[mask][::3].contiguous()
+            edge_pt=x_pt[mask][::2].contiguous()
+            pos_edge=pos_pt[mask][::2].contiguous()
+            orient_edge=orient_pt[mask][::2].contiguous()
+            batch_edge=batch[mask][::2].contiguous()
 
             head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
 
