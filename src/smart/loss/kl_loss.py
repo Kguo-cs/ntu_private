@@ -9,6 +9,7 @@ from torch.distributions import Independent, Normal, OneHotCategoricalStraightTh
 from torch.nn import functional as F
 
 
+
 class MyDist:
     def __init__(self, *args, **kwargs) -> None:
         self.distribution = None

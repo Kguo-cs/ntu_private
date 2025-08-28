@@ -22,6 +22,7 @@ import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return,get_near_returns
 from torch_scatter import scatter_mean
 from torch.distributions import Categorical, Normal, Independent
+from src.smart.loss.kl_loss import BalancedKL
 
 class IQ_SoftQ(LightningModule):
 
@@ -92,6 +93,10 @@ class IQ_SoftQ(LightningModule):
                 self.automatic_optimization=False
 
         self.use_distance =False
+
+        if self.encoder.agent_encoder.use_latent:
+
+            self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
 
         # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
@@ -547,6 +552,17 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
+        if "latent_post" in tokenized_agent.keys():
+            latent_post=tokenized_agent["latent_post"]
+            latent_prior=tokenized_agent["latent_prior"]
+
+            error_vae = self.l_vae_kl.compute(latent_post.distribution, latent_prior.distribution).mean()
+
+            self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
+
+            expert_nll=expert_nll+error_vae
+
+
         tokenized_agent["train_mask"] = all_valid
 
         if self.iq_learn:
@@ -574,8 +590,6 @@ class IQ_SoftQ(LightningModule):
 
                 pos_noise=pos_local.reshape(pos.shape)
                 heading_noise=heading_local.reshape(heading.shape)
-                # pos_noise=noised_pos-pos
-                # heading_noise=wrap_angle(noised_heading-heading)
 
                 noise_pred = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                                  tokenized_agent["goal_idx"],
@@ -594,9 +608,6 @@ class IQ_SoftQ(LightningModule):
 
                 pred_heading = head_global.reshape(noise_pred.shape[0],noise_pred.shape[1])
 
-                # pred_pos=noised_pos[all_valid][:,2:]-noise_pred[:,:,:2]
-                # pred_heading=noised_heading[all_valid][:,2:]-noise_pred[:,:,2]
-
                 pred_contour=cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
 
                 real_contour=cal_polygon_contour(pos[all_valid][:,2:], heading[all_valid][:,2:], token_agent_shape)
@@ -604,8 +615,6 @@ class IQ_SoftQ(LightningModule):
                 noise_error=torch.linalg.norm(pred_contour-real_contour,dim=-1).mean()
 
                 real_noise=torch.cat([pos_noise,heading_noise[:,:,None]],dim=-1)[all_valid][:,2:]
-
-                #noise_error=torch.linalg.norm(noise_pred-real_noise,ord=1,dim=-1).mean()
 
                 pos_error=torch.linalg.norm(noise_pred[:,:,:2]-real_noise[:,:,:2],dim=-1).mean()
                 heading_error=wrap_angle(noise_pred[:,:,2]-real_noise[:,:,2]).abs().mean()
@@ -633,12 +642,8 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            # tokenized_agent_rollout["train_mask"]=None
-
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
-
-            # tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
                 if not self.use_distance:
@@ -672,9 +677,6 @@ class IQ_SoftQ(LightningModule):
 
                         agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:,2:],
                                                             tokenized_agent_rollout["sampled_heading"][all_valid][:,2:], token_agent_shape)
-
-                        # pred_pos=tokenized_agent_rollout["sampled_pos"][all_valid][:,2:]+error_pred[:,:,:2]
-                        # pred_heading=tokenized_agent_rollout["sampled_heading"][all_valid][:,2:]+error_pred[:,:,2]
 
                         pos_global, head_global = transform_to_global(error_pred[:, :, :2].reshape(-1, 1, 2),
                                                                       error_pred[:, :, 2].reshape(-1, 1),
@@ -971,7 +973,7 @@ class IQ_SoftQ(LightningModule):
                 lcf_optimizer.step()
 
         else:
-            loss = expert_nll + expert_proposal_loss
+            loss = expert_nll
 
         return loss
 

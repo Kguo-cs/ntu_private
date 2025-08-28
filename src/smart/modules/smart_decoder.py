@@ -23,6 +23,7 @@ from src.smart.layers import MLPLayer
 from .interative_decoder import InterativeDecoder
 from src.smart.modules.diffusion_discriminator import Discriminator
 import torch.nn.functional as F
+from src.smart.loss.kl_loss import DiagGaussian
 
 class SMARTDecoder(nn.Module):
 
@@ -53,7 +54,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=True
+        self.iq_learn=False
         self.output_gmm=False
         self.use_gail=True
 
@@ -104,6 +105,34 @@ class SMARTDecoder(nn.Module):
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
+            if self.agent_encoder.use_latent:
+                self.k_dim = self.agent_encoder.k_dim
+                self.post_net = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=90,
+                    pl2a_radius=10,
+                    a2a_radius=10,  # 20 bad
+                    num_freq_bands=num_freq_bands,
+                    num_layers=1,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=0,
+                    hist_drop_prob=0,
+                    n_token_agent=self.agent_encoder.k_dim ,
+                    pt2a_neighbor=10,
+                    a2a_neighbor=10,
+                    token_processor=token_processor,
+                    alpha=self.alpha,
+                    output_gmm=False,
+                    pred_last_res=False,
+                    pred_all_res=False,
+                    discriminator=True
+                )
+
+                self.log_std = nn.Parameter(0 * torch.ones(self.agent_encoder.k_dim), requires_grad=True)
+
             if self.iq_learn and self.use_gail:
                 self.discriminator = SMARTAgentDecoder(
                     hidden_dim=hidden_dim,
@@ -129,32 +158,7 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
-                if self.agent_encoder.use_latent:
-                    self.k_dim=self.agent_encoder.k_dim
-                    self.prior_net=SMARTAgentDecoder(
-                                        hidden_dim=hidden_dim,
-                                        num_historical_steps=num_historical_steps,
-                                        num_future_steps=num_future_steps,
-                                        time_span=10,
-                                        pl2a_radius=10,
-                                        a2a_radius=10,#20 bad
-                                        num_freq_bands=num_freq_bands,
-                                        num_layers=1,
-                                        num_heads=num_heads,
-                                        head_dim=head_dim,
-                                        dropout=0,
-                                        hist_drop_prob=0,
-                                        n_token_agent=self.agent_encoder.k_dim*2,
-                                        pt2a_neighbor=10,
-                                        a2a_neighbor=10,
-                                        token_processor=token_processor,
-                                        alpha=self.alpha,
-                                        output_gmm=False,
-                                        pred_last_res=False,
-                                        pred_all_res=False,
-                                        discriminator=True
-                                    )
-
+                if self.agent_encoder.use_latent and self.iq_learn:
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,
                                         num_historical_steps=num_historical_steps,
@@ -168,7 +172,7 @@ class SMARTDecoder(nn.Module):
                                         head_dim=head_dim,
                                         dropout=0,
                                         hist_drop_prob=0,
-                                        n_token_agent=self.agent_encoder.k_dim*2,
+                                        n_token_agent=self.agent_encoder.k_dim,
                                         pt2a_neighbor=10,
                                         a2a_neighbor=10,
                                         token_processor=token_processor,
@@ -178,12 +182,6 @@ class SMARTDecoder(nn.Module):
                                         pred_all_res=False,
                                         discriminator=True
                                     )
-                #MLPLayer(hidden_dim,hidden_dim,self.agent_encoder.k_dim)
-
-
-                #self.discriminator= Discriminator(hidden_dim, hidden_dim, False, num_units=128)
-
-                #self.discriminator1=MLPLayer(3,hidden_dim,1)
 
                 if self.use_value:
                     self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
@@ -255,23 +253,22 @@ class SMARTDecoder(nn.Module):
             if "latent_z" not  in tokenized_agent.keys():
                 #train_mask=tokenized_agent["train_mask"].clone()
                 #tokenized_agent["train_mask"]=None
-                logits = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
+                post_dist = self.post_net.predict_agent(tokenized_agent["sampled_idx"],
                                                      tokenized_agent["goal_idx"],
-                                                     tokenized_agent["valid_mask"][:,:2],
-                                                     tokenized_agent["sampled_pos"][:,:2],
-                                                     tokenized_agent["sampled_heading"][:,:2],
+                                                     tokenized_agent["valid_mask"],
+                                                     tokenized_agent["sampled_pos"],
+                                                     tokenized_agent["sampled_heading"],
                                                      tokenized_agent,
                                                      tokenized_agent["detach_map_feature"],
                                                      tokenized_agent["light_idx"],
                                                      None)[0] # [all_valid]
 
-                logits_p=logits[:,-1:]
 
-                mu=logits_p[:,:,:self.k_dim]
-                logvar=logits_p[:,:,self.k_dim:]
+                mu=post_dist[:,:,:self.k_dim]
+                logvar=self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
 
                 std = torch.exp(0.5 * logvar)
-                latent_z= mu + torch.randn_like(std) * std
+                latent_z= mu + torch.randn_like(mu) * std[None,None]
 
                 #tokenized_agent["train_mask"]=train_mask
                 #
@@ -288,7 +285,9 @@ class SMARTDecoder(nn.Module):
                 # latent_z=torch.randint(low=0, high=self.k_dim, size=(len(batch_idx), 1),device=batch_idx.device)
                 #
                 tokenized_agent["latent_z"]=latent_z
-                tokenized_agent["logits_p"]=logits_p#[train_mask]
+                tokenized_agent["latent_post"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
+                tokenized_agent["latent_prior"]=DiagGaussian(torch.zeros_like(mu), torch.zeros_like(mu), valid=torch.ones_like(mu).to(bool))
+
         else:
             tokenized_agent["latent_z"]=None
 
