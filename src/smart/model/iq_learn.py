@@ -93,12 +93,12 @@ class IQ_SoftQ(LightningModule):
 
         self.use_distance =False
 
-            # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
+        # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
-    # def on_after_backward(self):
-    #     for name, param in self.named_parameters():
-    #         if param.grad is None:
-    #             print(f"Unused parameter: {name}")
+        # def on_after_backward(self):
+        #     for name, param in self.named_parameters():
+        #         if param.grad is None:
+        #             print(f"Unused parameter: {name}")
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -287,7 +287,7 @@ class IQ_SoftQ(LightningModule):
     def get_d(self,f,log_prob):
         return torch.sigmoid(f)#-log_prob.detach()
 
-    def get_reward(self,tokenized_agent,log_prob,key,train_mask=None,expert_disc_val=0):
+    def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,expert_disc_val=0):
 
         # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
@@ -331,29 +331,27 @@ class IQ_SoftQ(LightningModule):
         #logit=torch.tanh(logit)*10
 
 
-        disc_val = self.get_d(logit[:, :, 0],log_prob)
+        disc_val = self.get_d(logit[:, :, 0],0)
         # svo=torch.sigmoid(logit[:,:,1])
         #
         # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
         #
         # disc_val = svo*disc_val +(1-svo)* nei_disval
 
-        # if key == "agent" and self.use_kl_penalty:
-        #     with torch.no_grad():
-        #         target_q = self.target_net(tokenized_agent, map_feature)[
-        #             "agent_q"]
-        #
-        #         ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
-        #
-        #         # KL per token: sum_a p(a) * (log p(a) - log q(a))
-        #         kl_coef=1
-        #
-        #         kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
-        #
-        #     self.log("train/" + key + "_kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
-        #
-        # else:
-        #     kl_per_token=0
+        if key == "agent" and self.use_kl_penalty:
+            with torch.no_grad():
+                target_q = self.bc_net(tokenized_agent, map_feature)["agent_q"]
+
+                ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+
+                kl_coef=1
+
+                kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
+
+                self.log("train/kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
+
+        else:
+            kl_per_token=0
 
         with torch.no_grad():
             # if key=="agent":
@@ -381,7 +379,7 @@ class IQ_SoftQ(LightningModule):
             if  self.dis_loss == "wgan":
                 rewards=logit[:, :, 0].detach()
             else:
-                rewards=get_reward(disc_val_eval,kl_per_token=0)
+                rewards=get_reward(disc_val_eval,kl_per_token=kl_per_token)
 
             #rewards=(rewards-rewards.mean())/(rewards.std()+1e-4)
 
@@ -646,7 +644,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid,expert_disc_val)
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
@@ -907,23 +905,19 @@ class IQ_SoftQ(LightningModule):
 
                 expert_nll = expert_nll + agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
-                if self.use_kl_penalty:
-                    # with torch.no_grad():
-                    #     target_q = self.target_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
-                    #
-                    #     ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
-                    with torch.no_grad():
-                        #map_feature=self.bc_map_net(tokenized_map)
-                        target_q = self.bc_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
-                        ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
-
-                    kl_coef=1
-
-                    kl_per_token =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()
-
-                    self.log("train/kl_penalty", kl_per_token.item(), on_step=True, batch_size=1)
-
-                    expert_nll=expert_nll+kl_coef *kl_per_token
+                # if self.use_kl_penalty:
+                #     with torch.no_grad():
+                #         #map_feature=self.bc_map_net(tokenized_map)
+                #         target_q = self.bc_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
+                #         ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+                #
+                #     kl_coef=1
+                #
+                #     kl_per_token =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()
+                #
+                #     self.log("train/kl_penalty", kl_per_token.item(), on_step=True, batch_size=1)
+                #
+                #     expert_nll=expert_nll+kl_coef *kl_per_token
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
                 # constraint_loss=expert_V_diff.square().mean()*5
