@@ -344,11 +344,13 @@ class IQ_SoftQ(LightningModule):
 
                 ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
+                kl_penalty =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()  # (B,T)
+
+                self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
+
                 kl_coef=1
 
-                kl_per_token = kl_coef * torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1)  # (B,T)
-
-                self.log("train/kl_penalty", kl_per_token.mean().item(), on_step=True, batch_size=1)
+                kl_per_token=kl_coef *kl_penalty
 
         else:
             kl_per_token=0
@@ -560,13 +562,6 @@ class IQ_SoftQ(LightningModule):
                 pos=tokenized_agent["gt_pos_raw"].clone()#use original pos
                 heading=tokenized_agent["gt_head_raw"].clone()#use original pos
                 token_agent_shape=tokenized_agent["token_agent_shape"][:,None][all_valid]
-
-                # pos_noise=torch.randn_like(pos)*0.05#*torch.rand_like(pos)
-                #
-                # heading_noise=torch.randn_like(heading)*0.05#*torch.rand_like(heading)
-
-                # noised_pos=pos+pos_noise
-                # noised_heading=wrap_angle(heading+heading_noise)
 
                 noised_pos= tokenized_agent["sampled_pos"]
                 noised_heading=tokenized_agent["sampled_heading"]
