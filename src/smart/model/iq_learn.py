@@ -62,12 +62,16 @@ class IQ_SoftQ(LightningModule):
                 param.requires_grad = False
             self.bc_net.eval()
 
-            # self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
-            #
-            # for param in self.bc_map_net.parameters():
-            #     param.requires_grad = False
-            #
-            # self.bc_map_net.eval()
+            if self.encoder.map_encoder.parameters()[0].requires_grad:
+                print('with map')
+                self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
+
+                for param in self.bc_map_net.parameters():
+                    param.requires_grad = False
+
+                self.bc_map_net.eval()
+            else:
+                self.bc_map_net = None
 
         self.reward_type='airl'
 
@@ -292,7 +296,7 @@ class IQ_SoftQ(LightningModule):
     def get_d(self,f,log_prob):
         return torch.sigmoid(f)#-log_prob.detach()
 
-    def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0):
+    def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
         # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
@@ -345,6 +349,9 @@ class IQ_SoftQ(LightningModule):
 
         if key == "agent" and self.use_kl_penalty:
             with torch.no_grad():
+                if self.bc_map_net is not None:
+                    map_feature=self.bc_map_net(tokenized_map)
+
                 target_q = self.bc_net(tokenized_agent, map_feature)["agent_q"]
 
                 logp_ref = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
@@ -648,7 +655,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,expert_disc_val)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,expert_disc_val,tokenized_map=tokenized_map)
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
