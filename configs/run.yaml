@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL128_edge1_kl1 #map2_guassian2_klnorm #kl1_learnmap #kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
+task_name: AIRL64_edge1_kl1_nomap #map2_guassian2_klnorm #kl1_learnmap #kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

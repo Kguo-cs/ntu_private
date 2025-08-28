@@ -127,7 +127,7 @@ def run(cfg: DictConfig) -> None:
         model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
         if model.encoder.agent_encoder.use_kl_penalty:
             model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
-            model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
+            #model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
         trainer.fit(model=model, datamodule=datamodule)
     elif cfg.action == "validate":
         log.info("Starting validating!")

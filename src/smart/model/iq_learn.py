@@ -55,15 +55,18 @@ class IQ_SoftQ(LightningModule):
 
         if self.use_kl_penalty:
             self.bc_net = copy.deepcopy(self.encoder.agent_encoder)
-            self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
 
             self.bc_net.target_net=True
             for param in self.bc_net.parameters():
                 param.requires_grad = False
-            for param in self.bc_map_net.parameters():
-                param.requires_grad = False
             self.bc_net.eval()
-            self.bc_map_net.eval()
+
+            # self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
+            #
+            # for param in self.bc_map_net.parameters():
+            #     param.requires_grad = False
+            #
+            # self.bc_map_net.eval()
 
         self.reward_type='airl'
 
@@ -910,8 +913,8 @@ class IQ_SoftQ(LightningModule):
                     #
                     #     ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
                     with torch.no_grad():
-                        map_feature=self.bc_map_net(tokenized_map)
-                        target_q = self.bc_net(tokenized_agent_rollout, map_feature)[ "agent_q"]
+                        #map_feature=self.bc_map_net(tokenized_map)
+                        target_q = self.bc_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
                         ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
                     kl_coef=1
