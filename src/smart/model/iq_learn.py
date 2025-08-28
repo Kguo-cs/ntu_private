@@ -61,8 +61,9 @@ class IQ_SoftQ(LightningModule):
             for param in self.bc_net.parameters():
                 param.requires_grad = False
             self.bc_net.eval()
+            self.learn_map=True
 
-            if self.encoder.map_encoder.parameters()[0].requires_grad:
+            if self.learn_map:#self.encoder.map_encoder.parameters()[0].requires_grad
                 print('with map')
                 self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
 
