@@ -346,7 +346,7 @@ class IQ_SoftQ(LightningModule):
 
                 actions=tokenized_agent["sampled_idx"][:,2:][train_mask]
 
-                logp_a_ref=logp_ref.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
+                logp_a_ref=torch.gather(logp_ref, dim=-1, index=actions.unsqueeze(-1)).squeeze(-1)
 
                 kl_penalty = (agent_log_prob - logp_a_ref)
 
