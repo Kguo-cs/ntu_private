@@ -61,10 +61,8 @@ class IQ_SoftQ(LightningModule):
             for param in self.bc_net.parameters():
                 param.requires_grad = False
             self.bc_net.eval()
-            self.learn_map=True
 
-            if self.learn_map:#self.encoder.map_encoder.parameters()[0].requires_grad
-                print('with map')
+            if self.encoder.map_encoder.type_pt_emb.weight.requires_grad:
                 self.bc_map_net = copy.deepcopy(self.encoder.map_encoder)
 
                 for param in self.bc_map_net.parameters():
@@ -366,7 +364,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
 
-                kl_coef=1
+                kl_coef=0.2
                 kl_taken = (agent_log_prob - logp_a_ref)
 
                 kl_per_token=kl_coef *kl_taken
