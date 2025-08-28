@@ -364,7 +364,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
 
-                kl_coef=0.2
+                kl_coef=np.power(0.9999,self.global_step)
                 kl_taken = (agent_log_prob - logp_a_ref)
 
                 kl_per_token=kl_coef *kl_taken
@@ -703,7 +703,7 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss=torch.tensor(0.0)
 
 
-                if self.encoder.agent_encoder.use_latent:
+                if self.encoder.use_infogail:
 
                     logits = self.encoder.RecognitionQ.predict_agent(tokenized_agent_rollout["sampled_idx"],
                                                          tokenized_agent_rollout["goal_idx"],

@@ -62,6 +62,7 @@ class SMARTDecoder(nn.Module):
 
         self.use_critic=False
         self.learn_lcf=False
+        self.use_infogail = False
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
@@ -158,7 +159,8 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
-                if self.agent_encoder.use_latent and self.iq_learn:
+
+                if self.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,
                                         num_historical_steps=num_historical_steps,
