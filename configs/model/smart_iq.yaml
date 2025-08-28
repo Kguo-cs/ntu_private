@@ -15,8 +15,8 @@ model_config:
     pl2a_radius: 40
     a2a_radius: 60
     dropout: 0
-    hist_drop_prob: 0.1
-    pt2pt_neighbor: 20
+    hist_drop_prob: 0
+    pt2pt_neighbor: 30
     pt2a_neighbor: 20
     a2a_neighbor: 20
     #time_span: 20  #less
