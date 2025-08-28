@@ -19,7 +19,7 @@ wandb:
   _target_: lightning.pytorch.loggers.wandb.WandbLogger
   name: ${task_name}
   save_dir: ${paths.output_dir}
-  project: sim
+  project: bc
   entity: u3006612
   log_model: false
   offline: true
