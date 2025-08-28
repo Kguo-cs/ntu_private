@@ -287,7 +287,7 @@ class IQ_SoftQ(LightningModule):
     def get_d(self,f,log_prob):
         return torch.sigmoid(f)#-log_prob.detach()
 
-    def get_reward(self,tokenized_agent,agent_pi,key,train_mask=None,expert_disc_val=0):
+    def get_reward(self,tokenized_agent,agent_log_prob,key,train_mask=None,expert_disc_val=0):
 
         # all_features=tokenized_agent["detach_all_features"]
         map_feature=tokenized_agent["detach_map_feature"]
@@ -342,9 +342,15 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 target_q = self.bc_net(tokenized_agent, map_feature)["agent_q"]
 
-                ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
+                logp_ref = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
-                kl_penalty =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()  # (B,T)
+                actions=tokenized_agent["sampled_idx"][:,2:]
+
+                logp_a_ref=logp_ref.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
+
+                kl_penalty = (agent_log_prob - logp_a_ref)
+
+                # kl_penalty =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()  # (B,T)
 
                 self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
 
@@ -639,7 +645,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_pi, "agent",all_valid,expert_disc_val)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob, "agent",all_valid,expert_disc_val)
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
