@@ -319,6 +319,13 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature = self.map_encoder(tokenized_map)
 
+        if self.encoder.agent_encoder.use_latent:
+            mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
+            std=torch.ones_like(mu)
+            latent_z = mu + torch.randn_like(std) * std
+
+            tokenized_agent["latent_z"] = latent_z
+
         # if self.agent_encoder.use_latent:
         #     if "latent_z" not  in tokenized_agent.keys():
         #         # logits = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
