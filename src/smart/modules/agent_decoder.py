@@ -374,13 +374,6 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 latent_z=tokenized_agent["latent_z"],
                                                                                 post_sampling=post_sampling)
 
-        # if self.use_lcf:
-        #     lcf=torch.sigmoid(self.lcf_head(feat_a))*torch.pi/2
-        # else:
-        #     lcf=None
-
-
-
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
         tokenized_agent["feat_a"] =feat_a.detach()
