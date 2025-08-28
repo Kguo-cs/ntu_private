@@ -344,7 +344,7 @@ class IQ_SoftQ(LightningModule):
 
                 logp_ref = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
-                actions=tokenized_agent["sampled_idx"][:,2:]
+                actions=tokenized_agent["sampled_idx"][:,2:][train_mask]
 
                 logp_a_ref=logp_ref.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
 
