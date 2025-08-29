@@ -335,7 +335,7 @@ class IQ_SoftQ(LightningModule):
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
                                                         None,
-                                                        latent_z=tokenized_agent["latent_z"]
+                                                       # latent_z=tokenized_agent["latent_z"]
                                                         )[0]
 
         #logit=torch.tanh(logit)*10

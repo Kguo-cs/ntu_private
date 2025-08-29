@@ -136,7 +136,7 @@ class SMARTAgentDecoder(nn.Module):
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
-        self.use_kl_penalty=False
+        self.use_kl_penalty=True
 
         self.target_net=False
 
@@ -157,7 +157,7 @@ class SMARTAgentDecoder(nn.Module):
             self.k_dim=2
             self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
 
-        self.use_vae=True
+        self.use_vae=False
 
         if self.use_vae and not discriminator:
             self.k_dim=16
