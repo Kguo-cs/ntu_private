@@ -131,7 +131,7 @@ class SMART(LightningModule):
             #tokenized_map,tokenized_agent = self.encoder.preprocess(tokenized_map, tokenized_agent)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
-            if self.encoder.agent_encoder.use_latent:
+            if self.encoder.agent_encoder.use_vae:
                 # logits = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
                 #                                       tokenized_agent["goal_idx"],
                 #                                       tokenized_agent["valid_mask"][:, :2],
@@ -153,7 +153,7 @@ class SMART(LightningModule):
 
             for _ in range(self.n_rollout_closed_val):
 
-                if self.encoder.agent_encoder.use_latent:
+                if self.encoder.agent_encoder.use_vae:
                     latent_z = mu + torch.randn_like(std) * std
 
                     tokenized_agent["latent_z"] = latent_z

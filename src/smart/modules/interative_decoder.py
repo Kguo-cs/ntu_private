@@ -228,8 +228,8 @@ class InterativeDecoder(nn.Module):
         else:
             feat_a=feat_a_all
 
-        if self.n_token_agent>1 and self.n_token_agent<2048:
-            feat_a=torch.mean(feat_a, dim=1,keepdim=True)
+        # if self.n_token_agent>1 and self.n_token_agent<2048:
+        #     feat_a=torch.mean(feat_a, dim=1,keepdim=True)
 
         if self.pred_last_res:
             if self.training:

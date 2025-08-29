@@ -62,7 +62,6 @@ class SMARTDecoder(nn.Module):
 
         self.use_critic=False
         self.learn_lcf=False
-        self.use_infogail = False
 
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
@@ -106,7 +105,7 @@ class SMARTDecoder(nn.Module):
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
-            if self.agent_encoder.use_latent:
+            if self.agent_encoder.use_vae:
                 self.k_dim = self.agent_encoder.k_dim
                 self.post_net = SMARTAgentDecoder(
                     hidden_dim=hidden_dim,
@@ -160,7 +159,7 @@ class SMARTDecoder(nn.Module):
                 )
 
 
-                if self.use_infogail:
+                if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,
                                         num_historical_steps=num_historical_steps,
@@ -251,7 +250,7 @@ class SMARTDecoder(nn.Module):
             tokenized_agent["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
 
-        if self.agent_encoder.use_latent:
+        if self.agent_encoder.use_vae:
             if "latent_z" not  in tokenized_agent.keys():
                 #train_mask=tokenized_agent["train_mask"].clone()
                 #tokenized_agent["train_mask"]=None
@@ -290,8 +289,8 @@ class SMARTDecoder(nn.Module):
                 tokenized_agent["latent_post"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
                 tokenized_agent["latent_prior"]=DiagGaussian(torch.zeros_like(mu), torch.zeros_like(mu), valid=torch.ones_like(mu).to(bool))
 
-        else:
-            tokenized_agent["latent_z"]=None
+            else:
+                tokenized_agent["latent_z"]=None
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature, post_sampling)
 
@@ -319,7 +318,7 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature = self.map_encoder(tokenized_map)
 
-        if self.agent_encoder.use_latent:
+        if self.agent_encoder.use_vae:
             mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.agent_encoder.k_dim],device=tokenized_agent["sampled_idx"].device)
             std=torch.ones_like(mu)
             latent_z = mu + torch.randn_like(std) * std

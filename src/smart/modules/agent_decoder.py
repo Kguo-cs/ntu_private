@@ -136,7 +136,7 @@ class SMARTAgentDecoder(nn.Module):
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
-        self.use_kl_penalty=True
+        self.use_kl_penalty=False
 
         self.target_net=False
 
@@ -151,9 +151,15 @@ class SMARTAgentDecoder(nn.Module):
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
 
-        self.use_latent=False
+        self.use_infogail=True
 
-        if self.use_latent and not discriminator:
+        if self.use_infogail and not discriminator:
+            self.k_dim=2
+            self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
+
+        self.use_vae=False
+
+        if self.use_vae and not discriminator:
             self.k_dim=16
             self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)#nn.Embedding(self.k_dim, hidden_dim)
 
@@ -351,7 +357,7 @@ class SMARTAgentDecoder(nn.Module):
 
         mask_lg=light_idx<self.light_type
 
-        if self.use_latent:
+        if self.use_infogail:
             if "latent_z" not in tokenized_agent.keys():
                 batch_idx = tokenized_agent['batch']
                 #latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
@@ -451,7 +457,7 @@ class SMARTAgentDecoder(nn.Module):
         #     vis_mask=mask.clone()
         # else:
         #     vis_mask=None
-        if self.use_latent:
+        if self.use_infogail:
             if "latent_z" in tokenized_agent.keys():
                 latent_z = tokenized_agent["latent_z"]
             else:

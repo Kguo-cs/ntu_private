@@ -97,7 +97,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_distance =False
 
-        if self.encoder.agent_encoder.use_latent:
+        if self.encoder.agent_encoder.use_vae:
 
             self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
 
@@ -558,7 +558,7 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
-        if "latent_post" in tokenized_agent.keys():
+        if self.encoder.agent_encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
 
@@ -567,7 +567,6 @@ class IQ_SoftQ(LightningModule):
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
 
             expert_nll=expert_nll+error_vae
-
 
         tokenized_agent["train_mask"] = all_valid
 
@@ -703,7 +702,7 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss=torch.tensor(0.0)
 
 
-                if self.encoder.use_infogail:
+                if self.encoder.agent_encoder.use_infogail:
 
                     logits = self.encoder.RecognitionQ.predict_agent(tokenized_agent_rollout["sampled_idx"],
                                                          tokenized_agent_rollout["goal_idx"],
@@ -719,7 +718,7 @@ class IQ_SoftQ(LightningModule):
 
                     if logits.shape[-1]==self.encoder.agent_encoder.k_dim:
                         log_q = F.log_softmax(logits, dim=-1)
-                        action=latent_z.repeat(1,log_q.shape[1],1)
+                        action=latent_z[:,:,None].repeat(1,log_q.shape[1],1)
                         z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
                         kl_prior=0
                     else:
@@ -742,11 +741,11 @@ class IQ_SoftQ(LightningModule):
                         var_p = logvar_p.exp()
 
                         kl_prior = 0.5 * (logvar_p - logvar + (var_q + (mu - mu_p).pow(2)) / var_p - 1 ).sum(-1) .mean()
+                        self.log("train/mu", mu.mean().item(), on_step=True, batch_size=1)
+                        self.log("train/std", std.mean().item(), on_step=True, batch_size=1)
 
                     loss_q=-z_logp.mean() # increase the z likelihood
                     expert_nll=expert_nll+loss_q+kl_prior
-                    self.log("train/mu", mu.mean().item(), on_step=True, batch_size=1)
-                    self.log("train/std", std.mean().item(), on_step=True, batch_size=1)
 
                     self.log("train/loss_q", loss_q.item(), on_step=True, batch_size=1)
                     mi_beta=0.1
