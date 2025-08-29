@@ -217,37 +217,6 @@ class SMARTDecoder(nn.Module):
                         if self.learn_lcf :
                             self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
-                    # self.value_network=InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                    #                                 pl2a_radius,a2a_radius,num_freq_bands,
-                    #                                 1,num_heads,head_dim,
-                    #                                 dropout,hist_drop_prob,2,
-                    #                                 pt2a_neighbor,a2a_neighbor,
-                    #                                 token_processor,False,False,False,False,value_network=True
-                    #                                 )
-
-                    # self.value_network = SMARTAgentDecoder(
-                    #     hidden_dim=hidden_dim,
-                    #     num_historical_steps=num_historical_steps,
-                    #     num_future_steps=num_future_steps,
-                    #     time_span=time_span,
-                    #     pl2a_radius=pl2a_radius,
-                    #     a2a_radius=a2a_radius,
-                    #     num_freq_bands=num_freq_bands,
-                    #     num_layers=1,
-                    #     num_heads=num_heads,
-                    #     head_dim=head_dim,
-                    #     dropout=dropout,
-                    #     hist_drop_prob=hist_drop_prob,
-                    #     n_token_agent=2,
-                    #     pt2a_neighbor=pt2a_neighbor,
-                    #     a2a_neighbor=a2a_neighbor,
-                    #     token_processor=token_processor,
-                    #     alpha=self.alpha,
-                    #     output_gmm=False,
-                    #     pred_last_res=False,
-                    #     pred_all_res=False,
-                    # )
-
     def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
         encoder_was_training = agent_encoder.training
 
