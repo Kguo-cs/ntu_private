@@ -118,7 +118,7 @@ class GUI(Process):
         # ]
         self.lane_style = [
             (COLOR_WHITE, 6),  # FREEWAY = 0
-            (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
+            (COLOR_ALUMINIUM_2, 2),  # SURFACE_STREET = 1
             (COLOR_ORANGE, 6),  # STOP_SIGN = 2
             (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
             (COLOR_RED, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
@@ -461,30 +461,30 @@ class GUI(Process):
         for i, _type in enumerate(self.mp_type):
             # if _type==0:
             #     print("freeway")
-            if _type in [4,5,6,7,8,9]:
-                color, thickness = self.lane_style[_type]
-                polyline = self.mp_xyz[i][:, :2]
+            #if _type in []:#4,5,6,7,8,9
+            color, thickness = self.lane_style[_type]
+            polyline = self.mp_xyz[i][:, :2]
 
-                polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
+            polyline_tf= self.get_line_tf(polyline, self.centerx,self.centery)
 
-                dpg.draw_polyline(
-                    points=polyline_tf,
-                    color= color,  # RGBA
-                    thickness=thickness,
-                    parent=node
-                )
+            dpg.draw_polyline(
+                points=polyline_tf,
+                color= color,  # RGBA
+                thickness=thickness,
+                parent=node
+            )
 
-                x = polyline[len(polyline)//2][0]
-                y = polyline[len(polyline)//2][1]
+            x = polyline[len(polyline)//2][0]
+            y = polyline[len(polyline)//2][1]
 
 
-                dpg.draw_text(
-                    self.ctf.dpgCoord(x, y, self.centerx, self.centery),
-                    self.mp_id[i],
-                    color=(255, 255, 255),
-                    size=15,
-                    parent=node
-                )
+            dpg.draw_text(
+                self.ctf.dpgCoord(x, y, self.centerx, self.centery),
+                self.mp_id[i],
+                color=(255, 255, 255),
+                size=15,
+                parent=node
+            )
 
     # --- Get currently active light(s) ---
     def get_current_active_lights(self,light_group,time):

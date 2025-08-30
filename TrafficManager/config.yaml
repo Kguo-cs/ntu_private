@@ -8,7 +8,7 @@ image:
   target_size: [560, 315]
 
 
-data_path: "./waymo/waymo_data" #"./waymo/desay_map"
+data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
 planner_path: "./waymo/model_checkpoint/sim.ckpt"
 

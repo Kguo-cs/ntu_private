@@ -17,6 +17,9 @@ from PIL import Image
 from io import BytesIO
 import yaml
 import argparse
+torch.set_float32_matmul_precision("highest")#  #“highest” (default),
+
+
 
 dir_name=os.path.dirname(os.path.abspath(__file__))
 
@@ -391,7 +394,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        #sleep(100)
+       # sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -401,7 +404,7 @@ class SimulationManager:
         input_dir =self.config["data_path"]
         all_scenarios=os.listdir(input_dir)
         all_scenarios.sort()
-       #i=0
+        #i=0
         for scenario in all_scenarios:
             # 记录系统层进程内存
             rss_before = get_process_memory()
@@ -609,18 +612,18 @@ class SimulationManager:
            #     plt.plot(lane[:,0],lane[:,1])
 
             # plt.show()
-            control_id=1010
-            current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
-
-           # goal_pos=np.array([370,6325])
-            goal_pos=np.array([355,6355])
-
-            route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
-
-            route=np.array(route)
+           #  control_id=1010
+           #  current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
+           #
+           # # goal_pos=np.array([370,6325])
+           #  goal_pos=np.array([355,6355])
+           #
+           #  route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
+           #
+           #  route=np.array(route)
 
             self.route={}
-            self.route[control_id]=torch.FloatTensor(route).cuda()
+            #self.route[control_id]=torch.FloatTensor(route).cuda()
             #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
            # plt.show()
 
