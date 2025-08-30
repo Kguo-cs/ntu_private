@@ -1,5 +1,5 @@
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 # centerlines_from_boundaries.py
 # Requires: pip install shapely scipy numpy
@@ -13,7 +13,7 @@ import numpy as np
 from scipy.signal import savgol_filter
 from shapely.geometry import LineString, Point
 from shapely.strtree import STRtree
-
+from .desay_lane_graph import build_lane_graph,plot_lane_graph
 
 # ------------------------ Utilities (3D-aware) ------------------------ #
 
@@ -376,8 +376,8 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
         elif feature_data_type=="boundary":
             cur_info["type"] = 4
-            #plt.plot(xyz[:, 0], xyz[:, 1], color='y')
-            #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+            plt.plot(xyz[:, 0], xyz[:, 1], color='y')
+            plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
 
             boundary_dict[id]=xyz
 
@@ -404,16 +404,19 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
     centerlines=build_centerlines_from_boundaries_xyz(boundary_dict)
 
+    for centerline in centerlines:
+
+        center=centerline.centerline
+
+        plt.plot(center[:, 0], center[:, 1], color='grey')
+        plt.plot(center[:2, 0], center[:2, 1], color='red')
+
+    plt.show()
+
+
     # # print(len(polylines))
     #
-    # for centerline in centerlines:
-    #
-    #     center=centerline.centerline
-    #
-    #     plt.plot(center[:, 0], center[:, 1], color='grey')
-    #     plt.plot(center[:2, 0], center[:2, 1], color='red')
-    #
-    # plt.show()
+
     centerline_list=[]
 
     for i,centerline in enumerate(centerlines):
@@ -422,7 +425,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         cur_info["type"] = 1
         xyz = centerline.centerline
 
-        centerline_list.append(xyz[:,:2])
+        centerline_list.append(xyz)
 
         cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
         cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
@@ -430,6 +433,10 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         point_cnt += len(cur_polyline)
 
         map_infos["lane"].append(cur_info)
+
+    G=build_lane_graph(centerline_list)
+
+    plot_lane_graph(G)
 
     # print(len(line_dict.keys()))
 
