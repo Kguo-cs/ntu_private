@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # centerlines_from_boundaries.py
 # Requires: pip install shapely scipy numpy
@@ -376,8 +376,8 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
         elif feature_data_type=="boundary":
             cur_info["type"] = 4
-            plt.plot(xyz[:, 0], xyz[:, 1], color='y')
-            plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+            #plt.plot(xyz[:, 0], xyz[:, 1], color='y')
+            #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
 
             boundary_dict[id]=xyz
 
