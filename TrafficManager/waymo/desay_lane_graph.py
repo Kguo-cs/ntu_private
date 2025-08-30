@@ -1,10 +1,7 @@
-# lane_graph.py
-# Requires: pip install shapely scipy numpy networkx
-
+# lane_graph_quintic_connectors.py
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Any, Optional
-
 import numpy as np
 import networkx as nx
 from shapely.geometry import LineString, Point
@@ -12,472 +9,476 @@ from shapely.strtree import STRtree
 from scipy.signal import savgol_filter
 from scipy.spatial import cKDTree
 
-
-# --------- small geometry helpers --------- #
-
+# ---------- helpers ----------
 def _to_xyz(arr) -> np.ndarray:
     a = np.asarray(arr, dtype=float)
-    if a.ndim != 2:
-        raise ValueError("centerline must be [N,3] or [N,2] or [3,N]")
-    if a.shape[0] == 3 and a.shape[1] != 3:
-        a = a.T
-    if a.shape[1] == 2:
-        a = np.column_stack([a, np.zeros(len(a))])
-    if a.shape[1] != 3:
-        raise ValueError("centerline must be shape [N,3]")
+    if a.ndim != 2: raise ValueError("array must be 2D")
+    if a.shape[0] == 3 and a.shape[1] != 3: a = a.T
+    if a.shape[1] == 2: a = np.column_stack([a, np.zeros(len(a))])
+    if a.shape[1] != 3: raise ValueError("array must be [N,3],[N,2],or[3,N]")
     return a
 
-def _tangents2d(xy: np.ndarray, window: int = 9, poly: int = 2) -> np.ndarray:
-    v = np.zeros_like(xy)
-    v[1:] = xy[1:] - xy[:-1]
+def _arclen2d(xy: np.ndarray) -> np.ndarray:
+    return np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))])
+
+def _resample_xyz_count(xyz: np.ndarray, n: int = 200) -> np.ndarray:
+    xyz = _to_xyz(xyz)
+    if len(xyz) == 1: return np.repeat(xyz, n, axis=0)
+    s = _arclen2d(xyz[:, :2])
+    if s[-1] == 0: return np.repeat(xyz[:1], n, axis=0)
+    u = np.linspace(0.0, s[-1], n)
+    x = np.interp(u, s, xyz[:,0]); y = np.interp(u, s, xyz[:,1]); z = np.interp(u, s, xyz[:,2])
+    return np.stack([x,y,z], axis=1)
+
+def _tangent2d(xy: np.ndarray, window: int = 9, poly: int = 2) -> np.ndarray:
+    v = np.zeros_like(xy); v[1:] = xy[1:] - xy[:-1]
     if xy.shape[0] >= window and window >= 3:
-        if window % 2 == 0:
-            window += 1
+        if window % 2 == 0: window += 1
         v = savgol_filter(v, window, poly, axis=0, mode="interp")
     n = np.linalg.norm(v, axis=1, keepdims=True) + 1e-9
     return v / n
 
-def _heading_at_endpoints(xy: np.ndarray, k: int = 5) -> Tuple[np.ndarray, np.ndarray]:
-    """Return unit tangents at start and end."""
-    k = max(1, min(k, len(xy) - 1))
-    t_start = xy[min(k, len(xy)-1)] - xy[0]
-    t_end   = xy[-1] - xy[max(0, len(xy)-1-k)]
-    for t in (t_start, t_end):
+def _end_tangents(xyz: np.ndarray, k: int = 6) -> Tuple[np.ndarray, np.ndarray]:
+    xy = _to_xyz(xyz)[:, :2]
+    k = max(1, min(k, len(xy)-1))
+    t0 = xy[min(k, len(xy)-1)] - xy[0]
+    t1 = xy[-1] - xy[max(0, len(xy)-1-k)]
+    for t in (t0, t1):
         n = np.linalg.norm(t)
-        if n > 0:
-            t /= n
-    return t_start, t_end
+        if n > 0: t /= n
+    return t0, t1
 
-def _closest_point_on_ls(ls: LineString, p: np.ndarray) -> Tuple[np.ndarray, float]:
-    """Closest point on LineString to p (2D). Returns (point_xy, arclength_s)."""
-    s = ls.project(Point(float(p[0]), float(p[1])))
+def _closest_on_ls(ls: LineString, p_xy: np.ndarray) -> Tuple[np.ndarray, float]:
+    s = ls.project(Point(float(p_xy[0]), float(p_xy[1])))
     q = ls.interpolate(s)
     return np.array([q.x, q.y]), float(s)
 
-def _polyline_length2d(xy: np.ndarray) -> float:
-    return float(np.sum(np.linalg.norm(np.diff(xy, axis=0), axis=1))) if len(xy) > 1 else 0.0
+def _smooth_xyz(xyz: np.ndarray, window: int = 9, poly: int = 2) -> np.ndarray:
+    if window < 3 or len(xyz) < window: return xyz
+    if window % 2 == 0: window += 1
+    out = [savgol_filter(xyz[:,d], window, poly, mode="interp") for d in range(3)]
+    return np.stack(out, axis=1)
 
-def _angle_ok(t1: np.ndarray, t2: np.ndarray, max_diff_deg: float) -> bool:
-    cos = float(np.clip(np.dot(t1, t2), -1.0, 1.0))
-    return cos >= np.cos(np.deg2rad(max_diff_deg))
+# -------- curvature & slope at endpoints --------
+def _rotate_left(v: np.ndarray) -> np.ndarray:
+    return np.array([-v[1], v[0]])
 
-def _signed_lateral(p2: np.ndarray, p1: np.ndarray, t1: np.ndarray) -> float:
-    """Signed lateral offset from p1 (on lane A) to p2 (on lane B) using A's tangent t1.
-       + means to the left of A, - to the right."""
-    d = p2 - p1
-    return float(t1[0]*d[1] - t1[1]*d[0])
-
-def _resample_by_count(xyz: np.ndarray, n: int = 200) -> np.ndarray:
-    """Uniform arclength resampling in XY to n samples; z interpolated."""
-    xyz = _to_xyz(xyz)
-    if len(xyz) == 1:
-        return np.repeat(xyz, n, axis=0)
-    # arclength in XY
-    d = np.linalg.norm(np.diff(xyz[:, :2], axis=0), axis=1)
-    s = np.concatenate([[0.0], np.cumsum(d)])
-    if s[-1] == 0:
-        return np.repeat(xyz[:1], n, axis=0)
-    u = np.linspace(0.0, s[-1], n)
-    x = np.interp(u, s, xyz[:, 0]); y = np.interp(u, s, xyz[:, 1]); z = np.interp(u, s, xyz[:, 2])
-    return np.stack([x, y, z], axis=1)
-
-
-# --------- data container (optional) --------- #
-
-@dataclass
-class LaneNode:
-    lane_id: Any
-    xyz: np.ndarray           # [N,3]
-    length_m: float
-    start_xy: np.ndarray
-    end_xy: np.ndarray
-    t_start: np.ndarray       # 2D unit tangent at start
-    t_end: np.ndarray         # 2D unit tangent at end
-    left_neighbors: List[Any]
-    right_neighbors: List[Any]
-
-
-# --------- main graph builder --------- #
-
-def build_lane_graph(
-    centerlines_xyz: Dict[Any, np.ndarray] | List[np.ndarray],
-    *,
-    # resampling for consistent tangents/orientation tests
-    resample_n: int = 200,
-    # successor (forward) linking
-    successor_radius_m: float = 6.0,            # search radius from A.end to B.start
-    successor_max_join_angle_deg: float = 35.0, # allowed heading diff A.end → B.start
-    successor_project_tol_m: float = 4.0,       # allow attach to B within this arclength from its start
-    # lateral neighbor linking
-    lateral_search_radius_m: float = 4.0,       # for discovering left/right neighbors
-    lateral_min_m: float = 2.0,                 # typical min lane spacing
-    lateral_max_m: float = 6.0,                 # typical max lane spacing
-    lateral_min_overlap_frac: float = 0.3,      # min fraction of A covered by valid lateral relation
-    lateral_min_orient_cos: float = 0.85,       # require |cos(theta)| >= this along overlap
-    # smoothing of stats
-    tangent_smooth_window: int = 9,
-) -> nx.DiGraph:
+def _endpoint_curvature(xy: np.ndarray, end: str = "end", m: int = 6) -> Tuple[float, np.ndarray]:
     """
-    Build a directed lane graph from 3D centerlines.
-
-    Nodes (lane_id) carry:
-      - xyz [N,3], length_m, start_xy, end_xy, t_start, t_end
-      - left_neighbors, right_neighbors (lists of lane_ids)
-
-    Edges:
-      - ('type'='successor', 'cost'=distance, 'angle_diff_deg'=..)
-      - ('type'='lateral', 'side'='left'|'right', 'median_gap_m'=.., 'overlap_frac'=..)
-
-    centerlines_xyz: either {lane_id: xyz} or list of xyz (ids auto-assigned 0..N-1)
+    Estimate signed curvature kappa (1/m) and left normal at the chosen end.
+    Uses 3-point osculating circle on a short window near the end.
     """
-    # normalize input dict
-    if isinstance(centerlines_xyz, dict):
-        lane_items = list(centerlines_xyz.items())
+    xy = np.asarray(xy, dtype=float)
+    m = max(2, min(m, len(xy)-1))
+    if end == "start":
+        p0, p1, p2 = xy[0], xy[m//2], xy[m]
+        t = xy[min(m, len(xy)-1)] - xy[0]
     else:
-        lane_items = list(enumerate(centerlines_xyz))
+        p0, p1, p2 = xy[-1], xy[-1-m//2], xy[-1-m]
+        t = xy[-1] - xy[max(0, len(xy)-1-m)]
+    # triangle area (signed)
+    a = p1 - p0; b = p2 - p1; c = p2 - p0
+    area2 = a[0]*b[1] - a[1]*b[0]
+    la, lb, lc = np.linalg.norm(a), np.linalg.norm(b), np.linalg.norm(c)
+    if la*lb*lc == 0:
+        return 0.0, _rotate_left(t / (np.linalg.norm(t)+1e-9))
+    kappa = 2*area2 / (la*lb*lc + 1e-9)   # signed
+    T = t / (np.linalg.norm(t)+1e-9)
+    N_left = _rotate_left(T)              # unit
+    return float(kappa), N_left
 
-    # Precompute per-lane attributes
-    nodes: Dict[Any, LaneNode] = {}
-    geoms: Dict[Any, LineString] = {}
-    starts, ends = [], []
-    start_ids, end_ids = [], []
+def _endpoint_z_slope(xyz: np.ndarray, end: str = "end", k: int = 6) -> float:
+    """Estimate dz/ds at the endpoint."""
+    xyz = _to_xyz(xyz)
+    k = max(1, min(k, len(xyz)-1))
+    if end == "start":
+        ds = np.linalg.norm(xyz[k,:2] - xyz[0,:2]) + 1e-9
+        return float((xyz[k,2] - xyz[0,2]) / ds)
+    else:
+        ds = np.linalg.norm(xyz[-1,:2] - xyz[-1-k,:2]) + 1e-9
+        return float((xyz[-1,2] - xyz[-1-k,2]) / ds)
 
-    for lane_id, xyz in lane_items:
-        xyz = _to_xyz(xyz)
-        if len(xyz) < 2:
-            continue
-        # resample to stabilize headings/orientation checks
-        xyz_rs = _resample_by_count(xyz, resample_n)
-        xy = xyz_rs[:, :2]
-        t_start, t_end = _heading_at_endpoints(xy, k=max(3, resample_n//50))
-        length_m = _polyline_length2d(xy)
-        node = LaneNode(
-            lane_id=lane_id,
-            xyz=xyz_rs,
-            length_m=length_m,
-            start_xy=xy[0].copy(),
-            end_xy=xy[-1].copy(),
-            t_start=t_start.copy(),
-            t_end=t_end.copy(),
-            left_neighbors=[],
-            right_neighbors=[],
-        )
-        nodes[lane_id] = node
-        geoms[lane_id] = LineString(xy)
-        starts.append(xy[0]); start_ids.append(lane_id)
-        ends.append(xy[-1]);  end_ids.append(lane_id)
+# -------- quintic Hermite (C2) connector --------
+def _quintic_hermite_connector_3d(
+    P0: np.ndarray, T0_xy: np.ndarray, K0: float, N0_xy: np.ndarray, z_slope0: float,
+    P1: np.ndarray, T1_xy: np.ndarray, K1: float, N1_xy: np.ndarray, z_slope1: float,
+    n_samples: int = 65, scale: Optional[float] = None, accel_clamp: float = 0.2
+) -> np.ndarray:
+    """
+    Position P, velocity V, acceleration A constraints at both ends.
+    V0 = S*T0, V1 = S*T1 ; A0 = S^2 * K0 * N0 ; A1 = S^2 * K1 * N1
+    S defaults to chord length unless 'scale' provided.
+    """
+    P0 = _to_xyz(P0.reshape(1,-1))[0]; P1 = _to_xyz(P1.reshape(1,-1))[0]
+    chord = np.linalg.norm(P1[:2] - P0[:2]) + 1e-9
+    S = float(scale if scale is not None else chord)
+    # velocities
+    V0_xy = T0_xy / (np.linalg.norm(T0_xy)+1e-9) * S
+    V1_xy = T1_xy / (np.linalg.norm(T1_xy)+1e-9) * S
+    # accelerations (limit magnitude to avoid overshoot)
+    A0_xy = K0 * (S**2) * (N0_xy / (np.linalg.norm(N0_xy)+1e-9))
+    A1_xy = K1 * (S**2) * (N1_xy / (np.linalg.norm(N1_xy)+1e-9))
+    # clamp accelerations to a fraction of S to prevent wild swings
+    Amax = accel_clamp * S
+    if np.linalg.norm(A0_xy) > Amax: A0_xy = A0_xy / (np.linalg.norm(A0_xy)+1e-9) * Amax
+    if np.linalg.norm(A1_xy) > Amax: A1_xy = A1_xy / (np.linalg.norm(A1_xy)+1e-9) * Amax
 
-    # Build quick spatial indices for starts/ends and whole lanes
-    start_tree = cKDTree(np.array(starts)) if starts else None
-    end_tree   = cKDTree(np.array(ends)) if ends else None
-    lane_list  = [geoms[i] for i in nodes.keys()]
-    lane_ids   = list(nodes.keys())
-    lane_tree  = STRtree(lane_list)
+    # 1D z: use same quintic with slopes and zero accel at ends (robust)
+    V0_z = z_slope0 * S
+    V1_z = z_slope1 * S
+    A0_z = 0.0
+    A1_z = 0.0
+
+    t = np.linspace(0, 1, n_samples)
+    # quintic Hermite basis (pos/vel/acc at t=0,1)
+    b0 = 1 - 10*t**3 + 15*t**4 - 6*t**5
+    b1 = t - 6*t**3 + 8*t**4 - 3*t**5
+    b2 = 0.5*(t**2 - 3*t**3 + 3*t**4 - t**5)
+    b3 = 10*t**3 - 15*t**4 + 6*t**5
+    b4 = -4*t**3 + 7*t**4 - 3*t**5
+    b5 = 0.5*(t**3 - 2*t**4 + t**5)
+
+    X = (b0[:,None]*P0[:2] + b1[:,None]*V0_xy + b2[:,None]*A0_xy +
+         b3[:,None]*P1[:2] + b4[:,None]*V1_xy + b5[:,None]*A1_xy)
+    Z = b0*P0[2] + b1*V0_z + b2*A0_z + b3*P1[2] + b4*V1_z + b5*A1_z
+    return np.column_stack([X, Z])
+
+# ---------- boundaries + clamping ----------
+@dataclass
+class BoundaryRec:
+    id: int
+    xyz: np.ndarray
+    s: np.ndarray
+    geom2d: LineString
+
+def _densify_xyz(xyz: np.ndarray, step: float = 0.5) -> np.ndarray:
+    xyz = _to_xyz(xyz)
+    if len(xyz) < 2: return xyz
+    out = [xyz[0]]
+    for a,b in zip(xyz[:-1], xyz[1:]):
+        L = np.linalg.norm(b[:2]-a[:2])
+        if L <= step or L == 0: out.append(b); continue
+        n = int(np.ceil(L/step)); ts = np.linspace(0,1,n+1)[1:]
+        out.extend(a + (b-a)*ts[:,None])
+    return np.asarray(out)
+
+def _build_boundary_cache(boundary_dict: Dict[int, np.ndarray], densify_step=0.5):
+    recs = []
+    for bid, arr in boundary_dict.items():
+        xyz = _densify_xyz(arr, densify_step)
+        if len(xyz) < 2: continue
+        s = _arclen2d(xyz[:, :2])
+        recs.append(BoundaryRec(int(bid), xyz, s, LineString(xyz[:, :2])))
+    tree = STRtree([r.geom2d for r in recs])
+    return recs, tree
+
+def _interp_xyz_at_s(rec: BoundaryRec, s: float) -> np.ndarray:
+    x = np.interp(s, rec.s, rec.xyz[:,0])
+    y = np.interp(s, rec.s, rec.xyz[:,1])
+    z = np.interp(s, rec.s, rec.xyz[:,2])
+    return np.array([x,y,z], dtype=float)
+
+def _nearest_LR_boundaries(p_xy: np.ndarray, t_xy: np.ndarray,
+                           recs: List[BoundaryRec], tree: STRtree,
+                           search_radius: float = 25.0):
+    env = Point(float(p_xy[0]), float(p_xy[1])).buffer(search_radius)
+    idxs = tree.query(env)
+    if not isinstance(idxs, (list, tuple, np.ndarray)): idxs = [idxs]
+    bestL = None; bestR = None
+    for idx in idxs:
+        rec = recs[idx]
+        q_xy, s = _closest_on_ls(rec.geom2d, p_xy)
+        d = np.linalg.norm(q_xy - p_xy); d = d if d>0 else 1e-9
+        cross = t_xy[0]*(q_xy[1]-p_xy[1]) - t_xy[1]*(q_xy[0]-p_xy[0])
+        if cross > 0:
+            if (bestL is None) or (d < bestL[0]): bestL = (d, rec, q_xy, s)
+        else:
+            if (bestR is None) or (d < bestR[0]): bestR = (d, rec, q_xy, s)
+    return bestL, bestR
+
+def _clamp_point_between_LR(p: np.ndarray, t_xy: np.ndarray, recL, recR) -> np.ndarray:
+    _, rL, qL_xy, sL = recL; _, rR, qR_xy, sR = recR
+    v = qL_xy - qR_xy; v2 = float(np.dot(v, v)) + 1e-9
+    alpha = float(np.clip(np.dot(p[:2] - qR_xy, v) / v2, 0.0, 1.0))
+    qL_xyz = _interp_xyz_at_s(rL, sL); qR_xyz = _interp_xyz_at_s(rR, sR)
+    p_xy  = qR_xy + alpha * v
+    z     = (1.0 - alpha) * qR_xyz[2] + alpha * qL_xyz[2]
+    return np.array([p_xy[0], p_xy[1], z], dtype=float)
+
+# ---------- your input ----------
+@dataclass
+class CenterlineResult:
+    boundary_a_id: int
+    boundary_b_id: int
+    side: str
+    parallelism: float
+    mean_gap_m: float
+    lane_index: int
+    lane_count: int
+    alpha: float
+    centerline: np.ndarray   # [M,3]
+
+# ---------- MAIN: smoother connectors ----------
+def build_lane_graph_with_connectors(
+    centerlines: List[CenterlineResult],
+    boundary_dict: Dict[int, np.ndarray],
+    *,
+    resample_n: int = 200,
+    successor_radius_m: float = 20.0,
+    forward_max_angle_deg: float = 40.0,
+    turn_max_angle_deg: float = 120.0,
+    allow_u_turn: bool = False,
+    # Quintic connector & smoothing controls:
+    connector_samples: int = 65,
+    accel_clamp_frac: float = 0.25,   # clamp accel vs S to avoid overshoot
+    proj_smooth_iters: int = 2,       # projected smoothing passes
+    chaikin_alpha: float = 0.33,      # Chaikin fraction (0.25..0.4 usually good)
+    sg_window: int = 9,               # Savitzky–Golay window for final denoise
+    clamp_search_radius_m: float = 25.0,
+    lateral_within_same_pair_only: bool = True,
+    lateral_min_m: float = 2.4, lateral_max_m: float = 5.0,
+    lateral_min_overlap_frac: float = 0.35, lateral_min_orient_cos: float = 0.9,
+) -> nx.DiGraph:
+
+    def lane_key(c: CenterlineResult):
+        return (tuple(sorted((c.boundary_a_id, c.boundary_b_id))), c.side, c.lane_index)
+    lanes: Dict[Any, CenterlineResult] = {lane_key(c): c for c in centerlines}
 
     G = nx.DiGraph()
+    for lid, c in lanes.items():
+        xyz_rs = _resample_xyz_count(c.centerline, resample_n)
+        G.add_node(lid,
+                   xyz=xyz_rs,
+                   start_xy=xyz_rs[0,:2],
+                   end_xy=xyz_rs[-1,:2],
+                   boundary_pair=tuple(sorted((c.boundary_a_id, c.boundary_b_id))),
+                   side=c.side, lane_index=c.lane_index, lane_count=c.lane_count)
 
-    # Add nodes
-    for lane_id, node in nodes.items():
-        G.add_node(lane_id,
-                   xyz=node.xyz,
-                   length_m=node.length_m,
-                   start_xy=node.start_xy,
-                   end_xy=node.end_xy,
-                   t_start=node.t_start,
-                   t_end=node.t_end,
-                   left_neighbors=[],
-                   right_neighbors=[])
+    starts = np.array([G.nodes[i]['start_xy'] for i in G.nodes]); start_ids = list(G.nodes)
+    start_tree = cKDTree(starts) if len(starts) else None
 
-    # ---------- 1) Successor linking (forward connectivity) ----------
-    if end_tree is not None and start_tree is not None:
-        end_points = np.array(ends)
-        for i, lane_id in enumerate(end_ids):
-            nodeA = nodes[lane_id]
-            # nearby starts within radius
-            idxs = start_tree.query_ball_point(nodeA.end_xy, r=successor_radius_m)
-            for j in idxs:
-                succ_id = start_ids[j]
-                if succ_id == lane_id:
-                    continue
-                nodeB = nodes[succ_id]
-                # heading agreement
-                if not _angle_ok(nodeA.t_end, nodeB.t_start, successor_max_join_angle_deg):
-                    # allow loose attach to early arclength of B (e.g., if B doesn't start exactly at join)
-                    # project A.end to B and require it's near B's start along arclength
-                    p = nodeA.end_xy
-                    q_xy, sB = _closest_point_on_ls(geoms[succ_id], p)
-                    if sB > successor_project_tol_m:
-                        continue
-                    # also check tangent at that early arc
-                    # approximate B start tangent
-                    if not _angle_ok(nodeA.t_end, nodeB.t_start, successor_max_join_angle_deg + 10.0):
-                        continue
-                # cost = euclidean gap
-                gap = float(np.linalg.norm(nodeB.start_xy - nodeA.end_xy))
-                G.add_edge(lane_id, succ_id,
-                           type="successor",
-                           cost=gap,
-                           angle_diff_deg=float(np.rad2deg(np.arccos(np.clip(np.dot(nodeA.t_end, nodeB.t_start), -1, 1)))))
-    # ---------- 2) Lateral neighbor linking (left/right) ----------
-    # For each lane, probe points along it and search nearby lanes to evaluate lateral relation.
-    probe_n = 60
-    for lane_id, nodeA in nodes.items():
-        xyA = nodeA.xyz[:, :2]
-        tsA = _tangents2d(xyA, window=tangent_smooth_window)
-        probes_idx = np.linspace(0, len(xyA)-1, probe_n).astype(int)
-        pA = xyA[probes_idx]
-        tA = tsA[probes_idx]
+    brecs, btree = _build_boundary_cache(boundary_dict, densify_step=0.5)
 
-        # collect candidate lanes within search radius by STRtree
-        # use the whole lines for a coarse spatial filter
-        envelope = LineString(xyA).buffer(lateral_search_radius_m)
-        cand_idxs = lane_tree.query(envelope)
-        if not isinstance(cand_idxs, (list, tuple, np.ndarray)):
-            cand_idxs = [cand_idxs]
+    def endpoint_frames(xyz: np.ndarray):
+        xy = xyz[:, :2]
+        T0, T1 = _end_tangents(xyz)
+        k0, N0 = _endpoint_curvature(xy, "start", m=max(6, len(xy)//20))
+        k1, N1 = _endpoint_curvature(xy, "end",   m=max(6, len(xy)//20))
+        z0 = _endpoint_z_slope(xyz, "start"); z1 = _endpoint_z_slope(xyz, "end")
+        return T0, T1, k0, N0, k1, N1, z0, z1
 
-        best_left = None   # (score, laneB_id, stats)
-        best_right = None
+    # ---- successors with smooth (quintic) connectors ----
+    for u in G.nodes:
+        Xu = G.nodes[u]['xyz']
+        Pu0, Pu1 = Xu[0], Xu[-1]
+        Tu0, Tu1, ku0, Nu0, ku1, Nu1, dz0, dz1 = endpoint_frames(Xu)
+        if start_tree is None: break
+        idxs = start_tree.query_ball_point(Pu1[:2], r=successor_radius_m)
+        for j in idxs:
+            v = start_ids[j]
+            if v == u: continue
+            Xv = G.nodes[v]['xyz']
+            Pv0, Pv1 = Xv[0], Xv[-1]
+            Tv0, Tv1, kv0, Nv0, kv1, Nv1, dzv0, dzv1 = endpoint_frames(Xv)
 
-        for idx in cand_idxs:
-            laneB_geom = lane_list[idx]
-            laneB_id   = lane_ids[idx]
-            if laneB_id == lane_id:
-                continue
+            cosang = float(np.clip(np.dot(Tu1, Tv0), -1.0, 1.0))
+            ang_deg = float(np.degrees(np.arccos(cosang)))
+            is_forward = ang_deg <= forward_max_angle_deg
+            is_turn    = (forward_max_angle_deg < ang_deg <= turn_max_angle_deg)
+            is_uturn   = (ang_deg > 150.0)
+            if is_uturn and not allow_u_turn: continue
+            if not (is_forward or is_turn or is_uturn): continue
 
-            xyB = nodes[laneB_id].xyz[:, :2]
-            # quick global orientation check (start/end tangents)
-            orient_ok_global = (abs(np.dot(nodeA.t_start, nodes[laneB_id].t_start)) >= lateral_min_orient_cos) or \
-                               (abs(np.dot(nodeA.t_end,   nodes[laneB_id].t_end))   >= lateral_min_orient_cos)
-            if not orient_ok_global:
-                continue
-
-            # per-sample relation
-            lateral_vals = []
-            orient_vals  = []
-            inside_vals  = []
-
-            for p, t in zip(pA, tA):
-                q, sB = _closest_point_on_ls(laneB_geom, p)
-                # is q "near" p?
-                if np.linalg.norm(q - p) > lateral_search_radius_m:
-                    continue
-                # signed lateral offset (+ left, - right)
-                lat = _signed_lateral(q, p, t)
-                # local orientation via dot of tangents at A sample and B local segment (approx via end tangent)
-                # use B's nearest end tangent as proxy; cheap and okay if resampled
-                tB_local = nodes[laneB_id].t_start if sB < laneB_geom.length/2 else nodes[laneB_id].t_end
-                orient = abs(float(np.dot(t, tB_local)))
-                lateral_vals.append(lat)
-                orient_vals.append(orient)
-                # consider "inside" if projection is not near B ends too extremely
-                inside_vals.append(1.0 if (sB >= 0.0 and sB <= laneB_geom.length) else 0.0)
-
-            if len(lateral_vals) < max(5, probe_n*0.15):
-                continue
-
-            lateral_vals = np.array(lateral_vals)
-            orient_vals  = np.array(orient_vals)
-            inside_vals  = np.array(inside_vals)
-
-            # valid mask by lateral bounds + orientation
-            valid_mask = (np.abs(lateral_vals) >= lateral_min_m) & (np.abs(lateral_vals) <= lateral_max_m) & \
-                         (orient_vals >= lateral_min_orient_cos)
-
-            overlap_frac = float(np.mean(valid_mask)) if len(valid_mask) else 0.0
-            if overlap_frac < lateral_min_overlap_frac:
-                continue
-
-            # choose side by sign of median lateral offset
-            med_lat = float(np.median(lateral_vals[valid_mask]))
-            side = 'left' if med_lat > 0 else 'right'
-            score = abs(med_lat)  # prefer closest lateral neighbor
-
-            stats = dict(
-                median_gap_m=abs(med_lat),
-                overlap_frac=overlap_frac,
-                orient_med=float(np.median(orient_vals[valid_mask])) if np.any(valid_mask) else 0.0
+            # Quintic connector (C2)
+            conn = _quintic_hermite_connector_3d(
+                P0=Pu1, T0_xy=Tu1, K0=ku1, N0_xy=Nu1, z_slope0=dz1,
+                P1=Pv0, T1_xy=Tv0, K1=kv0, N1_xy=Nv0, z_slope1=dzv0,
+                n_samples=connector_samples,
+                scale=np.linalg.norm(Pv0[:2]-Pu1[:2]),
+                accel_clamp=accel_clamp_frac
             )
 
-            if side == 'left':
-                if (best_left is None) or (score < best_left[0]):
-                    best_left = (score, laneB_id, stats)
-            else:
-                if (best_right is None) or (score < best_right[0]):
-                    best_right = (score, laneB_id, stats)
+            # Projected smoothing: Chaikin corner cutting + SG, with re-clamp
+            def chaikin(P, a=chaikin_alpha):
+                if len(P) < 3: return P
+                Q = [P[0]]
+                for i in range(len(P)-1):
+                    Q.append((1-a)*P[i] + a*P[i+1])
+                    Q.append(a*P[i] + (1-a)*P[i+1])
+                Q.append(P[-1])
+                return np.asarray(Q)
 
-        # commit best left/right
-        if best_left:
-            _, lid, stats = best_left
-            nodes[lane_id].left_neighbors.append(lid)
-            G.nodes[lane_id]['left_neighbors'].append(lid)
-            G.add_edge(lane_id, lid, type="lateral", side="left",
-                       median_gap_m=stats['median_gap_m'],
-                       overlap_frac=stats['overlap_frac'])
-            # make it reciprocal
-            nodes[lid].right_neighbors.append(lane_id)
-            G.nodes[lid]['right_neighbors'].append(lane_id)
-            G.add_edge(lid, lane_id, type="lateral", side="right",
-                       median_gap_m=stats['median_gap_m'],
-                       overlap_frac=stats['overlap_frac'])
+            # dynamic clamp for every sample using nearest L/R boundaries
+            def clamp_curve(curve):
+                Tconn = _tangent2d(curve[:, :2], window=max(5, len(curve)//10))
+                out = []
+                for p, t in zip(curve, Tconn):
+                    L, R = _nearest_LR_boundaries(p[:2], t, brecs, btree, search_radius=clamp_search_radius_m)
+                    if L is not None and R is not None:
+                        out.append(_clamp_point_between_LR(p, t, L, R))
+                    else:
+                        out.append(p)
+                C = np.asarray(out)
+                return _smooth_xyz(C, window=min(sg_window, (len(C)//2)*2 - 1), poly=2)
+            # plt.plot(conn[:,0],conn[:,1],'r')
+            # plt.show()
+            #
+            #for _ in range(max(0, proj_smooth_iters)):
+            #     conn = chaikin(conn)
+             #   conn = clamp_curve(conn)
+            #
+            # # final light denoise (keeps it silky)
+            conn = _smooth_xyz(conn, window=min(sg_window, (len(conn)//2)*2 - 1), poly=2)
 
-        if best_right:
-            _, rid, stats = best_right
-            nodes[lane_id].right_neighbors.append(rid)
-            G.nodes[lane_id]['right_neighbors'].append(rid)
-            G.add_edge(lane_id, rid, type="lateral", side="right",
-                       median_gap_m=stats['median_gap_m'],
-                       overlap_frac=stats['overlap_frac'])
-            # reciprocal
-            nodes[rid].left_neighbors.append(lane_id)
-            G.nodes[rid]['left_neighbors'].append(lane_id)
-            G.add_edge(rid, lane_id, type="lateral", side="left",
-                       median_gap_m=stats['median_gap_m'],
-                       overlap_frac=stats['overlap_frac'])
+            cost = float(np.sum(np.linalg.norm(np.diff(conn[:, :2], axis=0), axis=1)))
+            lateral_sign = Tu1[0]*(Pv0[:2][1]-Pu1[:2][1]) - Tu1[1]*(Pv0[:2][0]-Pu1[:2][0])
+            turn_type = "forward" if is_forward else ("left" if lateral_sign > 0 else "right") if is_turn else "u-turn"
+            G.add_edge(u, v, type="successor", turn=turn_type, angle_deg=ang_deg, cost=cost, connector_xyz=conn)
+
+            # plt.plot(conn[:,0],conn[:,1],'r')
+            # plt.show()
+
+    # ---- lateral (optional, same-corridor only) ----
+    if lateral_within_same_pair_only:
+        by_pair: Dict[Tuple[int,int], List[Any]] = {}
+        for lid, data in G.nodes(data=True):
+            by_pair.setdefault(data['boundary_pair'], []).append(lid)
+        for pair, ids in by_pair.items():
+            for i in ids:
+                xi = G.nodes[i]['xyz'][:, :2]; ti = _tangent2d(xi)
+                probes = np.linspace(0, len(xi)-1, 50).astype(int)
+                bestL = None; bestR = None
+                for j in ids:
+                    if i == j: continue
+                    xj = G.nodes[j]['xyz'][:, :2]; geomj = LineString(xj)
+                    gaps = []
+                    for idx in probes:
+                        p = xi[idx]; t = ti[idx]
+                        q,_ = _closest_on_ls(geomj, p)
+                        lat = t[0]*(q[1]-p[1]) - t[1]*(q[0]-p[0])
+                        gaps.append(lat)
+                    if len(gaps) < 8: continue
+                    gaps = np.array(gaps)
+                    valid = (np.abs(gaps) >= lateral_min_m) & (np.abs(gaps) <= lateral_max_m)
+                    if float(np.mean(valid)) < lateral_min_overlap_frac: continue
+                    med = float(np.median(gaps[valid]))
+                    if med > 0:
+                        if (bestL is None) or (abs(med) < bestL[0]): bestL = (abs(med), j)
+                    else:
+                        if (bestR is None) or (abs(med) < bestR[0]): bestR = (abs(med), j)
+                if bestL:
+                    G.add_edge(i, bestL[1], type="lateral", side="left", median_gap_m=bestL[0])
+                    G.add_edge(bestL[1], i, type="lateral", side="right", median_gap_m=bestL[0])
+                if bestR:
+                    G.add_edge(i, bestR[1], type="lateral", side="right", median_gap_m=bestR[0])
+                    G.add_edge(bestR[1], i, type="lateral", side="left", median_gap_m=bestR[0])
 
     return G
 
 
-# --------- convenience: nearest lane & routing --------- #
-
-def nearest_lane(center_graph: nx.DiGraph, xy: np.ndarray) -> Any:
-    """Return lane_id of the node whose polyline is closest (in XY) to point xy."""
-    xy = np.asarray(xy, dtype=float)
-    best = None
-    for lane_id, data in center_graph.nodes(data=True):
-        ls = LineString(data['xyz'][:, :2])
-        d = ls.distance(Point(float(xy[0]), float(xy[1])))
-        if (best is None) or (d < best[0]):
-            best = (d, lane_id)
-    return best[1] if best else None
-
-def route_lane_ids(center_graph: nx.DiGraph, start_xy: np.ndarray, goal_xy: np.ndarray) -> List[Any]:
-    """
-    Simple routing: pick nearest start/goal lanes, then shortest path over 'successor' edges.
-    Edge weights use 'cost' for successors; lateral edges are disallowed in routing here.
-    """
-    s_lane = nearest_lane(center_graph, start_xy)
-    g_lane = nearest_lane(center_graph, goal_xy)
-    if s_lane is None or g_lane is None:
-        return []
-
-    # Build a view with only successor edges and weight=cost
-    H = nx.DiGraph()
-    for u, v, d in center_graph.edges(data=True):
-        if d.get('type') == 'successor':
-            H.add_edge(u, v, weight=float(d.get('cost', 1.0)))
-    if s_lane not in H or g_lane not in H:
-        # fall back to original graph if needed
-        try:
-            path = nx.shortest_path(center_graph, s_lane, g_lane)
-            return path
-        except Exception:
-            return []
-
-    try:
-        path = nx.shortest_path(H, s_lane, g_lane, weight='weight')
-        return path
-    except Exception:
-        return []
-
+# plot_lane_graph_connectors.py
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
-
 def _to_xy(arr):
     a = np.asarray(arr, dtype=float)
     if a.ndim != 2:
-        raise ValueError("xyz must be 2D array-like")
-    if a.shape[1] == 3:
-        return a[:, :2]
-    if a.shape[1] == 2:
-        return a
-    if a.shape[0] == 3 and a.shape[1] != 3:
-        return a.T[:, :2]
+        raise ValueError("array must be 2D")
+    if a.shape[1] == 3: return a[:, :2]
+    if a.shape[1] == 2: return a
+    if a.shape[0] == 3 and a.shape[1] != 3: return a.T[:, :2]
     raise ValueError("expected shape [N,3] or [N,2] or [3,N]")
 
 def _mid_xy(xyz):
     xy = _to_xy(xyz)
     return xy[len(xy)//2]
 
+def _color_for_pair(pair):
+    # stable color per boundary pair
+    rng = (hash(pair) % 9973) / 9973.0
+    return plt.cm.tab20(int(rng*20) % 20)
+
 def plot_lane_graph(
     G,
     *,
-    show_ids: bool = True,
-    draw_lateral: bool = True,
+    boundaries: dict[int, np.ndarray] | None = None,
+    show_ids: bool = False,
+    draw_lateral: bool = True,         # you said: “lateral not across boundary”—default off
     draw_successor: bool = True,
-    figsize=(10, 10),
+    draw_connectors: bool = True,
+    lane_lw: float = 2.0,
+    connector_lw: float = 2.5,
+    boundary_lw: float = 1.0,
+    figsize=(11, 11),
     save_path: str | None = None,
     ax=None,
 ):
-    """
-    Plot lane centerlines + graph edges.
-    - Nodes must have 'xyz' (polyline [N,3] or [N,2]).
-    - Successor edges: edge attr 'type' == 'successor'
-      (drawn with arrows from end of u to start of v).
-    - Lateral edges:   edge attr 'type' == 'lateral'
-      (drawn dashed between lane midpoints; drawn once per pair).
-
-    Returns the matplotlib Axes.
-    """
-    created_fig = False
+    """Plot lane graph with optional boundaries + smooth successor connectors."""
+    created = False
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
-        created_fig = True
+        created = True
 
-    # 1) Lane centerlines as a LineCollection (fast)
-    lines = []
-    for _, data in G.nodes(data=True):
-        xy = _to_xy(data["xyz"])
-        lines.append(xy)
-    lc = LineCollection(lines, linewidths=2, alpha=0.9)
-    ax.add_collection(lc)
+    # 0) Boundaries (underlay)
+    if boundaries:
+        b_lines = [ _to_xy(v) for v in boundaries.values() if len(v) >= 2 ]
+        if b_lines:
+            blc = LineCollection(b_lines, linewidths=boundary_lw, alpha=0.6, linestyle='-', color='k')
+            ax.add_collection(blc)
 
-    print(G.edges)
+    # 1) Lane centerlines (color by boundary_pair)
+    segs = []
+    cols = []
+    for nid, data in G.nodes(data=True):
+        xy = _to_xy(data['xyz'])
+        segs.append(xy)
+        pair = data.get('boundary_pair', ('?', '?'))
+        cols.append(_color_for_pair(pair))
+    if segs:
+        lc = LineCollection(segs, linewidths=lane_lw, colors=cols, alpha=0.95)
+        ax.add_collection(lc)
 
-    # 2) Successor arrows (end(u) -> start(v))
+    # 2) Successor edges (prefer connector geometry)
     if draw_successor:
         for u, v, d in G.edges(data=True):
-            if d.get("type") != "successor":
+            if d.get('type') != 'successor':
                 continue
-            su = np.asarray(G.nodes[u]["end_xy"], dtype=float)
-            sv = np.asarray(G.nodes[v]["start_xy"], dtype=float)
-            # Use annotate for arrowheads
-            ax.annotate(
-                "",
-                xy=(sv[0], sv[1]),
-                xytext=(su[0], su[1]),
-                arrowprops=dict(arrowstyle="->", lw=1, alpha=0.8),
-            )
+            if draw_connectors and ('connector_xyz' in d) and (len(d['connector_xyz']) >= 2):
+                c = d['connector_xyz']
+                ax.plot(c[:,0], c[:,1], linewidth=connector_lw, alpha=0.9)#, color='C3'
+            else:
+                su = np.asarray(G.nodes[u]['end_xy'], dtype=float)
+                sv = np.asarray(G.nodes[v]['start_xy'], dtype=float)
+                ax.annotate("", xy=(sv[0], sv[1]), xytext=(su[0], su[1]),
+                            arrowprops=dict(arrowstyle="->", lw=1.3, alpha=0.8))#, color='C3'
 
-    # 3) Lateral connectors (midpoint-to-midpoint, dashed; draw once per pair)
+    # 3) Lateral edges (optional; dashed mid→mid)
     if draw_lateral:
         seen = set()
         for u, v, d in G.edges(data=True):
-            if d.get("type") != "lateral":
+            if d.get('type') != 'lateral':
                 continue
             key = tuple(sorted((u, v)))
-            if key in seen:
-                continue
+            if key in seen: continue
             seen.add(key)
-            mu = _mid_xy(G.nodes[u]["xyz"])
-            mv = _mid_xy(G.nodes[v]["xyz"])
-            ax.plot([mu[0], mv[0]], [mu[1], mv[1]], linestyle="--", linewidth=1, alpha=0.6)
+            mu = _mid_xy(G.nodes[u]['xyz'])
+            mv = _mid_xy(G.nodes[v]['xyz'])
+            ax.plot([mu[0], mv[0]], [mu[1], mv[1]], linestyle="--", linewidth=1.1, alpha=0.6, color='C7')
 
-    # 4) Optional lane-id labels at each lane midpoint
+    # 4) Optional labels
     if show_ids:
         for nid, data in G.nodes(data=True):
-            c = _mid_xy(data["xyz"])
-            ax.text(c[0], c[1], str(nid), fontsize=8)
+            m = _mid_xy(data['xyz'])
+            ax.text(m[0], m[1], str(nid), fontsize=8, color='k')
 
-    # Ax cosmetics
-    ax.set_aspect("equal", "box")
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax.set_aspect('equal', 'box')
+    ax.set_xlabel('x [m]'); ax.set_ylabel('y [m]')
     ax.margins(0.05)
     plt.show()
-    # if created_fig:
-    #     fig.tight_layout()
+    # if created:
+    #     plt.tight_layout()
     #     if save_path:
-    #         fig.savefig(save_path, dpi=200)
+    #         plt.savefig(save_path, dpi=220)
     return ax
+

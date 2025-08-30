@@ -13,7 +13,8 @@ import numpy as np
 from scipy.signal import savgol_filter
 from shapely.geometry import LineString, Point
 from shapely.strtree import STRtree
-from .desay_lane_graph import build_lane_graph,plot_lane_graph
+from .desay_lane_graph import build_lane_graph_with_connectors,plot_lane_graph
+from .desay_edge_graph import build_edge_graph_from_lane_graph_topo,plot_edge_graph
 
 # ------------------------ Utilities (3D-aware) ------------------------ #
 
@@ -364,21 +365,21 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
             line_type = mf['attrs']["laneline_type"]
             if line_type=="solid":
                 cur_info["type"] = 7
-                # plt.plot(xyz[:, 0], xyz[:, 1], color='r')
-                # plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+             #   plt.plot(xyz[:, 0], xyz[:, 1], color='r')
+             #   plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
 
             else:#dot
                 cur_info["type"] = 6
                 # print(line_type)
-                # plt.plot(xyz[:, 0], xyz[:, 1], color='g')
-                # plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+              #  plt.plot(xyz[:, 0], xyz[:, 1], color='g')
+               # plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
             line_dict[id]=xyz
 
         elif feature_data_type=="boundary":
             cur_info["type"] = 4
-            plt.plot(xyz[:, 0], xyz[:, 1], color='y')
-            plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
-
+            #plt.plot(xyz[:, 0], xyz[:, 1], color='y')
+            #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+            #
             boundary_dict[id]=xyz
 
         elif feature_data_type == "speed_bump" or feature_data_type=="crosswalk":
@@ -403,16 +404,26 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
 
     centerlines=build_centerlines_from_boundaries_xyz(boundary_dict)
+    # #
+    # for centerline in centerlines:
+    #
+    #     center=centerline.centerline
+    #
+    #     plt.plot(center[:, 0], center[:, 1], color='grey')
+    #     plt.plot(center[:2, 0], center[:2, 1], color='red')
+    #
+    # plt.show()
 
-    for centerline in centerlines:
+    lane_graph=build_lane_graph_with_connectors(centerlines,boundary_dict)
 
-        center=centerline.centerline
+    edge_graph=build_edge_graph_from_lane_graph_topo(lane_graph,boundary_dict)
 
-        plt.plot(center[:, 0], center[:, 1], color='grey')
-        plt.plot(center[:2, 0], center[:2, 1], color='red')
 
-    plt.show()
 
+    #plot_edge_graph(edge_graph.EG)
+
+
+    #plot_lane_graph(G)
 
     # # print(len(polylines))
     #
@@ -425,7 +436,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         cur_info["type"] = 1
         xyz = centerline.centerline
 
-        centerline_list.append(xyz)
+        centerline_list.append(xyz[:,:2])
 
         cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
         cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
@@ -434,9 +445,6 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
         map_infos["lane"].append(cur_info)
 
-    G=build_lane_graph(centerline_list)
-
-    plot_lane_graph(G)
 
     # print(len(line_dict.keys()))
 
@@ -471,6 +479,8 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
     map_infos["all_polylines_list"] = polylines
     map_infos["centerline_list"]=centerline_list
+    map_infos["lane_graph"]=lane_graph
+    map_infos["edge_graph"]=edge_graph.EG
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)

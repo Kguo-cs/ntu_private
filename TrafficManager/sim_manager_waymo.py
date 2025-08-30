@@ -17,6 +17,7 @@ from PIL import Image
 from io import BytesIO
 import yaml
 import argparse
+from waymo.desay_edge_graph import route_on_edge_graph
 torch.set_float32_matmul_precision("highest")#  #“highest” (default),
 
 
@@ -605,25 +606,39 @@ class SimulationManager:
             data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
 
-            # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
-            # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
-            # #
-          #  for lane in map_infos["centerline_list"]:
-           #     plt.plot(lane[:,0],lane[:,1])
 
-            # plt.show()
-           #  control_id=1010
-           #  current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
-           #
-           # # goal_pos=np.array([370,6325])
-           #  goal_pos=np.array([355,6355])
-           #
-           #  route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
-           #
-           #  route=np.array(route)
+            if 'desay' in input_dir:
+
+                current_pos=np.array([2,20])
+                goal_pos=np.array([-200,400])
+
+                control_id=0
+
+                edge_route=route_on_edge_graph(map_infos["edge_graph"],map_infos["lane_graph"],current_pos,goal_pos)
+
+                route=edge_route.route_xyz[:,:2]
+
+                #print(1)
+
+                # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
+                # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
+                # #
+              #  for lane in map_infos["centerline_list"]:
+               #     plt.plot(lane[:,0],lane[:,1])
+
+                # plt.show()
+               #  control_id=1010
+               #  current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
+               #
+               # # goal_pos=np.array([370,6325])
+               #  goal_pos=np.array([355,6355])
+               #
+               #  route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
+               #
+               #  route=np.array(route)
 
             self.route={}
-            #self.route[control_id]=torch.FloatTensor(route).cuda()
+            self.route[control_id]=torch.FloatTensor(route).cuda()
             #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
            # plt.show()
 
