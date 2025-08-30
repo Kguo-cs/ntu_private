@@ -85,25 +85,25 @@ class SMARTMapDecoder(nn.Module):
         map_type=tokenized_map["type"].long()
         map_type[map_type>9] = 9
         
-        mask = torch.zeros_like(map_type, dtype=bool)
-        #mask = torch.ones_like(map_type, dtype=bool)
-
-        type4_indices=torch.where((map_type!=4) &(map_type!=5))[0]
-
-        sampled_indices = type4_indices[::5]
-
-        mask[sampled_indices] = True
-        mask[map_type==4]=True
-        mask[map_type==5]=True
+        # mask = torch.zeros_like(map_type, dtype=bool)
+        # #mask = torch.ones_like(map_type, dtype=bool)
+        #
+        # type4_indices=torch.where((map_type!=4) &(map_type!=5))[0]
+        #
+        # sampled_indices = type4_indices[::5]
+        #
+        # mask[sampled_indices] = True
+        # mask[map_type==4]=True
+        # mask[map_type==5]=True
 
         #mask[(map_type!=4)&(map_type!=5)] = True
         # #
 
-        batch = tokenized_map["batch"][mask]
-        pos_pt = tokenized_map["position"][mask]
-        orient_pt = tokenized_map["orientation"][mask]
-        map_type=map_type[mask]
-        token_idx=tokenized_map["token_idx"].long()[mask]
+        batch = tokenized_map["batch"]#[mask]
+        pos_pt = tokenized_map["position"]#[mask]
+        orient_pt = tokenized_map["orientation"]#[mask]
+        #map_type=map_type[mask]
+        token_idx=tokenized_map["token_idx"].long()#[mask]
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
@@ -156,10 +156,10 @@ class SMARTMapDecoder(nn.Module):
 
         else:
 
-            edge_pt=x_pt[mask][::2]
-            pos_edge=pos_pt[mask][::2]
-            orient_edge=orient_pt[mask][::2]
-            batch_edge=batch[mask][::2].contiguous()
+            edge_pt=x_pt[mask][::3]
+            pos_edge=pos_pt[mask][::3]
+            orient_edge=orient_pt[mask][::3]
+            batch_edge=batch[mask][::3].contiguous()
 
             head_vector_edge = torch.stack([orient_edge.cos(), orient_edge.sin()], dim=-1)
 
