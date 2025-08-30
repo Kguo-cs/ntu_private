@@ -24,6 +24,8 @@ lidar_height: 1.84
 
 max_sim_time: 500 #300 #9s
 
+random_seed: 42
+
 static_object:
   add:
 

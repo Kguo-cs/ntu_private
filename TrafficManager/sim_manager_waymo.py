@@ -1,26 +1,24 @@
-import base64
-from datetime import datetime
-import io
-import json
 import os
 import sys
-import time
-import math
-from typing import Dict, List, Optional, Tuple
-import dearpygui.dearpygui as dpg
-from matplotlib import pyplot as plt
-import requests
+from typing import Dict
 import numpy as np
 import torch
 import cv2
 from PIL import Image
-from io import BytesIO
 import yaml
-import argparse
-from waymo.desay_edge_graph import route_on_edge_graph
 torch.set_float32_matmul_precision("highest")#  #“highest” (default),
 
-
+import random
+seed=42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+# Enforce deterministic ops where PyTorch supports them
+torch.use_deterministic_algorithms(True, warn_only=True)
 
 dir_name=os.path.dirname(os.path.abspath(__file__))
 
@@ -34,8 +32,6 @@ from LimSim.simModel.DataQueue import CameraImages
 from torch_geometric.data import HeteroData
 
 from TrafficManager.utils.map_utils import (
-    LiDARInstanceLines,
-    VectorizedLocalMap,
     project_box_to_image,
     project_map_to_image,
     visualize_bev_hdmap,
@@ -47,23 +43,24 @@ import tensorflow as tf
 
 from src.smart.model.smart import SMART
 
-from src.my_data_preprocess import (decode_tracks_from_proto,decode_map_features_from_proto,
-                                    decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,process_light,preprocess_map)
+from src.my_data_preprocess import (decode_tracks_from_proto, decode_map_features_from_proto,
+                                    get_map_features, get_agent_features, preprocess_map)
 from waymo.waymo_gui import GUI
 from time import sleep
 from src.smart.utils import (
     wrap_angle, transform_to_local,
 )
 import json
-from  waymo.check_oclluded import check_occlusion_fully_batched
 from omegaconf import OmegaConf
 import time
-import tracemalloc
 import psutil
 from pynvml import *
-from waymo.decay_data_process import decode_map_features_from_json
-from waymo.lane_graph import route_from_centerlines
-from waymo.idm_policy import idm_planner
+
+from desay_utils.check_oclluded import check_occlusion_fully_batched
+from desay_utils.decay_data_process import decode_map_features_from_json
+from desay_utils.idm_policy import idm_planner
+from desay_utils.desay_edge_graph import route_on_edge_graph
+from desay_utils.random_trip import TrafficGenerator
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -160,6 +157,8 @@ class SimulationManager:
         self.camera_rendering_time=[]
         self.traffic_model_time=[]
         self.output_time=[]
+
+        self.random_seed=int(self.config["random_seed"])
 
     @staticmethod
     def load_config(config_path: str) -> Dict:
@@ -395,7 +394,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-       # sleep(100)
+        sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -411,40 +410,11 @@ class SimulationManager:
             rss_before = get_process_memory()
 
             start_time = time.time()
-
-            if 'desay' not in input_dir:
-
-                dataset = tf.data.TFRecordDataset(
-                    [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
-                )
-                tf_data = next(iter(dataset))
-
-                tf_data = tf_data.numpy()
-                scenario = scenario_pb2.Scenario()
-                scenario.ParseFromString(bytes(tf_data))
-                track_infos = decode_tracks_from_proto(scenario)
-            else:
-                track_infos = {
-                    "object_id": np.zeros([1]),
-                    "object_type": np.zeros([1]),
-                    "states": np.zeros([1,91,9]),
-                    "valid": np.ones([1,91]).astype(bool),
-                    "role": np.ones([1,3]).astype(bool),
-                }
-
-                pos=np.array([2,20])[None]+20*np.arange(-1,8.1,0.1)[:,None]
-
-                track_infos['states'][0,:,:2]=pos
-                track_infos['states'][:,:,3]=4.8
-                track_infos['states'][:,:,4]=1.8
-                track_infos['states'][:,:,5]=1.6
-                track_infos['states'][:,:,6]=np.pi/2
-                # track_infos['states'][:,:,8]=10
-
             remove_map_object=self.config["map_object"]["remove"]
             add_map_object=self.config["map_object"]["add"]
 
             remove_mapid=[]
+            self.route={}
 
             if remove_map_object is not None:
 
@@ -457,12 +427,87 @@ class SimulationManager:
                     remove_mapid.append(polyline["id"])
 
             if 'desay' not in input_dir:
+
+                dataset = tf.data.TFRecordDataset(
+                    [input_dir+'/'+scenario], compression_type="", #num_parallel_reads=3
+                )
+                tf_data = next(iter(dataset))
+
+                tf_data = tf_data.numpy()
+                scenario = scenario_pb2.Scenario()
+                scenario.ParseFromString(bytes(tf_data))
+                track_infos = decode_tracks_from_proto(scenario)
                 map_infos = decode_map_features_from_proto(scenario.map_features,remove_mapid)
+
             else:
                 with open(input_dir+'/'+scenario, "r") as f:
                     data = json.load(f)
+                map_infos = decode_map_features_from_json(data['annotation'], remove_mapid)
 
-                map_infos = decode_map_features_from_json(data['annotation'],remove_mapid)
+                # agent_num=1
+                #
+                # route=generate_random_edge_trips(map_infos["edge_graph"],map_infos["lane_graph"],n_trips=agent_num,seed=self.random_seed)
+                TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"])  # 或传入你已有的 router_func
+
+                # 假设已有 TG = TrafficGenerator(EG, G_lane)
+                ego_edge_ids, ego_route_xyz, ego_start_xy, ego_goal_xy = TG.random_ego_edge_route(
+                    seed=self.random_seed,
+                    min_len_m=40.0,
+                    max_len_m=3000.0,
+                    sample_start_on_edge=True,  # 起点弧长随机
+                    end_at_last_point=True  # 终点为末尾 edge 的尾点
+                )
+                agents = TG.generate_batch(
+                    density01=0.6,
+                    class_ratio={"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1},
+                    ego_edge_ids=ego_edge_ids,
+                    use_distance_to_ego=True,  # ✅ use metric neighborhood
+                    move_to_ego_max_m=100.0,  # ✅ within 100 m to reach ego edges
+                    distance_mode="to_ego",  # edges that can move TO ego within 100 m
+                    distance_allowed_turns=True,  # respect legal turns
+                    seed=self.random_seed,
+                    min_start_spacing_m=5.0,
+                    min_same_edge_s_m=15.0,
+                    lift_to_lane_ids=True
+                )
+
+                print(f"生成 {len(agents)} 个参与者")
+                # print(agents[0].agent_id, agents[0].cls, agents[0].avg_speed_mps, len(agents[0].edge_ids))
+
+                agent_num=1+len(agents)#len(agents)
+
+                track_infos = {
+                    "object_id": np.arange(agent_num),
+                    "object_type": np.zeros([agent_num]),
+                    "states": np.zeros([agent_num,91,9]),
+                    "valid": np.ones([agent_num,91]).astype(bool),
+                    "role": np.zeros([agent_num,3]).astype(bool),
+                }
+
+                # for i,route_i in enumerate(route):
+
+                route=ego_route_xyz[:,:2]
+
+                track_infos['states'][0,:,:3]=ego_route_xyz[:1]
+                track_infos['states'][0,:,3]=4.8
+                track_infos['states'][0,:,4]=1.8
+                track_infos['states'][0,:,5]=1.6
+                track_infos['states'][0,:,6]=np.arctan2(route[1,1]-route[0,1],route[1,0]-route[0,0])
+                track_infos['role'][0]=1
+                self.route[0]=torch.FloatTensor(route).cuda()
+
+                for i,agent in enumerate(agents):
+                    j=i+1
+                    size_lwh_m=agent["size_lwh_m"]
+                    route=agent["route_xyz"]
+                    track_infos['states'][j, :, :3] = route[0] #agent["start_xyz"]
+                    track_infos['states'][j, :, 3] = size_lwh_m[0]
+                    track_infos['states'][j, :, 4] = size_lwh_m[1]
+                    track_infos['states'][j, :, 5] = size_lwh_m[2]
+                    track_infos['states'][j, :, 6] = np.arctan2(route[1, 1] - route[0, 1], route[1, 0] - route[0, 0])
+                    self.route[j]=torch.FloatTensor(route[:,:2]).cuda()
+
+
 
             point_cnt=len(map_infos['all_polylines'])
 
@@ -607,38 +652,42 @@ class SimulationManager:
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
 
 
-            if 'desay' in input_dir:
+            # if 'desay' in input_dir:
+            #     route=generate_random_edge_trips(map_infos["edge_graph"],map_infos["lane_graph"],n_trips=1,seed=self.random_seed)
+            #
+            #     #current_pos=route[0].start_xyz[:,:2]#np.array([2,20])
+            #    # goal_pos=route[0].goal_xyz[:,:2]#np.array([-200,400])
+            #
+            #     control_id=0
+            #
+            #     #edge_route=route_on_edge_graph(map_infos["edge_graph"],map_infos["lane_graph"],current_pos,goal_pos)
+            #
+            #
+            #     route=route[0].route_xyz[:,:2]
+            #
+            #     print(route)
+            #
+            #     #print(1)
+            #
+            #     # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
+            #     # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
+            #     # #
+            #   #  for lane in map_infos["centerline_list"]:
+            #    #     plt.plot(lane[:,0],lane[:,1])
+            #
+            #     # plt.show()
+            #    #  control_id=1010
+            #    #  current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
+            #    #
+            #    # # goal_pos=np.array([370,6325])
+            #    #  goal_pos=np.array([355,6355])
+            #    #
+            #    #  route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
+            #    #
+            #    #  route=np.array(route)
 
-                current_pos=np.array([2,20])
-                goal_pos=np.array([-200,400])
-
-                control_id=0
-
-                edge_route=route_on_edge_graph(map_infos["edge_graph"],map_infos["lane_graph"],current_pos,goal_pos)
-
-                route=edge_route.route_xyz[:,:2]
-
-                #print(1)
-
-                # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
-                # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
-                # #
-              #  for lane in map_infos["centerline_list"]:
-               #     plt.plot(lane[:,0],lane[:,1])
-
-                # plt.show()
-               #  control_id=1010
-               #  current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
-               #
-               # # goal_pos=np.array([370,6325])
-               #  goal_pos=np.array([355,6355])
-               #
-               #  route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
-               #
-               #  route=np.array(route)
-
-            self.route={}
-            self.route[control_id]=torch.FloatTensor(route).cuda()
+            # self.route={}
+            # self.route[control_id]=torch.FloatTensor(route).cuda()
             #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
            # plt.show()
 

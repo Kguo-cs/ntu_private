@@ -117,7 +117,7 @@ def build_edge_graph_from_lane_graph_topo(
     G_lane: nx.DiGraph,
     boundary_dict: Dict[int, np.ndarray],
     *,
-    s_merge_tol_m: float = 2.0,             # along-corridor tolerance on s̄ for merging
+    s_merge_tol_m: float = 1,             # along-corridor tolerance on s̄ for merging
     lateral_require_bidir: bool = True,     # mutual lane-change to be in same edge
     lateral_min_overlap_frac: float = 0.25, # if present on edge, enforce minimum
     representative: str = "median",         # representative lane per edge
@@ -154,16 +154,54 @@ def build_edge_graph_from_lane_graph_topo(
 
     # Rule 1: merge by boundary curvilinear coordinate s̄ (same boundary_pair)
     # Group indices by boundary_pair
-    by_bp: Dict[Tuple[int,int], List[int]] = {}
-    for i, (_lid, _typ, _xy, bp, sbar) in enumerate(endpoints):
-        by_bp.setdefault(bp, []).append(i)
-    for bp, inds in by_bp.items():
-        # Sort by s̄; union neighbors within tolerance
+    # --- NEW: Rule 1 (safe boundary s̄ merge) ---
+    # Group by (boundary_pair, endpoint_type) so STARTS cluster with STARTS,
+    # ENDS cluster with ENDS. This prevents self start/end collapsing.
+    by_bp_typ: Dict[Tuple[Tuple[int, int], str], List[int]] = {}
+    for i, (lid, typ, xy, bp, sbar) in enumerate(endpoints):
+        by_bp_typ.setdefault((bp, typ), []).append(i)
+
+    # (Optional) small helper to get endpoint heading for gating
+    def _endpoint_heading(lid: Any, typ: str) -> np.ndarray:
+        xyz = np.asarray(G_lane.nodes[lid]["xyz"], float)
+        if xyz.ndim == 2 and xyz.shape[1] == 2:
+            xyz = np.column_stack([xyz, np.zeros(len(xyz))])
+        # simple finite diff near end
+        if typ == "start":
+            v = xyz[min(5, len(xyz) - 1), :2] - xyz[0, :2]
+        else:
+            v = xyz[-1, :2] - xyz[max(0, len(xyz) - 1 - 5), :2]
+        n = np.linalg.norm(v) + 1e-9
+        return v / n
+
+    # optional orientation gate (set to None to disable)
+    merge_max_heading_diff_deg: Optional[float] = 90.0
+    cos_thresh = None if merge_max_heading_diff_deg is None else np.cos(np.deg2rad(merge_max_heading_diff_deg))
+
+    for (bp, typ), inds in by_bp_typ.items():
+        # Sort by s̄; only union neighbors within tolerance, with extra guards
         inds_sorted = sorted(inds, key=lambda i: endpoints[i][4])
+        # Precompute headings for this bucket
+        if cos_thresh is not None:
+            head_cache = {i: _endpoint_heading(endpoints[i][0], endpoints[i][1]) for i in inds_sorted}
         for i0, i1 in zip(inds_sorted[:-1], inds_sorted[1:]):
-            s0 = endpoints[i0][4]; s1 = endpoints[i1][4]
-            if (np.isfinite(s0) and np.isfinite(s1)) and (abs(s1 - s0) <= s_merge_tol_m):
-                dsu.union(i0, i1)
+            lid0, typ0, xy0, bp0, s0 = endpoints[i0]
+            lid1, typ1, xy1, bp1, s1 = endpoints[i1]
+            if not (np.isfinite(s0) and np.isfinite(s1)):
+                continue
+            if abs(s1 - s0) > s_merge_tol_m:
+                continue
+            # ---- guards ----
+            if lid0 == lid1:
+                continue  # never merge start & end of the same lane
+            # heading compatibility for same-type endpoints (avoid opposite flows)
+            if cos_thresh is not None:
+                h0 = head_cache[i0];
+                h1 = head_cache[i1]
+                if float(np.dot(h0, h1)) < cos_thresh:
+                    continue
+            # OK: merge these two endpoints into the same junction
+            dsu.union(i0, i1)
 
     # Rule 2: force-merge lane connections (successor)
     # For any successor u->v, union end(u) with start(v)
