@@ -561,7 +561,7 @@ class IQ_SoftQ(LightningModule):
                                                        tokenized_agent["batch"])
 
             col_flag = sign_dist < 0
-            hist = {"min_val": -5.0, "max_val": 45.0, "num_bins": 10}
+            hist = {"min_val": -5.0, "max_val": 100.0, "num_bins": 21}
 
             target = value_to_hist_class(sign_dist, **hist)
 
