@@ -117,10 +117,12 @@ class SMARTMapDecoder(nn.Module):
 
 
         if self.pred_offroad:
-            token_edge_idx=token_idx[mask]
-            pos_edge=pos_pt[mask]
-            orient_edge=orient_pt[mask]
-            batch_edge=batch[mask]
+
+            edge_mask=map_type == 4
+            token_edge_idx=token_idx[edge_mask]
+            pos_edge=pos_pt[edge_mask]
+            orient_edge=orient_pt[edge_mask]
+            batch_edge=batch[edge_mask]
 
             local_traj=self.token_processor.map_token_traj_src[token_edge_idx]
 

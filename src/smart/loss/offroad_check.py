@@ -189,7 +189,7 @@ def corners_offroad_signed_distance_per_batch(
         )  # [M]
 
         scene_corner = flat_sd.view(Nb, T, 4)               # [Nb,T,4]
-        scene_signed = scene_corner.max(dim=-1).values      # [Nb,T]
+        scene_signed = scene_corner.min(dim=-1).values      # [Nb,T]
 
         corner_d2edge[idx_a] = scene_corner
         signed_dists[idx_a]  = scene_signed

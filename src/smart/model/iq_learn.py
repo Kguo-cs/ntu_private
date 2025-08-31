@@ -587,11 +587,11 @@ class IQ_SoftQ(LightningModule):
                                                      tokenized_agent["sampled_heading"][:, 2:],
                                                      tokenized_agent["shape"][:, :2],
                                                      tokenized_agent["batch"],
-                                                      tokenized_map["global_edge"][:,::5],
+                                                      tokenized_map["global_edge"],
                                                       tokenized_map["batch_edge"]
                                                       )[1]
 
-            offroad_flag= (near_dist > 0).float()
+            offroad_flag= (near_dist < 0).float()
 
             valid_off_flag=offroad_flag[train_mask]
 
