@@ -573,7 +573,7 @@ class IQ_SoftQ(LightningModule):
             # target_flat = target.reshape(N * T)  # [N*T]
 
             col_loss = F.cross_entropy(col_pred, target[train_mask])
-            dis_loss=F.cross_entropy(dis_col_pred.reshape(-1, 10), target[all_valid].reshape(-1))
+            dis_loss=F.cross_entropy(dis_col_pred.reshape(-1, col_pred.shape[-1]), target[all_valid].reshape(-1))
         else:
             col_flag = oriented_box_collision(tokenized_agent["sampled_pos"][:, 2:],
                                                      tokenized_agent["sampled_heading"][:, 2:],
