@@ -607,9 +607,9 @@ class IQ_SoftQ(LightningModule):
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
-            col_loss = self.get_collision_loss(tokenized_agent, None, train_mask, all_valid, 'expert')
-
-            expert_nll = expert_nll + col_loss
+            # col_loss = self.get_collision_loss(tokenized_agent, None, train_mask, all_valid, 'expert')
+            #
+            # expert_nll = expert_nll + col_loss
 
         if self.encoder.agent_encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
