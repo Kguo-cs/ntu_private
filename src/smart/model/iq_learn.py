@@ -742,8 +742,8 @@ class IQ_SoftQ(LightningModule):
                     # col_flag = oriented_box_collision(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
                     #                                   tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])[0].float()
 
-                    sign_dist = signed_distance_to_nearest_object(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
-                                                      tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])#[0].float()
+                    # sign_dist = signed_distance_to_nearest_object(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
+                    #                                   tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])#[0].float()
 
                     col_flag=(sign_dist<0).float()
 
