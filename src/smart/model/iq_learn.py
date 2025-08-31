@@ -565,6 +565,21 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
+            if self.encoder.agent_encoder.pred_col:
+                expert_col_flag = oriented_box_collision(tokenized_agent["sampled_pos"][:, 2:],
+                                                  tokenized_agent["sampled_heading"][:, 2:],
+                                                  tokenized_agent["shape"][:, :2],
+                                                  tokenized_agent["batch"])[0].float()
+
+                col_pred = torch.sigmoid(self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask])[..., 0])
+
+                expert_col_loss = self.bce_loss(col_pred, expert_col_flag[train_mask])
+
+                self.log('train/expert_col_loss', expert_col_loss.item(), on_step=True, batch_size=1)
+                self.log('train/expert_col_rate', expert_col_flag.mean().item(), on_step=True, batch_size=1)
+
+                expert_nll=expert_nll+expert_col_loss
+
         if self.encoder.agent_encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
@@ -580,7 +595,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
-                expert_dis_loss, expert_rewards, expert_returns,expert_disc_val=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
+                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -661,7 +676,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,expert_disc_val,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,None,tokenized_map=tokenized_map)
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
@@ -726,7 +741,13 @@ class IQ_SoftQ(LightningModule):
 
                     self.log('train/dis_col_loss',dis_col_loss.item(), on_step=True, batch_size=1)
 
-                    expert_nll = expert_nll + col_loss+dis_col_loss
+                    expert_dis_col_pred = torch.sigmoid(self.encoder.dis_col_head(expert_dis_feat)[:,:,0])
+
+                    expert_dis_col_loss = self.bce_loss(expert_dis_col_pred, expert_col_flag[all_valid])
+
+                    self.log('train/expert_dis_col_loss',expert_dis_col_loss.item(), on_step=True, batch_size=1)
+
+                    expert_nll = expert_nll + col_loss+dis_col_loss+expert_dis_col_loss
 
 
                 if self.encoder.agent_encoder.use_infogail:
@@ -816,8 +837,6 @@ class IQ_SoftQ(LightningModule):
                     if self.use_lcf:
                         nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
 
-                        # nei_value_pred=logit[:,:,1]
-
                         nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
@@ -845,14 +864,6 @@ class IQ_SoftQ(LightningModule):
                             value_loss= value_loss+global_value_loss
 
                             lcf_parameters=self.lcf_parameters(tokenized_agent_rollout["feat_a"][all_valid])
-
-                            # current_lcf_mean = torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
-                            # current_lcf_std = torch.exp(torch.clamp(lcf_parameters[...,1], -20, 2))
-
-                            # self.log("train/lcf_mean", current_lcf_mean.item(), on_step=True, batch_size=1)
-                            # self.log("train/lcf_std", current_lcf_std.item(), on_step=True, batch_size=1)
-                            #
-                            # step_lcf=torch.randn_like(ego_advantages[:,:1])*current_lcf_std+current_lcf_mean
 
                             step_lcf=torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
 
