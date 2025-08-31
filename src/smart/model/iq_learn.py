@@ -333,7 +333,7 @@ class IQ_SoftQ(LightningModule):
 
 
 
-        logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+        disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
                                                         sampled_pos,
@@ -343,10 +343,9 @@ class IQ_SoftQ(LightningModule):
                                                         tokenized_agent["light_idx"],
                                                         None,
                                                        # latent_z=tokenized_agent["latent_z"]
-                                                        )[0]#Metrics-Guided Adversarial Training
+                                                        )#Metrics-Guided Adversarial Training
 
-        #logit=torch.tanh(logit)*10
-
+        logit=disc_out[0]
 
         disc_val = self.get_d(logit[:, :, 0],0)
         # svo=torch.sigmoid(logit[:,:,1])
@@ -546,7 +545,7 @@ class IQ_SoftQ(LightningModule):
 
             bce_loss=gp+bce_loss
 
-        return bce_loss,rewards,returns,disc_val #-0.03*entropy
+        return bce_loss,rewards,returns,disc_out[-1] #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -659,22 +658,10 @@ class IQ_SoftQ(LightningModule):
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
-            if self.encoder.agent_encoder.pred_col:
-                col_flag = oriented_box_collision(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
-                                                  tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])[0].float()
-
-                col_pred = torch.sigmoid(self.encoder.col_head(tokenized_agent["feat_a_nodetach"])[:,:,0])
-
-                col_loss = self.bce_loss(col_pred, col_flag)
-
-                self.log('train/col_loss',col_loss.item(), on_step=True, batch_size=1)
-                self.log('train/col_rate',col_flag.mean().item(), on_step=True, batch_size=1)
-                expert_nll=expert_nll+col_loss
-
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_val = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,expert_disc_val,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,expert_disc_val,tokenized_map=tokenized_map)
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
@@ -722,16 +709,35 @@ class IQ_SoftQ(LightningModule):
                     expert_dis_loss=noise_error
                     agent_dis_loss=torch.tensor(0.0)
 
+                if self.encoder.agent_encoder.pred_col:
+                    col_flag = oriented_box_collision(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
+                                                      tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])[0].float()
+
+                    col_pred = torch.sigmoid(self.encoder.col_head(tokenized_agent["feat_a_nodetach"])[:,:,0])
+
+                    col_loss = self.bce_loss(col_pred, col_flag)
+
+                    self.log('train/col_loss',col_loss.item(), on_step=True, batch_size=1)
+                    self.log('train/col_rate',col_flag.mean().item(), on_step=True, batch_size=1)
+
+                    dis_col_pred = torch.sigmoid(self.encoder.dis_col_head(agent_disc_feat)[:,:,0])
+
+                    dis_col_loss = self.bce_loss(dis_col_pred, col_flag[all_valid])
+
+                    self.log('train/dis_col_loss',dis_col_loss.item(), on_step=True, batch_size=1)
+
+                    expert_nll = expert_nll + col_loss+dis_col_loss
+
 
                 if self.encoder.agent_encoder.use_infogail:
 
                     logits = self.encoder.RecognitionQ.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                         tokenized_agent_rollout["goal_idx"],
-                                                         tokenized_agent_rollout["valid_mask"],
-                                                         tokenized_agent_rollout["sampled_pos"],
-                                                         tokenized_agent_rollout["sampled_heading"],
-                                                         tokenized_agent_rollout,
-                                                         tokenized_agent_rollout["detach_map_feature"],
+                                                                     tokenized_agent_rollout["goal_idx"],
+                                                                     tokenized_agent_rollout["valid_mask"],
+                                                                     tokenized_agent_rollout["sampled_pos"],
+                                                                     tokenized_agent_rollout["sampled_heading"],
+                                                                     tokenized_agent_rollout,
+                                                                     tokenized_agent_rollout["detach_map_feature"],
                                                          tokenized_agent_rollout["light_idx"],
                                                          None)[0]#[all_valid]
 

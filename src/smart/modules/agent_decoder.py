@@ -325,23 +325,6 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,proposal,r_a2a,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 
-        # proposal=torch.zeros([n_agent,n_step,15],device=feat_a.device)
-        # proposal[mask_a]=proposal_
-        # proposal=proposal.reshape([n_agent,n_step,1,5,3])
-        # if self.pred_goal and not self.discriminator:
-        #     next_goal_logits=self.goal_head(feat_a.detach())
-        # else:
-        #     next_goal_logits=[]
-        # visibility=None
-        #
-        # if self.pred_vis:
-        #     visibility=self.vis_head(feat_a.detach())
-        # if n_step>1:
-        #     batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
-        #     0, 1)
-        #
-        #     all_features = [feat_a_t.detach(), pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s, None]
-
         return next_token_logits,next_light_logits,pos_a.detach(),agent_token_emb,proposal,feat_a
 
     def forward(
@@ -406,32 +389,6 @@ class SMARTAgentDecoder(nn.Module):
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
-        # if "gt_z_raw" not in tokenized_agent.keys():
-        #
-        #     current_mask=tokenized_agent["valid_mask"][:,1]
-        #     keep_mask=torch.rand(current_mask.sum())>0.05
-        #
-        #     for key in ['token_agent_shape', 'token_traj', 'token_traj_all', 'sampled_pos', 'sampled_heading', 'type', 'batch',
-        #                 'shape', 'valid_mask', 'sampled_idx', 'next_token_logits'                       ]:
-        #         tokenized_agent[key]=tokenized_agent[key][current_mask][keep_mask]
-
-        # if "gt_z_raw" not in tokenized_agent.keys():
-        # pos=tokenized_agent["gt_pos_raw"][:,:current_step+1]
-        # heading=tokenized_agent["gt_head_raw"] [:,:current_step+1]
-        # valid=tokenized_agent["gt_valid_raw"][:,:current_step+1]
-        #
-        # pos[:,0]=pos[:,0]+torch.randn_like(pos[:,0])*0.01
-        # heading[:,0]=heading[:,0]+torch.randn_like(heading[:,0])*0.01
-        #
-        # agent_dict=self.token_processor._match_agent_token(valid,pos,heading,
-        #                                                   tokenized_agent["token_agent_shape"],
-        #                                                   tokenized_agent["token_traj"],shift=1)
-        # #
-        # sampled_idx=agent_dict["sampled_idx"]
-        # mask=agent_dict["valid_mask"]
-        # pos_a=agent_dict["sampled_pos"]
-        # head_a=agent_dict["sampled_heading"]
-        # else:
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
         mask = tokenized_agent["valid_mask"][:, :current_step].clone()
         pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()

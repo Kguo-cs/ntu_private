@@ -185,6 +185,9 @@ class SMARTDecoder(nn.Module):
 
                     self.col_head = MLPLayer(hidden_dim, hidden_dim, 1)
 
+
+                    self.dis_col_head=MLPLayer(hidden_dim, hidden_dim, 1)
+
                 if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,
