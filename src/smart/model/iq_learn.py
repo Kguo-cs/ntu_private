@@ -7,7 +7,6 @@ from src.smart.layers import MLPLayer
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.loss.iq_loss import get_iqloss,soft_update,eval_light,get_proposal_loss,get_gaussian_loss
 from src.smart.loss.rollout_buffer import rollout, compute_advantages, ReplayBuffer
-from src.smart.tokens.trajectory_process import sampled_pos
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -329,7 +328,7 @@ class IQ_SoftQ(LightningModule):
             sampled_head=tokenized_agent["gt_head_raw"]
         else:
             sampled_pos=tokenized_agent["sampled_pos"]
-            sampled_head=tokenized_agent["sampled_head"]
+            sampled_head=tokenized_agent["sampled_heading"]
 
 
 
