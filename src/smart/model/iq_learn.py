@@ -659,6 +659,12 @@ class IQ_SoftQ(LightningModule):
 
             if self.global_step%self.rollout_freq==0:
                 tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+                if self.encoder.agent_encoder.pred_col:
+                    # col_flag = oriented_box_collision(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
+                    #                                   tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])[0].float()
+
+                    sign_dist = signed_distance_to_nearest_object(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
+                                                      tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])#[0].float()
 
                 if self.rollout_freq>1:
                     self.tokenized_map={}
@@ -676,6 +682,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
+
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
