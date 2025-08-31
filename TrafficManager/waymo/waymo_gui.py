@@ -142,7 +142,7 @@ class GUI(Process):
         self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
 
         #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
-        self.agent_type_style = [COLOR_ALUMINIUM_0, COLOR_YELLOW, COLOR_MAGENTA]
+        self.agent_type_style = [COLOR_ALUMINIUM_0, COLOR_GREEN, COLOR_MAGENTA]
 
         # make output dir
         # self.save_dir = save_dir

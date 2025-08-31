@@ -7,6 +7,7 @@ from src.smart.layers import MLPLayer
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.loss.iq_loss import get_iqloss,soft_update,eval_light,get_proposal_loss,get_gaussian_loss
 from src.smart.loss.rollout_buffer import rollout, compute_advantages, ReplayBuffer
+from src.smart.tokens.trajectory_process import sampled_pos
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -319,18 +320,24 @@ class IQ_SoftQ(LightningModule):
         #
         # disc_val=self.encoder.discriminator._compute_disc_val(state, tokenized_agent["agent_token_emb"][:,2:][train_mask].reshape(-1,128)).reshape(-1,16)
 
-
-
-
         # sa=torch.cat([tokenized_agent["feat_a"],tokenized_agent["agent_token_emb"][:,2:]],dim=-1)[train_mask]
         #
         # logit =self.encoder.discriminator(sa)
 
+        if key=="expert":
+            sampled_pos=tokenized_agent["gt_pos_raw"]
+            sampled_head=tokenized_agent["gt_head_raw"]
+        else:
+            sampled_pos=tokenized_agent["sampled_pos"]
+            sampled_head=tokenized_agent["sampled_head"]
+
+
+
         logit= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
-                                                        tokenized_agent["sampled_pos"],
-                                                        tokenized_agent["sampled_heading"] ,
+                                                        sampled_pos,
+                                                        sampled_head ,
                                                         tokenized_agent,
                                                         map_feature,
                                                         tokenized_agent["light_idx"],
@@ -360,7 +367,6 @@ class IQ_SoftQ(LightningModule):
                 actions=tokenized_agent["sampled_idx"][:,2:][train_mask]
 
                 logp_a_ref=torch.gather(logp_ref, dim=-1, index=actions.unsqueeze(-1)).squeeze(-1)
-
 
                 kl_penalty =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - logp_ref), dim=-1).mean()  # (B,T)
 

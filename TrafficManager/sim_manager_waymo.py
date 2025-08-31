@@ -394,7 +394,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(100)
+        # sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -447,7 +447,7 @@ class SimulationManager:
                 # agent_num=1
                 #
                 # route=generate_random_edge_trips(map_infos["edge_graph"],map_infos["lane_graph"],n_trips=agent_num,seed=self.random_seed)
-                TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"])  # 或传入你已有的 router_func
+                TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"],boundary_xyz=map_infos["boundary_xyz"])  # 或传入你已有的 router_func
 
                 # 假设已有 TG = TrafficGenerator(EG, G_lane)
                 ego_edge_ids, ego_route_xyz, ego_start_xy, ego_goal_xy = TG.random_ego_edge_route(
@@ -461,13 +461,7 @@ class SimulationManager:
                     density01=0.6,
                     class_ratio={"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1},
                     ego_edge_ids=ego_edge_ids,
-                    use_distance_to_ego=True,  # ✅ use metric neighborhood
-                    move_to_ego_max_m=100.0,  # ✅ within 100 m to reach ego edges
-                    distance_mode="to_ego",  # edges that can move TO ego within 100 m
-                    distance_allowed_turns=True,  # respect legal turns
                     seed=self.random_seed,
-                    min_start_spacing_m=5.0,
-                    min_same_edge_s_m=15.0,
                     lift_to_lane_ids=True
                 )
 
@@ -494,20 +488,28 @@ class SimulationManager:
                 track_infos['states'][0,:,5]=1.6
                 track_infos['states'][0,:,6]=np.arctan2(route[1,1]-route[0,1],route[1,0]-route[0,0])
                 track_infos['role'][0]=1
+
                 self.route[0]=torch.FloatTensor(route).cuda()
 
                 for i,agent in enumerate(agents):
                     j=i+1
                     size_lwh_m=agent["size_lwh_m"]
+                    speed=agent["avg_speed_mps"]
                     route=agent["route_xyz"]
-                    track_infos['states'][j, :, :3] = route[0] #agent["start_xyz"]
+                    heading=agent["start_heading_rad"]
+
+                    velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
+                    track_infos['states'][j, :, :3] = agent["start_xyz"]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
                     track_infos['states'][j, :, 3] = size_lwh_m[0]
                     track_infos['states'][j, :, 4] = size_lwh_m[1]
                     track_infos['states'][j, :, 5] = size_lwh_m[2]
-                    track_infos['states'][j, :, 6] = np.arctan2(route[1, 1] - route[0, 1], route[1, 0] - route[0, 0])
+                    track_infos['states'][j, :, 6] = heading
+
+                    if agent["cls"]=="pedestrian":
+                        track_infos["object_type"][j]=1
+                    elif agent["cls"]=="bicycle":
+                        track_infos["object_type"][j]=2
                     self.route[j]=torch.FloatTensor(route[:,:2]).cuda()
-
-
 
             point_cnt=len(map_infos['all_polylines'])
 

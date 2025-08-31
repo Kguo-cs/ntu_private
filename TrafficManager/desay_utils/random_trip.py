@@ -1,8 +1,21 @@
-# --- 新增/替换的 TrafficGenerator（支持随机 ego 路径 + 起点去重） ---
-from shapely.geometry import LineString, Point
-from shapely.ops import unary_union
+# -*- coding: utf-8 -*-
+# TrafficGenerator with pedestrians following boundaries; vehicles on lanes/edges
+from __future__ import annotations
+from typing import Iterable, Set, List, Optional, Dict, Any, Tuple
 import numpy as np
 import networkx as nx
+from shapely.geometry import LineString, Point
+
+# ------------------ utilities ------------------
+
+def _key_id(x):
+    if isinstance(x, np.ndarray):
+        return tuple(np.asarray(x).ravel().tolist())
+    if isinstance(x, (np.bool_, np.number)):
+        return x.item()
+    if isinstance(x, (list, tuple)):
+        return tuple(_key_id(t) for t in x)
+    return x
 
 def _to_xyz(arr) -> np.ndarray:
     a = np.asarray(arr, float)
@@ -12,7 +25,6 @@ def _to_xyz(arr) -> np.ndarray:
     if a.shape[1] != 3: raise ValueError("expect [N,3]/[N,2]/[3,N]")
     return a
 
-# ---- paste to replace TrafficGenerator.random_ego_edge_route ----
 def _arclen2d(xy: np.ndarray) -> np.ndarray:
     d = np.linalg.norm(np.diff(xy, axis=0), axis=1)
     return np.concatenate([[0.0], np.cumsum(d)])
@@ -21,446 +33,462 @@ def _interp_xyz_at_s(xyz: np.ndarray, s_tab: np.ndarray, s: float) -> np.ndarray
     x = np.interp(s, s_tab, xyz[:,0]); y = np.interp(s, s_tab, xyz[:,1]); z = np.interp(s, s_tab, xyz[:,2])
     return np.array([x, y, z], float)
 
-def _slice_from_s_to_end(P: np.ndarray, s0: float) -> np.ndarray:
-    """从 polyline 的弧长 s0 切到终点（含 s0/终点插值）"""
-    P = np.asarray(P, float)
-    s = _arclen2d(P[:, :2])
-    s0 = float(np.clip(s0, 0.0, s[-1] if len(s) else 0.0))
-    # 构造分段：s0 -> end
-    if len(P) < 2 or s[-1] <= 0:
-        return P.copy()
-    pts = [_interp_xyz_at_s(P, s, s0)]
-    mask = (s > s0) & (s < s[-1])
-    if np.any(mask):
-        pts.extend(list(P[mask]))
-    pts.append(P[-1])
-    return np.asarray(pts)
+def _heading_at_s_dir(xyz: np.ndarray, s_tab: np.ndarray, s: float, dir_sign: int, eps: float = 0.8) -> float:
+    """Heading at arclength s following direction sign (+1 forward, -1 backward)."""
+    if s_tab[-1] <= 0: return 0.0
+    if dir_sign >= 0:
+        s0 = max(0.0, s - eps); s1 = min(s_tab[-1], s + eps)
+    else:
+        s0 = min(s_tab[-1], s + eps); s1 = max(0.0, s - eps)  # swap to go "backwards"
+    p0 = _interp_xyz_at_s(xyz, s_tab, s0)
+    p1 = _interp_xyz_at_s(xyz, s_tab, s1)
+    dx, dy = (p1[0] - p0[0]), (p1[1] - p0[1])
+    if dx == 0 and dy == 0: return 0.0
+    return float(np.arctan2(dy, dx))
 
-def _sample_point_on_shape_with_s(shape_xyz: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, float]:
-    P = np.asarray(shape_xyz, float)
-    if P.shape[1] == 2:
-        P = np.column_stack([P, np.zeros(len(P))])
+def _slice_from_s_to_s(xyz: np.ndarray, s_tab: np.ndarray, s0: float, s1: float) -> np.ndarray:
+    """Slice polyline between arclength s0→s1 (handles forward/backward)."""
+    s0 = float(np.clip(s0, 0.0, s_tab[-1] if len(s_tab) else 0.0))
+    s1 = float(np.clip(s1, 0.0, s_tab[-1] if len(s_tab) else 0.0))
+    if s1 == s0:
+        P = _interp_xyz_at_s(xyz, s_tab, s0)
+        return np.vstack([P, P])
+    # forward
+    if s1 > s0:
+        mask = (s_tab > s0) & (s_tab < s1)
+        pts = [_interp_xyz_at_s(xyz, s_tab, s0)]
+        if np.any(mask): pts.extend(list(xyz[mask]))
+        pts.append(_interp_xyz_at_s(xyz, s_tab, s1))
+        return np.asarray(pts)
+    # backward
+    else:
+        mask = (s_tab < s0) & (s_tab > s1)
+        pts = [_interp_xyz_at_s(xyz, s_tab, s0)]
+        if np.any(mask): pts.extend(list(xyz[mask][::-1]))
+        pts.append(_interp_xyz_at_s(xyz, s_tab, s1))
+        return np.asarray(pts)
+
+def _sample_point_on_shape_with_s(shape_xyz: np.ndarray, rng: np.random.Generator) -> Tuple[np.ndarray, float]:
+    P = _to_xyz(shape_xyz)
     s = _arclen2d(P[:, :2])
-    if s[-1] <= 0:
-        return P[0], 0.0
+    if s[-1] <= 0: return P[0], 0.0
     u = float(rng.uniform(0.0, s[-1]))
     return _interp_xyz_at_s(P, s, u), u
 
 def build_edge_id_graph(EG: nx.DiGraph, weight_attr: str = "weight") -> nx.DiGraph:
     id2uv = {}; w_of = {}
     for u, v, ed in EG.edges(data=True):
-        eid = ed["id"]; id2uv[eid] = (u, v)
+        eid = _key_id(ed["id"])
+        id2uv[eid] = (_key_id(u), _key_id(v))
         w_of[eid] = float(ed.get(weight_attr, ed.get("weight", 1.0)))
     EID = nx.DiGraph()
     for eid in id2uv.keys(): EID.add_node(eid)
     allowed = EG.graph.get("allowed_edge_turns", None)
     if allowed:
         for e1, e2 in allowed:
-            if e1 in id2uv and e2 in id2uv:
-                EID.add_edge(e1, e2, weight=w_of[e2])
+            e1k, e2k = _key_id(e1), _key_id(e2)
+            if e1k in id2uv and e2k in id2uv:
+                EID.add_edge(e1k, e2k, weight=w_of[e2k])
     else:
         for e1, (u1, v1) in id2uv.items():
-            for e2, (u2, _) in id2uv.items():
+            for e2, (u2, _v2) in id2uv.items():
                 if v1 == u2:
                     EID.add_edge(e1, e2, weight=w_of[e2])
     return EID
 
+# ------------------ generator ------------------
+
 class TrafficGenerator:
-    def __init__(self, EG: nx.DiGraph, G_lane: nx.DiGraph, router_func=None):
+    def __init__(
+        self,
+        EG: nx.DiGraph,
+        G_lane: nx.DiGraph,
+        router_func=None,
+        *,
+        boundary_xyz: Optional[Dict[Any, np.ndarray] | List[np.ndarray]] = None,
+        vehicle_classes: Optional[Set[str]] = None,
+        pedestrian_classes: Optional[Set[str]] = None
+    ):
         self.EG = EG
         self.G_lane = G_lane
-        self.router = router_func  # 可传你自己的；不传则用内部轻量路由
-        # 边形状&长度缓存
-        self.edge_shapes = {}
-        self.edge_lengths = {}
+        self.router = router_func
+        self._EID: Optional[nx.DiGraph] = None
+
+        # cache edge shapes & lengths
+        self.edge_shapes: Dict[Any, np.ndarray] = {}
+        self.edge_lengths: Dict[Any, float] = {}
         for _, _, ed in EG.edges(data=True):
-            eid = ed["id"]
+            eid = _key_id(ed["id"])
             P = _to_xyz(ed["shape_xyz"])
             self.edge_shapes[eid] = P
             self.edge_lengths[eid] = float(ed.get("length_m", _arclen2d(P[:, :2])[-1]))
 
-    # ========== 新增：随机生成 ego 的 edge 路径 ==========
+        # lane centerlines
+        self.lane_xyz: Dict[Any, np.ndarray] = { _key_id(lid): _to_xyz(nd["xyz"]) for lid, nd in G_lane.nodes(data=True) }
 
-    def random_ego_edge_route(
-            self,
-            *,
-            seed: int | None = 0,
-            min_len_m: float = 30.0,
-            max_len_m: float = 5000.0,
-            attempts: int = 200,
-            weight_attr: str = "weight",
-            restrict_to_largest_scc: bool = False,
-            sample_start_on_edge: bool = True,  # ✅ 新增：起点随机采样在起始 edge 上
-            end_at_last_point: bool = True  # ✅ 新增：终点为末尾 edge 的最后一个点
-    ) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray]:
-        """
-        返回:
-          - ego_edge_ids: List[str]
-          - ego_route_xyz: np.ndarray  [M,3]，已按“起点随机采样 & 末尾 edge 终点”裁剪
-          - ego_start_xy: np.ndarray   [2]  起点 XY
-          - ego_goal_xy:  np.ndarray   [2]  终点 XY（末尾 edge 最末点）
-        """
-        rng = np.random.default_rng(seed)
-        # 1) Edge-ID 图与候选集合
-        EID = build_edge_id_graph(self.EG, weight_attr=weight_attr)
-        all_ids = list(EID.nodes())
-        if not all_ids:
-            raise RuntimeError("Edge-ID graph is empty.")
-        if restrict_to_largest_scc:
-            sccs = list(nx.strongly_connected_components(EID))
-            cand = list(max(sccs, key=len)) if sccs else all_ids
+        # boundaries list + lengths
+        if boundary_xyz is None:
+            self.boundaries: List[np.ndarray] = []
+        elif isinstance(boundary_xyz, dict):
+            self.boundaries = [_to_xyz(arr) for arr in boundary_xyz.values()]
         else:
-            cand = all_ids
+            self.boundaries = [_to_xyz(arr) for arr in boundary_xyz]
+        self.boundary_lengths: List[float] = [float(_arclen2d(B[:, :2])[-1]) for B in self.boundaries]
 
-        # 按长度加权抽样起终边
-        lengths = np.array([self.edge_lengths.get(e, 1.0) for e in cand], float)
+        # class sets
+        self.vehicle_classes = set(vehicle_classes) if vehicle_classes is not None else {"car", "truck", "bicycle"}
+        self.pedestrian_classes = set(pedestrian_classes) if pedestrian_classes is not None else {"pedestrian"}
+
+    # ---- ego route (unchanged) ----
+    def random_ego_edge_route(self, *, seed: Optional[int]=0, min_len_m: float=30.0, max_len_m: float=5000.0,
+                              attempts: int=200, weight_attr: str="weight",
+                              sample_start_on_edge: bool=True, end_at_last_point: bool=True
+                              ) -> Tuple[List[Any], np.ndarray, np.ndarray, np.ndarray]:
+        rng = np.random.default_rng(seed)
+        EID = self._build_edge_id_graph(weight_attr)
+        all_ids = list(EID.nodes())
+        if not all_ids: raise RuntimeError("Edge-ID graph is empty.")
+        lengths = np.array([self.edge_lengths.get(e, 1.0) for e in all_ids], float)
         probs = lengths / (lengths.sum() if lengths.sum() > 0 else 1.0)
-
         for _ in range(attempts):
-            s_eid = rng.choice(cand, p=probs)
-            g_eid = rng.choice(cand, p=probs)
-            # if len(cand) > 1 and g_eid == s_eid:
-            #     continue
-            # 2) 最短路（edge-id 图）
+            s_eid = _key_id(rng.choice(all_ids, p=probs))
+            g_eid = _key_id(rng.choice(all_ids, p=probs))
             try:
                 edge_path = nx.shortest_path(EID, s_eid, g_eid, weight="weight")
             except nx.NetworkXNoPath:
                 continue
-
-            # 3) 组装几何：默认整段，随后按需“起点随机 & 末尾终点”
-            parts = []
-            total = 0.0
-            for i, eid in enumerate(edge_path):
-                P = self.edge_shapes.get(eid)
-                if P is None: break
-                # 起始 edge: 若启用起点随机，则先采样弧长 s0 后切片
-                if i == 0 and sample_start_on_edge:
+            parts=[];
+            for i,eid in enumerate(edge_path):
+                P = self.edge_shapes[eid]
+                if i==0 and sample_start_on_edge:
                     start_xyz, s0 = _sample_point_on_shape_with_s(P, rng)
-                    first = _slice_from_s_to_end(P, s0)
                     ego_start_xy = start_xyz[:2]
-                    parts.append(first)
+                    parts.append(_slice_from_s_to_s(P, _arclen2d(P[:, :2]), s0, _arclen2d(P[:, :2])[-1]))
                 else:
-                    # 中间/尾段按全段（尾段“全段”+ end_at_last_point == True 等价于末点作为终点）
-                    if i > 0 and parts and np.allclose(parts[-1][-1, :2], P[0, :2], atol=1e-6):
+                    if i and parts and np.allclose(parts[-1][-1,:2], P[0,:2], atol=1e-6):
                         parts[-1] = parts[-1][:-1]
                     parts.append(P)
-
-                total += float(self.edge_lengths.get(eid, _arclen2d(P[:, :2])[-1]))
-
-            if not parts:
-                continue
-
+            if not parts: continue
             ego_route_xyz = np.vstack(parts)
-
-            # 末尾终点：取最后一个点（默认已满足 end_at_last_point）
             last_P = self.edge_shapes[edge_path[-1]]
-            ego_goal_xy = last_P[-1, :2] if end_at_last_point else ego_route_xyz[-1, :2]
-
-            # 路径总长检查（注意：起点切片后总长度会变短，更贴近真实）
-            # 估长用几何再算一次：
-            seg = ego_route_xyz[:, :2]
-            dsum = float(np.sum(np.linalg.norm(np.diff(seg, axis=0), axis=1)))
+            ego_goal_xy = last_P[-1,:2] if end_at_last_point else ego_route_xyz[-1,:2]
+            dsum = float(np.sum(np.linalg.norm(np.diff(ego_route_xyz[:, :2], axis=0), axis=1)))
             if min_len_m <= dsum <= max_len_m:
                 return edge_path, ego_route_xyz, ego_start_xy, ego_goal_xy
+        raise RuntimeError("Failed to sample a random ego route within length bounds.")
 
-        raise RuntimeError(
-            "Failed to sample a random ego route within length bounds (with start-on-edge & end-at-last).")
-
-    # ========== 新增：起点冲突检查（去重） ==========
-    def _start_conflict(self,
-                        new_xy: np.ndarray,
-                        new_edge: str,
-                        new_s_along_edge: float,
-                        taken_xy: list[np.ndarray],
-                        taken_per_edge_s: dict[str, list[float]],
-                        min_start_spacing_m: float,
-                        min_same_edge_s_m: float) -> bool:
-        # 全局欧氏距离
+    # ---- helper: dedup ----
+    def _start_conflict(self, new_xy: np.ndarray, new_edge: Any, new_s: float,
+                        taken_xy: List[np.ndarray], taken_per_edge_s: Dict[Any, List[float]],
+                        min_dist: float, min_same_edge_s: float) -> bool:
         for p in taken_xy:
-            if np.linalg.norm(new_xy[:2] - p[:2]) < min_start_spacing_m:
-                return True
-        # 同一 Edge 的弧长最小间距
-        if new_edge in taken_per_edge_s:
-            for s in taken_per_edge_s[new_edge]:
-                if abs(s - new_s_along_edge) < min_same_edge_s_m:
-                    return True
+            if np.linalg.norm(new_xy[:2] - p[:2]) < min_dist: return True
+        k = _key_id(new_edge)
+        if k in taken_per_edge_s:
+            for s in taken_per_edge_s[k]:
+                if abs(s - new_s) < min_same_edge_s: return True
         return False
 
-    def _edges_within_distance_of_ego(
-            self,
-            ego_edge_ids: list[str],
-            *,
-            max_dist_m: float = 100.0,
-            mode: str = "to_ego",  # 'to_ego' | 'from_ego' | 'either'
-            allowed_turns_only: bool = True,  # use allowed-turn graph; else junction-topology
-            include_self: bool = True,
-    ) -> list[str]:
-        """
-        Return edge IDs whose shortest-path distance (sum of edge lengths) to/from
-        the ego edge set is <= max_dist_m, following turn legality.
+    def _build_edge_id_graph(self, weight_attr: str = "weight") -> nx.DiGraph:
+        if hasattr(self, "_EID") and self._EID is not None: return self._EID
+        self._EID = build_edge_id_graph(self.EG, weight_attr=weight_attr)
+        return self._EID
 
-        mode:
-          - 'to_ego'   : can move TO any ego edge within max_dist_m (directed).
-          - 'from_ego' : can move FROM ego edges to them within max_dist_m.
-          - 'either'   : union of both directions.
-
-        Note: cost is per-edge length; we ignore partial lengths within the first/last edge.
-        """
-        if not ego_edge_ids:
-            return []
-
-        # Build edge-ID graph
-        if allowed_turns_only:
-            G = build_edge_id_graph(self.EG, weight_attr="weight")  # DiGraph
-        else:
-            # looser: edges connect if they share a junction (undirected)
-            id2uv = {}
-            G = nx.DiGraph()
-            for u, v, ed in self.EG.edges(data=True):
-                eid = ed["id"];
-                id2uv[eid] = (u, v);
-                G.add_node(eid)
-            # connect v1==u2
-            for e1, (u1, v1) in id2uv.items():
-                for e2, (u2, _) in id2uv.items():
-                    if v1 == u2:
-                        w = float(self.edge_lengths.get(e2, 1.0))
-                        G.add_edge(e1, e2, weight=w)
-
-        seeds = [e for e in ego_edge_ids if e in G]
-        if not seeds:
-            return []
-
-        def _within(Gdir):
-            dist = nx.multi_source_dijkstra_path_length(Gdir, sources=seeds,
-                                                        cutoff=float(max_dist_m), weight="weight")
-            out = set(dist.keys())
-            if include_self:
-                out |= set(seeds)
+    def _edges_connected_to_ego_edges(self, ego_edge_ids: Iterable[Any], *, hops: Optional[int]=1,
+                                      mode: str="both") -> Set[Any]:
+        from collections import deque
+        EID = self._build_edge_id_graph()
+        ego = [_key_id(e) for e in ego_edge_ids if _key_id(e) in EID]
+        if not ego: return set()
+        if mode in ("strong","weak"):
+            if mode=="strong":
+                out=set()
+                for comp in nx.strongly_connected_components(EID):
+                    if any(e in comp for e in ego): out |= set(comp)
+                return out
+            U = EID.to_undirected(); out=set(); seen=set()
+            for e in ego:
+                if e in seen: continue
+                comp = nx.node_connected_component(U, e)
+                out |= set(comp); seen |= set(comp)
             return out
+        def bfs(srcs: List[Any], forward: bool, max_hops: Optional[int]) -> Set[Any]:
+            Gdir = EID if forward else EID.reverse()
+            if max_hops is None:
+                out = set(srcs)
+                for s in srcs: out |= nx.descendants(Gdir, s)
+                return out
+            visited=set(srcs); dq=deque((s,0) for s in srcs)
+            while dq:
+                u,d = dq.popleft()
+                if d==max_hops: continue
+                for v in Gdir.successors(u):
+                    if v not in visited:
+                        visited.add(v); dq.append((v,d+1))
+            return visited
+        if mode=="forward":  return bfs(ego, True, hops)
+        if mode=="backward": return bfs(ego, False, hops)
+        return bfs(ego, True, hops) | bfs(ego, False, hops)
 
-        if mode == "to_ego":
-            Gdir = G.reverse(copy=False)  # reverse to measure "distance to ego"
-            out = _within(Gdir)
-        elif mode == "from_ego":
-            out = _within(G)  # forward distances from ego
-        elif mode == "either":
-            out = _within(G) | _within(G.reverse(copy=False))
-        else:
-            raise ValueError("mode must be 'to_ego', 'from_ego', or 'either'.")
+    # ---- spawners ----
+    def _spawn_on_boundary(self, b_idx: int, rng: np.random.Generator) -> Tuple[np.ndarray, float, float]:
+        """Return start_xyz, heading_rad (forward), and s0 on boundary b_idx."""
+        B = self.boundaries[b_idx]; sB = _arclen2d(B[:, :2]); L = sB[-1]
+        if L <= 0: return B[0], 0.0, 0.0
+        s0 = float(rng.uniform(0.0, L))
+        heading = _heading_at_s_dir(B, sB, s0, dir_sign=+1)
+        xyz = _interp_xyz_at_s(B, sB, s0)
+        return xyz, heading, s0
 
-        return sorted(out)
+    def _spawn_on_random_lane_of_edge(self, start_edge_id: Any, rng: np.random.Generator) -> Tuple[np.ndarray, float, float]:
+        """Return start_xyz, heading_rad, and s (projected onto edge shape for de-dup)."""
+        # lanes for edge
+        lanes = None
+        for _,_,ed in self.EG.edges(data=True):
+            if _key_id(ed["id"]) == _key_id(start_edge_id):
+                lanes = list(ed.get("lanes", [])); break
+        lanes = [_key_id(l) for l in (lanes or [])]
+        if lanes:
+            lid = _key_id(rng.choice(lanes)); L = self.lane_xyz.get(lid)
+            if L is not None and len(L) >= 2:
+                sL = _arclen2d(L[:, :2]); u = float(rng.uniform(0.0, sL[-1] if sL[-1] > 0 else 0.0))
+                xyz = _interp_xyz_at_s(L, sL, u); heading = _heading_at_s_dir(L, sL, u, dir_sign=+1)
+                # project to edge for s bookkeeping
+                ls_edge = LineString(self.edge_shapes[_key_id(start_edge_id)][:, :2])
+                s_on = float(ls_edge.project(Point(float(xyz[0]), float(xyz[1]))))
+                return xyz, heading, s_on
+        # fallback to edge shape
+        P = self.edge_shapes[_key_id(start_edge_id)]; sP = _arclen2d(P[:, :2])
+        u = float(rng.uniform(0.0, sP[-1] if sP[-1] > 0 else 0.0))
+        xyz = _interp_xyz_at_s(P, sP, u); heading = _heading_at_s_dir(P, sP, u, dir_sign=+1)
+        return xyz, heading, u
 
-    # ========== 批量生成（支持随机 ego + 起点去重） ==========
+    # ------------------ main: batch ------------------
+
     def generate_batch(
         self,
         density01: float,
-        class_ratio: dict[str, float],
+        class_ratio: Dict[str, float],
         *,
-        ego_edge_ids: list[str] | None = None,
-        ego_route_xyz: np.ndarray | None = None,
-        use_distance_to_ego: bool = True,  # ✅ turn on distance-based selection
-        move_to_ego_max_m: float = 100.0,  # ✅ 100 m by your spec
-        distance_mode: str = "to_ego",  # 'to_ego' | 'from_ego' | 'either'
-        distance_allowed_turns: bool = True,
+        ego_edge_ids: Optional[List[Any]] = None,
+        ego_route_xyz: Optional[np.ndarray] = None,
         ego_auto_min_len_m: float = 300.0,
         ego_auto_max_len_m: float = 5000.0,
-        ego_seed: int | None = 0,
-        seed: int | None = 42,
+        ego_seed: Optional[int] = 0,
+        neighbor_hops: int = 1,
+        neighbor_mode: str = "both",
+        seed: Optional[int] = 42,
         min_route_m: float = 50.0,
         max_route_m: float = 5000.0,
-        size_table: dict[str, tuple[float,float,float]] | None = None,
-        style_table: dict[str, str] | None = None,
-        avg_speed_override: dict[str, float] | None = None,
+        size_table: Optional[Dict[str, Tuple[float,float,float]]] = None,
+        style_table: Optional[Dict[str, str]] = None,
+        avg_speed_override: Optional[Dict[str, float]] = None,
         lift_to_lane_ids: bool = False,
-        corridor_radius_m: float = 60.0,
         max_attempts_per_agent: int = 120,
-        # 起点去重参数：
-        min_start_spacing_m: float = 4.0,        # 任意两起点的最小欧氏距离
-        min_same_edge_s_m: float = 12.0          # 同一 Edge 上弧长方向的最小间距
-    ) -> list:
-        """
-        若未提供 ego_edge_ids / ego_route_xyz，会自动随机生成一条 ego 路径，
-        并将生成范围限制到其走廊（±corridor_radius_m）。
-        同时对所有参与者进行起点冲突检查，不满足间距则重采样。
-        """
-        from shapely.geometry import LineString
+        min_start_spacing_m: float = 4.0,
+        min_same_edge_s_m: float = 12.0,
+        # --- NEW pedestrian params ---
+        ped_min_len_m: float = 20.0,
+        ped_max_len_m: float = 200.0,
+        ped_forward_prob: float = 0.7     # chance to move increasing arclength
+    ) -> List[Dict[str, Any]]:
+
         rng = np.random.default_rng(seed)
 
-        # 1) 确定 ego 路径（若未提供则随机生成）
+        # ego route (for vehicle candidate edges)
         if ego_edge_ids is None and ego_route_xyz is None:
-            ego_edge_ids, ego_route_xyz = self.random_ego_edge_route(
-                seed=ego_seed,
-                min_len_m=ego_auto_min_len_m,
-                max_len_m=ego_auto_max_len_m
+            ego_edge_ids, ego_route_xyz, _, _ = self.random_ego_edge_route(
+                seed=ego_seed, min_len_m=ego_auto_min_len_m, max_len_m=ego_auto_max_len_m
             )
+        if not ego_edge_ids:
+            ego_edge_ids = [ _key_id(ed["id"]) for _, _, ed in self.EG.edges(data=True) ]
 
-        # === Candidate edges selection ===
-        if ego_edge_ids and use_distance_to_ego:
-            candidate_edges = self._edges_within_distance_of_ego(
-                ego_edge_ids,
-                max_dist_m=float(move_to_ego_max_m),
-                mode=distance_mode,
-                allowed_turns_only=distance_allowed_turns,
-                include_self=True
-            )
-        elif ego_edge_ids or (ego_route_xyz is not None and len(ego_route_xyz) >= 2):
-            # (optional) fallback to corridor geometry if you still want it available
-            candidate_edges = self._edges_connected_to_ego_edges(ego_edge_ids, hops=1)
-        else:
-            candidate_edges = [ed["id"] for _, _, ed in self.EG.edges(data=True)]
-
+        # hop-connected edges for vehicles
+        candidate_edges = sorted(self._edges_connected_to_ego_edges(
+            ego_edge_ids, hops=neighbor_hops, mode=neighbor_mode
+        ))
         if not candidate_edges:
-            return []
+            candidate_edges = [ _key_id(ed["id"]) for _, _, ed in self.EG.edges(data=True) ]
 
-        # 3) 容量估算 + 类别分配（沿用你之前的逻辑）
-        HEADWAY_M = {"pedestrian":2.0,"bicycle":5.0,"car":12.0,"truck":20.0}
+        # capacity & allocation
+        HEADWAY_M = {"pedestrian":2.0, "bicycle":5.0, "car":12.0, "truck":20.0}
         L = float(sum(self.edge_lengths[e] for e in candidate_edges))
         base_headway = HEADWAY_M["car"]
-        N_base = int(np.floor(np.clip(density01,0,1) * (L / base_headway)))
+        N_base = int(np.floor(np.clip(density01, 0, 1) * (L / base_headway)))
 
         keys = list(class_ratio.keys())
         vals = np.array([max(0.0, float(class_ratio[k])) for k in keys], float)
         if vals.sum() <= 0: vals = np.ones_like(vals)
         probs_class = vals / vals.sum()
         alloc = {k: int(np.floor(N_base * p)) for k, p in zip(keys, probs_class)}
-        # 轻微修正到位
-        gap = N_base - sum(alloc.values())
-        i=0
-        while gap>0 and keys:
-            alloc[keys[i % len(keys)]] += 1; gap -= 1; i += 1
+        rem = N_base - sum(alloc.values()); i = 0
+        while rem > 0 and keys:
+            alloc[keys[i % len(keys)]] += 1; rem -= 1; i += 1
 
-        # 4) 采样权重（按边长度）
-        cand = np.array(candidate_edges)
-        w_edges = np.array([self.edge_lengths[e] for e in cand], float)
+        # vehicle edge sampling weights
+        cand_edges = np.array(candidate_edges, dtype=object)
+        w_edges = np.array([self.edge_lengths[e] for e in cand_edges], float)
         probs_edges = w_edges / (w_edges.sum() if w_edges.sum() > 0 else 1.0)
 
-        # 5) 尺寸/速度表
-        DEFAULT_CLASS_SIZES = {"pedestrian":(0.5,0.5,1.7),"bicycle":(1.8,0.6,1.6),"car":(4.4,1.8,1.6),"truck":(12.0,2.5,3.6)}
-        DEFAULT_CLASS_SPEED_MPS = {"pedestrian":1.4,"bicycle":4.5,"car":13.9,"truck":11.1}
-        STYLE_SPEED_SCALE = {"conservative":0.85,"normal":1.0,"aggressive":1.15}
+        # defaults
+        DEFAULT_CLASS_SIZES = {"pedestrian":(0.5,0.5,1.7), "bicycle":(1.8,0.6,1.6), "car":(4.4,1.8,1.6), "truck":(12.0,2.5,3.6)}
+        DEFAULT_CLASS_SPEED_MPS = {"pedestrian":1.4, "bicycle":4.5, "car":13.9, "truck":11.1}
+        STYLE_SPEED_SCALE = {"conservative":0.85, "normal":1.0, "aggressive":1.15}
         size_tab = size_table or DEFAULT_CLASS_SIZES
-        styles = style_table or {}
-        speeds = dict(DEFAULT_CLASS_SPEED_MPS)
+        styles   = style_table or {}
+        speeds   = dict(DEFAULT_CLASS_SPEED_MPS)
         if avg_speed_override: speeds.update(avg_speed_override)
 
-        # 6) 起点冲突缓存
-        taken_starts_xy: list[np.ndarray] = []
-        taken_s_per_edge: dict[str, list[float]] = {}
+        # dedup caches
+        taken_starts_xy: List[np.ndarray] = []
+        taken_s_per_key: Dict[Any, List[float]] = {}
 
-        # 7) 生成
-        agents = []
-        id_counter = 0
-
-        # 简单内置路由（若未注入外部 router_func）
-        def _route(EG, s_xy, g_xy):
-            # 用 edge-id 图做最短路并拼几何（同我们之前的轻量实现）
-            EID = build_edge_id_graph(EG, "weight")
-            # 将 s/g 吸到走廊主干上（若有），增强相关性
-            if lines:
-                union = unary_union(lines)
-                for xy in (s_xy, g_xy):
-                    q = union.interpolate(union.project(Point(xy[0], xy[1])))
-                    xy[:] = [q.x, q.y]
-            # 找最近 edge（按代表形状）
+        # lightweight router for vehicles
+        def _route(EG: nx.DiGraph, s_xy: np.ndarray, g_xy: np.ndarray):
+            EID = self._build_edge_id_graph("weight")
             best_s = best_g = None
-            for u,v,ed in EG.edges(data=True):
-                eid = ed["id"]; P = _to_xyz(ed["shape_xyz"]); ls = LineString(P[:, :2])
-                for tag, pt in (("s", s_xy), ("g", g_xy)):
-                    ss = ls.project(Point(float(pt[0]), float(pt[1])))
-                    q = ls.interpolate(ss)
-                    d = float(Point(pt[0], pt[1]).distance(q))
-                    rec = (d, eid)
-                    if tag=="s":
-                        if (best_s is None) or (d < best_s[0]): best_s = rec
-                    else:
-                        if (best_g is None) or (d < best_g[0]): best_g = rec
+            s_pt = Point(float(s_xy[0]), float(s_xy[1])); g_pt = Point(float(g_xy[0]), float(g_xy[1]))
+            for _, _, ed in EG.edges(data=True):
+                eid = _key_id(ed["id"]); P = _to_xyz(ed["shape_xyz"]); ls = LineString(P[:, :2])
+                ss = ls.project(s_pt); s_q = ls.interpolate(ss)
+                sg = float(s_pt.distance(s_q))
+                gg = ls.project(g_pt); g_q = ls.interpolate(gg)
+                dg = float(g_pt.distance(g_q))
+                if (best_s is None) or (sg < best_s[0]): best_s = (sg, eid)
+                if (best_g is None) or (dg < best_g[0]): best_g = (dg, eid)
             if best_s is None or best_g is None: raise RuntimeError("snap failed")
             s_eid, g_eid = best_s[1], best_g[1]
             path = nx.shortest_path(EID, s_eid, g_eid, weight="weight")
-            parts=[]; dist=0.0
-            for i,e in enumerate(path):
+            parts: List[np.ndarray] = []; dist = 0.0
+            for i, e in enumerate(path):
                 P = self.edge_shapes[e]
-                if i and len(parts) and np.allclose(parts[-1][-1,:2], P[0,:2], atol=1e-6):
-                    parts[-1]=parts[-1][:-1]
+                if i and parts and np.allclose(parts[-1][-1,:2], P[0,:2], atol=1e-6):
+                    parts[-1] = parts[-1][:-1]
                 parts.append(P); dist += self.edge_lengths[e]
             return path, dist, (np.vstack(parts) if parts else np.zeros((0,3))), s_eid, g_eid
 
+        agents: List[Dict[str, Any]] = []
+        id_counter = 0
+
+        # --- generate ---
         for cls, n in alloc.items():
             if n <= 0: continue
-            size_lwh = size_tab.get(cls, (4.0,1.8,1.6))
+            size_lwh = size_tab.get(cls, (4.0, 1.8, 1.6))
             sf = STYLE_SPEED_SCALE.get(styles.get(cls, "normal"), 1.0)
             avg_speed = float(speeds.get(cls, 10.0) * sf)
 
-            attempts = 0
-            made = 0
-            while made < n and attempts < n * max_attempts_per_agent:
-                attempts += 1
-                s_eid = rng.choice(cand, p=probs_edges)
-                g_eid = rng.choice(cand, p=probs_edges)
-                # if len(cand) > 1 and g_eid == s_eid:
-                #     continue
+            tries = 0; made = 0
+            while made < n and tries < n * max_attempts_per_agent:
+                tries += 1
 
-                # 采样起点/终点以及起点在该 edge 上的弧长 s
-                Ps, s_on_s = _sample_point_on_shape_with_s(self.edge_shapes[s_eid], rng)
-                Pg, _       = _sample_point_on_shape_with_s(self.edge_shapes[g_eid], rng)
+                # VEHICLES: hop-connected start/goal on edges
+                if cls in self.vehicle_classes:
+                    s_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
+                    g_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
+                    # spawn on a lane of start edge (heading from lane), de-dup uses s on start edge
+                    Ps, heading_rad, s_on = self._spawn_on_random_lane_of_edge(s_eid, rng)
+                    Pg, _ = _sample_point_on_shape_with_s(self.edge_shapes[g_eid], rng)
+                    # conflict check (key = start edge)
+                    if self._start_conflict(Ps, s_eid, s_on, taken_starts_xy, taken_s_per_key,
+                                            min_start_spacing_m, min_same_edge_s_m):
+                        continue
+                    # route over edge graph
+                    try:
+                        if self.router is not None:
+                            edge_path, dist_m, route_xyz, se, ge = self.router(self.EG, Ps[:2], Pg[:2], self.G_lane, "weight")
+                        else:
+                            edge_path, dist_m, route_xyz, se, ge = _route(self.EG, Ps[:2], Pg[:2])
+                    except Exception:
+                        continue
+                    if not (min_route_m <= dist_m <= max_route_m): continue
+                    taken_starts_xy.append(Ps.copy())
+                    taken_s_per_key.setdefault(_key_id(s_eid), []).append(float(s_on))
+                    agents.append(dict(
+                        agent_id=f"A{id_counter}", cls=cls,
+                        size_lwh_m=size_lwh, avg_speed_mps=avg_speed,
+                        start_xyz=Ps, start_heading_rad=heading_rad,
+                        goal_xyz=Pg,
+                        edge_ids=[_key_id(e) for e in edge_path],
+                        route_xyz=route_xyz,
+                        lane_ids=None,  # can fill as before if needed
+                        spawn_source="lane_or_edge", path_type="edge_graph"
+                    ))
+                    id_counter += 1; made += 1
+                    continue
 
-                # 起点冲突检查（欧氏 + 同边弧长）
-                if self._start_conflict(Ps, s_eid, s_on_s, taken_starts_xy, taken_s_per_edge,
+                # PEDESTRIANS: move along a boundary
+                if cls in self.pedestrian_classes and self.boundaries:
+                    # choose a boundary
+                    b_idx = int(rng.integers(0, len(self.boundaries)))
+                    B = self.boundaries[b_idx]; sB = _arclen2d(B[:, :2]); L = sB[-1]
+                    if L <= 0: continue
+                    # spawn point s0 and direction
+                    s0 = float(rng.uniform(0.0, L))
+                    dir_sign = +1 if rng.random() < ped_forward_prob else -1
+                    # choose travel length
+                    seg_len = float(rng.uniform(ped_min_len_m, ped_max_len_m))
+                    if dir_sign > 0:
+                        s1 = min(L, s0 + seg_len)
+                    else:
+                        s1 = max(0.0, s0 - seg_len)
+                    # slice boundary & heading at start in travel direction
+                    route_xyz = _slice_from_s_to_s(B, sB, s0, s1)
+                    start_xyz = route_xyz[0]
+                    start_heading = _heading_at_s_dir(B, sB, s0, dir_sign=dir_sign)
+                    goal_xyz = route_xyz[-1]
+                    # de-dup: key by ("B", b_idx) and s0
+                    if self._start_conflict(start_xyz, ("B", b_idx), s0, taken_starts_xy, taken_s_per_key,
+                                            min_start_spacing_m, min_same_edge_s_m):
+                        continue
+                    # length check against global min/max (optional; or use ped-specific)
+                    dsum = float(np.sum(np.linalg.norm(np.diff(route_xyz[:, :2], axis=0), axis=1)))
+                    if not (ped_min_len_m <= dsum <= ped_max_len_m): continue
+                    taken_starts_xy.append(start_xyz.copy())
+                    taken_s_per_key.setdefault(("B", b_idx), []).append(float(s0))
+                    agents.append(dict(
+                        agent_id=f"A{id_counter}", cls=cls,
+                        size_lwh_m=size_lwh, avg_speed_mps=avg_speed,
+                        start_xyz=start_xyz, start_heading_rad=start_heading,
+                        goal_xyz=goal_xyz,
+                        edge_ids=[],            # pedestrians don't use edge routing here
+                        route_xyz=route_xyz,    # boundary-following path
+                        lane_ids=None,
+                        boundary_id=b_idx,
+                        spawn_source="boundary", path_type="boundary"
+                    ))
+                    id_counter += 1; made += 1
+                    continue
+
+                # If class is neither vehicle nor pedestrian, fall back to vehicle logic
+                # (you can specialize further if needed)
+                # Fallback:
+                s_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
+                g_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
+                Ps, heading_rad, s_on = self._spawn_on_random_lane_of_edge(s_eid, rng)
+                Pg, _ = _sample_point_on_shape_with_s(self.edge_shapes[g_eid], rng)
+                if self._start_conflict(Ps, s_eid, s_on, taken_starts_xy, taken_s_per_key,
                                         min_start_spacing_m, min_same_edge_s_m):
-                    continue  # 冲突则重采样
-
-                # 路由（用外部 router 或内置轻量 router）
+                    continue
                 try:
                     if self.router is not None:
                         edge_path, dist_m, route_xyz, se, ge = self.router(self.EG, Ps[:2], Pg[:2], self.G_lane, "weight")
                     else:
-                        edge_path, dist_m, route_xyz, se, ge = _route(self.EG, Ps[:2].copy(), Pg[:2].copy())
+                        edge_path, dist_m, route_xyz, se, ge = _route(self.EG, Ps[:2], Pg[:2])
                 except Exception:
                     continue
-
-                if not (min_route_m <= dist_m <= max_route_m):
-                    continue
-
-                # 通过冲突检查后，登记占位
+                if not (min_route_m <= dist_m <= max_route_m): continue
                 taken_starts_xy.append(Ps.copy())
-                taken_s_per_edge.setdefault(s_eid, []).append(float(s_on_s))
-
-                # 如需 lane 级别
-                lane_ids = None
-                if lift_to_lane_ids:
-                    # 轻量抬升：优先找可达 successor 的下一条 lane
-                    edge_lanes = {ed["id"]: list(ed.get("lanes", [])) for _,_,ed in self.EG.edges(data=True)}
-                    lanes_out = []
-                    if edge_path:
-                        first = edge_lanes.get(edge_path[0], [])
-                        lanes_out.append((rng.choice(first) if first else None))
-                        for e1,e2 in zip(edge_path[:-1], edge_path[1:]):
-                            prev = edge_lanes.get(e1, []); nxt = edge_lanes.get(e2, [])
-                            chosen = None
-                            if lanes_out[-1] is not None:
-                                cur = lanes_out[-1]
-                                for b in nxt:
-                                    ed = self.G_lane.get_edge_data(cur, b)
-                                    if ed and ed.get("type")=="successor":
-                                        chosen=b; break
-                            if chosen is None:
-                                chosen = (rng.choice(nxt) if nxt else None)
-                            lanes_out.append(chosen)
-                    lane_ids = lanes_out
-
+                taken_s_per_key.setdefault(_key_id(s_eid), []).append(float(s_on))
                 agents.append(dict(
-                    agent_id=f"A{id_counter}",
-                    cls=cls,
-                    size_lwh_m=size_lwh,
-                    avg_speed_mps=avg_speed,
-                    start_xyz=Ps,
+                    agent_id=f"A{id_counter}", cls=cls,
+                    size_lwh_m=size_lwh, avg_speed_mps=avg_speed,
+                    start_xyz=Ps, start_heading_rad=heading_rad,
                     goal_xyz=Pg,
-                    edge_ids=edge_path,
+                    edge_ids=[_key_id(e) for e in edge_path],
                     route_xyz=route_xyz,
-                    lane_ids=lane_ids
+                    lane_ids=None,
+                    spawn_source="lane_or_edge", path_type="edge_graph"
                 ))
-                id_counter += 1
-                made += 1
+                id_counter += 1; made += 1
 
         return agents

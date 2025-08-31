@@ -481,6 +481,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
     map_infos["centerline_list"]=centerline_list
     map_infos["lane_graph"]=lane_graph
     map_infos["edge_graph"]=edge_graph.EG
+    map_infos["boundary_xyz"]=boundary_dict
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)
