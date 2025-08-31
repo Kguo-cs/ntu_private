@@ -587,7 +587,7 @@ class IQ_SoftQ(LightningModule):
                                                      tokenized_agent["sampled_heading"][:, 2:],
                                                      tokenized_agent["shape"][:, :2],
                                                      tokenized_agent["batch"],
-                                                      tokenized_map["global_edge"],
+                                                      tokenized_map["global_edge"][:,::5],
                                                       tokenized_map["batch_edge"]
                                                       )[1]
 
