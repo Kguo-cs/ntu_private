@@ -566,17 +566,19 @@ class IQ_SoftQ(LightningModule):
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
             if self.encoder.agent_encoder.pred_col:
-                expert_col_flag = oriented_box_collision(tokenized_agent["gt_pos_raw"][:, 2:],
-                                                  tokenized_agent["gt_head_raw"][:, 2:],
+                expert_col_flag = oriented_box_collision(tokenized_agent["sampled_pos"][:, 2:],
+                                                  tokenized_agent["sampled_heading"][:, 2:],
                                                   tokenized_agent["shape"][:, :2],
                                                   tokenized_agent["batch"])[0].float()
 
                 col_pred = torch.sigmoid(self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask])[..., 0])
 
-                expert_col_loss = self.bce_loss(col_pred, expert_col_flag[train_mask])
+                valid_expert_col_flag=expert_col_flag[train_mask]
+
+                expert_col_loss = self.bce_loss(col_pred, valid_expert_col_flag)
 
                 self.log('train/expert_col_loss', expert_col_loss.item(), on_step=True, batch_size=1)
-                self.log('train/expert_col_rate', expert_col_flag[train_mask].mean().item(), on_step=True, batch_size=1)
+                self.log('train/expert_col_rate', valid_expert_col_flag.mean().item(), on_step=True, batch_size=1)
 
                 expert_nll=expert_nll+expert_col_loss
 
