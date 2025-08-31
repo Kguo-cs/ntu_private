@@ -169,7 +169,7 @@ class SMARTAgentDecoder(nn.Module):
             self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)#nn.Embedding(self.k_dim, hidden_dim)
 
         self.pred_col=True
-        self.use_sign_dist=True
+        self.use_sign_dist=False
 
         self.token_processor= token_processor
         self.discriminator=discriminator

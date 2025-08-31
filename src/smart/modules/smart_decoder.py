@@ -184,13 +184,13 @@ class SMARTDecoder(nn.Module):
                 if self.agent_encoder.pred_col:
 
                     if self.agent_encoder.use_sign_dist:
-                        self.col_head = MLPLayer(hidden_dim, hidden_dim, 3)
+                       # self.col_head = MLPLayer(hidden_dim, hidden_dim, 3)
 
                         self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 3)
 
                     else:
 
-                        self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
+                       # self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
 
 
                         self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
