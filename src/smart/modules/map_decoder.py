@@ -22,6 +22,15 @@ from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, padding
 from .build_edge import radiusGraphNearest
 from .edge_encoder import EdgeEncoder
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    angle_between_2d_vectors
+)
+
+import matplotlib.pyplot as plt
 
 class SMARTMapDecoder(nn.Module):
 
@@ -77,6 +86,8 @@ class SMARTMapDecoder(nn.Module):
             ]
         )
 
+        self.pred_offroad=False
+
 
         self.apply(weight_init)
 
@@ -103,6 +114,28 @@ class SMARTMapDecoder(nn.Module):
         orient_pt = tokenized_map["orientation"]#[mask]
         #map_type=map_type[mask]
         token_idx=tokenized_map["token_idx"].long()#[mask]
+
+
+        if self.pred_offroad:
+            token_edge_idx=token_idx[mask]
+            pos_edge=pos_pt[mask]
+            orient_edge=orient_pt[mask]
+            batch_edge=batch[mask]
+
+            local_traj=self.token_processor.map_token_traj_src[token_edge_idx]
+
+            global_edge,_=transform_to_global(pos_local=local_traj.reshape(-1,11,2), head_local=None, pos_now=pos_edge, head_now=orient_edge)
+
+            # global_edge=global_edge.cpu().detach().numpy()
+            # for i in range(len(global_edge)):
+            #
+            #    plt.plot(global_edge[i,:,0],global_edge[i,:,1],'r')
+            # plt.show()
+
+            tokenized_map["global_edge"]=global_edge
+            tokenized_map["batch_edge"]=batch_edge
+
+
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
