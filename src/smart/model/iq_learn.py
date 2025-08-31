@@ -576,7 +576,7 @@ class IQ_SoftQ(LightningModule):
                 expert_col_loss = self.bce_loss(col_pred, expert_col_flag[train_mask])
 
                 self.log('train/expert_col_loss', expert_col_loss.item(), on_step=True, batch_size=1)
-                self.log('train/expert_col_rate', expert_col_flag.mean().item(), on_step=True, batch_size=1)
+                self.log('train/expert_col_rate', expert_col_flag[train_mask].mean().item(), on_step=True, batch_size=1)
 
                 expert_nll=expert_nll+expert_col_loss
 
