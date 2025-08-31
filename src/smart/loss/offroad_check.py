@@ -1,132 +1,200 @@
 import torch
 
-def signed_distance_capsule_to_oriented_boundary_knn(
-    pos: torch.Tensor,           # [N,2] or [N,T,2]
-    heading: torch.Tensor,       # [N] or [N,T] (radians)
-    shape_lw: torch.Tensor,      # [N,2] (L, W)
-    agent_batch: torch.Tensor,   # [N]
-    polylines: torch.Tensor,     # [P,S,2] (CCW boundary; S>=2)
-    poly_batch: torch.Tensor,    # [P]
-    knn_k: int = 32,
-    margin: float = 0.0,
-    use_mean_pos_for_knn: bool = True,
-    eps: float = 1e-9,
+EXTREMELY_LARGE_DISTANCE = 1e9
+
+def _dot2d(a, b):  # [...,2]
+    return a[..., 0] * b[..., 0] + a[..., 1] * b[..., 1]
+
+def _cross2d(a, b):  # scalar z of 2D cross
+    return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+
+@torch.no_grad()
+def _signed_distance_points_to_polylines_knn_2d(
+    xys: torch.Tensor,          # [M, 2] points (corners)
+    point_batch: torch.Tensor,  # [M] scene id per point
+    polylines_xy: torch.Tensor, # [P, S+1, 2] CCW boundary vertices
+    poly_batch: torch.Tensor,   # [P] scene id per polyline
+    knn_k: int = 16,
 ) -> torch.Tensor:
-    """Signed distance from each agent capsule (L along heading, radius W/2+margin)
-    to the nearest oriented boundary segment. Negative = inside, Positive = outside."""
-    device = pos.device
+    """
+    Signed 2D distance from each point to the nearest segment among its top-K
+    nearest polylines in the *same* batch. CCW: left/port => negative.
+    Returns: [M] float32.
+    """
+    device = xys.device
+    xys = xys.to(torch.float32)
+    polylines_xy = polylines_xy.to(torch.float32)
+    point_batch = point_batch.to(polylines_xy.device)
+    poly_batch  = poly_batch.to(polylines_xy.device)
+
+    M = xys.shape[0]
+    P, Sp1, _ = polylines_xy.shape
+    S1 = Sp1 - 1
+    if P == 0 or S1 <= 0:
+        return torch.full((M,), float("inf"), device=device, dtype=torch.float32)
+
+    # Precompute segments & convexity (shared)
+    starts = polylines_xy[:, :-1, :]         # [P, S1, 2]
+    ends   = polylines_xy[:,  1:, :]
+    seg    = ends - starts                   # [P, S1, 2]
+    seg_pad = torch.cat([seg[:, -1:, :], seg, seg[:, :1, :]], dim=1)          # [P,S1+2,2]
+    is_locally_convex = (_cross2d(seg_pad[:, :-1, :], seg_pad[:, 1:, :]) > 0) # [P,S1+1]
+
+    # kNN polylines per point (mask cross-batch with +inf)
+    poly_centroid = polylines_xy.mean(dim=1)             # [P,2]
+    D = torch.cdist(xys, poly_centroid)                  # [M,P]
+    same = (point_batch[:, None] == poly_batch[None, :]) # [M,P]
+    D = torch.where(same, D, torch.full_like(D, float("inf")))
+    m = min(knn_k, P)
+    if m == 0:
+        return torch.full((M,), float("inf"), device=device, dtype=torch.float32)
+
+    knn_idx = D.topk(m, largest=False).indices           # [M,m]
+    row = torch.arange(M, device=device).repeat_interleave(m)  # [M*m]
+    col = knn_idx.reshape(-1)                                  # [M*m]
+    valid = torch.isfinite(D[row, col])
+    if not valid.any():
+        return torch.full((M,), float("inf"), device=device, dtype=torch.float32)
+
+    # Selected pairs
+    pi = row[valid]      # [Q] point indices (0..M-1)
+    pj = col[valid]      # [Q] polyline indices (0..P-1)
+    Q  = pi.numel()
+
+    # Compute point-to-segments for each (point, polyline) pair
+    B0 = starts[pj]                            # [Q, S1, 2]
+    V  = seg[pj]                               # [Q, S1, 2]
+    ilc = is_locally_convex[pj]                # [Q, S1+1]
+
+    X  = xys[pi]                                # [Q, 2]
+    start_to_point = X[:, None, :] - B0         # [Q, S1, 2]
+    start_to_end   = V                          # [Q, S1, 2]
+
+    denom = _dot2d(start_to_end, start_to_end)  # [Q, S1]
+    num   = _dot2d(start_to_point, start_to_end)
+    rel_t = torch.where(denom > 0, num / denom, torch.zeros_like(num))  # [Q, S1]
+
+    n = torch.sign(_cross2d(start_to_point, start_to_end))              # [Q, S1]
+
+    rel_t_c = rel_t.clamp(0.0, 1.0)[..., None]
+    seg_to_point = start_to_point - start_to_end * rel_t_c              # [Q, S1, 2]
+    dist2d = torch.linalg.norm(seg_to_point, dim=-1)                    # [Q, S1]
+
+    # Non-cyclic neighbors and convexity
+    n_prior = torch.cat([n[:, :1],  n[:, :-1]],  dim=-1)  # [Q, S1]
+    n_next  = torch.cat([n[:, 1:],  n[:, -1:]],  dim=-1)  # [Q, S1]
+    ilc_before = ilc[:, :-1]                              # [Q, S1]
+    ilc_after  = ilc[:,  1:]                              # [Q, S1]
+
+    sign_if_before = torch.where(ilc_before, torch.maximum(n, n_prior), torch.minimum(n, n_prior))
+    sign_if_after  = torch.where(ilc_after,  torch.maximum(n, n_next),  torch.minimum(n, n_next))
+
+    sign_to_segment = torch.where(
+        (rel_t < 0.0), sign_if_before,
+        torch.where((rel_t > 1.0), sign_if_after, n)
+    )  # [Q, S1]
+
+    # For each (point, polyline) pair, choose nearest segment & its sign
+    seg_min_idx = dist2d.argmin(dim=-1)                                  # [Q]
+    dist_pair   = dist2d.gather(1, seg_min_idx.unsqueeze(1)).squeeze(1)  # [Q]
+    sign_pair   = sign_to_segment.gather(1, seg_min_idx.unsqueeze(1)).squeeze(1)  # [Q]
+
+    # ---- Reduce across polylines to 1 result per point ----
+    # 1) per-point min distance via scatter_reduce(amin)
+    out_dist = torch.full((M,), float("inf"), device=device)
+    if hasattr(out_dist, "scatter_reduce"):
+        out_dist = out_dist.scatter_reduce(0, pi, dist_pair, reduce="amin", include_self=True)
+        # 2) identify which pair(s) achieved that min (with tolerance), pick first
+        order = torch.arange(Q, device=device)
+        is_winner = dist_pair <= (out_dist[pi] + 1e-6)      # [Q]
+        win_order = torch.where(is_winner, order, torch.full_like(order, Q))
+        best_order = torch.full((M,), Q, device=device).scatter_reduce(
+            0, pi, win_order, reduce="amin", include_self=True
+        )  # [M], each in [0..Q] (Q means none)
+        # map to sign; default +1 if no winner (shouldn’t happen if valid.any())
+        out_sign = torch.ones((M,), device=device, dtype=sign_pair.dtype)
+        has = best_order < Q
+        out_sign[has] = sign_pair[best_order[has]]
+    else:
+        # Fallback for older PyTorch: tiny per-point loop (K is small)
+        out_sign = torch.ones((M,), device=device, dtype=sign_pair.dtype)
+        for p in torch.unique(pi):
+            mask = (pi == p)
+            dmin, k = dist_pair[mask].min(dim=0)
+            out_dist[p] = dmin
+            out_sign[p] = sign_pair[mask][k]
+
+    return out_sign * out_dist  # [M]
+
+@torch.no_grad()
+def corners_offroad_signed_distance_batched_2d_knn(
+    pos: torch.Tensor,            # [N,2] or [N,T,2]
+    heading: torch.Tensor,        # [N] or [N,T] (radians)
+    shape_lw: torch.Tensor,       # [N,2]  (L, W)
+    agent_batch: torch.Tensor,    # [N] scene ids for agents
+    polylines_xy: torch.Tensor,   # [P, S+1, 2] CCW boundary vertices
+    poly_batch: torch.Tensor,     # [P] scene ids for polylines
+    knn_k: int = 16,
+) :
+    """
+    Efficient pipeline:
+      1) build 4 OBB corners per agent/time,
+      2) signed distance to nearest boundary using k-NN polylines within batch,
+      3) reshape to [N,T,4], take max over corners.
+    Returns:
+      corner_distance_to_road_edge: [N,T,4]
+      signed_distances:             [N,T]
+    """
+    # unify time
     has_time = (pos.ndim == 3)
     if not has_time:
         pos = pos[:, None, :]
         heading = heading[:, None]
     N, T, _ = pos.shape
+    device = pos.device
 
-    P, S, _ = polylines.shape
-    S1 = S - 1
-    if P == 0 or S1 <= 0:
-        out = torch.full((N, T), float("inf"), device=device)
-        return out[:, 0] if not has_time else out
+    # half-extents
+    hl = shape_lw[:, 0] * 0.5
+    hw = shape_lw[:, 1] * 0.5
 
-    # ---- agent capsule (segment + radius) ----
-    L   = shape_lw[:, 0]                    # [N]
-    rad = shape_lw[:, 1] * 0.5 + margin     # [N]  <-- keep this name!
+    # local axes
     c = torch.cos(heading); s = torch.sin(heading)
-    u = torch.stack([c, s], dim=-1)         # [N,T,2] forward axis
-    half = (L[:, None] * 0.5)               # [N,1]
-    A0 = pos - half[..., None] * u          # [N,T,2]
-    A1 = pos + half[..., None] * u          # [N,T,2]
+    u = torch.stack([c, s], dim=-1)          # [N,T,2] forward
+    v = torch.stack([-s, c], dim=-1)         # [N,T,2] left
 
-    # ---- boundary segments ----
-    B0_all = polylines[:, :-1, :]           # [P,S1,2]
-    B1_all = polylines[:,  1:, :]
-    poly_centroid = polylines.mean(dim=1)   # [P,2]
+    # four corners in local (±hl, ±hw): (+,+), (+,-), (-,-), (-,+)
+    offs = torch.stack([
+        torch.stack([ hl,  hw], dim=-1),
+        torch.stack([ hl, -hw], dim=-1),
+        torch.stack([-hl, -hw], dim=-1),
+        torch.stack([-hl,  hw], dim=-1),
+    ], dim=1)  # [N,4,2]
 
-    # ---- kNN over polylines per agent (no batch loops) ----
-    Aref = pos.mean(dim=1) if use_mean_pos_for_knn else pos[:, 0, :]  # [N,2]
-    D = torch.cdist(Aref, poly_centroid)                               # [N,P]
-    same = (agent_batch[:, None] == poly_batch[None, :])
-    D = torch.where(same, D, torch.full_like(D, float("inf")))
-    m = min(knn_k, P)
-    if m == 0:
-        out = torch.full((N, T), float("inf"), device=device)
-        return out[:, 0] if not has_time else out
-    knn_idx = D.topk(m, largest=False).indices                         # [N,m]
+    offs_t = offs[:, None, :, :]             # [N,1,4,2]
+    u4 = u[:, :, None, :]                    # [N,T,1,2]
+    v4 = v[:, :, None, :]                    # [N,T,1,2]
+    corners_xy = pos[:, :, None, :] + offs_t[..., :1] * u4 + offs_t[..., 1:] * v4  # [N,T,4,2]
 
-    # flattened (agent, slot, poly) mapping
-    i_flat = torch.arange(N, device=device).unsqueeze(1).expand(N, m).reshape(-1)
-    s_flat = torch.arange(m, device=device).unsqueeze(0).expand(N, m).reshape(-1)
-    j_flat = knn_idx.reshape(-1)
-    valid  = torch.isfinite(D[i_flat, j_flat])
+    # Flatten corners to [M,2] and batches to [M]
+    M = N * T * 4
+    flat_eval_corners = corners_xy.reshape(M, 2)
+    flat_point_batch  = agent_batch[:, None, None].expand(N, T, 4).reshape(M)
 
-    # per-(N,m,T) containers for reduction
-    mag_ntm  = torch.full((N, m, T), float("inf"), device=device)  # magnitude = |dist - rad|
-    sign_ntm = torch.ones((N, m, T), device=device)                # boundary sign (+1/-1)
+    # Compute signed distances with k-NN preselection
+    flat_sd = _signed_distance_points_to_polylines_knn_2d(
+        xys=flat_eval_corners,
+        point_batch=flat_point_batch,
+        polylines_xy=polylines_xy,
+        poly_batch=poly_batch,
+        knn_k=knn_k,
+    )  # [M]
 
-    if valid.any():
-        i_v, s_v, j_v = i_flat[valid], s_flat[valid], j_flat[valid]
-
-        # gather agent segments
-        A0p = A0[i_v]                 # [Psel,T,2]
-        A1p = A1[i_v]
-        u0  = A1p - A0p               # [Psel,T,2]
-
-        # gather boundary segments
-        B0p = B0_all[j_v]             # [Psel,S1,2]
-        B1p = B1_all[j_v]
-        V   = (B1p - B0p)             # [Psel,S1,2]
-        Vn  = V / (V.norm(dim=-1, keepdim=True).clamp_min(eps))
-
-        # broadcast for segment–segment closest points
-        A0b = A0p[:, :, None, :]      # [Psel,T,1,2]
-        u0b = u0[:,  :, None, :]
-        B0b = B0p[:, None, :, :]      # [Psel,1,S1,2]
-        Vb  = V[:,  None, :, :]
-        Vnb = Vn[:, None, :, :]
-
-        w0 = A0b - B0b                # [Psel,T,S1,2]
-        a  = (u0b * u0b).sum(-1)      # [Psel,T,1]
-        b  = (u0b * Vb ).sum(-1)      # [Psel,T,S1]
-        c2 = (Vb  * Vb ).sum(-1)      # [Psel,1,S1]
-        d  = (u0b * w0 ).sum(-1)      # [Psel,T,S1]
-        e  = (Vb  * w0 ).sum(-1)      # [Psel,T,S1]
-
-        denom = a * c2 - b * b
-        denom = torch.where(denom.abs() < eps, torch.full_like(denom, eps), denom)
-
-        s = ((b * e - c2 * d) / denom).clamp(0.0, 1.0)   # [Psel,T,S1]
-        t = ((a * e - b  * d) / denom).clamp(0.0, 1.0)
-
-        P_cl = A0b + s[..., None] * u0b     # [Psel,T,S1,2] agent closest point
-        Q_cl = B0b + t[..., None] * Vb      # [Psel,T,S1,2] boundary closest point
-        dvec = P_cl - Q_cl                  # [Psel,T,S1,2]
-        dist = dvec.norm(dim=-1)            # [Psel,T,S1]
-
-        # nearest segment per (pair,time)
-        dist_min, seg_idx = dist.min(dim=2)  # [Psel,T]
-        # gather Vn and closest points at that segment to compute sign
-        sel = seg_idx[..., None, None].expand(-1, -1, 1, 2)
-        Vn_min = Vnb.expand(-1, T, -1, -1).gather(2, sel).squeeze(2)  # [Psel,T,2]
-        Q_min  = Q_cl.gather(2, sel).squeeze(2)                       # [Psel,T,2]
-        P_min  = P_cl.gather(2, sel).squeeze(2)                       # [Psel,T,2]
-        r_min  = P_min - Q_min                                        # [Psel,T,2]
-
-        # boundary orientation sign: cross(Vn_min, r_min)
-        cross_z = Vn_min[..., 0]*r_min[..., 1] - Vn_min[..., 1]*r_min[..., 0]  # [Psel,T]
-        sign_boundary = torch.where(cross_z > 0, -1.0, 1.0)  # CCW: left/port => inside (-)
-
-        # magnitude: distance minus capsule radius
-        sd_pair = dist_min - rad[i_v][:, None]    # [Psel,T]
-
-        # stash for reduction over m
-        mag_ntm[i_v, s_v]  = sd_pair.abs()
-        sign_ntm[i_v, s_v] = sign_boundary
-
-    # choose nearest polyline per agent/time
-    idx_m = mag_ntm.argmin(dim=1)                   # [N,T] over m
-    mag   = mag_ntm.gather(1, idx_m.unsqueeze(1)).squeeze(1)  # [N,T]
-    sgn   = sign_ntm.gather(1, idx_m.unsqueeze(1)).squeeze(1) # [N,T]
-    sd = sgn * mag
+    # Reshape and reduce max over corners
+    corner_distance_to_road_edge = flat_sd.view(N, T, 4)         # [N,T,4]
+    signed_distances = corner_distance_to_road_edge.max(dim=-1).values  # [N,T]
 
     if not has_time:
-        sd = sd[:, 0]
-    return sd
+        corner_distance_to_road_edge = corner_distance_to_road_edge[:, 0, :]
+        signed_distances = signed_distances[:, 0]
+
+    return corner_distance_to_road_edge, signed_distances
