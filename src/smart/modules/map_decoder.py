@@ -146,13 +146,32 @@ class SMARTMapDecoder(nn.Module):
             )
 
             for i in range(self.num_layers):
+
                 x_pt ,_= self.pt2pt_layers[i]((x_pt, x_pt), r_pt2pt, edge_index_pt2pt)
 
 
+            # new_mask=mask.clone()
+            #
+            # new_mask[torch.where(mask)[0][1::2]]=False
+            #
+            # edge_pt=x_pt[new_mask]
+            # pos_edge=pos_pt[new_mask]
+            # orient_edge=orient_pt[new_mask]
+            # batch_edge=batch[new_mask].contiguous()
+            #
+            # r_pt2pt = r_pt2pt[new_mask[edge_index_pt2pt[1]]]
+            # edge_index_pt2pt = edge_index_pt2pt[:, new_mask[edge_index_pt2pt[1]]]
+            #
+            # edge_pt,_ = self.pt2pt_layers[1]((x_pt, edge_pt), r_pt2pt, edge_index_pt2pt)
+            #
+            # x_pt=edge_pt
+            # pos_pt=pos_edge
+            # orient_pt=orient_edge
+            # batch=batch_edge
             x_pt=x_pt[mask][::2]
             pos_pt=pos_pt[mask][::2]
             orient_pt=orient_pt[mask][::2]
-            batch=batch[mask][::2]
+            batch=batch[mask][::2].contiguous()
 
         else:
 
