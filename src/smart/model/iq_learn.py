@@ -23,6 +23,7 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei
 from torch_scatter import scatter_mean
 from torch.distributions import Categorical, Normal, Independent
 from src.smart.loss.kl_loss import BalancedKL
+from src.smart.loss.collision_check import oriented_box_collision
 
 class IQ_SoftQ(LightningModule):
 
@@ -323,12 +324,12 @@ class IQ_SoftQ(LightningModule):
         #
         # logit =self.encoder.discriminator(sa)
 
-        if key=="expert":
-            sampled_pos=tokenized_agent["gt_pos_raw"]
-            sampled_head=tokenized_agent["gt_head_raw"]
-        else:
-            sampled_pos=tokenized_agent["sampled_pos"]
-            sampled_head=tokenized_agent["sampled_heading"]
+        # if key=="expert":
+        #     sampled_pos=tokenized_agent["gt_pos_raw"]
+        #     sampled_head=tokenized_agent["gt_head_raw"]
+        # else:
+        sampled_pos=tokenized_agent["sampled_pos"]
+        sampled_head=tokenized_agent["sampled_heading"]
 
 
 
@@ -342,7 +343,7 @@ class IQ_SoftQ(LightningModule):
                                                         tokenized_agent["light_idx"],
                                                         None,
                                                        # latent_z=tokenized_agent["latent_z"]
-                                                        )[0]
+                                                        )[0]#Metrics-Guided Adversarial Training
 
         #logit=torch.tanh(logit)*10
 
@@ -565,6 +566,8 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
+
+
         if self.encoder.agent_encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
@@ -576,6 +579,7 @@ class IQ_SoftQ(LightningModule):
             expert_nll=expert_nll+error_vae
 
         tokenized_agent["train_mask"] = all_valid
+
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
@@ -656,6 +660,18 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
+
+            if self.encoder.agent_encoder.pred_col:
+                col_flag = oriented_box_collision(tokenized_agent_rollout["sampled_pos"][:,2:], tokenized_agent_rollout["sampled_heading"][:,2:],
+                                                  tokenized_agent_rollout["shape"][:, :2], tokenized_agent_rollout["batch"])[0].float()
+
+                col_pred = torch.sigmoid(self.encoder.col_head(tokenized_agent["feat_a_nodetach"])[:,:,0])
+
+                col_loss = self.bce_loss(col_pred, col_flag)
+
+                self.log('col_loss',col_loss.item(), on_step=True, batch_size=1)
+                self.log('col_rate',col_flag.mean().item(), on_step=True, batch_size=1)
+                expert_nll=expert_nll+col_loss
 
             if self.use_gail:
                 if not self.use_distance:
@@ -778,24 +794,6 @@ class IQ_SoftQ(LightningModule):
                     # loss_prior = kl_qp - tau * H_p  # tau ~ 0.01–0.1
 
                     #@self.log("train/loss_prior", loss_prior.item(), on_step=True, batch_size=1)
-
-
-                # if self.buffer_len>1:
-                #     with torch.no_grad():
-                #         agent_dis_loss, agent_rewards, agent_returns, agent_logit = self.get_reward(
-                #             tokenized_agent_rollout["detach_all_features"], "agent",
-                #             tokenized_agent_rollout["train_mask"])
-                #
-                #     all_feats=[]
-                #     for feat in tokenized_agent_rollout["detach_all_features"]:
-                #         all_feats.append(feat.clone())
-                #     self.replay_buffer.append((all_feats,tokenized_agent_rollout["train_mask"]))
-                #
-                #     detach_all_features,agent_train_mask=random.sample(self.replay_buffer,1)[0]
-                #     logit = self.encoder.discriminator(detach_all_features, agent_train_mask)[0][:, :, 0]
-                #     agent_dis_loss = self.bce_loss( torch.sigmoid(logit), torch.zeros_like(logit))
-                #
-                # else:
 
 
                 if self.reward_type=="raw":
