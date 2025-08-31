@@ -576,7 +576,7 @@ class IQ_SoftQ(LightningModule):
         valid_expert_col_flag = col_flag[train_mask]
 
         self.log('train/'+key+'_col_loss', col_loss.item(), on_step=True, batch_size=1)
-        self.log('train/'+key+'_col_loss', dis_loss.item(), on_step=True, batch_size=1)
+        self.log('train/'+key+'_dis_col_loss', dis_loss.item(), on_step=True, batch_size=1)
 
         self.log('train/'+key+'_col_rate', valid_expert_col_flag.float().mean().item(), on_step=True, batch_size=1)
 
