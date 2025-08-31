@@ -24,7 +24,7 @@ from torch_scatter import scatter_mean
 from torch.distributions import Categorical, Normal, Independent
 from src.smart.loss.kl_loss import BalancedKL
 from src.smart.loss.collision_check import oriented_box_collision,signed_distance_boxes_sat_fast,value_to_hist_class
-from src.smart.loss.offroad_check import corners_offroad_signed_distance_batched_2d_knn
+from src.smart.loss.offroad_check import corners_offroad_signed_distance_batched_2d_knn_fast
 
 class IQ_SoftQ(LightningModule):
 
@@ -583,7 +583,7 @@ class IQ_SoftQ(LightningModule):
         self.log('train/'+key+'_col_rate', valid_expert_col_flag.float().mean().item(), on_step=True, batch_size=1)
 
         if self.encoder.map_encoder.pred_offroad:
-            near_dist=corners_offroad_signed_distance_batched_2d_knn(tokenized_agent["sampled_pos"][:, 2:],
+            near_dist=corners_offroad_signed_distance_batched_2d_knn_fast(tokenized_agent["sampled_pos"][:, 2:],
                                                      tokenized_agent["sampled_heading"][:, 2:],
                                                      tokenized_agent["shape"][:, :2],
                                                      tokenized_agent["batch"],
