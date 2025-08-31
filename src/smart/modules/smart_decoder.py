@@ -54,7 +54,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=True
+        self.iq_learn=False
         self.output_gmm=False
         self.use_gail=True
 
@@ -105,6 +105,19 @@ class SMARTDecoder(nn.Module):
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
+
+            if self.agent_encoder.pred_col:
+
+                if self.agent_encoder.use_sign_dist:
+                    self.col_head = MLPLayer(hidden_dim, hidden_dim, 21)
+                    if self.iq_learn:
+                        self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 21)
+
+                else:
+                    self.col_head = nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1), nn.Sigmoid())
+                    if self.iq_learn:
+                        self.dis_col_head = nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1), nn.Sigmoid())
+
             if self.agent_encoder.use_vae:
                 self.k_dim = self.agent_encoder.k_dim
                 self.post_net = SMARTAgentDecoder(
@@ -181,19 +194,6 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
-                if self.agent_encoder.pred_col:
-
-                    if self.agent_encoder.use_sign_dist:
-                        self.col_head = MLPLayer(hidden_dim, hidden_dim, 21)
-
-                        self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 21)
-
-                    else:
-
-                        self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
-
-
-                        self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
 
                 if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
