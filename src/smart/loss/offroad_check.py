@@ -1,27 +1,31 @@
 import torch
 from typing import Tuple
 
-# ---------- small helpers ----------
+EXTREMELY_LARGE_DISTANCE = 1e9
+
 def _dot2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return a[..., 0] * b[..., 0] + a[..., 1] * b[..., 1]
 
 def _cross2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    # standard 2D cross z-component: a_x*b_y - a_y*b_x
     return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
 
 
 @torch.no_grad()
-def _sd_points_to_polylines_knn_2d_streaming(
-    xys: torch.Tensor,          # [M, 2] points
-    polylines_xy: torch.Tensor, # [P, S+1, 2] (only this scene)
+def _signed_distance_points_to_polylines_knn_2d_batch(
+    xys: torch.Tensor,          # [M, 2] corner points (ONE batch)
+    polylines_xy: torch.Tensor, # [P, S+1, 2] CCW vertices (ONE batch)
     knn_k: int = 16,
-    points_chunk: int = 8192,
-    polys_chunk: int = 4096,
-    seg_chunk: int = 512,
 ) -> torch.Tensor:
     """
-    Streaming, low-memory signed 2D distance for ONE scene (no batch masking).
-    CCW boundary => port/left is INSIDE => negative distance.
-    Returns: [M]
+    Fully vectorized (no chunking) signed 2D distance per point to the nearest
+    boundary among its K nearest polylines within this batch.
+
+    Sign convention (TF-aligned):
+      port/left of segment = INSIDE = NEGATIVE distance
+      => n_base = -sign(cross(start->point, start->end))
+
+    Returns: sd [M] (float32)
     """
     device = xys.device
     xys = xys.to(torch.float32)
@@ -30,136 +34,92 @@ def _sd_points_to_polylines_knn_2d_streaming(
     M = xys.shape[0]
     P, Sp1, _ = polylines_xy.shape
     S1 = Sp1 - 1
-    if P == 0 or S1 <= 0 or M == 0:
+    if M == 0 or P == 0 or S1 <= 0:
         return torch.full((M,), float("inf"), device=device, dtype=torch.float32)
 
-    # Precompute per-polyline segments & convexity once
-    starts = polylines_xy[:, :-1, :]       # [P, S1, 2]
-    ends   = polylines_xy[:,  1:, :]
-    V      = ends - starts                 # [P, S1, 2]
-    V_len2 = _dot2d(V, V).clamp_min(1e-12) # [P, S1]
-    V_pad  = torch.cat([V[:, -1:, :], V, V[:, :1, :]], dim=1)         # [P, S1+2, 2]
+    # Segments & per-polyline convexity (non-cyclic padding, TF-style)
+    starts = polylines_xy[:, :-1, :]         # [P, S1, 2]
+    ends   = polylines_xy[:,  1:, :]         # [P, S1, 2]
+    V      = ends - starts                   # [P, S1, 2]
+
+    V_pad = torch.cat([V[:, -1:, :], V, V[:, :1, :]], dim=1)   # [P, S1+2, 2]
     is_locally_convex = (_cross2d(V_pad[:, :-1, :], V_pad[:, 1:, :]) > 0.0)  # [P, S1+1]
+    ilc_before_all = is_locally_convex[:, :-1]   # [P, S1]
+    ilc_after_all  = is_locally_convex[:,  1:]   # [P, S1]
 
-    # Centroids for KNN
-    centroids = polylines_xy.mean(dim=1)   # [P, 2]
+    # ---- kNN over polylines (centroids) ----
+    poly_centroid = polylines_xy.mean(dim=1)          # [P, 2]
+    D = torch.cdist(xys, poly_centroid)               # [M, P]
+    k = int(min(knn_k, P))
+    knn_idx = D.topk(k, largest=False).indices        # [M, k]
 
-    # Outputs per point (winner info)
-    best_min2 = torch.full((M,), float("inf"), device=device)  # squared distance
-    best_poly = torch.full((M,), -1, device=device, dtype=torch.long)
-    best_seg  = torch.full((M,), -1, device=device, dtype=torch.long)
+    # Build (point, polyline) pairs
+    row = torch.arange(M, device=device).unsqueeze(1).expand(M, k)  # [M,k]
+    pi = row.reshape(-1)                                            # [Q]
+    pj = knn_idx.reshape(-1)                                        # [Q]
+    Q  = pi.numel()
 
-    # Process points in chunks to cap RAM
-    for p0 in range(0, M, points_chunk):
-        p1 = min(p0 + points_chunk, M)
-        X = xys[p0:p1]     # [m,2]
-        m = X.shape[0]
+    # Gather geometry per pair: [Q, S1, *]
+    B0 = starts[pj]                              # [Q, S1, 2]
+    VV = V[pj]                                   # [Q, S1, 2]
+    ilc_before = ilc_before_all[pj]              # [Q, S1]
+    ilc_after  = ilc_after_all[pj]               # [Q, S1]
 
-        # Streaming KNN over polylines (within the scene)
-        best_d = torch.full((m, knn_k), float("inf"), device=device)
-        best_j = torch.full((m, knn_k), -1, device=device, dtype=torch.long)
+    X = xys[pi]                                  # [Q, 2]
+    stp = X[:, None, :] - B0                     # [Q, S1, 2]  start->point
+    ste = VV                                     # [Q, S1, 2]  start->end
 
-        for q0 in range(0, P, polys_chunk):
-            q1 = min(q0 + polys_chunk, P)
-            C  = centroids[q0:q1]          # [pc,2]
-            D  = torch.cdist(X, C)         # [m,pc]
-            # Merge into running top-k
-            cat_d = torch.cat([best_d, D], dim=1)                          # [m, k+pc]
-            cur_j = best_j
-            new_j = torch.arange(q0, q1, device=device).repeat(m, 1)       # [m,pc]
-            cat_j = torch.cat([cur_j, new_j], dim=1)                       # [m, k+pc]
-            vals, inds = torch.topk(cat_d, k=knn_k, dim=1, largest=False)  # [m,k]
-            best_d = vals
-            best_j = cat_j.gather(1, inds)
+    # Projection param (divide-no-nan via clamp)
+    VL2 = _dot2d(ste, ste).clamp_min(1e-12)      # [Q, S1]
+    t   = _dot2d(stp, ste) / VL2                 # [Q, S1]
+    t_c = t.clamp(0.0, 1.0)[..., None]           # [Q, S1, 1]
 
-        # Skip if no neighbors found
-        has_neighbors = (best_j[:, 0] >= 0)
-        if not has_neighbors.any():
-            continue
+    # Closest vector & distances
+    diff   = stp - t_c * ste                     # [Q, S1, 2]
+    dist2  = _dot2d(diff, diff)                  # [Q, S1] (squared)
+    dist   = dist2.sqrt()                        # [Q, S1]
 
-        # For each point, scan selected polylines and find nearest segment
-        ksel = best_j  # [m,k]
-        for k0 in range(0, knn_k, min(knn_k, 32)):   # small neighbor blocks
-            k1 = min(k0 + 32, knn_k)
-            j_block = ksel[:, k0:k1]                 # [m,kb]
-            mask = (j_block >= 0)
-            if not mask.any():
-                continue
-            pi, pj = torch.nonzero(mask, as_tuple=True)     # pi in [0..m-1], pj in [0..kb-1]
-            j_idx  = j_block[pi, pj]                        # [Q]
-            if j_idx.numel() == 0:
-                continue
-            Xq = X[pi]                                      # [Q,2]
+    # ----- TF sign rule (with correct convention) -----
+    # Base sign for projection within segment:
+    # TF doc: "Negative if point is on port side (inside)". With standard cross,
+    #   left/port => cross(ste, stp) > 0. TF computes cross(stp, ste),
+    #   so we must negate to match "port => negative".
+    # Our _cross2d(stp, ste) > 0 means left => POS; negate to make it NEG.
+    n_base = -torch.sign(_cross2d(stp, ste))     # [Q, S1]  (inside => -1)
 
-            pair_min2 = torch.full((Xq.shape[0],), float("inf"), device=device)
-            pair_seg  = torch.full((Xq.shape[0],), -1, device=device, dtype=torch.long)
+    # For outside projection regions (before/after), mix signs using local convexity
+    # Non-cyclic padding per TF: use edge neighbors (we already built ilc_* to align)
+    # Shifted signs:
+    n_prior = torch.cat([n_base[:, :1],  n_base[:, :-1]], dim=1)  # [Q,S1]
+    n_next  = torch.cat([n_base[:, 1:],  n_base[:, -1:]], dim=1)  # [Q,S1]
 
-            # Stream segments in blocks
-            for s0 in range(0, S1, seg_chunk):
-                s1 = min(s0 + seg_chunk, S1)
-                B0 = starts[j_idx, s0:s1, :]                # [Q,sc,2]
-                VV = V[j_idx,     s0:s1, :]                 # [Q,sc,2]
-                VL2= V_len2[j_idx, s0:s1]                   # [Q,sc]
+    sign_if_before = torch.where(ilc_before, torch.maximum(n_base, n_prior),
+                                              torch.minimum(n_base, n_prior))
+    sign_if_after  = torch.where(ilc_after,  torch.maximum(n_base, n_next),
+                                              torch.minimum(n_base, n_next))
 
-                stp = Xq[:, None, :] - B0                   # [Q,sc,2]
-                t   = _dot2d(stp, VV) / VL2                 # [Q,sc]
-                t   = t.clamp(0.0, 1.0)[..., None]          # [Q,sc,1]
-                diff= stp - t * VV                          # [Q,sc,2]
-                d2  = _dot2d(diff, diff)                    # [Q,sc]
+    sign_to_segment = torch.where(
+        (t < 0.0),  sign_if_before,
+        torch.where((t > 1.0), sign_if_after, n_base)
+    )  # [Q, S1]
 
-                d2_min, seg_local = d2.min(dim=1)           # [Q], [Q]
-                better = d2_min < pair_min2
-                pair_min2[better] = d2_min[better]
-                pair_seg [better] = (s0 + seg_local)[better]
+    # Per (point, polyline) — pick nearest segment & its sign
+    seg_min_idx = dist.argmin(dim=1)                              # [Q]
+    pair_dist   = dist.gather(1, seg_min_idx[:, None]).squeeze(1) # [Q]
+    pair_sign   = sign_to_segment.gather(1, seg_min_idx[:, None]).squeeze(1).to(torch.float32) # [Q]
 
-            # Update per-point global best with these pairs
-            gpi = p0 + pi
-            better = pair_min2 < best_min2[gpi]
-            best_min2[gpi[better]] = pair_min2[better]
-            best_poly[gpi[better]] = j_idx[better]
-            best_seg [gpi[better]] = pair_seg[better]
+    # Reduce over the k polylines to 1 winner per point
+    pair_dist_mk = pair_dist.view(M, k)         # [M,k]
+    pair_sign_mk = pair_sign.view(M, k)         # [M,k]
+    kmin = pair_dist_mk.argmin(dim=1)           # [M]
+    dmin = pair_dist_mk.gather(1, kmin[:, None]).squeeze(1)   # [M]
+    smin = pair_sign_mk.gather(1, kmin[:, None]).squeeze(1)   # [M]
 
-    # Winner-only sign for points that found a neighbor
-    sd = torch.full((M,), float("inf"), device=device, dtype=torch.float32)
-    winners = best_poly >= 0
-    if winners.any():
-        gi = torch.nonzero(winners, as_tuple=True)[0]
-        j  = best_poly[gi]
-        k  = best_seg [gi]
-        Xw = xys[gi]
-
-        B0 = starts[j, k]                                   # [Mw,2]
-        V0 = V[j, k]                                        # [Mw,2]
-        k_prev = torch.clamp(k - 1, min=0)
-        k_next = torch.clamp(k + 1, max=(S1 - 1))
-        V_prev = V[j, k_prev]
-        V_next = V[j, k_next]
-        ilc_before = is_locally_convex[j, torch.clamp(k,     min=0, max=S1)]
-        ilc_after  = is_locally_convex[j, torch.clamp(k + 1, min=0, max=S1)]
-
-        stp0   = Xw - B0
-        len2_0 = _dot2d(V0, V0).clamp_min(1e-12)
-        rel_t0 = _dot2d(stp0, V0) / len2_0
-        n0     = torch.sign(_cross2d(stp0, V0))
-
-        B0_prev = starts[j, k_prev]
-        B0_next = starts[j, k_next]
-        n_prev  = torch.sign(_cross2d(Xw - B0_prev, V_prev))
-        n_next  = torch.sign(_cross2d(Xw - B0_next, V_next))
-
-        sign_before = torch.where(ilc_before, torch.maximum(n0, n_prev), torch.minimum(n0, n_prev))
-        sign_after  = torch.where(ilc_after,  torch.maximum(n0, n_next), torch.minimum(n0, n_next))
-        sign = torch.where(rel_t0 < 0.0, sign_before,
-                           torch.where(rel_t0 > 1.0, sign_after, n0)).to(torch.float32)
-
-        sd_val = torch.sqrt(best_min2[gi]) * sign
-        sd[gi] = sd_val
-
-    return sd  # [M]
+    return smin * dmin                           # [M]  (negative inside)
 
 
 @torch.no_grad()
-def corners_offroad_signed_distance_chunked_pre_batch(
+def corners_offroad_signed_distance_per_batch(
     pos: torch.Tensor,            # [N,2] or [N,T,2]
     heading: torch.Tensor,        # [N] or [N,T] (radians)
     shape_lw: torch.Tensor,       # [N,2]  (L, W)
@@ -167,22 +127,14 @@ def corners_offroad_signed_distance_chunked_pre_batch(
     polylines_xy: torch.Tensor,   # [P, S+1, 2] CCW vertices
     poly_batch: torch.Tensor,     # [P] scene id per polyline
     knn_k: int = 16,
-    points_chunk: int = 8192,
-    polys_chunk: int = 4096,
-    seg_chunk: int = 512,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    CHUNKED-PER-BATCH version (low RAM):
-      - loop over scene ids,
-      - compute corners only for that scene,
-      - run streaming kNN+scan within the scene,
-      - scatter to global outputs.
-
-    Returns:
-      corner_distance_to_road_edge: [N,T,4]
-      signed_distances:             [N,T]
+    Per-scene (batch) vectorized pipeline (no intra-batch chunking):
+      - build 4 OBB corners,
+      - kNN polylines (same scene),
+      - signed 2D distance per corner using TF rule with correct sign,
+      - reshape to [N,T,4], reduce max over corners -> [N,T].
     """
-    # unify time
     has_time = (pos.ndim == 3)
     if not has_time:
         pos = pos[:, None, :]
@@ -190,34 +142,29 @@ def corners_offroad_signed_distance_chunked_pre_batch(
     N, T, _ = pos.shape
     device = pos.device
 
-    # preallocate outputs
     corner_d2edge = torch.full((N, T, 4), float("inf"), device=device)
     signed_dists  = torch.full((N, T),   float("inf"), device=device)
 
-    # unique scene ids present in agents
-    scene_ids = torch.unique(agent_batch)
-
-    for b in scene_ids:
-        idx_a = torch.nonzero(agent_batch == b, as_tuple=True)[0]  # agents in scene
+    for b in torch.unique(agent_batch):
+        idx_a = torch.nonzero(agent_batch == b, as_tuple=True)[0]
         if idx_a.numel() == 0:
             continue
-        idx_p = torch.nonzero(poly_batch == b, as_tuple=True)[0]   # polylines in scene
+        idx_p = torch.nonzero(poly_batch == b, as_tuple=True)[0]
         if idx_p.numel() == 0:
-            # leave +inf for this scene
             continue
 
-        # slice scene tensors
-        pos_b     = pos[idx_a]             # [Nb,T,2]
-        heading_b = heading[idx_a]         # [Nb,T]
-        shape_b   = shape_lw[idx_a]        # [Nb,2]
-        polys_b   = polylines_xy[idx_p]    # [Pb,S+1,2]
+        # Slice scene tensors
+        pos_b     = pos[idx_a]              # [Nb,T,2]
+        heading_b = heading[idx_a]          # [Nb,T]
+        shape_b   = shape_lw[idx_a]         # [Nb,2]
+        polys_b   = polylines_xy[idx_p]     # [Pb,S+1,2]
 
-        # corners for this scene
+        # OBB corners
         hl = shape_b[:, 0] * 0.5
         hw = shape_b[:, 1] * 0.5
         c = torch.cos(heading_b); s = torch.sin(heading_b)
-        u = torch.stack([c, s], dim=-1)        # [Nb,T,2]
-        v = torch.stack([-s, c], dim=-1)       # [Nb,T,2]
+        u = torch.stack([c, s], dim=-1)     # [Nb,T,2] forward
+        v = torch.stack([-s, c], dim=-1)    # [Nb,T,2] left
 
         offs = torch.stack([
             torch.stack([ hl,  hw], dim=-1),
@@ -226,30 +173,24 @@ def corners_offroad_signed_distance_chunked_pre_batch(
             torch.stack([-hl,  hw], dim=-1),
         ], dim=1)  # [Nb,4,2]
 
-        offs_t = offs[:, None, :, :]           # [Nb,1,4,2]
-        u4 = u[:, :, None, :]                  # [Nb,T,1,2]
-        v4 = v[:, :, None, :]                  # [Nb,T,1,2]
-        corners_xy = pos_b[:, :, None, :] + offs_t[..., :1] * u4 + offs_t[..., 1:] * v4  # [Nb,T,4,2]
+        corners_xy = pos_b[:, :, None, :] + offs[:, None, :, 0:1] * u[:, :, None, :] \
+                                       + offs[:, None, :, 1:2] * v[:, :, None, :]     # [Nb,T,4,2]
 
-        # flatten to [Mb,2]
+        # Flatten corners for this scene
         Nb = idx_a.numel()
-        Mb = Nb * T * 4
-        flat_corners = corners_xy.reshape(Mb, 2)
+        M  = Nb * T * 4
+        flat_corners = corners_xy.reshape(M, 2)
 
-        # per-scene signed distances (streaming, no batch masks needed)
-        flat_sd = _sd_points_to_polylines_knn_2d_streaming(
+        # Signed distance per corner (vectorized kNN within the scene)
+        flat_sd = _signed_distance_points_to_polylines_knn_2d_batch(
             xys=flat_corners,
             polylines_xy=polys_b,
             knn_k=knn_k,
-            points_chunk=points_chunk,
-            polys_chunk=polys_chunk,
-            seg_chunk=seg_chunk,
-        )  # [Mb]
+        )  # [M]
 
-        scene_corner = flat_sd.view(Nb, T, 4)        # [Nb,T,4]
-        scene_signed = scene_corner.max(dim=-1).values  # [Nb,T]
+        scene_corner = flat_sd.view(Nb, T, 4)               # [Nb,T,4]
+        scene_signed = scene_corner.max(dim=-1).values      # [Nb,T]
 
-        # scatter back
         corner_d2edge[idx_a] = scene_corner
         signed_dists[idx_a]  = scene_signed
 
