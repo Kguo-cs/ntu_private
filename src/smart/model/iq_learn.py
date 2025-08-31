@@ -553,7 +553,9 @@ class IQ_SoftQ(LightningModule):
     def get_collision_loss(self,tokenized_agent,tokenized_map,dis_feature,train_mask,all_valid ,key):
 
         col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask]) #
-        dis_col_pred = self.encoder.dis_col_head(dis_feature)
+
+        if self.encoder.pred_dis_aux:
+            dis_col_pred = self.encoder.dis_col_head(dis_feature)
 
         if self.encoder.agent_encoder.use_sign_dist:
             sign_dist = signed_distance_boxes_sat_fast(tokenized_agent["sampled_pos"][:, 2:],
@@ -574,12 +576,15 @@ class IQ_SoftQ(LightningModule):
                                                      tokenized_agent["batch"])[0].float()
 
             col_loss = self.bce_loss(col_pred[:,0], col_flag[train_mask])
-            dis_loss = self.bce_loss(dis_col_pred[:,:,0], col_flag[all_valid])
+            if self.encoder.pred_dis_aux:
+                dis_loss = self.bce_loss(dis_col_pred[:,:,0], col_flag[all_valid])
+                self.log('train/'+key+'_dis_col_loss', dis_loss.item(), on_step=True, batch_size=1)
+            else:
+                dis_loss = 0
 
         valid_expert_col_flag = col_flag[train_mask]
 
         self.log('train/'+key+'_col_loss', col_loss.item(), on_step=True, batch_size=1)
-        self.log('train/'+key+'_dis_col_loss', dis_loss.item(), on_step=True, batch_size=1)
         self.log('train/'+key+'_col_rate', valid_expert_col_flag.float().mean().item(), on_step=True, batch_size=1)
 
         if self.encoder.map_encoder.pred_offroad:
@@ -597,10 +602,13 @@ class IQ_SoftQ(LightningModule):
 
             off_road_loss = self.bce_loss(col_pred[:,1], offroad_flag[train_mask])
 
-            dis_off_road_loss=self.bce_loss(dis_col_pred[:,:,1], offroad_flag[all_valid])
+            if self.encoder.pred_dis_aux:
+                dis_off_road_loss=self.bce_loss(dis_col_pred[:,:,1], offroad_flag[all_valid])
+                self.log('train/'+key+'_dis_off_loss', dis_off_road_loss.item(), on_step=True, batch_size=1)
+            else:
+                dis_off_road_loss=0
 
             self.log('train/'+key+'_off_road_loss', off_road_loss.item(), on_step=True, batch_size=1)
-            self.log('train/'+key+'_dis_off_loss', dis_off_road_loss.item(), on_step=True, batch_size=1)
             self.log('train/'+key+'_offroad_rate', valid_off_flag.mean().item(), on_step=True, batch_size=1)
 
             dis_loss=dis_loss+off_road_loss+dis_off_road_loss

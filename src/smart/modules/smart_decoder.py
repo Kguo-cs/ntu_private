@@ -181,6 +181,8 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
+                self.pred_dis_aux=False
+
                 if self.agent_encoder.pred_col:
 
                     if self.agent_encoder.use_sign_dist:
@@ -192,8 +194,8 @@ class SMARTDecoder(nn.Module):
 
                        self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 2),nn.Sigmoid())
 
-
-                       self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 2),nn.Sigmoid())
+                       if self.pred_dis_aux:
+                           self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 2),nn.Sigmoid())
 
                 if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
