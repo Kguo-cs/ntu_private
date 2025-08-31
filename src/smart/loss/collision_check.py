@@ -2,220 +2,228 @@ import torch
 from typing import Tuple
 
 import torch
-from typing import Tuple
+from typing import Tuple, Optional
 
-def signed_distance_to_nearest_object(
-    pos: torch.Tensor,         # [N,2]  or [N,T,2]
-    heading: torch.Tensor,     # [N]    or [N,T] (radians)
-    shape_lw: torch.Tensor,    # [N,2]  (length, width)
-    batch: torch.Tensor,       # [N] e.g., [0,0,1,1,1,2]
-    margin: float = 0.0,       # inflate boxes (safety buffer)
-    eps: float = 1e-9,
-) -> torch.Tensor:
-    """
-    Returns:
-      sd_min: [N] or [N,T]  signed distance to nearest other object within the same batch.
-               >0  : gap (no overlap);  <0 : penetration depth (overlap).
-    Notes:
-      - Overlap depth uses a SAT-based proxy (fast, commonly used).
-      - Non-overlap distance is exact via segment-segment distances (min over 4x4 edges) plus vertex-inside checks.
-    """
-    # Normalize to [N,T]
+def _ensure_time(pos: torch.Tensor, heading: torch.Tensor):
     has_time = (pos.ndim == 3)
     if not has_time:
         pos = pos[:, None, :]
         heading = heading[:, None]
+    return pos, heading, has_time
+
+def _knn_candidates(pos: torch.Tensor, batch: torch.Tensor, k: int) -> torch.Tensor:
+    """
+    For each agent, pick up to k nearest neighbors (by center distance) within the same batch.
+    Returns indices tensor of shape [N, k] with -1 for missing.
+    """
+    device = pos.device
     N, T, _ = pos.shape
+    # use t=0 (or any time) for neighbor pruning
+    p = pos[:, 0, :]  # [N,2]
+    idxs = torch.full((N, k), -1, device=device, dtype=torch.long)
+    # group by batch id to avoid N^2 across scenes
+    uniq = torch.unique(batch)
+    for b in uniq.tolist():
+        mask = (batch == b)
+        inds = torch.nonzero(mask, as_tuple=False).squeeze(-1)
+        if inds.numel() <= 1:
+            continue
+        P = p[inds]  # [M,2]
+        # pairwise dists (M x M) – OK because per-scene M is usually modest
+        D = torch.cdist(P, P)
+        D.fill_diagonal_(float('inf'))
+        m = min(k, max(0, P.shape[0]-1))
+        if m > 0:
+            nn = D.topk(m, largest=False).indices  # [M,m]
+            fill = torch.full((P.shape[0], k), -1, device=device, dtype=torch.long)
+            fill[:, :m] = inds[nn]
+            idxs[inds] = fill
+    return idxs  # [N,k] (-1 padded)
 
-    # Half-extents
-    half_len = shape_lw[:, 0] * 0.5 + margin   # [N]
-    half_wid = shape_lw[:, 1] * 0.5 + margin   # [N]
+# ---------- Option A: SAT-gap based signed distance (very fast, conservative) ----------
 
-    # Local axes u (forward) and v (left)
-    c = torch.cos(heading)                     # [N,T]
-    s = torch.sin(heading)                     # [N,T]
-    u = torch.stack([c, s], dim=-1)            # [N,T,2]
-    v = torch.stack([-s, c], dim=-1)           # [N,T,2]
+def signed_distance_boxes_sat_fast(
+    pos: torch.Tensor,          # [N,2] or [N,T,2]
+    heading: torch.Tensor,      # [N] or [N,T] (rad)
+    shape_lw: torch.Tensor,     # [N,2] (L,W)
+    batch: torch.Tensor,        # [N]
+    margin: float = 0.0,
+    knn_k: int = 16,
+) -> torch.Tensor:
+    """
+    Signed distance per agent to its nearest other agent in the same scene.
+    >0: separated (conservative gap along best separating axis)
+    <0: penetration depth (SAT overlap depth)
+    Memory/time efficient: SAT only + k-NN pruning.
+    """
+    pos, heading, has_time = _ensure_time(pos, heading)
+    N, T, _ = pos.shape
+    device = pos.device
 
-    # Build rectangle corners in world coords for each agent/time
-    # local corners: (+/-half_len, +/-half_wid)
-    hl = half_len[:, None, None]               # [N,1,1]
-    hw = half_wid[:, None, None]               # [N,1,1]
-    # corners (in local uv): (±hl, ±hw)
-    # order: (+,+), (+,-), (-,-), (-,+) (CCW)
-    local = torch.stack([
-        torch.stack([ hl.expand(N,T,1).squeeze(-1),  hw.expand(N,T,1).squeeze(-1)], dim=-1),
-        torch.stack([ hl.expand(N,T,1).squeeze(-1), -hw.expand(N,T,1).squeeze(-1)], dim=-1),
-        torch.stack([-hl.expand(N,T,1).squeeze(-1), -hw.expand(N,T,1).squeeze(-1)], dim=-1),
-        torch.stack([-hl.expand(N,T,1).squeeze(-1),  hw.expand(N,T,1).squeeze(-1)], dim=-1),
-    ], dim=2)  # [N,T,4,2]
+    # half-extents
+    hl = shape_lw[:, 0] * 0.5 + margin  # [N]
+    hw = shape_lw[:, 1] * 0.5 + margin  # [N]
 
-    # world corner = pos + local_u * u + local_v * v
-    # Broadcast u,v to [N,T,1,2]
-    u_ = u[:, :, None, :]  # [N,T,1,2]
-    v_ = v[:, :, None, :]  # [N,T,1,2]
-    corners = pos[:, :, None, :] + local[..., :1] * u_ + local[..., 1:] * v_  # [N,T,4,2]
+    # local axes
+    c = torch.cos(heading); s = torch.sin(heading)     # [N,T]
+    u = torch.stack([c, s], dim=-1)                    # [N,T,2]
+    v = torch.stack([-s, c], dim=-1)                   # [N,T,2]
 
-    # Edges as segments: 4 edges per rect (0-1, 1-2, 2-3, 3-0)
-    e_idx = torch.tensor([[0,1],[1,2],[2,3],[3,0]], device=pos.device)
-    segA = corners[:, :, e_idx[:,0], :]  # [N,T,4,2]
-    segB = corners[:, :, e_idx[:,1], :]  # [N,T,4,2]
+    # k-NN pruning (per scene), indices [N,knn_k]
+    nbr_idx = _knn_candidates(pos, batch, knn_k)       # [-1 padded]
 
-    # Pairwise masks (same scene, exclude self)
-    same = (batch[:, None] == batch[None, :])  # [N,N]
-    not_self = ~torch.eye(N, dtype=torch.bool, device=pos.device)
-    pair_mask = same & not_self               # [N,N]
+    # prepare outputs
+    sd = torch.full((N, T), float('inf'), device=device)
 
-    # ===== SAT overlap & penetration proxy =====
-    # Pairwise quantities
-    ci = pos[:, None, :, :]   # [N,1,T,2]
-    cj = pos[None, :, :, :]   # [1,N,T,2]
-    t_vec = cj - ci           # [N,N,T,2]
+    # loop over neighbor slots (vectorized over all agents/time for that slot)
+    for slot in range(knn_k):
+        j_idx = nbr_idx[:, slot]                       # [N]
+        valid = j_idx >= 0
+        if not valid.any():
+            continue
 
-    ui = u[:, None, :, :]     # [N,1,T,2]
-    vi = v[:, None, :, :]
-    uj = u[None, :, :, :]     # [1,N,T,2]
-    vj = v[None, :, :, :]
+        i_idx = torch.nonzero(valid, as_tuple=False).squeeze(-1)
+        jj = j_idx[valid]                              # [M]
 
-    # Projections into i-frame
-    t_u_i = (t_vec * ui).sum(-1)    # [N,N,T]
-    t_v_i = (t_vec * vi).sum(-1)    # [N,N,T]
+        # pairwise tensors aligned by M
+        ci = pos[i_idx]           # [M,T,2]
+        cj = pos[jj]              # [M,T,2]
+        t_vec = cj - ci           # [M,T,2]
 
-    R00 = (ui * uj).sum(-1)         # [N,N,T]
-    R01 = (ui * vj).sum(-1)
-    R10 = (vi * uj).sum(-1)
-    R11 = (vi * vj).sum(-1)
+        ui = u[i_idx]; vi = v[i_idx]
+        uj = u[jj];    vj = v[jj]
 
-    a_u = half_len[:, None, None]   # [N,1,1]
-    a_v = half_wid[:, None, None]   # [N,1,1]
-    b_u = half_len[None, :, None]   # [1,N,1]
-    b_v = half_wid[None, :, None]   # [1,N,1]
+        t_ui = (t_vec * ui).sum(-1)    # [M,T]
+        t_vi = (t_vec * vi).sum(-1)
 
-    absR00 = R00.abs() + 1e-8
-    absR01 = R01.abs() + 1e-8
-    absR10 = R10.abs() + 1e-8
-    absR11 = R11.abs() + 1e-8
+        R00 = (ui * uj).sum(-1)        # [M,T]
+        R01 = (ui * vj).sum(-1)
+        R10 = (vi * uj).sum(-1)
+        R11 = (vi * vj).sum(-1)
 
-    # Gaps along the 4 SAT axes (positive => separated along that axis)
-    gap_ui = (t_u_i.abs() - (a_u + b_u * absR00 + b_v * absR01).squeeze(-1))  # [N,N,T]
-    gap_vi = (t_v_i.abs() - (a_v + b_u * absR10 + b_v * absR11).squeeze(-1))
+        a_u = hl[i_idx][:, None]       # [M,1]
+        a_v = hw[i_idx][:, None]
+        b_u = hl[jj][:, None]
+        b_v = hw[jj][:, None]
 
-    t_u_j = (t_u_i * R00 + t_v_i * R10).abs()
-    t_v_j = (t_u_i * R01 + t_v_i * R11).abs()
-    gap_uj = (t_u_j - (b_u + a_u * absR00 + a_v * absR10).squeeze(-1))
-    gap_vj = (t_v_j - (b_v + a_u * absR01 + a_v * absR11).squeeze(-1))
+        eps = 1e-8
+        absR00 = R00.abs() + eps
+        absR01 = R01.abs() + eps
+        absR10 = R10.abs() + eps
+        absR11 = R11.abs() + eps
 
-    # If ANY axis has positive gap, boxes are separated (SAT)
-    max_gap = torch.stack([gap_ui, gap_vi, gap_uj, gap_vj], dim=-1).amax(dim=-1)  # [N,N,T]
-    separated = max_gap > 0                                                       # [N,N,T]
+        # gap along each SAT axis (positive => separated along that axis)
+        gap_ui = t_ui.abs() - (a_u + b_u * absR00 + b_v * absR01)[:, :]      # [M,T]
+        gap_vi = t_vi.abs() - (a_v + b_u * absR10 + b_v * absR11)[:, :]
 
-    # Penetration depth proxy (overlap case): min overlap across axes
-    # depth = min_a (R_i(a) + R_j(a) - |t·a|) = -max_gap when overlapping
-    # (since max_gap <= 0 in overlap), but use explicit min-over-axes for clarity:
-    depth_ui = -(gap_ui)  # >=0 when overlapping
-    depth_vi = -(gap_vi)
-    depth_uj = -(gap_uj)
-    depth_vj = -(gap_vj)
-    pen_depth = torch.stack([depth_ui, depth_vi, depth_uj, depth_vj], dim=-1).amin(dim=-1)  # [N,N,T]
-    pen_depth = torch.clamp(pen_depth, min=0.0)
+        t_uj = (t_ui * R00 + t_vi * R10).abs()
+        t_vj = (t_ui * R01 + t_vi * R11).abs()
+        gap_uj = t_uj - (b_u + a_u * absR00 + a_v * absR10)[:, :]
+        gap_vj = t_vj - (b_v + a_u * absR01 + a_v * absR11)[:, :]
 
-    # ===== Exact separation distance via segment-segment distances =====
-    # Segment-segment distance in 2D (vectorized):
-    # For segments P(s) = P0 + s*(P1-P0), Q(t) = Q0 + t*(Q1-Q0), s,t in [0,1]
-    # Compute all pair edges i(x4) vs j(x4)
-    # Shapes to broadcast: [N,N,T,4,2]
-    sA0 = segA[:, None, :, :, :].expand(N, N, T, 4, 2)
-    sA1 = segB[:, None, :, :, :].expand(N, N, T, 4, 2)
-    sB0 = segA[None, :, :, :, :].expand(N, N, T, 4, 2)
-    sB1 = segB[None, :, :, :, :].expand(N, N, T, 4, 2)
+        # max gap over axes: if >0 => separated.
+        max_gap = torch.maximum(torch.maximum(gap_ui, gap_vi),
+                                torch.maximum(gap_uj, gap_vj))               # [M,T]
 
-    u_vec = sA1 - sA0   # [N,N,T,4,2]
-    v_vec = sB1 - sB0   # [N,N,T,4,2]
-    w0    = sA0 - sB0
+        # penetration depth proxy (min overlap over axes) = -max_gap when overlapping
+        # sd_pair: separated => +max_gap ; overlapping => -min_overlap = max_gap (negative)
+        # So we can just take sd_pair = max_gap, but clamp positive/negative appropriately:
+        sep = max_gap > 0
+        # when overlapping, penetration = minimum of overlaps across axes:
+        min_overlap = torch.minimum(torch.minimum(-gap_ui, -gap_vi),
+                                    torch.minimum(-gap_uj, -gap_vj)).clamp_min(0.0)
+        sd_pair = torch.where(sep, max_gap, -min_overlap)                     # [M,T]
 
-    a = (u_vec*u_vec).sum(-1)       # [N,N,T,4]
-    b = (u_vec*v_vec).sum(-1)
-    c = (v_vec*v_vec).sum(-1)
-    d = (u_vec*w0).sum(-1)
-    e = (v_vec*w0).sum(-1)
+        # keep nearest (smallest absolute)
+        old = sd[i_idx]                     # [M,T]
+        take = (sd_pair.abs() < old.abs())
+        sd[i_idx] = torch.where(take, sd_pair, old)
 
-    det = a*c - b*b + eps
-    s = (b*e - c*d) / det
-    t = (a*e - b*d) / det
-
-    s_clamped = s.clamp(0.0, 1.0)
-    t_clamped = t.clamp(0.0, 1.0)
-
-    # Closest points
-    p_closest = sA0 + s_clamped[..., None] * u_vec   # [N,N,T,4,2]
-    q_closest = sB0 + t_clamped[..., None] * v_vec   # [N,N,T,4,2]
-    segseg_dist = (p_closest - q_closest).norm(dim=-1)  # [N,N,T,4]
-
-    # Also handle degenerate zero-length edges robustly (already guarded by eps)
-
-    # Vertex-inside checks: if any vertex of A inside B or vice versa => distance 0.
-    # We can reuse SAT: "separated" == True means not inside. If all four axes overlap, vertex may be inside.
-    # A coarse-but-correct check: if NOT separated for a pair, distance will be handled by penetration depth path.
-    # So we don’t need explicit vertex-inside here for the separated branch.
-
-    # Minimal edge-edge distance across 4x4 pairs -> reduce over edges of A (4) and B (4) via our 4 (A) already; but we also need B’s 4 against A’s 4.
-    # segseg_dist is distances for A’s 4 edges vs B’s 4 edges simultaneously (due to broadcasting we already have both).
-    # We need min across the edge dim; segseg_dist currently represents paired edges (same index). To cover all 4x4, we can rotate B edges 4 ways and take min.
-    # An efficient trick: circularly roll B edges and take min over 4 rolls.
-    dists = []
-    base = segseg_dist  # [N,N,T,4]
-    dists.append(base)
-    for k in range(1,4):
-        # roll B edges by k (equivalent to pairing A edge e with B edge (e+k) mod 4)
-        segB0_r = torch.roll(sB0, shifts=k, dims=3)
-        segB1_r = torch.roll(sB1, shifts=k, dims=3)
-        v_vec_r = segB1_r - segB0_r
-        w0_r    = sA0 - segB0_r
-        a_r = (u_vec*u_vec).sum(-1)
-        b_r = (u_vec*v_vec_r).sum(-1)
-        c_r = (v_vec_r*v_vec_r).sum(-1)
-        d_r = (u_vec*w0_r).sum(-1)
-        e_r = (v_vec_r*w0_r).sum(-1)
-        det_r = a_r*c_r - b_r*b_r + eps
-        s_r = (b_r*e_r - c_r*d_r) / det_r
-        t_r = (a_r*e_r - b_r*d_r) / det_r
-        p_r = sA0 + s_r[..., None]*u_vec
-        q_r = segB0_r + t_r[..., None]*v_vec_r
-        d_r_val = (p_r - q_r).norm(dim=-1)  # [N,N,T,4]
-        dists.append(d_r_val)
-    segseg_min = torch.stack(dists, dim=-1).amin(dim=(-1, -2))  # [N,N,T]
-
-    # Separation distance only where separated:
-    sep_dist = torch.where(separated, segseg_min, torch.zeros_like(segseg_min))  # [N,N,T]
-
-    # Signed distance per pair:
-    #   if separated: +sep_dist
-    #   else (overlap): -pen_depth
-    sd_pair = torch.where(separated, sep_dist, -pen_depth)  # [N,N,T]
-
-    # Mask out pairs from different scenes or self
-    mask = pair_mask[:, :, None]  # [N,N,1]
-    sd_pair = torch.where(mask, sd_pair, torch.full_like(sd_pair, float('inf')))
-
-    # Take nearest magnitude per agent (prefer the smallest absolute distance)
-    # But keep sign by picking the value with smallest absolute value.
-    # For overlapping pairs, values are negative; for separated, positive.
-    abs_sd = sd_pair.abs()
-    idx = abs_sd.argmin(dim=1)  # [N,T]
-    sd_min = sd_pair.gather(1, idx.unsqueeze(1)).squeeze(1)  # [N,T]
-
-    # If an agent has no other in the same batch, set to +inf
-    no_pairs = (~pair_mask).all(dim=1)  # [N]
-    if has_time:
-        sd_min[no_pairs, :] = float('inf')
-    else:
-        sd_min[no_pairs] = float('inf')
-
-    # Squeeze time if input had none
     if not has_time:
-        sd_min = sd_min[:, 0]
+        sd = sd[:, 0]
+    return sd  # [N] or [N,T]
 
-    return sd_min
+# ---------- Option B: Capsule approximation (segment + radius) ----------
+
+def signed_distance_capsules(
+    pos: torch.Tensor,          # [N,2] or [N,T,2]
+    heading: torch.Tensor,      # [N] or [N,T]
+    shape_lw: torch.Tensor,     # [N,2] (L,W)
+    batch: torch.Tensor,        # [N]
+    margin: float = 0.0,
+    knn_k: int = 16,
+) -> torch.Tensor:
+    """
+    Approximate each box as a capsule:
+      centerline segment length ~ L, radius ~ W/2 (+margin).
+    Signed distance = dist(segment_i, segment_j) - (r_i + r_j).
+    Much lighter than 4x4 edge checks, often closer to Euclidean than SAT gaps.
+    """
+    pos, heading, has_time = _ensure_time(pos, heading)
+    N, T, _ = pos.shape
+    device = pos.device
+
+    L = shape_lw[:, 0]
+    R = shape_lw[:, 1] * 0.5 + margin
+
+    # segment endpoints in world: c ± 0.5*L * u
+    c = torch.cos(heading); s = torch.sin(heading)
+    u = torch.stack([c, s], dim=-1)                 # [N,T,2]
+    seg_half = (L[:, None] * 0.5)                   # [N,1]
+    A = pos - seg_half[..., None] * u               # [N,T,2] (start)
+    B = pos + seg_half[..., None] * u               # [N,T,2] (end)
+
+    # neighbors
+    nbr_idx = _knn_candidates(pos, batch, knn_k)
+
+    sd = torch.full((N, T), float('inf'), device=device)
+
+    for slot in range(knn_k):
+        j_idx = nbr_idx[:, slot]
+        valid = j_idx >= 0
+        if not valid.any(): continue
+
+        i_idx = torch.nonzero(valid, as_tuple=False).squeeze(-1)
+        jj = j_idx[valid]
+
+        A0 = A[i_idx]; B0 = B[i_idx]    # [M,T,2]
+        A1 = A[jj];    B1 = B[jj]       # [M,T,2]
+
+        u0 = B0 - A0; v1 = B1 - A1
+        w0 = A0 - A1
+
+        a = (u0*u0).sum(-1)             # [M,T]
+        b = (u0*v1).sum(-1)
+        c = (v1*v1).sum(-1)
+        d = (u0*w0).sum(-1)
+        e = (v1*w0).sum(-1)
+
+        denom = a*c - b*b
+        eps = 1e-9
+        denom = torch.where(denom.abs() < eps, torch.full_like(denom, eps), denom)
+
+        s = (b*e - c*d) / denom
+        t = (a*e - b*d) / denom
+
+        s = s.clamp(0.0, 1.0)
+        t = t.clamp(0.0, 1.0)
+
+        P = A0 + s[..., None]*u0
+        Q = A1 + t[..., None]*v1
+
+        dist = (P - Q).norm(dim=-1)     # [M,T]
+        # signed by radii overlap
+        rsum = (R[i_idx][:, None] + R[jj][:, None])  # [M,1] -> [M,T] by broadcast
+        sd_pair = dist - rsum
+
+        old = sd[i_idx]
+        take = (sd_pair.abs() < old.abs())
+        sd[i_idx] = torch.where(take, sd_pair, old)
+
+    if not has_time:
+        sd = sd[:, 0]
+    return sd
+
 
 def oriented_box_collision(
         pos: torch.Tensor,  # [N,2] or [N,T,2]  (meters)
