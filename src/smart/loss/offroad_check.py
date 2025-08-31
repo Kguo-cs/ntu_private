@@ -134,7 +134,7 @@ def corners_offroad_signed_distance_batched_2d_knn(
     agent_batch: torch.Tensor,    # [N] scene ids for agents
     polylines_xy: torch.Tensor,   # [P, S+1, 2] CCW boundary vertices
     poly_batch: torch.Tensor,     # [P] scene ids for polylines
-    knn_k: int = 16,
+    knn_k: int = 8,
 ) :
     """
     Efficient pipeline:

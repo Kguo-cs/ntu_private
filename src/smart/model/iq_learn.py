@@ -600,7 +600,6 @@ class IQ_SoftQ(LightningModule):
             dis_off_road_loss=self.bce_loss(dis_col_pred[:,:,1], offroad_flag[all_valid])
 
             self.log('train/'+key+'_off_road_loss', off_road_loss.item(), on_step=True, batch_size=1)
-
             self.log('train/'+key+'_dis_off_loss', dis_off_road_loss.item(), on_step=True, batch_size=1)
             self.log('train/'+key+'_col_rate', valid_off_flag.mean().item(), on_step=True, batch_size=1)
 
