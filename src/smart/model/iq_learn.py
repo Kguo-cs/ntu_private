@@ -566,8 +566,6 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
-
-
         if self.encoder.agent_encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
@@ -669,8 +667,8 @@ class IQ_SoftQ(LightningModule):
 
                 col_loss = self.bce_loss(col_pred, col_flag)
 
-                self.log('col_loss',col_loss.item(), on_step=True, batch_size=1)
-                self.log('col_rate',col_flag.mean().item(), on_step=True, batch_size=1)
+                self.log('train/col_loss',col_loss.item(), on_step=True, batch_size=1)
+                self.log('train/col_rate',col_flag.mean().item(), on_step=True, batch_size=1)
                 expert_nll=expert_nll+col_loss
 
             if self.use_gail:
