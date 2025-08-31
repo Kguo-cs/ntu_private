@@ -30,7 +30,7 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 class SMARTMapDecoder(nn.Module):
 
