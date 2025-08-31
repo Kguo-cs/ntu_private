@@ -183,10 +183,10 @@ class SMARTDecoder(nn.Module):
 
                 if self.agent_encoder.pred_col:
 
-                    self.col_head = MLPLayer(hidden_dim, hidden_dim, 1)
+                    self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
 
 
-                    self.dis_col_head=MLPLayer(hidden_dim, hidden_dim, 1)
+                    self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
 
                 if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
