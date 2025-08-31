@@ -561,8 +561,8 @@ class IQ_SoftQ(LightningModule):
                                                        tokenized_agent["batch"])
 
             col_flag = sign_dist < 0
-            col_loss = torch.square(col_pred - sign_dist[train_mask]).mean()
-            dis_loss= torch.square(dis_col_pred - sign_dist[all_valid]).mean()
+            col_loss = torch.abs(col_pred - sign_dist[train_mask]).mean()
+            dis_loss= torch.abs(dis_col_pred - sign_dist[all_valid]).mean()
 
         else:
             col_flag = oriented_box_collision(tokenized_agent["sampled_pos"][:, 2:],
