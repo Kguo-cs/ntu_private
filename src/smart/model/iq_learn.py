@@ -551,7 +551,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_collision_loss(self,tokenized_agent,dis_feature,train_mask,all_valid ,key):
 
-        col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask]) #
+        #col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask]) #
         dis_col_pred = self.encoder.dis_col_head(dis_feature)
 
         if self.encoder.agent_encoder.use_sign_dist:
