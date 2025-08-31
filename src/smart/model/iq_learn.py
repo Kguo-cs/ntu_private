@@ -23,7 +23,7 @@ from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei
 from torch_scatter import scatter_mean
 from torch.distributions import Categorical, Normal, Independent
 from src.smart.loss.kl_loss import BalancedKL
-from src.smart.loss.collision_check import oriented_box_collision,signed_distance_boxes_sat_fast
+from src.smart.loss.collision_check import oriented_box_collision,signed_distance_boxes_sat_fast,value_to_hist_class
 
 class IQ_SoftQ(LightningModule):
 
@@ -551,8 +551,8 @@ class IQ_SoftQ(LightningModule):
 
     def get_collision_loss(self,tokenized_agent,dis_feature,train_mask,all_valid ,key):
 
-        col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask])[..., 0]
-        dis_col_pred = self.encoder.dis_col_head(dis_feature)[..., 0]
+        col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][train_mask]) #
+        dis_col_pred = self.encoder.dis_col_head(dis_feature)
 
         if self.encoder.agent_encoder.use_sign_dist:
             sign_dist = signed_distance_boxes_sat_fast(tokenized_agent["sampled_pos"][:, 2:],
@@ -561,9 +561,19 @@ class IQ_SoftQ(LightningModule):
                                                        tokenized_agent["batch"])
 
             col_flag = sign_dist < 0
-            col_loss = torch.abs(col_pred - sign_dist[train_mask]).mean()
-            dis_loss= torch.abs(dis_col_pred - sign_dist[all_valid]).mean()
+            hist = {"min_val": -5.0, "max_val": 100.0, "num_bins": 10}
 
+            target = value_to_hist_class(sign_dist, **hist)
+
+            # col_loss = torch.abs(col_pred[..., 0] - sign_dist[train_mask]).mean()
+            # dis_loss= torch.abs(dis_col_pred[..., 0] - sign_dist[all_valid]).mean()
+            # reshape for F.cross_entropy
+            # N, T, C = pred.shape
+            # pred_flat = pred.reshape(N * T, C)  # [N*T, C]
+            # target_flat = target.reshape(N * T)  # [N*T]
+
+            col_loss = F.cross_entropy(col_pred, target[train_mask])
+            dis_loss=F.cross_entropy(dis_col_pred.reshape(-1, 10), target[all_valid].reshape(-1))
         else:
             col_flag = oriented_box_collision(tokenized_agent["sampled_pos"][:, 2:],
                                                      tokenized_agent["sampled_heading"][:, 2:],

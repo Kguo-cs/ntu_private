@@ -224,6 +224,28 @@ def signed_distance_capsules(
         sd = sd[:, 0]
     return sd
 
+import torch
+
+def value_to_hist_class(x: torch.Tensor, min_val: float, max_val: float, num_bins: int) -> torch.Tensor:
+    """
+    Quantize continuous values x into histogram bins -> class indices [0..num_bins-1].
+
+    Args:
+      x:       tensor of values
+      min_val: lower bound of histogram
+      max_val: upper bound of histogram
+      num_bins: number of bins
+
+    Returns:
+      LongTensor of same shape as x with bin indices
+    """
+    # scale to [0, num_bins)
+    bin_width = (max_val - min_val) / num_bins
+    idx = ((x - min_val) / bin_width).floor().long()
+
+    # clip to valid range
+    idx = idx.clamp(0, num_bins - 1)
+    return idx
 
 def oriented_box_collision(
         pos: torch.Tensor,  # [N,2] or [N,T,2]  (meters)

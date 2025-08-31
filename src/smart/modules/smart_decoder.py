@@ -184,9 +184,9 @@ class SMARTDecoder(nn.Module):
                 if self.agent_encoder.pred_col:
 
                     if self.agent_encoder.use_sign_dist:
-                        self.col_head = MLPLayer(hidden_dim, hidden_dim, 1)
+                        self.col_head = MLPLayer(hidden_dim, hidden_dim, 10)
 
-                        self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 1)
+                        self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 10)
 
                     else:
 
