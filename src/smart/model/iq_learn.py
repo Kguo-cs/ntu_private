@@ -619,7 +619,11 @@ class IQ_SoftQ(LightningModule):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
-        all_valid=valid_mask.all(-1)
+
+        if "pred_mask" in tokenized_agent.keys():
+            all_valid=tokenized_agent["pred_mask"]
+        else:
+            all_valid=valid_mask.all(-1)
 
         if self.use_kl_penalty:
             expert_nll=0
@@ -766,10 +770,10 @@ class IQ_SoftQ(LightningModule):
                     expert_dis_loss=noise_error
                     agent_dis_loss=torch.tensor(0.0)
 
-                # if self.encoder.agent_encoder.pred_col:
-                #     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,train_mask,all_valid,'agent')
-                #
-                #     expert_nll=expert_nll+col_loss
+                if self.encoder.agent_encoder.pred_col:
+                    col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,train_mask,all_valid,'agent')
+
+                    expert_nll=expert_nll+col_loss
 
 
                 if self.encoder.agent_encoder.use_infogail:
