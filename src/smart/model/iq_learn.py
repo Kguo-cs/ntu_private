@@ -25,7 +25,7 @@ from torch.distributions import Categorical, Normal, Independent
 from src.smart.loss.kl_loss import BalancedKL
 from src.smart.loss.collision_check import oriented_box_collision,signed_distance_boxes_sat_fast,value_to_hist_class
 from src.smart.loss.offroad_check import corners_offroad_signed_distance_per_batch
-
+from torch_scatter import scatter_max
 
 class IQ_SoftQ(LightningModule):
 
@@ -408,10 +408,13 @@ class IQ_SoftQ(LightningModule):
             else:
                 bce_loss = logit[:, :, 0].mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
         else:
+            if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
+                disc_val=disc_val[train_mask]
+
             if key == "expert":
-                bce_loss = self.bce_loss(disc_val[train_mask], torch.ones_like(disc_val)[train_mask]) #-disc_val.log()
+                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
             else:
-                bce_loss = self.bce_loss(disc_val[train_mask], torch.zeros_like(disc_val)[train_mask]) # -(1 - disc_val).log()
+                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
@@ -776,7 +779,13 @@ class IQ_SoftQ(LightningModule):
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.use_value:
-                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]#
+                    feat_a=tokenized_agent_rollout["feat_a_nodetach"][all_valid]
+
+                    if self.encoder.discriminator.interative_decoder.centric:
+                        index=tokenized_agent_rollout["batch"][all_valid][:,None].repeat(1,feat_a.shape[1])
+                        feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
+
+                    value_pred=self.encoder.value_network(feat_a)[:,:,0]#
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
@@ -825,7 +834,10 @@ class IQ_SoftQ(LightningModule):
                         advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
 
                     else:
-                        advantages=ego_advantages
+                        if self.encoder.discriminator.interative_decoder.centric:
+                            advantages=ego_advantages[index[:,0]]
+                        else:
+                            advantages=ego_advantages
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 

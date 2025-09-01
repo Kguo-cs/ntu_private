@@ -20,6 +20,7 @@ from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.modules.edge_encoder import EdgeEncoder
 import time
+from torch_scatter import scatter_max
 
 class InterativeDecoder(nn.Module):
     def __init__(
@@ -120,6 +121,8 @@ class InterativeDecoder(nn.Module):
         self.filter_ratio=0
 
         if self.discriminator:
+            self.centric=True
+
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -157,7 +160,7 @@ class InterativeDecoder(nn.Module):
             num_layers=self.num_layers
         )
 
-        feat_a,pos_s, head_s, head_vector_s,mask_s, batch_s_repeat,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
+        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
 
@@ -190,7 +193,7 @@ class InterativeDecoder(nn.Module):
         #n_a=len(r_a2a)
         #n_pt=len(r_pl2a)
 
-        a2a_list=[]
+       # a2a_list=[]
 
         for layer_i in range(self.num_layers):
             feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
@@ -227,6 +230,10 @@ class InterativeDecoder(nn.Module):
             feat_a=feat_a_all[train_mask]
         else:
             feat_a=feat_a_all
+
+        if self.discriminator and self.centric:
+            index=batch_s_repeat[train_mask]
+            feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
         if self.n_token_agent>10 and self.n_token_agent<2048:
             feat_a=torch.mean(feat_a, dim=1,keepdim=True)
