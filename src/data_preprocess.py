@@ -298,7 +298,8 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
     polylines = []
     # other_id=[]
     point_cnt = 0
-    centerline_list=[]
+    #centerline_list=[]
+    road_edge_list=[]
 
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
@@ -307,6 +308,9 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
             continue
 
         if mf.id in remove_mapid:
+            continue
+
+        if feature_data_type != "road_edge":
             continue
 
         feature = getattr(mf, feature_data_type)
@@ -334,7 +338,7 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 map_infos["lane"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
-                centerline_list.append(cur_polyline[:,:2])
+                #centerline_list.append(cur_polyline[:,:2])
 
         elif feature_data_type == "road_edge":
             if len(feature.polyline) > 1:
@@ -354,6 +358,8 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 map_infos["road_edge"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
+
+                road_edge_list.append(cur_polyline[:,:2])
 
         elif feature_data_type == "road_line":
             if len(feature.polyline) > 1:
@@ -424,7 +430,7 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 # not necessary found, some stop sign lanes are for lane with length 1
                 # assert is_found
     map_infos["all_polylines_list"] = polylines
-    map_infos["centerline_list"]=centerline_list
+    map_infos["road_edge_list"]=road_edge_list
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)
