@@ -650,7 +650,6 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail and not self.use_distance:
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
                 if self.encoder.agent_encoder.pred_col:
-
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
 
                     expert_nll=expert_nll+col_loss
@@ -851,7 +850,7 @@ class IQ_SoftQ(LightningModule):
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.use_value:
-                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
@@ -952,7 +951,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL + value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL + 0.1*value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():
