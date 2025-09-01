@@ -538,7 +538,7 @@ class IQ_SoftQ(LightningModule):
 
             dis_loss=dis_loss+off_road_loss+dis_off_road_loss
 
-        return col_loss+dis_loss
+        return 0.1*col_loss+dis_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
