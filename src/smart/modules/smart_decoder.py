@@ -172,7 +172,7 @@ class SMARTDecoder(nn.Module):
                     hist_drop_prob=0,
                     n_token_agent=1,
                     pt2a_neighbor=10,
-                    a2a_neighbor=10,
+                    a2a_neighbor=5,
                     token_processor=token_processor,
                     alpha=self.alpha,
                     output_gmm=False,
