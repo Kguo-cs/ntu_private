@@ -649,10 +649,10 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
-                # if self.encoder.agent_encoder.pred_col:
-                #     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
-                #
-                #     expert_nll=expert_nll+col_loss
+                if self.encoder.agent_encoder.pred_col:
+                    col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
+
+                    expert_nll=expert_nll+col_loss
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -766,10 +766,10 @@ class IQ_SoftQ(LightningModule):
                     expert_dis_loss=noise_error
                     agent_dis_loss=torch.tensor(0.0)
 
-                if self.encoder.agent_encoder.pred_col:
-                    col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,train_mask,all_valid,'agent')
-
-                    expert_nll=expert_nll+col_loss
+                # if self.encoder.agent_encoder.pred_col:
+                #     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,train_mask,all_valid,'agent')
+                #
+                #     expert_nll=expert_nll+col_loss
 
 
                 if self.encoder.agent_encoder.use_infogail:
