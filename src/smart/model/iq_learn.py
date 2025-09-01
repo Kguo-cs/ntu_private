@@ -654,13 +654,18 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
+            tokenized_agent_rollout["train_mask"]=None
+
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
+
+            tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
                 if not self.use_distance:
 
                     agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",train_mask,tokenized_map=tokenized_map)
+                    critic_loss=expert_dis_loss + agent_dis_loss
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
@@ -709,7 +714,7 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss=torch.tensor(0.0)
 
                 if self.encoder.agent_encoder.pred_col:
-                    col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,train_mask,all_valid,'agent')
+                    col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
 
                     expert_nll=expert_nll+col_loss
 
@@ -771,13 +776,6 @@ class IQ_SoftQ(LightningModule):
 
                     #@self.log("train/loss_prior", loss_prior.item(), on_step=True, batch_size=1)
 
-
-                if self.reward_type=="raw":
-                    alpha=0.5
-                    critic_loss =-expert_logit.mean()+agent_logit.mean()+expert_logit.square().mean() / (4 * alpha)
-                else:
-                    critic_loss=expert_dis_loss + agent_dis_loss
-
                 if self.encoder.use_value:
                     feat_a=tokenized_agent_rollout["feat_a_nodetach"][all_valid]
 
@@ -792,9 +790,9 @@ class IQ_SoftQ(LightningModule):
                     value_loss = torch.pow(returns - value_pred, 2.0).clamp(min=0,max=100).mean()
 
                     if self.use_lcf:
-                        nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
+                        nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid,neighbor_dist=60.0)
 
-                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
+                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][~all_valid])[:,:,0]
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
 
@@ -829,9 +827,13 @@ class IQ_SoftQ(LightningModule):
                         else:
                             step_lcf=torch.tensor(0.5)
 
-                        used_lcf = step_lcf.detach() * np.pi / 2
+                        advantages=torch.zeros_like(agent_log_prob)
 
-                        advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
+                        advantages[all_valid]=ego_advantages
+                        advantages[~all_valid]=nei_advantages
+                        # used_lcf = step_lcf.detach() * np.pi / 2
+                        #
+                        # advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
 
                     else:
                         if self.encoder.discriminator.interative_decoder.centric:

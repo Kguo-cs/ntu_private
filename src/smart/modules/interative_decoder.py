@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
         self.filter_ratio=0
 
         if self.discriminator:
-            self.centric=True
+            self.centric=False
 
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(

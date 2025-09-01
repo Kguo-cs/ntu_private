@@ -142,69 +142,163 @@ def get_nei_returns(tokenized_agent,reward,neighbor_dist=10,train_mask=None):
 
     return neighbor_mean_rewards
 
+import torch
 
+import torch
 
-def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=1,train_mask=None):
+@torch.no_grad()
+def get_near_returns(
+    tokenized_agent: dict,
+    agent_rewards: torch.Tensor,   # [N_valid, T]  (only valid agents)
+    train_mask: torch.Tensor,      # [N] bool, True = valid
+    neighbor_dist: float = 60.0,
+    pos_keys=("sampled_pos", "pos_a", "pos"),
+    fill_value: float = 0.0,
+) -> torch.Tensor:
     """
-    Average reward of the k nearest *valid* neighbors (same batch, not self)
-    for each agent at each timestep. If fewer than k are within neighbor_dist,
-    average over the available ones; if none, return 0.
+    For each INVALID agent and each timestep, compute the mean reward of VALID neighbors
+    within `neighbor_dist` (same scene). Output is [N, T]; values for valid agents are 0.
 
-    Args:
-        tokenized_agent: dict with keys:
-            - "sampled_pos": [M, T, 2]
-            - "batch":       [M]
-        reward: [M, T] rewards per agent per timestep
-        neighbor_dist: scalar distance threshold
-        k: number of nearest neighbors to consider (upper bound)
-
-    Returns:
-        avg_nn_reward: [M, T] averaged neighbor reward
-        valid_counts:  [M, T] how many neighbors actually contributed
+    Assumes `agent_rewards` rows align with `valid_idx = train_mask.nonzero(as_tuple=True)[0]`.
     """
-    pos   = tokenized_agent["sampled_pos"][:, 1:-1]   # [M, T, 2]
-    batch = tokenized_agent["batch"]                  # [M]
+    # ---- fetch positions [N, T, 2] ----
+    pos = None
+    for k in pos_keys:
+        if k in tokenized_agent:
+            pos = tokenized_agent[k]
+            break
+    if pos is None:
+        raise KeyError(f"None of {pos_keys} found in tokenized_agent")
+    if pos.ndim != 3 or pos.size(-1) < 2:
+        raise ValueError(f"pos must be [N, T, 2+], got {tuple(pos.shape)}")
+    pos = pos[...,2:, :2]
 
-    if train_mask is not None:
-        pos = pos[train_mask]
-        batch = batch[train_mask]
+    batch = tokenized_agent.get("batch", None)
+    if batch is None:
+        raise KeyError("tokenized_agent['batch'] is required (scene id per agent)")
+    if batch.ndim != 1:
+        batch = batch.view(-1)
 
-    M, T, _ = pos.shape
+    N, T, _ = pos.shape
+    assert train_mask.shape == (N,) and train_mask.dtype == torch.bool
+
     device = pos.device
+    dtype = agent_rewards.dtype
 
-    # Pairwise distances per timestep: [M, M, T]
-    diff = pos.unsqueeze(1) - pos.unsqueeze(0)        # [M, M, T, 2]
-    dist = torch.norm(diff, dim=-1)                   # [M, M, T]
+    valid_idx = torch.nonzero(train_mask, as_tuple=True)[0]        # [N_valid]
+    invalid_idx = torch.nonzero(~train_mask, as_tuple=True)[0]     # [N_invalid]
 
-    # Valid neighbor mask: same batch & not self
-    same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
-    not_self   = ~torch.eye(M, dtype=torch.bool, device=device)
-    valid_pair = same_batch & not_self
+    if agent_rewards.shape != (valid_idx.numel(), T):
+        raise ValueError(f"agent_rewards must be [N_valid, T]; got {tuple(agent_rewards.shape)}")
 
-    # Mask invalid pairs with +inf so they won't be chosen
-    dist = dist.masked_fill(~valid_pair[:, :, None], float("inf"))  # [M, M, T]
+    out = torch.zeros((N, T), dtype=dtype, device=device)
+    if invalid_idx.numel() == 0:
+        return out
 
-    # Limit k to available neighbors (<= M-1)
-    K = min(k, max(1, M-1))
+    # process per scene for correctness & efficiency
+    B = int(batch.max().item()) + 1
+    for b in range(B):
+        inv_b = invalid_idx[(batch[invalid_idx] == b)]
+        if inv_b.numel() == 0:
+            continue
 
-    # k nearest neighbors along neighbor dim (M): shapes [M, K, T]
-    nn_dist, nn_idx = dist.topk(K, dim=1, largest=False)
+        val_mask_b = (batch[valid_idx] == b)
+        if not val_mask_b.any():
+            # no valid neighbors in this scene
+            continue
 
-    # Gather rewards of those neighbors at the same timestep
-    t_idx = torch.arange(T, device=device).expand(M, K, T)          # [M, K, T]
-    nn_rewards = reward[nn_idx, t_idx]                              # [M, K, T]
+        val_b = valid_idx[val_mask_b]                             # [n_val_b]
+        pos_inv_b = pos[inv_b]                                    # [n_inv_b, T, 2]
+        pos_val_b = pos[val_b]                                    # [n_val_b, T, 2]
+        rew_val_b = agent_rewards[val_mask_b]                     # [n_val_b, T]
 
-    # Keep only neighbors within neighbor_dist
-    valid = nn_dist < neighbor_dist                                 # [M, K, T]
+        # batch cdist over time: [T, n_inv_b, n_val_b]
+        pos_inv_bt = pos_inv_b.transpose(0, 1)                    # [T, n_inv_b, 2]
+        pos_val_bt = pos_val_b.transpose(0, 1)                    # [T, n_val_b, 2]
+        D = torch.cdist(pos_inv_bt, pos_val_bt, p=2)              # [T, n_inv_b, n_val_b]
 
-    # Sum and count over valid neighbors
-    sum_rewards = (nn_rewards * valid).sum(dim=1)                   # [M, T]
-    counts      = valid.sum(dim=1)                                  # [M, T]
+        # neighbors per step
+        nb = (D <= neighbor_dist)                                 # [T, n_inv_b, n_val_b]
+        cnt = nb.sum(dim=2)                                       # [T, n_inv_b]
 
-    # Average over available neighbors; if none, return 0
-    avg = torch.where(counts > 0, sum_rewards / counts.clamp(min=1), torch.zeros_like(sum_rewards))
+        # weighted sum of valid rewards per step
+        # rew_val_bt: [T, 1, n_val_b]
+        rew_val_bt = rew_val_b.transpose(0, 1).unsqueeze(1)       # [T, 1, n_val_b]
+        sum_rew = (nb * rew_val_bt).sum(dim=2)                    # [T, n_inv_b]
 
-    return avg
+        avg = torch.where(
+            cnt > 0,
+            sum_rew / cnt.clamp(min=1),
+            torch.as_tensor(fill_value, dtype=dtype, device=device),
+        )  # [T, n_inv_b]
+
+        out[inv_b] = avg.transpose(0, 1)                          # -> [n_inv_b, T]
+
+    return out[~train_mask]
+
+#
+#
+# def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0, k=1,train_mask=None):
+#     """
+#     Average reward of the k nearest *valid* neighbors (same batch, not self)
+#     for each agent at each timestep. If fewer than k are within neighbor_dist,
+#     average over the available ones; if none, return 0.
+#
+#     Args:
+#         tokenized_agent: dict with keys:
+#             - "sampled_pos": [M, T, 2]
+#             - "batch":       [M]
+#         reward: [M, T] rewards per agent per timestep
+#         neighbor_dist: scalar distance threshold
+#         k: number of nearest neighbors to consider (upper bound)
+#
+#     Returns:
+#         avg_nn_reward: [M, T] averaged neighbor reward
+#         valid_counts:  [M, T] how many neighbors actually contributed
+#     """
+#     pos   = tokenized_agent["sampled_pos"][:, 1:-1]   # [M, T, 2]
+#     batch = tokenized_agent["batch"]                  # [M]
+#
+#     if train_mask is not None:
+#         pos = pos[train_mask]
+#         batch = batch[train_mask]
+#
+#     M, T, _ = pos.shape
+#     device = pos.device
+#
+#     # Pairwise distances per timestep: [M, M, T]
+#     diff = pos.unsqueeze(1) - pos.unsqueeze(0)        # [M, M, T, 2]
+#     dist = torch.norm(diff, dim=-1)                   # [M, M, T]
+#
+#     # Valid neighbor mask: same batch & not self
+#     same_batch = batch.unsqueeze(0) == batch.unsqueeze(1)  # [M, M]
+#     not_self   = ~torch.eye(M, dtype=torch.bool, device=device)
+#     valid_pair = same_batch & not_self
+#
+#     # Mask invalid pairs with +inf so they won't be chosen
+#     dist = dist.masked_fill(~valid_pair[:, :, None], float("inf"))  # [M, M, T]
+#
+#     # Limit k to available neighbors (<= M-1)
+#     K = min(k, max(1, M-1))
+#
+#     # k nearest neighbors along neighbor dim (M): shapes [M, K, T]
+#     nn_dist, nn_idx = dist.topk(K, dim=1, largest=False)
+#
+#     # Gather rewards of those neighbors at the same timestep
+#     t_idx = torch.arange(T, device=device).expand(M, K, T)          # [M, K, T]
+#     nn_rewards = reward[nn_idx, t_idx]                              # [M, K, T]
+#
+#     # Keep only neighbors within neighbor_dist
+#     valid = nn_dist < neighbor_dist                                 # [M, K, T]
+#
+#     # Sum and count over valid neighbors
+#     sum_rewards = (nn_rewards * valid).sum(dim=1)                   # [M, T]
+#     counts      = valid.sum(dim=1)                                  # [M, T]
+#
+#     # Average over available neighbors; if none, return 0
+#     avg = torch.where(counts > 0, sum_rewards / counts.clamp(min=1), torch.zeros_like(sum_rewards))
+#
+#     return avg
 
 # def get_near_returns(tokenized_agent, reward, neighbor_dist=60.0):
 #     pos = tokenized_agent["sampled_pos"][:, 1:-1]  # [M, T, 2]
