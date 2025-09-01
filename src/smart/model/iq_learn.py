@@ -699,7 +699,6 @@ class IQ_SoftQ(LightningModule):
 
                     expert_nll=expert_nll+col_loss
 
-
                 if self.encoder.agent_encoder.use_infogail:
 
                     logits = self.encoder.RecognitionQ.predict_agent(tokenized_agent_rollout["sampled_idx"],
@@ -730,7 +729,6 @@ class IQ_SoftQ(LightningModule):
                         dist = Independent(base, reinterpreted_batch_ndims=1)  # event dim = last
 
                         z_logp = dist.log_prob(z)  # shape: [...]
-
 
                         mu_p = torch.zeros_like(mu)
                         logvar_p = torch.zeros_like(logvar)
@@ -868,7 +866,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL +0.001* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL +0.01* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():

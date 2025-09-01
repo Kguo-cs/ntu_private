@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: AIRL64_edge1_value0001_pred_expertvalid #mask #expertcolpolicy #learnvalue001 #_learnmap_ #coloffpolicy #_learnmap_allq #@_share2 #_dlatent #bc32_map2_CVAE #edge1_inter2_pt20 #AIRL64_edge1_share2_dislatent #kl1_nomap #vae_nosharelatent #bc32_edge1_inter2_pt20 #AIRL64_edge1_vae_nosharelatent #klr09999_nomap #bc32_edge1_inter2_vae #AIRL64_edge1_klr1_nomap #klr1_no #map2_guassian2_klnorm #kl1_learnmap #kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
+task_name: AIRL64_edge1_value001_pred_expertvalid #mask #expertcolpolicy #learnvalue001 #_learnmap_ #coloffpolicy #_learnmap_allq #@_share2 #_dlatent #bc32_map2_CVAE #edge1_inter2_pt20 #AIRL64_edge1_share2_dislatent #kl1_nomap #vae_nosharelatent #bc32_edge1_inter2_pt20 #AIRL64_edge1_vae_nosharelatent #klr09999_nomap #bc32_edge1_inter2_vae #AIRL64_edge1_klr1_nomap #klr1_no #map2_guassian2_klnorm #kl1_learnmap #kl10_nobc #sharelatent2 #bc32_histdrop01_03_formert
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
