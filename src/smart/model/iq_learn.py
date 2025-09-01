@@ -706,7 +706,7 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss=torch.tensor(0.0)
 
                 if self.encoder.agent_encoder.pred_col:
-                    col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
+                    col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,train_mask,all_valid,'agent')
 
                     expert_nll=expert_nll+col_loss
 
@@ -824,10 +824,6 @@ class IQ_SoftQ(LightningModule):
 
                         advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
 
-                        # _raw_lcf_adv_mean = advantages.mean()
-                        # _raw_lcf_adv_std = max(1e-4, advantages.std())
-
-                        # advantages=0.5*(advantages+nei_advantages)
                     else:
                         advantages=ego_advantages
 
@@ -836,21 +832,6 @@ class IQ_SoftQ(LightningModule):
                 else:
                     advantages=agent_returns[all_valid]
                     value_loss=0
-                    # expert_returns=expert_returns[all_valid]
-                    # expert_advantages=self.return_meanstd.normalize(expert_returns)
-                    # expert_wNLL=-(expert_log_prob[all_valid]*expert_advantages).mean()
-                    #
-                    # self.log("train/expert_wNLL", expert_wNLL.item(), on_step=True, batch_size=1)
-                    # if self.use_lcf:
-                    #     global_returns=self.global_returns[all_valid]
-                    #     global_advantages=(global_returns - global_returns.mean()) / (global_returns.std() + 1e-8)
-                    #
-                    #     new_policy_loss=-(agent_log_prob[all_valid]*global_advantages).mean()
-                    #
-                    #     self.encoder.agent_encoder.
-                    #
-                    #     new_policy_grad=torch.autograd.grad(new_policy_loss,self.encoder.agent_encoder.parameters())
-                    #     new_policy_grad = [g for g in new_policy_grad if g is not None]
 
                 self.return_meanstd.update(advantages.detach().reshape(-1))
                 advantages=self.return_meanstd.normalize(advantages)
