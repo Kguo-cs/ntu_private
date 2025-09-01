@@ -526,18 +526,21 @@ class IQ_SoftQ(LightningModule):
             # train_mask=torch.zeros_like(tokenized_agent["sampled_pos"][:, 2:]).bool()
             # train_mask[i]=True
 
-            near_dist=corners_offroad_signed_distance_per_batch(tokenized_agent["sampled_pos"][:, 2:],
-                                                     tokenized_agent["sampled_heading"][:, 2:],
-                                                     tokenized_agent["shape"][:, :2],
-                                                     tokenized_agent["batch"],
+            near_dist=corners_offroad_signed_distance_per_batch(tokenized_agent["sampled_pos"][:, 2:][all_valid],
+                                                     tokenized_agent["sampled_heading"][:, 2:][all_valid],
+                                                     tokenized_agent["shape"][:, :2][all_valid],
+                                                     tokenized_agent["batch"][all_valid],
                                                       tokenized_map["global_edge"],
-                                                      tokenized_map["batch_edge"]
+                                                      tokenized_map["batch_edge"],
                                                       )[1]
             offroad_flag= (near_dist < 0).float()
 
-            valid_off_flag=offroad_flag[train_mask]
+            if train_mask is not None:
+                valid_off_flag=offroad_flag[train_mask]
+            else:
+                valid_off_flag=offroad_flag.reshape(-1)
 
-            off_road_loss = self.bce_loss(col_pred[:,1], offroad_flag[train_mask])
+            off_road_loss = self.bce_loss(col_pred[:,1], valid_off_flag)
 
             if self.encoder.pred_dis_aux:
                 dis_off_road_loss=self.bce_loss(dis_col_pred[:,:,1], offroad_flag[all_valid])
@@ -548,9 +551,10 @@ class IQ_SoftQ(LightningModule):
             self.log('train/'+key+'_off_road_loss', off_road_loss.item(), on_step=True, batch_size=1)
             self.log('train/'+key+'_offroad_rate', valid_off_flag.mean().item(), on_step=True, batch_size=1)
 
-            dis_loss=dis_loss+off_road_loss+dis_off_road_loss
+            dis_loss=dis_loss+dis_off_road_loss
+            col_loss=col_loss+off_road_loss
 
-        return 0.01*col_loss+dis_loss
+        return 0.1*col_loss+dis_loss
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -654,12 +658,12 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.agent_encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            tokenized_agent_rollout["train_mask"]=None
+            #tokenized_agent_rollout["train_mask"]=None
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
-            tokenized_agent_rollout["train_mask"]=all_valid
+            #tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
                 if not self.use_distance:

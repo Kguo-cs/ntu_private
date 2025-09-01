@@ -13,6 +13,7 @@
 
 from typing import Dict
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -30,7 +31,6 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 
-# import matplotlib.pyplot as plt
 
 class SMARTMapDecoder(nn.Module):
 
@@ -86,7 +86,7 @@ class SMARTMapDecoder(nn.Module):
             ]
         )
 
-        self.pred_offroad=False
+        self.pred_offroad=True
 
 
         self.apply(weight_init)
@@ -124,17 +124,48 @@ class SMARTMapDecoder(nn.Module):
             orient_edge=orient_pt[edge_mask]
             batch_edge=batch[edge_mask]
 
-           # edge_type=map_type[edge_mask]
-
             local_traj=self.token_processor.map_token_traj_src[token_edge_idx]
 
             global_edge,_=transform_to_global(pos_local=local_traj.reshape(-1,11,2), head_local=None, pos_now=pos_edge, head_now=orient_edge)
 
-            # global_edge=global_edge.cpu().detach().numpy()
-            # for i in range(len(global_edge)):
+
+            # edge_type=map_type[edge_mask]
             #
-            #    plt.plot(global_edge[i,:,0],global_edge[i,:,1],'r')
-            # plt.show()
+            # mid_road_edge=global_edge[edge_type==5]
+            #
+            # if len(mid_road_edge):
+            #
+            #     mid_road_edge_last=mid_road_edge[:,-1]
+            #     mid_road_edge_start=mid_road_edge[:,0]
+            #
+            #     dist_to_other_seg=torch.linalg.norm(mid_road_edge_last[:,None]-mid_road_edge_start[None],dim=-1)
+            #
+            #     mask=(dist_to_other_seg>0.5) & (dist_to_other_seg<5)#there is a gap
+            #
+            #     new_start=mid_road_edge_last[mask]
+            #     new_end=mid_road_edge_start[mask]
+            #
+            #     inter_seg=torch.stack((new_start,new_end),dim=1)
+            #
+            #     import matplotlib as mpl
+            #
+            #     mpl.rcParams['toolbar'] = 'None'
+            #     import matplotlib.pyplot as plt
+            #
+            #     global_edge=global_edge[edge_type==4].cpu().detach().numpy()
+            #
+            #     mid_road_edge=mid_road_edge.cpu().detach().numpy()
+            #     inter_seg=inter_seg.cpu().detach().numpy()
+            #     for i in range(len(global_edge)):
+            #        plt.plot(global_edge[i,:,0],global_edge[i,:,1],'r')
+            #     for j in range(len(mid_road_edge)):
+            #        plt.plot(mid_road_edge[j,:,0],mid_road_edge[j,:,1],'g')
+            #        plt.plot(mid_road_edge[j,:2,0],mid_road_edge[j,:2,1],'r')
+            #
+            #     for j in range(len(inter_seg)):
+            #        plt.plot(inter_seg[j,:,0],inter_seg[j,:,1],'b')
+            #
+            #     plt.show()
 
             #global_edge[edge_type==5]=global_edge[edge_type==5].flip(dims=[1])
 
