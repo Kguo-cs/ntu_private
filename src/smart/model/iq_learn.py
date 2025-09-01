@@ -411,7 +411,7 @@ class IQ_SoftQ(LightningModule):
             if key == "expert":
                 bce_loss = self.bce_loss(disc_val[train_mask], torch.ones_like(disc_val)[train_mask]) #-disc_val.log()
             else:
-                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
+                bce_loss = self.bce_loss(disc_val[train_mask], torch.zeros_like(disc_val)[train_mask]) # -(1 - disc_val).log()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
@@ -657,7 +657,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,None,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",train_mask,tokenized_map=tokenized_map)
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
