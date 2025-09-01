@@ -791,7 +791,7 @@ class IQ_SoftQ(LightningModule):
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
-                    value_loss = torch.pow(returns - value_pred, 2.0).clamp(min=0,max=100).mean()
+                    value_loss = torch.pow(returns - value_pred, 2.0).clamp(min=0,max=10).mean()
 
                     if self.use_lcf:
                         nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid,neighbor_dist=60.0)
