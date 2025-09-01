@@ -86,7 +86,7 @@ class SMARTMapDecoder(nn.Module):
             ]
         )
 
-        self.pred_offroad=True
+        self.pred_offroad=False
 
 
         self.apply(weight_init)

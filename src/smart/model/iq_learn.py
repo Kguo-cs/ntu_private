@@ -562,7 +562,7 @@ class IQ_SoftQ(LightningModule):
         tokenized_agent["vis_mask"] = None
 
         if "pred_mask" in tokenized_agent.keys():
-            all_valid=tokenized_agent["pred_mask"]
+            all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
         else:
             all_valid=valid_mask.all(-1)
 
@@ -594,7 +594,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
-                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",train_mask)
+                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",None)
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
 
@@ -668,7 +668,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if not self.use_distance:
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",train_mask,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 else:
@@ -876,7 +876,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL +0.01* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL +0.001* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():

@@ -92,8 +92,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        if not discriminator:
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
+        #if not discriminator:
+        self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,hist_len=self.agent_hist)
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
@@ -168,7 +168,7 @@ class SMARTAgentDecoder(nn.Module):
             self.k_dim=16
             self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)#nn.Embedding(self.k_dim, hidden_dim)
 
-        self.pred_col=True
+        self.pred_col=False
         self.use_sign_dist=False
 
         self.token_processor= token_processor
@@ -220,10 +220,10 @@ class SMARTAgentDecoder(nn.Module):
             feat_a_t=feat_a_lg_t[:len(mask)]
             feat_lg_t=feat_a_lg_t[len(mask):]
         else:
-            if self.discriminator:
-                feat_a_t=feat_a_token
-            else:
-                feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
+            # if self.discriminator:
+            #     feat_a_t=feat_a_token
+            # else:
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             feat_lg_t=None
 
         if self.training or self.discriminator or self.target_net:
