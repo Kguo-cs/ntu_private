@@ -105,7 +105,7 @@ def _signed_distance_points_to_polylines_knn_2d_batch(
 
     # Per (point, polyline) — pick nearest segment & its sign
     seg_min_idx = dist.argmin(dim=1)                              # [Q]
-    pair_dist   = dist.gather(1, seg_min_idx[:, None]).squeeze(1) # [Q]
+    pair_dist   = dist.gather(1, seg_min_idx[:, None]).squeeze(1) # [Q].mean(-1)#
     pair_sign   = sign_to_segment.gather(1, seg_min_idx[:, None]).squeeze(1).to(torch.float32) # [Q]
 
     # Reduce over the k polylines to 1 winner per point
@@ -179,7 +179,7 @@ def corners_offroad_signed_distance_per_batch(
         # Flatten corners for this scene
         Nb = idx_a.numel()
         M  = Nb * T * 4
-        flat_corners = corners_xy.reshape(M, 2)
+        flat_corners = corners_xy.reshape(M, 2)#[-1:]
 
         # Signed distance per corner (vectorized kNN within the scene)
         flat_sd = _signed_distance_points_to_polylines_knn_2d_batch(

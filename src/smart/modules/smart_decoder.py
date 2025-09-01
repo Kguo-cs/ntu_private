@@ -191,11 +191,15 @@ class SMARTDecoder(nn.Module):
                         self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 3)
 
                     else:
+                        if self.map_encoder.pred_offroad:
+                            out_dim=2
+                        else:
+                            out_dim=1
 
-                       self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
+                        self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
 
-                       if self.pred_dis_aux:
-                           self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1),nn.Sigmoid())
+                        if self.pred_dis_aux:
+                           self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
 
                 if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(

@@ -26,6 +26,7 @@ from src.smart.loss.kl_loss import BalancedKL
 from src.smart.loss.collision_check import oriented_box_collision,signed_distance_boxes_sat_fast,value_to_hist_class
 from src.smart.loss.offroad_check import corners_offroad_signed_distance_per_batch
 
+
 class IQ_SoftQ(LightningModule):
 
     def __init__(self, model_config) -> None:
@@ -239,45 +240,6 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and not self.use_gail:
             action_nll=0
 
-        # if self.use_target_q:
-        #     V=(V-target_V)[all_valid_mask]
-
-        # if pred["visibility"] is None:
-        #     vis_nll=0
-        # else:
-        #     visibility=pred["visibility"][:,:-1,0]
-        #
-        #     if key=="expert":
-        #         vis_mask=valid_mask.to(torch.float)[:,1:]
-        #     else:
-        #         vis_mask=tokenized_agent["vis_mask"][:, self.start_step+1:][train_mask]
-        #
-        #     vis_log_prob = F.binary_cross_entropy_with_logits(visibility, vis_mask.float(), reduction='none')
-        #
-        #     if key=="expert": #state =True
-        #         state_mask=valid_mask[:,:-1]
-        #         vis_log_prob=vis_log_prob[state_mask]
-        #     else:
-        #         log_prob=log_prob+vis_log_prob
-        #
-        #     vis_nll=-vis_log_prob.mean()
-        #     self.log("train/"+key+"_vis_nll", vis_nll.item(), on_step=True, batch_size=1)
-
-        # if len(pred["goal_q"]):
-        #     goal_idx=tokenized_agent["goal_idx"][:, 2:]
-        #
-        #     log_prob_goal,goal_logpi=self.get_network_QV(pred["goal_q"], tokenized_map, tokenized_agent,goal_idx,key)[:2]
-        #
-        #     if key == "expert":
-        #         goal_nll=-log_prob_goal[train_mask].mean()
-        #         self.log("train/" + key + "_goal_nll", goal_nll.item(), on_step=True, batch_size=1)
-        #     else:
-        #         log_prob=log_prob_goal+log_prob
-        #         goal_nll=0
-        #
-        # else:
-        #     goal_nll=0
-
         if len(pred["light_q"]) and key=="expert":
             light_idx=tokenized_agent["light_idx"][:, 2:]
             light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
@@ -293,9 +255,6 @@ class IQ_SoftQ(LightningModule):
             light_nll=0
 
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
-
-    def get_d(self,f,log_prob):
-        return torch.sigmoid(f)#-log_prob.detach()
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
@@ -332,8 +291,6 @@ class IQ_SoftQ(LightningModule):
         sampled_pos=tokenized_agent["sampled_pos"]
         sampled_head=tokenized_agent["sampled_heading"]
 
-
-
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
                                                         tokenized_agent["valid_mask"],
@@ -348,7 +305,7 @@ class IQ_SoftQ(LightningModule):
 
         logit=disc_out[0]
 
-        disc_val = self.get_d(logit[:, :, 0],0)
+        disc_val = torch.sigmoid(logit[:, :, 0])
         # svo=torch.sigmoid(logit[:,:,1])
         #
         # nei_disval=get_near_returns(tokenized_agent,disc_val,train_mask=train_mask)
@@ -588,6 +545,11 @@ class IQ_SoftQ(LightningModule):
         self.log('train/'+key+'_col_rate', valid_expert_col_flag.float().mean().item(), on_step=True, batch_size=1)
 
         if self.encoder.map_encoder.pred_offroad:
+            # for i in range(len(tokenized_agent["sampled_pos"][:, 2:])):
+            #     print(i)
+            # train_mask=torch.zeros_like(tokenized_agent["sampled_pos"][:, 2:]).bool()
+            # train_mask[i]=True
+
             near_dist=corners_offroad_signed_distance_per_batch(tokenized_agent["sampled_pos"][:, 2:],
                                                      tokenized_agent["sampled_heading"][:, 2:],
                                                      tokenized_agent["shape"][:, :2],
@@ -595,9 +557,7 @@ class IQ_SoftQ(LightningModule):
                                                       tokenized_map["global_edge"],
                                                       tokenized_map["batch_edge"]
                                                       )[1]
-
             offroad_flag= (near_dist < 0).float()
-
             valid_off_flag=offroad_flag[train_mask]
 
             off_road_loss = self.bce_loss(col_pred[:,1], offroad_flag[train_mask])
@@ -648,7 +608,6 @@ class IQ_SoftQ(LightningModule):
             expert_nll=expert_nll+error_vae
 
         tokenized_agent["train_mask"] = all_valid
-
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
@@ -843,7 +802,7 @@ class IQ_SoftQ(LightningModule):
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.use_value:
-                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]#_nodetach
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]#
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
@@ -944,7 +903,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL + value_loss #0.01*-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL +0.001* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():

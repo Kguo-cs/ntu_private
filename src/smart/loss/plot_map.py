@@ -1,10 +1,30 @@
 global_edge = tokenized_map["global_edge"]
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 
-global_edge = global_edge.cpu().detach().numpy()
+mpl.rcParams['toolbar'] = 'None'
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+ge = global_edge.cpu().detach().numpy()
 point = tokenized_agent["sampled_pos"].cpu().detach().numpy()[:, 2:]
-for i in range(len(global_edge)):
-    plt.plot(global_edge[i, :, 0], global_edge[i, :, 1], 'r')
+# for i in range(len(global_edge)):
+#     plt.plot(global_edge[i, :, 0], global_edge[i, :, 1], 'r')
+for i in range(ge.shape[0]):
+    x = ge[i, :, 0]
+    y = ge[i, :, 1]
+    m = np.isfinite(x) & np.isfinite(y)
+    x, y = x[m], y[m]
+    if len(x) < 2: continue
+
+    plt.plot(x, y, 'r', linewidth=0.8)
+    mid = len(x) // 2
+    plt.annotate(
+        '', xy=(x[mid + 1], y[mid + 1]), xytext=(x[mid], y[mid]),
+        arrowprops=dict(arrowstyle='->', lw=0.9)
+    )
+
+# plt.show()
 
 mask = (near_dist < 0)[train_mask]
 mask1 = (near_dist > 0)[train_mask]
@@ -53,6 +73,9 @@ mo = mask1.ravel()  # outside (near_dist > 0) -> blue
 colors = np.full((corners.shape[0],), '0.6', dtype=object)  # default gray if you also have unlabeled points
 colors[mi] = 'g'
 colors[mo] = 'b'
+
+# colors=colors[mi]
+# corners=corners[mi]
 
 # --- Add boxes to plot efficiently ---
 ax = plt.gca()

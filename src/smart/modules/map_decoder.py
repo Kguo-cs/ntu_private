@@ -118,11 +118,13 @@ class SMARTMapDecoder(nn.Module):
 
         if self.pred_offroad:
 
-            edge_mask=map_type == 4
+            edge_mask=mask #map_type == 4#
             token_edge_idx=token_idx[edge_mask]
             pos_edge=pos_pt[edge_mask]
             orient_edge=orient_pt[edge_mask]
             batch_edge=batch[edge_mask]
+
+            edge_type=map_type[edge_mask]
 
             local_traj=self.token_processor.map_token_traj_src[token_edge_idx]
 
@@ -133,6 +135,8 @@ class SMARTMapDecoder(nn.Module):
             #
             #    plt.plot(global_edge[i,:,0],global_edge[i,:,1],'r')
             # plt.show()
+
+            #global_edge[edge_type==5]=global_edge[edge_type==5].flip(dims=[1])
 
             tokenized_map["global_edge"]=global_edge
             tokenized_map["batch_edge"]=batch_edge
