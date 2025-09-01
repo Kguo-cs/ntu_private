@@ -649,10 +649,10 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
-                if self.encoder.agent_encoder.pred_col:
-                    col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
-
-                    expert_nll=expert_nll+col_loss
+                # if self.encoder.agent_encoder.pred_col:
+                #     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
+                #
+                #     expert_nll=expert_nll+col_loss
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
@@ -781,8 +781,8 @@ class IQ_SoftQ(LightningModule):
                                                                      tokenized_agent_rollout["sampled_heading"],
                                                                      tokenized_agent_rollout,
                                                                      tokenized_agent_rollout["detach_map_feature"],
-                                                         tokenized_agent_rollout["light_idx"],
-                                                         None)[0]#[all_valid]
+                                                                     tokenized_agent_rollout["light_idx"],
+                                                                     None)[0]#[all_valid]
 
                     latent_z = tokenized_agent_rollout["latent_z"][all_valid]
 
@@ -821,17 +821,6 @@ class IQ_SoftQ(LightningModule):
                     mi_beta=0.1
                     agent_rewards=agent_rewards+mi_beta * z_logp.detach()
 
-                    # logits_p=tokenized_agent["logits_p"][all_valid]
-                    #
-                    # q_probs =log_q.detach()
-                    #
-                    # # KL(Q || P) averaged
-                    # log_p = F.log_softmax(logits_p, dim=-1)[:,None].repeat(1,q_probs.shape[1],1)
-                    #
-                    # loss_prior = (q_probs * (q_probs.clamp_min(1e-8).log() - log_p)).sum(-1).mean()
-                    #
-                    # expert_nll=loss_prior+expert_nll
-
                     # # Optional entropy regularizer on P to avoid overconfidence
                     # p_probs = log_p.exp()
                     # H_p = -(p_probs * log_p).sum(-1).mean()
@@ -850,7 +839,7 @@ class IQ_SoftQ(LightningModule):
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.use_value:
-                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]
+                    value_pred=self.encoder.value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]#_nodetach
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
@@ -951,7 +940,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL + 0.01*value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL + value_loss #0.01*-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():
