@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/bc32_edge1_pt30_inter2_epoch=31-step=487008_0.78474.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/bc32_edge1_l4_epoch=24-step=380475_0.7832.ckpt'
 
 trainer:
   limit_train_batches: 1.0
