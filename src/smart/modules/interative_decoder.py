@@ -15,6 +15,7 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 
+from data_preprocess.data_process import num_step
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
@@ -139,11 +140,12 @@ class InterativeDecoder(nn.Module):
         feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
 
         n_agent = mask_a.shape[0]
+        n_step=mask_a.shape[1]
 
         batch_pl = map_feature["batch"]
-        pos_pl = map_feature["position"]#[None].repeat(n_step,1,1).flatten(0, 1)
-        orient_pl = map_feature["orientation"]#[None].repeat(n_step,1).flatten(0, 1)
-        feat_map = map_feature["pt_token"]#.unsqueeze(0).expand( n_step,-1, -1).flatten(0, 1)
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = map_feature["pt_token"]
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=pos_pl,  # [n_pl, 2]
@@ -164,6 +166,11 @@ class InterativeDecoder(nn.Module):
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
 
+        if train_mask is not None:
+            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
+        else:
+            train_repeat_mask=None
+
         edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
@@ -174,8 +181,11 @@ class InterativeDecoder(nn.Module):
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
             vis_mask=None,
-            value=False
-            #shape=tokenized_agent["shape"]
+            value=False,
+            train_mask = train_repeat_mask,
+            num_layers = self.num_layers
+
+        #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         if self.use_bottleneck:
@@ -196,9 +206,18 @@ class InterativeDecoder(nn.Module):
        # a2a_list=[]
 
         for layer_i in range(self.num_layers):
+            if self.num_layers>1 and layer_i == self.num_layers - 1 and train_mask is not None:
+                end_mask=train_repeat_mask[edge_index_a2a[1]]
+                edge_index_a2a = edge_index_a2a[:, end_mask]
+                r_a2a=r_a2a[end_mask]
+
+                end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
+                edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
+                r_pl2a=r_pl2a[end_pt_mask]
+
             feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-            if layer_i == self.num_layers - 1 and train_mask is not None and self.num_layers==1:
+            if  train_mask is not None and self.num_layers==1:
                 feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
                 n_agent = feat_a.shape[1]
                 feat_a=feat_a.flatten(0,1)

@@ -107,9 +107,10 @@ class EdgeEncoder(nn.Module):
             max_radius,
             proposal=None,
             vis_mask=None,
-            value=False
-            # shape=None
-    ):
+            value=False,
+            train_mask=None,
+            num_layers=1
+        ):
         if proposal is None:
             if vis_mask is not None:
                 vis_mask=vis_mask.transpose(0, 1).reshape(-1)
@@ -211,6 +212,8 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
+        if num_layers==1 and train_mask is not None:
+            edge_index_a2a = edge_index_a2a[:, train_mask[edge_index_a2a[1]]]
 
         if mask is not None:
             edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
