@@ -780,7 +780,7 @@ class IQ_SoftQ(LightningModule):
                     # _, v_norm=self.encoder.value_network(feat_a)
                     # value_loss = F.mse_loss(v_norm, y_norm)  # train on normalized target
 
-                    value_loss = torch.pow(gae_returns - v_denorm, 2.0).mean()#.clamp(min=0,max=100)
+                    value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0,max=100).mean()#
 
                     if self.use_lcf:
                         nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid,neighbor_dist=60.0)
