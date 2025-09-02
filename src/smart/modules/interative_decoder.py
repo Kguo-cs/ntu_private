@@ -15,7 +15,6 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 
-from data_preprocess.data_process import num_step
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
