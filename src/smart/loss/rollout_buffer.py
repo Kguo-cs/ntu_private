@@ -144,6 +144,37 @@ def get_nei_returns(tokenized_agent,reward,neighbor_dist=10,train_mask=None):
 
 import torch
 
+def per_scene_zscore_clip(r, batch, mask, clip_val=5.0, eps=1e-6):
+    """
+    r:     [N, T]  raw per-agent rewards
+    batch: [N]     scene id for each agent (0..B-1)
+    mask:  [N, T]  bool; False where (agent,t) is invalid
+    """
+    r = r.clone()
+    mask_f = mask.float()
+    r = r * mask_f
+
+    # unique scene ids
+    uniq = torch.unique(batch)
+    r_out = torch.zeros_like(r)
+
+    for b in uniq.tolist():
+        idx = (batch == b)                     # agents in scene b  [N]
+        if idx.any():
+            r_b = r[idx]                       # [Nb, T]
+            m_b = mask_f[idx]                  # [Nb, T]
+            count = m_b.sum()
+            if count < 1:
+                continue
+            mean = (r_b).sum() / count
+            var = ((r_b - mean) * m_b).pow(2).sum() / count
+            std = var.sqrt().clamp_min(eps)
+
+            r_norm = ((r_b - mean) / std) * m_b
+            r_norm = torch.clamp(r_norm, -clip_val, clip_val)
+            r_out[idx] = r_norm
+    return r_out
+
 import torch
 
 @torch.no_grad()

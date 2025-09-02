@@ -19,7 +19,7 @@ import time
 from collections import deque
 import random
 import copy
-from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return,get_near_returns
+from src.smart.loss.rollout_buffer import RunningMeanStdTorch,get_reward,get_nei_returns,get_return,get_near_returns,per_scene_zscore_clip
 from torch_scatter import scatter_mean
 from torch.distributions import Categorical, Normal, Independent
 from src.smart.loss.kl_loss import BalancedKL
@@ -257,9 +257,6 @@ class IQ_SoftQ(LightningModule):
         return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
-       # map_feature=tokenized_agent["detach_map_feature"]
-        # sampled_pos=tokenized_agent["sampled_pos"]
-        # sampled_head=tokenized_agent["sampled_heading"]
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
@@ -451,8 +448,6 @@ class IQ_SoftQ(LightningModule):
             bce_loss=gp+bce_loss
 
         return bce_loss,rewards,returns,disc_out[-1] #-0.03*entropy
-
-
 
     def get_collision_loss(self,tokenized_agent,tokenized_map,dis_feature,train_mask,all_valid ,key):
 
@@ -768,6 +763,8 @@ class IQ_SoftQ(LightningModule):
                         feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
                     value_pred=self.encoder.value_network(feat_a)[:,:,0]#
+
+                    agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
 
                     ego_advantages,returns=compute_advantages(agent_rewards,value_pred.detach(),None,gamma=self.gamma)#[all_valid]
 
