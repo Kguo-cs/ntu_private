@@ -228,7 +228,7 @@ class SMARTDecoder(nn.Module):
                                     )
 
                 if self.use_value:
-                    self.value_network =PopArtHead(hidden_dim)#MLPLayer(hidden_dim,hidden_dim,1)
+                    self.value_network =MLPLayer(hidden_dim,hidden_dim,1)#PopArtHead(hidden_dim)#
 
                     if self.agent_encoder.use_lcf:
 

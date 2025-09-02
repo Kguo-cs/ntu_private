@@ -760,20 +760,27 @@ class IQ_SoftQ(LightningModule):
                         index=tokenized_agent_rollout["batch"][all_valid][:,None].repeat(1,feat_a.shape[1])
                         feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
-                    with torch.no_grad():
-                        v_denorm, _=self.encoder.value_network(feat_a)
-                        ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
+                    # agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
 
-                        self.encoder.value_network.update_stats_and_rescale(agent_returns.reshape(-1))
-                        y_norm = (gae_returns - self.encoder.value_network.mu) / (self.encoder.value_network.sigma + self.encoder.value_network.eps)
+                    v_denorm=self.encoder.value_network(feat_a)
 
-                    #agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
+                    agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
+                    agent_rewards = torch.clamp(agent_rewards, -5, 5)
+                    ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
+
+                    # with torch.no_grad():
+                    #     v_denorm, _=self.encoder.value_network(feat_a)
+                    #     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
+                    #
+                    #     self.encoder.value_network.update_stats_and_rescale(agent_returns.reshape(-1))
+                    #     y_norm = (gae_returns - self.encoder.value_network.mu) / (self.encoder.value_network.sigma + self.encoder.value_network.eps)
+
                     # normalized target
 
-                    _, v_norm=self.encoder.value_network(feat_a)
-                    value_loss = F.mse_loss(v_norm, y_norm)  # train on normalized target
+                    # _, v_norm=self.encoder.value_network(feat_a)
+                    # value_loss = F.mse_loss(v_norm, y_norm)  # train on normalized target
 
-                    #value_loss = torch.pow(returns - value_pred, 2.0).mean()#.clamp(min=0,max=100)
+                    value_loss = torch.pow(gae_returns - v_denorm, 2.0).mean()#.clamp(min=0,max=100)
 
                     if self.use_lcf:
                         nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid,neighbor_dist=60.0)
