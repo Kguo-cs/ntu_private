@@ -762,7 +762,7 @@ class IQ_SoftQ(LightningModule):
 
                     # agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
 
-                    v_denorm=self.encoder.value_network(feat_a)
+                    v_denorm=self.encoder.value_network(feat_a)[:,:,0]
 
                     agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
                     agent_rewards = torch.clamp(agent_rewards, -5, 5)
