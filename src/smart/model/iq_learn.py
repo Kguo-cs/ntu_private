@@ -263,7 +263,7 @@ class IQ_SoftQ(LightningModule):
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
-                                                        tokenized_agent["expert_valid_mask"],
+                                                        tokenized_agent["valid_mask"],#expert_
                                                         tokenized_agent["sampled_pos"],
                                                         tokenized_agent["sampled_heading"] ,
                                                         tokenized_agent,
@@ -544,7 +544,7 @@ class IQ_SoftQ(LightningModule):
             all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
         else:
             all_valid=valid_mask.all(-1)
-        tokenized_agent["expert_valid_mask"] = tokenized_agent["valid_mask"].clone()
+        #tokenized_agent["expert_valid_mask"] = tokenized_agent["valid_mask"].clone()
 
         if self.use_kl_penalty:
             expert_nll=0
