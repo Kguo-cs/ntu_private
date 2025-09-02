@@ -263,7 +263,7 @@ class IQ_SoftQ(LightningModule):
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
-                                                        tokenized_agent["valid_mask"],
+                                                        tokenized_agent["expert_valid_mask"],
                                                         tokenized_agent["sampled_pos"],
                                                         tokenized_agent["sampled_heading"] ,
                                                         tokenized_agent,
@@ -303,27 +303,6 @@ class IQ_SoftQ(LightningModule):
             kl_per_token=0
 
         with torch.no_grad():
-            # if key=="agent":
-            #     self.encoder.discriminator.eval()
-            #     logit = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-            #                                                  tokenized_agent["goal_idx"],
-            #                                                  tokenized_agent["valid_mask"],
-            #                                                  tokenized_agent["sampled_pos"],
-            #                                                  tokenized_agent["sampled_heading"],
-            #                                                  tokenized_agent,
-            #                                                  map_feature,
-            #                                                  tokenized_agent["light_idx"],
-            #                                                  None)[0]
-            #     disc_val_eval = self.get_d(logit[:, :, 0],log_prob)
-            #
-            #     # svo = torch.sigmoid(logit[:, :, 1])
-            #     #
-            #     # nei_disc_val_eval = get_near_returns(tokenized_agent, disc_val_eval)
-            #     #
-            #     # disc_val_eval = svo * disc_val_eval +  (1 - svo)*nei_disc_val_eval
-            #
-            #     self.encoder.discriminator.train()
-            # else:
             disc_val_eval=disc_val
             if  self.dis_loss == "wgan":
                 rewards=logit[:, :, 0].detach()
@@ -565,6 +544,7 @@ class IQ_SoftQ(LightningModule):
             all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
         else:
             all_valid=valid_mask.all(-1)
+        tokenized_agent["expert_valid_mask"] = tokenized_agent["valid_mask"].clone()
 
         if self.use_kl_penalty:
             expert_nll=0
