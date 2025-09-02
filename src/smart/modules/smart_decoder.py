@@ -24,6 +24,7 @@ from .interative_decoder import InterativeDecoder
 from src.smart.modules.diffusion_discriminator import Discriminator
 import torch.nn.functional as F
 from src.smart.loss.kl_loss import DiagGaussian
+from src.smart.modules.value_head import PopArtHead
 
 class SMARTDecoder(nn.Module):
 
@@ -227,7 +228,7 @@ class SMARTDecoder(nn.Module):
                                     )
 
                 if self.use_value:
-                    self.value_network =MLPLayer(hidden_dim,hidden_dim,1)
+                    self.value_network =PopArtHead(hidden_dim)#MLPLayer(hidden_dim,hidden_dim,1)
 
                     if self.agent_encoder.use_lcf:
 
