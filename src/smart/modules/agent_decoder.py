@@ -310,6 +310,8 @@ class SMARTAgentDecoder(nn.Module):
                         0, 1)
 
                     all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:]]
+                elif self.interative_decoder.state_action:
+                    all_features.append(agent_token_emb[:,2:])
                 else:
                     all_features=next_all_features
                     all_features.append(None)
