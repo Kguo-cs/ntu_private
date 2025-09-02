@@ -10,7 +10,7 @@ model_config:
   n_vis_rollout: 1
   decoder:
     num_map_layers: 1
-    num_agent_layers: 4
+    num_agent_layers: 3
     pl2pl_radius: 20
     pl2a_radius: 30
     a2a_radius: 60
