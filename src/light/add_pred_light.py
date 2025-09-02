@@ -13,10 +13,10 @@ import numpy as np
 # raw_data= "/home/ke/code/catk/src/waymo_data/full/training_inter10_col/"
 
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_edge1_03/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
 raw_data= "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_edge1_03_pred/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pred/"
 
 files = os.listdir(data_directory)
 
