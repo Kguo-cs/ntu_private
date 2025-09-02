@@ -212,8 +212,8 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
-        if num_layers==1 and train_mask is not None:
-            edge_index_a2a = edge_index_a2a[:, train_mask[edge_index_a2a[1]]]
+        # if num_layers==1 and train_mask is not None:
+        #     edge_index_a2a = edge_index_a2a[:, train_mask[edge_index_a2a[1]]]
 
         if mask is not None:
             edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
