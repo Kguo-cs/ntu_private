@@ -780,7 +780,7 @@ class IQ_SoftQ(LightningModule):
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
 
-                        nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).mean()#.clamp(min=0,max=100)
+                        nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).clamp(min=0,max=100).mean()#
 
                         value_loss = nei_value_loss + value_loss
 
