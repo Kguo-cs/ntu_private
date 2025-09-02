@@ -111,7 +111,7 @@ class InterativeDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        self.state_action = True
+        self.state_action = False
         self.reward_shaping = False
         self.use_bottleneck = False
 

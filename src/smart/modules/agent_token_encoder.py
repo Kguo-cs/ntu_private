@@ -41,9 +41,9 @@ class AgentTokenEncoder(nn.Module):
         # )
 
         self.discriminator=discriminator
-        self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
 
         if not self.discriminator:
+            self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
             self.fusion_emb = MLPEmbedding(
                 input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
             )
@@ -63,7 +63,10 @@ class AgentTokenEncoder(nn.Module):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
         _device = pos_a.device
 
-        agent_token_emb = self.embedding(agent_token_index)
+        if not self.discriminator:
+            agent_token_emb=self.embedding(agent_token_index)
+        else:
+            agent_token_emb = None
 
         # veh_mask = agent_type == 0
         # ped_mask = agent_type == 1
