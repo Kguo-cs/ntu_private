@@ -43,7 +43,7 @@ class IQ_SoftQ(LightningModule):
         self.use_gail=self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
 
-        self.buffer_len=1
+        self.buffer_len=100
 
         self.replay_buffer = deque(maxlen=self.buffer_len)
 
@@ -540,8 +540,7 @@ class IQ_SoftQ(LightningModule):
         if "pred_mask" in tokenized_agent.keys():
             all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
         else:
-            all_valid=valid_mask.all(-1)
-        #tokenized_agent["expert_valid_mask"] = tokenized_agent["valid_mask"].clone()
+            all_valid=valid_mask.all(-1)\
 
         if self.use_kl_penalty:
             expert_nll=0
@@ -567,7 +566,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"] = all_valid
 
-        train_mask=train_mask[all_valid]
+        #train_mask=train_mask[all_valid]
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
@@ -644,8 +643,24 @@ class IQ_SoftQ(LightningModule):
 
             if self.use_gail:
                 if not self.use_distance:
+                    if self.buffer_len>1:
+                        with torch.no_grad():
+                            agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
+                                tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None)
 
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
+                        current_rollout={}
+
+                        for key in {"sampled_idx","goal_idx","valid_mask","sampled_heading","sampled_pos","detach_map_feature","light_idx","type","shape","batch","num_graphs"}:
+                            current_rollout[key]=tokenized_agent_rollout[key]
+
+                        self.replay_buffer.append(current_rollout)
+
+                        old_rollout=random.sample(self.replay_buffer,1)[0]
+                        agent_dis_loss, _, _, _ = self.get_reward(
+                            old_rollout, agent_log_prob, agent_pi, "agent", None)
+                    else:
+                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
+
                     critic_loss=expert_dis_loss + agent_dis_loss
 
                 else:
