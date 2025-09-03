@@ -153,11 +153,11 @@ class SMARTAgentDecoder(nn.Module):
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
 
-        self.use_infogail=False
+        self.use_infogail=True
 
         if self.use_infogail and not discriminator:
-            self.k1_dim=2
-            self.k2_dim=1
+            self.k1_dim=1
+            self.k2_dim=2
 
             self.k_dim=self.k1_dim*self.k2_dim
             self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
@@ -201,7 +201,7 @@ class SMARTAgentDecoder(nn.Module):
             #     return None,None,(feat_a_token.detach(),agent_token_emb.detach()),None,None
 
         if latent_z is not None:
-            latent_embedding=self.latent_embed(latent_z)
+            latent_embedding=self.latent_embed(latent_z[:,n_current:n_current+n_step])
             feat_a_token=feat_a_token+latent_embedding
 
         if self.pred_goal and not self.discriminator:
@@ -353,9 +353,9 @@ class SMARTAgentDecoder(nn.Module):
         if self.use_infogail:
             if "latent_z" not in tokenized_agent.keys():
                 batch_idx = tokenized_agent['batch']
-                latent_z1 = torch.randint(low=0, high=self.k1_dim, size=(max(batch_idx) + 1, 1)).to(batch_idx.device)
+                latent_z1 = torch.randint(low=0, high=self.k1_dim, size=(max(batch_idx) + 1, tokenized_agent["sampled_idx"].shape[1]), device=batch_idx.device)
                 latent_z1 = latent_z1[batch_idx] * self.k2_dim
-                latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch_idx), 1), device=batch_idx.device)
+                latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch_idx), tokenized_agent["sampled_idx"].shape[1]), device=batch_idx.device)
 
                 latent_z = latent_z1 + latent_z
 

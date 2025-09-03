@@ -710,11 +710,11 @@ class IQ_SoftQ(LightningModule):
                     latent_z = tokenized_agent_rollout["latent_z"][all_valid]
 
                     if logits.shape[-1]==self.encoder.agent_encoder.k_dim:
-                        index = tokenized_agent["batch"][all_valid]
+                        #index = tokenized_agent["batch"][all_valid]
 
-                        logits=logits[index]
+                        #logits=logits[index]
                         log_q = F.log_softmax(logits, dim=-1)
-                        action=latent_z[:,:,None].repeat(1,log_q.shape[1],1)
+                        action=latent_z[:,2:,None]#[:,:,None].repeat(1,log_q.shape[1],1)
                         z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
                         kl_prior=0
                     else:
@@ -868,7 +868,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL +1e-4* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL +1e-3* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():
