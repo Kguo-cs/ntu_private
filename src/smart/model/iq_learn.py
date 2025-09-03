@@ -564,7 +564,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
 
-            expert_nll=expert_nll+10*error_vae
+            expert_nll=expert_nll+100*error_vae
 
         tokenized_agent["train_mask"] = all_valid
 
