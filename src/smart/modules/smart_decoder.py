@@ -25,6 +25,7 @@ from src.smart.modules.diffusion_discriminator import Discriminator
 import torch.nn.functional as F
 from src.smart.loss.kl_loss import DiagGaussian
 from src.smart.modules.value_head import PopArtHead
+from src.smart.modules.add_spectral_norm import add_spectral_norm_recursively
 
 class SMARTDecoder(nn.Module):
 
@@ -181,6 +182,10 @@ class SMARTDecoder(nn.Module):
                     pred_all_res=False,
                     discriminator=True
                 )
+
+                add_spectral_norm_recursively(self.discriminator)
+
+
 
                 self.pred_dis_aux=True
 

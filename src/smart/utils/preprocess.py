@@ -152,11 +152,17 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
 
         if polygon_type !=1:
             split_polyline=split_polyline[::10]
-        else:
-           split_polyline=split_polyline[::2]
+        # else:
+        #    split_polyline=split_polyline[::2]
+
+        pl_type=cur_type[0].repeat(split_polyline.shape[0])
+
+        if polygon_type == 1:
+            pl_type[::2]+=10
+
         split_polyline_pos.append(split_polyline[..., :2])
         split_polyline_theta.append(split_polyline[..., 2])
-        split_polyline_type.append(cur_type[0].repeat(split_polyline.shape[0]))
+        split_polyline_type.append(pl_type)
         split_polygon_type.append(polygon_type.repeat(split_polyline.shape[0]))
         split_light_type.append(light_type.repeat(split_polyline.shape[0]))
         #split_polyline_id.append(torch.zeros([split_polyline.shape[0]],dtype=torch.int64)+i)
