@@ -153,15 +153,15 @@ class SMARTAgentDecoder(nn.Module):
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
 
-        self.use_infogail=True
+        self.use_infogail=False
 
         if self.use_infogail and not discriminator:
             self.k1_dim=1
             self.k2_dim=4
 
             self.k_dim=self.k1_dim*self.k2_dim
-            # self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
-            self.latent_embed=RoleHead(self.hidden_dim, self.k_dim)
+            self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
+           # self.latent_embed=RoleHead(self.hidden_dim, self.k_dim)
 
         self.use_vae=False
 
@@ -169,7 +169,7 @@ class SMARTAgentDecoder(nn.Module):
             self.k_dim=16
             self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)#nn.Embedding(self.k_dim, hidden_dim)
 
-        self.pred_col=False
+        self.pred_col=True
         self.use_sign_dist=False
 
         self.token_processor= token_processor
@@ -341,7 +341,7 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,proposal,r_a2a,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 
-        return next_token_logits,latent_z,pos_a.detach(),agent_token_emb,proposal,feat_a
+        return next_token_logits,next_light_logits,pos_a.detach(),agent_token_emb,proposal,feat_a
 
     def forward(
             self,
@@ -385,7 +385,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 map_feature,
                                                                                 light_idx,
                                                                                 mask_lg,
-                                                                                latent_z=None,
+                                                                                latent_z=tokenized_agent["latent_z"],
                                                                                 post_sampling=post_sampling)
 
         tokenized_agent["next_token_logits"] = next_token_logits

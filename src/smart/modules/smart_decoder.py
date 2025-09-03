@@ -171,7 +171,7 @@ class SMARTDecoder(nn.Module):
                     head_dim=head_dim,
                     dropout=0,
                     hist_drop_prob=0,
-                    n_token_agent=1,
+                    n_token_agent=2,
                     pt2a_neighbor=10,
                     a2a_neighbor=10,
                     token_processor=token_processor,
@@ -182,7 +182,7 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
-                self.pred_dis_aux=False
+                self.pred_dis_aux=True
 
                 if self.agent_encoder.pred_col:
 
@@ -197,10 +197,10 @@ class SMARTDecoder(nn.Module):
                         else:
                             out_dim=1
 
-                        self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
+                        #self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
 
-                        if self.pred_dis_aux:
-                           self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
+                        # if self.pred_dis_aux:
+                        #    self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
 
                 if self.agent_encoder.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(

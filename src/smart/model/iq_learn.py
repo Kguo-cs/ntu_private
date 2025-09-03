@@ -447,19 +447,19 @@ class IQ_SoftQ(LightningModule):
 
             bce_loss=gp+bce_loss
 
-        return bce_loss,rewards,returns,disc_out[-1] #-0.03*entropy
+        return bce_loss,rewards,returns, torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
-    def get_collision_loss(self,tokenized_agent,tokenized_map,dis_feature,train_mask,all_valid ,key):
+    def get_collision_loss(self,tokenized_agent,tokenized_map,dis_col_pred,train_mask,all_valid ,key):
 
-        col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][all_valid])
+        # col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][all_valid])
+        #
+        # if train_mask is not None:
+        #     col_pred=col_pred[train_mask]
+        # else:
+        #     col_pred = col_pred.reshape(-1,col_pred.shape[-1])
 
-        if train_mask is not None:
-            col_pred=col_pred[train_mask]
-        else:
-            col_pred = col_pred.reshape(-1,col_pred.shape[-1])
-
-        if self.encoder.pred_dis_aux:
-            dis_col_pred = self.encoder.dis_col_head(dis_feature)
+        # if self.encoder.pred_dis_aux:
+        #     dis_col_pred = self.encoder.dis_col_head(dis_feature)
 
         if self.encoder.agent_encoder.use_sign_dist:
             sign_dist = signed_distance_boxes_sat_fast(tokenized_agent["sampled_pos"][:, 2:],
@@ -484,14 +484,16 @@ class IQ_SoftQ(LightningModule):
             else:
                 col_flag = col_flag.reshape(-1)
 
-            col_loss = self.bce_loss(col_pred[:,0], col_flag)
+            #col_loss = self.bce_loss(col_pred[:,0], col_flag)
+            col_loss=0
+            # self.log('train/' + key + '_col_loss', col_loss.item(), on_step=True, batch_size=1)
+
             if self.encoder.pred_dis_aux:
-                dis_loss = self.bce_loss(dis_col_pred[:,:,0], col_flag)
+                dis_loss = self.bce_loss(dis_col_pred.reshape(-1), col_flag)
                 self.log('train/'+key+'_dis_col_loss', dis_loss.item(), on_step=True, batch_size=1)
             else:
                 dis_loss = 0
 
-        self.log('train/'+key+'_col_loss', col_loss.item(), on_step=True, batch_size=1)
         self.log('train/'+key+'_col_rate', col_flag.float().mean().item(), on_step=True, batch_size=1)
 
         if self.encoder.map_encoder.pred_offroad:
@@ -571,7 +573,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail and not self.use_distance:
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",None)
                 if self.encoder.agent_encoder.pred_col:
-                    col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,train_mask,all_valid,'expert')
+                    col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
 
                     expert_nll=expert_nll+col_loss
 
