@@ -171,7 +171,7 @@ class SMARTDecoder(nn.Module):
                     head_dim=head_dim,
                     dropout=0,
                     hist_drop_prob=0,
-                    n_token_agent=2,
+                    n_token_agent=1,
                     pt2a_neighbor=10,
                     a2a_neighbor=10,
                     token_processor=token_processor,
@@ -281,7 +281,7 @@ class SMARTDecoder(nn.Module):
                 logvar=post_dist[:,:,self.k_dim:]#self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
 
                 std = torch.exp(0.5 * logvar)
-                latent_z= mu + torch.randn_like(mu) * std[None,None]
+                latent_z= mu + torch.randn_like(mu) * std#[None,None]
 
                 tokenized_agent["latent_z"]=latent_z
                 tokenized_agent["latent_post"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))

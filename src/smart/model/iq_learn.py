@@ -43,7 +43,7 @@ class IQ_SoftQ(LightningModule):
         self.use_gail=self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
 
-        self.buffer_len=500
+        self.buffer_len=1
 
         self.replay_buffer = deque(maxlen=self.buffer_len)
 
