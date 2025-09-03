@@ -679,6 +679,7 @@ class IQ_SoftQ(LightningModule):
                     # agent_reward= -torch.linalg.norm(agent_contour-gt_contour,dim=-1).mean(-1)
                     #
                     # agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
+
                     with torch.no_grad():
                         error_pred = self.encoder.discriminator.predict_agent(tokenized_agent_rollout["sampled_idx"],
                                                                               tokenized_agent_rollout["goal_idx"],
@@ -789,6 +790,7 @@ class IQ_SoftQ(LightningModule):
                         feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
                     # agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
+                    agent_rewards = torch.round(agent_rewards / 0.01).clip(-10.0,10.0)/10.0 #.floor().long()
 
                     v_denorm=self.encoder.value_network(feat_a)[:,:,0]
 
