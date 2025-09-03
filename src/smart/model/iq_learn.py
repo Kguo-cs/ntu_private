@@ -765,7 +765,7 @@ class IQ_SoftQ(LightningModule):
                     v_denorm=self.encoder.value_network(feat_a)[:,:,0]
 
                     # agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
-                    agent_rewards = torch.clamp(agent_rewards, -5, 5)
+                    #agent_rewards = torch.clamp(agent_rewards, -5, 5)
                     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
 
                     # with torch.no_grad():
