@@ -558,7 +558,7 @@ class IQ_SoftQ(LightningModule):
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
 
-            kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post.distribution, latent_prior.distribution)#.mean()
+            kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post, latent_prior)#.mean()
             free_nats = 0.0
             error_vae =  torch.clamp(kl_per_item, min=free_nats).mean()  # or simply: beta * kl_mean
 
