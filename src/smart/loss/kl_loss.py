@@ -107,10 +107,10 @@ class BalancedKL:
         mu_p, logvar_p = prior #prior.mu, prior.logvar
 
         # Build final mask if not provided
-        if mask is None:
-            mask = valid_q
-            if valid_p is not None:
-                mask = mask & valid_p if mask is not None else valid_p
+        # if mask is None:
+        #     mask = valid_q
+        #     if valid_p is not None:
+        #         mask = mask & valid_p if mask is not None else valid_p
 
         # Numerical safety on log-variances
         logvar_q = torch.clamp(logvar_q, -20.0, 5.0)
