@@ -561,13 +561,13 @@ class IQ_SoftQ(LightningModule):
             kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post, latent_prior)#.mean()
             free_nats = 0.0
             error_vae =  torch.clamp(kl_per_item, min=free_nats).mean()  # or simply: beta * kl_mean
-
-            post_std = torch.exp(0.5 * latent_post[1])
-            prior_std = torch.exp(0.5 * latent_prior[1])
-
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
-            self.log("train/error_vae", post_std.mean().item(), on_step=True, batch_size=1)
-            self.log("train/error_vae", prior_std.mean().item(), on_step=True, batch_size=1)
+
+            # post_std = torch.exp(0.5 * latent_post[1])
+            # prior_std = torch.exp(0.5 * latent_prior[1])
+            #
+            # self.log("train/error_vae", post_std.mean().item(), on_step=True, batch_size=1)
+            # self.log("train/error_vae", prior_std.mean().item(), on_step=True, batch_size=1)
 
             expert_nll=expert_nll+10*error_vae
 
