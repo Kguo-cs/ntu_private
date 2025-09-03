@@ -710,6 +710,9 @@ class IQ_SoftQ(LightningModule):
                     latent_z = tokenized_agent_rollout["latent_z"][all_valid]
 
                     if logits.shape[-1]==self.encoder.agent_encoder.k_dim:
+                        index = tokenized_agent["batch"][all_valid]
+
+                        logits=logits[index]
                         log_q = F.log_softmax(logits, dim=-1)
                         action=latent_z[:,:,None].repeat(1,log_q.shape[1],1)
                         z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]

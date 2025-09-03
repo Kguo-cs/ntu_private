@@ -156,8 +156,8 @@ class SMARTAgentDecoder(nn.Module):
         self.use_infogail=True
 
         if self.use_infogail and not discriminator:
-            self.k1_dim=1
-            self.k2_dim=2
+            self.k1_dim=2
+            self.k2_dim=1
 
             self.k_dim=self.k1_dim*self.k2_dim
             self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)

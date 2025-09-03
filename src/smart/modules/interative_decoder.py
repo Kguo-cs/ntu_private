@@ -20,7 +20,7 @@ from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.modules.edge_encoder import EdgeEncoder
 import time
-from torch_scatter import scatter_max
+from torch_scatter import scatter_max,scatter_mean
 
 class InterativeDecoder(nn.Module):
     def __init__(
@@ -253,8 +253,11 @@ class InterativeDecoder(nn.Module):
             index=batch_s_repeat[train_mask]
             feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
-        if self.n_token_agent>10 and self.n_token_agent<2048:
-            feat_a=torch.mean(feat_a, dim=1,keepdim=True)
+        if self.n_token_agent>1 and self.n_token_agent<2048:
+            # feat_a=torch.mean(feat_a, dim=1,keepdim=True)
+            index=batch_s_repeat[train_mask]
+            #feat_a, argmax = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
+            feat_a = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
 
         if self.pred_last_res:
             if self.training:
