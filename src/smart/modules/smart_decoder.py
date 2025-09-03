@@ -131,29 +131,29 @@ class SMARTDecoder(nn.Module):
                     pred_all_res=False,
                     discriminator=True
                 )
-                self.prior_net = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=90,
-                    pl2a_radius=10,
-                    a2a_radius=10,  # 20 bad
-                    num_freq_bands=num_freq_bands,
-                    num_layers=1,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=0,
-                    hist_drop_prob=0,
-                    n_token_agent=self.agent_encoder.k_dim*2,
-                    pt2a_neighbor=10,
-                    a2a_neighbor=10,
-                    token_processor=token_processor,
-                    alpha=self.alpha,
-                    output_gmm=False,
-                    pred_last_res=False,
-                    pred_all_res=False,
-                    discriminator=True
-                )
+                # self.prior_net = SMARTAgentDecoder(
+                #     hidden_dim=hidden_dim,
+                #     num_historical_steps=num_historical_steps,
+                #     num_future_steps=num_future_steps,
+                #     time_span=90,
+                #     pl2a_radius=10,
+                #     a2a_radius=10,  # 20 bad
+                #     num_freq_bands=num_freq_bands,
+                #     num_layers=1,
+                #     num_heads=num_heads,
+                #     head_dim=head_dim,
+                #     dropout=0,
+                #     hist_drop_prob=0,
+                #     n_token_agent=self.agent_encoder.k_dim*2,
+                #     pt2a_neighbor=10,
+                #     a2a_neighbor=10,
+                #     token_processor=token_processor,
+                #     alpha=self.alpha,
+                #     output_gmm=False,
+                #     pred_last_res=False,
+                #     pred_all_res=False,
+                #     discriminator=True
+                # )
 
                 #self.log_std = nn.Parameter(0 * torch.ones(self.agent_encoder.k_dim), requires_grad=True)
 
@@ -286,18 +286,18 @@ class SMARTDecoder(nn.Module):
                 tokenized_agent["latent_z"]=latent_z
                 tokenized_agent["latent_post"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
 
-                prior_dist = self.post_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
-                                                     tokenized_agent["goal_idx"],
-                                                     tokenized_agent["valid_mask"][:,:2],
-                                                     tokenized_agent["sampled_pos"][:,:2],
-                                                     tokenized_agent["sampled_heading"][:,:2],
-                                                     tokenized_agent,
-                                                     tokenized_agent["detach_map_feature"],
-                                                     tokenized_agent["light_idx"],
-                                                     None)[0] # [all_valid]
+                # prior_dist = self.post_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
+                #                                      tokenized_agent["goal_idx"],
+                #                                      tokenized_agent["valid_mask"][:,:2],
+                #                                      tokenized_agent["sampled_pos"][:,:2],
+                #                                      tokenized_agent["sampled_heading"][:,:2],
+                #                                      tokenized_agent,
+                #                                      tokenized_agent["detach_map_feature"],
+                #                                      tokenized_agent["light_idx"],
+                #                                      None)[0] # [all_valid]
 
-                mu=prior_dist[:,:,:self.k_dim]
-                logvar=prior_dist[:,:,self.k_dim:]#self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
+                mu=torch.zeros_like(mu)#prior_dist[:,:,:self.k_dim]
+                logvar=torch.zeros_like(mu)#prior_dist[:,:,self.k_dim:]#self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
 
                 tokenized_agent["latent_prior"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
 

@@ -146,22 +146,22 @@ class SMART(LightningModule):
                 # mu=logits_p[:,:,:self.encoder.agent_encoder.k_dim]
                 # logvar=logits_p[:,:,self.encoder.agent_encoder.k_dim:]
                 # std = torch.exp(0.5 * logvar)
-                prior_dist = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
-                                                         tokenized_agent["goal_idx"],
-                                                         tokenized_agent["valid_mask"][:, :2],
-                                                         tokenized_agent["sampled_pos"][:, :2],
-                                                         tokenized_agent["sampled_heading"][:, :2],
-                                                         tokenized_agent,
-                                                         map_feature,
-                                                         tokenized_agent["light_idx"],
-                                                         None)[0]  # [all_valid]
+                # prior_dist = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
+                #                                          tokenized_agent["goal_idx"],
+                #                                          tokenized_agent["valid_mask"][:, :2],
+                #                                          tokenized_agent["sampled_pos"][:, :2],
+                #                                          tokenized_agent["sampled_heading"][:, :2],
+                #                                          tokenized_agent,
+                #                                          map_feature,
+                #                                          tokenized_agent["light_idx"],
+                #                                          None)[0]  # [all_valid]
+                #
+                # mu = prior_dist[:, :, :self.encoder.agent_encoder.k_dim]
+                # logvar = prior_dist[:, :, self.encoder.agent_encoder.k_dim:]  # self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
+                # std = torch.exp(0.5 * logvar)
 
-                mu = prior_dist[:, :, :self.encoder.agent_encoder.k_dim]
-                logvar = prior_dist[:, :, self.encoder.agent_encoder.k_dim:]  # self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
-                std = torch.exp(0.5 * logvar)
-
-                # mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
-                # std=torch.ones_like(mu)
+                mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
+                std=torch.ones_like(mu)
 
             # probs = logits_p.softmax(-1)
 
