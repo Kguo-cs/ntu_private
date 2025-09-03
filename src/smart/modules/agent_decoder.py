@@ -36,7 +36,7 @@ from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
 import numpy as np
-
+from src.smart.modules.role_head import RoleHead
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -160,7 +160,8 @@ class SMARTAgentDecoder(nn.Module):
             self.k2_dim=4
 
             self.k_dim=self.k1_dim*self.k2_dim
-            self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
+            # self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
+            self.latent_embed=RoleHead(self.hidden_dim, self.k_dim)
 
         self.use_vae=False
 
@@ -199,6 +200,18 @@ class SMARTAgentDecoder(nn.Module):
 
             # if self.use_kl_penalty and "feat_a_token" not in tokenized_agent.keys():
             #     return None,None,(feat_a_token.detach(),agent_token_emb.detach()),None,None
+
+        # if latent_z not in tokenized_agent.keys():
+        #     logits=self.latent_embed.infer_logits(feat_a_token)
+        #     latent_z = self.latent_embed.sample_z(logits, tau=0.5)  # discrete role (ST)
+        #
+        #     tokenized_agent["latent_z"] = latent_z
+        # else:
+        #     latent_z=tokenized_agent["latent_z"]
+        #
+        # latent_embedding = self.latent_embed.embed(latent_z)  # [M, emb_dim]
+        #
+        # feat_a_token = feat_a_token + latent_embedding
 
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z[:,n_current:n_current+n_step])
@@ -328,7 +341,7 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,proposal,r_a2a,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 
-        return next_token_logits,next_light_logits,pos_a.detach(),agent_token_emb,proposal,feat_a
+        return next_token_logits,latent_z,pos_a.detach(),agent_token_emb,proposal,feat_a
 
     def forward(
             self,
@@ -372,7 +385,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 map_feature,
                                                                                 light_idx,
                                                                                 mask_lg,
-                                                                                latent_z=tokenized_agent["latent_z"],
+                                                                                latent_z=None,
                                                                                 post_sampling=post_sampling)
 
         tokenized_agent["next_token_logits"] = next_token_logits
@@ -431,10 +444,10 @@ class SMARTAgentDecoder(nn.Module):
                 latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch_idx), 18), device=batch_idx.device)
 
                 latent_z=latent_z1+latent_z
-
-
         else:
             latent_z=None
+
+        # tokenized_agent["latent_z"]=tokenized_agent["latent_z"][:, :current_step]
 
         goal_idx=tokenized_agent["goal_idx"][:,:2]
 
@@ -545,14 +558,14 @@ class SMARTAgentDecoder(nn.Module):
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
-            if len(next_light_logits):
-
-                next_light_idx = Categorical(logits=next_light_logits[:, -1] / self.alpha).sample()
-
-                light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
-
-            elif self.use_light:
-                light_idx = tokenized_agent["light_idx"][:,t:t+1]
+            # if len(next_light_logits):
+            #
+            #     next_light_idx = Categorical(logits=next_light_logits[:, -1] / self.alpha).sample()
+            #
+            #     light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
+            #
+            # elif self.use_light:
+            #     light_idx = tokenized_agent["light_idx"][:,t:t+1]
 
             if post_sampling:
                 prev_valid=gt_valid[:,t-1]

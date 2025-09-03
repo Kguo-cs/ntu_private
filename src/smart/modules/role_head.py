@@ -4,11 +4,11 @@ import torch.nn as nn
 from src.smart.layers import MLPLayer
 
 class RoleHead(nn.Module):
-    def __init__(self, in_dim, K, emb_dim):
+    def __init__(self, emb_dim, K):
         super().__init__()
         # self.proj = nn.Sequential(nn.Linear(in_dim, 256), nn.ReLU(),
         #                           nn.Linear(256, K))
-        self.proj = MLPLayer(in_dim, K, emb_dim)
+        self.proj = MLPLayer(emb_dim, K, emb_dim)
         self.emb  = nn.Embedding(K, emb_dim)  # role embeddings
         self.K = K
 
