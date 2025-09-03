@@ -286,7 +286,7 @@ class SMARTDecoder(nn.Module):
                 tokenized_agent["latent_z"]=latent_z
                 tokenized_agent["latent_post"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
 
-                prior_dist = self.post_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
+                prior_dist = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
                                                      tokenized_agent["goal_idx"],
                                                      tokenized_agent["valid_mask"][:,:2],
                                                      tokenized_agent["sampled_pos"][:,:2],
