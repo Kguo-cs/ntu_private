@@ -714,7 +714,7 @@ class IQ_SoftQ(LightningModule):
 
                         #logits=logits[index]
                         log_q = F.log_softmax(logits, dim=-1)
-                        action=latent_z[:,2:,None]#[:,:,None].repeat(1,log_q.shape[1],1)
+                        action=latent_z[:,1:-1,None]#[:,:,None].repeat(1,log_q.shape[1],1)
                         z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
                         kl_prior=0
                     else:
