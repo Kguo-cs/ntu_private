@@ -764,7 +764,7 @@ class IQ_SoftQ(LightningModule):
 
                     v_denorm=self.encoder.value_network(feat_a)[:,:,0]
 
-                    agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
+                    # agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
                     agent_rewards = torch.clamp(agent_rewards, -5, 5)
                     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
 
@@ -865,7 +865,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + agent_wNLL +0.001* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL +1e-3* value_loss #-0.1*agent_density.mean()  # - 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():
