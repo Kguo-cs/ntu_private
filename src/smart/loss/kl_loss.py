@@ -97,14 +97,14 @@ class BalancedKL:
             kl_per_item: KL summed over latent dim, shape matching post batch/time dims
         """
         # Unpack posterior
-        mu_q, logvar_q = post.mu, post.logvar
+        mu_q, logvar_q = post#post.mu, post.logvar
 
         # Unpack prior (or standard Normal)
         if prior is None:
             mu_p = torch.zeros_like(mu_q)
             logvar_p = torch.zeros_like(logvar_q)
             valid_p = None
-        mu_p, logvar_p = prior.mu, prior.logvar
+        mu_p, logvar_p = prior #prior.mu, prior.logvar
 
         # Build final mask if not provided
         if mask is None:

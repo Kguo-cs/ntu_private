@@ -284,7 +284,7 @@ class SMARTDecoder(nn.Module):
                 latent_z= mu + torch.randn_like(mu) * std#[None,None]
 
                 tokenized_agent["latent_z"]=latent_z
-                tokenized_agent["latent_post"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
+                tokenized_agent["latent_post"]=(mu, logvar)#DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
 
                 prior_dist = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
                                                      tokenized_agent["goal_idx"],
@@ -299,7 +299,7 @@ class SMARTDecoder(nn.Module):
                 mu=prior_dist[:,:,:self.k_dim]
                 logvar=prior_dist[:,:,self.k_dim:]#self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
 
-                tokenized_agent["latent_prior"]=DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
+                tokenized_agent["latent_prior"]=(mu, logvar)#DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
 
                 #tokenized_agent["latent_prior"]=DiagGaussian(torch.zeros_like(mu), torch.zeros_like(mu), valid=torch.ones_like(mu).to(bool))
 
