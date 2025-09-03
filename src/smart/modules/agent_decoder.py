@@ -166,7 +166,7 @@ class SMARTAgentDecoder(nn.Module):
         self.use_vae=True
 
         if self.use_vae and not discriminator:
-            self.k_dim=8
+            self.k_dim=4
             self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)#nn.Embedding(self.k_dim, hidden_dim)
 
         self.pred_col=False
