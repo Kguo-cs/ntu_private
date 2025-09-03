@@ -332,12 +332,15 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature = self.map_encoder(tokenized_map)
 
-        # if self.agent_encoder.use_vae:
-        #     mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.agent_encoder.k_dim],device=tokenized_agent["sampled_idx"].device)
-        #     std=torch.ones_like(mu)
-        #     latent_z = mu + torch.randn_like(std) * std
-        #
-        #     tokenized_agent["latent_z"] = latent_z
+        if self.agent_encoder.use_vae:
+            #mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.agent_encoder.k_dim],device=tokenized_agent["sampled_idx"].device)
+            #std=torch.ones_like(mu)
+            mu,logvar=tokenized_agent["latent_prior"]
+            std = torch.exp(0.5 * logvar)
+
+            latent_z = mu + torch.randn_like(std) * std
+
+            tokenized_agent["latent_z"] = latent_z
 
         # if self.agent_encoder.use_latent:
         #     if "latent_z" not  in tokenized_agent.keys():
