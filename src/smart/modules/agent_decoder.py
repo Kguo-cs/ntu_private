@@ -426,9 +426,9 @@ class SMARTAgentDecoder(nn.Module):
                 latent_z = tokenized_agent["latent_z"]
             else:
                 batch_idx = tokenized_agent['batch']
-                latent_z1 = torch.randint(low=0, high=self.k1_dim, size=(max(batch_idx) + 1, 1)).to(batch_idx.device)
+                latent_z1 = torch.randint(low=0, high=self.k1_dim, size=(max(batch_idx) + 1, 18)).to(batch_idx.device)
                 latent_z1 = latent_z1[batch_idx] * self.k2_dim
-                latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch_idx), 1), device=batch_idx.device)
+                latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch_idx), 18), device=batch_idx.device)
 
                 latent_z=latent_z1+latent_z
 
