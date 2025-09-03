@@ -648,14 +648,15 @@ class IQ_SoftQ(LightningModule):
                             agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
                                 tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None)
 
-                        current_rollout={}
+                        if self.global_step%2==0:
+                            current_rollout={}
 
-                        for key in {"sampled_idx","goal_idx","valid_mask","sampled_heading","sampled_pos","detach_map_feature","light_idx","type","shape","batch","num_graphs","train_mask"}:
-                            current_rollout[key]=tokenized_agent_rollout[key]
+                            for key in {"sampled_idx","goal_idx","valid_mask","sampled_heading","sampled_pos","detach_map_feature","light_idx","type","shape","batch","num_graphs","train_mask"}:
+                                current_rollout[key]=tokenized_agent_rollout[key]
 
-                        self.replay_buffer.append(current_rollout)
+                            self.replay_buffer.append(current_rollout)
 
-                        old_rollout=random.sample(self.replay_buffer,1)[0]
+                        old_rollout = random.sample(self.replay_buffer, 1)[0]
                         agent_dis_loss, _, _, _ = self.get_reward(
                             old_rollout, None, None, "agent", None)
                     else:
