@@ -146,7 +146,7 @@ class SMART(LightningModule):
                 # mu=logits_p[:,:,:self.encoder.agent_encoder.k_dim]
                 # logvar=logits_p[:,:,self.encoder.agent_encoder.k_dim:]
                 # std = torch.exp(0.5 * logvar)
-                prior_dist = self.encoder.post_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
+                prior_dist = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
                                                          tokenized_agent["goal_idx"],
                                                          tokenized_agent["valid_mask"][:, :2],
                                                          tokenized_agent["sampled_pos"][:, :2],
