@@ -79,6 +79,88 @@ class BalancedKL:
         self.alpha = kl_balance_scale
         self.free_nats = kl_free_nats
 
+    def kl_diag_gaussians(self,post, prior=None, mask=None, reduce="mean"):
+        """
+        KL(q || p) for diagonal Gaussians where:
+          q ~ N(mu_q, diag(sigma_q^2)),  p ~ N(mu_p, diag(sigma_p^2))
+        Inputs can be either your DiagGaussian objects or (mu, logvar) tuples.
+
+        Args:
+            post: DiagGaussian or (mu_q, logvar_q)
+            prior: DiagGaussian or (mu_p, logvar_p) or None for N(0,I)
+            mask: optional boolean or float mask broadcastable to mu shape sans last dim,
+                  e.g. [B,T] or [B,T,1] or [B,T,K]
+            reduce: "mean" | "sum" | "none"  (over masked elements)
+
+        Returns:
+            kl_reduced: scalar (if reduce != "none") or per-item tensor [*,] (if "none"),
+            kl_per_item: KL summed over latent dim, shape matching post batch/time dims
+        """
+        # Unpack posterior
+        if hasattr(post, "mu"):
+            mu_q, logvar_q = post.mu, post.logvar
+            valid_q = getattr(post, "valid", None)
+        else:
+            mu_q, logvar_q = post
+            valid_q = None
+
+        # Unpack prior (or standard Normal)
+        if prior is None:
+            mu_p = torch.zeros_like(mu_q)
+            logvar_p = torch.zeros_like(logvar_q)
+            valid_p = None
+        elif hasattr(prior, "mu"):
+            mu_p, logvar_p = prior.mu, prior.logvar
+            valid_p = getattr(prior, "valid", None)
+        else:
+            mu_p, logvar_p = prior
+            valid_p = None
+
+        # Build final mask if not provided
+        if mask is None:
+            mask = valid_q
+            if valid_p is not None:
+                mask = mask & valid_p if mask is not None else valid_p
+
+        # Numerical safety on log-variances
+        logvar_q = torch.clamp(logvar_q, -20.0, 5.0)
+        logvar_p = torch.clamp(logvar_p, -20.0, 5.0)
+
+        # KL for diagonal Gaussians: 0.5 * [ log|Σ_p| - log|Σ_q| + tr(Σ_p^{-1} Σ_q)
+        #                              + (μ_p-μ_q)^T Σ_p^{-1} (μ_p-μ_q) - k ]
+        # Implemented elementwise and sum over latent dim
+        var_q = torch.exp(logvar_q)
+        inv_var_p = torch.exp(-logvar_p)
+        diff = mu_q - mu_p
+
+        kl_elwise = 0.5 * ((logvar_p - logvar_q) + (var_q + diff ** 2) * inv_var_p - 1.0)  # [..., K]
+        kl_per_item = kl_elwise.sum(dim=-1)  # sum over latent dim -> shape [...,]
+
+        if mask is not None:
+            mask = mask.to(dtype=kl_per_item.dtype)
+            # If mask lacks latent dim, it will broadcast; ok.
+            kl_masked = kl_per_item * mask
+            if reduce == "mean":
+                denom = mask.sum().clamp_min(1.0)
+                kl_reduced = kl_masked.sum() / denom
+            elif reduce == "sum":
+                kl_reduced = kl_masked.sum()
+            elif reduce == "none":
+                kl_reduced = kl_masked
+            else:
+                raise ValueError(f"Unknown reduce: {reduce}")
+        else:
+            if reduce == "mean":
+                kl_reduced = kl_per_item.mean()
+            elif reduce == "sum":
+                kl_reduced = kl_per_item.sum()
+            elif reduce == "none":
+                kl_reduced = kl_per_item
+            else:
+                raise ValueError(f"Unknown reduce: {reduce}")
+
+        return kl_reduced, kl_per_item
+
     def compute(self, posterior: Normal, prior: Normal) -> Tensor:  # type: ignore
         """
         Args:

@@ -558,11 +558,13 @@ class IQ_SoftQ(LightningModule):
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
 
-            error_vae = self.l_vae_kl.compute(latent_post.distribution, latent_prior.distribution).mean()
+            kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post.distribution, latent_prior.distribution)#.mean()
+            free_nats = 0.0
+            error_vae =  torch.clamp(kl_per_item, min=free_nats).mean()  # or simply: beta * kl_mean
 
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
 
-            expert_nll=expert_nll+10*error_vae
+            expert_nll=expert_nll+error_vae
 
         tokenized_agent["train_mask"] = all_valid
 
