@@ -395,7 +395,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_rewards", rewards.abs().item(), on_step=True, batch_size=1)
 
         if self.dis_loss == "wgan" and key == "agent":
             expert_pos=tokenized_agent["expert_sampled_pos"]
@@ -790,7 +790,7 @@ class IQ_SoftQ(LightningModule):
                         feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
                     # agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
-                    agent_rewards = torch.round(agent_rewards / 0.01).clip(-10.0,10.0)/10.0 #.floor().long()
+                    agent_rewards = torch.round(agent_rewards / 0.02).clip(-10.0,10.0)/10.0 #.floor().long()
 
                     v_denorm=self.encoder.value_network(feat_a)[:,:,0]
 
