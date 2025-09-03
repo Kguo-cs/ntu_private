@@ -166,7 +166,7 @@ class SMARTAgentDecoder(nn.Module):
         self.use_vae=True
 
         if self.use_vae and not discriminator:
-            self.k_dim=16
+            self.k_dim=4
             self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)#nn.Embedding(self.k_dim, hidden_dim)
 
         self.pred_col=False
@@ -397,7 +397,7 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["agent_token_emb"]=agent_token_emb
 
         return {
-            "proposal":proposal,#[:,:-1],
+            "proposal":proposal,
             "goal_q":None,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
@@ -428,12 +428,7 @@ class SMARTAgentDecoder(nn.Module):
 
         pred_traj_10hz = []
         pred_head_10hz = []
-        sampled_log_prob=[]
 
-        # if self.pred_vis:
-        #     vis_mask=mask.clone()
-        # else:
-        #     vis_mask=None
         if self.use_infogail or self.use_vae:
             if "latent_z" in tokenized_agent.keys():
                 latent_z = tokenized_agent["latent_z"]
