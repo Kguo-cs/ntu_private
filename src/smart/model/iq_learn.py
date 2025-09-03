@@ -540,7 +540,7 @@ class IQ_SoftQ(LightningModule):
         if "pred_mask" in tokenized_agent.keys():
             all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
         else:
-            all_valid=valid_mask.all(-1)\
+            all_valid=valid_mask.all(-1)
 
         if self.use_kl_penalty:
             expert_nll=0
@@ -564,7 +564,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
 
-            expert_nll=expert_nll+error_vae
+            expert_nll=expert_nll+10*error_vae
 
         tokenized_agent["train_mask"] = all_valid
 

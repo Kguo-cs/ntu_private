@@ -254,7 +254,7 @@ class InterativeDecoder(nn.Module):
             feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
         if self.n_token_agent>3 and self.n_token_agent<2048:
-            feat_a=torch.mean(feat_a, dim=1,keepdim=True)
+            feat_a=torch.amax(feat_a, dim=1,keepdim=True)
             # index=batch_s_repeat[train_mask]
             # #feat_a, argmax = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
             # feat_a = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
