@@ -3,7 +3,7 @@ ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2025!
 
 
-export PBS_JOBID=68041.pbs111
+export PBS_JOBID=83255.pbs111
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_pred shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
