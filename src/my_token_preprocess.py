@@ -140,7 +140,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(agent_data_directory)
+    files = os.listdir(agent_data_directory)[394500:]
 
     for file in tqdm(files):
         process_file(file)
