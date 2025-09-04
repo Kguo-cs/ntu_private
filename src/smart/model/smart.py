@@ -33,6 +33,7 @@ from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
 import time
+import torch.nn.functional as F
 
 class SMART(LightningModule):
 
@@ -146,6 +147,7 @@ class SMART(LightningModule):
                 # mu=logits_p[:,:,:self.encoder.agent_encoder.k_dim]
                 # logvar=logits_p[:,:,self.encoder.agent_encoder.k_dim:]
                 # std = torch.exp(0.5 * logvar)
+
                 prior_dist = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
                                                          tokenized_agent["goal_idx"],
                                                          tokenized_agent["valid_mask"][:, :2],
@@ -168,7 +170,12 @@ class SMART(LightningModule):
             for _ in range(self.n_rollout_closed_val):
 
                 if self.encoder.agent_encoder.use_vae:
-                    latent_z = mu + torch.randn_like(std) * std
+                    if self.encoder.agent_encoder.use_dicrete:
+                        probs = F.softmax(prior_dist[:,0], dim=-1)
+
+                        latent_z = torch.multinomial(probs, num_samples=1).squeeze(-1)[:,None]
+                    else:
+                        latent_z = mu + torch.randn_like(std) * std
 
                     tokenized_agent["latent_z"] = latent_z
 

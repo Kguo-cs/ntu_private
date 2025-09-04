@@ -558,18 +558,23 @@ class IQ_SoftQ(LightningModule):
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
 
-            kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post, latent_prior)#.mean()
-            free_nats = 0.0
-            error_vae =  torch.clamp(kl_per_item, min=free_nats).mean()  # or simply: beta * kl_mean
+            log_q = F.log_softmax(latent_post, dim=-1)
+            log_p = F.log_softmax(latent_prior, dim=-1)
+            q = log_q.exp()
+            error_vae = (q * (log_q - log_p)).sum(dim=-1).mean()
+
+            # kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post, latent_prior)#.mean()
+            # free_nats = 0.0
+            # error_vae =  torch.clamp(kl_per_item, min=free_nats).mean()  # or simply: beta * kl_mean
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
 
-            post_std = torch.exp(0.5 * latent_post[1])
-            prior_std = torch.exp(0.5 * latent_prior[1])
+            # post_std = torch.exp(0.5 * latent_post[1])
+            # prior_std = torch.exp(0.5 * latent_prior[1])
+            #
+            # self.log("train/post_std", post_std.mean().item(), on_step=True, batch_size=1)
+            # self.log("train/prior_std", prior_std.mean().item(), on_step=True, batch_size=1)
 
-            self.log("train/post_std", post_std.mean().item(), on_step=True, batch_size=1)
-            self.log("train/prior_std", prior_std.mean().item(), on_step=True, batch_size=1)
-
-            expert_nll=expert_nll+10*error_vae
+            expert_nll=expert_nll+error_vae
 
         tokenized_agent["train_mask"] = all_valid
 
@@ -742,7 +747,7 @@ class IQ_SoftQ(LightningModule):
 
                         #logits=logits[index]
                         log_q = F.log_softmax(logits, dim=-1)
-                        action=latent_z[:,1:-1,None]#[:,:,None].repeat(1,log_q.shape[1],1)
+                        action=latent_z[:,:,None].repeat(1,log_q.shape[1],1)#[:,1:-1,None]#
                         z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
                         kl_prior=0
                     else:
