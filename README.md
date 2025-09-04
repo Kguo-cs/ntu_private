@@ -12,7 +12,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_edge1_light ke@10.8
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_map1 ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_edge1_03_pred guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_03_pred guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 wlp100s0
 
