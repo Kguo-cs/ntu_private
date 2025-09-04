@@ -166,7 +166,7 @@ class SMARTAgentDecoder(nn.Module):
         self.use_vae=True
 
         if self.use_vae and not discriminator:
-            self.k_dim=2
+            self.k_dim=4
             self.use_dicrete=True
 
             if self.use_dicrete:
