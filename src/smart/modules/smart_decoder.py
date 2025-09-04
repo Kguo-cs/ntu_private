@@ -293,8 +293,6 @@ class SMARTDecoder(nn.Module):
 
 
                 if self.agent_encoder.use_dicrete:
-                    # 采样离散潜变量（训练）
-
                     latent_z_onehot = F.gumbel_softmax(post_dist, tau=1, hard=True, dim=-1)
 
                     latent_z_index = latent_z_onehot.argmax(dim=-1)  # [*]
