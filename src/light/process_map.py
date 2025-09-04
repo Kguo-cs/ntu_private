@@ -14,8 +14,8 @@ import numpy as np
 
 
 data_directory = "/home/ke/code/catk/src/waymo_data/full/validation_light/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/validation_map1/"
-raw_data= "/home/ke/code/catk/src/waymo_data/map1/validation/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/validation_edge1_light/"
+raw_data= "/home/ke/code/catk/src/waymo_data/map1_10/validation/"
 
 
 files = os.listdir(data_directory)
