@@ -113,11 +113,11 @@ class InterativeDecoder(nn.Module):
         self.reward_shaping = False
         self.use_bottleneck = False
 
-        self.discriminator=discriminator
+        self.diff_dicriminator=False
         self.value_network=value_network
 
         self.filter_ratio=0
-        if self.discriminator:
+        if self.discriminator and self.diff_dicriminator:
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
             self.token_predict_head = MLPLayer(
@@ -302,7 +302,7 @@ class InterativeDecoder(nn.Module):
             # else:
             #     feat_a = feat_a[:, 1:]
 
-        if self.discriminator:
+        if self.discriminator and self.diff_dicriminator:
             state = feat_a.reshape(-1, 128)
 
            #state = (state - state.mean(-1, keepdim=True)) / (state.std(-1, keepdim=True) + 1e-5)
