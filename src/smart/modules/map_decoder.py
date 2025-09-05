@@ -107,6 +107,7 @@ class SMARTMapDecoder(nn.Module):
         orient_pt = tokenized_map["orientation"][mask]
         map_type=map_type[mask]
         token_idx=tokenized_map["token_idx"].long()[mask]
+        light_type=tokenized_map["light_type"].long()[mask]
 
         mask=(map_type == 14) | (map_type == 15)
 
@@ -126,7 +127,7 @@ class SMARTMapDecoder(nn.Module):
         x_pt_categorical_embs = [
             self.type_pt_emb(map_type),
             self.polygon_type_emb(pl_type),
-            self.light_pl_emb(tokenized_map["light_type"].long()),#
+            self.light_pl_emb(light_type),#
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
