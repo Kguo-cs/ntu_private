@@ -357,7 +357,7 @@ class IQ_SoftQ(LightningModule):
             a2a_entropy=disc_out[2].mean()#tokenized_agent["a2a_entropy"].mean()
             self.log("train/" + key + "_a2a_entropy", a2a_entropy.item(), on_step=True, batch_size=1)
 
-            bce_loss=bce_loss+a2a_entropy
+            bce_loss=bce_loss+0.1*a2a_entropy
 
         if self.dis_loss == "wgan" and key == "agent":
             expert_pos=tokenized_agent["expert_sampled_pos"]
