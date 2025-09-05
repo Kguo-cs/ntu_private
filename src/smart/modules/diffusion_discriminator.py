@@ -17,7 +17,7 @@ def cosine_beta_schedule(timesteps, s=0.008):
 
 
 class MLPConditionDiffusion(nn.Module):
-    def __init__(self, n_steps, cond_dim=6, data_dim=1, num_units=128, depth=4):
+    def __init__(self, n_steps, cond_dim=1, data_dim=1, num_units=128, depth=4):
         super(MLPConditionDiffusion, self).__init__()
         self.data_dim = data_dim
         linears_list = []
@@ -39,7 +39,8 @@ class MLPConditionDiffusion(nn.Module):
 
     def forward(self, x, c, t):
         # print(x.shape, c.shape)
-        x = torch.concat([x, c], dim=1)
+        if c is not None:
+            x = torch.concat([x, c], dim=1)
         for idx, embedding_layer in enumerate(self.step_embeddings):
             t_embedding = embedding_layer(t)
             x = self.linears[2 * idx](x)
@@ -49,6 +50,9 @@ class MLPConditionDiffusion(nn.Module):
         x = self.linears[-1](x)
 
         return x
+
+
+
 
 class Discriminator(nn.Module):
     def __init__(self, state_dim, action_dim,  base_net, num_units=128):
@@ -65,7 +69,13 @@ class Discriminator(nn.Module):
         alphas_bar_sqrt = torch.sqrt(alphas_prod)#.to(self.args.device)
         one_minus_alphas_bar_sqrt = torch.sqrt(1 - alphas_prod)#.to(self.args.device)
 
-        d_model = MLPConditionDiffusion(n_steps, 1, input_dim, num_units=num_units,depth=2) #.to(self.args.device)
+
+        self.cond=False
+        if self.cond:
+            d_model = MLPConditionDiffusion(n_steps, 1, input_dim, num_units=num_units,depth=2) #.to(self.args.device)
+        else:
+            d_model = MLPConditionDiffusion(n_steps, 0, input_dim, num_units=num_units,depth=2) #.to(self.args.device)
+
         try:
             self.base_net = base_net.net #.to(self.args.device)
         except:
@@ -94,7 +104,10 @@ class Discriminator(nn.Module):
 
         # coefficient of eps
         aml = one_minus_alphas_bar_sqrt[t]
-        label_input = torch.full((batch_size, 1), label).to(sa_pair.device)
+        if label is not None:
+            label_input = torch.full((batch_size, 1), label).to(sa_pair.device)
+        else:
+            label_input = None
 
         # generate random noise eps
         e = torch.randn_like(sa_pair).to(sa_pair.device)
@@ -122,9 +135,15 @@ class Discriminator(nn.Module):
         return loss
 
     def _compute_disc_val(self, state, action, label=None):
-        label_one = self.forward(state, action, 1.)
-        label_zero = self.forward(state, action, 0.)
-        output = F.softmax(torch.stack([-label_one, -label_zero]),dim=0)[0]
+
+        if self.cond:
+            label_one = self.forward(state, action, 1.)
+            label_zero = self.forward(state, action, 0.)
+            output = F.softmax(torch.stack([-label_one, -label_zero]),dim=0)[0]
+        else:
+            disc_output = self.forward(state, action,None)
+            output = torch.exp(-disc_output)
+
         return output
 
 # ds=Discriminator(12, 2, False, num_units=128)
