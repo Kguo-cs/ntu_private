@@ -258,35 +258,21 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
-        if key=="expert":
-            disc_val= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                            tokenized_agent["goal_idx"],
-                                                            tokenized_agent["valid_mask"],#expert_
-                                                            tokenized_agent["sampled_pos"],
-                                                            tokenized_agent["sampled_heading"] ,
-                                                            tokenized_agent,
-                                                            tokenized_agent["detach_map_feature"],
-                                                            tokenized_agent["light_idx"],
-                                                            None,
-                                                           # latent_z=tokenized_agent["latent_z"]
-                                                            )[0]#Metrics-Guided Adversarial Training
-        else:
-            with torch.no_grad():
-                disc_val = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                                    tokenized_agent["goal_idx"],
-                                                                    tokenized_agent["valid_mask"],  # expert_
-                                                                    tokenized_agent["sampled_pos"],
-                                                                    tokenized_agent["sampled_heading"],
-                                                                    tokenized_agent,
-                                                                    tokenized_agent["detach_map_feature"],
-                                                                    tokenized_agent["light_idx"],
-                                                                    None,
-                                                                    # latent_z=tokenized_agent["latent_z"]
-                                                                    )[0]  # Metrics-Guided Adversarial Training
+        disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                        tokenized_agent["goal_idx"],
+                                                        tokenized_agent["valid_mask"],#expert_
+                                                        tokenized_agent["sampled_pos"],
+                                                        tokenized_agent["sampled_heading"] ,
+                                                        tokenized_agent,
+                                                        tokenized_agent["detach_map_feature"],
+                                                        tokenized_agent["light_idx"],
+                                                        None,
+                                                       # latent_z=tokenized_agent["latent_z"]
+                                                        )#[0]#Metrics-Guided Adversarial Training
 
-        #logit=disc_out[0]
+        logit=disc_out[0]
         if not self.encoder.discriminator.interative_decoder.diff_dicriminator:
-            disc_val = torch.sigmoid(disc_val[:, :, 0])
+            disc_val = torch.sigmoid(logit[:, :, 0])
 
         if key == "agent" and self.use_kl_penalty:
             with torch.no_grad():
@@ -314,11 +300,11 @@ class IQ_SoftQ(LightningModule):
             kl_per_token=0
 
         with torch.no_grad():
+            disc_val_eval=disc_val
             if  self.dis_loss == "wgan":
                 rewards=logit[:, :, 0].detach()
             else:
-                rewards=-disc_val
-                #rewards=get_reward(disc_val_eval,kl_per_token=kl_per_token)
+                rewards=get_reward(disc_val_eval,kl_per_token=kl_per_token)
             returns = get_return(rewards, self.gamma)
 
         if  self.use_lcf and not self.encoder.use_value:
@@ -358,14 +344,20 @@ class IQ_SoftQ(LightningModule):
                 disc_val=disc_val[train_mask]
 
             if key == "expert":
-                bce_loss =disc_val.mean() #self.bce_loss(disc_val, torch.ones_like(disc_val)) #+0.01* ((disc_val - torch.ones_like(disc_val))**2).mean()
+                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #+0.01* ((disc_val - torch.ones_like(disc_val))**2).mean()
             else:
-                bce_loss = torch.zeros_like(disc_val).mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) #+0.01* ((disc_val - torch.zeros_like(disc_val))**2).mean()
+                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) #+0.01* ((disc_val - torch.zeros_like(disc_val))**2).mean()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_rewards", rewards.abs().mean().item(), on_step=True, batch_size=1)
+
+        if "a2a_entropy" in tokenized_agent.keys():
+            a2a_entropy=disc_out[2].mean()#tokenized_agent["a2a_entropy"].mean()
+            self.log("train/" + key + "_a2a_entropy", a2a_entropy.item(), on_step=True, batch_size=1)
+
+            bce_loss=bce_loss+a2a_entropy
 
         if self.dis_loss == "wgan" and key == "agent":
             expert_pos=tokenized_agent["expert_sampled_pos"]

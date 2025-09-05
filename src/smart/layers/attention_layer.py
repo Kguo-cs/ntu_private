@@ -7,6 +7,7 @@ from torch_geometric.utils import softmax
 
 from src.smart.utils import weight_init
 
+from torch_scatter import scatter_sum
 
 class AttentionLayer(MessagePassing):
 
@@ -88,7 +89,11 @@ class AttentionLayer(MessagePassing):
             v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
         sim = (q_i * k_j).sum(dim=-1) * self.scale
         attn = softmax(sim, index, ptr)
-        self.attention_weight = sim.detach()#.sum(-1)
+        self.attention_weight = attn #.detach()#.sum(-1)
+        # plogp = attn * (attn.clamp_min(1e-12).log())
+        # # Sum within each destination segment
+        # seg_entropy = scatter_sum(plogp, index,dim=0)  # shape: [num_dst_nodes]
+
         attn = self.attn_drop(attn)
         return v_j * attn.unsqueeze(-1)
 

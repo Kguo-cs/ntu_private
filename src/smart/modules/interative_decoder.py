@@ -20,7 +20,7 @@ from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.modules.edge_encoder import EdgeEncoder
 import time
-from torch_scatter import scatter_max,scatter_mean
+from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.modules.diffusion_discriminator import Discriminator
 
 class InterativeDecoder(nn.Module):
@@ -113,7 +113,7 @@ class InterativeDecoder(nn.Module):
         self.reward_shaping = False
         self.use_bottleneck = False
 
-        self.diff_dicriminator=True
+        self.diff_dicriminator=False
         self.discriminator=discriminator
         self.value_network=value_network
 
@@ -207,7 +207,7 @@ class InterativeDecoder(nn.Module):
         #n_a=len(r_a2a)
         #n_pt=len(r_pl2a)
 
-       # a2a_list=[]
+        a2a_entropy=0
 
         for layer_i in range(self.num_layers):
             if self.num_layers>1 and layer_i == self.num_layers - 1 and train_mask is not None:
@@ -227,6 +227,12 @@ class InterativeDecoder(nn.Module):
                 feat_a=feat_a.flatten(0,1)
 
             feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+
+            if self.discriminator:
+                plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())
+                # Sum within each destination segment
+                a2a_entropy = -scatter_sum(plogp, edge_index_a2a[1],dim=0)  # shape: [num_dst_nodes]
+
 
         #     if layer_i<self.num_layers-1 and self.filter_ratio>0:
         #         a2a_mask=a2a_attn>self.filter_ratio
@@ -328,7 +334,7 @@ class InterativeDecoder(nn.Module):
         if self.use_bottleneck:
             next_token_logits=(next_token_logits,mu,sigma)
 
-        return next_token_logits,feat_a_all,proposal,r_a2a,r_pl2a
+        return next_token_logits,feat_a_all,proposal,a2a_entropy,r_pl2a
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)

@@ -141,8 +141,8 @@ class Discriminator(nn.Module):
             label_zero = self.forward(state, action, 0.)
             output = F.softmax(torch.stack([-label_one, -label_zero]),dim=0)[0]
         else:
-            output = self.forward(state, action,None)
-            #output = torch.exp(-disc_output)
+            disc_output = self.forward(state, action,None)
+            output = torch.exp(-disc_output)
 
         return output
 
