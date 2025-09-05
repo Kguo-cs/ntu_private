@@ -47,7 +47,7 @@ class SMARTMapDecoder(nn.Module):
         self.type_pt_emb = nn.Embedding(10, hidden_dim)
         self.polygon_type_emb = nn.Embedding(4, hidden_dim)
         # if not self.token_processor.pred_light:
-        #     self.light_pl_emb = nn.Embedding(5, hidden_dim)
+        self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
 
         self.head_dim=head_dim
@@ -95,19 +95,23 @@ class SMARTMapDecoder(nn.Module):
         #
         # mask[(map_type!=4)&(map_type!=5)] = True
         # #
+
+
+
+        # map_type[map_type>9] = 9
+
+        mask = (map_type != 4) & (map_type != 5)
+
+        batch = tokenized_map["batch"][mask]
+        pos_pt = tokenized_map["position"][mask]
+        orient_pt = tokenized_map["orientation"][mask]
+        map_type=map_type[mask]
+        token_idx=tokenized_map["token_idx"].long()[mask]
+
         mask=(map_type == 14) | (map_type == 15)
 
         map_type[map_type == 14]=4
         map_type[map_type == 15]=5
-        # map_type[map_type>9] = 9
-
-        #mask = (map_type == 4) | (map_type == 5)
-
-        batch = tokenized_map["batch"]#[mask]
-        pos_pt = tokenized_map["position"]#[mask]
-        orient_pt = tokenized_map["orientation"]#[mask]
-        #map_type=map_type[mask]
-        token_idx=tokenized_map["token_idx"].long()#[mask]
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
@@ -122,7 +126,7 @@ class SMARTMapDecoder(nn.Module):
         x_pt_categorical_embs = [
             self.type_pt_emb(map_type),
             self.polygon_type_emb(pl_type),
-            # self.light_pl_emb(tokenized_map["light_type"].long()),#
+            self.light_pl_emb(tokenized_map["light_type"].long()),#
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
