@@ -47,7 +47,7 @@ class SMARTMapDecoder(nn.Module):
         self.type_pt_emb = nn.Embedding(10, hidden_dim)
         self.polygon_type_emb = nn.Embedding(4, hidden_dim)
         # if not self.token_processor.pred_light:
-        self.light_pl_emb = nn.Embedding(5, hidden_dim)
+        #self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
 
         self.head_dim=head_dim
@@ -127,7 +127,7 @@ class SMARTMapDecoder(nn.Module):
         x_pt_categorical_embs = [
             self.type_pt_emb(map_type),
             self.polygon_type_emb(pl_type),
-            self.light_pl_emb(light_type),#
+           # self.light_pl_emb(light_type),#
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
