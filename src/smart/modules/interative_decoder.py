@@ -113,7 +113,7 @@ class InterativeDecoder(nn.Module):
         self.reward_shaping = False
         self.use_bottleneck = False
 
-        self.diff_dicriminator=False
+        self.diff_dicriminator=True
         self.discriminator=discriminator
         self.value_network=value_network
 
