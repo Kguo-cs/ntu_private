@@ -520,7 +520,7 @@ class IQ_SoftQ(LightningModule):
             a2a_entropy=tokenized_agent["a2a_entropy"].mean()
             self.log("train/expert_a2a_ent", a2a_entropy.item(), on_step=True, batch_size=1)
 
-            expert_nll=expert_nll+0.01*a2a_entropy
+            expert_nll=expert_nll+0.1*a2a_entropy
 
 
         if self.encoder.agent_encoder.use_vae:
@@ -624,7 +624,7 @@ class IQ_SoftQ(LightningModule):
                 a2a_entropy = tokenized_agent_rollout["a2a_entropy"].mean()
                 self.log("train/agent_a2a_ent", a2a_entropy.item(), on_step=True, batch_size=1)
 
-                expert_nll = expert_nll + 0.01 * a2a_entropy
+                expert_nll = expert_nll + 0.1 * a2a_entropy
 
             #expert_nll=expert_nll-0.001*agent_entropy
 
