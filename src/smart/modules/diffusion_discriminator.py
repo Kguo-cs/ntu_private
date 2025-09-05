@@ -53,7 +53,7 @@ class MLPConditionDiffusion(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, state_dim, action_dim,  base_net, num_units=128):
         super(Discriminator, self).__init__()
-        input_dim = state_dim + action_dim
+        input_dim = state_dim #+ action_dim
         #self.args = args
         self.base_net = False
 
@@ -74,9 +74,6 @@ class Discriminator(nn.Module):
 
         self.register_buffer("alphas_bar_sqrt",alphas_bar_sqrt)
         self.register_buffer("one_minus_alphas_bar_sqrt",one_minus_alphas_bar_sqrt)
-
-
-
 
     def diffusion_loss(self, label, sa_pair, alphas_bar_sqrt, one_minus_alphas_bar_sqrt, n_steps):
         batch_size = sa_pair.shape[0]
@@ -118,10 +115,9 @@ class Discriminator(nn.Module):
         return diff_loss
 
     def forward(self, state, action, label):
-
         if self.base_net:
             state = self.base_net(state)
-        state_action = torch.cat([state, action], dim=1)
+        state_action = state#torch.cat([state, action], dim=1)
         loss = self.diffusion_loss_fn(label, state_action)
         return loss
 

@@ -21,6 +21,7 @@ from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding,
 from src.smart.modules.edge_encoder import EdgeEncoder
 import time
 from torch_scatter import scatter_max,scatter_mean
+from src.smart.modules.diffusion_discriminator import Discriminator
 
 class InterativeDecoder(nn.Module):
     def __init__(
@@ -95,9 +96,6 @@ class InterativeDecoder(nn.Module):
         self.pred_all_res = pred_all_res
         self.n_token_agent=n_token_agent
 
-        self.token_predict_head = MLPLayer(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-        )
 
         if self.pred_last_res or self.pred_all_res:
             self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
@@ -119,6 +117,12 @@ class InterativeDecoder(nn.Module):
         self.value_network=value_network
 
         self.filter_ratio=0
+        if self.discriminator:
+            self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
+        else:
+            self.token_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+            )
 
         if self.discriminator:
             self.centric=False
@@ -298,7 +302,15 @@ class InterativeDecoder(nn.Module):
             # else:
             #     feat_a = feat_a[:, 1:]
 
-        next_token_logits = self.token_predict_head(feat_a)
+        if self.discriminator:
+            state = feat_a.reshape(-1, 128)
+
+            state = (state - state.mean(0, keepdim=True)) / (state.std(0, keepdim=True) + 1e-5)
+
+            next_token_logits=self.token_predict_head._compute_disc_val(state, None).reshape(-1,16)
+
+        else:
+            next_token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.reward_shaping:
             r=self.reward_net(feat_a[:, 1:] )#+ agent_token_emb

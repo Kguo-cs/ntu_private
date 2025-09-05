@@ -21,7 +21,6 @@ from .agent_decoder import SMARTAgentDecoder
 from .map_decoder import SMARTMapDecoder
 from src.smart.layers import MLPLayer
 from .interative_decoder import InterativeDecoder
-from src.smart.modules.diffusion_discriminator import Discriminator
 import torch.nn.functional as F
 from src.smart.loss.kl_loss import DiagGaussian
 from src.smart.modules.value_head import PopArtHead
@@ -182,6 +181,8 @@ class SMARTDecoder(nn.Module):
                     pred_all_res=False,
                     discriminator=True
                 )
+
+
 
                # add_spectral_norm_recursively(self.discriminator)
 
