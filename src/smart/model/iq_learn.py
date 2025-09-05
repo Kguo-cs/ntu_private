@@ -365,7 +365,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_rewards", rewards.abs().mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
         if self.dis_loss == "wgan" and key == "agent":
             expert_pos=tokenized_agent["expert_sampled_pos"]

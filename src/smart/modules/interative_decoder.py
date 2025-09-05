@@ -306,7 +306,7 @@ class InterativeDecoder(nn.Module):
         if self.discriminator and self.diff_dicriminator:
             state = feat_a.reshape(-1, 128)
 
-            state = (state - state.mean(-1, keepdim=True)) / (state.std(-1, keepdim=True) + 1e-5)
+            state = (state - state.mean(0, keepdim=True)) / (state.std(0, keepdim=True) + 1e-5)
 
             next_token_logits=self.token_predict_head._compute_disc_val(state, None).reshape(-1,16)
 
