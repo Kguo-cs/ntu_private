@@ -271,7 +271,7 @@ class IQ_SoftQ(LightningModule):
                                                         )[0]#Metrics-Guided Adversarial Training
 
         #logit=disc_out[0]
-        if not self.encoder.discriminator.diff_dicriminator:
+        if not self.encoder.discriminator.interative_decoder.diff_dicriminator:
             disc_val = torch.sigmoid(disc_val[:, :, 0])
 
         if key == "agent" and self.use_kl_penalty:

@@ -114,6 +114,7 @@ class InterativeDecoder(nn.Module):
         self.use_bottleneck = False
 
         self.diff_dicriminator=False
+        self.discriminator=discriminator
         self.value_network=value_network
 
         self.filter_ratio=0
