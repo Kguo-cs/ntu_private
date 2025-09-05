@@ -89,7 +89,7 @@ class AttentionLayer(MessagePassing):
             v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
         sim = (q_i * k_j).sum(dim=-1) * self.scale
         attn = softmax(sim, index, ptr)
-        self.attention_weight = attn #.detach()#.sum(-1)
+        self.attention_weight = attn.sum(-1) #.detach()#
         # plogp = attn * (attn.clamp_min(1e-12).log())
         # # Sum within each destination segment
         # seg_entropy = scatter_sum(plogp, index,dim=0)  # shape: [num_dst_nodes]
