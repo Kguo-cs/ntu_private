@@ -357,7 +357,7 @@ class IQ_SoftQ(LightningModule):
             a2a_entropy=disc_out[2].mean()#tokenized_agent["a2a_entropy"].mean()
             self.log("train/" + key + "_a2a_entropy", a2a_entropy.item(), on_step=True, batch_size=1)
 
-            bce_loss=bce_loss+0.01*a2a_entropy
+            # bce_loss=bce_loss+0.01*a2a_entropy
 
         if self.dis_loss == "wgan" and key == "agent":
             expert_pos=tokenized_agent["expert_sampled_pos"]
@@ -516,6 +516,13 @@ class IQ_SoftQ(LightningModule):
 
             expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
+        if "a2a_entropy" in tokenized_agent.keys():
+            a2a_entropy=tokenized_agent["a2a_entropy"].mean()
+            self.log("train/expert_a2a_ent", a2a_entropy.item(), on_step=True, batch_size=1)
+
+            expert_nll=expert_nll+0.01*a2a_entropy
+
+
         if self.encoder.agent_encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
@@ -612,6 +619,12 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
+
+            if "a2a_entropy" in tokenized_agent_rollout.keys():
+                a2a_entropy = tokenized_agent_rollout["a2a_entropy"].mean()
+                self.log("train/expert_a2a_ent", a2a_entropy.item(), on_step=True, batch_size=1)
+
+                expert_nll = expert_nll + 0.01 * a2a_entropy
 
             #expert_nll=expert_nll-0.001*agent_entropy
 
