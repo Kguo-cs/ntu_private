@@ -211,9 +211,9 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
             if self.num_layers>1 and layer_i == self.num_layers - 1 and train_mask is not None:
-                end_mask=train_repeat_mask[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a=r_a2a[end_mask]
+                # end_mask=train_repeat_mask[edge_index_a2a[1]]
+                # edge_index_a2a = edge_index_a2a[:, end_mask]
+                # r_a2a=r_a2a[end_mask]
 
                 end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
                 edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
