@@ -551,7 +551,7 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
-                # expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",None)
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
 
@@ -649,10 +649,9 @@ class IQ_SoftQ(LightningModule):
                         agent_dis_loss, _, _, _ = self.get_reward(
                             old_rollout, None, None, "agent", None)
                     else:
-                        with torch.no_grad():
-                            agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
+                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
 
-                    critic_loss=torch.zeros_like(expert_nll)#expert_dis_loss + agent_dis_loss
+                    critic_loss=expert_dis_loss + agent_dis_loss
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
