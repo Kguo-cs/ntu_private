@@ -228,10 +228,10 @@ class InterativeDecoder(nn.Module):
 
             feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            #if self.discriminator:
-            plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())
-            # Sum within each destination segment
-            a2a_entropy =a2a_entropy -scatter_sum(plogp, edge_index_a2a[1],dim=0)  # shape: [num_dst_nodes]
+            # #if self.discriminator:
+            # plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())
+            # # Sum within each destination segment
+            # a2a_entropy =a2a_entropy -scatter_sum(plogp, edge_index_a2a[1],dim=0)  # shape: [num_dst_nodes]
 
 
         #     if layer_i<self.num_layers-1 and self.filter_ratio>0:
