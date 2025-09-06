@@ -98,21 +98,21 @@ class SMARTMapDecoder(nn.Module):
 
 
 
-        # map_type[map_type>9] = 9
+        map_type[map_type>9] = 9
 
-        mask = (map_type != 4) & (map_type != 5)
+        #mask = (map_type != 4) & (map_type != 5)
 
-        batch = tokenized_map["batch"][mask]
-        pos_pt = tokenized_map["position"][mask]
-        orient_pt = tokenized_map["orientation"][mask]
-        map_type=map_type[mask]
-        token_idx=tokenized_map["token_idx"].long()[mask]
-        light_type=tokenized_map["light_type"].long()[mask]
+        batch = tokenized_map["batch"]#[mask]
+        pos_pt = tokenized_map["position"]#[mask]
+        orient_pt = tokenized_map["orientation"]#[mask]
+        #map_type=map_type[mask]
+        token_idx=tokenized_map["token_idx"].long()#[mask]
+        #light_type=tokenized_map["light_type"].long()[mask]
 
-        mask=(map_type == 14) | (map_type == 15)
-
-        map_type[map_type == 14]=4
-        map_type[map_type == 15]=5
+        # mask=(map_type == 14) | (map_type == 15)
+        #
+        # map_type[map_type == 14]=4
+        # map_type[map_type == 15]=5
 
         if self.my_map:
             traj_pos_local=tokenized_map["traj_pos_local"].flatten(1,2)
