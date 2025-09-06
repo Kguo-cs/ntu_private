@@ -19,7 +19,7 @@ defaults:
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: bc32_l3_adamw_histdrop01_a20  #AIRL64_finenotoken_disnot_pre8_w1000
+task_name: bc32_l3_adamw_histdrop01_a20_fixeval  #AIRL64_finenotoken_disnot_pre8_w1000
 
 # simply provide checkpoint path to resume training
 ckpt_path: null
