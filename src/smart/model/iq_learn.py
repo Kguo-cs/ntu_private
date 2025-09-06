@@ -652,7 +652,7 @@ class IQ_SoftQ(LightningModule):
                         with torch.no_grad():
                             agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
 
-                    critic_loss=0#expert_dis_loss + agent_dis_loss
+                    critic_loss=torch.zeros_like(expert_nll)#expert_dis_loss + agent_dis_loss
 
                 else:
                     # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
