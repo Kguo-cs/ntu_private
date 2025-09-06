@@ -109,7 +109,7 @@ class SMARTMapDecoder(nn.Module):
         token_idx=tokenized_map["token_idx"].long()#[mask]
         #light_type=tokenized_map["light_type"].long()[mask]
 
-        # mask=(map_type == 14) | (map_type == 15)
+        mask=(map_type == 4) | (map_type == 5)
         #
         # map_type[map_type == 14]=4
         # map_type[map_type == 15]=5
