@@ -278,6 +278,8 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 if self.bc_map_net is not None:
                     map_feature=self.bc_map_net(tokenized_map)
+                else:
+                    map_feature = tokenized_agent["detach_map_feature"]
 
                 target_q = self.bc_net(tokenized_agent, map_feature)["agent_q"]
 
@@ -340,8 +342,8 @@ class IQ_SoftQ(LightningModule):
             else:
                 bce_loss = logit[:, :, 0].mean()#self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
         else:
-            if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
-                disc_val=disc_val[train_mask]
+            # if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
+            #     disc_val=disc_val[train_mask]
 
             if key == "expert":
                 bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #+0.01* ((disc_val - torch.ones_like(disc_val))**2).mean()
@@ -649,7 +651,7 @@ class IQ_SoftQ(LightningModule):
                         agent_dis_loss, _, _, _ = self.get_reward(
                             old_rollout, None, None, "agent", None)
                     else:
-                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",None,tokenized_map=tokenized_map)
+                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
 
                     critic_loss=expert_dis_loss + agent_dis_loss
 
@@ -779,7 +781,7 @@ class IQ_SoftQ(LightningModule):
                     v_denorm=self.encoder.value_network(feat_a)[:,:,0]
 
                     # agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
-                    agent_rewards = torch.clamp(agent_rewards, -2, 2)
+                    #agent_rewards = torch.clamp(agent_rewards, -2, 2)
                     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
 
                     # with torch.no_grad():
