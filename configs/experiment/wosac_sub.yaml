@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL64_map2_epoch=4-step=34245_0.78912.ckpt'
+ckpt_path: '~/scratch/keguo_projects/sim/src/logs/AIRL64_map2/2025-09-05_16-23-07/sim/k6pft71t/checkpoints/epoch=4-step=34245.ckpt'
 
 trainer:
   limit_train_batches: 1.0
