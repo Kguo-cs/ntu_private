@@ -834,13 +834,13 @@ class IQ_SoftQ(LightningModule):
                         else:
                             step_lcf=torch.tensor(0.5)
 
-                        advantages=torch.zeros_like(agent_log_prob)
-
-                        advantages[all_valid]=ego_advantages
-                        advantages[~all_valid]=nei_advantages
-                        # used_lcf = step_lcf.detach() * np.pi / 2
+                        # advantages=torch.zeros_like(agent_log_prob)
                         #
-                        # advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
+                        # advantages[all_valid]=ego_advantages
+                        # advantages[~all_valid]=nei_advantages
+                        used_lcf = step_lcf.detach() * np.pi / 2
+
+                        advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
 
                     else:
                         if self.encoder.discriminator.interative_decoder.centric:
