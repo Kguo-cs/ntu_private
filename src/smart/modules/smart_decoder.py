@@ -234,7 +234,7 @@ class SMARTDecoder(nn.Module):
                                     )
 
                 if self.use_value:
-                    self.value_network =nn.Sequential(MLPLayer(hidden_dim,hidden_dim*2,hidden_dim*2), nn.ReLU(inplace=True),nn.Linear(hidden_dim*2,1))#PopArtHead(hidden_dim)#
+                    self.value_network =MLPLayer(hidden_dim,hidden_dim,1)#nn.Sequential(MLPLayer(hidden_dim,hidden_dim*2,hidden_dim*2), nn.ReLU(inplace=True),nn.Linear(hidden_dim*2,1))#PopArtHead(hidden_dim)#
 
                     if self.agent_encoder.use_lcf:
 
