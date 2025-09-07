@@ -258,8 +258,8 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
-        sampled_pos=torch.round(tokenized_agent["sampled_pos"]*10)/10#tokenized_agent["sampled_pos"]#
-        sampled_heading=torch.round(tokenized_agent["sampled_heading"]*10)/10#tokenized_agent["sampled_heading"]#
+        sampled_pos=tokenized_agent["sampled_pos"]#torch.round(tokenized_agent["sampled_pos"]*10)/10#
+        sampled_heading=tokenized_agent["sampled_heading"]#torch.round(tokenized_agent["sampled_heading"]*10)/10#
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
@@ -640,138 +640,31 @@ class IQ_SoftQ(LightningModule):
             #tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
-                if not self.use_distance:
-                    if self.buffer_len>1:
-                        with torch.no_grad():
-                            agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
-                                tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None)
-
-                        if self.global_step%2==0:
-                            current_rollout={}
-
-                            for key in {"sampled_idx","goal_idx","valid_mask","sampled_heading","sampled_pos","detach_map_feature","light_idx","type","shape","batch","num_graphs","train_mask"}:
-                                current_rollout[key]=tokenized_agent_rollout[key]
-
-                            self.replay_buffer.append(current_rollout)
-
-                        old_rollout = random.sample(self.replay_buffer, 1)[0]
-                        agent_dis_loss, _, _, _ = self.get_reward(
-                            old_rollout, None, None, "agent", None)
-                    else:
-                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
-
-                    critic_loss=expert_dis_loss + agent_dis_loss
-
-                else:
-                    # agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:],
-                    #                                  tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:],
-                    #                                  tokenized_agent_rollout["token_agent_shape"][all_valid][:, None])
-                    #
-                    # agent_reward= -torch.linalg.norm(agent_contour-gt_contour,dim=-1).mean(-1)
-                    #
-                    # agent_rewards= (agent_reward-agent_reward.mean())/(agent_reward.std()+1e-4)
-
+                if self.buffer_len>1:
                     with torch.no_grad():
-                        error_pred = self.encoder.discriminator.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                                              tokenized_agent_rollout["goal_idx"],
-                                                                              tokenized_agent_rollout["valid_mask"],
-                                                                              tokenized_agent_rollout["sampled_pos"],
-                                                                              tokenized_agent_rollout["sampled_heading"],
-                                                                              tokenized_agent_rollout,
-                                                                              tokenized_agent_rollout["detach_map_feature"],
-                                                                              tokenized_agent_rollout["light_idx"],
-                                                                              None)[0]
+                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
+                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None)
 
-                        pos_error = torch.linalg.norm(error_pred[:, :, :2], dim=-1).mean()
-                        heading_error = (error_pred[:, :, 2]).abs().mean()
+                    if self.global_step%2==0:
+                        current_rollout={}
 
-                        self.log("train/agent_pos_error", pos_error.item(), on_step=True, batch_size=1)
-                        self.log("train/agent_heading_error", heading_error.item(), on_step=True, batch_size=1)
+                        for key in {"sampled_idx","goal_idx","valid_mask","sampled_heading","sampled_pos","detach_map_feature","light_idx","type","shape","batch","num_graphs","train_mask"}:
+                            current_rollout[key]=tokenized_agent_rollout[key]
 
-                        agent_contour = cal_polygon_contour(tokenized_agent_rollout["sampled_pos"][all_valid][:,2:],
-                                                            tokenized_agent_rollout["sampled_heading"][all_valid][:,2:], token_agent_shape)
+                        self.replay_buffer.append(current_rollout)
 
-                        pos_global, head_global = transform_to_global(error_pred[:, :, :2].reshape(-1, 1, 2),
-                                                                      error_pred[:, :, 2].reshape(-1, 1),
-                                                                      tokenized_agent_rollout["sampled_pos"][all_valid][:, 2:].reshape(-1, 2),
-                                                                      tokenized_agent_rollout["sampled_heading"][all_valid][:, 2:].reshape(-1))
+                    old_rollout = random.sample(self.replay_buffer, 1)[0]
+                    agent_dis_loss, _, _, _ = self.get_reward(
+                        old_rollout, None, None, "agent", None)
+                else:
+                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
 
-                        pred_pos = pos_global.reshape(error_pred.shape[0], error_pred.shape[1], 2)
-
-                        pred_heading = head_global.reshape(error_pred.shape[0], error_pred.shape[1])
-
-                        pred_contour = cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
-
-                        agent_rewards =-torch.linalg.norm(agent_contour-pred_contour,dim=-1).mean(-1) #torch.linalg.norm(error_pred,ord=1,dim=-1)
-
-                        #agent_rewards = (agent_rewards - agent_rewards.mean()) / (agent_rewards.std() + 1e-4)
-
+                critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
 
                     expert_nll=expert_nll+col_loss
-
-                if self.encoder.agent_encoder.use_infogail:
-
-                    logits = self.encoder.RecognitionQ.predict_agent(tokenized_agent_rollout["sampled_idx"],
-                                                                     tokenized_agent_rollout["goal_idx"],
-                                                                     tokenized_agent_rollout["valid_mask"],
-                                                                     tokenized_agent_rollout["sampled_pos"],
-                                                                     tokenized_agent_rollout["sampled_heading"],
-                                                                     tokenized_agent_rollout,
-                                                                     tokenized_agent_rollout["detach_map_feature"],
-                                                                     tokenized_agent_rollout["light_idx"],
-                                                                     None)[0]#[all_valid]
-
-                    latent_z = tokenized_agent_rollout["latent_z"][all_valid]
-
-                    if logits.shape[-1]==self.encoder.agent_encoder.k_dim:
-                        #index = tokenized_agent["batch"][all_valid]
-
-                        #logits=logits[index]
-                        log_q = F.log_softmax(logits, dim=-1)
-                        action=latent_z[:,:,None].repeat(1,log_q.shape[1],1)#[:,1:-1,None]#
-                        z_logp = torch.gather(log_q, dim=-1, index=action).squeeze(-1)  #larger z likelihood # [B, Tm1, T_a]
-                        kl_prior=0
-                    else:
-                        mu = logits[:,:, :self.encoder.agent_encoder.k_dim]
-                        logvar = logits[:,:, self.encoder.agent_encoder.k_dim:]
-
-                        z = latent_z.expand_as(mu)  # [B, T, k_dim]
-                        std = torch.exp(0.5 * logvar)
-
-                        base = Normal(loc=mu, scale=std)
-                        dist = Independent(base, reinterpreted_batch_ndims=1)  # event dim = last
-
-                        z_logp = dist.log_prob(z)  # shape: [...]
-
-                        mu_p = torch.zeros_like(mu)
-                        logvar_p = torch.zeros_like(logvar)
-
-                        var_q = logvar.exp()
-                        var_p = logvar_p.exp()
-
-                        kl_prior = 0.5 * (logvar_p - logvar + (var_q + (mu - mu_p).pow(2)) / var_p - 1 ).sum(-1) .mean()
-                        self.log("train/mu", mu.mean().item(), on_step=True, batch_size=1)
-                        self.log("train/std", std.mean().item(), on_step=True, batch_size=1)
-
-                    loss_q=-z_logp.mean() # increase the z likelihood
-                    expert_nll=expert_nll+loss_q+kl_prior
-
-                    self.log("train/loss_q", loss_q.item(), on_step=True, batch_size=1)
-                    mi_beta=0.1
-                    agent_rewards=agent_rewards+mi_beta * z_logp.detach()
-
-                    # # Optional entropy regularizer on P to avoid overconfidence
-                    # p_probs = log_p.exp()
-                    # H_p = -(p_probs * log_p).sum(-1).mean()
-                    #
-                    # tau=0.01
-                    #
-                    # loss_prior = kl_qp - tau * H_p  # tau ~ 0.01–0.1
-
-                    #@self.log("train/loss_prior", loss_prior.item(), on_step=True, batch_size=1)
 
                 if self.encoder.use_value:
                     feat_a=tokenized_agent_rollout["feat_a_nodetach"][all_valid]
@@ -845,10 +738,6 @@ class IQ_SoftQ(LightningModule):
                         else:
                             step_lcf=torch.tensor(0.5)
 
-                        # advantages=torch.zeros_like(agent_log_prob)
-                        #
-                        # advantages[all_valid]=ego_advantages
-                        # advantages[~all_valid]=nei_advantages
                         used_lcf = step_lcf.detach() * np.pi / 2
 
                         advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
@@ -890,29 +779,11 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-
                 bc_weight=1#min(np.power(0.9999,self.global_step) (1-bc_weight)*
 
                 expert_nll =bc_weight* expert_nll +agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
-
-                # if self.use_kl_penalty:
-                #     with torch.no_grad():
-                #         #map_feature=self.bc_map_net(tokenized_map)
-                #         target_q = self.bc_net(tokenized_agent_rollout, tokenized_agent_rollout["detach_map_feature"])[ "agent_q"]
-                #         ref_logprobs = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
-                #
-                #     kl_coef=1
-                #
-                #     kl_per_token =  torch.sum(agent_pi *( (agent_pi+1e-10).log() - ref_logprobs), dim=-1).mean()
-                #
-                #     self.log("train/kl_penalty", kl_per_token.item(), on_step=True, batch_size=1)
-                #
-                #     expert_nll=expert_nll+kl_coef *kl_per_token
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
-                # constraint_loss=expert_V_diff.square().mean()*5
-                #
-                # self.log("train/constraint_loss", constraint_loss.item(), on_step=True, batch_size=1)
 
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
