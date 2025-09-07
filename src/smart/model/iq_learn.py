@@ -364,14 +364,19 @@ class IQ_SoftQ(LightningModule):
 
             # bce_loss=bce_loss+0.01*a2a_entropy
 
-        if  key == "expert":
-            expert_pos=tokenized_agent["sampled_pos"]#tokenized_agent["sampled_pos"]#
-            expert_sampled_heading=tokenized_agent["sampled_heading"]#tokenized_agent["sampled_heading"]#
-            expert_valid_mask=tokenized_agent["valid_mask"]#tokenized_agent["valid_mask"]#
+        if  key == "agent":
+            expert_pos=tokenized_agent["expert_sampled_pos"]#tokenized_agent["sampled_pos"]#
+            expert_sampled_heading=tokenized_agent["expert_sampled_heading"]#tokenized_agent["sampled_heading"]#
+            expert_valid_mask=tokenized_agent["expert_valid_mask"]#tokenized_agent["valid_mask"]#
             pos=tokenized_agent["sampled_pos"]
             heading=tokenized_agent["sampled_heading"]
 
-            alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
+            batch_idx = tokenized_agent['batch']
+            alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+
+            alpha=alpha[batch_idx]
+
+            #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
             interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
             interpolate_heading =alpha * expert_sampled_heading + (1 - alpha) * heading
 
@@ -402,14 +407,14 @@ class IQ_SoftQ(LightningModule):
                 only_inputs=True,
             )[0]  # shape: [B, T, 3]
 
-            #grad_norm = gradients.norm(2, dim=-1)
-            #gp = ((grad_norm - 1) ** 2).mean()
-            gp=gradients.pow(2).sum(dim=-1).mean()
+            grad_norm = gradients.norm(2, dim=-1)
+            gp = ((grad_norm - 1) ** 2).mean()
+          #  gp=gradients.pow(2).sum(dim=-1).mean()
            # print(gp)
 
             self.log("train/gp", gp, on_step=True, batch_size=1)
 
-            bce_loss=gp* 0.1+bce_loss
+            bce_loss=gp* 0.01+bce_loss
 
         return bce_loss,rewards,returns, 0#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
