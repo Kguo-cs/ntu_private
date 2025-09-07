@@ -364,7 +364,7 @@ class IQ_SoftQ(LightningModule):
 
             # bce_loss=bce_loss+0.01*a2a_entropy
 
-        if  key == "agent":
+        if  key == "expert":
             expert_pos=tokenized_agent["expert_sampled_pos"]#tokenized_agent["sampled_pos"]#
             expert_sampled_heading=tokenized_agent["expert_sampled_heading"]#tokenized_agent["sampled_heading"]#
             expert_valid_mask=tokenized_agent["expert_valid_mask"]#tokenized_agent["valid_mask"]#
@@ -402,9 +402,9 @@ class IQ_SoftQ(LightningModule):
                 only_inputs=True,
             )[0]  # shape: [B, T, 3]
 
-            grad_norm = gradients.norm(2, dim=-1)
-            gp = ((grad_norm - 1) ** 2).mean()
-          #  gp=gradients.pow(2).sum(dim=-1).mean()
+            #grad_norm = gradients.norm(2, dim=-1)
+            #gp = ((grad_norm - 1) ** 2).mean()
+            gp=gradients.pow(2).sum(dim=-1).mean()
            # print(gp)
 
             self.log("train/gp", gp, on_step=True, batch_size=1)
