@@ -364,57 +364,56 @@ class IQ_SoftQ(LightningModule):
 
             # bce_loss=bce_loss+0.01*a2a_entropy
 
-        # if  key == "agent":
-        #     expert_pos=tokenized_agent["expert_sampled_pos"]#tokenized_agent["sampled_pos"]#
-        #     expert_sampled_heading=tokenized_agent["expert_sampled_heading"]#tokenized_agent["sampled_heading"]#
-        #     expert_valid_mask=tokenized_agent["expert_valid_mask"]#tokenized_agent["valid_mask"]#
-        #     pos=tokenized_agent["sampled_pos"]
-        #     heading=tokenized_agent["sampled_heading"]
-        #
-        #     batch_idx = tokenized_agent['batch']
-        #     alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
-        #
-        #     alpha=alpha[batch_idx]
-        #
-        #     #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
-        #     interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
-        #     interpolate_heading =alpha * expert_sampled_heading + (1 - alpha) * heading
-        #
-        #     interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
-        #
-        #     interpolates=interpolates_pos[expert_valid_mask]#[train_mask,2:]
-        #
-        #     interpolates.requires_grad_(True)  # IMPORTANT
-        #
-        #     interpolates_pos[expert_valid_mask]=interpolates
-        #
-        #     scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-        #                                                     tokenized_agent["goal_idx"],
-        #                                                     expert_valid_mask,
-        #                                                     interpolates_pos[:,:,:2],
-        #                                                     interpolates_pos[:,:,2] ,
-        #                                                     tokenized_agent,
-        #                                                     tokenized_agent["detach_map_feature"],
-        #                                                     tokenized_agent["light_idx"],
-        #                                                     None)[0]
-        #     score_sum = scores.view(-1).sum()
-        #
-        #     gradients = torch.autograd.grad(
-        #         outputs=score_sum,
-        #         inputs=interpolates,
-        #         create_graph=True,
-        #         retain_graph=True,
-        #         only_inputs=True,
-        #     )[0]  # shape: [B, T, 3]
-        #
-        #     grad_norm = gradients.norm(2, dim=-1)
-        #     gp = ((grad_norm - 1) ** 2).mean()
-        #   #  gp=gradients.pow(2).sum(dim=-1).mean()
-        #    # print(gp)
-        #
-        #     self.log("train/gp", gp, on_step=True, batch_size=1)
-        #
-        #     bce_loss=gp* 0.01+bce_loss
+        if  key == "expert":
+            expert_pos=tokenized_agent["sampled_pos"]#tokenized_agent["expert_sampled_pos"]#
+            expert_sampled_heading=tokenized_agent["sampled_heading"]#tokenized_agent["expert_sampled_heading"]#
+            expert_valid_mask=tokenized_agent["valid_mask"]#tokenized_agent["expert_valid_mask"]#
+            pos=tokenized_agent["sampled_pos"]
+            heading=tokenized_agent["sampled_heading"]
+
+            batch_idx = tokenized_agent['batch']
+            alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+
+            alpha=alpha[batch_idx]
+
+            #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
+            interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
+            interpolate_heading =alpha * expert_sampled_heading + (1 - alpha) * heading
+
+            interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
+
+            interpolates=interpolates_pos[expert_valid_mask]#[train_mask,2:]
+
+            interpolates.requires_grad_(True)  # IMPORTANT
+
+            interpolates_pos[expert_valid_mask]=interpolates
+
+            scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                            tokenized_agent["goal_idx"],
+                                                            expert_valid_mask,
+                                                            interpolates_pos[:,:,:2],
+                                                            interpolates_pos[:,:,2] ,
+                                                            tokenized_agent,
+                                                            tokenized_agent["detach_map_feature"],
+                                                            tokenized_agent["light_idx"],
+                                                            None)[0]
+            score_sum = scores.view(-1).sum()
+
+            gradients = torch.autograd.grad(
+                outputs=score_sum,
+                inputs=interpolates,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True,
+            )[0]  # shape: [B, T, 3]
+
+            # gp = ((gradients.norm(2, dim=-1) - 1) ** 2).mean()
+            gp=gradients.pow(2).sum(dim=-1).mean()
+            # print(gp)
+
+            self.log("train/gp", gp, on_step=True, batch_size=1)
+
+            bce_loss=gp* 10+bce_loss
 
         return bce_loss,rewards,returns, 0#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
@@ -892,7 +891,7 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
 
-                bc_weight=0.5#min(np.power(0.9999,self.global_step) (1-bc_weight)*
+                bc_weight=1#min(np.power(0.9999,self.global_step) (1-bc_weight)*
 
                 expert_nll =bc_weight* expert_nll +agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
 
