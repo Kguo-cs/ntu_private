@@ -209,7 +209,7 @@ class EdgeEncoder(nn.Module):
         #     dim=-1,
         # )
 
-        u = rel_pos_a2a[:, :, :2]
+        u = rel_pos_a2a[..., :2]
         v = head_vector_s[edge_index_a2a[1]]
 
         r_a2a = torch.stack(
@@ -264,7 +264,7 @@ class EdgeEncoder(nn.Module):
         #     dim=-1,
         # )
 
-        u = rel_pos_pl2a[:, :, :2]
+        u = rel_pos_pl2a[..., :2]
         v = head_vector_s[edge_index_pl2a[1]]
 
         r_pl2a = torch.stack(
@@ -363,7 +363,7 @@ class EdgeEncoder(nn.Module):
         #     ],
         #     dim=-1,
         # )
-        u = rel_pos_pl2a[:, :, :2]
+        u = rel_pos_pl2a[..., :2]
         v = head_vector_s[edge_index_pl2a[1]]
 
         r_pl2a = torch.stack(
