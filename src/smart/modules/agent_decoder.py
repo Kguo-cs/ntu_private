@@ -182,6 +182,10 @@ class SMARTAgentDecoder(nn.Module):
         self.apply(weight_init)
 
     def predict_agent(self, sampled_idx,goal_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,post_sampling=False):
+
+        #pos_a=torch.round(pos_a*10)/10
+        #head_a=torch.round(head_a*10)/10
+
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
