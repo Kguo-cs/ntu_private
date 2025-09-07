@@ -258,8 +258,8 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
-        sampled_pos=tokenized_agent["sampled_pos"]#torch.round(tokenized_agent["sampled_pos"]*10)/10
-        sampled_heading=tokenized_agent["sampled_heading"]#torch.round(tokenized_agent["sampled_heading"]*10)/10
+        sampled_pos=torch.round(tokenized_agent["sampled_pos"]*10)/10#tokenized_agent["sampled_pos"]#
+        sampled_heading=torch.round(tokenized_agent["sampled_heading"]*10)/10#tokenized_agent["sampled_heading"]#
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
