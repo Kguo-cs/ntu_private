@@ -28,19 +28,19 @@ class EdgeEncoder(nn.Module):
         input_dim_r_a2a = 3
 
         self.r_pt2a_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2a,
+            input_dim=4,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
-            share=share
+            share=True
         )
 
         if a2a:
 
             self.r_a2a_emb = FourierEmbedding(
-                input_dim=input_dim_r_a2a,
+                input_dim=4,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
-                share=share
+                share=True
             )
 
         # input_dim_r_t = 4
@@ -216,7 +216,8 @@ class EdgeEncoder(nn.Module):
             [
                 (u * v).sum(dim=-1),
                 u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                rel_head_a2a
+                torch.cos(rel_head_a2a),
+                torch.sin(rel_head_a2a),
             ],
             dim=-1,
         )  # [n_agent, n_step, 2]
@@ -271,7 +272,8 @@ class EdgeEncoder(nn.Module):
             [
                 (u * v).sum(dim=-1),
                 u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                rel_orient_pl2a
+                torch.cos(rel_orient_pl2a),
+                torch.sin(rel_orient_pl2a),
             ],
             dim=-1,
         )  # [n_agent, n_step, 2]
@@ -370,7 +372,8 @@ class EdgeEncoder(nn.Module):
             [
                 (u * v).sum(dim=-1),
                 u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                rel_orient_pl2a
+                torch.cos(rel_orient_pl2a),
+                torch.sin(rel_orient_pl2a),
             ],
             dim=-1,
         )  # [n_agent, n_step, 2]
