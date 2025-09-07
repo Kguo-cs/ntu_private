@@ -553,6 +553,13 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
+
+                with torch.no_grad():
+                    expert_Value=self.encoder.value_network(tokenized_agent["feat_a_nodetach"][all_valid])[:,:,0]
+
+                    self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
+
+
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",None)
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
@@ -779,6 +786,8 @@ class IQ_SoftQ(LightningModule):
                     #agent_rewards[:,1:]= agent_rewards[:,1:]-agent_rewards[:,:-1]
 
                     v_denorm=self.encoder.value_network(feat_a)[:,:,0]
+
+                    self.log("train/agent_value", v_denorm.mean().item(), on_step=True, batch_size=1)
 
                     # agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
                     #agent_rewards = torch.clamp(agent_rewards, -2, 2)
