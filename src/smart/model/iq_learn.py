@@ -374,11 +374,11 @@ class IQ_SoftQ(LightningModule):
 
             interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
 
-            interpolates=interpolates_pos[train_mask,2:]
+            interpolates=interpolates_pos[expert_valid_mask]#[train_mask,2:]
 
             interpolates.requires_grad_(True)  # IMPORTANT
 
-            interpolates_pos[train_mask,2:]=interpolates
+            interpolates_pos[expert_valid_mask]=interpolates
 
             # input_pos=torch.cat([interpolates_pos[:,:2],interpolates],dim=1)
             #scores=self.encoder.discriminator1(interpolates_pos)
@@ -403,7 +403,7 @@ class IQ_SoftQ(LightningModule):
             )[0]  # shape: [B, T, 3]
 
             grad_norm = gradients.norm(2, dim=-1)
-            gp = ((grad_norm - 1) ** 2).mean() #* 0.01
+            gp = ((grad_norm - 1) ** 2).mean()* 0.01
             #gp=gradients.pow(2).sum(dim=-1).mean()
            # print(gp)
 
