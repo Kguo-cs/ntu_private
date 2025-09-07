@@ -892,9 +892,9 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
 
-                bc_weight=0.3#min(np.power(0.9999,self.global_step)
+                bc_weight=0.5#min(np.power(0.9999,self.global_step) (1-bc_weight)*
 
-                expert_nll =bc_weight* expert_nll + (1-bc_weight)*agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
+                expert_nll =bc_weight* expert_nll +agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
 
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():
