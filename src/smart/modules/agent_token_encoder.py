@@ -85,15 +85,27 @@ class AgentTokenEncoder(nn.Module):
             ],
             dim=1,
         ) [:,-n_step:] # [n_agent, n_step, 2]
+        # feature_a = torch.stack(
+        #     [
+        #         torch.norm(motion_vector_a[:, :, :2], p=2, dim=-1),
+        #         angle_between_2d_vectors(
+        #             ctr_vector=head_vector_a, nbr_vector=motion_vector_a[:, :, :2]
+        #         ),
+        #     ],
+        #     dim=-1,
+        # )  # [n_agent, n_step, 2]
+
+        u = motion_vector_a[:, :, :2]
+        v = head_vector_a
+
         feature_a = torch.stack(
             [
-                torch.norm(motion_vector_a[:, :, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_a, nbr_vector=motion_vector_a[:, :, :2]
-                ),
+                (u * v).sum(dim=-1),
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
             ],
             dim=-1,
         )  # [n_agent, n_step, 2]
+
         categorical_embs = [
             self.type_a_emb(agent_type.long()),
             self.shape_emb(agent_shape),

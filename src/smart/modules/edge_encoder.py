@@ -197,17 +197,30 @@ class EdgeEncoder(nn.Module):
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
+        # r_a2a = torch.stack(
+        #     [
+        #         torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
+        #         angle_between_2d_vectors(
+        #             ctr_vector=head_vector_s[edge_index_a2a[1]],
+        #             nbr_vector=rel_pos_a2a[:, :2],
+        #         ),
+        #         rel_head_a2a,
+        #     ],
+        #     dim=-1,
+        # )
+
+        u = rel_pos_a2a[:, :, :2]
+        v = head_vector_s[edge_index_a2a[1]]
+
         r_a2a = torch.stack(
             [
-                torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_a2a[1]],
-                    nbr_vector=rel_pos_a2a[:, :2],
-                ),
-                rel_head_a2a,
+                (u * v).sum(dim=-1),
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+                rel_head_a2a
             ],
             dim=-1,
-        )
+        )  # [n_agent, n_step, 2]
+
 
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
@@ -239,17 +252,30 @@ class EdgeEncoder(nn.Module):
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
+        # r_pl2a = torch.stack(
+        #     [
+        #         torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+        #         angle_between_2d_vectors(
+        #             ctr_vector=head_vector_s[edge_index_pl2a[1]],
+        #             nbr_vector=rel_pos_pl2a[:, :2],
+        #         ),
+        #         rel_orient_pl2a,
+        #     ],
+        #     dim=-1,
+        # )
+
+        u = rel_pos_pl2a[:, :, :2]
+        v = head_vector_s[edge_index_pl2a[1]]
+
         r_pl2a = torch.stack(
             [
-                torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                    nbr_vector=rel_pos_pl2a[:, :2],
-                ),
-                rel_orient_pl2a,
+                (u * v).sum(dim=-1),
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+                rel_orient_pl2a
             ],
             dim=-1,
-        )
+        )  # [n_agent, n_step, 2]
+
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 
@@ -324,17 +350,30 @@ class EdgeEncoder(nn.Module):
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
+
+
+        # r_pl2a = torch.stack(
+        #     [
+        #         torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+        #         angle_between_2d_vectors(
+        #             ctr_vector=head_vector_s[edge_index_pl2a[1]],
+        #             nbr_vector=rel_pos_pl2a[:, :2],
+        #         ),
+        #         rel_orient_pl2a,
+        #     ],
+        #     dim=-1,
+        # )
+        u = rel_pos_pl2a[:, :, :2]
+        v = head_vector_s[edge_index_pl2a[1]]
+
         r_pl2a = torch.stack(
             [
-                torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                    nbr_vector=rel_pos_pl2a[:, :2],
-                ),
-                rel_orient_pl2a,
+                (u * v).sum(dim=-1),
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+                rel_orient_pl2a
             ],
             dim=-1,
-        )
+        )  # [n_agent, n_step, 2]
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 
