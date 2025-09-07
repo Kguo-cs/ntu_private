@@ -365,9 +365,9 @@ class IQ_SoftQ(LightningModule):
             # bce_loss=bce_loss+0.01*a2a_entropy
 
         if  key == "expert":
-            expert_pos=tokenized_agent["expert_sampled_pos"]#tokenized_agent["sampled_pos"]#
-            expert_sampled_heading=tokenized_agent["expert_sampled_heading"]#tokenized_agent["sampled_heading"]#
-            expert_valid_mask=tokenized_agent["expert_valid_mask"]#tokenized_agent["valid_mask"]#
+            expert_pos=tokenized_agent["sampled_pos"]#tokenized_agent["sampled_pos"]#
+            expert_sampled_heading=tokenized_agent["sampled_heading"]#tokenized_agent["sampled_heading"]#
+            expert_valid_mask=tokenized_agent["valid_mask"]#tokenized_agent["valid_mask"]#
             pos=tokenized_agent["sampled_pos"]
             heading=tokenized_agent["sampled_heading"]
 
