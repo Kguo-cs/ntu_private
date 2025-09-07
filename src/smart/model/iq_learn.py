@@ -362,15 +362,15 @@ class IQ_SoftQ(LightningModule):
             # bce_loss=bce_loss+0.01*a2a_entropy
 
         if  key == "agent":
-            #expert_pos=tokenized_agent["sampled_pos"]
-            #expert_sampled_heading=tokenized_agent["sampled_heading"]
+            expert_pos=tokenized_agent["sampled_pos"]
+            expert_sampled_heading=tokenized_agent["sampled_heading"]
             expert_valid_mask=tokenized_agent["valid_mask"]
             pos=tokenized_agent["sampled_pos"]
             heading=tokenized_agent["sampled_heading"]
 
-            #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
-            interpolate_pos =pos #alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
-            interpolate_heading =heading#alpha * expert_sampled_heading + (1 - alpha) * heading
+            alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
+            interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
+            interpolate_heading =alpha * expert_sampled_heading + (1 - alpha) * heading
 
             interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
 
@@ -402,9 +402,9 @@ class IQ_SoftQ(LightningModule):
                 only_inputs=True,
             )[0]  # shape: [B, T, 3]
 
-            #grad_norm = gradients.norm(2, dim=-1)
-            #gp = ((grad_norm - 1) ** 2).mean() #* 0.01
-            gp=gradients.pow(2).sum(dim=-1).mean()
+            grad_norm = gradients.norm(2, dim=-1)
+            gp = ((grad_norm - 1) ** 2).mean() #* 0.01
+            #gp=gradients.pow(2).sum(dim=-1).mean()
            # print(gp)
 
             self.log("train/gp", gp, on_step=True, batch_size=1)
@@ -564,10 +564,10 @@ class IQ_SoftQ(LightningModule):
 
             expert_light_idx=tokenized_agent["light_idx"].clone()
 
-            if self.dis_loss=="wgan":
-                tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
-                tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
-                tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
+            #if self.dis_loss=="wgan":
+            tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
+            tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
+            tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
 
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
