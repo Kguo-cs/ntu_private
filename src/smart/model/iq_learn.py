@@ -361,16 +361,16 @@ class IQ_SoftQ(LightningModule):
 
             # bce_loss=bce_loss+0.01*a2a_entropy
 
-        if self.dis_loss == "wgan" and key == "agent":
-            expert_pos=tokenized_agent["expert_sampled_pos"]
-            expert_sampled_heading=tokenized_agent["expert_sampled_heading"]
-            expert_valid_mask=tokenized_agent["expert_valid_mask"]
+        if  key == "expert":
+            #expert_pos=tokenized_agent["sampled_pos"]
+            #expert_sampled_heading=tokenized_agent["sampled_heading"]
+            expert_valid_mask=tokenized_agent["valid_mask"]
             pos=tokenized_agent["sampled_pos"]
             heading=tokenized_agent["sampled_heading"]
 
-            alpha= torch.rand((expert_pos.size(0), expert_pos.size(1)), device=expert_pos.device)
-            interpolate_pos = alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
-            interpolate_heading = alpha * expert_sampled_heading + (1 - alpha) * heading
+            #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
+            interpolate_pos =pos #alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
+            interpolate_heading =heading#alpha * expert_sampled_heading + (1 - alpha) * heading
 
             interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
 
@@ -388,10 +388,10 @@ class IQ_SoftQ(LightningModule):
                                                             interpolates_pos[:,:,:2],
                                                             interpolates_pos[:,:,2] ,
                                                             tokenized_agent,
-                                                            map_feature,
+                                                            tokenized_agent["detach_map_feature"],
                                                             tokenized_agent["light_idx"],
                                                             None)[0]
-            score_sum = scores.sum()
+            score_sum = scores.view(-1).sum()
 
             # gradient wrt interpolates
             gradients = torch.autograd.grad(
@@ -402,10 +402,10 @@ class IQ_SoftQ(LightningModule):
                 only_inputs=True,
             )[0]  # shape: [B, T, 3]
 
-            grad_norm = gradients.view(gradients.size(0), -1).norm(2, dim=1)
-            gp = ((grad_norm - 1) ** 2).mean() * 0.01
-
-            print(gp)
+            #grad_norm = gradients.norm(2, dim=-1)
+            #gp = ((grad_norm - 1) ** 2).mean() #* 0.01
+            gp=gradients.pow(2).sum(dim=-1).mean()
+           # print(gp)
 
             self.log("train/gp", gp, on_step=True, batch_size=1)
 
@@ -461,10 +461,6 @@ class IQ_SoftQ(LightningModule):
         self.log('train/'+key+'_col_rate', col_flag.float().mean().item(), on_step=True, batch_size=1)
 
         if self.encoder.map_encoder.pred_offroad:
-            # for i in range(len(tokenized_agent["sampled_pos"][:, 2:])):
-            #     print(i)
-            # train_mask=torch.zeros_like(tokenized_agent["sampled_pos"][:, 2:]).bool()
-            # train_mask[i]=True
 
             near_dist=corners_offroad_signed_distance_per_batch(tokenized_agent["sampled_pos"][:, 2:][all_valid],
                                                      tokenized_agent["sampled_heading"][:, 2:][all_valid],
@@ -560,7 +556,7 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
 
 
-                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",None)
+                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
 
@@ -891,10 +887,10 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
 
-                bc_weight=np.power(0.9999,self.global_step)
+                #bc_weight=np.power(0.9999,self.global_step)
 
-                expert_nll = bc_weight*expert_nll + (1-bc_weight)*agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
-
+                expert_nll = expert_nll + agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
+#(1-bc_weight)*bc_weight*
                 # if self.use_kl_penalty:
                 #     with torch.no_grad():
                 #         #map_feature=self.bc_map_net(tokenized_map)
