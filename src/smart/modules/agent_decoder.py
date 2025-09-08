@@ -98,6 +98,7 @@ class SMARTAgentDecoder(nn.Module):
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
         else:
+            self.t_num_layers=2
             self.t_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
@@ -108,7 +109,7 @@ class SMARTAgentDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                     )
-                    for _ in range(2)
+                    for _ in range(self.t_num_layers)
                 ]
             )
             self.token_cache=None
@@ -544,9 +545,11 @@ class SMARTAgentDecoder(nn.Module):
                         pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
                         mask_lg[:, -self.light_hist:], t - 1, latent_z, post_sampling)
                 else:
-                    next_token_logits,next_light_logits,_,_,proposal,feat_a  = self.predict_agent(sampled_idx[:, -self.agent_hist:],goal_idx[:,-self.agent_hist:], mask[:, -self.agent_hist:],
-                                                                pos_a[:, -self.agent_hist-1:], head_a[:, -self.agent_hist:],tokenized_agent, map_feature,light_idx[:, -1:],
-                                                                                        mask_lg[:,-self.light_hist:],min(t,self.agent_hist) - 1,latent_z,post_sampling)
+                    hist=self.t_num_layers*self.agent_hist
+
+                    next_token_logits,next_light_logits,_,_,proposal,feat_a  = self.predict_agent(sampled_idx[:, -hist:],goal_idx[:,-hist:], mask[:, -hist:],
+                                                                pos_a[:, -hist-1:], head_a[:, -hist:],tokenized_agent, map_feature,light_idx[:, -1:],
+                                                                                        mask_lg[:,-self.light_hist:],min(t,hist) - 1,latent_z,post_sampling)
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
