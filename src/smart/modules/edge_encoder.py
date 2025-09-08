@@ -44,6 +44,9 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
+        self.use_roformer = True
+
+        if not self.use_roformer:
             input_dim_r_t = 4
 
             self.r_t_emb = FourierEmbedding(

@@ -92,27 +92,6 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        self.use_roformer=True
-
-        if self.use_roformer:
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-                                              hist_len=self.agent_hist)
-        else:
-            self.t_num_layers=2
-            self.t_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(self.t_num_layers)
-                ]
-            )
-            self.token_cache=None
 
         #if not discriminator:
 
@@ -129,6 +108,28 @@ class SMARTAgentDecoder(nn.Module):
                                                     pt2a_neighbor,a2a_neighbor,
                                                     token_processor,output_gmm,pred_last_res,pred_all_res,discriminator
                                                     )
+
+        self.use_roformer = self.interative_decoder.edge_encoder.use_roformer
+
+        if self.use_roformer:
+            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
+                                              hist_len=self.agent_hist)
+        else:
+            self.t_num_layers = 2
+            self.t_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(self.t_num_layers)
+                ]
+            )
+            self.token_cache = None
 
         self.use_light = token_processor.use_light
         self.pred_light = True
