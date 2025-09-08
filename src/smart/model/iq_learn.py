@@ -149,9 +149,11 @@ class IQ_SoftQ(LightningModule):
         pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
 
         if pred["proposal"] is not None:
-            if key=="expert":
-                proposal_loss, pos_dist, head_diff,min_idx=get_proposal_loss(pred["proposal"],tokenized_agent,self.start_step )
 
+            proposal_loss,proposal_log_prob,pos_dist, head_diff = get_proposal_loss(pred["proposal"], tokenized_agent,
+                                                                                self.start_step)
+
+            if key=="expert":
                 all_valid_mask = valid_mask.all(-1)
 
                 self.log("train/" + key + "_head_diff", head_diff[all_valid_mask].mean().item(), on_step=True, batch_size=1)
@@ -174,6 +176,7 @@ class IQ_SoftQ(LightningModule):
                 proposal_loss=0
         else:
             proposal_loss=0
+            proposal_log_prob=0
 
         action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
@@ -254,12 +257,12 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        return  reward,value_loss,pi,action_nll+light_nll+proposal_loss,current_Q,proposal_loss,log_prob,entropy
+        return  reward,value_loss,pi,action_nll+light_nll+proposal_loss,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
-        sampled_pos=tokenized_agent["sampled_pos"]#torch.round(tokenized_agent["sampled_pos"]*10)/10#
-        sampled_heading=tokenized_agent["sampled_heading"]#torch.round(tokenized_agent["sampled_heading"]*10)/10#
+        sampled_pos=torch.round(tokenized_agent["sampled_pos"]*5)/5#tokenized_agent["sampled_pos"]#
+        sampled_heading=torch.round(tokenized_agent["sampled_heading"]*10)/10#tokenized_agent["sampled_heading"]#
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],

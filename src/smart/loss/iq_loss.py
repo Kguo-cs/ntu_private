@@ -116,29 +116,32 @@ def padding(tensor,lengths,padding_value=0.0 ):
 
 def get_proposal_loss(proposal,tokenized_agent,start_step):
 
-    token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]#[train_mask]
+    #token_agent_shape = tokenized_agent["token_agent_shape"][:, None, None, None]#[train_mask]
     sampled_pos = tokenized_agent["sampled_pos"][:, start_step:-1]#[train_mask]
     sampled_heading = tokenized_agent["sampled_heading"][:, start_step:-1]#[train_mask]
-    target_global_traj = tokenized_agent["target_global_traj"][:, start_step:-1,:proposal.shape[3]]#[train_mask]
-    target_mask = tokenized_agent["target_mask"][:, start_step:-1, None,:proposal.shape[3]]#[train_mask]
+    # target_global_traj = tokenized_agent["target_global_traj"][:, start_step:-1,:proposal.shape[3]]#[train_mask]
+    # target_mask = tokenized_agent["target_mask"][:, start_step:-1, None,:proposal.shape[3]]#[train_mask]
+    #
+
+    target_global_traj=torch.cat([tokenized_agent["sampled_pos"],tokenized_agent["sampled_heading"][:,:,None]],dim=-1)[:, start_step+1:,None]
+    target_mask=tokenized_agent["valid_mask"][:, start_step+1:,None,None]
 
     if "train_mask" in tokenized_agent.keys():
         train_mask = tokenized_agent["train_mask"]
-        token_agent_shape=token_agent_shape[train_mask]
+       # token_agent_shape=token_agent_shape[train_mask]
         sampled_pos=sampled_pos[train_mask]
         sampled_heading=sampled_heading[train_mask]
         target_global_traj=target_global_traj[train_mask]
         target_mask=target_mask[train_mask]
-        
 
     #target_mask=target_mask & train_mask[:,None,None,None]
 
-    target_pos = target_global_traj[..., :2].flatten(0, 1)
-    target_head = target_global_traj[..., 2].flatten(0, 1)
+    target_global_pos = target_global_traj[..., :2].flatten(0, 1)
+    target_global_head = target_global_traj[..., 2].flatten(0, 1)
 
     target_pos, target_head = transform_to_local(
-        pos_global=target_pos,  # [n_agent*18, 1, 2]
-        head_global=target_head,  # [n_agent*18, 1]
+        pos_global=target_global_pos,  # [n_agent*18, 1, 2]
+        head_global=target_global_head,  # [n_agent*18, 1]
         pos_now=sampled_pos.flatten(0, 1),  # [n_agent*18, 2]
         head_now=sampled_heading.flatten(0, 1),  # [n_agent*18]
     )
@@ -146,24 +149,45 @@ def get_proposal_loss(proposal,tokenized_agent,start_step):
     target_pos = target_pos.reshape(-1, target_global_traj.shape[1], 1, target_global_traj.shape[2], 2)
     target_head = target_head.reshape(-1, target_global_traj.shape[1], 1, target_global_traj.shape[2])
 
-    target_contour = cal_polygon_contour(target_pos, target_head, token_agent_shape)
 
-    proposal_contour = cal_polygon_contour(proposal[..., :2], proposal[..., 2], token_agent_shape)#B,T,N,F,4,2
+    pos_loss = (torch.linalg.norm(proposal[...,:1,-1:, :2] - target_pos, dim=-1) * target_mask)#[..., -1]
+    head_loss = (wrap_angle(proposal[...,:1,-1:, 2] - target_head).abs() * target_mask)#[..., -1]
 
-    pos_loss = (torch.linalg.norm(proposal[..., :2] - target_pos, dim=-1) * target_mask)[..., 4]
-    head_loss = (wrap_angle(proposal[..., 2] - target_head).abs() * target_mask)[..., 4]
 
-    counter_dist =torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask
+    if proposal.shape[2]==2:
 
-    target_sum=target_mask.sum()+1e-8
+        proposal_mean=proposal[:,:,0,-1]
 
-    proposal_loss = counter_dist.sum(-1).amin(-1).sum()/target_sum
+        proposal_std=proposal[:,:,1,-1]
 
-    proposal5_loss = counter_dist[:, :, :, 4]
+        distribution= Independent(Normal(proposal_mean, proposal_std),1)
 
-    action = torch.argmin(proposal5_loss, dim=-1)
+        target_state=torch.cat((target_pos, target_head[...,None]), dim=-1)[:,:,0,-1]
 
-    return proposal_loss, pos_loss, head_loss,action
+        proposal_logprob=distribution.log_prob(target_state)
+
+        proposal_loss = -proposal_logprob[target_mask[:,:,0,-1]].mean()
+
+        print(proposal_logprob[target_mask[:,:,0,-1]].min(), proposal_logprob[target_mask[:,:,0,-1]].max(),proposal_logprob[target_mask[:,:,0,-1]].mean(), proposal_loss.mean())
+
+        #proposal_logprob=proposal_logprob.sum(-1)
+
+    # else:
+    #     target_contour = cal_polygon_contour(target_pos, target_head, token_agent_shape)
+    #
+    #     proposal_contour = cal_polygon_contour(proposal[...,,:1,:, :2], proposal[...,,:1,:, 2], token_agent_shape)
+    #
+    #     counter_dist = torch.linalg.norm(proposal_contour - target_contour, dim=-1).mean(-1) * target_mask
+    #
+    #     target_sum = target_mask.sum() + 1e-8
+    #
+    #     proposal_loss = counter_dist.sum(-1).amin(-1).sum()/target_sum
+    #
+    #     proposal5_loss = counter_dist[:, :, :, 4]
+    #
+    #     action = torch.argmin(proposal5_loss, dim=-1)
+
+    return proposal_loss,proposal_logprob, pos_loss, head_loss
 
 
 def get_gaussian_loss(proposal,tokenized_agent):

@@ -12,6 +12,7 @@
 # its affiliates is strictly prohibited.
 from typing import Dict, Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -56,6 +57,7 @@ class InterativeDecoder(nn.Module):
         self.num_layers = num_layers
         self.shift = token_processor.shift
         self.hist_drop_prob = hist_drop_prob
+        self.output_gmm = output_gmm
 
         self.head_dim = hidden_dim // num_heads
 
@@ -90,7 +92,6 @@ class InterativeDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-        self.output_gmm = output_gmm
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
@@ -98,7 +99,10 @@ class InterativeDecoder(nn.Module):
 
 
         if self.pred_last_res or self.pred_all_res:
-            self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
+            if self.output_gmm:
+                self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3*2*1) #mean and std
+            else:
+               self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
 
         self.start_step=10//self.shift-1
 
@@ -302,7 +306,16 @@ class InterativeDecoder(nn.Module):
 
                 proposal = torch.tanh(proposal) * proposal_max_diff[:, :, None]
 
-            proposal = proposal + next_token_traj_all[:, :, None]
+            if self.output_gmm:
+                proposal=    proposal.reshape(proposal.shape[0], proposal.shape[1], 2,-1, 3)
+
+                proposal=torch.arange(0.2,1.2,0.2,device=proposal.device)[None,None,None,:,None]*proposal
+
+                proposal[:,:,0]+=next_token_traj_all
+                proposal[:,:,1]=0.001#torch.exp(proposal[:,:,1])+0.01
+
+            else:
+                proposal = proposal + next_token_traj_all[:, :, None]
 
         if self.discriminator:
             if self.state_action:

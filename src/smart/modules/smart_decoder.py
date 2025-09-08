@@ -56,11 +56,8 @@ class SMARTDecoder(nn.Module):
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
         self.iq_learn=True
-        self.output_gmm=False
         self.use_gail=True
-
         self.use_value=True
-
         self.use_critic=False
         self.learn_lcf=False
 
@@ -102,7 +99,7 @@ class SMARTDecoder(nn.Module):
                 a2a_neighbor=a2a_neighbor,
                 token_processor=token_processor,
                 alpha=self.alpha,
-                output_gmm=self.output_gmm,
+                output_gmm=True,
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
