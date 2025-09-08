@@ -815,8 +815,8 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
             tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
 
-            tokenized_agent["expert_sampled_pos"]=sampled_pos
-            tokenized_agent["expert_sampled_heading"]=sampled_heading
+            tokenized_agent["expert_sampled_pos"]=agent["gt_pos_raw"][:,5::5]
+            tokenized_agent["expert_sampled_heading"]=agent["gt_head_raw"][:,5::5]
 
             #tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
             #tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
