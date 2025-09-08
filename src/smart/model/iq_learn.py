@@ -514,7 +514,7 @@ class IQ_SoftQ(LightningModule):
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            if self.iq_learn and not self.encoder.agent_encoder.use_gnn:
+            if self.iq_learn and self.encoder.agent_encoder.use_roformer:
                 self.encoder.agent_encoder.a_t_roformer.attn.caching = True
                 if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
