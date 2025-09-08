@@ -126,6 +126,7 @@ class SMART(LightningModule):
                 )
                 self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
 
+            print(self.global_rank)
             # ! closed-loop vlidation
             if self.global_rank == 0 and self.val_closed_loop:
                 pred_traj, pred_z, pred_head = [], [], []
