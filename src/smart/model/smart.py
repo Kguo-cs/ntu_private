@@ -178,9 +178,9 @@ class SMART(LightningModule):
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
 
-            pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
-            pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
-            pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+                pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
+                pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
+                pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
 
             # pred_traj=data["agent"]["position"][:,11:, :2].contiguous()[:,None].repeat(1,32,1,1)
             # pred_z=data["agent"]["position"][:, 10:, 2][:,None].repeat(1,32,1)
