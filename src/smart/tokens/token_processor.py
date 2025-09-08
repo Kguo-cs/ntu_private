@@ -321,7 +321,7 @@ class TokenProcessor(torch.nn.Module):
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         speed=None,
         shift=5,
-        error_dist=0.0
+        error_dist=0.3
     ) -> Dict[str, Tensor]:
         """n_step_token=n_step//5
         n_step_token=18 for train with BC.
@@ -811,19 +811,19 @@ class TokenProcessor(torch.nn.Module):
                                                             )
             tokenized_agent.update(token_dict)
 
-            token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                agent["gt_head_raw"],
-                                                agent_shape, token_traj,
-                                                speed,
-                                                error_dist=0.3
-                                                    )
+            # token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+            #                                     agent["gt_head_raw"],
+            #                                     agent_shape, token_traj,
+            #                                     speed,
+            #                                     error_dist=0.3
+            #                                         )
+            #
+            # tokenized_agent["expert_sampled_pos"]=token_dict["sampled_pos"]
+            # tokenized_agent["expert_sampled_heading"]=token_dict["sampled_heading"]
 
-            tokenized_agent["expert_sampled_pos"]=token_dict["sampled_pos"]
-            tokenized_agent["expert_sampled_heading"]=token_dict["sampled_heading"]
-
-            #tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
-            #tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
-            #tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
+            tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
+            tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
+            tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
 
         else:
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
