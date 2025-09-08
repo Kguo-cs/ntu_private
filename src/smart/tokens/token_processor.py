@@ -320,7 +320,8 @@ class TokenProcessor(torch.nn.Module):
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         speed=None,
-        shift=5
+        shift=5,
+        error_dist=0.0
     ) -> Dict[str, Tensor]:
         """n_step_token=n_step//5
         n_step_token=18 for train with BC.
@@ -381,7 +382,7 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             #if  self.pred_last_res:
-            token_valid=min_dist<0.3
+            token_valid=min_dist<error_dist
             # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
             # _valid_mask=token_valid & _valid_mask
             _valid_mask[~token_valid]=False
@@ -809,14 +810,16 @@ class TokenProcessor(torch.nn.Module):
                                                          speed,
                                                             )
             tokenized_agent.update(token_dict)
-            # sampled_pos=tokenized_agent["sampled_pos"].clone()
-            # sampled_heading=tokenized_agent["sampled_heading"].clone()
-            #
-            # tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
-            # tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
 
-            tokenized_agent["expert_sampled_pos"]=agent["gt_pos_raw"][:,5::5]
-            tokenized_agent["expert_sampled_heading"]=agent["gt_head_raw"][:,5::5]
+            token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+                                                agent["gt_head_raw"],
+                                                agent_shape, token_traj,
+                                                speed,
+                                                error_dist=0.3
+                                                    )
+
+            tokenized_agent["expert_sampled_pos"]=token_dict["sampled_pos"]
+            tokenized_agent["expert_sampled_heading"]=token_dict["sampled_heading"]
 
             #tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
             #tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
