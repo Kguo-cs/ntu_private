@@ -99,7 +99,7 @@ class SMARTDecoder(nn.Module):
                 a2a_neighbor=a2a_neighbor,
                 token_processor=token_processor,
                 alpha=self.alpha,
-                output_gmm=True,
+                output_gmm=False,
                 pred_last_res=token_processor.pred_last_res,
                 pred_all_res=token_processor.pred_all_res,
             )
