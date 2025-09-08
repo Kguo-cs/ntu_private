@@ -23,6 +23,7 @@ from torch.distributions import Categorical
 from torch_geometric.data import HeteroData
 import torch.nn.functional as F
 
+from src.smart.tokens.trajectory_process import sampled_pos
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -381,7 +382,7 @@ class TokenProcessor(torch.nn.Module):
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
 
             #if  self.pred_last_res:
-            token_valid=min_dist<0
+            token_valid=min_dist<0.3
             # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
             # _valid_mask=token_valid & _valid_mask
             _valid_mask[~token_valid]=False
@@ -809,9 +810,18 @@ class TokenProcessor(torch.nn.Module):
                                                          speed,
                                                             )
             tokenized_agent.update(token_dict)
-            tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
-            tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
-            tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
+            sampled_pos=tokenized_agent["sampled_pos"].clone()
+            sampled_heading=tokenized_agent["sampled_heading"].clone()
+
+            tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
+            tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
+
+            tokenized_agent["expert_sampled_pos"]=sampled_pos
+            tokenized_agent["expert_sampled_heading"]=sampled_heading
+
+            #tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
+            #tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
+            #tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
 
         else:
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
