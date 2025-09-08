@@ -254,7 +254,7 @@ class IQ_SoftQ(LightningModule):
         else:
             light_nll=0
 
-        return  reward,value_loss,pi,action_nll+light_nll,current_Q,proposal_loss,log_prob,entropy
+        return  reward,value_loss,pi,action_nll+light_nll+proposal_loss,current_Q,proposal_loss,log_prob,entropy
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
