@@ -502,7 +502,16 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 next_token_idx = Categorical(
                     logits=next_token_logits[:, -1, ] / self.alpha).sample()
-
+                # range_a = torch.arange(next_token_logits.shape[0])
+                #
+                # topk_logits, topk_indices = torch.topk(
+                #     next_token_logits[:, -1, ] / self.alpha, 48, dim=-1, sorted=False
+                # )
+                # cat_dist = Categorical(logits=topk_logits)
+                # samples = cat_dist.sample()  # [n_agent] in K
+                #
+                # next_token_idx = topk_indices[range_a, samples]
+                #
                 # log_prob=dist.log_prob(next_token_idx)
                 #
                 # sampled_log_prob.append(log_prob)
