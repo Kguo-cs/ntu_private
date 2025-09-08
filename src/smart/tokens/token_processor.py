@@ -23,7 +23,6 @@ from torch.distributions import Categorical
 from torch_geometric.data import HeteroData
 import torch.nn.functional as F
 
-from src.smart.tokens.trajectory_process import sampled_pos
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
