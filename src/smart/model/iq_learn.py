@@ -262,7 +262,7 @@ class IQ_SoftQ(LightningModule):
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 
         sampled_pos=torch.round(tokenized_agent["sampled_pos"]*50)/50#tokenized_agent["sampled_pos"]#
-        sampled_heading=torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*50)*np.pi/50#tokenized_agent["sampled_heading"]#
+        sampled_heading=torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*20)*np.pi/20#tokenized_agent["sampled_heading"]#
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                         tokenized_agent["goal_idx"],
@@ -514,7 +514,7 @@ class IQ_SoftQ(LightningModule):
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            if self.iq_learn:
+            if self.iq_learn and not self.encoder.agent_encoder.use_gnn:
                 self.encoder.agent_encoder.a_t_roformer.attn.caching = True
                 if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True

@@ -22,6 +22,8 @@ class EdgeEncoder(nn.Module):
             num_freq_bands:int,
             share,
             a2a=True,
+            hist_drop_prob=0.0,
+            time_span=30
     ) -> None:
         super(EdgeEncoder, self).__init__()
         input_dim_r_pt2a = 3
@@ -42,13 +44,18 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
-        # input_dim_r_t = 4
+            input_dim_r_t = 4
 
-        # self.r_t_emb = FourierEmbedding(
-        #     input_dim=input_dim_r_t,
-        #     hidden_dim=hidden_dim,
-        #     num_freq_bands=num_freq_bands,
-        # )
+            self.r_t_emb = FourierEmbedding(
+                input_dim=input_dim_r_t,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
+
+            self.hist_drop_prob=hist_drop_prob
+            self.time_span=time_span
+
+            self.shift=5
 
 
     def build_temporal_edge(
