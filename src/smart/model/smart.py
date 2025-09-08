@@ -99,106 +99,91 @@ class SMART(LightningModule):
 
     def validation_step(self, data, batch_idx):
 
-        # tokenized_map, tokenized_agent = self.token_processor(data)
-        #
-        # # ! open-loop vlidation
-        # if self.val_open_loop:
-        #     pred = self.encoder(tokenized_map, tokenized_agent)
-        #     loss = self.training_loss(
-        #         **pred,
-        #         token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
-        #         token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
-        #     )
-        #
-        #     self.TokenCls.update(
-        #         # action that goes from [(10->15), ..., (85->90)]
-        #         pred=pred["next_token_logits"],  # [n_agent, 16, n_token]
-        #         pred_valid=pred["next_token_valid"],  # [n_agent, 16]
-        #         target=tokenized_agent["gt_idx"][:, 2:],
-        #         target_valid=tokenized_agent["valid_mask"][:, 2:],
-        #     )
-        #     self.log(
-        #         "val_open/acc",
-        #         self.TokenCls,
-        #         on_epoch=True,
-        #         sync_dist=True,
-        #         batch_size=1,
-        #     )
-        #     self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
-        #
-        # # ! closed-loop vlidation
-        # if self.global_rank == 0 and self.val_closed_loop:
-        #     pred_traj, pred_z, pred_head = [], [], []
-        #     #tokenized_map,tokenized_agent = self.encoder.preprocess(tokenized_map, tokenized_agent)
-        #     map_feature = self.encoder.map_encoder(tokenized_map)
-        #
-        #     if self.encoder.agent_encoder.use_vae:
-        #         # logits = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
-        #         #                                       tokenized_agent["goal_idx"],
-        #         #                                       tokenized_agent["valid_mask"][:, :2],
-        #         #                                       tokenized_agent["sampled_pos"][:, :2],
-        #         #                                       tokenized_agent["sampled_heading"][:, :2],
-        #         #                                       tokenized_agent,
-        #         #                                       map_feature,
-        #         #                                       tokenized_agent["light_idx"],
-        #         #                                       None)[0]  # [all_valid]
-        #         # logits_p = logits[:, -1:]
-        #         #
-        #         # mu=logits_p[:,:,:self.encoder.agent_encoder.k_dim]
-        #         # logvar=logits_p[:,:,self.encoder.agent_encoder.k_dim:]
-        #         # std = torch.exp(0.5 * logvar)
-        #
-        #         prior_dist = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
-        #                                                  tokenized_agent["goal_idx"],
-        #                                                  tokenized_agent["valid_mask"][:, :2],
-        #                                                  tokenized_agent["sampled_pos"][:, :2],
-        #                                                  tokenized_agent["sampled_heading"][:, :2],
-        #                                                  tokenized_agent,
-        #                                                  map_feature,
-        #                                                  tokenized_agent["light_idx"],
-        #                                                  None)[0]  # [all_valid]
-        #
-        #         mu = prior_dist[:, :, :self.encoder.agent_encoder.k_dim]
-        #         logvar = prior_dist[:, :, self.encoder.agent_encoder.k_dim:]  # self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
-        #         std = torch.exp(0.5 * logvar)
-        #
-        #         # mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
-        #         # std=torch.ones_like(mu)
-        #
-        #     # probs = logits_p.softmax(-1)
-        #
-        #     for _ in range(self.n_rollout_closed_val):
-        #
-        #         if self.encoder.agent_encoder.use_vae:
-        #             if self.encoder.agent_encoder.use_dicrete:
-        #                 probs = F.softmax(prior_dist[:,0], dim=-1)
-        #
-        #                 latent_z = torch.multinomial(probs, num_samples=1).squeeze(-1)[:,None]
-        #             else:
-        #                 latent_z = mu + torch.randn_like(std) * std
-        #
-        #             tokenized_agent["latent_z"] = latent_z
-        #
-        #         # pred = self.encoder.inference(
-        #         #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
-        #         # )
-        #         #latent_z = torch.multinomial(probs, 1) # [B]
-        #         #tokenized_agent["latent_z"] = latent_z
-        #
-        #         pred = self.encoder.agent_encoder.inference(
-        #             tokenized_agent, map_feature,#post_sampling=True
-        #         )
-        #
-        #         pred_traj.append(pred["pred_traj_10hz"])
-        #         pred_z.append(pred["pred_z_10hz"])
-        #         pred_head.append(pred["pred_head_10hz"])
-        # pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
-        # pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
-        # pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+            tokenized_map, tokenized_agent = self.token_processor(data)
 
-            pred_traj=data["agent"]["position"][:,11:, :2].contiguous()[:,None].repeat(1,32,1,1)
-            pred_z=data["agent"]["position"][:, 10:, 2][:,None].repeat(1,32,1)
-            pred_head=data["agent"]["heading"][:,11:][:,None].repeat(1,32,1)
+            # ! open-loop vlidation
+            if self.val_open_loop:
+                pred = self.encoder(tokenized_map, tokenized_agent)
+                loss = self.training_loss(
+                    **pred,
+                    token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
+                    token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
+                )
+
+                self.TokenCls.update(
+                    # action that goes from [(10->15), ..., (85->90)]
+                    pred=pred["next_token_logits"],  # [n_agent, 16, n_token]
+                    pred_valid=pred["next_token_valid"],  # [n_agent, 16]
+                    target=tokenized_agent["gt_idx"][:, 2:],
+                    target_valid=tokenized_agent["valid_mask"][:, 2:],
+                )
+                self.log(
+                    "val_open/acc",
+                    self.TokenCls,
+                    on_epoch=True,
+                    sync_dist=True,
+                    batch_size=1,
+                )
+                self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
+
+            # ! closed-loop vlidation
+            if self.global_rank == 0 and self.val_closed_loop:
+                pred_traj, pred_z, pred_head = [], [], []
+                map_feature = self.encoder.map_encoder(tokenized_map)
+
+                if self.encoder.agent_encoder.use_vae:
+                    prior_dist = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
+                                                             tokenized_agent["goal_idx"],
+                                                             tokenized_agent["valid_mask"][:, :2],
+                                                             tokenized_agent["sampled_pos"][:, :2],
+                                                             tokenized_agent["sampled_heading"][:, :2],
+                                                             tokenized_agent,
+                                                             map_feature,
+                                                             tokenized_agent["light_idx"],
+                                                             None)[0]  # [all_valid]
+
+                    mu = prior_dist[:, :, :self.encoder.agent_encoder.k_dim]
+                    logvar = prior_dist[:, :, self.encoder.agent_encoder.k_dim:]  # self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
+                    std = torch.exp(0.5 * logvar)
+
+                    # mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
+                    # std=torch.ones_like(mu)
+
+                # probs = logits_p.softmax(-1)
+
+                for _ in range(self.n_rollout_closed_val):
+
+                    if self.encoder.agent_encoder.use_vae:
+                        if self.encoder.agent_encoder.use_dicrete:
+                            probs = F.softmax(prior_dist[:,0], dim=-1)
+
+                            latent_z = torch.multinomial(probs, num_samples=1).squeeze(-1)[:,None]
+                        else:
+                            latent_z = mu + torch.randn_like(std) * std
+
+                        tokenized_agent["latent_z"] = latent_z
+
+                    # pred = self.encoder.inference(
+                    #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
+                    # )
+                    #latent_z = torch.multinomial(probs, 1) # [B]
+                    #tokenized_agent["latent_z"] = latent_z
+
+                    pred = self.encoder.agent_encoder.inference(
+                        tokenized_agent, map_feature,#post_sampling=True
+                    )
+
+                    pred_traj.append(pred["pred_traj_10hz"])
+                    pred_z.append(pred["pred_z_10hz"])
+                    pred_head.append(pred["pred_head_10hz"])
+
+            pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
+            pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
+            pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+
+            # pred_traj=data["agent"]["position"][:,11:, :2].contiguous()[:,None].repeat(1,32,1,1)
+            # pred_z=data["agent"]["position"][:, 10:, 2][:,None].repeat(1,32,1)
+            # pred_head=data["agent"]["heading"][:,11:][:,None].repeat(1,32,1)
 
             # print(data.scenario_id)
             # pred_traj=torch.load("/home/ke/code/catk/src/waymo_data/pred_traj.pt").cuda()

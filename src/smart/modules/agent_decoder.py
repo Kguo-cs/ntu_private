@@ -183,8 +183,8 @@ class SMARTAgentDecoder(nn.Module):
 
     def predict_agent(self, sampled_idx,goal_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,post_sampling=False):
 
-        pos_a=torch.round(pos_a*10)/10
-        head_a=torch.round(head_a*10)/10
+        #pos_a=torch.round(pos_a*10)/10
+        #head_a=torch.round(head_a*10)/10
 
         n_agent, n_step = head_a.shape
 
@@ -331,22 +331,22 @@ class SMARTAgentDecoder(nn.Module):
                     batch_s = build_batch(batch_a, tokenized_agent["num_graphs"],n_step).reshape(-1, n_agent).transpose(
                         0, 1)
 
-                    all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:]]
+                    all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:],sampled_idx[:,2:]]
                 elif self.interative_decoder.state_action:
-                    all_features.append(agent_token_emb[:,2:])
+                    all_features.extend([agent_token_emb[:, 2:], sampled_idx[:, 2:]])
                 else:
                     all_features=next_all_features
-                    all_features.append(None)
+                    all_features.extend([None,None])
             else:
                 if not (self.training or self.target_net):
                     all_features=next_all_features
 
-                all_features.append(None)
+                all_features.extend([agent_token_emb[:,2:],sampled_idx[:,2:]])
         else:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
                 0, 1)
 
-            all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None]
+            all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
 
         next_token_logits,feat_a,proposal,a2a_entropy,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 
@@ -476,13 +476,16 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         next_goal_logits = []
 
+
+                    feat_a = tokenized_agent["feat_a"][:, :1]
+
                     # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
                     # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
                     self.a_t_roformer.attn.caching=True
                     if self.pred_light and not self.light_encoder.share:
                         self.light_encoder.lg_t_roformer.attn.caching=True
-                    next_token_logits,next_light_logits,_,_,proposal,next_goal_logits = self.predict_agent(sampled_idx,goal_idx, mask, pos_a,
+                    next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,goal_idx, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,post_sampling)
 
                 self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
@@ -490,7 +493,7 @@ class SMARTAgentDecoder(nn.Module):
                     lg_num = tokenized_agent["pad_pos_lg"].shape[1]
                     self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist,current_step*lg_num)
             else:
-                next_token_logits,next_light_logits,_,_,proposal,next_goal_logits  = self.predict_agent(sampled_idx[:, -1:],goal_idx[:,-1:], mask[:, -self.agent_hist:],
+                next_token_logits,next_light_logits,_,_,proposal,feat_a  = self.predict_agent(sampled_idx[:, -1:],goal_idx[:,-1:], mask[:, -self.agent_hist:],
                                                             pos_a[:, -2:], head_a[:, -1:],tokenized_agent, map_feature,light_idx[:, -1:],
                                                                                     mask_lg[:,-self.light_hist:],t - 1,latent_z,post_sampling)
 

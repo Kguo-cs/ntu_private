@@ -68,7 +68,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_last_res:
             self.n_token_agent+=1
             
-        self.pred_all_res = False
+        self.pred_all_res = True
 
         if self.pred_all_res:
             self.n_token_agent=self.agent_token_all_veh.shape[0]
@@ -421,25 +421,25 @@ class TokenProcessor(torch.nn.Module):
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-            if self.training and self.pred_all_res and self.max_diff is None:
-
-                head_diff=wrap_angle(next_head-prev_head).abs().clamp_max(0.05)/4
-
-                next_head = prev_head + head_diff * torch.randn_like(next_head)  # *( torch.rand_like(pos)-0.5)
-
-                next_head=wrap_angle(next_head)
-
-                _valid_mask = valid[:, i]
+            # if self.training and self.pred_all_res and self.max_diff is None:
+            #
+            #     head_diff=wrap_angle(next_head-prev_head).abs().clamp_max(0.05)/4
+            #
+            #     next_head = prev_head + head_diff * torch.randn_like(next_head)  # *( torch.rand_like(pos)-0.5)
+            #
+            #     next_head=wrap_angle(next_head)
+            #
+            #     _valid_mask = valid[:, i]
 
             prev_head[_valid_mask] = next_head[_valid_mask]
 
             prev_pos = pos[:, i].clone()
             next_pos = token_contour_gt.mean(1)
 
-            if self.training and self.pred_all_res and self.max_diff is None:
-                pos_diff=(next_pos-prev_pos).abs().clamp_max(0.1)/4
-
-                next_pos = prev_pos + pos_diff * torch.randn_like(pos_diff) # *( torch.rand_like(pos)-0.5)
+            # if self.training and self.pred_all_res and self.max_diff is None:
+            #     pos_diff=(next_pos-prev_pos).abs().clamp_max(0.1)/4
+            #
+            #     next_pos = prev_pos + pos_diff * torch.randn_like(pos_diff) # *( torch.rand_like(pos)-0.5)
 
             prev_pos[_valid_mask] = next_pos[_valid_mask]
 

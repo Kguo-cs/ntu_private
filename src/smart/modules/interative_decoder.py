@@ -141,7 +141,7 @@ class InterativeDecoder(nn.Module):
                 self.a2a_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb=all_features#,vis_mask,agent_token_emb, sampled_idx,batch_pl
+        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
 
         n_agent = mask_a.shape[0]
         n_step=mask_a.shape[1]
@@ -166,7 +166,7 @@ class InterativeDecoder(nn.Module):
             num_layers=self.num_layers
         )
 
-        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-1] ]
+        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
 
@@ -280,7 +280,7 @@ class InterativeDecoder(nn.Module):
             proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
         if self.pred_all_res and self.training:
-            next_token_idx = sampled_idx[:, 1 + self.start_step:]
+            next_token_idx = sampled_idx
 
             token_local_traj = self.token_processor.token_local_traj
 
@@ -288,8 +288,9 @@ class InterativeDecoder(nn.Module):
                 token_local_traj=token_local_traj[train_mask]
                 next_token_idx=next_token_idx[train_mask]
                 agent_token_emb=agent_token_emb[train_mask]
+                n_agent=next_token_idx.shape[0]
 
-            proposal_feature = feat_a[:, :-1] + agent_token_emb[:, 1:]
+            proposal_feature = feat_a + agent_token_emb
             proposal = self.traj_head(proposal_feature)  #
             proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
 
