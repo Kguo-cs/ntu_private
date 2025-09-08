@@ -108,7 +108,7 @@ class SMARTAgentDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                     )
-                    for _ in range(1)
+                    for _ in range(2)
                 ]
             )
             self.token_cache=None
