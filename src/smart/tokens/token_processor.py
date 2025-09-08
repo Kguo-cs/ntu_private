@@ -809,11 +809,11 @@ class TokenProcessor(torch.nn.Module):
                                                          speed,
                                                             )
             tokenized_agent.update(token_dict)
-            sampled_pos=tokenized_agent["sampled_pos"].clone()
-            sampled_heading=tokenized_agent["sampled_heading"].clone()
-
-            tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
-            tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
+            # sampled_pos=tokenized_agent["sampled_pos"].clone()
+            # sampled_heading=tokenized_agent["sampled_heading"].clone()
+            #
+            # tokenized_agent["sampled_pos"]=agent["gt_pos_raw"][:,5::5]
+            # tokenized_agent["sampled_heading"]=agent["gt_head_raw"][:,5::5]
 
             tokenized_agent["expert_sampled_pos"]=agent["gt_pos_raw"][:,5::5]
             tokenized_agent["expert_sampled_heading"]=agent["gt_head_raw"][:,5::5]
