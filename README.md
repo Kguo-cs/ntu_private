@@ -20,7 +20,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc32_edge1_pt30_inter2/2025-08-28_10-19-19/sim/yn6teryn/checkpoints/epoch=31-step=487008.ckpt ./
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_map2/2025-09-06_10-50-52/sim/htwa11me/checkpoints/epoch=8-step=64685.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_map2_token10/2025-09-07_14-28-28/sim/t470dfil/checkpoints/epoch=3-step=30440.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL128_map2/2025-09-06_02-29-21/sim/gjpctoop/checkpoints/epoch=10-step=41855.ckpt ./
 
