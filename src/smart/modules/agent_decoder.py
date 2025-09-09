@@ -98,7 +98,7 @@ class SMARTAgentDecoder(nn.Module):
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
         else:
-            self.t_num_layers=2
+            self.t_num_layers=1
             self.t_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
@@ -282,7 +282,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
 
-                feat_a_t = self.t_attn_layers[0](feat_a, r_t, edge_index_t)[0].view(n_agent, n_step, -1)
+                for i in range(self.t_num_layers):
+                    feat_a_t = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0].view(n_agent, n_step, -1)
 
                 n_step=n_step-n_current
 
