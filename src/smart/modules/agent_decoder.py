@@ -242,6 +242,7 @@ class SMARTAgentDecoder(nn.Module):
         # latent_embedding = self.latent_embed.embed(latent_z)  # [M, emb_dim]
         #
         # feat_a_token = feat_a_token + latent_embedding
+        pos_a = pos_a[:, -n_step:]
 
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
@@ -265,13 +266,17 @@ class SMARTAgentDecoder(nn.Module):
             # if self.discriminator:
             #     feat_a_t=feat_a_token
             # else:
+
             if self.use_roformer:
-                pos_a = pos_a[:, -n_step:]
                 feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             else:
-                inference_mask=mask.clone()
 
-                inference_mask[:,:n_current]=False
+                if n_step-n_current>1:
+                    inference_mask=None
+                else:
+                    inference_mask=mask.clone()
+
+                    inference_mask[:,:n_current]=False
 
                 edge_index_t, r_t = self.interative_decoder.edge_encoder.build_temporal_edge(
                     pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -284,7 +289,9 @@ class SMARTAgentDecoder(nn.Module):
                 feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
 
                 for i in range(self.t_num_layers):
-                    feat_a_t = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0].view(n_agent, n_step, -1)
+                    feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0]
+
+                feat_a_t=feat_a.view(n_agent, n_step, -1)
 
                 n_step=n_step-n_current
 
