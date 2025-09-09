@@ -282,8 +282,8 @@ class SMARTAgentDecoder(nn.Module):
                 )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
                 feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
-
-                feat_a_t = self.t_attn_layers[0](feat_a, r_t, edge_index_t)[0].view(n_agent, n_step, -1)
+                for i in range(self.t_num_layers):
+                    feat_a_t = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0].view(n_agent, n_step, -1)
 
                 n_step=n_step-n_current
 
