@@ -16,7 +16,7 @@ import numpy as np
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean/"
 raw_data= "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_raw_pred/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean_pred/"
 
 files = os.listdir(data_directory)
 

@@ -279,7 +279,8 @@ class SMARTAgentDecoder(nn.Module):
                     pos_a=pos_a,  # [n_agent, n_step, 2]
                     head_a=head_a,  # [n_agent, n_step]
                     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                    mask=inference_mask,  # [n_agent, n_step]
+                    mask=mask,  # [n_agent, n_step]
+                    inference_mask=inference_mask
                 )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
                 feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
@@ -526,8 +527,6 @@ class SMARTAgentDecoder(nn.Module):
 
                     feat_a = tokenized_agent["feat_a"][:, :1]
 
-                    # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
-                    # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
                     if self.use_roformer:
                         self.a_t_roformer.attn.caching=True

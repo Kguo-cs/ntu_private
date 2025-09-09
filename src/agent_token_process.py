@@ -36,7 +36,7 @@ token_processor.eval()
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_0_pred/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_no_pred/"
 
 
 
@@ -147,7 +147,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(agent_data_directory)[195000+170864:]
+    files = os.listdir(agent_data_directory)
 
     for file in tqdm(files):
         process_file(file)
