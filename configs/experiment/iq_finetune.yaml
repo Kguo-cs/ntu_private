@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     finetune: true
 
-ckpt_path : '~/scratch/keguo_projects/sim/src/logs/AIRL64_map2_token10/2025-09-07_14-28-28/sim/t470dfil/checkpoints/epoch=3-step=30440.ckpt' #'./ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt' #'./ckpts/bc32_edge1_pt30_inter2_epoch=24-step=380475_0.7854.ckpt' #
+ckpt_path : './ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt' #'./ckpts/bc32_edge1_pt30_inter2_epoch=24-step=380475_0.7854.ckpt' #
 #ckpt_path: '~/scratch/keguo_projects/sim/src/logs/AIRL64_map2_token10/2025-09-07_14-28-28/sim/t470dfil/checkpoints/epoch=3-step=30440.ckpt'
 
 trainer:

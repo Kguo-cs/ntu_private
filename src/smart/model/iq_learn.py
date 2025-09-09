@@ -783,9 +783,9 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                bc_weight=1#min(np.power(0.9999,self.global_step) (1-bc_weight)*
+                gail_weight=1-np.power(0.9999,self.global_step)
 
-                expert_nll =bc_weight* expert_nll +agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll +gail_weight*agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
 
