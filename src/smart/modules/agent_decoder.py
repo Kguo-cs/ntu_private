@@ -276,7 +276,7 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     inference_mask=mask.clone()
 
-                    inference_mask[:,:n_current]=False
+                    inference_mask[:,:-1]=False
 
                 edge_index_t, r_t = self.interative_decoder.edge_encoder.build_temporal_edge(
                     pos_a=pos_a,  # [n_agent, n_step, 2]
