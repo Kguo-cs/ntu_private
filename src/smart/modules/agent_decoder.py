@@ -94,22 +94,7 @@ class SMARTAgentDecoder(nn.Module):
 
 
         #if not discriminator:
-
-        self.n_token_agent = n_token_agent
-        self.output_gmm = output_gmm
-
-        self.pred_last_res = pred_last_res
-        self.pred_all_res = pred_all_res
-
-        self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
-                                                    pl2a_radius,a2a_radius,num_freq_bands,
-                                                    num_layers,num_heads,head_dim,
-                                                    dropout,hist_drop_prob,n_token_agent,
-                                                    pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator
-                                                    )
-
-        self.use_roformer = self.interative_decoder.edge_encoder.use_roformer
+        self.use_roformer = True
 
         if self.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
@@ -130,6 +115,22 @@ class SMARTAgentDecoder(nn.Module):
                 ]
             )
             self.token_cache = None
+
+        self.n_token_agent = n_token_agent
+        self.output_gmm = output_gmm
+
+        self.pred_last_res = pred_last_res
+        self.pred_all_res = pred_all_res
+
+        self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
+                                                    pl2a_radius,a2a_radius,num_freq_bands,
+                                                    num_layers,num_heads,head_dim,
+                                                    dropout,hist_drop_prob,n_token_agent,
+                                                    pt2a_neighbor,a2a_neighbor,
+                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator,
+                                                    use_roformer=self.use_roformer
+                                                    )
+
 
         self.use_light = token_processor.use_light
         self.pred_light = True

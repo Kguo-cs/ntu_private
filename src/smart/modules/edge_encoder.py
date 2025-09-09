@@ -23,7 +23,8 @@ class EdgeEncoder(nn.Module):
             share,
             a2a=True,
             hist_drop_prob=0.0,
-            time_span=30
+            time_span=30,
+            use_roformer=True
     ) -> None:
         super(EdgeEncoder, self).__init__()
         input_dim_r_pt2a = 3
@@ -44,7 +45,7 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
-        self.use_roformer = True
+        self.use_roformer = use_roformer
 
         if not self.use_roformer:
             input_dim_r_t = 4

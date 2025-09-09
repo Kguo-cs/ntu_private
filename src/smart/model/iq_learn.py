@@ -110,32 +110,6 @@ class IQ_SoftQ(LightningModule):
         #     for name, param in self.named_parameters():
         #         if param.grad is None:
         #             print(f"Unused parameter: {name}")
-    #
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure):
-        def find_shape_mismatch(model, optimizer):
-            name_map = {id(p): n for n, p in model.named_parameters()}
-            found = False
-            for i, group in enumerate(optimizer.param_groups):
-                for p in group["params"]:
-                    if p is None:
-                        continue
-                    n = name_map.get(id(p), f"<unnamed_param_{i}>")
-                    # 1) grad vs param
-                    if p.grad is not None and p.grad.shape != p.shape:
-                        print(f"[GRAD≠PARAM] {n}: param {tuple(p.shape)} vs grad {tuple(p.grad.shape)}")
-                        found = True
-                    # 2) optimizer state vs param
-                    st = optimizer.state.get(p, {})
-                    for k in ("exp_avg", "exp_avg_sq"):
-                        t = st.get(k, None)
-                        if t is not None and t.shape != p.shape:
-                            print(f"[STATE≠PARAM] {n}.{k}: state {tuple(t.shape)} vs param {tuple(p.shape)}")
-                            found = True
-            if not found:
-                print("No param/grad/state shape mismatches found.")
-
-        # 👇 run your mismatch check before stepping
-        find_shape_mismatch(self, optimizer)
 
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
@@ -810,7 +784,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
-                gail_weight=1-np.power(0.9999,self.global_step)
+                gail_weight=1#-np.power(0.9999,self.global_step)
 
                 expert_nll = expert_nll +gail_weight*agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
             else:

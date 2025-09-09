@@ -47,7 +47,8 @@ class InterativeDecoder(nn.Module):
             pred_last_res,
             pred_all_res,
             discriminator=False,
-            value_network=False
+            value_network=False,
+            use_roformer=True
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -63,7 +64,7 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands,share=discriminator,hist_drop_prob=hist_drop_prob,time_span=time_span)
+        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands,share=discriminator,hist_drop_prob=hist_drop_prob,time_span=time_span,use_roformer=use_roformer)
 
         self.pt2a_attn_layers = nn.ModuleList(
             [
