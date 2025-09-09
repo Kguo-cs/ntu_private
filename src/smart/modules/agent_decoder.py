@@ -277,7 +277,8 @@ class SMARTAgentDecoder(nn.Module):
                     pos_a=pos_a,  # [n_agent, n_step, 2]
                     head_a=head_a,  # [n_agent, n_step]
                     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                    mask=inference_mask,  # [n_agent, n_step]
+                    mask=mask,  # [n_agent, n_step]
+                    inference_mask=inference_mask
                 )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
                 feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
