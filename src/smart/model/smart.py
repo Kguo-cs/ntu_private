@@ -13,7 +13,6 @@
 
 import math
 from pathlib import Path
-from typing import Mapping, Any
 
 import hydra
 import torch
@@ -32,7 +31,8 @@ from src.smart.tokens.token_processor import TokenProcessor
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-import time
+from src.smart.plot.plot_rollout import plot_rollout
+
 
 class SMART(LightningModule):
 
@@ -181,6 +181,11 @@ class SMART(LightningModule):
                 pred = self.encoder.agent_encoder.inference(
                     tokenized_agent, map_feature,#post_sampling=True
                 )
+
+              #  plot_rollout(tokenized_agent,tokenized_map,self.token_processor,pred)
+
+
+
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])
                 pred_head.append(pred["pred_head_10hz"])
