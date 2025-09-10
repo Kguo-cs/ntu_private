@@ -422,7 +422,7 @@ class IQ_SoftQ(LightningModule):
         #
         #     bce_loss=gp* 10+bce_loss
 
-        return bce_loss,rewards,returns, 0#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        return bce_loss,rewards,returns, disc_val#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -585,18 +585,20 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss, _, _, _ = self.get_reward(
                         old_rollout, None, None, "agent", None)
                 else:
-                    agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, agent_disc, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
 
                 critic_loss=expert_dis_loss + agent_dis_loss
 
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers()
 
-                    #if agent_rewards.mean()>0:
+                    print(agent_rewards.mean())
 
-                    discriminator_optimizer.zero_grad()
-                    self.manual_backward(critic_loss)
-                    discriminator_optimizer.step()
+                    if agent_rewards.mean()>0 or self.global_step<1000:
+
+                        discriminator_optimizer.zero_grad()
+                        self.manual_backward(critic_loss)
+                        discriminator_optimizer.step()
 
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
