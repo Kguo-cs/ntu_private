@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-ckpt_path : './ckpts/epoch=6-step=106533.ckpt'
+#ckpt_path : './ckpts/epoch=6-step=106533.ckpt'
 
 trainer:
   limit_train_batches: 1.0
