@@ -37,7 +37,7 @@ trainer:
   val_check_interval: 0.5
   #val_check_interval: 0.00002
   max_epochs: 16
-  gradient_clip_val: 0.0
+  #gradient_clip_val: 0.0
 
 data:
   train_batch_size: 64
