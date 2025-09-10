@@ -592,7 +592,7 @@ class IQ_SoftQ(LightningModule):
                 if self.automatic_optimization == False:
                     policy_optimizer, discriminator_optimizer = self.optimizers()
 
-                    print(agent_rewards.mean())
+                    #print(agent_rewards.mean())
 
                     if agent_rewards.mean()>0 or self.global_step<1000:
 
