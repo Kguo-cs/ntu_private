@@ -100,6 +100,8 @@ class IQ_SoftQ(LightningModule):
 
         self.use_distance =False
 
+        self.automatic_optimization=False
+
         if self.encoder.agent_encoder.use_vae:
 
             self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
@@ -587,6 +589,15 @@ class IQ_SoftQ(LightningModule):
 
                 critic_loss=expert_dis_loss + agent_dis_loss
 
+                if self.automatic_optimization == False:
+                    policy_optimizer, discriminator_optimizer = self.optimizers()
+
+                    #if agent_rewards.mean()>0:
+
+                    discriminator_optimizer.zero_grad()
+                    self.manual_backward(critic_loss)
+                    discriminator_optimizer.step()
+
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
 
@@ -671,11 +682,11 @@ class IQ_SoftQ(LightningModule):
 
             if self.automatic_optimization == False:
 
-                policy_optimizer,discriminator_optimizer=self.optimizers()
-
-                discriminator_optimizer.zero_grad()
-                self.manual_backward(critic_loss)
-                discriminator_optimizer.step()
+                # policy_optimizer,discriminator_optimizer=self.optimizers()
+                #
+                # discriminator_optimizer.zero_grad()
+                # self.manual_backward(critic_loss)
+                # discriminator_optimizer.step()
 
                 policy_optimizer.zero_grad()
                 self.manual_backward(expert_nll)
