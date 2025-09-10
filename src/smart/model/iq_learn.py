@@ -422,85 +422,6 @@ class IQ_SoftQ(LightningModule):
 
         return bce_loss,rewards,returns, 0#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
-    def get_collision_loss(self,tokenized_agent,tokenized_map,dis_col_pred,train_mask,all_valid ,key):
-
-        # col_pred = self.encoder.col_head(tokenized_agent["feat_a_nodetach"][all_valid])
-        #
-        # if train_mask is not None:
-        #     col_pred=col_pred[train_mask]
-        # else:
-        #     col_pred = col_pred.reshape(-1,col_pred.shape[-1])
-
-        # if self.encoder.pred_dis_aux:
-        #     dis_col_pred = self.encoder.dis_col_head(dis_feature)
-
-        if self.encoder.agent_encoder.use_sign_dist:
-            sign_dist = signed_distance_boxes_sat_fast(tokenized_agent["sampled_pos"][:, 2:],
-                                                       tokenized_agent["sampled_heading"][:, 2:],
-                                                       tokenized_agent["shape"][:, :2],
-                                                       tokenized_agent["batch"])
-
-            col_flag = sign_dist < 0
-            hist = {"min_val": -5.0, "max_val": 10.0, "num_bins": 3}
-
-            target = value_to_hist_class(sign_dist, **hist)
-            col_loss = F.cross_entropy(col_pred, target[train_mask])
-            dis_loss=F.cross_entropy(dis_col_pred.reshape(-1, col_pred.shape[-1]), target[all_valid].reshape(-1))
-        else:
-            col_flag = oriented_box_collision(tokenized_agent["sampled_pos"][:, 2:],
-                                             tokenized_agent["sampled_heading"][:, 2:],
-                                             tokenized_agent["shape"][:, :2],
-                                             tokenized_agent["batch"])[0].float()[all_valid]
-
-            if train_mask is not None:
-                col_flag = col_flag[train_mask]
-            else:
-                col_flag = col_flag.reshape(-1)
-
-            #col_loss = self.bce_loss(col_pred[:,0], col_flag)
-            col_loss=0
-            # self.log('train/' + key + '_col_loss', col_loss.item(), on_step=True, batch_size=1)
-
-            if self.encoder.pred_dis_aux:
-                dis_loss = self.bce_loss(dis_col_pred.reshape(-1), col_flag)
-                self.log('train/'+key+'_dis_col_loss', dis_loss.item(), on_step=True, batch_size=1)
-            else:
-                dis_loss = 0
-
-        self.log('train/'+key+'_col_rate', col_flag.float().mean().item(), on_step=True, batch_size=1)
-
-        if self.encoder.map_encoder.pred_offroad:
-
-            near_dist=corners_offroad_signed_distance_per_batch(tokenized_agent["sampled_pos"][:, 2:][all_valid],
-                                                     tokenized_agent["sampled_heading"][:, 2:][all_valid],
-                                                     tokenized_agent["shape"][:, :2][all_valid],
-                                                     tokenized_agent["batch"][all_valid],
-                                                      tokenized_map["global_edge"],
-                                                      tokenized_map["batch_edge"],
-                                                      )[1]
-            offroad_flag= (near_dist < 0).float()
-
-            if train_mask is not None:
-                valid_off_flag=offroad_flag[train_mask]
-            else:
-                valid_off_flag=offroad_flag.reshape(-1)
-
-            off_road_loss = self.bce_loss(col_pred[:,1], valid_off_flag)
-
-            if self.encoder.pred_dis_aux:
-                dis_off_road_loss=self.bce_loss(dis_col_pred[:,:,1], offroad_flag[all_valid])
-                self.log('train/'+key+'_dis_off_loss', dis_off_road_loss.item(), on_step=True, batch_size=1)
-            else:
-                dis_off_road_loss=0
-
-            self.log('train/'+key+'_off_road_loss', off_road_loss.item(), on_step=True, batch_size=1)
-            self.log('train/'+key+'_offroad_rate', valid_off_flag.mean().item(), on_step=True, batch_size=1)
-
-            dis_loss=dis_loss+dis_off_road_loss
-            col_loss=col_loss+off_road_loss
-
-        return 0.1*col_loss+dis_loss
-
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
@@ -559,10 +480,10 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
 
-                with torch.no_grad():
-                    expert_Value=self.encoder.value_network(tokenized_agent["feat_a_nodetach"][all_valid])[:,:,0]
-
-                    self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
+                # with torch.no_grad():
+                #     expert_Value=self.encoder.value_network(tokenized_agent["feat_a_nodetach"][all_valid])[:,:,0]
+                #
+                #     self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
 
 
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
@@ -705,53 +626,7 @@ class IQ_SoftQ(LightningModule):
 
                     value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0,max=100).mean()#
 
-                    if self.use_lcf:
-                        nei_rewards = get_near_returns(tokenized_agent, agent_rewards,train_mask=all_valid,neighbor_dist=60.0)
-
-                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a"][~all_valid])[:,:,0]
-
-                        nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
-
-                        nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).clamp(min=0,max=100).mean()#
-
-                        value_loss = nei_value_loss + value_loss
-
-                        if self.learn_lcf:
-
-                            batch = tokenized_agent["batch"]
-
-                            global_rewards=scatter_mean(agent_rewards,batch,dim=0)[batch]
-
-                            global_value_pred=self.encoder.global_value_network(tokenized_agent_rollout["feat_a"][all_valid])[:,:,0]
-
-                            global_advantages,global_returns=compute_advantages(global_rewards[all_valid],nei_value_pred.detach(),None,gamma=1.0)
-
-                            self.global_return_meanstd.update(global_advantages)
-
-                            global_advantages = self.global_return_meanstd.normalize(global_advantages)
-
-                            global_value_loss = torch.pow(global_returns - global_value_pred, 2.0).mean()
-
-                            value_loss= value_loss+global_value_loss
-
-                            lcf_parameters=self.lcf_parameters(tokenized_agent_rollout["feat_a"][all_valid])
-
-                            step_lcf=torch.clamp(torch.tanh(lcf_parameters[...,0]), -1 + 1e-6, 1 - 1e-6)
-
-                            self.log("train/lcf_mean", step_lcf.mean().item(), on_step=True, batch_size=1)
-                            self.log("train/lcf_std", step_lcf.std().item(), on_step=True, batch_size=1)
-                        else:
-                            step_lcf=torch.tensor(0.5)
-
-                        used_lcf = step_lcf.detach() * np.pi / 2
-
-                        advantages=  torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) *nei_advantages
-
-                    else:
-                        if self.encoder.discriminator.interative_decoder.centric:
-                            advantages=ego_advantages[index[:,0]]
-                        else:
-                            advantages=ego_advantages
+                    advantages=ego_advantages
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
@@ -795,47 +670,17 @@ class IQ_SoftQ(LightningModule):
             loss = critic_loss+expert_nll
 
             if self.automatic_optimization == False:
-                old_policy_loss = agent_log_prob.mean()
-                params = [p for p in self.encoder.parameters() if p.requires_grad]
 
-                self.encoder.zero_grad()
-                old_policy_grad = torch.autograd.grad(old_policy_loss, params,retain_graph=True,allow_unused=True)
-                old_policy_grad = [g for g in old_policy_grad if g is not None]
+                policy_optimizer,discriminator_optimizer=self.optimizers()
 
-                policy_optimizer,lcf_optimizer=self.optimizers()
+                discriminator_optimizer.zero_grad()
+                self.manual_backward(critic_loss)
+                discriminator_optimizer.step()
 
                 policy_optimizer.zero_grad()
-                self.manual_backward(loss)
-                nn.utils.clip_grad_norm_(params, 0.5)
+                self.manual_backward(expert_nll)
                 policy_optimizer.step()
 
-
-                agent_reward, agent_value_loss, agent_pi, agent_nll, agent_Q, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
-                    tokenized_map, tokenized_agent_rollout, None, key='agent')
-
-                new_policy_loss=-(agent_log_prob[all_valid]*global_advantages).mean()
-
-                self.encoder.zero_grad()
-                new_policy_grad = torch.autograd.grad(new_policy_loss, params, allow_unused=True)
-                new_policy_grad = [g for g in new_policy_grad if g is not None]
-
-                grad_value = 0
-
-                for a, b in zip(new_policy_grad, old_policy_grad):
-                    assert a.shape == b.shape
-                    grad_value += (a * b).sum()
-
-                #step_lcf = torch.randn_like(ego_advantages[:, :1]) * current_lcf_std + current_lcf_mean
-                used_lcf = step_lcf * np.pi / 2
-
-                advantages = torch.cos(used_lcf) * ego_advantages + torch.sin(used_lcf) * nei_advantages
-
-                lcf_advantages = self.return_meanstd.normalize(advantages)
-                lcf_lcf_adv_loss = lcf_advantages.mean()
-                lcf_final_loss = grad_value * lcf_lcf_adv_loss
-                lcf_optimizer.zero_grad()
-                lcf_final_loss.backward()
-                lcf_optimizer.step()
 
         else:
             loss = expert_nll
