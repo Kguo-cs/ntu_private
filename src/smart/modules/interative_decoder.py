@@ -90,7 +90,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_edge_feature=False
         self.use_ego_loop=False
-        self.use_counterfactual=False
+        self.use_counterfactual=True
 
         if not (discriminator and self.use_edge_feature):
 
@@ -311,7 +311,7 @@ class InterativeDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask,
+            train_mask=None,
             num_layers=self.num_layers
         )
 
@@ -342,77 +342,78 @@ class InterativeDecoder(nn.Module):
         a2a_entropy=0
 
         for layer_i in range(self.num_layers):
-            #
-            # if self.discriminator:
-            #     if  train_mask is not None:
-            #         connected_agent=torch.unique(edge_index_a2a[0])
-            #         in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
-            #         r_pl2a=r_pl2a[in_mask]
-            #         edge_index_pl2a = edge_index_pl2a[:, in_mask]
-            #
-            #     feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-            #
-            #     if self.use_edge_feature:
-            #         if not self.use_ego_loop:
-            #             ego_feat = feat_a_pt.view(-1,n_agent,self.hidden_dim)[:,train_mask].flatten(0,1)
-            #
-            #             ego_logits=self.ego_head(ego_feat)[:,None]
-            #
-            #         start_index=edge_index_a2a[0]
-            #         end_index=edge_index_a2a[1]
-            #
-            #         start_edge_feature=feat_a_token[start_index]
-            #         end_edge_feature=feat_a_token[end_index]
-            #
-            #         feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
-            #
-            #     else:
-            #         feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
-            #
-            #         feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
-            #
-            #         if self.use_counterfactual:
-            #             valid_agent=torch.where(train_mask)[0]
-            #             # Efficient ablation for all agents in valid_agent (1 pass, O(E))
-            #             # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
-            #             #                                             x_input=feat_a_pt,  # the x fed to this layer
-            #             #                                             valid_agent=valid_agent)  # LongTensor of node ids
-            #             # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
-            #             # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
-            #             feat_list1 = feat_list_mask_each_agent_cached(
-            #                 self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
-            #             )
-            #
-            #             feat_list=self.refer(self.a2a_attn_layers[layer_i],feat_a_pt,r_a2a,edge_index_a2a, train_mask, batch_s_repeat,n_step)
-            #
-            #             feat_ablated=torch.cat(feat_list, dim=1)
-            #
-            #             feat_a=torch.cat([feat_a,feat_ablated], dim=1)
-            #
-            #         n_agent = feat_a.shape[1]
-            #
-            #         feat_a = feat_a.flatten(0, 1)
-            #
-            #
-            # else:
 
-            if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
-                end_mask=train_repeat_mask[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a=r_a2a[end_mask]
+            if self.discriminator:
+                if  train_mask is not None:
+                    connected_agent=torch.unique(edge_index_a2a[0])
+                    in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
+                    r_pl2a=r_pl2a[in_mask]
+                    edge_index_pl2a = edge_index_pl2a[:, in_mask]
 
-                end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
-                edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
-                r_pl2a=r_pl2a[end_pt_mask]
+                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                if self.use_edge_feature:
+                    if not self.use_ego_loop:
+                        ego_feat = feat_a_pt.view(-1,n_agent,self.hidden_dim)[:,train_mask].flatten(0,1)
 
-            if  train_mask is not None and self.num_layers==1:
-                feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
-                n_agent = feat_a.shape[1]
-                feat_a=feat_a.flatten(0,1)
+                        ego_logits=self.ego_head(ego_feat)[:,None]
 
-            feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                    start_index=edge_index_a2a[0]
+                    end_index=edge_index_a2a[1]
+
+                    start_edge_feature=feat_a_token[start_index]
+                    end_edge_feature=feat_a_token[end_index]
+
+                    feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
+
+                else:
+                    feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
+
+                    feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+
+                    n_agent = feat_a.shape[1]
+
+                    if self.use_counterfactual:
+                        #valid_agent=torch.where(train_mask)[0]
+                        # Efficient ablation for all agents in valid_agent (1 pass, O(E))
+                        # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
+                        #                                             x_input=feat_a_pt,  # the x fed to this layer
+                        #                                             valid_agent=valid_agent)  # LongTensor of node ids
+                        # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
+                        # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
+                        # feat_list1 = feat_list_mask_each_agent_cached(
+                        #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
+                        # )
+                        #
+                        feat_list=self.refer(self.a2a_attn_layers[layer_i],feat_a_pt,r_a2a,edge_index_a2a, train_mask, batch_s_repeat,n_step)
+
+                        feat_ablated=torch.cat(feat_list, dim=1)
+
+                        feat_a=torch.cat([feat_a,feat_ablated], dim=1)
+
+
+                    feat_a = feat_a.flatten(0, 1)
+
+
+            else:
+
+                if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
+                    end_mask=train_repeat_mask[edge_index_a2a[1]]
+                    edge_index_a2a = edge_index_a2a[:, end_mask]
+                    r_a2a=r_a2a[end_mask]
+
+                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
+                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
+                    r_pl2a=r_pl2a[end_pt_mask]
+
+                feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                if  train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a=feat_a.flatten(0,1)
+
+                feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
             # #if self.discriminator:
             # plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())
