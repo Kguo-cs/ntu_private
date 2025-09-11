@@ -173,7 +173,7 @@ class InterativeDecoder(nn.Module):
             batch_pl=batch_pl,  # [n_pl*n_step]
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask,
+            train_mask=None,
             num_layers=self.num_layers
         )
 
@@ -221,23 +221,40 @@ class InterativeDecoder(nn.Module):
         a2a_entropy=0
 
         for layer_i in range(self.num_layers):
-            if self.num_layers>1 and layer_i == self.num_layers - 1 and train_mask is not None:
-                end_mask=train_repeat_mask[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a=r_a2a[end_mask]
 
-                end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
-                edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
-                r_pl2a=r_pl2a[end_pt_mask]
+            if self.discriminator:
+                feat_a, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                if  train_mask is not None:
+                    end_mask = train_repeat_mask[edge_index_a2a[1]]
+                    edge_index_a2a = edge_index_a2a[:, end_mask]
+                    r_a2a = r_a2a[end_mask]
 
-            if  train_mask is not None and self.num_layers==1:
-                feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
+                feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
                 n_agent = feat_a.shape[1]
-                feat_a=feat_a.flatten(0,1)
+                feat_a = feat_a.flatten(0, 1)
 
-            feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+            else:
+
+                if self.num_layers>1 and layer_i == self.num_layers - 1 and train_mask is not None:
+                    end_mask=train_repeat_mask[edge_index_a2a[1]]
+                    edge_index_a2a = edge_index_a2a[:, end_mask]
+                    r_a2a=r_a2a[end_mask]
+
+                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
+                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
+                    r_pl2a=r_pl2a[end_pt_mask]
+
+                feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                if  train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a=feat_a.flatten(0,1)
+
+                feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
             # #if self.discriminator:
             # plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())

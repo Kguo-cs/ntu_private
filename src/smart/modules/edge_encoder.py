@@ -331,7 +331,7 @@ class EdgeEncoder(nn.Module):
             num_layers=True
     ):
 
-        if train_mask is not None and num_layers==1:
+        if train_mask is not None and self.discriminator:
             mask=mask[train_mask,:16]
             pos_a=pos_a[train_mask,:16]
             head_a=head_a[train_mask,:16]
