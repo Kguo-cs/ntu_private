@@ -92,29 +92,29 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-
-        #if not discriminator:
-        self.use_roformer = True
+        self.use_roformer=False
 
         if self.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
         else:
-            self.t_num_layers = 2
+            self.t_num_layers=1
             self.t_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
                         head_dim=head_dim,
-                        dropout=dropout,
+                        dropout=hist_drop_prob,
                         bipartite=False,
                         has_pos_emb=True,
                     )
                     for _ in range(self.t_num_layers)
                 ]
             )
-            self.token_cache = None
+            self.token_cache=None
+
+        #if not discriminator:
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
@@ -127,10 +127,8 @@ class SMARTAgentDecoder(nn.Module):
                                                     num_layers,num_heads,head_dim,
                                                     dropout,hist_drop_prob,n_token_agent,
                                                     pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator,
-                                                    use_roformer=self.use_roformer
+                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator
                                                     )
-
 
         self.use_light = token_processor.use_light
         self.pred_light = True
@@ -244,6 +242,7 @@ class SMARTAgentDecoder(nn.Module):
         # latent_embedding = self.latent_embed.embed(latent_z)  # [M, emb_dim]
         #
         # feat_a_token = feat_a_token + latent_embedding
+        pos_a = pos_a[:, -n_step:]
 
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
@@ -267,13 +266,17 @@ class SMARTAgentDecoder(nn.Module):
             # if self.discriminator:
             #     feat_a_t=feat_a_token
             # else:
+
             if self.use_roformer:
-                pos_a = pos_a[:, -n_step:]
                 feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             else:
-                inference_mask=mask.clone()
 
-                inference_mask[:,:n_current]=False
+                if n_step-n_current>1:
+                    inference_mask=None
+                else:
+                    inference_mask=mask.clone()
+
+                    inference_mask[:,:-1]=False
 
                 edge_index_t, r_t = self.interative_decoder.edge_encoder.build_temporal_edge(
                     pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -284,8 +287,11 @@ class SMARTAgentDecoder(nn.Module):
                 )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
                 feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
+
                 for i in range(self.t_num_layers):
-                    feat_a_t = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0].view(n_agent, n_step, -1)
+                    feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0]
+
+                feat_a_t=feat_a.view(n_agent, n_step, -1)
 
                 n_step=n_step-n_current
 
@@ -527,6 +533,8 @@ class SMARTAgentDecoder(nn.Module):
 
                     feat_a = tokenized_agent["feat_a"][:, :1]
 
+                    # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
+                    # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
                     if self.use_roformer:
                         self.a_t_roformer.attn.caching=True
