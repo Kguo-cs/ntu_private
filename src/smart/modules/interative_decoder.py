@@ -87,6 +87,7 @@ class InterativeDecoder(nn.Module):
         )
 
         self.use_edge_feature=False
+        self.use_ego_loop=False
 
         if discriminator:
             self.use_edge_feature=True
@@ -139,9 +140,13 @@ class InterativeDecoder(nn.Module):
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
             if self.use_edge_feature:
-                # self.ego_head= MLPLayer(
-                #     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
-                # )
+
+                self.use_ego_loop=False
+
+                if not self.use_ego_loop:
+                    self.ego_head= MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
                 self.token_predict_head = MLPLayer(
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
@@ -212,7 +217,7 @@ class InterativeDecoder(nn.Module):
             vis_mask=None,
             value=False,
             train_mask = train_repeat_mask,
-            use_edge_feature = self.use_edge_feature
+            loop= self.use_ego_loop
 
         #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
@@ -253,6 +258,11 @@ class InterativeDecoder(nn.Module):
                     end_edge_feature=feat_a_pt[end_index]
 
                     feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
+
+                    if not self.use_ego_loop:
+                        ego_feat = feat_a_pt.view(-1,n_agent,self.hidden_dim)[:,train_mask].flatten(0,1)
+
+                        ego_logits=self.ego_head(ego_feat)[:,None]
                 else:
 
                     feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
@@ -408,9 +418,16 @@ class InterativeDecoder(nn.Module):
             # next_token_logits: [E] or [E, C]
             end_idx = edge_index_a2a[1]  # shape: [E]
 
-            min_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
+            interact_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
 
-            rewards=min_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+            rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+
+            if not self.use_ego_loop:
+                next_token_logits=torch.cat([next_token_logits,ego_logits], dim=0)
+
+                ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
+
+                rewards=rewards+ego_rewards
         else:
             rewards=0
 
