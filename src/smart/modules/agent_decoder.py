@@ -297,6 +297,7 @@ class SMARTAgentDecoder(nn.Module):
                 n_step=n_step-n_current
 
                 feat_a_t=feat_a_t[:,-n_step:]
+                feat_a_token=feat_a_token[:,-n_step:]
                 pos_a=pos_a[:,-n_step:]
                 head_a=head_a[:,-n_step:]
                 head_vector_a=head_vector_a[:,-n_step:]
@@ -310,6 +311,7 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a[:,-n_step:]
             #agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
+            feat_a_token=feat_a_token[:,-n_step:]
             if len(light_idx) and self.light_encoder.share:
                 feat_lg_t = feat_lg_t[:, -n_step:]
                 feat_lg=feat_lg[:, -n_step:]
@@ -372,7 +374,7 @@ class SMARTAgentDecoder(nn.Module):
 
             all_features=[]
             next_all_features=[]
-            for feature in [feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat]:
+            for feature in [feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat]:
                 all_features.append(feature[:, :-1])
                 next_all_features.append(feature[:, 1:])  # .clone()[:,1:]
 
@@ -386,7 +388,7 @@ class SMARTAgentDecoder(nn.Module):
                     batch_s = build_batch(batch_a, tokenized_agent["num_graphs"],n_step).reshape(-1, n_agent).transpose(
                         0, 1)
 
-                    all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:],sampled_idx[:,2:]]
+                    all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:],sampled_idx[:,2:]]
                 elif self.interative_decoder.state_action:
                     all_features.extend([agent_token_emb[:, 2:], sampled_idx[:, 2:]])
                 else:
@@ -401,7 +403,7 @@ class SMARTAgentDecoder(nn.Module):
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
                 0, 1)
 
-            all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
+            all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
 
         next_token_logits,feat_a,proposal,rewards,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 

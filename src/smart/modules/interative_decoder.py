@@ -171,7 +171,7 @@ class InterativeDecoder(nn.Module):
                 self.a2a_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
+        feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
 
         n_agent = mask_a.shape[0]
         n_step=mask_a.shape[1]
@@ -196,7 +196,7 @@ class InterativeDecoder(nn.Module):
             num_layers=self.num_layers
         )
 
-        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
+        feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
         #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
 
@@ -259,8 +259,8 @@ class InterativeDecoder(nn.Module):
                     start_index=edge_index_a2a[0]
                     end_index=edge_index_a2a[1]
 
-                    start_edge_feature=feat_a[start_index]
-                    end_edge_feature=feat_a[end_index]
+                    start_edge_feature=feat_a_token[start_index]
+                    end_edge_feature=feat_a_token[end_index]
 
                     feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
 
