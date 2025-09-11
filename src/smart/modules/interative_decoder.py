@@ -139,6 +139,9 @@ class InterativeDecoder(nn.Module):
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
             if self.use_edge_feature:
+                # self.ego_head= MLPLayer(
+                #     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                # )
                 self.token_predict_head = MLPLayer(
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
@@ -240,19 +243,19 @@ class InterativeDecoder(nn.Module):
                     r_pl2a=r_pl2a[in_mask]
                     edge_index_pl2a = edge_index_pl2a[:, in_mask]
 
-                feat_a, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
                 if self.use_edge_feature:
                     start_index=edge_index_a2a[0]
                     end_index=edge_index_a2a[1]
 
                     start_edge_feature=feat_a[start_index]
-                    end_edge_feature=feat_a[end_index]
+                    end_edge_feature=feat_a_pt[end_index]
 
                     feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
                 else:
 
-                    feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                    feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
 
                     feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
                     n_agent = feat_a.shape[1]
@@ -405,7 +408,7 @@ class InterativeDecoder(nn.Module):
             # next_token_logits: [E] or [E, C]
             end_idx = edge_index_a2a[1]  # shape: [E]
 
-            min_logits = scatter_sum(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
+            min_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
 
             rewards=min_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
         else:
