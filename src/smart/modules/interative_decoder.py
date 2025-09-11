@@ -251,6 +251,11 @@ class InterativeDecoder(nn.Module):
                 feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
                 if self.use_edge_feature:
+                    if not self.use_ego_loop:
+                        ego_feat = feat_a_pt.view(-1,n_agent,self.hidden_dim)[:,train_mask].flatten(0,1)
+
+                        ego_logits=self.ego_head(ego_feat)[:,None]
+
                     start_index=edge_index_a2a[0]
                     end_index=edge_index_a2a[1]
 
@@ -259,10 +264,6 @@ class InterativeDecoder(nn.Module):
 
                     feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
 
-                    if not self.use_ego_loop:
-                        ego_feat = feat_a_pt.view(-1,n_agent,self.hidden_dim)[:,train_mask].flatten(0,1)
-
-                        ego_logits=self.ego_head(ego_feat)[:,None]
                 else:
 
                     feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
@@ -423,11 +424,11 @@ class InterativeDecoder(nn.Module):
             rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
             if not self.use_ego_loop:
-                next_token_logits=torch.cat([next_token_logits,ego_logits], dim=0)
+                next_token_logits=torch.cat([next_token_logits,ego_logits], dim=0)#ego_logits#
 
-                ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
+                ego_rewards=ego_logits.detach().view(n_step,  -1).transpose(0, 1)
 
-                rewards=rewards+ego_rewards
+                rewards=rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#
         else:
             rewards=0
 
