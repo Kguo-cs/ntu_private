@@ -141,7 +141,7 @@ class InterativeDecoder(nn.Module):
         else:
             if self.use_edge_feature:
 
-                self.use_ego_loop=True
+                self.use_ego_loop=False
 
                 if not self.use_ego_loop:
                     self.ego_head= MLPLayer(
@@ -260,7 +260,7 @@ class InterativeDecoder(nn.Module):
                     end_index=edge_index_a2a[1]
 
                     start_edge_feature=feat_a[start_index]
-                    end_edge_feature=feat_a_pt[end_index]
+                    end_edge_feature=feat_a[end_index]
 
                     feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
 
@@ -430,7 +430,7 @@ class InterativeDecoder(nn.Module):
 
                 ego_rewards=ego_logits.detach().view(n_step,  -1).transpose(0, 1)
 
-                rewards=torch.minimum(rewards,ego_rewards)#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#
+                rewards=rewards+ego_rewards#torch.minimum(rewards,ego_rewards)#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#
         else:
             rewards=0
 
