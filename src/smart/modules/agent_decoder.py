@@ -105,7 +105,7 @@ class SMARTAgentDecoder(nn.Module):
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
                         head_dim=head_dim,
-                        dropout=0,
+                        dropout=0.1,
                         bipartite=False,
                         has_pos_emb=True,
                     )
