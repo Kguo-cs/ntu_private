@@ -98,7 +98,7 @@ class SMARTAgentDecoder(nn.Module):
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
         else:
-            self.t_num_layers=1
+            self.t_num_layers=2
             self.t_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
