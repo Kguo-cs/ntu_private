@@ -64,7 +64,13 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands,share=discriminator,hist_drop_prob=hist_drop_prob,time_span=time_span,use_roformer=use_roformer)
+        self.edge_encoder = EdgeEncoder(hidden_dim,
+                                        num_freq_bands,
+                                        share=discriminator,
+                                        hist_drop_prob=hist_drop_prob,
+                                        time_span=time_span,
+                                        use_roformer=use_roformer,
+                                        discriminator=discriminator)
 
         self.pt2a_attn_layers = nn.ModuleList(
             [

@@ -24,11 +24,14 @@ class EdgeEncoder(nn.Module):
             a2a=True,
             hist_drop_prob=0.0,
             time_span=30,
-            use_roformer=True
+            use_roformer=True,
+            discriminator=False
     ) -> None:
         super(EdgeEncoder, self).__init__()
         input_dim_r_pt2a = 3
         input_dim_r_a2a = 3
+
+        share=False
 
         self.r_pt2a_emb = FourierEmbedding(
             input_dim=input_dim_r_pt2a,
@@ -46,6 +49,8 @@ class EdgeEncoder(nn.Module):
             )
 
         self.use_roformer = use_roformer
+
+        self.discriminator=discriminator
 
         if not self.use_roformer:
             input_dim_r_t = 4
@@ -235,6 +240,8 @@ class EdgeEncoder(nn.Module):
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
+
+        # if discriminator
         r_a2a = torch.stack(
             [
                 torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
