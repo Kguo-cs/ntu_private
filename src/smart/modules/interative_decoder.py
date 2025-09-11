@@ -405,7 +405,7 @@ class InterativeDecoder(nn.Module):
             # next_token_logits: [E] or [E, C]
             end_idx = edge_index_a2a[1]  # shape: [E]
 
-            min_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
+            min_logits = scatter_mean(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
 
             rewards=min_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
         else:
