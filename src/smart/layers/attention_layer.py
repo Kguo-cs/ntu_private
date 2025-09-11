@@ -117,3 +117,234 @@ class AttentionLayer(MessagePassing):
 
     def _ff_block(self, x: torch.Tensor) -> torch.Tensor:
         return self.ff_mlp(x)
+
+from torch_scatter import scatter_add
+import torch
+
+import torch
+
+@torch.no_grad()
+def feat_list_mask_each_agent_cached(
+    layer,                 # patched AttentionLayer (must be in eval mode)
+    feat_a_pt,             # [n_step * n_agents_total, hidden_dim]  (same x used in forward)
+    r_a2a, edge_index_a2a, # used only for the single cache-filling forward
+    train_mask,            # [n_agents_total] (bool; which agents are "valid" to keep)
+    batch_s_repeat,        # [n_agents_total, ...], batch id in [:,0]
+    n_step: int,
+    mask_agents: torch.Tensor = None,  # which agents to mask; default = all with train_mask==True
+):
+    """
+    Returns:
+      feat_list: length M; each item is [n_step, kept_in_that_batch, hidden_dim],
+                 where row k corresponds to masking agent `mask_agents[k]` ONLY.
+    """
+
+    device = feat_a_pt.device
+    hidden_dim = feat_a_pt.size(-1)
+
+    # 0) Fill caches with a single forward (dropout OFF for exact renorm)
+    layer.eval()
+    _ = layer(feat_a_pt, r_a2a, edge_index_a2a)
+
+    # 1) Choose which agents to mask (default: every agent in train_mask)
+    train_mask = train_mask.to(torch.bool)
+    if mask_agents is None:
+        mask_agents = torch.where(train_mask)[0]          # [M]
+    else:
+        mask_agents = mask_agents.to(torch.long)
+    M = mask_agents.numel()
+    if M == 0:
+        return []
+
+    # 2) Pull caches (PRE-dropout softmax for exact renorm)
+    C = layer._cache
+    attn = C["attn_soft"]    # [E, H]
+    V    = C["v_j"]          # [E, H, Dh]
+    dst  = C["dst"]          # [E]
+    src  = C["src"]          # [E]
+    x_dst = C["x_dst"]       # [N, hidden]
+
+    N, H, Dh = x_dst.size(0), V.size(1), V.size(2)
+    A_total  = batch_s_repeat.size(0)
+    T = n_step
+    assert N == T * A_total, "Expect time-major nodes: node_id = t*A_total + agent_id"
+
+    # 3) Base aggregate y_pre = sum_j a_ij V_j using PRE-dropout attention
+    msg = (attn.unsqueeze(-1) * V).reshape(-1, H * Dh)   # [E, H*Dh]
+    y_pre = torch.zeros((N, H * Dh), device=device)
+    y_pre.index_add_(0, dst, msg)
+    y_pre = y_pre.view(N, H, Dh)                         # [N, H, Dh]
+
+    # 4) Vectorized per-agent delta on y_pre with exact softmax renorm (each row = one masked agent)
+    # Map every source node to the row that masks its agent id
+    map_agent_to_row = torch.full((A_total,), -1, device=device, dtype=torch.long)
+    map_agent_to_row[mask_agents] = torch.arange(M, device=device)
+    map_src_to_row = map_agent_to_row.repeat(T)          # [N], time-major expansion
+
+    m_row = map_src_to_row[src]                          # [E]
+    keep_edges = m_row >= 0                              # edges whose src is "the" masked agent of some row
+    if keep_edges.sum() == 0:
+        # Nothing changes if none of the masked agents appear as src; just slice per-row below
+        masked_outputs = _finish_post_attn_path(layer, feat_a_pt, y_pre, x_dst)
+    else:
+        attn_e = attn[keep_edges]                        # [E', H]
+        V_e    = V[keep_edges]                           # [E', H, Dh]
+        dst_e  = dst[keep_edges]                         # [E']
+        m_row  = m_row[keep_edges]                       # [E']
+        y_dst_pre = y_pre[dst_e]                         # [E', H, Dh]
+
+        a   = attn_e.unsqueeze(-1)                       # [E', H, 1]
+        inv = (1.0 - attn_e).clamp_min(1e-8).unsqueeze(-1)
+        delta_e = (a/inv) * (y_dst_pre - a * V_e) - a * V_e  # [E', H, Dh]
+
+        # accumulate per (row, dst)
+        MN = M * N
+        lin = m_row * N + dst_e
+        delta_flat = torch.zeros((MN, H * Dh), device=device)
+        delta_flat.index_add_(0, lin, delta_e.view(-1, H * Dh))
+        delta_all_pre = delta_flat.view(M, N, H, Dh)     # [M, N, H, Dh]
+        y_all_pre = y_pre.unsqueeze(0) + delta_all_pre   # [M, N, H, Dh]
+        masked_outputs = _finish_post_attn_path(layer, feat_a_pt, y_all_pre, x_dst, batched=True)  # [M, N, hidden]
+
+    # 5) Turn each row into your per-batch slice: [T, kept_in_batch, hidden]
+    agent_batch_all = batch_s_repeat[:, 0].to(torch.long)           # [A_total]
+    batch_of_row    = agent_batch_all[mask_agents]                  # [M]
+    same_batch = (agent_batch_all.unsqueeze(0) == batch_of_row.unsqueeze(1))  # [M, A_total]
+    keep_agent_mask = same_batch & train_mask.unsqueeze(0) & \
+                      (torch.arange(A_total, device=device).unsqueeze(0) != mask_agents.unsqueeze(1))
+
+    # gather per-row kept agent indices (ragged → turn into list)
+    rows, cols = torch.nonzero(keep_agent_mask, as_tuple=True)
+    counts = torch.bincount(rows, minlength=M)
+    # positions within row groups:
+    order = torch.argsort(rows)
+    rows_s, cols_s = rows[order], cols[order]
+    start = torch.zeros(M, dtype=torch.long, device=device)
+    if M > 1:
+        start[1:] = counts.cumsum(0)[:-1]
+    pos = torch.arange(rows_s.numel(), device=device) - start[rows_s]
+
+    max_kept = int(counts.max().item()) if M > 0 else 0
+    keep_idx = torch.zeros((M, max_kept), dtype=torch.long, device=device)
+    if rows_s.numel() > 0:
+        keep_idx[rows_s, pos] = cols_s
+
+    mo = masked_outputs.view(M, T, A_total, hidden_dim)
+    feats_padded = mo.gather(2, keep_idx[:, None, :, None].expand(M, T, max_kept, hidden_dim))
+    valid_cols_mask = (torch.arange(max_kept, device=device)[None, :] < counts[:, None])
+    feats_padded = feats_padded * valid_cols_mask[:, None, :, None]
+
+    # finally, produce the python list with ragged shapes (one entry per masked agent)
+    feat_list = [
+        feats_padded[i, :, :counts[i].item(), :].contiguous()   # [T, kept_i, H]
+        for i in range(M)
+    ]
+    return feat_list
+
+
+def _finish_post_attn_path(layer, feat_a_pt, y_pre_or_batched, x_dst, batched=False):
+    """
+    Applies the SAME gating/update + to_out + residual + FF path as the layer.
+    y_pre_or_batched: [N, H, Dh] if batched=False, else [M, N, H, Dh]
+    Returns: [N, hidden] or [M, N, hidden]
+    """
+    if not batched:
+        y = y_pre_or_batched.view(-1, layer.num_heads * layer.head_dim)  # [N, H*Dh]
+        # gating/update
+        g = torch.sigmoid(layer.to_g(torch.cat([y, x_dst], dim=-1)))
+        post = y + g * (layer.to_s(x_dst) - y)                           # [N, H*Dh]
+        # to_out + residual + FF
+        attn_out = layer.to_out(post)
+        x_after  = feat_a_pt + layer.attn_postnorm(attn_out)
+        ff_in    = layer.ff_prenorm(x_after)
+        ff_out   = layer._ff_block(ff_in)
+        return x_after + layer.ff_postnorm(ff_out)                       # [N, hidden]
+    else:
+        M, N, H, Dh = y_pre_or_batched.shape
+        y = y_pre_or_batched.view(M, N, H * Dh)                          # [M, N, H*Dh]
+        x_dst_exp = x_dst.unsqueeze(0).expand(M, N, x_dst.size(-1))      # [M, N, hidden]
+        g = torch.sigmoid(layer.to_g(torch.cat([y, x_dst_exp], dim=-1))) # [M, N, H*Dh]
+        post = y + g * (layer.to_s(x_dst).unsqueeze(0).expand_as(y) - y) # [M, N, H*Dh]
+        attn_out = layer.to_out(post)                                    # [M, N, hidden]
+        x_after  = feat_a_pt.unsqueeze(0) + layer.attn_postnorm(attn_out)
+        ff_in    = layer.ff_prenorm(x_after)
+        ff_out   = layer._ff_block(ff_in)
+        return x_after + layer.ff_postnorm(ff_out)                       # [M, N, hidden]
+
+
+class CacheAttention(AttentionLayer):
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        head_dim: int,
+        dropout: float,
+        bipartite: bool,
+        has_pos_emb: bool,
+        **kwargs
+    ) -> None:
+        super().__init__(hidden_dim, num_heads, head_dim, dropout, bipartite, has_pos_emb, **kwargs)
+
+    def forward(self, x, r, edge_index):
+        if isinstance(x, torch.Tensor):
+            x_src = x_dst = self.attn_prenorm_x_src(x)
+        else:
+            x_src, x_dst = x
+            x_src = self.attn_prenorm_x_src(x_src)
+            x_dst = self.attn_prenorm_x_dst(x_dst)
+            x = x[1]
+        if self.has_pos_emb and r is not None:
+            r = self.attn_prenorm_r(r)
+
+        heads, cache = self._attn_block_with_cache(x_src, x_dst, r, edge_index)
+        self._cache = cache  # stash for ablation
+
+        attn_out = self.to_out(heads.view(heads.size(0), -1))     # [N, hidden]
+        x = x + self.attn_postnorm(attn_out)
+        x = x + self.ff_postnorm(self._ff_block(self.ff_prenorm(x)))
+        return x, self.attention_weight
+
+    def message(self, q_i, k_j, v_j, r, index, ptr):
+        if self.has_pos_emb and r is not None:
+            k_j = k_j + self.to_k_r(r).view(-1, self.num_heads, self.head_dim)
+            v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
+
+        sim = (q_i * k_j).sum(dim=-1) * self.scale
+        attn_soft = softmax(sim, index, ptr)   # PRE-DROPOUT (sum to 1 over dst segments)
+        self.attention_weight = attn_soft.mean(-1)
+
+        attn_used = self.attn_drop(attn_soft)  # DROPOUT APPLIED HERE
+        # cache pre-dropout for exact renorm, and values/dst ids
+        self._last_attn_soft = attn_soft          # [E, H]
+        self._last_v_j       = v_j                # [E, H, Dh]
+        self._last_dst_index = index              # [E]
+
+        return v_j * attn_used.unsqueeze(-1)
+
+    def update(self, inputs: torch.Tensor, x_dst: torch.Tensor) -> torch.Tensor:
+        # `inputs` here is the aggregated pre-projection heads AFTER dropout.
+        inputs = inputs.view(-1, self.num_heads * self.head_dim)
+        g = torch.sigmoid(self.to_g(torch.cat([inputs, x_dst], dim=-1)))
+        return inputs + g * (self.to_s(x_dst) - inputs)
+
+    def _attn_block_with_cache(self, x_src, x_dst, r, edge_index):
+        q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
+        k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)
+        v = self.to_v(x_src).view(-1, self.num_heads, self.head_dim)
+
+        # cache prenorm destination features used by gating
+        self._last_x_dst = x_dst  # [N, hidden]
+
+        agg = self.propagate(edge_index=edge_index, x_dst=x_dst, q=q, k=k, v=v, r=r)
+        heads = agg.view(-1, self.num_heads, self.head_dim)  # post-update heads
+
+        cache = {
+            "attn_soft": self._last_attn_soft,  # [E, H], PRE-DROPOUT softmax
+            "v_j": self._last_v_j,              # [E, H, Dh]
+            "dst": self._last_dst_index,        # [E]
+            "src": edge_index[0],               # [E]
+            "x_dst": self._last_x_dst,          # [N, hidden] (prenorm dst)
+        }
+        return heads, cache
+
