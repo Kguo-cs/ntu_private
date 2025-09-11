@@ -223,12 +223,13 @@ class InterativeDecoder(nn.Module):
         for layer_i in range(self.num_layers):
 
             if self.discriminator:
-                feat_a, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-
                 if  train_mask is not None:
-                    end_mask = train_repeat_mask[edge_index_a2a[1]]
-                    edge_index_a2a = edge_index_a2a[:, end_mask]
-                    r_a2a = r_a2a[end_mask]
+                    connected_agent=torch.unique(edge_index_a2a[0])
+                    in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
+                    r_pl2a=r_a2a[in_mask]
+                    edge_index_pl2a = edge_index_pl2a[:, in_mask]
+
+                feat_a, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
                 feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
