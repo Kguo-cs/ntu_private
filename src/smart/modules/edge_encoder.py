@@ -39,6 +39,10 @@ class EdgeEncoder(nn.Module):
             num_freq_bands=num_freq_bands,
             share=share
         )
+        self.discriminator=discriminator
+
+        if self.discriminator:
+            input_dim_r_a2a = 2
 
         if a2a:
             self.r_a2a_emb = FourierEmbedding(
@@ -50,7 +54,6 @@ class EdgeEncoder(nn.Module):
 
         self.use_roformer = use_roformer
 
-        self.discriminator=discriminator
 
         if not self.use_roformer:
             input_dim_r_t = 4
@@ -241,18 +244,28 @@ class EdgeEncoder(nn.Module):
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
 
-        # if discriminator
-        r_a2a = torch.stack(
-            [
-                torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_a2a[1]],
-                    nbr_vector=rel_pos_a2a[:, :2],
-                ),
-                rel_head_a2a,
-            ],
-            dim=-1,
-        )
+        if self.discriminator:
+
+            r_a2a = torch.stack(
+                [
+                    torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
+                    rel_head_a2a,
+                ],
+                dim=-1,
+            )
+        else:
+            r_a2a = torch.stack(
+                [
+                    torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=head_vector_s[edge_index_a2a[1]],
+                        nbr_vector=rel_pos_a2a[:, :2],
+                    ),
+                    rel_head_a2a,
+                ],
+                dim=-1,
+            )
+
 
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
