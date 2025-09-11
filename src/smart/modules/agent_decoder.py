@@ -403,9 +403,9 @@ class SMARTAgentDecoder(nn.Module):
 
             all_features=[feat_a_t,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
 
-        next_token_logits,feat_a,proposal,a2a_entropy,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal,rewards,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
 
-        return next_token_logits,next_light_logits,a2a_entropy,agent_token_emb,proposal,feat_a
+        return next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a
 
     def forward(
             self,
@@ -440,7 +440,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
-        next_token_logits,next_light_logits,a2a_entropy,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["goal_idx"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -457,7 +457,6 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["feat_a"] =feat_a.detach()
         tokenized_agent["feat_a_nodetach"] =feat_a
         tokenized_agent["proposal"] = proposal
-        tokenized_agent["a2a_entropy"]=a2a_entropy
         # tokenized_agent["agent_token_emb"]=agent_token_emb
 
         return {

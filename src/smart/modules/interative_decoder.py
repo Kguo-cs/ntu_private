@@ -21,7 +21,7 @@ from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.modules.edge_encoder import EdgeEncoder
 import time
-from torch_scatter import scatter_max,scatter_mean,scatter_sum
+from torch_scatter import scatter_max,scatter_mean,scatter_sum,scatter_min
 from src.smart.modules.diffusion_discriminator import Discriminator
 
 class InterativeDecoder(nn.Module):
@@ -86,19 +86,25 @@ class InterativeDecoder(nn.Module):
             ]
         )
 
-        self.a2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
+        self.use_edge_feature=False
+
+        if discriminator:
+            self.use_edge_feature=True
+        else:
+
+            self.a2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
@@ -132,9 +138,14 @@ class InterativeDecoder(nn.Module):
         if self.discriminator and self.diff_dicriminator:
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
-            self.token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
+            if self.use_edge_feature:
+                self.token_predict_head = MLPLayer(
+                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
+            else:
+                self.token_predict_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
 
         if self.discriminator:
             self.centric=False
@@ -198,7 +209,7 @@ class InterativeDecoder(nn.Module):
             vis_mask=None,
             value=False,
             train_mask = train_repeat_mask,
-            num_layers = self.num_layers
+            use_edge_feature = self.use_edge_feature
 
         #shape=tokenized_agent["shape"]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
@@ -226,16 +237,26 @@ class InterativeDecoder(nn.Module):
                 if  train_mask is not None:
                     connected_agent=torch.unique(edge_index_a2a[0])
                     in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
-                    r_pl2a=r_a2a[in_mask]
+                    r_pl2a=r_pl2a[in_mask]
                     edge_index_pl2a = edge_index_pl2a[:, in_mask]
 
                 feat_a, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-                feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                if self.use_edge_feature:
+                    start_index=edge_index_a2a[0]
+                    end_index=edge_index_a2a[1]
 
-                feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
-                n_agent = feat_a.shape[1]
-                feat_a = feat_a.flatten(0, 1)
+                    start_edge_feature=feat_a[start_index]
+                    end_edge_feature=feat_a[end_index]
+
+                    feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
+                else:
+
+                    feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                    feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a = feat_a.flatten(0, 1)
 
             else:
 
@@ -281,13 +302,18 @@ class InterativeDecoder(nn.Module):
         #     self.a_ratio=len(r_a2a)/n_a
         #     self.pt_ratio=len(r_pl2a)/n_pt
 
-        feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
-        proposal=None
+        if  self.use_edge_feature:
+            feat_a_all = None
 
-        if self.num_layers>1 and train_mask is not None:
-            feat_a=feat_a_all[train_mask]
         else:
-            feat_a=feat_a_all
+            feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
+
+            if self.num_layers>1 and train_mask is not None:
+                feat_a=feat_a_all[train_mask]
+            else:
+                feat_a=feat_a_all
+
+        proposal=None
 
         if self.discriminator and self.centric:
             index=batch_s_repeat[train_mask]
@@ -373,7 +399,19 @@ class InterativeDecoder(nn.Module):
         if self.use_bottleneck:
             next_token_logits=(next_token_logits,mu,sigma)
 
-        return next_token_logits,feat_a_all,proposal,a2a_entropy,r_pl2a
+
+        if self.use_edge_feature:
+            # edge_index_a2a: [2, E]
+            # next_token_logits: [E] or [E, C]
+            end_idx = edge_index_a2a[1]  # shape: [E]
+
+            min_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
+
+            rewards=min_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+        else:
+            rewards=0
+
+        return next_token_logits,feat_a_all,proposal,rewards,r_pl2a
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)

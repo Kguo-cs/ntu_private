@@ -128,7 +128,7 @@ class EdgeEncoder(nn.Module):
             vis_mask=None,
             value=False,
             train_mask=None,
-            num_layers=1
+            use_edge_feature=False
         ):
         if proposal is None:
             if vis_mask is not None:
@@ -170,7 +170,7 @@ class EdgeEncoder(nn.Module):
                     edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                      r=max_radius,
                                                      batch=batch_s,
-                                                     loop=False,
+                                                     loop=use_edge_feature,
                                                      max_num_neighbors=max_num_neighbors)
         else:
             proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
@@ -231,7 +231,7 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
-        if num_layers==1 and train_mask is not None:
+        if self.discriminator and train_mask is not None:
             edge_index_a2a = edge_index_a2a[:, train_mask[edge_index_a2a[1]]]
 
         if mask is not None:
