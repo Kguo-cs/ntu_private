@@ -92,7 +92,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        self.use_roformer=False
+        self.use_roformer=not discriminator
 
         if self.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
@@ -127,7 +127,8 @@ class SMARTAgentDecoder(nn.Module):
                                                     num_layers,num_heads,head_dim,
                                                     dropout,hist_drop_prob,n_token_agent,
                                                     pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator
+                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator,
+                                                    use_roformer=self.use_roformer
                                                     )
 
         self.use_light = token_processor.use_light
