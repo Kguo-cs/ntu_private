@@ -31,10 +31,28 @@ import random
 os.environ["WANDB_SILENT"] = "true"
 
 wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
-wandb.require("service")  # forces the new service backend
-# Optional: use thread start (very robust in multiprocess settings)
-settings = wandb.Settings(start_method="thread")
+# Keep logs quiet
+os.environ["WANDB_SILENT"] = "true"
 os.environ["WANDB__SERVICE_WAIT"] = "3000"
+
+# Don't hard-code the key; safer to load from env
+# os.environ["WANDB_API_KEY"] = "your-key"
+# or run once: `wandb login` in shell
+
+# Use the new service backend
+wandb.require("service")
+
+# Settings for multiprocessing
+settings = wandb.Settings(start_method="thread")
+
+# Init
+wandb.init(
+    project="bc",
+    entity="u3006612",
+    name="debug-run",
+    mode="offline",   # or remove for online
+    settings=settings,
+)
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
