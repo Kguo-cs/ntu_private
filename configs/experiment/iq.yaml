@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-ckpt_path : '~/code/sim/src/logs/bc_map2_gnn_drop01/2025-09-10_23-19-39/bc/ai03dcjd/checkpoints/epoch=14-step=228285.ckpt'
+ckpt_path : './ckpts/epoch=16-step=258723.ckpt'
 
 trainer:
   limit_train_batches: 1.0
