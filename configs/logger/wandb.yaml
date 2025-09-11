@@ -23,7 +23,7 @@ wandb:
   project: bc
   entity: u3006612
   log_model: false
-  offline: true   # This already tells WandbLogger to run offline
+  offline: true
   id: null
   resume: "never"
   group: ""
@@ -31,11 +31,10 @@ wandb:
   job_type: ""
   prefix: ""
 
-  # extra kwargs go directly to wandb.init()
-  init_kwargs:
-    settings:
-      start_method: "thread"   # safer with multiprocessing
-      # mode: "offline"        # not needed if offline: true
+  # pass directly to wandb.init()
+  settings:
+    start_method: thread   # safer with multiprocessing
+    mode: offline          # explicit, though offline: true is enough
 
 
 # tensorboard:
