@@ -311,16 +311,18 @@ class IQ_SoftQ(LightningModule):
         else:
             kl_per_token=0
 
-        with torch.no_grad():
-            if self.encoder.discriminator.interative_decoder.use_edge_feature:
-                rewards=disc_out[2]
-            else:
-                disc_val_eval=disc_val
-                if  self.dis_loss == "wgan":
-                    rewards=logit[:, :, 0].detach()
-                else:
-                    rewards=get_reward(disc_val_eval,kl_per_token=kl_per_token)
-            returns = get_return(rewards, self.gamma)
+        rewards = disc_out[2].detach()
+        returns = get_return(rewards, self.gamma)
+
+        # with torch.no_grad():
+        #     if self.encoder.discriminator.interative_decoder.use_edge_feature.:
+        #         rewards=disc_out[2]
+        #     else:
+        #         disc_val_eval=disc_val
+        #         if  self.dis_loss == "wgan":
+        #             rewards=logit[:, :, 0].detach()
+        #         else:
+        #             rewards=get_reward(disc_val_eval,kl_per_token=kl_per_token)
 
         if  self.use_lcf and not self.encoder.use_value:
             with torch.no_grad():
