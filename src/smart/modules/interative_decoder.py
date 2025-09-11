@@ -423,12 +423,14 @@ class InterativeDecoder(nn.Module):
 
             rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
+            rewards[rewards==0]=1000
+
             if not self.use_ego_loop:
                 next_token_logits=torch.cat([next_token_logits,ego_logits], dim=0)#ego_logits#
 
                 ego_rewards=ego_logits.detach().view(n_step,  -1).transpose(0, 1)
 
-                rewards=rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#
+                rewards=torch.minimum(rewards,ego_rewards)#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#
         else:
             rewards=0
 
