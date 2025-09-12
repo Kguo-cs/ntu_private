@@ -90,7 +90,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_edge_feature=False
         self.use_ego_loop=False
-        self.use_counterfactual=True
+        self.use_counterfactual=False
 
         if not (discriminator and self.use_edge_feature):
 
