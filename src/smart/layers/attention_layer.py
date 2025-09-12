@@ -414,7 +414,7 @@ class CacheAttention(AttentionLayer):
             mask_nodes = agentmask_to_nodemask(one_hot_mask)  # [n_step*n_agents_total]
             keep_edges = mask_nodes[edge_index_a2a[0]] & mask_nodes[edge_index_a2a[1]]
             eidx2 = edge_index_a2a[:, keep_edges]
-            r2 = r_a2a[keep_edges] if r_a2a is not None else None
+            r2 = r_a2a[keep_edges]
 
             # one forward for all batches' slot ablation
             feat_masked, _ = self.forward(feat_a_pt, r2, eidx2)  # [n_step*n_agents_total, hidden_dim]
