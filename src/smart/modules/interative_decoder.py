@@ -416,7 +416,10 @@ class InterativeDecoder(nn.Module):
 
                     a_i+=feat_list[i].shape[1]
 
-                    reward=logit_a.mean(dim=0)-ablated_logit_a.mean(dim=0)
+                    if len(ablated_logit_a)>0:
+                        reward = logit_a.mean(dim=0)-ablated_logit_a.mean(dim=0)
+                    else:
+                        reward=logit_a.mean(dim=0)
 
                     reward_list.append(reward)
 
