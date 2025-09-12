@@ -21,8 +21,10 @@ from src.smart.layers.attention_layer import AttentionLayer
 from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
 from src.smart.modules.edge_encoder import EdgeEncoder
 import time
-from torch_scatter import scatter_max,scatter_mean,scatter_sum
+from torch_scatter import scatter_max,scatter_mean,scatter_sum,scatter_min
 from src.smart.modules.diffusion_discriminator import Discriminator
+
+
 
 class InterativeDecoder(nn.Module):
     def __init__(
@@ -47,7 +49,8 @@ class InterativeDecoder(nn.Module):
             pred_last_res,
             pred_all_res,
             discriminator=False,
-            value_network=False
+            value_network=False,
+            use_roformer=True
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -63,7 +66,13 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        self.edge_encoder = EdgeEncoder(hidden_dim, num_freq_bands,share=discriminator,hist_drop_prob=hist_drop_prob,time_span=time_span)
+        self.edge_encoder = EdgeEncoder(hidden_dim,
+                                        num_freq_bands,
+                                        share=discriminator,
+                                        hist_drop_prob=hist_drop_prob,
+                                        time_span=time_span,
+                                        use_roformer=use_roformer,
+                                        discriminator=discriminator)
 
         self.pt2a_attn_layers = nn.ModuleList(
             [
@@ -78,25 +87,50 @@ class InterativeDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
+        self.discriminator = discriminator
 
-        self.a2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
+        self.state_action = False
+        self.reward_shaping = False
+        self.diff_dicriminator = False
+
+        self.use_ego_loop=False
+        self.use_counterfactual=False
+        self.use_edge_feature=True
+
+        if not (discriminator and self.use_edge_feature):
+            if self.use_counterfactual:
+                self.a2a_attn_layers = nn.ModuleList(
+                    [
+                        CacheAttention(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=False,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
                 )
-                for _ in range(num_layers)
-            ]
-        )
+
+            else:
+                self.a2a_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=False,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
         self.n_token_agent=n_token_agent
-
 
         if self.pred_last_res or self.pred_all_res:
             if self.output_gmm:
@@ -113,39 +147,36 @@ class InterativeDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        self.state_action = False
-        self.reward_shaping = False
-        self.use_bottleneck = False
-
-        self.diff_dicriminator=False
-        self.discriminator=discriminator
-        self.value_network=value_network
 
         self.filter_ratio=0
         if self.discriminator and self.diff_dicriminator:
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
-            self.token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
+            if self.use_edge_feature and discriminator:
+
+                self.use_ego_loop=False
+
+                if not self.use_ego_loop:
+                    self.ego_head= MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
+                self.token_predict_head = MLPLayer(
+                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
+            else:
+                self.token_predict_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
 
         if self.discriminator:
             self.centric=False
-
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-            self.use_bottleneck=False
-
-            if self.use_bottleneck:
-                z_dim=self.hidden_dim//2
-                # self.a2pl_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
-                self.a2a_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
-
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
+        feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
 
         n_agent = mask_a.shape[0]
         n_step=mask_a.shape[1]
@@ -170,9 +201,7 @@ class InterativeDecoder(nn.Module):
             num_layers=self.num_layers
         )
 
-        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
-
-        #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
+        feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
         if train_mask is not None:
             train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
@@ -191,78 +220,93 @@ class InterativeDecoder(nn.Module):
             vis_mask=None,
             value=False,
             train_mask = train_repeat_mask,
-            num_layers = self.num_layers
-
-        #shape=tokenized_agent["shape"]
+            loop= self.use_ego_loop
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        if self.use_bottleneck:
-            mu,sigma=r_a2a.chunk(2,dim=-1)
-
-            if self.training:
-                std = torch.exp(sigma / 2)
-                eps = torch.randn_like(std)
-                z=mu+eps*std
-            else:
-                z=mu
-
-            r_a2a=self.a2a_linear(z)
-
-        #n_a=len(r_a2a)
-        #n_pt=len(r_pl2a)
-
-        a2a_entropy=0
-
         for layer_i in range(self.num_layers):
-            if self.num_layers>1 and layer_i == self.num_layers - 1 and train_mask is not None:
-                end_mask=train_repeat_mask[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a=r_a2a[end_mask]
 
-                end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
-                edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
-                r_pl2a=r_pl2a[end_pt_mask]
+            if self.use_edge_feature and self.discriminator:
+                # if  train_mask is not None:
+                #     connected_agent=torch.unique(edge_index_a2a[0])
+                #     in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
+                #     r_pl2a=r_pl2a[in_mask]
+                #     edge_index_pl2a = edge_index_pl2a[:, in_mask]
+                start_index=edge_index_a2a[0]
+                end_index=edge_index_a2a[1]
 
-            feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                start_edge_feature=feat_a[start_index]
+                end_edge_feature=feat_a[end_index]
 
-            if  train_mask is not None and self.num_layers==1:
-                feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
-                n_agent = feat_a.shape[1]
-                feat_a=feat_a.flatten(0,1)
+                if  train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a=feat_a.flatten(0,1)
 
-            feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            # #if self.discriminator:
-            # plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())
-            # # Sum within each destination segment
-            # a2a_entropy =a2a_entropy -scatter_sum(plogp, edge_index_a2a[1],dim=0)  # shape: [num_dst_nodes]
+                if not self.use_ego_loop:
+                    ego_feat = feat_a_pt.view(n_step,-1,self.hidden_dim).flatten(0,1)
 
+                    ego_logits=self.ego_head(ego_feat)[:,None]
 
-        #     if layer_i<self.num_layers-1 and self.filter_ratio>0:
-        #         a2a_mask=a2a_attn>self.filter_ratio
-        #         r_a2a=r_a2a[a2a_mask]
-        #         edge_index_a2a=edge_index_a2a[:,a2a_mask]
-        #
-        #         pt_mask=pt_attn>self.filter_ratio
-        #
-        #         r_pl2a=r_pl2a[pt_mask]
-        #         edge_index_pl2a=edge_index_pl2a[:,pt_mask]
-        #
-        #     a2a_list.append(a2a_attn)
-        #
-        # a2a_feature=torch.cat(a2a_list,dim=-1)
+                feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
 
-        # if self.num_layers>1:
-        #     self.a_ratio=len(r_a2a)/n_a
-        #     self.pt_ratio=len(r_pl2a)/n_pt
+                # else:
+                #     feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
+                #
+                #     feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+                #
+                #     n_agent = feat_a.shape[1]
+                #
+                #     if self.use_counterfactual:
+                #         #valid_agent=torch.where(train_mask)[0]
+                #         # Efficient ablation for all agents in valid_agent (1 pass, O(E))
+                #         # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
+                #         #                                             x_input=feat_a_pt,  # the x fed to this layer
+                #         #                                             valid_agent=valid_agent)  # LongTensor of node ids
+                #         # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
+                #         # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
+                #         # feat_list1 = feat_list_mask_each_agent_cached(
+                #         #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
+                #         # )
+                #         #
+                #         feat_list=self.refer(self.a2a_attn_layers[layer_i],feat_a_pt,r_a2a,edge_index_a2a, train_mask, batch_s_repeat,n_step)
+                #
+                #         feat_ablated=torch.cat(feat_list, dim=1)
+                #
+                #         feat_a=torch.cat([feat_a,feat_ablated], dim=1)
+                #
+                #     feat_a = feat_a.flatten(0, 1)
+            else:
+                if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
+                    end_mask=train_repeat_mask[edge_index_a2a[1]]
+                    edge_index_a2a = edge_index_a2a[:, end_mask]
+                    r_a2a=r_a2a[end_mask]
 
-        feat_a_all = feat_a.view( -1,  n_agent,self.hidden_dim).transpose(0, 1)
-        proposal=None
+                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
+                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
+                    r_pl2a=r_pl2a[end_pt_mask]
 
-        if self.num_layers>1 and train_mask is not None:
-            feat_a=feat_a_all[train_mask]
+                feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                if  train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a=feat_a.flatten(0,1)
+
+                feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+
+        if  self.use_edge_feature and self.discriminator:
+            feat_a_all = None
         else:
-            feat_a=feat_a_all
+            feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
+
+            if self.num_layers>1 and train_mask is not None:
+                feat_a=feat_a_all[train_mask]
+            else:
+                feat_a=feat_a_all
+
+        proposal=None
 
         if self.discriminator and self.centric:
             index=batch_s_repeat[train_mask]
@@ -320,8 +364,6 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             if self.state_action:
                 feat_a = feat_a + agent_token_emb[train_mask]
-            # else:
-            #     feat_a = feat_a[:, 1:]
 
         if self.discriminator and self.diff_dicriminator:
             state = feat_a.reshape(-1, 128)
@@ -341,14 +383,51 @@ class InterativeDecoder(nn.Module):
             done[:,-1]=0
             next_token_logits = r + (0.99*v_next - v_s)*done
 
-        # next_token_logits=torch.zeros([n_agent,n_step,token_logits.shape[-1]],device=feat_a.device)
-        #
-        # next_token_logits[mask_a]=token_logits
+        if self.discriminator:
+            if self.use_edge_feature:
+                end_idx = edge_index_a2a[1]  # shape: [E]
 
-        if self.use_bottleneck:
-            next_token_logits=(next_token_logits,mu,sigma)
+                interact_logits = scatter_sum(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))
 
-        return next_token_logits,feat_a_all,proposal,a2a_entropy,r_pl2a
+                rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+
+                if not self.use_ego_loop:
+                    #rewards[rewards==0]=1000
+
+                    next_token_logits = torch.cat([next_token_logits,ego_logits], dim=0)#ego_logits#
+
+                    ego_rewards=ego_logits.detach().view(n_step,  -1).transpose(0, 1)
+
+                    rewards=rewards+ego_rewards#torch.minimum(rewards,ego_rewards)#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
+            elif self.use_counterfactual:
+
+                logit_original= next_token_logits[:n_agent,:,0]
+                ablated_logit = next_token_logits[n_agent:,:,0]
+
+                reward_list=[]
+
+                batch_id=batch_s_repeat[train_mask,0]
+
+                a_i=0
+
+                for i,b in enumerate(batch_id):
+                    logit_a=logit_original[batch_id==b]
+
+                    ablated_logit_a=ablated_logit[a_i:a_i+feat_list[i].shape[1]]
+
+                    a_i+=feat_list[i].shape[1]
+
+                    reward=logit_a.sum(dim=0)-ablated_logit_a.sum(dim=0)
+
+                    reward_list.append(reward)
+
+                rewards=torch.stack(reward_list)
+            else:
+                rewards=next_token_logits[:,:,0]
+        else:
+            rewards=None
+
+        return next_token_logits,feat_a_all,proposal,rewards,r_pl2a
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)

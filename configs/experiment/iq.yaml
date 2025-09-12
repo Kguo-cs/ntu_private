@@ -27,21 +27,21 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-ckpt_path : '~/code/sim/src/logs/bc_map2_gnn_drop01_t3/2025-09-11_23-25-59/bc/baq7t014/checkpoints/epoch=7-step=121752.ckpt'
+#ckpt_path : '~/code/sim/src/logs/bc_map2_gnn_drop01_t3/2025-09-11_23-25-59/bc/baq7t014/checkpoints/epoch=7-step=121752.ckpt'
 
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.00002
-  max_epochs: 32
+  max_epochs: 64
   #gradient_clip_val: 0.0
 
 data: 
-  train_batch_size: 32
+  train_batch_size: 40
   val_batch_size: 32
   test_batch_size: 10
-  num_workers: 32
+  num_workers: 16
 
 #action: validate
 #action: finetune

@@ -23,11 +23,15 @@ class EdgeEncoder(nn.Module):
             share,
             a2a=True,
             hist_drop_prob=0.0,
-            time_span=30
+            time_span=30,
+            use_roformer=True,
+            discriminator=False
     ) -> None:
         super(EdgeEncoder, self).__init__()
         input_dim_r_pt2a = 3
         input_dim_r_a2a = 3
+
+        share=share
 
         self.r_pt2a_emb = FourierEmbedding(
             input_dim=input_dim_r_pt2a,
@@ -35,6 +39,10 @@ class EdgeEncoder(nn.Module):
             num_freq_bands=num_freq_bands,
             share=share
         )
+        self.discriminator=discriminator
+
+        # if self.discriminator:
+        #     input_dim_r_a2a = 2
 
         if a2a:
             self.r_a2a_emb = FourierEmbedding(
@@ -44,12 +52,16 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
+        self.use_roformer = use_roformer
+
+        if not self.use_roformer:
             input_dim_r_t = 4
 
             self.r_t_emb = FourierEmbedding(
                 input_dim=input_dim_r_t,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
+                share=share
             )
 
             self.hist_drop_prob=hist_drop_prob
@@ -116,7 +128,7 @@ class EdgeEncoder(nn.Module):
             vis_mask=None,
             value=False,
             train_mask=None,
-            num_layers=1
+            loop=False
         ):
         if proposal is None:
             if vis_mask is not None:
@@ -158,7 +170,7 @@ class EdgeEncoder(nn.Module):
                     edge_index_a2a = radiusGraphNearest(x=pos_s,
                                                      r=max_radius,
                                                      batch=batch_s,
-                                                     loop=False,
+                                                     loop=loop,
                                                      max_num_neighbors=max_num_neighbors)
         else:
             proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
@@ -219,7 +231,7 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index=full_edge_index[:,intersecting]
 
-        if num_layers==1 and train_mask is not None:
+        if self.discriminator and train_mask is not None:
             edge_index_a2a = edge_index_a2a[:, train_mask[edge_index_a2a[1]]]
 
         if mask is not None:
@@ -231,6 +243,17 @@ class EdgeEncoder(nn.Module):
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
+
+        # if self.discriminator:
+        #
+        #     r_a2a = torch.stack(
+        #         [
+        #             torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
+        #             rel_head_a2a,
+        #         ],
+        #         dim=-1,
+        #     )
+        # else:
         r_a2a = torch.stack(
             [
                 torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
@@ -242,6 +265,7 @@ class EdgeEncoder(nn.Module):
             ],
             dim=-1,
         )
+
 
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
@@ -307,7 +331,7 @@ class EdgeEncoder(nn.Module):
             num_layers=True
     ):
 
-        if train_mask is not None and num_layers==1:
+        if train_mask is not None and self.discriminator:
             mask=mask[train_mask,:16]
             pos_a=pos_a[train_mask,:16]
             head_a=head_a[train_mask,:16]
