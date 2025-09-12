@@ -89,8 +89,9 @@ class SMARTAgentDecoder(nn.Module):
 
         #if not discriminator:
         self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,discriminator)
+        self.t_num_layers = 1
 
-        self.agent_hist = self.time_span // self.shift
+        self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
         self.use_roformer=discriminator
 
@@ -98,7 +99,6 @@ class SMARTAgentDecoder(nn.Module):
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
         else:
-            self.t_num_layers=1
             self.t_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
@@ -271,30 +271,35 @@ class SMARTAgentDecoder(nn.Module):
             if self.use_roformer:
                 feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
             else:
-
-                if n_step-n_current>1:
+                if n_current==0:
+                    self.feat_a_token_cache=feat_a_token
+                    self.pos_cache=pos_a
+                    self.head_cache=head_a
                     inference_mask=None
                 else:
+                    self.feat_a_token_cache=torch.cat((self.feat_a_token_cache,feat_a_token),dim=1)[:,-self.agent_hist:]
+                    self.pos_cache=torch.cat((self.pos_cache,pos_a),dim=1)[:,-self.agent_hist:]
+                    self.head_cache=torch.cat((self.head_cache,head_a),dim=1)[:,-self.agent_hist:]
+                    head_vector_a = torch.stack([self.head_cache.cos(), self.head_cache.sin()], dim=-1)
+
                     inference_mask=mask.clone()
 
                     inference_mask[:,:-1]=False
 
                 edge_index_t, r_t = self.interative_decoder.edge_encoder.build_temporal_edge(
-                    pos_a=pos_a,  # [n_agent, n_step, 2]
-                    head_a=head_a,  # [n_agent, n_step]
+                    pos_a=self.pos_cache,  # [n_agent, n_step, 2]
+                    head_a=self.head_cache,  # [n_agent, n_step]
                     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
                     mask=mask,  # [n_agent, n_step]
                     inference_mask=inference_mask
                 )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
-                feat_a = feat_a_token.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
+                feat_a = self.feat_a_token_cache.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
 
                 for i in range(self.t_num_layers):
                     feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0]
 
-                feat_a_t=feat_a.view(n_agent, n_step, -1)
-
-                n_step=n_step-n_current
+                feat_a_t=feat_a.view(n_agent, -1, self.hidden_dim)
 
                 feat_a_t=feat_a_t[:,-n_step:]
                 feat_a_token=feat_a_token[:,-n_step:]
@@ -549,18 +554,16 @@ class SMARTAgentDecoder(nn.Module):
                     if self.pred_light and not self.light_encoder.share:
                         lg_num = tokenized_agent["pad_pos_lg"].shape[1]
                         self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist,current_step*lg_num)
-            else:
-                if self.use_roformer:
-                    next_token_logits, next_light_logits, _, _, proposal, next_goal_logits = self.predict_agent(
-                        sampled_idx[:, -1:], goal_idx[:, -1:], mask[:, -self.agent_hist:],
-                        pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
-                        mask_lg[:, -self.light_hist:], t - 1, latent_z, post_sampling)
                 else:
-                    hist=self.t_num_layers*self.agent_hist
+                    self.feat_a_token_cache=self.feat_a_token_cache[:, :current_step]
+                    self.pos_cache=self.pos_cache[:,  :current_step]
+                    self.head_cache=self.head_cache[:,  :current_step]
 
-                    next_token_logits,next_light_logits,_,_,proposal,feat_a  = self.predict_agent(sampled_idx[:, -hist:],goal_idx[:,-hist:], mask[:, -hist:],
-                                                                pos_a[:, -hist-1:], head_a[:, -hist:],tokenized_agent, map_feature,light_idx[:, -1:],
-                                                                                        mask_lg[:,-self.light_hist:],min(t,hist) - 1,latent_z,post_sampling)
+            else:
+                next_token_logits, next_light_logits, _, _, proposal, next_goal_logits = self.predict_agent(
+                    sampled_idx[:, -1:], goal_idx[:, -1:], mask[:, - self.agent_hist:],
+                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
+                    mask_lg[:, -self.light_hist:], t - 1, latent_z, post_sampling)
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
