@@ -94,7 +94,7 @@ class InterativeDecoder(nn.Module):
         self.diff_dicriminator = False
 
         self.use_ego_loop=False
-        self.use_counterfactual=False
+        self.use_counterfactual=True
         self.use_edge_feature=False
 
         if discriminator and self.use_counterfactual:
@@ -276,11 +276,17 @@ class InterativeDecoder(nn.Module):
                 feat_list = self.a2a_attn_layers[layer_i].refer(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
                                                                 batch_s_repeat, n_step)
 
-                # feat_list2 = self.a2a_attn_layers[layer_i].refer(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
-                #                                                 batch_s_repeat, n_step)
+                feat_list_mean=[]
+                for feat in feat_list:
+                    feat_list_mean.append(feat.mean(dim=1))
 
+                feat_ablated = torch.stack(feat_list_mean, dim=1)
 
-                feat_ablated = torch.cat(feat_list, dim=1)
+                valid_batch=batch_s_repeat[train_mask,0]
+
+                feat_mean=scatter_mean(feat_a, valid_batch,dim=1)
+
+                feat_a=feat_mean[:,valid_batch]
 
                 feat_a = torch.cat([feat_a, feat_ablated], dim=1)
 
@@ -412,27 +418,29 @@ class InterativeDecoder(nn.Module):
                 logit_original= next_token_logits[:n_agent,:,0]
                 ablated_logit = next_token_logits[n_agent:,:,0]
 
-                reward_list=[]
+                rewards=(logit_original - ablated_logit).detach()
 
-                batch_id=batch_s_repeat[train_mask,0]
-
-                a_i=0
-
-                for i,b in enumerate(batch_id):
-                    logit_a=logit_original[batch_id==b]
-
-                    ablated_logit_a=ablated_logit[a_i:a_i+feat_list[i].shape[1]]
-
-                    a_i+=feat_list[i].shape[1]
-
-                    if len(ablated_logit_a)>0:
-                        reward = logit_a.mean(dim=0)-ablated_logit_a.mean(dim=0)
-                    else:
-                        reward=logit_a.mean(dim=0)
-
-                    reward_list.append(reward)
-
-                rewards=torch.stack(reward_list)
+                # reward_list=[]
+                #
+                # batch_id=batch_s_repeat[train_mask,0]
+                #
+                # a_i=0
+                #
+                # for i,b in enumerate(batch_id):
+                #     logit_a=logit_original[batch_id==b]
+                #
+                #     ablated_logit_a=ablated_logit[a_i:a_i+feat_list[i].shape[1]]
+                #
+                #     a_i+=feat_list[i].shape[1]
+                #
+                #     if len(ablated_logit_a)>0:
+                #         reward = logit_a.mean(dim=0)-ablated_logit_a.mean(dim=0)
+                #     else:
+                #         reward=logit_a.mean(dim=0)
+                #
+                #     reward_list.append(reward)
+                #
+                # rewards=torch.stack(reward_list)
             else:
                 rewards=next_token_logits[:,:,0]
         else:
