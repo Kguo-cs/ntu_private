@@ -235,7 +235,7 @@ class SMARTDecoder(nn.Module):
 
                     if self.agent_encoder.use_lcf:
 
-                        self.nei_value_network =MLPLayer(hidden_dim,hidden_dim,1)
+                        self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
                         if self.learn_lcf :
                             self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
