@@ -26,6 +26,7 @@ class AttentionLayer(MessagePassing):
         self.head_dim = head_dim
         self.has_pos_emb = has_pos_emb
         self.scale = head_dim**-0.5
+        self.hidden_dim = hidden_dim
 
         self.to_q = nn.Linear(hidden_dim, head_dim * num_heads)
         self.to_k = nn.Linear(hidden_dim, head_dim * num_heads, bias=False)
@@ -349,7 +350,6 @@ class CacheAttention(AttentionLayer):
         return heads, cache
 
     def refer(self,
-            layer,                 # e.g., self.a2a_attn_layers[layer_i]
             feat_a_pt,             # [n_step * n_agents_total, hidden_dim]  (input to this layer)
             r_a2a,                 # [E, rdim] or None
             edge_index_a2a,        # [2, E]
@@ -383,14 +383,10 @@ class CacheAttention(AttentionLayer):
         row_of_agent[valid_agent] = torch.arange(A, device=device)
 
         # compute each valid agent's local index within its batch (0..count[b]-1), in valid_agent order
-        order = torch.argsort(vb)  # sort valid agents by batch
-        vb_sorted = vb[order]
         start = torch.zeros(n_batch, dtype=torch.long, device=device)
         if n_batch > 1:
             start[1:] = counts.cumsum(0)[:-1]
-        local_idx_sorted = torch.arange(vb_sorted.numel(), device=device) - start[vb_sorted]
-        local_idx = torch.empty_like(local_idx_sorted)
-        local_idx[order] = local_idx_sorted  # [A]
+        local_idx = torch.arange(vb.numel(), device=device) - start[vb]
 
         # pre-create result list (ragged)
         feat_list = [None] * A
@@ -421,7 +417,7 @@ class CacheAttention(AttentionLayer):
             r2 = r_a2a[keep_edges] if r_a2a is not None else None
 
             # one forward for all batches' slot ablation
-            feat_masked, _ = layer(feat_a_pt, r2, eidx2)  # [n_step*n_agents_total, hidden_dim]
+            feat_masked, _ = self.forward(feat_a_pt, r2, eidx2)  # [n_step*n_agents_total, hidden_dim]
 
             # For each masked agent a_id, gather its batch slice without reshaping to [B, T, ..]
             for a_id in mask_indices.tolist():

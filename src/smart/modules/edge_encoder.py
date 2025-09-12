@@ -328,10 +328,10 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             mask_pl=None,
             train_mask=None,
-            num_layers=True
+            use_counterfactual=False
     ):
 
-        if train_mask is not None and self.discriminator:
+        if train_mask is not None and self.discriminator and not use_counterfactual:
             mask=mask[train_mask,:16]
             pos_a=pos_a[train_mask,:16]
             head_a=head_a[train_mask,:16]

@@ -94,39 +94,37 @@ class InterativeDecoder(nn.Module):
         self.diff_dicriminator = False
 
         self.use_ego_loop=False
-        self.use_counterfactual=False
-        self.use_edge_feature=True
+        self.use_counterfactual=True
+        self.use_edge_feature=False
 
-        if not (discriminator and self.use_edge_feature):
-            if self.use_counterfactual:
-                self.a2a_attn_layers = nn.ModuleList(
-                    [
-                        CacheAttention(
-                            hidden_dim=hidden_dim,
-                            num_heads=num_heads,
-                            head_dim=head_dim,
-                            dropout=dropout,
-                            bipartite=False,
-                            has_pos_emb=True,
-                        )
-                        for _ in range(num_layers)
-                    ]
-                )
-
-            else:
-                self.a2a_attn_layers = nn.ModuleList(
-                    [
-                        AttentionLayer(
-                            hidden_dim=hidden_dim,
-                            num_heads=num_heads,
-                            head_dim=head_dim,
-                            dropout=dropout,
-                            bipartite=False,
-                            has_pos_emb=True,
-                        )
-                        for _ in range(num_layers)
-                    ]
-                )
+        if discriminator and self.use_counterfactual:
+            self.a2a_attn_layers = nn.ModuleList(
+                [
+                    CacheAttention(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+        else:
+            self.a2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
@@ -198,7 +196,7 @@ class InterativeDecoder(nn.Module):
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
             train_mask=train_mask,
-            num_layers=self.num_layers
+            use_counterfactual=self.use_counterfactual
         )
 
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
@@ -225,12 +223,7 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
 
-            if self.use_edge_feature and self.discriminator:
-                # if  train_mask is not None:
-                #     connected_agent=torch.unique(edge_index_a2a[0])
-                #     in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
-                #     r_pl2a=r_pl2a[in_mask]
-                #     edge_index_pl2a = edge_index_pl2a[:, in_mask]
+            if (self.use_edge_feature and self.discriminator):
                 start_index=edge_index_a2a[0]
                 end_index=edge_index_a2a[1]
 
@@ -250,33 +243,39 @@ class InterativeDecoder(nn.Module):
                     ego_logits=self.ego_head(ego_feat)[:,None]
 
                 feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
+            elif (self.discriminator and self.use_counterfactual):
+                if  train_mask is not None:
+                    connected_agent=torch.unique(edge_index_a2a[0])
+                    in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
+                    r_pl2a=r_pl2a[in_mask]
+                    edge_index_pl2a = edge_index_pl2a[:, in_mask]
 
-                # else:
-                #     feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
-                #
-                #     feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
-                #
-                #     n_agent = feat_a.shape[1]
-                #
-                #     if self.use_counterfactual:
-                #         #valid_agent=torch.where(train_mask)[0]
-                #         # Efficient ablation for all agents in valid_agent (1 pass, O(E))
-                #         # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
-                #         #                                             x_input=feat_a_pt,  # the x fed to this layer
-                #         #                                             valid_agent=valid_agent)  # LongTensor of node ids
-                #         # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
-                #         # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
-                #         # feat_list1 = feat_list_mask_each_agent_cached(
-                #         #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
-                #         # )
-                #         #
-                #         feat_list=self.refer(self.a2a_attn_layers[layer_i],feat_a_pt,r_a2a,edge_index_a2a, train_mask, batch_s_repeat,n_step)
-                #
-                #         feat_ablated=torch.cat(feat_list, dim=1)
-                #
-                #         feat_a=torch.cat([feat_a,feat_ablated], dim=1)
-                #
-                #     feat_a = feat_a.flatten(0, 1)
+                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+
+                feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
+
+                feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+
+                n_agent = feat_a.shape[1]
+
+                # valid_agent=torch.where(train_mask)[0]
+                # Efficient ablation for all agents in valid_agent (1 pass, O(E))
+                # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
+                #                                             x_input=feat_a_pt,  # the x fed to this layer
+                #                                             valid_agent=valid_agent)  # LongTensor of node ids
+                # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
+                # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
+                # feat_list1 = feat_list_mask_each_agent_cached(
+                #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
+                # )
+                feat_list = self.a2a_attn_layers[layer_i].refer(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
+                                                                batch_s_repeat, n_step)
+
+                feat_ablated = torch.cat(feat_list, dim=1)
+
+                feat_a = torch.cat([feat_a, feat_ablated], dim=1)
+
+                feat_a = feat_a.flatten(0, 1)
             else:
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
                     end_mask=train_repeat_mask[edge_index_a2a[1]]
