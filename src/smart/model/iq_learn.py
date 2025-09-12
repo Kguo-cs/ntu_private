@@ -652,7 +652,7 @@ class IQ_SoftQ(LightningModule):
 
                         value_loss = nei_value_loss + value_loss
 
-                        advantages=  0.5 * ego_advantages + 0.5 *nei_advantages
+                        advantages=  0.7 * ego_advantages + 0.3 *nei_advantages
 
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
