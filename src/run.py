@@ -27,6 +27,7 @@ import torch
 import numpy as np
 import random
 
+from typing import Iterable, Pattern, Union
 
 os.environ["WANDB_SILENT"] = "true"
 
@@ -125,6 +126,70 @@ def run(cfg: DictConfig) -> None:
     elif cfg.action == "finetune":
         log.info("Starting finetuning!")
         model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
+
+        def load_matching(
+                dst_module: torch.nn.Module,
+                src_module: torch.nn.Module,
+                skip: Iterable[Union[str, Pattern]] = (),
+                slice_overlapping: bool = False,  # set True only if you want partial copies
+        ) -> dict:
+            """
+            Copy params from src_module -> dst_module, but only when names match and shapes match.
+            Optionally skip keys by substring / regex. Optionally copy overlapping slices.
+            Returns a summary dict with what was loaded / skipped.
+            """
+            dst_sd = dst_module.state_dict()
+            src_sd = src_module.state_dict()
+
+            def should_skip(k: str) -> bool:
+                for pat in skip:
+                    if isinstance(pat, str):
+                        if pat in k:
+                            return True
+                    else:  # regex
+                        if re.search(pat, k):
+                            return True
+                return False
+
+            to_load = {}
+            loaded, skipped, sliced = [], [], []
+
+            for k, w in src_sd.items():
+                if should_skip(k):  # explicit skip
+                    skipped.append((k, 'pattern'))
+                    continue
+                if k not in dst_sd:  # name not present in dst
+                    skipped.append((k, 'missing in dst'))
+                    continue
+
+                dw = dst_sd[k]
+                if w.shape == dw.shape:  # perfect shape match
+                    to_load[k] = w
+                    loaded.append(k)
+                elif slice_overlapping and w.ndim == dw.ndim:
+                    # copy overlapping slice (use with caution)
+                    take = tuple(slice(0, min(a, b)) for a, b in zip(w.shape, dw.shape))
+                    tmp = dw.clone()
+                    tmp[take] = w[take]
+                    to_load[k] = tmp
+                    sliced.append((k, w.shape, dw.shape))
+                else:
+                    skipped.append((k, f'shape {tuple(w.shape)} -> {tuple(dw.shape)}'))
+
+            # merge and load without warnings
+            dst_sd.update(to_load)
+            dst_module.load_state_dict(dst_sd, strict=False)
+
+            return {"loaded": loaded, "sliced": sliced, "skipped": skipped}
+
+        # model.encoder.discriminator.load_state_dict(model.encoder.agent_encoder.state_dict(), strict=False)
+        info = load_matching(
+            model.encoder.discriminator,
+            model.encoder.agent_encoder,
+            skip=("interative_decoder.token_predict_head",)  # substring match
+            # slice_overlapping=False   # keep False to fully skip mismatched tensors
+        )
+
         if model.encoder.agent_encoder.use_kl_penalty:
             model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
             if model.bc_map_net is not None:
