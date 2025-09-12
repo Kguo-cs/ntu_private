@@ -277,8 +277,13 @@ class InterativeDecoder(nn.Module):
                                                                 batch_s_repeat, n_step)
 
                 feat_list_mean=[]
+                valid_mask=[]
                 for feat in feat_list:
-                    feat_list_mean.append(feat.mean(dim=1))
+                    if feat.shape[1]>0:
+                        feat_list_mean.append(feat.mean(dim=1))
+                        valid_mask.append(torch.ones(1))
+                    else:
+                        valid_mask.append(torch.zeros(1))
 
                 feat_ablated = torch.stack(feat_list_mean, dim=1)
 
@@ -416,9 +421,12 @@ class InterativeDecoder(nn.Module):
             elif self.use_counterfactual:
 
                 logit_original= next_token_logits[:n_agent,:,0]
-                ablated_logit = next_token_logits[n_agent:,:,0]
+                ablated_logit = torch.zeros_like(logit_original)
+                valid_mask=torch.stack(valid_mask,dim=0).to(bool)[:,0]
+                ablated_logit[valid_mask]=next_token_logits[n_agent:,:,0]
 
                 rewards=(logit_original - ablated_logit).detach()
+
 
                 # reward_list=[]
                 #
