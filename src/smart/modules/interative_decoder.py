@@ -94,8 +94,8 @@ class InterativeDecoder(nn.Module):
         self.diff_dicriminator = False
 
         self.use_ego_loop=False
-        self.use_counterfactual=True
-        self.use_edge_feature=False
+        self.use_counterfactual=False
+        self.use_edge_feature=True
 
         if discriminator and self.use_counterfactual:
             self.a2a_attn_layers = nn.ModuleList(
@@ -268,8 +268,15 @@ class InterativeDecoder(nn.Module):
                 # feat_list1 = feat_list_mask_each_agent_cached(
                 #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
                 # )
+                # feat_list1 = self.a2a_attn_layers[layer_i].refer1(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
+                #                                                 batch_s_repeat, n_step)
+
                 feat_list = self.a2a_attn_layers[layer_i].refer(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
                                                                 batch_s_repeat, n_step)
+
+                # feat_list2 = self.a2a_attn_layers[layer_i].refer(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
+                #                                                 batch_s_repeat, n_step)
+
 
                 feat_ablated = torch.cat(feat_list, dim=1)
 
@@ -386,18 +393,18 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 end_idx = edge_index_a2a[1]  # shape: [E]
 
-                interact_logits = scatter_sum(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))
+                interact_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
 
                 rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
                 if not self.use_ego_loop:
-                    #rewards[rewards==0]=1000
+                    rewards[rewards==0]=1000
 
                     next_token_logits = torch.cat([next_token_logits,ego_logits], dim=0)#ego_logits#
 
                     ego_rewards=ego_logits.detach().view(n_step,  -1).transpose(0, 1)
 
-                    rewards=rewards+ego_rewards#torch.minimum(rewards,ego_rewards)#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
+                    rewards=torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
             elif self.use_counterfactual:
 
                 logit_original= next_token_logits[:n_agent,:,0]
