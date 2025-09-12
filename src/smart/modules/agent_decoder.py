@@ -302,9 +302,6 @@ class SMARTAgentDecoder(nn.Module):
                 feat_a_t=feat_a.view(n_agent, -1, self.hidden_dim)
 
                 feat_a_t=feat_a_t[:,-n_step:]
-                feat_a_token=feat_a_token[:,-n_step:]
-                pos_a=pos_a[:,-n_step:]
-                head_a=head_a[:,-n_step:]
                 head_vector_a=head_vector_a[:,-n_step:]
 
             feat_lg_t=None
