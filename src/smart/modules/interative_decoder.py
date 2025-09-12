@@ -406,7 +406,7 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 end_idx = edge_index_a2a[1]  # shape: [E]
 
-                interact_logits = scatter_min(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
+                interact_logits = scatter_sum(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))[0]
 
                 rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
@@ -417,7 +417,7 @@ class InterativeDecoder(nn.Module):
 
                     ego_rewards=ego_logits.detach().view(n_step,  -1).transpose(0, 1)
 
-                    rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
+                    rewards=ego_rewards+2*rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
             elif self.use_counterfactual:
 
                 logit_original= next_token_logits[:n_agent,:,0]
