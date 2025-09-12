@@ -111,7 +111,7 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
-        else:
+        elif not (discriminator and self.use_counterfactual):
             self.a2a_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(

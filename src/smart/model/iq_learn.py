@@ -108,10 +108,10 @@ class IQ_SoftQ(LightningModule):
 
         # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
-    # def on_after_backward(self):
-    #     for name, param in self.named_parameters():
-    #         if param.grad is None:
-    #             print(f"Unused parameter: {name}")
+    def on_after_backward(self):
+        for name, param in self.named_parameters():
+            if param.grad is None:
+                print(f"Unused parameter: {name}")
 
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
