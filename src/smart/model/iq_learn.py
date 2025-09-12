@@ -312,6 +312,11 @@ class IQ_SoftQ(LightningModule):
             kl_per_token=0
 
         rewards = disc_out[2].detach()
+
+        nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
+
+        rewards = 0.5 * rewards + 0.5 * nei_rewards
+
         returns = get_return(rewards, self.gamma)
 
         # with torch.no_grad():
