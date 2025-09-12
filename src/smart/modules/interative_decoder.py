@@ -87,13 +87,17 @@ class InterativeDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
+        self.discriminator = discriminator
 
-        self.use_edge_feature=False
+        self.state_action = False
+        self.reward_shaping = False
+        self.diff_dicriminator = False
+
         self.use_ego_loop=False
         self.use_counterfactual=False
+        self.use_edge_feature=True
 
         if not (discriminator and self.use_edge_feature):
-
             if self.use_counterfactual:
                 self.a2a_attn_layers = nn.ModuleList(
                     [
@@ -110,8 +114,6 @@ class InterativeDecoder(nn.Module):
                 )
 
             else:
-
-
                 self.a2a_attn_layers = nn.ModuleList(
                     [
                         AttentionLayer(
@@ -145,20 +147,12 @@ class InterativeDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        self.state_action = False
-        self.reward_shaping = False
-        self.use_bottleneck = False
-
-        self.diff_dicriminator=False
-        self.discriminator=discriminator
-        self.value_network=value_network
-
 
         self.filter_ratio=0
         if self.discriminator and self.diff_dicriminator:
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
-            if self.use_edge_feature:
+            if self.use_edge_feature and discriminator:
 
                 self.use_ego_loop=False
 
@@ -176,118 +170,10 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             self.centric=False
-
             if  self.reward_shaping:
                 self.reward_net = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
-
-            self.use_bottleneck=False
-
-            if self.use_bottleneck:
-                z_dim=self.hidden_dim//2
-                # self.a2pl_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
-                self.a2a_linear=nn.Sequential(nn.ReLU(),nn.Linear(z_dim, self.hidden_dim))
-
-
-    def refer(self,
-            layer,                 # e.g., self.a2a_attn_layers[layer_i]
-            feat_a_pt,             # [n_step * n_agents_total, hidden_dim]  (input to this layer)
-            r_a2a,                 # [E, rdim] or None
-            edge_index_a2a,        # [2, E]
-            train_mask,            # [n_agents_total] (True=keep)
-            batch_s_repeat,        # [n_agents_total, ...], batch id in [:,0]
-            n_step: int,
-              ):
-        device = feat_a_pt.device
-        # agents across ALL batches (ragged per-batch counts allowed)
-        n_agents_total = batch_s_repeat.size(0)
-
-        # valid agents (candidates to ablate)
-        valid_agent = torch.where(train_mask)[0]  # [A]
-        A = valid_agent.numel()
-
-        # batch id per agent (global agent indexing 0..n_agents_total-1)
-        agent_batch_all = batch_s_repeat[:, 0].to(torch.long)  # [n_agents_total]
-        n_batch = int(agent_batch_all.max().item()) + 1
-
-        # valid agents per batch (kept set baseline)
-        valid_list = [torch.where((agent_batch_all == b) & train_mask)[0]
-                      for b in range(n_batch)]  # list of 1D tensors (ragged)
-
-        # counts of valid agents per batch and their max to drive slot loop
-        vb = agent_batch_all[valid_agent]
-        counts = torch.bincount(vb, minlength=n_batch)  # [B]
-        max_agent_num = int(counts.max().item())
-
-        # map global agent id -> row index in result list (aligned to valid_agent order)
-        row_of_agent = torch.full((n_agents_total,), -1, device=device, dtype=torch.long)
-        row_of_agent[valid_agent] = torch.arange(A, device=device)
-
-        # compute each valid agent's local index within its batch (0..count[b]-1), in valid_agent order
-        order = torch.argsort(vb)  # sort valid agents by batch
-        vb_sorted = vb[order]
-        start = torch.zeros(n_batch, dtype=torch.long, device=device)
-        if n_batch > 1:
-            start[1:] = counts.cumsum(0)[:-1]
-        local_idx_sorted = torch.arange(vb_sorted.numel(), device=device) - start[vb_sorted]
-        local_idx = torch.empty_like(local_idx_sorted)
-        local_idx[order] = local_idx_sorted  # [A]
-
-        # pre-create result list (ragged)
-        feat_list = [None] * A
-
-        # helper: expand per-agent mask to per-node mask (time-major layout)
-        def agentmask_to_nodemask(agent_mask_bool):
-            # flatten order matches your code: repeat over time, transpose, flatten
-            return agent_mask_bool[:, None].repeat(1, n_step).transpose(0, 1).reshape(-1)
-
-        # constants for fast time-offset indexing (time-major: t block size = n_agents_total)
-        time_offsets = (torch.arange(n_step, device=device) * n_agents_total).view(n_step, 1)  # [T,1]
-
-        # --- slot-parallel ablation: one forward per "position in batch" ---
-        for slot in range(max_agent_num):
-            # agents to mask at this slot (one per batch that has >= slot+1 valid agents)
-            mask_indices = valid_agent[local_idx == slot]  # [<= B]
-            if mask_indices.numel() == 0:
-                continue
-
-            # build per-agent mask over ALL agents; flip the chosen ones to False
-            one_hot_mask = train_mask.clone()
-            one_hot_mask[mask_indices] = False
-
-            # prune edges that touch any masked agent across time
-            mask_nodes = agentmask_to_nodemask(one_hot_mask)  # [n_step*n_agents_total]
-            keep_edges = mask_nodes[edge_index_a2a[0]] & mask_nodes[edge_index_a2a[1]]
-            eidx2 = edge_index_a2a[:, keep_edges]
-            r2 = r_a2a[keep_edges] if r_a2a is not None else None
-
-            # one forward for all batches' slot ablation
-            feat_masked, _ = layer(feat_a_pt, r2, eidx2)  # [n_step*n_agents_total, hidden_dim]
-
-            # For each masked agent a_id, gather its batch slice without reshaping to [B, T, ..]
-            for a_id in mask_indices.tolist():
-                b = int(agent_batch_all[a_id].item())
-
-                # valid agents in this batch (baseline kept set), then drop the masked agent
-                agents_b = valid_list[b]  # 1D tensor of global agent ids
-                keep_agents_b = agents_b[agents_b != a_id]  # remove masked agent
-
-                # Gather indices for all (t, agent) pairs in this batch (time-major)
-                if keep_agents_b.numel() == 0:
-                    # no remaining agents in this batch; create empty (T, 0, H)
-                    new_feat = feat_masked.new_empty((n_step, 0, self.hidden_dim))
-                else:
-                    idx_nodes = (time_offsets + keep_agents_b.view(1, -1)).reshape(-1)  # [T*(|keep|)]
-                    new_feat = feat_masked.index_select(0, idx_nodes).view(
-                        n_step, keep_agents_b.numel(), self.hidden_dim
-                    )
-
-                # place into row aligned to this agent in valid_agent
-                row = int(row_of_agent[a_id].item())
-                feat_list[row] = new_feat
-
-        return feat_list
 
     def forward(self,all_features,map_feature,train_mask ):
         feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
@@ -317,8 +203,6 @@ class InterativeDecoder(nn.Module):
 
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
-        #batch_s_repeat=batch_s_repeat.reshape(n_step,n_agent).transpose(0, 1).flatten(0, 1)
-
         if train_mask is not None:
             train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
         else:
@@ -339,109 +223,81 @@ class InterativeDecoder(nn.Module):
             loop= self.use_ego_loop
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        a2a_entropy=0
-
         for layer_i in range(self.num_layers):
 
-            # if self.discriminator:
-            #     if  train_mask is not None:
-            #         connected_agent=torch.unique(edge_index_a2a[0])
-            #         in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
-            #         r_pl2a=r_pl2a[in_mask]
-            #         edge_index_pl2a = edge_index_pl2a[:, in_mask]
-            #
-            #     feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-            #
-            #     if self.use_edge_feature:
-            #         if not self.use_ego_loop:
-            #             ego_feat = feat_a_pt.view(-1,n_agent,self.hidden_dim)[:,train_mask].flatten(0,1)
-            #
-            #             ego_logits=self.ego_head(ego_feat)[:,None]
-            #
-            #         start_index=edge_index_a2a[0]
-            #         end_index=edge_index_a2a[1]
-            #
-            #         start_edge_feature=feat_a_token[start_index]
-            #         end_edge_feature=feat_a_token[end_index]
-            #
-            #         feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
-            #
-            #     else:
-            #         feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
-            #
-            #         feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
-            #
-            #         n_agent = feat_a.shape[1]
-            #
-            #         if self.use_counterfactual:
-            #             #valid_agent=torch.where(train_mask)[0]
-            #             # Efficient ablation for all agents in valid_agent (1 pass, O(E))
-            #             # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
-            #             #                                             x_input=feat_a_pt,  # the x fed to this layer
-            #             #                                             valid_agent=valid_agent)  # LongTensor of node ids
-            #             # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
-            #             # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
-            #             # feat_list1 = feat_list_mask_each_agent_cached(
-            #             #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
-            #             # )
-            #             #
-            #             feat_list=self.refer(self.a2a_attn_layers[layer_i],feat_a_pt,r_a2a,edge_index_a2a, train_mask, batch_s_repeat,n_step)
-            #
-            #             feat_ablated=torch.cat(feat_list, dim=1)
-            #
-            #             feat_a=torch.cat([feat_a,feat_ablated], dim=1)
-            #
-            #
-            #         feat_a = feat_a.flatten(0, 1)
-            #
-            #
-            # else:
+            if self.use_edge_feature and self.discriminator:
+                # if  train_mask is not None:
+                #     connected_agent=torch.unique(edge_index_a2a[0])
+                #     in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
+                #     r_pl2a=r_pl2a[in_mask]
+                #     edge_index_pl2a = edge_index_pl2a[:, in_mask]
+                start_index=edge_index_a2a[0]
+                end_index=edge_index_a2a[1]
 
-            if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
-                end_mask=train_repeat_mask[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a=r_a2a[end_mask]
+                start_edge_feature=feat_a[start_index]
+                end_edge_feature=feat_a[end_index]
 
-                end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
-                edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
-                r_pl2a=r_pl2a[end_pt_mask]
+                if  train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a=feat_a.flatten(0,1)
 
-            feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-            if  train_mask is not None and self.num_layers==1:
-                feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
-                n_agent = feat_a.shape[1]
-                feat_a=feat_a.flatten(0,1)
+                if not self.use_ego_loop:
+                    ego_feat = feat_a_pt.view(n_step,-1,self.hidden_dim).flatten(0,1)
 
-            feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                    ego_logits=self.ego_head(ego_feat)[:,None]
 
-            # #if self.discriminator:
-            # plogp = a2a_attn * (a2a_attn.clamp_min(1e-12).log())
-            # # Sum within each destination segment
-            # a2a_entropy =a2a_entropy -scatter_sum(plogp, edge_index_a2a[1],dim=0)  # shape: [num_dst_nodes]
+                feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
 
+                # else:
+                #     feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
+                #
+                #     feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
+                #
+                #     n_agent = feat_a.shape[1]
+                #
+                #     if self.use_counterfactual:
+                #         #valid_agent=torch.where(train_mask)[0]
+                #         # Efficient ablation for all agents in valid_agent (1 pass, O(E))
+                #         # masked_outputs = ablation_outputs_all_valid(self.a2a_attn_layers[layer_i],
+                #         #                                             x_input=feat_a_pt,  # the x fed to this layer
+                #         #                                             valid_agent=valid_agent)  # LongTensor of node ids
+                #         # feat_list1 = get_feat_list_from_masked(masked_outputs, valid_agent, n_step, n_agent)
+                #         # 1) Vectorized ablation + packing (no loops over agents, no extra forwards)
+                #         # feat_list1 = feat_list_mask_each_agent_cached(
+                #         #     self.a2a_attn_layers[layer_i], feat_a_pt, r_a2a, edge_index_a2a, train_mask, batch_s_repeat, n_step
+                #         # )
+                #         #
+                #         feat_list=self.refer(self.a2a_attn_layers[layer_i],feat_a_pt,r_a2a,edge_index_a2a, train_mask, batch_s_repeat,n_step)
+                #
+                #         feat_ablated=torch.cat(feat_list, dim=1)
+                #
+                #         feat_a=torch.cat([feat_a,feat_ablated], dim=1)
+                #
+                #     feat_a = feat_a.flatten(0, 1)
+            else:
+                if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
+                    end_mask=train_repeat_mask[edge_index_a2a[1]]
+                    edge_index_a2a = edge_index_a2a[:, end_mask]
+                    r_a2a=r_a2a[end_mask]
 
-        #     if layer_i<self.num_layers-1 and self.filter_ratio>0:
-        #         a2a_mask=a2a_attn>self.filter_ratio
-        #         r_a2a=r_a2a[a2a_mask]
-        #         edge_index_a2a=edge_index_a2a[:,a2a_mask]
-        #
-        #         pt_mask=pt_attn>self.filter_ratio
-        #
-        #         r_pl2a=r_pl2a[pt_mask]
-        #         edge_index_pl2a=edge_index_pl2a[:,pt_mask]
-        #
-        #     a2a_list.append(a2a_attn)
-        #
-        # a2a_feature=torch.cat(a2a_list,dim=-1)
+                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
+                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
+                    r_pl2a=r_pl2a[end_pt_mask]
 
-        # if self.num_layers>1:
-        #     self.a_ratio=len(r_a2a)/n_a
-        #     self.pt_ratio=len(r_pl2a)/n_pt
+                feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-        if  self.use_edge_feature:
+                if  train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
+                    n_agent = feat_a.shape[1]
+                    feat_a=feat_a.flatten(0,1)
+
+                feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+
+        if  self.use_edge_feature and self.discriminator:
             feat_a_all = None
-
         else:
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
 
@@ -508,8 +364,6 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             if self.state_action:
                 feat_a = feat_a + agent_token_emb[train_mask]
-            # else:
-            #     feat_a = feat_a[:, 1:]
 
         if self.discriminator and self.diff_dicriminator:
             state = feat_a.reshape(-1, 128)
@@ -568,35 +422,6 @@ class InterativeDecoder(nn.Module):
                     reward_list.append(reward)
 
                 rewards=torch.stack(reward_list)
-
-                # device = logit_original.device
-                # A = batch_id.numel()
-                # Dshape = logit_original.shape[1:]
-                #
-                # # --- Baseline 'others' sum per agent: (batch sum) - (self) ---
-                # # Compress batches
-                # uniq, inv = torch.unique(batch_id, sorted=True, return_inverse=True)  # inv: [A] in [0..U-1]
-                # U = uniq.numel()
-                #
-                # # Sum originals per batch
-                # sum_batch = torch.zeros((U,) + Dshape, device=device, dtype=logit_original.dtype)
-                # sum_batch.index_add_(0, inv, logit_original)  # [U, *D]
-                #
-                # # Broadcast batch sum back to each agent, then remove the agent's own logit
-                # sum_orig_A = sum_batch.index_select(0, inv)   # [A, *D]
-                #
-                # counts = torch.tensor([f.shape[1] for f in feat_list], device=device, dtype=torch.long)  # [A]
-                # owner = torch.arange(A, device=device).repeat_interleave(counts)  # [M_default]
-                #
-                # # --- Ablated 'others' sum per agent: sum rows belonging to that agent ---
-                # sum_abla_A = torch.zeros((A,) + Dshape, device=device, dtype=logit_original.dtype)
-                # sum_abla_A.index_add_(0, owner, ablated_logit)  # [A, *D]
-                #
-                # # --- Reward per agent ---
-                # rewards1 = sum_orig_A - sum_abla_A  # [A, *D]
-                #
-                # print(1)
-
             else:
                 rewards=next_token_logits[:,:,0]
         else:

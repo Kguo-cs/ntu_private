@@ -348,3 +348,130 @@ class CacheAttention(AttentionLayer):
         }
         return heads, cache
 
+    def refer(self,
+            layer,                 # e.g., self.a2a_attn_layers[layer_i]
+            feat_a_pt,             # [n_step * n_agents_total, hidden_dim]  (input to this layer)
+            r_a2a,                 # [E, rdim] or None
+            edge_index_a2a,        # [2, E]
+            train_mask,            # [n_agents_total] (True=keep)
+            batch_s_repeat,        # [n_agents_total, ...], batch id in [:,0]
+            n_step: int,
+              ):
+        device = feat_a_pt.device
+        # agents across ALL batches (ragged per-batch counts allowed)
+        n_agents_total = batch_s_repeat.size(0)
+
+        # valid agents (candidates to ablate)
+        valid_agent = torch.where(train_mask)[0]  # [A]
+        A = valid_agent.numel()
+
+        # batch id per agent (global agent indexing 0..n_agents_total-1)
+        agent_batch_all = batch_s_repeat[:, 0].to(torch.long)  # [n_agents_total]
+        n_batch = int(agent_batch_all.max().item()) + 1
+
+        # valid agents per batch (kept set baseline)
+        valid_list = [torch.where((agent_batch_all == b) & train_mask)[0]
+                      for b in range(n_batch)]  # list of 1D tensors (ragged)
+
+        # counts of valid agents per batch and their max to drive slot loop
+        vb = agent_batch_all[valid_agent]
+        counts = torch.bincount(vb, minlength=n_batch)  # [B]
+        max_agent_num = int(counts.max().item())
+
+        # map global agent id -> row index in result list (aligned to valid_agent order)
+        row_of_agent = torch.full((n_agents_total,), -1, device=device, dtype=torch.long)
+        row_of_agent[valid_agent] = torch.arange(A, device=device)
+
+        # compute each valid agent's local index within its batch (0..count[b]-1), in valid_agent order
+        order = torch.argsort(vb)  # sort valid agents by batch
+        vb_sorted = vb[order]
+        start = torch.zeros(n_batch, dtype=torch.long, device=device)
+        if n_batch > 1:
+            start[1:] = counts.cumsum(0)[:-1]
+        local_idx_sorted = torch.arange(vb_sorted.numel(), device=device) - start[vb_sorted]
+        local_idx = torch.empty_like(local_idx_sorted)
+        local_idx[order] = local_idx_sorted  # [A]
+
+        # pre-create result list (ragged)
+        feat_list = [None] * A
+
+        # helper: expand per-agent mask to per-node mask (time-major layout)
+        def agentmask_to_nodemask(agent_mask_bool):
+            # flatten order matches your code: repeat over time, transpose, flatten
+            return agent_mask_bool[:, None].repeat(1, n_step).transpose(0, 1).reshape(-1)
+
+        # constants for fast time-offset indexing (time-major: t block size = n_agents_total)
+        time_offsets = (torch.arange(n_step, device=device) * n_agents_total).view(n_step, 1)  # [T,1]
+
+        # --- slot-parallel ablation: one forward per "position in batch" ---
+        for slot in range(max_agent_num):
+            # agents to mask at this slot (one per batch that has >= slot+1 valid agents)
+            mask_indices = valid_agent[local_idx == slot]  # [<= B]
+            if mask_indices.numel() == 0:
+                continue
+
+            # build per-agent mask over ALL agents; flip the chosen ones to False
+            one_hot_mask = train_mask.clone()
+            one_hot_mask[mask_indices] = False
+
+            # prune edges that touch any masked agent across time
+            mask_nodes = agentmask_to_nodemask(one_hot_mask)  # [n_step*n_agents_total]
+            keep_edges = mask_nodes[edge_index_a2a[0]] & mask_nodes[edge_index_a2a[1]]
+            eidx2 = edge_index_a2a[:, keep_edges]
+            r2 = r_a2a[keep_edges] if r_a2a is not None else None
+
+            # one forward for all batches' slot ablation
+            feat_masked, _ = layer(feat_a_pt, r2, eidx2)  # [n_step*n_agents_total, hidden_dim]
+
+            # For each masked agent a_id, gather its batch slice without reshaping to [B, T, ..]
+            for a_id in mask_indices.tolist():
+                b = int(agent_batch_all[a_id].item())
+
+                # valid agents in this batch (baseline kept set), then drop the masked agent
+                agents_b = valid_list[b]  # 1D tensor of global agent ids
+                keep_agents_b = agents_b[agents_b != a_id]  # remove masked agent
+
+                # Gather indices for all (t, agent) pairs in this batch (time-major)
+                if keep_agents_b.numel() == 0:
+                    # no remaining agents in this batch; create empty (T, 0, H)
+                    new_feat = feat_masked.new_empty((n_step, 0, self.hidden_dim))
+                else:
+                    idx_nodes = (time_offsets + keep_agents_b.view(1, -1)).reshape(-1)  # [T*(|keep|)]
+                    new_feat = feat_masked.index_select(0, idx_nodes).view(
+                        n_step, keep_agents_b.numel(), self.hidden_dim
+                    )
+
+                # place into row aligned to this agent in valid_agent
+                row = int(row_of_agent[a_id].item())
+                feat_list[row] = new_feat
+
+        return feat_list
+
+# device = logit_original.device
+# A = batch_id.numel()
+# Dshape = logit_original.shape[1:]
+#
+# # --- Baseline 'others' sum per agent: (batch sum) - (self) ---
+# # Compress batches
+# uniq, inv = torch.unique(batch_id, sorted=True, return_inverse=True)  # inv: [A] in [0..U-1]
+# U = uniq.numel()
+#
+# # Sum originals per batch
+# sum_batch = torch.zeros((U,) + Dshape, device=device, dtype=logit_original.dtype)
+# sum_batch.index_add_(0, inv, logit_original)  # [U, *D]
+#
+# # Broadcast batch sum back to each agent, then remove the agent's own logit
+# sum_orig_A = sum_batch.index_select(0, inv)   # [A, *D]
+#
+# counts = torch.tensor([f.shape[1] for f in feat_list], device=device, dtype=torch.long)  # [A]
+# owner = torch.arange(A, device=device).repeat_interleave(counts)  # [M_default]
+#
+# # --- Ablated 'others' sum per agent: sum rows belonging to that agent ---
+# sum_abla_A = torch.zeros((A,) + Dshape, device=device, dtype=logit_original.dtype)
+# sum_abla_A.index_add_(0, owner, ablated_logit)  # [A, *D]
+#
+# # --- Reward per agent ---
+# rewards1 = sum_orig_A - sum_abla_A  # [A, *D]
+#
+# print(1)
+
