@@ -313,9 +313,9 @@ class IQ_SoftQ(LightningModule):
 
         rewards = disc_out[2].detach()
 
-        nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
-
-        rewards = 0.5 * rewards + 0.5 * nei_rewards
+        # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
+        #
+        # rewards = 0.5 * rewards + 0.5 * nei_rewards
 
         returns = get_return(rewards, self.gamma)
 
@@ -599,15 +599,6 @@ class IQ_SoftQ(LightningModule):
 
                 critic_loss=expert_dis_loss + agent_dis_loss
 
-                if self.automatic_optimization == False:
-                    policy_optimizer, discriminator_optimizer = self.optimizers()
-
-                    #print(agent_rewards.mean())
-
-
-                    discriminator_optimizer.zero_grad()
-                    self.manual_backward(critic_loss)
-                    discriminator_optimizer.step()
 
                 if self.encoder.agent_encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
@@ -690,6 +681,14 @@ class IQ_SoftQ(LightningModule):
             self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
             loss = critic_loss+expert_nll
+            if self.automatic_optimization == False:
+                policy_optimizer, discriminator_optimizer = self.optimizers()
+
+                # print(agent_rewards.mean())
+
+                discriminator_optimizer.zero_grad()
+                self.manual_backward(critic_loss)
+                discriminator_optimizer.step()
 
             if self.automatic_optimization == False:
                 policy_optimizer.zero_grad()
