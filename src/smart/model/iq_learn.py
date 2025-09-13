@@ -313,6 +313,8 @@ class IQ_SoftQ(LightningModule):
 
         rewards = disc_out[2].detach()
 
+        weight= disc_out[3].detach()
+
         # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
         #
         # rewards = 0.5 * rewards + 0.5 * nei_rewards
@@ -368,9 +370,13 @@ class IQ_SoftQ(LightningModule):
             ego_dis_eval=disc_val[:agent_num]
             other_disc_val=disc_val[agent_num:]
             if key == "expert":
-                bce_loss = self.bce_loss(ego_dis_eval, torch.ones_like(ego_dis_eval)) +self.bce_loss(other_disc_val, torch.ones_like(other_disc_val))#+0.01* ((disc_val - torch.ones_like(disc_val))**2).mean()
+
+                bce_loss =F.binary_cross_entropy(ego_dis_eval, torch.ones_like(ego_dis_eval), weight=None, reduction='mean')
+                bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.ones_like(other_disc_val), weight=weight[:,None], reduction='mean')
+
             else:
-                bce_loss = self.bce_loss(ego_dis_eval, torch.zeros_like(ego_dis_eval))  +self.bce_loss(other_disc_val, torch.zeros_like(other_disc_val))#+0.01* ((disc_val - torch.zeros_like(disc_val))**2).mean()
+                bce_loss =F.binary_cross_entropy(ego_dis_eval, torch.zeros_like(ego_dis_eval), weight=None, reduction='mean')
+                bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val), weight=weight[:,None], reduction='mean')
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)

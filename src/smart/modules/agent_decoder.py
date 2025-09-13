@@ -407,9 +407,9 @@ class SMARTAgentDecoder(nn.Module):
 
             all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
 
-        next_token_logits,feat_a,proposal,rewards,r_pl2a=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal,rewards,weight=self.interative_decoder(all_features,map_feature,train_mask)
 
-        return next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a
+        return next_token_logits,next_light_logits,rewards,weight,proposal,feat_a
 
     def forward(
             self,

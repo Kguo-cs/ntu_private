@@ -401,6 +401,7 @@ class InterativeDecoder(nn.Module):
             done=torch.ones_like(v_s)
             done[:,-1]=0
             next_token_logits = r + (0.99*v_next - v_s)*done
+        weight = None
 
         if self.discriminator:
             if self.use_edge_feature:
@@ -408,9 +409,9 @@ class InterativeDecoder(nn.Module):
 
                 weight=torch.exp(-dist/10)
 
-                interact_logits=next_token_logits.detach()*weight[:,None,None]
+                interact_logits=next_token_logits*weight[:,None,None]
 
-                interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
+                interact_logits_sum = scatter_sum(interact_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
 
                 rewards=interact_logits_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
@@ -458,7 +459,7 @@ class InterativeDecoder(nn.Module):
         else:
             rewards=None
 
-        return next_token_logits,feat_a_all,proposal,rewards,r_pl2a
+        return next_token_logits,feat_a_all,proposal,rewards,weight
 
         # if self.output_gmm:
         #     next_logits = self.gmm_logits_head(feat_a)
