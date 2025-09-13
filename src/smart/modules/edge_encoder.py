@@ -254,9 +254,11 @@ class EdgeEncoder(nn.Module):
         #         dim=-1,
         #     )
         # else:
+        dist=torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1)
+
         r_a2a = torch.stack(
             [
-                torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
+                dist,
                 angle_between_2d_vectors(
                     ctr_vector=head_vector_s[edge_index_a2a[1]],
                     nbr_vector=rel_pos_a2a[:, :2],
@@ -270,7 +272,7 @@ class EdgeEncoder(nn.Module):
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
 
-        return edge_index_a2a, r_a2a
+        return edge_index_a2a, r_a2a,dist
 
     def build_map2map_edge(self,
                            pos_pl,  # [n_pl, 2]

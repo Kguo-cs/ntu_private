@@ -208,7 +208,7 @@ class InterativeDecoder(nn.Module):
         else:
             train_repeat_mask=None
 
-        edge_index_a2a, r_a2a = self.edge_encoder.build_interaction_edge(
+        edge_index_a2a, r_a2a,dist = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
@@ -406,9 +406,13 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 end_idx = edge_index_a2a[1]  # shape: [E]
 
-                interact_logits = scatter_sum(next_token_logits.detach(), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
+                weight=torch.exp(-dist/10)*10
 
-                rewards=interact_logits[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+                interact_logits=next_token_logits.detach()*weight
+
+                interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
+
+                rewards=interact_logits_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
                 if not self.use_ego_loop:
                     #rewards[rewards==0]=1000
