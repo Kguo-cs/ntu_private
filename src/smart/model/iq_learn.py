@@ -364,11 +364,13 @@ class IQ_SoftQ(LightningModule):
         else:
             # if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
             #     disc_val=disc_val[train_mask]
-
+            agent_num=rewards.shape[0]*rewards.shape[1]
+            ego_dis_eval=disc_val[:agent_num]
+            other_disc_val=disc_val[agent_num:]
             if key == "expert":
-                bce_loss = self.bce_loss(disc_val, torch.ones_like(disc_val)) #+0.01* ((disc_val - torch.ones_like(disc_val))**2).mean()
+                bce_loss = self.bce_loss(ego_dis_eval, torch.ones_like(ego_dis_eval)) +self.bce_loss(other_disc_val, torch.ones_like(other_disc_val))#+0.01* ((disc_val - torch.ones_like(disc_val))**2).mean()
             else:
-                bce_loss = self.bce_loss(disc_val, torch.zeros_like(disc_val)) #+0.01* ((disc_val - torch.zeros_like(disc_val))**2).mean()
+                bce_loss = self.bce_loss(ego_dis_eval, torch.zeros_like(ego_dis_eval))  +self.bce_loss(other_disc_val, torch.zeros_like(other_disc_val))#+0.01* ((disc_val - torch.zeros_like(disc_val))**2).mean()
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
