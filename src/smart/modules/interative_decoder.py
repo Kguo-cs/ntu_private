@@ -229,7 +229,7 @@ class InterativeDecoder(nn.Module):
                 start_index=edge_index_a2a[0]
                 end_index=edge_index_a2a[1]
 
-                start_edge_feature=feat_a[start_index]
+                start_edge_feature=feat_a_token[start_index]
                 end_edge_feature=feat_a[end_index]
 
                 if  train_mask is not None and self.num_layers==1:
@@ -407,7 +407,7 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 end_idx = edge_index_a2a[1]  # shape: [E]
 
-                weight=torch.exp(-dist/4)
+                weight=torch.exp(-dist/5)*2
 
                 interact_logits=next_token_logits*weight[:,None,None]
 
