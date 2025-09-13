@@ -313,7 +313,7 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a[:,-n_step:]
             #agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
-            feat_a_token=feat_a_token[:,-n_step:]
+            feat_a_token=feat_a_token[:,:-1]
             if len(light_idx) and self.light_encoder.share:
                 feat_lg_t = feat_lg_t[:, -n_step:]
                 feat_lg=feat_lg[:, -n_step:]
