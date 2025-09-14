@@ -30,20 +30,20 @@ class AgentTokenEncoder(nn.Module):
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
-        # self.token_emb_veh = MLPEmbedding(
-        #     input_dim=input_dim_token, hidden_dim=hidden_dim
-        # )
-        # self.token_emb_ped = MLPEmbedding(
-        #     input_dim=input_dim_token, hidden_dim=hidden_dim
-        # )
-        # self.token_emb_cyc = MLPEmbedding(
-        #     input_dim=input_dim_token, hidden_dim=hidden_dim
-        # )
+        self.token_emb_veh = MLPEmbedding(
+            input_dim=input_dim_token, hidden_dim=hidden_dim
+        )
+        self.token_emb_ped = MLPEmbedding(
+            input_dim=input_dim_token, hidden_dim=hidden_dim
+        )
+        self.token_emb_cyc = MLPEmbedding(
+            input_dim=input_dim_token, hidden_dim=hidden_dim
+        )
 
         self.discriminator=discriminator
 
         if not self.discriminator:
-            self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
+           # self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
             self.fusion_emb = MLPEmbedding(
                 input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
             )
@@ -67,21 +67,21 @@ class AgentTokenEncoder(nn.Module):
         #     agent_token_emb=self.embedding(agent_token_index)
         # else:
         #     agent_token_emb = None
-        agent_token_emb=self.embedding(agent_token_index)
+        #agent_token_emb=self.embedding(agent_token_index)
 
-        # veh_mask = agent_type == 0
-        # ped_mask = agent_type == 1
-        # cyc_mask = agent_type == 2
-        # #  [n_token, hidden_dim]
-        # agent_token_emb_veh = self.token_emb_veh(trajectory_token_veh)
-        # agent_token_emb_ped = self.token_emb_ped(trajectory_token_ped)
-        # agent_token_emb_cyc = self.token_emb_cyc(trajectory_token_cyc)
-        # agent_token_emb = torch.zeros(
-        #     (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
-        # )
-        # agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
-        # agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
-        # agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
+        veh_mask = agent_type == 0
+        ped_mask = agent_type == 1
+        cyc_mask = agent_type == 2
+        #  [n_token, hidden_dim]
+        agent_token_emb_veh = self.token_emb_veh(trajectory_token_veh)
+        agent_token_emb_ped = self.token_emb_ped(trajectory_token_ped)
+        agent_token_emb_cyc = self.token_emb_cyc(trajectory_token_cyc)
+        agent_token_emb = torch.zeros(
+            (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
+        )
+        agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
+        agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
+        agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
 
         # if self.discriminator:
         #     motion_vector_a = torch.cat(
