@@ -437,9 +437,9 @@ class InterativeDecoder(nn.Module):
 
                 nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
-                rewards=(rewards.detach(),nei_sum_rewards.detach())
+                rewards=rewards+nei_sum_rewards
 
-                # rewards=rewards+nei_sum_rewards
+                rewards=(rewards.detach(),nei_sum_rewards.detach())
 
             elif self.use_counterfactual:
 
