@@ -437,7 +437,9 @@ class InterativeDecoder(nn.Module):
 
                 nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
-                rewards=rewards+nei_sum_rewards
+                rewards=(rewards.detach(),nei_sum_rewards.detach())
+
+                # rewards=rewards+nei_sum_rewards
 
             elif self.use_counterfactual:
 
@@ -469,7 +471,7 @@ class InterativeDecoder(nn.Module):
                 #
                 # rewards=torch.stack(reward_list)
             else:
-                rewards=next_token_logits[:,:,0]
+                rewards=next_token_logits[:,:,0].detach()
         else:
             rewards=None
 

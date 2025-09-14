@@ -311,7 +311,7 @@ class IQ_SoftQ(LightningModule):
         else:
             kl_per_token=0
 
-        rewards = disc_out[2].detach()
+        rewards,nei_sum_rewards = disc_out[2]#.detach()
 
         weight= disc_out[3].detach()
 
@@ -440,7 +440,7 @@ class IQ_SoftQ(LightningModule):
         #
         #     bce_loss=gp* 10+bce_loss
 
-        return bce_loss,rewards,returns, disc_val#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        return bce_loss,rewards,nei_sum_rewards, disc_val#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -603,7 +603,7 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss, _, _, _ = self.get_reward(
                         old_rollout, None, None, "agent", None)
                 else:
-                    agent_dis_loss, agent_rewards, agent_disc, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
 
                 critic_loss=expert_dis_loss + agent_dis_loss
 
@@ -650,7 +650,7 @@ class IQ_SoftQ(LightningModule):
                     advantages=ego_advantages
 
                     if self.use_lcf:
-                        nei_rewards = get_nei_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
+                        #nei_rewards = get_nei_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
 
                         nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]
 
