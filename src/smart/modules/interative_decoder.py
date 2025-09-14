@@ -424,11 +424,20 @@ class InterativeDecoder(nn.Module):
 
                     rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
 
-                # rewards=rewards.transpose(0, 1).flatten(0,1)
-                #
-                # weighted_rewards=weight*rewards
-                #
-                # neighbor_weighted_rewards=scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))
+
+                all_rewards=torch.zeros_like(head_a)
+
+                all_rewards[train_mask]=rewards
+
+                flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
+
+                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight
+
+                nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
+
+                nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+
+                rewards=rewards+nei_sum_rewards
 
             elif self.use_counterfactual:
 
