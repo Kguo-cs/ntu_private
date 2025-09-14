@@ -162,7 +162,7 @@ class InterativeDecoder(nn.Module):
                     )
                 self.token_predict_head = nn.Sequential(
                     nn.Linear(hidden_dim*3, hidden_dim*2),
-                    nn.LayerNorm(hidden_dim),
+                    nn.LayerNorm(hidden_dim*2),
                     nn.ReLU(inplace=True),
                     MLPLayer(
                     input_dim=hidden_dim*2, hidden_dim=hidden_dim, output_dim=n_token_agent
