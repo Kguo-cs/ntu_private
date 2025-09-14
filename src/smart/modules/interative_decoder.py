@@ -423,6 +423,13 @@ class InterativeDecoder(nn.Module):
                     ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
 
                     rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
+
+                # rewards=rewards.transpose(0, 1).flatten(0,1)
+                #
+                # weighted_rewards=weight*rewards
+                #
+                # neighbor_weighted_rewards=scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))
+
             elif self.use_counterfactual:
 
                 logit_original= next_token_logits[:n_agent,:,0]
