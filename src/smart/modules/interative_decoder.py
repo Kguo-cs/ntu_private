@@ -160,9 +160,13 @@ class InterativeDecoder(nn.Module):
                     self.ego_head= MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                self.token_predict_head = MLPLayer(
-                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
-                )
+                self.token_predict_head = nn.Sequential(
+                    nn.Linear(hidden_dim*3, hidden_dim*2),
+                    nn.LayerNorm(hidden_dim),
+                    nn.ReLU(inplace=True),
+                    MLPLayer(
+                    input_dim=hidden_dim*2, hidden_dim=hidden_dim, output_dim=n_token_agent
+                ))
             else:
                 self.token_predict_head = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -431,7 +435,7 @@ class InterativeDecoder(nn.Module):
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 
-                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight*5
+                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight*2
 
                 nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
 
