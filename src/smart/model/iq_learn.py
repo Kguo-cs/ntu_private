@@ -650,7 +650,7 @@ class IQ_SoftQ(LightningModule):
                     advantages=ego_advantages
 
                     if self.use_lcf:
-                        #nei_rewards = get_nei_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
+                        nei_rewards = get_nei_returns(tokenized_agent, agent_rewards,neighbor_dist=20,train_mask=all_valid)
 
                         nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]
 
