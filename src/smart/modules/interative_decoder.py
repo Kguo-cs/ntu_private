@@ -229,7 +229,7 @@ class InterativeDecoder(nn.Module):
                 start_index=edge_index_a2a[0]
                 end_index=edge_index_a2a[1]
 
-                start_edge_feature=feat_a_token[start_index]
+                start_edge_feature=feat_a[start_index]
                 end_edge_feature=feat_a[end_index]
 
                 if  train_mask is not None and self.num_layers==1:
@@ -431,8 +431,6 @@ class InterativeDecoder(nn.Module):
                 ablated_logit[valid_mask]=next_token_logits[n_agent:,:,0]
 
                 rewards=(logit_original - ablated_logit).detach()
-
-
                 # reward_list=[]
                 #
                 # batch_id=batch_s_repeat[train_mask,0]
@@ -460,13 +458,3 @@ class InterativeDecoder(nn.Module):
             rewards=None
 
         return next_token_logits,feat_a_all,proposal,rewards,weight
-
-        # if self.output_gmm:
-        #     next_logits = self.gmm_logits_head(feat_a)
-        #     next_poses = self.gmm_pose_head(feat_a).view(*next_logits.shape, 3)
-        #     if self.cov_learnable:
-        #         next_cov =self.gmm_cov_head(feat_a).view(*next_logits.shape, -1).exp()
-        #     else:
-        #         next_cov = torch.zeros_like(next_poses)+0.1
-        #     next_token_logits=torch.cat([next_logits[...,None],next_poses,next_cov],dim=-1)
-        # else:
