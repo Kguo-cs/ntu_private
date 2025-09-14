@@ -431,7 +431,7 @@ class InterativeDecoder(nn.Module):
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 
-                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight*2
+                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight*5
 
                 nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
 
