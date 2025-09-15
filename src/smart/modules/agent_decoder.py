@@ -93,7 +93,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
-        self.use_roformer=True#discriminator
+        self.use_roformer=not discriminator
 
         if self.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
@@ -220,9 +220,9 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
-            trajectory_token_veh=self.token_processor.agent_token_all_veh,
-            trajectory_token_ped=self.token_processor.agent_token_all_ped,
-            trajectory_token_cyc=self.token_processor.agent_token_all_cyc,
+            trajectory_token_veh=self.token_processor.trajectory_token_veh,
+            trajectory_token_ped=self.token_processor.trajectory_token_ped,
+            trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             agent_type=tokenized_agent["type"],  # [n_agent]
