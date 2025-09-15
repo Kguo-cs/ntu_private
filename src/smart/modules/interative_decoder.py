@@ -415,7 +415,7 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 end_idx = edge_index_a2a[1]  # shape: [E]
 
-                weight=torch.exp(-dist/2)*1
+                weight=torch.exp(-dist/3)*2
 
                 interact_logits=next_token_logits*weight[:,None,None]
 
