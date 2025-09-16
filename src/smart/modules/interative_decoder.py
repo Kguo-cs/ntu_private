@@ -160,9 +160,17 @@ class InterativeDecoder(nn.Module):
                     self.ego_head= MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-                self.token_predict_head = MLPLayer(
-                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
-                )
+
+                self.learn_weight=True
+
+                if self.learn_weight:
+                    self.token_predict_head= MLPLayer(
+                        input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=2
+                    )
+                else:
+                    self.token_predict_head = MLPLayer(
+                        input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
 
                 # self.token_predict_head = nn.Sequential(
                 #     nn.Linear(hidden_dim*3, hidden_dim*2),
@@ -415,9 +423,12 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 end_idx = edge_index_a2a[1]  # shape: [E]
 
-                weight=torch.exp(-dist/3)*1
+                if self.learn_weight:
+                    weight =torch.exp(next_token_logits[:,:,-1:])
+                else:
+                    weight=torch.exp(-dist[:,None,None]/3)*1
 
-                interact_logits=next_token_logits*weight[:,None,None]
+                interact_logits=next_token_logits[:,:,:1]*weight
 
                 interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
 
@@ -426,12 +437,14 @@ class InterativeDecoder(nn.Module):
                 if not self.use_ego_loop:
                     #rewards[rewards==0]=1000
 
-                    next_token_logits = torch.cat([ego_logits,next_token_logits], dim=0)#ego_logits#
+                    # next_token_logits = torch.cat([ego_logits,next_token_logits], dim=0)#ego_logits#
 
                     ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
 
                     rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
 
+                    if self.learn_weight:
+                        next_token_logits=rewards.flatten(0,1)[:,None,None]
 
                 all_rewards=torch.zeros_like(head_a)
 

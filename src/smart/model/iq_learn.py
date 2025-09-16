@@ -370,11 +370,12 @@ class IQ_SoftQ(LightningModule):
             if key == "expert":
 
                 bce_loss =F.binary_cross_entropy(ego_dis_eval, torch.ones_like(ego_dis_eval), weight=None, reduction='mean')
-                bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.ones_like(other_disc_val), weight=weight[:,None], reduction='mean')
-
+                if len(other_disc_val)>0:
+                    bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.ones_like(other_disc_val), weight=weight[:,None], reduction='mean')
             else:
                 bce_loss =F.binary_cross_entropy(ego_dis_eval, torch.zeros_like(ego_dis_eval), weight=None, reduction='mean')
-                bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val), weight=weight[:,None], reduction='mean')
+                if len(other_disc_val)>0:
+                    bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val), weight=weight[:,None], reduction='mean')
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
