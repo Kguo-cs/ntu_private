@@ -161,11 +161,11 @@ class InterativeDecoder(nn.Module):
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-                self.learn_weight=True
+                self.learn_weight=False
 
                 if self.learn_weight:
                     self.token_predict_head= MLPLayer(
-                        input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=2
+                        input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
                 else:
                     self.token_predict_head = MLPLayer(
@@ -450,7 +450,7 @@ class InterativeDecoder(nn.Module):
 
                 all_rewards[train_mask]=rewards
 
-                weight2=torch.exp(-dist/3)*2
+                weight2=torch.exp(-dist/10)#*2
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 
