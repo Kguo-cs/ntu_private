@@ -311,7 +311,7 @@ class IQ_SoftQ(LightningModule):
 
         rewards,nei_sum_rewards = disc_out[2]#.detach()
 
-        weight= disc_out[3].detach()
+        weight= disc_out[3]
 
         # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
         #
