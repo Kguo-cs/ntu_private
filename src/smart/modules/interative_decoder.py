@@ -437,14 +437,14 @@ class InterativeDecoder(nn.Module):
                 if not self.use_ego_loop:
                     #rewards[rewards==0]=1000
 
-                    # next_token_logits = torch.cat([ego_logits,next_token_logits], dim=0)#ego_logits#
-
                     ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
 
                     rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
 
                     if self.learn_weight:
                         next_token_logits=rewards.flatten(0,1)[:,None,None]
+                    else:
+                        next_token_logits = torch.cat([ego_logits,next_token_logits], dim=0)#ego_logits#
 
                 all_rewards=torch.zeros_like(head_a)
 
