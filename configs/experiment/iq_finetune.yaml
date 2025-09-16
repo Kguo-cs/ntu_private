@@ -27,20 +27,20 @@ model:
     #val_closed_loop: False
     finetune: true
 
-ckpt_path : './ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt' #'./ckpts/bc32_edge1_pt30_inter2_epoch=24-step=380475_0.7854.ckpt' #
+ckpt_path : '/home/ke/code/catk/src/waymo_data/AIRL128_edgesum_lcf_epoch=9-step=38050_0.79135.ckpt' #'./ckpts/bc32_edge1_pt30_inter2_epoch=24-step=380475_0.7854.ckpt' #
 #'./ckpts/bc_map2_gnn_drop01_epoch=20-step=319599_0.78639.ckpt' #
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  #val_check_interval: 0.00002
+  val_check_interval: 0.000002
   max_epochs: 16
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 96
-  val_batch_size: 32
+  train_batch_size: 2
+  val_batch_size: 48
   test_batch_size: 10
   num_workers: 28
 
