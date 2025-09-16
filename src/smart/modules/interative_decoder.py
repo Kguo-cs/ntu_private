@@ -437,9 +437,11 @@ class InterativeDecoder(nn.Module):
 
                 all_rewards[train_mask]=rewards
 
+                weight2=torch.exp(-dist/5)
+
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 
-                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight*2
+                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight2
 
                 nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
 
