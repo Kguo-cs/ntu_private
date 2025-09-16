@@ -426,9 +426,9 @@ class InterativeDecoder(nn.Module):
                 if self.learn_weight:
                     weight =1
                 else:
-                    weight=torch.exp(-dist[:,None,None]/3)*1
+                    weight=torch.exp(-dist/3)*1
 
-                interact_logits=next_token_logits[:,:,:1]*weight
+                interact_logits=next_token_logits[:,:,:1]*weight[:,None,None]
 
                 interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
 
@@ -444,7 +444,7 @@ class InterativeDecoder(nn.Module):
                     if self.learn_weight:
                         next_token_logits=rewards.flatten(0,1)[:,None,None]
                     else:
-                        next_token_logits = torch.cat([ego_logits,next_token_logits], dim=0)#ego_logits#
+                        next_token_logits = torch.cat([ego_logits,next_token_logits], dim=0)
 
                 all_rewards=torch.zeros_like(head_a)
 
