@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     finetune: true
 
-ckpt_path : './ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt' #'./ckpts/bc32_edge1_pt30_inter2_epoch=24-step=380475_0.7854.ckpt' #
+ckpt_path : './ckpts/bc_map2_drop01_t1_b40_epoch=56-step=693975_0.78457.ckpt' #'./ckpts/bc32_edge1_pt30_inter2_epoch=24-step=380475_0.7854.ckpt' #
 #'./ckpts/bc_map2_gnn_drop01_epoch=20-step=319599_0.78639.ckpt' #
 trainer:
   limit_train_batches: 1.0
