@@ -21,9 +21,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc_map2_drop01_roformer_t1_b40/2025-09-14_23-22-51/bc/nq50q3hk/checkpoints/epoch=62-step=767025.ckpt ./
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_lcfweight312_policygnn/2025-09-15_20-31-26/sim/p9rzh1tz/checkpoints/epoch=4-step=34245.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL64_lcfweight312_gnn/2025-09-16_11-11-33/sim/f5vbq40v/checkpoints/epoch=1-step=15220.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL128_edgesum51_lcfweight2_mlpl3_a20/2025-09-14_13-10-09/sim/4ayxorzw/checkpoints/epoch=2-step=11415.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL192_lcfweight332/2025-09-16_02-18-49/sim/64z9mhsb/checkpoints/epoch=9-step=25370.ckpt ./
 
 
 rsync -avz /home/ke/PAD/exp/navsim_result/pad64_share/05.10_21.45/epoch=17-step=23922.ckpt lyuchen@aspire2pntu.nscc.sg:/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/exp/ke/pad_64_share/05.12_15.32/pad/m6vultai/checkpoints/epoch=17-step=23922.ckpt
