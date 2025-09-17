@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/bc_map2_drop01_roformer_t1_b40_epoch=62-step=767025_0.78318.ckpt'
+ckpt_path: '/home/ke/code/catk/src/ckpts/bc_map2_gnntype_drop01_t1_b40_epoch=58-step=718325_0.78605.ckpt'
 
 trainer:
   limit_train_batches: 1.0
