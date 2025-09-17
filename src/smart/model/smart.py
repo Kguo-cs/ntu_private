@@ -251,7 +251,8 @@ class SMART(LightningModule):
                         pred_z=pred_z,
                         pred_head=pred_head,
                     )
-                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                    self.wosac_metrics.update(data["tfrecord_path"][:20], scenario_rollouts[:20])
+                    self.wosac_metrics.update(data["tfrecord_path"][20:], scenario_rollouts[20:])
 
                 # epoch_wosac_metrics = self.wosac_metrics.compute()
                 # epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
