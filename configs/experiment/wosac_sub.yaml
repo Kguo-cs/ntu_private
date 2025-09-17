@@ -18,12 +18,12 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "sim"
-      authors: anonymous
-      affiliation: anonymous
-      description: anonymous
-      method_link: anonymous
-      account_name: anonymous
+      method_name: "DecompGAIL"
+      authors: Ke Guo
+      affiliation: ntu
+      description: Learning Realistic Traffic Behaviors with Decomposed Multi-Agent Generative Adversarial Imitation Learning
+      method_link: no
+      account_name: no
 
 ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_lcf3101_policygnn_val40_epoch=2-step=15220_0.78544.ckpt'
 
