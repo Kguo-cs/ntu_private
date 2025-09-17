@@ -22,10 +22,10 @@ model:
       authors: Ke Guo
       affiliation: ntu
       description: Learning Realistic Traffic Behaviors with Decomposed Multi-Agent Generative Adversarial Imitation Learning
-      method_link: no
-      account_name: no
+      method_link: anonymous
+      account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_lcf3101_policygnn_val40_epoch=2-step=15220_0.78544.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL128_edgesum_lcf_epoch=9-step=38050_0.79135.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -41,4 +41,4 @@ data:
   shuffle: false
   pin_memory: false
 
-action: validate
+action: test
