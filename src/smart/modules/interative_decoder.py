@@ -426,7 +426,7 @@ class InterativeDecoder(nn.Module):
                 if self.learn_weight:
                     weight =1
                 else:
-                    weight=torch.exp(-dist[:,None]/3)*3
+                    weight=torch.exp(-dist[:,None]/3)*5
 
                 interact_logits=next_token_logits[:,:,:1]*weight[:,None]
 
@@ -450,7 +450,7 @@ class InterativeDecoder(nn.Module):
 
                 all_rewards[train_mask]=rewards
 
-                weight2=torch.exp(-dist/3)*10
+                weight2=torch.exp(-dist/3)*6
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 
