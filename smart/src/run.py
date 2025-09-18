@@ -21,7 +21,7 @@ from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
-
+import sys
 sys.path.append('/home/guoke/sim/smart')
 
 from src.utils import (
