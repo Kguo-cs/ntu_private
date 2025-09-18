@@ -95,7 +95,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_ego_loop=False
         self.use_counterfactual=False
-        self.use_edge_feature=False
+        self.use_edge_feature=True
 
         if discriminator and self.use_counterfactual:
             self.a2a_attn_layers = nn.ModuleList(
