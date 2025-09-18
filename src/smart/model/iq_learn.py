@@ -301,7 +301,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
 
-                kl_coef=1#np.power(0.9999,self.global_step)
+                kl_coef=0.1#np.power(0.9999,self.global_step)
                 kl_taken = (agent_log_prob - logp_a_ref)
 
                 kl_per_token=kl_coef *kl_taken
@@ -312,6 +312,8 @@ class IQ_SoftQ(LightningModule):
         rewards,nei_sum_rewards = disc_out[2]#.detach()
 
         weight= disc_out[3]
+
+        rewards=rewards+kl_per_token
 
         # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
         #
@@ -451,17 +453,17 @@ class IQ_SoftQ(LightningModule):
         else:
             all_valid=valid_mask.all(-1)
 
-       # if self.use_kl_penalty:
-        expert_nll=0
-        map_feature = self.encoder.map_encoder(tokenized_map)
-        tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-        # else:
-        #     if self.iq_learn and self.encoder.agent_encoder.use_roformer:
-        #         self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-        #         if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
-        #             self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
-        #
-        #     expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
+        if self.use_kl_penalty:
+            expert_nll=0
+            map_feature = self.encoder.map_encoder(tokenized_map)
+            tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+        else:
+            if self.iq_learn and self.encoder.agent_encoder.use_roformer:
+                self.encoder.agent_encoder.a_t_roformer.attn.caching = True
+                if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
+                    self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
+
+            expert_reward,expert_value_loss,expert_pi,expert_nll,expert_Q,expert_proposal_loss,expert_log_prob,_ = self.get_QV(tokenized_map, tokenized_agent,train_mask)
 
         # if "a2a_entropy" in tokenized_agent.keys():
         #     a2a_entropy=tokenized_agent["a2a_entropy"].mean()
