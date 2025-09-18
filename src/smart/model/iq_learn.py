@@ -381,8 +381,10 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
 
         # if "a2a_entropy" in tokenized_agent.keys():
         #     a2a_entropy=disc_out[2].mean()#tokenized_agent["a2a_entropy"].mean()
