@@ -20,6 +20,10 @@ from torch_geometric.data import Dataset
 from src.utils import RankedLogger
 
 log = RankedLogger(__name__, rank_zero_only=True)
+import torch
+
+num_gpus = torch.cuda.device_count()
+print("Total number of GPUs available:", num_gpus)
 
 
 class MultiDataset(Dataset):
@@ -48,6 +52,9 @@ class MultiDataset(Dataset):
         return self._num_samples
 
     def get(self, idx: int):
+
+        idx=idx//num_gpus
+
         with open(self.raw_paths[idx], "rb") as handle:
             data = pickle.load(handle)
 

@@ -20,7 +20,7 @@ from torch_geometric.loader import DataLoader
 from src.smart.datasets import MultiDataset
 
 from .target_builder import WaymoTargetBuilderTrain, WaymoTargetBuilderVal
-
+import torch
 
 class MultiDataModule(LightningDataModule):
     def __init__(
@@ -68,6 +68,7 @@ class MultiDataModule(LightningDataModule):
                 self.val_raw_dir,
                 self.val_transform,
                 tfrecord_dir=self.val_tfrecords_splitted,
+
             )
         elif stage == "test":
             self.test_dataset = MultiDataset(self.test_raw_dir, self.test_transform)
@@ -82,7 +83,7 @@ class MultiDataModule(LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
             persistent_workers=self.persistent_workers,
-            drop_last=False,
+            drop_last=False
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -90,9 +91,9 @@ class MultiDataModule(LightningDataModule):
             self.val_dataset,
             batch_size=self.val_batch_size,
             shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,  # False
-            persistent_workers=self.persistent_workers,
+            # num_workers=self.num_workers,
+            # pin_memory=self.pin_memory,  # False
+            # persistent_workers=self.persistent_workers,
             drop_last=False,
         )
 
