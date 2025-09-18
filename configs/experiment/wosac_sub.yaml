@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_lcf312_policygnn_val40_epoch=4-step=30440_0.78551.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL160_lcf336_policygnn_type_val40_epoch=8-step=27396_0.79017.ckpt'
 
 trainer:
   limit_train_batches: 1.0

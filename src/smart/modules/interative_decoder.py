@@ -95,7 +95,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_ego_loop=False
         self.use_counterfactual=False
-        self.use_edge_feature=True
+        self.use_edge_feature=False
 
         if discriminator and self.use_counterfactual:
             self.a2a_attn_layers = nn.ModuleList(
@@ -494,8 +494,8 @@ class InterativeDecoder(nn.Module):
                 #
                 # rewards=torch.stack(reward_list)
             else:
-                rewards=next_token_logits[:,:,0].detach()
+                rewards=next_token_logits[:,:,0].detach(),None
         else:
-            rewards=None
+            rewards=None,None
 
         return next_token_logits,feat_a_all,proposal,rewards,weight

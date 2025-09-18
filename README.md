@@ -23,7 +23,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc_map2_drop01_roformer_t1_b40/
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf312_policygnn_val40/2025-09-17_10-31-56/sim/e46kfd8s/checkpoints/epoch=4-step=30440.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL192_lcfweight332/2025-09-16_02-18-49/sim/64z9mhsb/checkpoints/epoch=9-step=25370.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL160_lcf336_policygnn_type_val40/2025-09-17_10-47-00/sim/5g44dbre/checkpoints/epoch=8-step=27396.ckpt ./
 
 
 rsync -avz /home/ke/PAD/exp/navsim_result/pad64_share/05.10_21.45/epoch=17-step=23922.ckpt lyuchen@aspire2pntu.nscc.sg:/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/exp/ke/pad_64_share/05.12_15.32/pad/m6vultai/checkpoints/epoch=17-step=23922.ckpt
