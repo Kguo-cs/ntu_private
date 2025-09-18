@@ -25,7 +25,7 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL128_edgesum_lcf_epoch=9-step=38050_0.79135.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_lcf312_policygnn_val40_epoch=4-step=30440_0.78551.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -41,4 +41,4 @@ data:
   shuffle: false
   pin_memory: false
 
-action: test
+action: validate

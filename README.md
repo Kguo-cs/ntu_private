@@ -21,7 +21,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc_map2_drop01_roformer_t1_b40/2025-09-14_23-22-51/bc/nq50q3hk/checkpoints/epoch=62-step=767025.ckpt ./
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf3101_policygnn_val40/2025-09-17_10-28-32/sim/8n87gj86/checkpoints/epoch=2-step=15220.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf312_policygnn_val40/2025-09-17_10-31-56/sim/e46kfd8s/checkpoints/epoch=4-step=30440.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL192_lcfweight332/2025-09-16_02-18-49/sim/64z9mhsb/checkpoints/epoch=9-step=25370.ckpt ./
 
