@@ -13,4 +13,4 @@ log_dir: ${paths.root_dir}/logs/
 output_dir: ${hydra:runtime.output_dir}
 
 # path to data directory
-cache_root: /home/ke/code/catk/src/waymo_data/full #/home/guoke/sim/src/waymo_data/full/
+cache_root: /home/guoke/sim/src/waymo_data/full/ #/home/ke/code/catk/src/waymo_data/full #
