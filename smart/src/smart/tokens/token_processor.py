@@ -55,7 +55,8 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_map = self.tokenize_map(data)
             tokenized_agent = self.tokenize_agent(data)
-            tokenized_agent["train_mask"]=data["agent"]["train_mask"]
+            if self.training:
+                tokenized_agent["train_mask"]=data["agent"]["train_mask"]
 
         else:
             tokenized_agent = {}
