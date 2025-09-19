@@ -15,8 +15,12 @@ model:
       agent_token_sampling: # closed-loop
         num_k: 1 # for k nearest neighbors
         temp: 1.0
+    validation_rollout_sampling:
+      criterium: topk_prob
+      num_k: 48 # for k most likely
+      temp: 1.0
 
-ckpt_path: null
+ckpt_path: '~/sim/smart/src/logs/debug_open_source/runs/2025-09-18_08-07-43/bc/hr9qr2kg/checkpoints/epoch=3-step=121752.ckpt'
 # ckpt_path: CKPT_FOR_RESUME.ckpt # to resume training
 
 trainer:
