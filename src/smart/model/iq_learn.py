@@ -309,11 +309,11 @@ class IQ_SoftQ(LightningModule):
         else:
             kl_per_token=0
 
-        rewards,nei_sum_rewards = disc_out[2]#.detach()
+        ego_rewards,nei_sum_rewards = disc_out[2]#.detach()
 
         weight= disc_out[3]
 
-        rewards=rewards+kl_per_token
+        rewards=ego_rewards+nei_sum_rewards+kl_per_token
 
         # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
         #
@@ -382,8 +382,11 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_rewards", rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_rewards_std", ego_rewards.std().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_all_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
+
         self.log("train/"+key+"_return", returns.mean().item(), on_step=True, batch_size=1)
 
         # if "a2a_entropy" in tokenized_agent.keys():

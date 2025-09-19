@@ -95,7 +95,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_ego_loop=False
         self.use_counterfactual=False
-        self.use_edge_feature=False
+        self.use_edge_feature=True
 
         if discriminator and self.use_counterfactual:
             self.a2a_attn_layers = nn.ModuleList(
@@ -165,7 +165,7 @@ class InterativeDecoder(nn.Module):
 
                 if self.learn_weight:
                     self.token_predict_head= MLPLayer(
-                        input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                        input_dim=hidden_dim*3, hidden_dim=hidden_dim*2, output_dim=n_token_agent
                     )
                 else:
                     self.token_predict_head = MLPLayer(
@@ -460,8 +460,6 @@ class InterativeDecoder(nn.Module):
 
                 nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
-                rewards=rewards+nei_sum_rewards
-
                 rewards=(rewards.detach(),nei_sum_rewards.detach())
 
             elif self.use_counterfactual:
@@ -494,8 +492,8 @@ class InterativeDecoder(nn.Module):
                 #
                 # rewards=torch.stack(reward_list)
             else:
-                rewards=next_token_logits[:,:,0].detach(),None
+                rewards=next_token_logits[:,:,0].detach(),torch.tensor(0.0)
         else:
-            rewards=None,None
+            rewards=torch.tensor(0.0),torch.tensor(0.0)
 
         return next_token_logits,feat_a_all,proposal,rewards,weight
