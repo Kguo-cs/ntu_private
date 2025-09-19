@@ -795,7 +795,7 @@ class TokenProcessor(torch.nn.Module):
         if "pred_mask" in agent.keys():
             tokenized_agent["pred_mask"] = agent["pred_mask"]
 
-        if "gt_pos_raw" in agent.keys():
+        if "gt_valid_raw" in agent.keys():
             for key in ["type", "batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
@@ -830,6 +830,13 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent[key] = agent[key]
 
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
+
+            if "gt_pos_raw" in agent.keys():
+
+                for key in ["gt_pos_raw", "gt_head_raw"]:
+                    tokenized_agent[key] = agent[key]
+                tokenized_agent['gt_valid_raw'] = agent["valid_mask"]
+                tokenized_agent['train_mask_ce'] = agent["train_mask"]
 
             if self.pred_last_res:
                 for key in ["target_global_traj","target_mask"]:

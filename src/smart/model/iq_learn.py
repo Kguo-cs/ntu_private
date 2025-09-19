@@ -24,6 +24,13 @@ from src.smart.loss.kl_loss import BalancedKL
 from src.smart.loss.collision_check import oriented_box_collision,signed_distance_boxes_sat_fast,value_to_hist_class
 from src.smart.loss.offroad_check import corners_offroad_signed_distance_per_batch
 from torch_scatter import scatter_max
+from src.smart.metrics import (
+    CrossEntropy,
+    TokenCls,
+    WOSACMetrics,
+    WOSACSubmission,
+    minADE,
+)
 
 class IQ_SoftQ(LightningModule):
 
@@ -104,6 +111,11 @@ class IQ_SoftQ(LightningModule):
 
             self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
 
+        self.use_ce=False
+
+        if self.use_ce:
+            self.training_loss = CrossEntropy(**model_config.training_loss)
+
         # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
 
     # def on_after_backward(self):
@@ -153,7 +165,6 @@ class IQ_SoftQ(LightningModule):
 
             proposal_loss,proposal_log_prob,pos_dist, head_diff = get_proposal_loss(pred["proposal"], tokenized_agent,
                                                                                 self.start_step)
-
             if key=="expert":
                 all_valid_mask = valid_mask.all(-1)
 
@@ -223,10 +234,34 @@ class IQ_SoftQ(LightningModule):
 
             last_V=last_V[all_valid_mask]
 
-            #off_ratio=(action==self.token_processor.agent_token_all_veh.shape[0])[train_mask].float().mean()
-           # self.log("train/"+key+"_off_ratio", off_ratio.item(), on_step=True, batch_size=1)
 
-        action_nll = -log_prob[train_mask].mean()
+        if self.use_ce and key=="expert":
+            pred={
+                # action that goes from [(10->15), ..., (85->90)]
+                "next_token_logits": pred["agent_q"]/0.1,  # [n_agent, 16, n_token]
+                "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
+                # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
+                "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+                "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+                "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+                # for step {5, 10, ..., 90}
+                "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
+                "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
+                "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
+                # or use the tokenized gt
+                "gt_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+                "gt_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+                "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+            }
+            action_nll = self.training_loss(
+                **pred,
+                token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
+                token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
+                train_mask=tokenized_agent["train_mask_ce"],  # [n_agent]
+                current_epoch=self.current_epoch,
+            )
+        else:
+           action_nll = -log_prob[train_mask].mean()
 
         self.log("train/"+key+"_V", V.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_Q", current_Q.mean().item(), on_step=True, batch_size=1)
@@ -237,28 +272,25 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_nll", action_nll.item(), on_step=True, batch_size=1)
 
-        if self.encoder.agent_encoder.interative_decoder.filter_ratio>0:
-            self.log("train/"+key+"_a_ratio", self.encoder.agent_encoder.interative_decoder.a_ratio, on_step=True, batch_size=1)
-            self.log("train/"+key+"_pt_ratio", self.encoder.agent_encoder.interative_decoder.pt_ratio, on_step=True, batch_size=1)
 
         if self.iq_learn and not self.use_gail:
             action_nll=0
 
-        if len(pred["light_q"]) and key=="expert":
-            light_idx=tokenized_agent["light_idx"][:, 2:]
-            light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
+        # if len(pred["light_q"]) and key=="expert":
+        #     light_idx=tokenized_agent["light_idx"][:, 2:]
+        #     light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
+        #
+        #     log_prob_light,light_logpi=self.get_network_QV(pred["light_q"], tokenized_map, tokenized_agent,light_action,key)[:2]
+        #
+        #     light_mask=light_idx<self.token_processor.light_type
+        #     light_nll=-log_prob_light[light_mask].mean()
+        #     light_acc = (torch.argmax(light_logpi, dim=-1) == light_idx)#[train_mask[agent_num:]]
+        #     self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
+        #     self.log("train/" + key + "_light_nll", light_nll.item(), on_step=True, batch_size=1)
+        # else:
+        #     light_nll=0
 
-            log_prob_light,light_logpi=self.get_network_QV(pred["light_q"], tokenized_map, tokenized_agent,light_action,key)[:2]
-
-            light_mask=light_idx<self.token_processor.light_type
-            light_nll=-log_prob_light[light_mask].mean()
-            light_acc = (torch.argmax(light_logpi, dim=-1) == light_idx)#[train_mask[agent_num:]]
-            self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_light_nll", light_nll.item(), on_step=True, batch_size=1)
-        else:
-            light_nll=0
-
-        return  reward,value_loss,pi,action_nll+light_nll+proposal_loss,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
+        return  reward,value_loss,pi,action_nll,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
 

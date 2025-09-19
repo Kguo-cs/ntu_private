@@ -66,7 +66,6 @@ class CrossEntropy(Metric):
         train_mask: Optional[Tensor] = None,  # [n_agent]
         # ! for rollout_as_gt
         next_token_action: Optional[Tensor] = None,  # [n_agent, 16, 3]
-        gt_id=None,
         **kwargs,
     ) -> None:
         # ! use raw or tokenized GT
@@ -93,13 +92,11 @@ class CrossEntropy(Metric):
         if self.rollout_as_gt and (next_token_action is not None):
             euclidean_target = next_token_action
 
-        prob_target,target_token_index = get_prob_targets(
+        prob_target = get_prob_targets(
             target=euclidean_target,  # [n_agent, n_step, 3] x,y,yaw in local
             token_agent_shape=token_agent_shape,  # [n_agent, 2]
             token_traj=token_traj,  # [n_agent, n_token, 4, 2]
         )  # [n_agent, n_step, n_token] prob, last dim sum up to 1
-        #use tokenized shape to get action target
-        # print(torch.where(target_token_index!=gt_id[:,2:]))
 
         loss = cross_entropy(
             next_token_logits.transpose(1, 2),  # [n_agent, n_token, n_step], logits

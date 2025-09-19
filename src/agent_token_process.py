@@ -36,7 +36,7 @@ token_processor.eval()
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_no_pred/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pred_raw/"
 
 
 
@@ -47,6 +47,31 @@ def process_file(filename):
     input_path = os.path.join(agent_data_directory, filename)
     with open(input_path, "rb") as f:
         data = pickle.load(f)
+
+    pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
+
+    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    distance = torch.norm(pos - pos[av_index], dim=-1)
+
+    # we do not believe the perception out of range of 150 meters
+    data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+
+    # we do not predict vehicle too far away from ego car
+    role_train_mask = data["agent"]["role"].any(-1)
+    extra_train_mask = (distance[:, 10] < 100) & (
+            data["agent"]["valid_mask"][:, 10 + 1:].sum(-1) >= 5
+    )
+
+    train_mask = extra_train_mask | role_train_mask
+    if train_mask.sum() > 32:  # too many vehicle
+        _indices = torch.where(extra_train_mask & ~role_train_mask)[0]
+        selected_indices = _indices[
+            torch.randperm(_indices.size(0))[: 32 - role_train_mask.sum()]
+        ]
+        data["agent"]["train_mask"] = role_train_mask
+        data["agent"]["train_mask"][selected_indices] = True
+    else:
+        data["agent"]["train_mask"] = train_mask  # [n_agent]
 
     data1= HeteroData(data).cuda()
 
@@ -91,6 +116,12 @@ def process_file(filename):
 
     for key in ["type", "shape"]:#
         tokenized_agent[key] = agent[key]
+
+    tokenized_agent["gt_pos_raw"]=pos[:, 5:: 5]
+    tokenized_agent["gt_head_raw"]=heading[:, 5:: 5]
+
+    tokenized_agent["train_mask"]=agent["train_mask"]
+
 
     for key in tokenized_agent.keys():
         tokenized_agent[key] = tokenized_agent[key].cpu()
