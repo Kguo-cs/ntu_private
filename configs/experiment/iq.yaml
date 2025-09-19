@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-ckpt_path : '~/code/sim/src/logs/bc_edge1_drop01_t1_gnn_b40/2025-09-17_10-09-10/bc/l9nyb4tu/checkpoints/last.ckpt'
+ckpt_path : '~/code/sim/src/logs/bc_edge1_drop01_t1_gnne_b40/2025-09-18_11-16-30/bc/9aatqe95/checkpoints/last.ckpt'
 
 trainer:
   limit_train_batches: 1.0
