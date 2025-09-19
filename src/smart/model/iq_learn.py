@@ -111,7 +111,7 @@ class IQ_SoftQ(LightningModule):
 
             self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
 
-        self.use_ce=False
+        self.use_ce=True
 
         if self.use_ce:
             self.training_loss = CrossEntropy(**model_config.training_loss)
