@@ -32,7 +32,7 @@ from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
 from src.smart.plot.plot_rollout import plot_rollout
-
+import time
 
 class SMART(LightningModule):
 
@@ -73,6 +73,10 @@ class SMART(LightningModule):
         self.validation_rollout_sampling = model_config.validation_rollout_sampling
         # self.log("val_closed/wosac_likelihood/metametric", float("-inf"), prog_bar=False, on_epoch=True,
         #          rank_zero_only=True)
+
+        self.all_time=0
+        self.all_count=0
+
 
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
@@ -165,6 +169,8 @@ class SMART(LightningModule):
 
             # probs = logits_p.softmax(-1)
 
+            #t1=time.time()
+
             for _ in range(self.n_rollout_closed_val):
 
                 if self.encoder.agent_encoder.use_vae:
@@ -183,9 +189,6 @@ class SMART(LightningModule):
                 )
 
               #  plot_rollout(tokenized_agent,tokenized_map,self.token_processor,pred)
-
-
-
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])
                 pred_head.append(pred["pred_head_10hz"])
@@ -197,6 +200,8 @@ class SMART(LightningModule):
             # pred_traj=torch.load("/home/ke/code/catk/src/waymo_data/pred_traj.pt").cuda()
             # pred_z=torch.load("/home/ke/code/catk/src/waymo_data/pred_z.pt").cuda()
             # pred_head=torch.load("/home/ke/code/catk/src/waymo_data/pred_head.pt").cuda()
+            #self.all_time+=time.time()-t1
+          #  self.all_count+=    self.n_rollout_closed_val*16
 
             #print(time.time()-t1)
             #self.wosac_metrics = WOSACMetrics("val_closed")
@@ -205,6 +210,7 @@ class SMART(LightningModule):
             # torch.save(pred_z.cpu(),"pred_z.pt")
             # torch.save(pred_head.cpu(),"pred_head.pt")
 
+            #print(self.all_time/self.all_count)
 
             # ! WOSAC
             scenario_rollouts = None
