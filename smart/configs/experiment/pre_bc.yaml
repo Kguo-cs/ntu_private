@@ -19,8 +19,9 @@ model:
       criterium: topk_prob
       num_k: 48 # for k most likely
       temp: 1.0
+    val_open_loop: false
 
-ckpt_path: '~/sim/smart/src/logs/debug_open_source/runs/2025-09-18_08-07-43/bc/hr9qr2kg/checkpoints/epoch=3-step=121752.ckpt'
+#ckpt_path: '~/sim/smart/src/logs/debug_open_source/runs/2025-09-18_08-07-43/bc/hr9qr2kg/checkpoints/epoch=3-step=121752.ckpt'
 # ckpt_path: CKPT_FOR_RESUME.ckpt # to resume training
 
 trainer:
@@ -31,7 +32,7 @@ trainer:
   max_epochs: 32
 
 data:
-  train_batch_size: 4
+  train_batch_size: 6
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 32

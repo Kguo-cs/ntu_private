@@ -50,8 +50,54 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        tokenized_map = self.tokenize_map(data)
-        tokenized_agent = self.tokenize_agent(data)
+
+        if "traj_pos" in data.keys():
+
+            tokenized_map = self.tokenize_map(data)
+            tokenized_agent = self.tokenize_agent(data)
+            tokenized_agent["train_mask"]=data["agent"]["train_mask"]
+
+        else:
+            tokenized_agent = {}
+            tokenized_map = {}
+
+            map = data["tokenized_map"]
+            agent = data["tokenized_agent"]
+            tokenized_map["token_idx"] = map["token_idx"]
+            for key in ["position", "orientation"]:
+                tokenized_map[key] = map[key]
+            for key in [ "token_idx", "batch", "type", "pl_type", "light_type"]:#
+                tokenized_map[key] = map[key].long()
+
+            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask","gt_pos_raw","gt_head_raw","gt_valid_raw"]:
+                tokenized_agent[key] = agent[key]
+
+            tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
+
+            tokenized_agent["train_mask"]=agent["train_mask"]
+
+        agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
+            tokenized_agent['type']
+        )
+
+        tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
+        tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
+        tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
+
+        tokenized_map["token_traj_src"]= self.map_token_traj_src
+        tokenized_map["token_traj_src"]= self.map_token_traj_src
+        tokenized_agent['num_graphs'] = data.num_graphs
+
+        for k in ["veh", "ped", "cyc"]:
+            tokenized_agent[f"trajectory_token_{k}"] = getattr(
+                self, f"agent_token_all_{k}"
+            )[:, -1].flatten(1, 2)
+
+        tokenized_agent["gt_idx"]=tokenized_agent["sampled_idx"]
+        tokenized_agent["gt_pos"]=tokenized_agent["sampled_pos"]
+        tokenized_agent["gt_heading"]=tokenized_agent["sampled_heading"]
+
+
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
@@ -161,20 +207,22 @@ class TokenProcessor(torch.nn.Module):
             "type": data["agent"]["type"],
             "shape": data["agent"]["shape"],
            # "ego_mask": data["agent"]["role"][:, 0],  # [n_agent]
-            "token_agent_shape": agent_shape,  # [n_agent, 2]
+            #"token_agent_shape": agent_shape,  # [n_agent, 2]
             #"batch": data["agent"]["batch"],
             #"token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
             #"token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
-           # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
-           # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-           # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+           "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+           "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+           "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
         }
         # [n_token, 8]
         # for k in ["veh", "ped", "cyc"]:
         #     tokenized_agent[f"trajectory_token_{k}"] = getattr(
         #         self, f"agent_token_all_{k}"
         #     )[:, -1].flatten(1, 2)
+        if "batch" in data["agent"].keys():
+            tokenized_agent["batch"] = data["agent"]["batch"]
 
         # ! match token for each agent
         if not self.training:

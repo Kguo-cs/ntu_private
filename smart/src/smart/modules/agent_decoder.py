@@ -314,21 +314,39 @@ class SMARTAgentDecoder(nn.Module):
         batch_s,  # [n_agent*n_step]
         batch_pl,  # [n_pl*n_step]
     ):
+        n_agent=pos_a.shape[0]
         n_step = pos_a.shape[1]
         mask_pl2a = mask.transpose(0, 1).reshape(-1)
         pos_s = pos_a.transpose(0, 1).flatten(0, 1)
         head_s = head_a.transpose(0, 1).reshape(-1)
         head_vector_s = head_vector_a.transpose(0, 1).reshape(-1, 2)
-        pos_pl = pos_pl.repeat(n_step, 1)
-        orient_pl = orient_pl.repeat(n_step)
-        edge_index_pl2a = radius(
-            x=pos_s[:, :2],
-            y=pos_pl[:, :2],
-            r=self.pl2a_radius,
-            batch_x=batch_s,
-            batch_y=batch_pl,
-            max_num_neighbors=300,
-        )
+
+        if self.training:
+            pos_s1 = pos_a.flatten(0, 1)
+            batch_s1 = batch_s.flatten(0, 1).contiguous()
+
+            edge_index_pl2a = radius(
+                x=pos_s1[:, :2],
+                y=pos_pl[:, :2],
+                r=self.pl2a_radius,
+                batch_x=batch_s1,
+                batch_y=batch_pl,
+                max_num_neighbors=10000,
+            )
+
+            edge_index_pl2a[1] = (edge_index_pl2a[1] % n_step) * n_agent + edge_index_pl2a[1] // n_step
+        else:
+            pos_pl = pos_pl.repeat(n_step, 1)
+            orient_pl = orient_pl.repeat(n_step)
+            edge_index_pl2a = radius(
+                x=pos_s[:, :2],
+                y=pos_pl[:, :2],
+                r=self.pl2a_radius,
+                batch_x=batch_s,
+                batch_y=batch_pl,
+                max_num_neighbors=300,
+            )#173031
+
         edge_index_pl2a = edge_index_pl2a[:, mask_pl2a[edge_index_pl2a[1]]]
         rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
         rel_orient_pl2a = wrap_angle(
@@ -386,13 +404,30 @@ class SMARTAgentDecoder(nn.Module):
             ],
             dim=0,
         )  # [n_agent*n_step]
-        batch_pl = torch.cat(
-            [
-                map_feature["batch"] + tokenized_agent["num_graphs"] * t
-                for t in range(n_step)
-            ],
-            dim=0,
-        )  # [n_pl*n_step]
+
+        if self.training:
+            batch_pl = map_feature["batch"]
+            batch_s1=tokenized_agent["batch"].unsqueeze(1).repeat(1, n_step)
+        else:
+            batch_pl = torch.cat(
+                [
+                    map_feature["batch"] + tokenized_agent["num_graphs"] * t
+                    for t in range(n_step)
+                ],
+                dim=0,
+            )  # [n_pl*n_step]
+            batch_s1=batch_s
+
+        edge_index_pl2a, r_pl2a = self.build_map2agent_edge(
+            pos_pl=map_feature["position"],  # [n_pl, 2]
+            orient_pl=map_feature["orientation"],  # [n_pl]
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask,  # [n_agent, n_step]
+            batch_s=batch_s1,  # [n_agent*n_step]
+            batch_pl=batch_pl,  # [n_pl*n_step]
+        )
 
         edge_index_a2a, r_a2a = self.build_interaction_edge(
             pos_a=pos_a,  # [n_agent, n_step, 2]
@@ -402,22 +437,15 @@ class SMARTAgentDecoder(nn.Module):
             mask=mask,  # [n_agent, n_step]
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        edge_index_pl2a, r_pl2a = self.build_map2agent_edge(
-            pos_pl=map_feature["position"],  # [n_pl, 2]
-            orient_pl=map_feature["orientation"],  # [n_pl]
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_a=head_a,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            mask=mask,  # [n_agent, n_step]
-            batch_s=batch_s,  # [n_agent*n_step]
-            batch_pl=batch_pl,  # [n_pl*n_step]
-        )
 
         # ! attention layers
         # [n_step*n_pl, hidden_dim]
-        feat_map = (
-            map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
-        )
+        if self.training:
+            feat_map=map_feature["pt_token"]
+        else:
+            feat_map = (
+                map_feature["pt_token"].unsqueeze(0).expand(n_step, -1, -1).flatten(0, 1)
+            )
 
         for i in range(self.num_layers):
             feat_a = feat_a.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
