@@ -27,7 +27,7 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 agent_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_a/"
-ouput_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_smart_highest/"
+ouput_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_smart_highestvalid/"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
@@ -37,12 +37,12 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    # pos = data["agent"]["position"]
-    # av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-    # distance = torch.norm(pos - pos[av_index], dim=-1)
-    #
-    # # we do not believe the perception out of range of 150 meters
-    # data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+    pos = data["agent"]["position"]
+    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    distance = torch.norm(pos - pos[av_index], dim=-1)
+
+    # we do not believe the perception out of range of 150 meters
+    data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
     #
     # # we do not predict vehicle too far away from ego car
     # role_train_mask = data["agent"]["role"].any(-1)
