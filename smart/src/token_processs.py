@@ -9,10 +9,10 @@ from pathlib import Path
 from torch_geometric.data import HeteroData
 import sys
 
-torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("highest")
 
 
-sys.path.append('/home/ke/code/catk')
+sys.path.append('/home/ke/code/sim')
 
 
 from src.smart.tokens.token_processor import TokenProcessor
@@ -27,7 +27,7 @@ token_processor = TokenProcessor(
 token_processor.eval()
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_smart/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_smart_highest/"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
@@ -37,29 +37,29 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    pos = data["agent"]["position"]
-    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
-    distance = torch.norm(pos - pos[av_index], dim=-1)
-
-    # we do not believe the perception out of range of 150 meters
-    data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
-
-    # we do not predict vehicle too far away from ego car
-    role_train_mask = data["agent"]["role"].any(-1)
-    extra_train_mask = (distance[:, 10] < 100) & (
-            data["agent"]["valid_mask"][:, 10 + 1:].sum(-1) >= 5
-    )
-
-    train_mask = extra_train_mask | role_train_mask
-    if train_mask.sum() > 32:  # too many vehicle
-        _indices = torch.where(extra_train_mask & ~role_train_mask)[0]
-        selected_indices = _indices[
-            torch.randperm(_indices.size(0))[: 32 - role_train_mask.sum()]
-        ]
-        data["agent"]["train_mask"] = role_train_mask
-        data["agent"]["train_mask"][selected_indices] = True
-    else:
-        data["agent"]["train_mask"] = train_mask  # [n_agent]
+    # pos = data["agent"]["position"]
+    # av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    # distance = torch.norm(pos - pos[av_index], dim=-1)
+    #
+    # # we do not believe the perception out of range of 150 meters
+    # data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
+    #
+    # # we do not predict vehicle too far away from ego car
+    # role_train_mask = data["agent"]["role"].any(-1)
+    # extra_train_mask = (distance[:, 10] < 100) & (
+    #         data["agent"]["valid_mask"][:, 10 + 1:].sum(-1) >= 5
+    # )
+    #
+    # train_mask = extra_train_mask | role_train_mask
+    # if train_mask.sum() > 32:  # too many vehicle
+    #     _indices = torch.where(extra_train_mask & ~role_train_mask)[0]
+    #     selected_indices = _indices[
+    #         torch.randperm(_indices.size(0))[: 32 - role_train_mask.sum()]
+    #     ]
+    #     data["agent"]["train_mask"] = role_train_mask
+    #     data["agent"]["train_mask"][selected_indices] = True
+    # else:
+    #     data["agent"]["train_mask"] = train_mask  # [n_agent]
 
     data1= HeteroData(data).cuda()
 
