@@ -213,9 +213,9 @@ class TokenProcessor(torch.nn.Module):
             #"token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
             #"token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
-           #"gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
-         #  "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-          # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+           "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+          "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+          "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
         }
         # [n_token, 8]
         # for k in ["veh", "ped", "cyc"]:
