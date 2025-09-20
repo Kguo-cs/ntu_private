@@ -21,7 +21,7 @@ model:
       temp: 1.0
     validation_rollout_sampling:
       criterium: topk_prob
-      num_k: 48 # for k most likely
+      num_k: -1 # for k most likely
       temp: 1.0
     val_open_loop: False
     #val_closed_loop: False
@@ -34,15 +34,15 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  val_check_interval: 0.000002
+  #val_check_interval: 0.000002
   max_epochs: 16
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 1
+  train_batch_size: 10
   val_batch_size: 40
   test_batch_size: 10
-  num_workers: 1
+  num_workers: 28
 
 #action: validate
 action: finetune

@@ -32,7 +32,7 @@ class AgentTokenEncoder(nn.Module):
             num_freq_bands=num_freq_bands,
         )
 
-        self.use_type=False
+        self.use_type=True
 
         self.discriminator=discriminator
 
