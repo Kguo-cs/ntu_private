@@ -12,7 +12,7 @@ import sys
 torch.set_float32_matmul_precision("highest")
 
 
-sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/ke/code/catk/smart')
 
 
 from src.smart.tokens.token_processor import TokenProcessor
@@ -26,8 +26,8 @@ token_processor = TokenProcessor(
 ).cuda()
 token_processor.eval()
 
-agent_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_a/"
-ouput_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_smart_highest/"
+agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_smart_highest/"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
@@ -88,7 +88,7 @@ def process_file(filename):
     del tokenized_agent['gt_heading']
     del tokenized_agent['gt_z_raw']
 
-    tokenized_agent["train_mask"]=data["agent"]["train_mask"]
+    #tokenized_agent["train_mask"]=data["agent"]["train_mask"]
 
     for key in tokenized_agent.keys():
         tokenized_agent[key] = tokenized_agent[key].cpu()
