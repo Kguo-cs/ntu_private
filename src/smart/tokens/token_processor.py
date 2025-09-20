@@ -837,6 +837,7 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent[key] = agent[key]
                 tokenized_agent['gt_valid_raw'] = agent["valid_mask"]
                 tokenized_agent['train_mask_ce'] = agent["train_mask"]
+                tokenized_agent["valid_mask"][:,1:]=tokenized_agent["valid_mask"][:,1:] & tokenized_agent["valid_mask"][:,:-1]
 
             if self.pred_last_res:
                 for key in ["target_global_traj","target_mask"]:
