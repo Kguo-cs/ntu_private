@@ -23,6 +23,7 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from omegaconf import DictConfig
 import sys
 sys.path.append('/home/guoke/sim/smart')
+sys.path.append('/home/ke/sim/smart')
 
 from src.utils import (
     RankedLogger,
