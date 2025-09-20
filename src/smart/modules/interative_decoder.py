@@ -10,19 +10,16 @@
 # disclosure or distribution of this material and related documentation
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
-from typing import Dict, Optional
+from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 
 from src.smart.layers import MLPLayer
-from src.smart.layers.attention_layer import AttentionLayer,CacheAttention,feat_list_mask_each_agent_cached
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
+from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder
-import time
-from torch_scatter import scatter_max,scatter_mean,scatter_sum,scatter_min
-from src.smart.modules.diffusion_discriminator import Discriminator
+from torch_scatter import scatter_max,scatter_mean,scatter_sum
+from src.smart.my_model.diffusion_discriminator import Discriminator
 
 
 
@@ -253,7 +250,7 @@ class InterativeDecoder(nn.Module):
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 
-                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                feat_a_pt = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
                 if not self.use_ego_loop:
                     ego_feat = feat_a_pt.view(n_step,-1,self.hidden_dim).flatten(0,1)
@@ -268,9 +265,9 @@ class InterativeDecoder(nn.Module):
                     r_pl2a=r_pl2a[in_mask]
                     edge_index_pl2a = edge_index_pl2a[:, in_mask]
 
-                feat_a_pt, pt_attn = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                feat_a_pt = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-                feat_a, a2a_attn = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
+                feat_a = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
 
                 feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
 
@@ -322,14 +319,14 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
-                feat_a,a2a_attn = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 if  train_mask is not None and self.num_layers==1:
                     feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 
-                feat_a,pt_attn  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
         if  self.use_edge_feature and self.discriminator:
             feat_a_all = None

@@ -76,9 +76,10 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_goal=False
 
+        self.use_smart=True
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-
         if not self.training:
             if 'traj_theta' in data.keys():
                 tokenized_map = self.tokenize_map(data)
@@ -103,39 +104,39 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
-        if self.use_light:
+            if self.use_light:
 
-            lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
+                lengths_lg = torch.bincount(tokenized_agent["batch_lg"], minlength=tokenized_agent["num_graphs"]).tolist()
 
-            tokenized_agent["lengths_lg"] = lengths_lg
-            tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
-            tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
+                tokenized_agent["lengths_lg"] = lengths_lg
+                tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
+                tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
 
-        if self.pred_goal:
-            sampled_pos=tokenized_agent["sampled_pos"]
-            valid_mask=tokenized_agent["valid_mask"]
+            if self.pred_goal:
+                sampled_pos=tokenized_agent["sampled_pos"]
+                valid_mask=tokenized_agent["valid_mask"]
 
-            goal_pos=sampled_pos[:,-1]
-            goal_valid=valid_mask[:,-1:] & valid_mask
+                goal_pos=sampled_pos[:,-1]
+                goal_valid=valid_mask[:,-1:] & valid_mask
 
-            goal_valid[:,:2]=False
+                goal_valid[:,:2]=False
 
-            goal_vector=goal_pos[:,None]-sampled_pos
-            head_a=tokenized_agent["sampled_heading"]
+                goal_vector=goal_pos[:,None]-sampled_pos
+                head_a=tokenized_agent["sampled_heading"]
 
-            head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+                head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-            goal_heading=angle_between_2d_vectors(
-                ctr_vector=head_vector_a, nbr_vector=goal_vector
-            )
+                goal_heading=angle_between_2d_vectors(
+                    ctr_vector=head_vector_a, nbr_vector=goal_vector
+                )
 
-            goal_idx=(goal_heading+np.pi)//(np.pi/5) #10 directory
+                goal_idx=(goal_heading+np.pi)//(np.pi/5) #10 directory
 
-            goal_idx[~goal_valid]=10
+                goal_idx[~goal_valid]=10
 
-            tokenized_agent["goal_idx"]=goal_idx.to(torch.long)
-        else:
-            tokenized_agent["goal_idx"]=torch.zeros([0,18])
+                tokenized_agent["goal_idx"]=goal_idx.to(torch.long)
+            else:
+                tokenized_agent["goal_idx"]=torch.zeros([0,18])
 
         return tokenized_map, tokenized_agent
 
@@ -540,114 +541,6 @@ class TokenProcessor(torch.nn.Module):
 
         return out_dict
 
-    def my_match_agent_token(
-            self,
-        valid: Tensor,  # [n_agent, n_step]
-        pos: Tensor,  # [n_agent, n_step, 2]
-        heading: Tensor,  # [n_agent, n_step]
-        agent_shape: Tensor,  # [n_agent, 2]
-        token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-        noise=None
-    ) -> Dict[str, Tensor]:
-        # pos_now, head_now, valid_now = pos[:, self.shift::self.shift], heading[:, self.shift::self.shift], valid[:,
-        #                                                                                                    self.shift::self.shift]
-        # pos_2hz=torch.cat([pos[:,:1], pos_now], dim=1)
-        # heading_2hz=torch.cat([heading[:,:1], head_now], dim=1)
-        # valid_2hz=torch.cat([valid[:,:1], valid_now], dim=1)
-        # 
-        # prev_pos, prev_head = pos_2hz[:, :-1], heading_2hz[:, :-1] # [n_agent, 2], [n_agent]
-        # 
-        # # prev_pos+=0.1*torch.randn_like(prev_pos)
-        # # prev_head+=0.1*torch.randn_like(prev_head)
-        # 
-        # target_pos, target_head = transform_to_local(
-        #     pos_global=pos_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1, 2]
-        #     head_global=head_now.flatten(0, 1).unsqueeze(1),  # [n_agent*18, 1]
-        #     pos_now=prev_pos.flatten(0, 1),  # [n_agent*18, 2]
-        #     head_now=prev_head.flatten(0, 1),  # [n_agent*18]
-        # )
-        # target_pos = target_pos.view(pos_now.shape)  # n_agent, 18, 2]
-        # target_head = wrap_angle(target_head)  # [n_agent, 18]
-        # target_head = target_head.view(head_now.shape)
-        # 
-        # contour_local = cal_polygon_contour(target_pos[:,:,None],target_head[:,:,None], agent_shape[:,None,None])
-        # 
-        # dist = torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1)  # [n_batch, n_token]
-        # 
-        # token_idx_gt = dist.argmin(-1)
-        # 
-        # _valid_mask = valid_2hz[:,1:] & valid_2hz[:,:-1]
-        # _invalid_mask = ~_valid_mask
-        # 
-        # sampled_pos=pos_now.masked_fill(_invalid_mask.unsqueeze(-1), 0)
-        # sampled_heading=head_now.masked_fill(_invalid_mask, 0)
-        # 
-        # out_dict = {
-        #     "valid_mask":_valid_mask,
-        #     "sampled_idx": token_idx_gt,
-        #     "sampled_pos": sampled_pos,
-        #     "sampled_heading": sampled_heading,
-        # }
-        out_dict={}
-
-        def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
-            B, T, D = tensor.shape
-            max_future = 30
-
-            # Pad extra steps to the right to safely index up to t+30
-            padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
-
-            # Start indices every 5 steps
-            starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
-
-            # For each start t, get future steps t+1 to t+30 (exclude t)
-            offsets = torch.tensor([1,2,3,4,5,10,15,20,25,30],device=tensor.device)#torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
-            indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
-            gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
-
-            return gathered
-
-        gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
-
-        gt_traj[~valid] = 0
-
-        target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
-        out_dict["target_global_traj"] =target_global_traj[:,1:]
-
-        target_mask = target_global_traj.any(-1) != 0
-        out_dict["target_mask"] = target_mask[:, 1:]
-
-        sampled_pos = pos[:, 5::5].clone()
-        sampled_heading = heading[:, 5::5].clone()
-
-        out_dict["sampled_pos"] =  sampled_pos
-        out_dict["sampled_heading"] = sampled_heading
-
-        all_pos=torch.cat([pos[:, :1], sampled_pos], dim=1)
-        all_heading=torch.cat([heading[:, :1], sampled_heading], dim=1)
-
-        target_pos, target_head = transform_to_local(
-            pos_global=target_global_traj[..., :2].flatten(0, 1),  # [n_agent*18, 1, 2]
-            head_global= target_global_traj[..., 2].flatten(0, 1),  # [n_agent*18, 1]
-            pos_now=all_pos.flatten(0, 1),  # [n_agent*18, 2]
-            head_now=all_heading.flatten(0, 1),  # [n_agent*18]
-        )
-
-        target_pos=target_pos.reshape(-1, 19, target_global_traj.shape[2], 2)
-        target_head=target_head.reshape(-1, 19, target_global_traj.shape[2])
-
-        target_traj=torch.cat([target_pos, target_head[...,None]], dim=-1)
-
-        sampled_traj = target_traj[:, :-1,4:5]
-
-        out_dict["sampled_idx"] = self.traj_to_idx(sampled_traj, agent_shape,token_traj)
-
-        out_dict["valid_mask"] = valid[:,5::5]
-
-        gt_contour =cal_polygon_contour( pos[:, 5::5,None], heading[:, 5::5,None], agent_shape[:,None,None])[:,:,0]
-
-        out_dict["gt_contour"] =gt_contour
-        return out_dict
 
     @staticmethod
     def _clean_heading(valid: Tensor, heading: Tensor) -> Tensor:
@@ -860,6 +753,19 @@ class TokenProcessor(torch.nn.Module):
 
         else:
             tokenized_agent["light_idx"] = torch.zeros([0, 18])
+
+        tokenized_map["token_traj_src"]= self.map_token_traj_src
+        tokenized_map["token_traj_src"]= self.map_token_traj_src
+
+        for k in ["veh", "ped", "cyc"]:
+            tokenized_agent[f"trajectory_token_{k}"] = getattr(
+                self, f"agent_token_all_{k}"
+            )[:, -1].flatten(1, 2)
+
+        tokenized_agent["gt_idx"]=tokenized_agent["sampled_idx"]
+        tokenized_agent["gt_pos"]=tokenized_agent["sampled_pos"]
+        tokenized_agent["gt_heading"]=tokenized_agent["sampled_heading"]
+
 
         return tokenized_map, tokenized_agent
 

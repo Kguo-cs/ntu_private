@@ -39,7 +39,6 @@ class IQ_SoftQ(LightningModule):
         self.gamma = 0.99
         self.iq_learn=self.encoder.iq_learn
         self.alpha = self.encoder.alpha
-        self.n_token_agent=self.encoder.agent_encoder.n_token_agent
 
         self.use_target_q=False
 
@@ -60,7 +59,7 @@ class IQ_SoftQ(LightningModule):
             for param in self.target_net.parameters():
                 param.requires_grad = False
 
-        self.use_kl_penalty=self.encoder.agent_encoder.use_kl_penalty
+        self.use_kl_penalty=self.encoder.use_kl_penalty
 
         if self.use_kl_penalty:
             self.bc_net = copy.deepcopy(self.encoder.agent_encoder)
@@ -89,7 +88,7 @@ class IQ_SoftQ(LightningModule):
             self.ego_return_meanstd=RunningMeanStdTorch(shape=(1))
             self.global_return_meanstd=RunningMeanStdTorch(shape=(1))
 
-        self.use_lcf=self.encoder.agent_encoder.use_lcf
+        self.use_lcf=self.encoder.use_lcf
 
         self.dis_loss="gail"
 
@@ -107,7 +106,7 @@ class IQ_SoftQ(LightningModule):
 
         #self.automatic_optimization=False
 
-        if self.encoder.agent_encoder.use_vae:
+        if self.encoder.use_vae:
 
             self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
 
@@ -161,7 +160,7 @@ class IQ_SoftQ(LightningModule):
 
         pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
 
-        if pred["proposal"] is not None:
+        if "proposal" in pred.keys():
 
             proposal_loss,proposal_log_prob,pos_dist, head_diff = get_proposal_loss(pred["proposal"], tokenized_agent,
                                                                                 self.start_step)
@@ -299,13 +298,13 @@ class IQ_SoftQ(LightningModule):
         # sampled_heading=torch.round(wrap_angle(tokenized_agent["sampled_heading"])/10)*10#tokenized_agent["sampled_heading"]#
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                        tokenized_agent["goal_idx"],
+                                                        None,
                                                         tokenized_agent["valid_mask"],#expert_
                                                         sampled_pos,
                                                         sampled_heading ,
                                                         tokenized_agent,
                                                         tokenized_agent["detach_map_feature"],
-                                                        tokenized_agent["light_idx"],
+                                                        [],
                                                         None,
                                                        # latent_z=tokenized_agent["latent_z"]
                                                         )#[0]#Metrics-Guided Adversarial Training
@@ -495,7 +494,7 @@ class IQ_SoftQ(LightningModule):
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            if self.iq_learn and self.encoder.agent_encoder.use_roformer:
+            if self.iq_learn and self.encoder.use_roformer:
                 self.encoder.agent_encoder.a_t_roformer.attn.caching = True
                 if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
@@ -509,7 +508,7 @@ class IQ_SoftQ(LightningModule):
         #     expert_nll=expert_nll+0.1*a2a_entropy
 
 
-        if self.encoder.agent_encoder.use_vae:
+        if self.encoder.use_vae:
             latent_post=tokenized_agent["latent_post"]
             latent_prior=tokenized_agent["latent_prior"]
 
@@ -545,17 +544,17 @@ class IQ_SoftQ(LightningModule):
 
 
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
-                if self.encoder.agent_encoder.pred_col:
+                if self.encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
 
                     expert_nll=expert_nll+col_loss
 
-            expert_light_idx=tokenized_agent["light_idx"].clone()
+            #expert_light_idx=tokenized_agent["light_idx"].clone()
 
             #if self.dis_loss=="wgan":
-            tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
-            tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
-            tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
+          #  tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
+            #tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
+           # tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
 
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
@@ -603,9 +602,9 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
                 self.log("train/expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
 
-            tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent)
+            tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,self.validation_rollout_sampling)
 
-            if self.encoder.agent_encoder.pred_light:
+            if self.encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             #tokenized_agent_rollout["train_mask"]=None
@@ -646,7 +645,7 @@ class IQ_SoftQ(LightningModule):
                 critic_loss=expert_dis_loss + agent_dis_loss
 
 
-                if self.encoder.agent_encoder.pred_col:
+                if self.encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent_rollout,tokenized_map,agent_disc_feat,None,all_valid,'agent')
 
                     expert_nll=expert_nll+col_loss

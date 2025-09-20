@@ -14,17 +14,11 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
-from omegaconf import DictConfig
 from torch import Tensor
 
-from .agent_decoder import SMARTAgentDecoder
-from .map_decoder import SMARTMapDecoder
+
 from src.smart.layers import MLPLayer
-from .interative_decoder import InterativeDecoder
 import torch.nn.functional as F
-from src.smart.loss.kl_loss import DiagGaussian
-from src.smart.modules.value_head import PopArtHead
-from src.smart.modules.add_spectral_norm import add_spectral_norm_recursively
 
 class SMARTDecoder(nn.Module):
 
@@ -61,49 +55,94 @@ class SMARTDecoder(nn.Module):
         self.use_critic=False
         self.learn_lcf=False
 
+        self.use_smart=token_processor.use_smart
+
+        self.use_lcf=True
+        self.use_vae=False
+        self.pred_col=False
+        self.use_infogail=False
+        self.use_kl_penalty=False
+        self.use_roformer=False
+        self.pred_light=False
+
         if self.tokenizer_training:
             from src.smart.loss.vq_vae import VQVAE
 
             self.vq_vae=VQVAE(token_processor)
 
         else:
-            self.map_encoder = SMARTMapDecoder(
-                hidden_dim=hidden_dim,
-                pl2pl_radius=pl2pl_radius,
-                num_freq_bands=num_freq_bands,
-                num_layers=num_map_layers,
-                num_heads=num_heads,
-                head_dim=head_dim,
-                dropout=dropout,
-                pt2pt_neighbor=pt2pt_neighbor,
-                token_processor=token_processor
-            )
+            if self.use_smart:
+                self.alpha = 1
+                from .old_agent_decoder import SMARTAgentDecoder
+                from .old_map_encoder import SMARTMapDecoder
 
-            self.alpha=0.1
+                self.map_encoder = SMARTMapDecoder(
+                    hidden_dim=hidden_dim,
+                    pl2pl_radius=10,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=3,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                )
 
-            self.agent_encoder = SMARTAgentDecoder(
-                hidden_dim=hidden_dim,
-                num_historical_steps=num_historical_steps,
-                num_future_steps=num_future_steps,
-                time_span=time_span,
-                pl2a_radius=pl2a_radius,
-                a2a_radius=a2a_radius,
-                num_freq_bands=num_freq_bands,
-                num_layers=num_agent_layers,
-                num_heads=num_heads,
-                head_dim=head_dim,
-                dropout=dropout,
-                hist_drop_prob=hist_drop_prob,
-                n_token_agent=n_token_agent,
-                pt2a_neighbor=pt2a_neighbor,
-                a2a_neighbor=a2a_neighbor,
-                token_processor=token_processor,
-                alpha=self.alpha,
-                output_gmm=False,
-                pred_last_res=token_processor.pred_last_res,
-                pred_all_res=token_processor.pred_all_res,
-            )
-            if self.agent_encoder.use_vae:
+                self.agent_encoder = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=time_span,
+                    pl2a_radius=30,
+                    a2a_radius=a2a_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=6,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    hist_drop_prob=hist_drop_prob,
+                    n_token_agent=n_token_agent,
+                )
+            else:
+                from .agent_decoder import SMARTAgentDecoder
+                from .map_decoder import SMARTMapDecoder
+                self.alpha = 0.1
+
+                self.map_encoder = SMARTMapDecoder(
+                    hidden_dim=hidden_dim,
+                    pl2pl_radius=pl2pl_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=num_map_layers,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    pt2pt_neighbor=pt2pt_neighbor,
+                    token_processor=token_processor
+                )
+
+                self.agent_encoder = SMARTAgentDecoder(
+                    hidden_dim=hidden_dim,
+                    num_historical_steps=num_historical_steps,
+                    num_future_steps=num_future_steps,
+                    time_span=time_span,
+                    pl2a_radius=pl2a_radius,
+                    a2a_radius=a2a_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=num_agent_layers,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    hist_drop_prob=hist_drop_prob,
+                    n_token_agent=n_token_agent,
+                    pt2a_neighbor=pt2a_neighbor,
+                    a2a_neighbor=a2a_neighbor,
+                    token_processor=token_processor,
+                    alpha=self.alpha,
+                    output_gmm=False,
+                    pred_last_res=token_processor.pred_last_res,
+                    pred_all_res=token_processor.pred_all_res,
+                )
+            from .agent_decoder import SMARTAgentDecoder
+
+            if self.use_vae:
                 self.k_dim = self.agent_encoder.k_dim
                 self.post_net = SMARTAgentDecoder(
                     hidden_dim=hidden_dim,
@@ -187,7 +226,7 @@ class SMARTDecoder(nn.Module):
 
                 self.pred_dis_aux=True
 
-                if self.agent_encoder.pred_col:
+                if self.pred_col:
 
                     if self.agent_encoder.use_sign_dist:
                        # self.col_head = MLPLayer(hidden_dim, hidden_dim, 3)
@@ -205,7 +244,7 @@ class SMARTDecoder(nn.Module):
                         # if self.pred_dis_aux:
                         #    self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
 
-                if self.agent_encoder.use_infogail:
+                if self.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,
                                         num_historical_steps=num_historical_steps,
@@ -233,7 +272,7 @@ class SMARTDecoder(nn.Module):
                 if self.use_value:
                     self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)#nn.Sequential(MLPLayer(hidden_dim,hidden_dim*2,hidden_dim*2), nn.ReLU(inplace=True),nn.Linear(hidden_dim*2,1))#PopArtHead(hidden_dim)#
 
-                    if self.agent_encoder.use_lcf:
+                    if self.use_lcf:
 
                         self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
@@ -265,7 +304,7 @@ class SMARTDecoder(nn.Module):
             tokenized_agent["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
 
-        if self.agent_encoder.use_vae:
+        if self.use_vae:
             if "latent_z" not  in tokenized_agent.keys():
                 #train_mask=tokenized_agent["train_mask"].clone()
                 #tokenized_agent["train_mask"]=None
@@ -322,7 +361,7 @@ class SMARTDecoder(nn.Module):
             else:
                 tokenized_agent["latent_z"]=None
 
-        pred_dict = self.agent_encoder(tokenized_agent, map_feature, post_sampling)
+        pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 
         return pred_dict
 

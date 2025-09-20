@@ -27,7 +27,6 @@ from src.smart.metrics import (
     minADE,
 )
 from src.smart.modules.smart_decoder import SMARTDecoder
-from src.smart.tokens.token_processor import TokenProcessor
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
@@ -47,6 +46,14 @@ class SMART(LightningModule):
         self.log_epoch = -1
         self.val_open_loop = model_config.val_open_loop
         self.val_closed_loop = model_config.val_closed_loop
+
+        self.use_smart=True
+
+        if self.use_smart:
+            from src.smart.tokens.smart_token_processsor import TokenProcessor
+        else:
+            from src.smart.tokens.token_processor import TokenProcessor
+
         self.token_processor = TokenProcessor(**model_config.token_processor)
 
         self.encoder = SMARTDecoder(
@@ -135,7 +142,7 @@ class SMART(LightningModule):
             #tokenized_map,tokenized_agent = self.encoder.preprocess(tokenized_map, tokenized_agent)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
-            if self.encoder.agent_encoder.use_vae:
+            if self.encoder.use_vae:
                 # logits = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
                 #                                       tokenized_agent["goal_idx"],
                 #                                       tokenized_agent["valid_mask"][:, :2],
@@ -173,7 +180,7 @@ class SMART(LightningModule):
 
             for _ in range(self.n_rollout_closed_val):
 
-                if self.encoder.agent_encoder.use_vae:
+                if self.encoder.use_vae:
                     latent_z = mu + torch.randn_like(std) * std
 
                     tokenized_agent["latent_z"] = latent_z
@@ -185,7 +192,7 @@ class SMART(LightningModule):
                 #tokenized_agent["latent_z"] = latent_z
 
                 pred = self.encoder.agent_encoder.inference(
-                    tokenized_agent, map_feature,#post_sampling=True
+                    tokenized_agent, map_feature,self.validation_rollout_sampling
                 )
 
               #  plot_rollout(tokenized_agent,tokenized_map,self.token_processor,pred)

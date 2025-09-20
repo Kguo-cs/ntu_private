@@ -21,6 +21,7 @@ class AgentTokenEncoder(nn.Module):
         self.type_a_emb = nn.Embedding(3, hidden_dim)
         self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
         self.hidden_dim = hidden_dim
+        self.token_processor=token_processor
 
         input_dim_x_a = 2
         input_dim_token = 8
@@ -56,9 +57,9 @@ class AgentTokenEncoder(nn.Module):
     def forward(
             self,
             agent_token_index,  # [n_agent, n_step]
-            trajectory_token_veh,  # [n_token, 8]
-            trajectory_token_ped,  # [n_token, 8]
-            trajectory_token_cyc,  # [n_token, 8]
+            # trajectory_token_veh,  # [n_token, 8]
+            # trajectory_token_ped,  # [n_token, 8]
+            # trajectory_token_cyc,  # [n_token, 8]
             pos_a,  # [n_agent, n_step, 2]
             head_vector_a,  # [n_agent, n_step, 2]
             agent_type,  # [n_agent]
@@ -74,9 +75,9 @@ class AgentTokenEncoder(nn.Module):
                 ped_mask = agent_type == 1
                 cyc_mask = agent_type == 2
                 #  [n_token, hidden_dim]
-                agent_token_emb_veh = self.token_emb_veh(trajectory_token_veh)
-                agent_token_emb_ped = self.token_emb_ped(trajectory_token_ped)
-                agent_token_emb_cyc = self.token_emb_cyc(trajectory_token_cyc)
+                agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
+                agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
+                agent_token_emb_cyc = self.token_emb_cyc(self.token_processor.trajectory_token_cyc)
                 agent_token_emb = torch.zeros(
                     (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
                 )

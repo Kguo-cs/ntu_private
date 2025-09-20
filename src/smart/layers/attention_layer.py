@@ -74,7 +74,7 @@ class AttentionLayer(MessagePassing):
             r = self.attn_prenorm_r(r)
         x = x + self.attn_postnorm(self._attn_block(x_src, x_dst, r, edge_index))
         x = x + self.ff_postnorm(self._ff_block(self.ff_prenorm(x)))
-        return x,self.attention_weight
+        return x
 
     def message(
         self,

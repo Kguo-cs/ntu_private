@@ -14,29 +14,21 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
-from tensorflow.python.layers.core import dropout
-from torch_geometric.utils import subgraph
 
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer
-from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
-    angle_between_2d_vectors,
     transform_to_global,
     weight_init,
-    wrap_angle,
 )
 from torch.distributions import Categorical
-from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2,radiusGraphNearest_inv,build_batch
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, RoFormerBlock
+from .build_edge import build_batch
+from ..layers.relative_transformer import RoFormerBlock
 from src.smart.utils.rollout import cal_polygon_contour
-from src.smart.loss.gmm_dist import  GMM_Dist
 from src.smart.modules.light_encoder import LightEncoder
-from src.smart.modules.edge_encoder import EdgeEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
-import numpy as np
-from src.smart.modules.role_head import RoleHead
+
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -80,12 +72,6 @@ class SMARTAgentDecoder(nn.Module):
         self.alpha = alpha
 
         self.head_dim = hidden_dim // num_heads
-
-        self.pred_goal=token_processor.pred_goal
-
-        if self.pred_goal and not discriminator:
-            self.goal_embedding=nn.Embedding(11, hidden_dim)
-            self.goal_head = MLPLayer(hidden_dim, hidden_dim, 11)
 
         #if not discriminator:
         self.agent_token_embedding=AgentTokenEncoder(hidden_dim,num_freq_bands,token_processor,discriminator)
@@ -131,9 +117,9 @@ class SMARTAgentDecoder(nn.Module):
                                                     use_roformer=self.use_roformer
                                                     )
 
-        self.use_light = token_processor.use_light
+        self.use_light = False
         self.pred_light = True
-        self.light_type = token_processor.light_type
+        self.light_type = 5
         self.light_hist = self.agent_hist
 
         if self.use_light:
@@ -156,7 +142,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             self.pred_light=False
 
-        self.use_dynamic=token_processor.use_dynamic
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
@@ -168,7 +153,6 @@ class SMARTAgentDecoder(nn.Module):
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
         #if not discriminator:
-        self.use_lcf=True
 
         if self.interative_decoder.use_edge_feature==False:
             self.use_lcf=False
@@ -177,8 +161,10 @@ class SMARTAgentDecoder(nn.Module):
             #     self.lcf_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=10 )
             #
             #     self.svo_embedding=nn.Embedding(10, hidden_dim)
+        self.use_lcf=True
 
         self.use_infogail=False
+        self.use_vae=False
 
         if self.use_infogail and not discriminator:
             self.k1_dim=1
@@ -188,7 +174,6 @@ class SMARTAgentDecoder(nn.Module):
             self.latent_embed=nn.Embedding(self.k_dim, hidden_dim)
            # self.latent_embed=RoleHead(self.hidden_dim, self.k_dim)
 
-        self.use_vae=False
 
         if self.use_vae and not discriminator:
             self.k_dim=32
@@ -223,9 +208,9 @@ class SMARTAgentDecoder(nn.Module):
 
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
-            trajectory_token_veh=self.token_processor.trajectory_token_veh,
-            trajectory_token_ped=self.token_processor.trajectory_token_ped,
-            trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
+            # trajectory_token_veh=self.token_processor.trajectory_token_veh,
+            # trajectory_token_ped=self.token_processor.trajectory_token_ped,
+            # trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             agent_type=tokenized_agent["type"],  # [n_agent]
@@ -251,11 +236,11 @@ class SMARTAgentDecoder(nn.Module):
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
             feat_a_token=feat_a_token+latent_embedding
-
-        if self.pred_goal and not self.discriminator:
-            goal_token_emb=self.goal_embedding(goal_idx)
-            feat_a_token=feat_a_token+goal_token_emb
-
+        #
+        # if self.pred_goal and not self.discriminator:
+        #     goal_token_emb=self.goal_embedding(goal_idx)
+        #     feat_a_token=feat_a_token+goal_token_emb
+        #
 
         if len(light_idx):
             feat_lg = self.light_encoder.light_embedding(light_idx)
@@ -300,7 +285,7 @@ class SMARTAgentDecoder(nn.Module):
                 feat_a = self.feat_a_token_cache.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
 
                 for i in range(self.t_num_layers):
-                    feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)[0]
+                    feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
                 feat_a_t=feat_a.view(n_agent, -1, self.hidden_dim)
 
@@ -725,6 +710,7 @@ class SMARTAgentDecoder(nn.Module):
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
+            sampling_scheme=None,
             post_sampling=False,
             step_current_10hz=None,
             n_step_future_10hz=None,
