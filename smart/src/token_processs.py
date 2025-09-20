@@ -2,7 +2,6 @@ import multiprocessing
 import os
 import pickle
 
-from sympy.physics.units import current
 from tqdm import tqdm
 import torch
 from pathlib import Path
