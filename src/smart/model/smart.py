@@ -84,6 +84,9 @@ class SMART(LightningModule):
         self.all_time=0
         self.all_count=0
 
+        # self.wosac_submission.save_sub_file()
+        #
+        # print(1/0)
 
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)

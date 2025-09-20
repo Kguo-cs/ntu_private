@@ -103,6 +103,8 @@ class WOSACSubmission(Metric):
     def save_sub_file(self) -> None:
         self._save_shard()
         self.i_file = 0
+
+        #self.submission_dir= Path('/home/ke/code/catk/src/logs/catk_48_high/2025-09-20_15-52-59') / "wosac_submission"
         tar_file_name = self.submission_dir.as_posix() + ".tar.gz"
 
         log.info(f"Saving wosac submission files to {tar_file_name}")
