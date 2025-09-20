@@ -27,7 +27,7 @@ model:
     #val_closed_loop: False
     #finetune: true
 
-#ckpt_path : '~/keguo/sim/src/logs/bc32_histdrop01_03_formert/2025-08-26_09-40-54/sim/59h7bq2j/checkpoints/epoch=6-step=106533.ckpt'
+ckpt_path : './waymo_data/last.ckpt'
 
 trainer:
   limit_train_batches: 1.0
