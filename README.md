@@ -19,7 +19,7 @@ wlp100s0
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc_map2_drop01_roformer_t1_b40/2025-09-14_23-22-51/bc/nq50q3hk/checkpoints/epoch=62-step=767025.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc_edge1_drop01_t1_gnn_b40/2025-09-19_09-53-54/bc/l0npgll4/checkpoints/epoch=57-step=706150.ckpt ./
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf312_policygnn_type_val40/2025-09-17_15-45-53/sim/uvvhxmgy/checkpoints/epoch=7-step=45660.ckpt ./
 
