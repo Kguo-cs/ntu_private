@@ -8,25 +8,25 @@ model:
     n_vis_batch: 0
     n_vis_scenario: 0
     n_vis_rollout: 0
-    n_batch_wosac_metric: 100
+    n_batch_wosac_metric: 100000
     val_open_loop: false
     val_closed_loop: true
     validation_rollout_sampling:
       criterium: topk_prob
-      num_k: 48 #64 # for k most likely
+      num_k: 2048 #64 # for k most likely
       temp: 1.0
 
-ckpt_path: /home/ke/code/catk/src/logs/epoch_002.ckpt
+ckpt_path: './waymo_data/epoch=6-step=22428.ckpt'
 
 trainer:
   limit_train_batches: 1.0
-  limit_val_batches: 60
+  limit_val_batches: 1.0
   limit_test_batches: 1.0
   check_val_every_n_epoch: 1
 
 data:
   train_batch_size: 16
-  val_batch_size: 1
+  val_batch_size: 256
   test_batch_size: 16
   num_workers: 8
 
