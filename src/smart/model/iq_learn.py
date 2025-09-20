@@ -318,7 +318,7 @@ class IQ_SoftQ(LightningModule):
                 if self.bc_map_net is not None:
                     map_feature=self.bc_map_net(tokenized_map)
                 else:
-                    map_feature = tokenized_agent["detach_map_feature"]
+                    map_feature = tokenized_agent["map_feature"]
 
                 target_q = self.bc_net(tokenized_agent, map_feature)["agent_q"]
 
