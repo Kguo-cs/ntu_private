@@ -499,7 +499,7 @@ class SMARTAgentDecoder(nn.Module):
 
         # tokenized_agent["latent_z"]=tokenized_agent["latent_z"][:, :current_step]
 
-        goal_idx=tokenized_agent["goal_idx"][:,:2]
+        goal_idx=torch.zeros([0,2]) #tokenized_agent["goal_idx"][:,:2]
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -672,10 +672,10 @@ class SMARTAgentDecoder(nn.Module):
             #     vis=vis_mask[:,-1:] & vis
             #     vis_mask=torch.cat([vis_mask,vis],dim=1)
 
-            if self.pred_goal:
-                next_goal_idx=Categorical(logits=next_goal_logits[:, -1] / self.alpha).sample()
-
-                goal_idx = torch.cat([goal_idx, next_goal_idx[:, None]], dim=1)
+            # if self.pred_goal:
+            #     next_goal_idx=Categorical(logits=next_goal_logits[:, -1] / self.alpha).sample()
+            #
+            #     goal_idx = torch.cat([goal_idx, next_goal_idx[:, None]], dim=1)
 
 
         if self.use_roformer:

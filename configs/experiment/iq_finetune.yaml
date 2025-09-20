@@ -21,7 +21,7 @@ model:
       temp: 1.0
     validation_rollout_sampling:
       criterium: topk_prob
-      num_k: 2048 # for k most likely
+      num_k: 48 # for k most likely
       temp: 1.0
     val_open_loop: False
     #val_closed_loop: False

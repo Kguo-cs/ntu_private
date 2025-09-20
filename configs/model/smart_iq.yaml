@@ -18,7 +18,3 @@ model_config:
     pt2pt_neighbor: 20
     pt2a_neighbor: 20
     a2a_neighbor: 20
-  validation_rollout_sampling:
-    criterium: topk_prob
-    num_k: -1 # for k most likely
-    temp: 1.0
