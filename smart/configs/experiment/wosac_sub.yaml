@@ -25,7 +25,7 @@ model:
       method_link: YOUR_METHOD_LINK
       account_name: YOUR_ACCOUNT_NAME
 
-ckpt_path: "./waymo_data/full/clsft_E9.ckpt"
+ckpt_path: "~/code/sim/src/waymo_data/full/clsft_E9.ckpt"
 
 trainer:
   limit_train_batches: 1.0
