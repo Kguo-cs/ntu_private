@@ -14,12 +14,12 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment: pre_bc
+  - experiment: wosac_sub
 
 action: fit # fit, finetune, validate, test
 
 # task name, determines output directory path
-task_name: "smart_b5"
+task_name: "1"
 
 # simply provide checkpoint path to resume training
 ckpt_path: null

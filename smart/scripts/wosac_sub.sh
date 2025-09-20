@@ -15,6 +15,17 @@ python \
   action=$ACTION \
   task_name=$MY_TASK_NAME
 
+
+ACTION=test # validate, test
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate catk
+python \
+  -m src.run \
+  experiment=$MY_EXPERIMENT \
+  action=$ACTION \
+  task_name=$MY_TASK_NAME
+
 # below is for training with ddp
 # torchrun \
 #   --rdzv_id $SLURM_JOB_ID \
