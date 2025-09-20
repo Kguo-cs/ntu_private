@@ -1,0 +1,224 @@
+# Not a contribution
+# Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
+# NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
+# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+
+from typing import List
+
+import hydra
+import lightning as L
+import torch
+import wandb
+from lightning import Callback, LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.loggers import Logger
+from lightning.pytorch.loggers.wandb import WandbLogger
+from omegaconf import DictConfig
+import sys
+import os
+import torch
+import numpy as np
+import random
+
+from typing import Iterable, Pattern, Union
+
+os.environ["WANDB_SILENT"] = "true"
+
+wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+wandb.require("service")  # forces the new service backend
+# Optional: use thread start (very robust in multiprocess settings)
+settings = wandb.Settings(start_method="thread")
+os.environ["WANDB__SERVICE_WAIT"] = "3000"
+
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append('/home/ke/code/sim')
+sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
+sys.path.append('/home/ke/code/catk')
+sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
+sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
+sys.path.append('/mnt/d/code/sim')
+sys.path.append('/home/ke/keguo/sim')
+sys.path.append('/home/guoke/sim')
+working_dir=os.getcwd()
+
+print('keguo' in working_dir or "guoke" in working_dir)
+
+from src.utils import (
+    RankedLogger,
+    instantiate_callbacks,
+    instantiate_loggers,
+    log_hyperparameters,
+    print_config_tree,
+)
+
+log = RankedLogger(__name__, rank_zero_only=True)
+
+torch.set_float32_matmul_precision("highest")# #“highest” (default),
+
+# seed = 42
+# random.seed(seed)
+# np.random.seed(seed)
+# torch.manual_seed(seed)
+# torch.cuda.manual_seed(seed)
+# torch.cuda.manual_seed_all(seed)
+# torch.use_deterministic_algorithms(True)
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
+# torch.cuda.synchronize()
+# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
+# torch.backends.cuda.matmul.allow_tf32 = True
+# torch.backends.cuda.allow_tf32 = True
+# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
+
+#h800 ==4090 highest
+
+
+def run(cfg: DictConfig) -> None:
+    if cfg.get("seed"):
+        L.seed_everything(cfg.seed, workers=True)
+
+    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+
+    log.info(f"Instantiating model <{cfg.model._target_}>")
+    model: LightningModule = hydra.utils.instantiate(cfg.model, _recursive_=False)
+
+    #model=torch.compile(model)
+
+    log.info("Instantiating callbacks...")
+    callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
+
+    log.info(f"Instantiating loggers...")
+    logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
+    # setup model watching
+    for _logger in logger:
+        if isinstance(_logger, WandbLogger):
+            _logger.watch(model, log="all")
+
+    log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
+    trainer: Trainer = hydra.utils.instantiate(
+        cfg.trainer, callbacks=callbacks, logger=logger
+    )
+
+    log.info("Logging hyperparameters!")
+    log_hyperparameters(
+        {
+            "cfg": cfg,
+            "datamodule": datamodule,
+            "model": model,
+            "callbacks": callbacks,
+            "logger": logger,
+            "trainer": trainer,
+        }
+    )
+
+    log.info(f"Resuming from ckpt: cfg.ckpt_path={cfg.ckpt_path}")
+    if cfg.action == "fit":
+        log.info("Starting training!")
+        trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
+    elif cfg.action == "finetune":
+        log.info("Starting finetuning!")
+        model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
+
+        # def load_matching(
+        #         dst_module: torch.nn.Module,
+        #         src_module: torch.nn.Module,
+        #         skip: Iterable[Union[str, Pattern]] = (),
+        #         slice_overlapping: bool = False,  # set True only if you want partial copies
+        # ) -> dict:
+        #     """
+        #     Copy params from src_module -> dst_module, but only when names match and shapes match.
+        #     Optionally skip keys by substring / regex. Optionally copy overlapping slices.
+        #     Returns a summary dict with what was loaded / skipped.
+        #     """
+        #     dst_sd = dst_module.state_dict()
+        #     src_sd = src_module.state_dict()
+        #
+        #     def should_skip(k: str) -> bool:
+        #         for pat in skip:
+        #             if isinstance(pat, str):
+        #                 if pat in k:
+        #                     return True
+        #             else:  # regex
+        #                 if re.search(pat, k):
+        #                     return True
+        #         return False
+        #
+        #     to_load = {}
+        #     loaded, skipped, sliced = [], [], []
+        #
+        #     for k, w in src_sd.items():
+        #         if should_skip(k):  # explicit skip
+        #             skipped.append((k, 'pattern'))
+        #             continue
+        #         if k not in dst_sd:  # name not present in dst
+        #             skipped.append((k, 'missing in dst'))
+        #             continue
+        #
+        #         dw = dst_sd[k]
+        #         if w.shape == dw.shape:  # perfect shape match
+        #             to_load[k] = w
+        #             loaded.append(k)
+        #         elif slice_overlapping and w.ndim == dw.ndim:
+        #             # copy overlapping slice (use with caution)
+        #             take = tuple(slice(0, min(a, b)) for a, b in zip(w.shape, dw.shape))
+        #             tmp = dw.clone()
+        #             tmp[take] = w[take]
+        #             to_load[k] = tmp
+        #             sliced.append((k, w.shape, dw.shape))
+        #         else:
+        #             skipped.append((k, f'shape {tuple(w.shape)} -> {tuple(dw.shape)}'))
+        #
+        #     # merge and load without warnings
+        #     dst_sd.update(to_load)
+        #     dst_module.load_state_dict(dst_sd, strict=False)
+        #
+        #     return {"loaded": loaded, "sliced": sliced, "skipped": skipped}
+        #
+        # # model.encoder.discriminator.load_state_dict(model.encoder.agent_encoder.state_dict(), strict=False)
+        # info = load_matching(
+        #     model.encoder.discriminator,
+        #     model.encoder.agent_encoder,
+        #     skip=("interative_decoder.token_predict_head",)  # substring match
+        #     # slice_overlapping=False   # keep False to fully skip mismatched tensors
+        # )
+
+        if model.encoder.use_kl_penalty:
+            model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
+            if model.bc_map_net is not None:
+                model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
+        trainer.fit(model=model, datamodule=datamodule)#, ckpt_path=cfg.get("ckpt_path")
+    elif cfg.action == "validate":
+        log.info("Starting validating!")
+        trainer.validate(
+            model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
+        )
+    elif cfg.action == "test":
+        log.info("Starting testing!")
+        trainer.test(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
+
+
+@hydra.main(config_path="../configs/", config_name="run.yaml", version_base=None)
+def main(cfg: DictConfig) -> None:
+    torch.set_printoptions(precision=3)
+
+    log.info("Printing config tree with Rich! <cfg.extras.print_config=True>")
+    #print_config_tree(cfg, resolve=True, save_to_file=True)
+
+    run(cfg)  # train/val/test the model
+
+    log.info("Closing wandb!")
+    wandb.finish()
+    log.info(f"Output dir: {cfg.paths.output_dir}")
+
+
+if __name__ == "__main__":
+    main()
+    log.info("run.py DONE!!!")

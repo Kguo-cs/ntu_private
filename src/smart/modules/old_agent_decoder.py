@@ -458,10 +458,10 @@ class SMARTAgentDecoder(nn.Module):
             feat_a = self.a2a_attn_layers[i](feat_a, r_a2a, edge_index_a2a)
             feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1)
 
-        tokenized_agent["feat_a_nodetach"]=feat_a[:,1:-1]
 
         if "train_mask" in tokenized_agent.keys():
-            feat_a=feat_a[tokenized_agent["train_mask"]]
+            tokenized_agent["feat_a_nodetach"]=feat_a[:,1:-1]
+            feat_a = feat_a[tokenized_agent["train_mask"]]
 
         # ! final mlp to get outputs
         next_token_logits = self.token_predict_head(feat_a)
