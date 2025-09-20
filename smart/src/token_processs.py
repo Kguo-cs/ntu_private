@@ -26,8 +26,8 @@ token_processor = TokenProcessor(
 ).cuda()
 token_processor.eval()
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_smart_highest/"
+agent_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_a/"
+ouput_data_directory = "/home/ke/code/sim/src/waymo_data/full/training_smart_highest/"
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
