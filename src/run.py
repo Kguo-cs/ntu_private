@@ -125,12 +125,12 @@ def run(cfg: DictConfig) -> None:
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
     elif cfg.action == "finetune":
         log.info("Starting finetuning!")
-        model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
+       # model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
         if model.encoder.use_kl_penalty:
             model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
             if model.bc_map_net is not None:
                 model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule)#, ckpt_path=cfg.get("ckpt_path")
+        trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))#, ckpt_path=cfg.get("ckpt_path")
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
