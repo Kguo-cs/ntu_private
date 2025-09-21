@@ -113,6 +113,9 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
         #     arrowprops=dict(arrowstyle='->', lw=0.9)
         # )
     # #plot_boxes_and_trajs(tokenized_agent, t_box=11, history_horizon=11, future_horizon=80)
+
+    #plt.show()
+
     t_box = 1
     history_horizon = 2#*5
     future_horizon = 16
@@ -207,7 +210,7 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
     # history_color = (255 / 255, 230 / 255, 204 / 255, 1.0)  # rgba for #ffe6cc
     history_color = (215 / 255, 155 / 255, 0 / 255, 1.0)  # rgba for #d79b00
 
-    for t in range(hist_steps):
+    for t in range(1,hist_steps):
         mask_t = valid[:, t]
         if not np.any(mask_t):
             continue
@@ -236,7 +239,7 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
     if history_horizon < T:
         future_steps = min(future_horizon, T - history_horizon)
         cmap_future = plt.get_cmap("winter")  # dark blue→cyan
-        for k in range(future_steps):
+        for k in range(0,future_steps,2):
             t = history_horizon + k
             mask_t = valid[:, t]
             if not np.any(mask_t):
@@ -282,8 +285,8 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
 
     print( max(valid_pos[:, 1])-min(valid_pos[:, 1]))
 
-    plt.xlim(min(valid_pos[:, 0])+44.5, max(valid_pos[:, 0])-45)
-    plt.ylim(min(valid_pos[:, 1])-30, max(valid_pos[:, 1])+30)
+    #plt.xlim(min(valid_pos[:, 0])+44.5, max(valid_pos[:, 0])-45)
+    #plt.ylim(min(valid_pos[:, 1])-30, max(valid_pos[:, 1])+30)
     plt.show()
 
     # pred_traj_10hz=tokenized_agent["pred_traj_10hz"]
