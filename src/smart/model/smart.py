@@ -62,6 +62,9 @@ class SMART(LightningModule):
 
         if self.use_smart:
             set_model_for_finetuning(self.encoder, model_config.finetune)
+        else:
+            for p in self.encoder.map_encoder.parameters():
+                    p.requires_grad = False
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)

@@ -152,7 +152,7 @@ class InterativeDecoder(nn.Module):
         else:
             if self.use_edge_feature and discriminator:
 
-                self.use_iteract = False
+                self.use_iteract = True
 
                 if self.use_iteract:
                     self.ego_head= MLPLayer(
