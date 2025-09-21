@@ -278,17 +278,11 @@ class SMART(LightningModule):
                     else:
                         self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
 
-                # epoch_wosac_metrics = self.wosac_metrics.compute()
-                # epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
-                #
-                # for key, value in epoch_wosac_metrics.items():
-                #     self.log('all'+key, value, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True)
-
-
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
                 if scenario_rollouts is not None:
                     for _i_sc in range(self.n_vis_scenario):
+                        print('visualize', _i_sc)
                         _vis = VisWaymo(
                             scenario_path=data["tfrecord_path"][_i_sc],
                             save_dir=self.video_dir
