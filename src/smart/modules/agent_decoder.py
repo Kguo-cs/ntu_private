@@ -512,15 +512,15 @@ class SMARTAgentDecoder(nn.Module):
                     # if tokenized_agent["visibility"] is not None:
                     #     visibility=tokenized_agent["visibility"][:, :1]
 
-                    if self.pred_light:
-                        next_light_logits = tokenized_agent["next_light_logits"][:, :1]
-                    else:
-                        next_light_logits = []
+                    # if self.pred_light:
+                    #     next_light_logits = tokenized_agent["next_light_logits"][:, :1]
+                    # else:
+                    #     next_light_logits = []
 
-                    if self.pred_goal:
-                        next_goal_logits = tokenized_agent["next_goal_logits"][:, :1]
-                    else:
-                        next_goal_logits = []
+                    # if self.pred_goal:
+                    #     next_goal_logits = tokenized_agent["next_goal_logits"][:, :1]
+                    # else:
+                    #     next_goal_logits = []
 
 
                     feat_a = tokenized_agent["feat_a"][:, :1]
