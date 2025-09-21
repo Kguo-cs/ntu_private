@@ -131,7 +131,7 @@ class WOSACSubmission(Metric):
             uses_lidar_data=False,
             uses_camera_data=False,
             uses_public_model_pretraining=False,
-            num_model_parameters="3M",
+            num_model_parameters="7M",
             acknowledge_complies_with_closed_loop_requirement=True,
         )
         output_filename = self.submission_dir / f"submission.binproto-{self.i_file:05d}"

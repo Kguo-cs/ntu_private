@@ -45,9 +45,9 @@ def set_model_for_finetuning(model: torch.nn.Module, finetune: bool) -> None:
         except:
             log.info("No gmm_logits_head in model.agent_encoder")
 
-        _unfreeze(model.agent_encoder.t_attn_layers[1:])
-        _unfreeze(model.agent_encoder.pt2a_attn_layers[1:])
-        _unfreeze(model.agent_encoder.a2a_attn_layers[1:])
+        _unfreeze(model.agent_encoder.t_attn_layers)
+        _unfreeze(model.agent_encoder.pt2a_attn_layers)
+        _unfreeze(model.agent_encoder.a2a_attn_layers)
     # if finetune:
     #     for p in model.map_encoder.parameters():
     #         p.requires_grad = False
