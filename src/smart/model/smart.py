@@ -47,7 +47,7 @@ class SMART(LightningModule):
         self.val_open_loop = model_config.val_open_loop
         self.val_closed_loop = model_config.val_closed_loop
 
-        self.use_smart=False
+        self.use_smart=model_config.smart
 
         if self.use_smart:
             from src.smart.tokens.smart_token_processsor import TokenProcessor
