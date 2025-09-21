@@ -452,7 +452,7 @@ class SMARTAgentDecoder(nn.Module):
         # tokenized_agent["agent_token_emb"]=agent_token_emb
 
         return {
-            "proposal":proposal,
+            #"proposal":proposal,
             "goal_q":None,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
