@@ -47,7 +47,7 @@ class SMART(LightningModule):
         self.val_open_loop = model_config.val_open_loop
         self.val_closed_loop = model_config.val_closed_loop
 
-        self.use_smart=True
+        self.use_smart=False
 
         if self.use_smart:
             from src.smart.tokens.smart_token_processsor import TokenProcessor
@@ -59,7 +59,9 @@ class SMART(LightningModule):
         self.encoder = SMARTDecoder(
             **model_config.decoder,token_processor=self.token_processor, n_token_agent=self.token_processor.n_token_agent
         )
-        set_model_for_finetuning(self.encoder, model_config.finetune)
+
+        if self.use_smart:
+            set_model_for_finetuning(self.encoder, model_config.finetune)
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
