@@ -47,7 +47,7 @@ class SMART(LightningModule):
         self.val_open_loop = model_config.val_open_loop
         self.val_closed_loop = model_config.val_closed_loop
 
-        self.use_smart=False
+        self.use_smart=True
 
         if self.use_smart:
             from src.smart.tokens.smart_token_processsor import TokenProcessor
@@ -267,9 +267,11 @@ class SMART(LightningModule):
                         pred_z=pred_z,
                         pred_head=pred_head,
                     )
-                    # self.wosac_metrics.update(data["tfrecord_path"][:20], scenario_rollouts[:20])
-                    # self.wosac_metrics.update(data["tfrecord_path"][20:], scenario_rollouts[20:])
-                    self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+                    if len(scenario_rollouts) > 32:
+                        self.wosac_metrics.update(data["tfrecord_path"][:20], scenario_rollouts[:20])
+                        self.wosac_metrics.update(data["tfrecord_path"][20:], scenario_rollouts[20:])
+                    else:
+                        self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
 
                 # epoch_wosac_metrics = self.wosac_metrics.compute()
                 # epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()

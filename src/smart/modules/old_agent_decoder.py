@@ -371,15 +371,15 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent: Dict[str, torch.Tensor],
         map_feature: Dict[str, torch.Tensor],
     ) -> Dict[str, torch.Tensor]:
-        mask = tokenized_agent["valid_mask"]
-        pos_a = tokenized_agent["sampled_pos"]
-        head_a = tokenized_agent["sampled_heading"]
+        mask = tokenized_agent["valid_mask"][:,:-1]
+        pos_a = tokenized_agent["sampled_pos"][:,:-1]
+        head_a = tokenized_agent["sampled_heading"][:,:-1]
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
         n_agent, n_step = head_a.shape
 
         # ! get agent token embeddings
         feat_a = self.agent_token_embedding(
-            agent_token_index=tokenized_agent["sampled_idx"],  # [n_ag, n_step]
+            agent_token_index=tokenized_agent["sampled_idx"][:,:-1],  # [n_ag, n_step]
             trajectory_token_veh=tokenized_agent["trajectory_token_veh"],
             trajectory_token_ped=tokenized_agent["trajectory_token_ped"],
             trajectory_token_cyc=tokenized_agent["trajectory_token_cyc"],
@@ -460,21 +460,21 @@ class SMARTAgentDecoder(nn.Module):
 
 
         if "train_mask" in tokenized_agent.keys():
-            tokenized_agent["feat_a_nodetach"]=feat_a[:,1:-1]
+            tokenized_agent["feat_a_nodetach"]=feat_a[:,1:]
             feat_a = feat_a[tokenized_agent["train_mask"]]
 
         # ! final mlp to get outputs
-        next_token_logits = self.token_predict_head(feat_a)
+        next_token_logits = self.token_predict_head(feat_a[:, 1:])
 
         return {
-            "agent_q": next_token_logits[:, 1:-1],
+            "agent_q": next_token_logits,
             # action that goes from [(10->15), ..., (85->90)]
-            "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
-            "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
+          #  "next_token_logits": next_token_logits[:, 1:-1],  # [n_agent, 16, n_token]
+           # "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
             # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
-            "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
-            "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
-            "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+          #  "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+           # "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+           # "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
             # for step {5, 10, ..., 90}
            # "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
           #  "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
