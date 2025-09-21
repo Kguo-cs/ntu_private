@@ -199,7 +199,7 @@ class SMARTDecoder(nn.Module):
                     num_historical_steps=num_historical_steps,
                     num_future_steps=num_future_steps,
                     time_span=10,
-                    pl2a_radius=40,
+                    pl2a_radius=30,
                     a2a_radius=60,#20 bad
                     num_freq_bands=num_freq_bands,
                     num_layers=1,
@@ -208,7 +208,7 @@ class SMARTDecoder(nn.Module):
                     dropout=0,
                     hist_drop_prob=0,
                     n_token_agent=1,
-                    pt2a_neighbor=20,
+                    pt2a_neighbor=40,
                     a2a_neighbor=20,
                     token_processor=token_processor,
                     alpha=self.alpha,
@@ -302,9 +302,9 @@ class SMARTDecoder(nn.Module):
             map_feature = self.map_encoder(tokenized_map)
 
             if self.use_smart:
-                mask = (tokenized_map["type"] == 4) | (tokenized_map["type"] == 5)
+                #mask = (tokenized_map["type"] == 4) | (tokenized_map["type"] == 5)#[mask]
 
-                tokenized_agent["detach_map_feature"] = {k: v[mask][::2].contiguous() for k, v in map_feature.items()}
+                tokenized_agent["detach_map_feature"] = {k: v[::2].contiguous() for k, v in map_feature.items()}
             else:
                 tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
 
