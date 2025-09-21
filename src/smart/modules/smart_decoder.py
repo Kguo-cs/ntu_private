@@ -304,7 +304,7 @@ class SMARTDecoder(nn.Module):
             if self.use_smart:
                 mask = (tokenized_map["type"] == 4) | (tokenized_map["type"] == 5)
 
-                tokenized_agent["detach_map_feature"] = {k: v[mask][::2].detach() for k, v in map_feature.items()}
+                tokenized_agent["detach_map_feature"] = {k: v[mask][::2].continous() for k, v in map_feature.items()}
             else:
                 tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
 
