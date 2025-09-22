@@ -178,7 +178,7 @@ class SimulationManager:
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = self.config["max_sim_time"]
 
-        self.recording = True
+        self.recording = False
 
         if self.recording:
             self.record_path = "./results/video/record.mp4"
@@ -299,15 +299,15 @@ class SimulationManager:
             traffic_model_start=time.time()
            # rss_before = get_process_memory()
 
-            with torch.no_grad():
-                pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
-
-            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
-                pred_value=pred_dict[key]
-                tokenized_agent[key][self.control_mask,:pred_value.shape[1]] = pred_value[self.control_mask]
-
-            for key in ["pred_traj_10hz","pred_head_10hz"]:
-                tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
+            # with torch.no_grad():
+            #     pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
+            #
+            # for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
+            #     pred_value=pred_dict[key]
+            #     tokenized_agent[key][self.control_mask,:pred_value.shape[1]] = pred_value[self.control_mask]
+            #
+            # for key in ["pred_traj_10hz","pred_head_10hz"]:
+            #     tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
 
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
 
@@ -394,7 +394,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        # sleep(100)
+        sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -876,12 +876,12 @@ class SimulationManager:
     def setup_planner(self,cfg):
         self.planner = SMART(cfg.model.model_config)
 
-        if torch.cuda.is_available():
-            state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
-        else:
-            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
-
-        self.planner.load_state_dict(state_dict,strict=False)
+        # if torch.cuda.is_available():
+        #     state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
+        # else:
+        #     state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
+        #
+        # self.planner.load_state_dict(state_dict,strict=False)
         self.planner.cuda()
         self.planner.eval()
 

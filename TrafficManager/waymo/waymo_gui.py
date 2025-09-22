@@ -161,7 +161,7 @@ class GUI(Process):
 
         position=np.concatenate(self.mp_xyz, axis=0)
 
-        self.netBoundary = ((position[:,0].min(), position[:,1].min()), (position[:,0].max(), position[:,1].max()))
+        self.netBoundary = ((position[:,0].min()-100, position[:,1].min()-100), (position[:,0].max()+100, position[:,1].max()+100))
 
         # self.tl_lane_state, self.tl_lane_id = get_traffic_light_features(
         #     scenario.dynamic_map_states
