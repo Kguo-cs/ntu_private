@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import numpy as np
-from .desay_lane_graph import build_lane_graph_with_connectors,plot_lane_graph
+from .desay_lane_graph import build_lane_graph_with_connectors
 from .desay_edge_graph import build_edge_graph_from_lane_graph_topo,plot_edge_graph
+from .plot_lane_graph import  plot_lane_graph
 
 from .build_centerline import build_centerlines_from_boundaries_xyz
 
@@ -33,22 +34,26 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
             line_type = mf['attrs']["laneline_type"]
             if line_type=="solid":
                 cur_info["type"] = 7
-                plt.plot(xyz[:, 0], xyz[:, 1], color='r')
+              #  plt.plot(xyz[:, 0], xyz[:, 1], color='r')
                 #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
 
             else:#dot
                 cur_info["type"] = 6
                 # print(line_type)
-                plt.plot(xyz[:, 0], xyz[:, 1], color='g')
+                #plt.plot(xyz[:, 0], xyz[:, 1], color='g')
                 #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
                 line_dict[id]=xyz
 
         elif feature_data_type=="boundary":
             cur_info["type"] = 4
-            plt.plot(xyz[:, 0], xyz[:, 1], color='y')
+            #plt.plot(xyz[:, 0], xyz[:, 1], color='y')
             #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
             #
+            # if  id ==60:#id ==60 or
             boundary_dict[id]=xyz
+                #plt.show()
+
+               # print(id)#60,37
 
         elif feature_data_type == "speed_bump" or feature_data_type=="crosswalk":
             cur_info["type"] = 9
@@ -73,25 +78,28 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
     centerlines=build_centerlines_from_boundaries_xyz(boundary_dict)
     # ##line_dict,
-    for centerline in centerlines:
+    # for centerline in centerlines:
+    #
+    #     center=centerline.centerline
+    #
+    #     plt.plot(center[:, 0], center[:, 1], color='grey')
+    #     plt.plot(center[:2, 0], center[:2, 1], color='red')
+    #
+    # plt.xlim(-100,250)
+    # plt.ylim(0,350)
+    #
+    # plt.show()
 
-        center=centerline.centerline
+    lane_graph=build_lane_graph_with_connectors(centerlines)
 
-        plt.plot(center[:, 0], center[:, 1], color='grey')
-        plt.plot(center[:2, 0], center[:2, 1], color='red')
-
-    plt.show()
-
-    lane_graph=build_lane_graph_with_connectors(centerlines,boundary_dict)
-
-    edge_graph=build_edge_graph_from_lane_graph_topo(lane_graph,boundary_dict)
+    #edge_graph=build_edge_graph_from_lane_graph_topo(lane_graph,boundary_dict)
 
 
 
     #plot_edge_graph(edge_graph.EG)
 
 
-    #plot_lane_graph(G)
+    plot_lane_graph(lane_graph)
 
     # # print(len(polylines))
     #
