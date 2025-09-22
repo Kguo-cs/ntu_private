@@ -4,7 +4,7 @@ import numpy as np
 from .desay_lane_graph import build_lane_graph_with_connectors,plot_lane_graph
 from .desay_edge_graph import build_edge_graph_from_lane_graph_topo,plot_edge_graph
 
-from .build_centerline import build_centerlines_from_dicts
+from .build_centerline import build_centerlines_from_boundaries_xyz
 
 def decode_map_features_from_json(annotation,remove_mapid=[]):
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
@@ -71,8 +71,8 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
             map_infos["crosswalk"].append(cur_info)
 
 
-    centerlines=build_centerlines_from_dicts(line_dict,boundary_dict)
-    # #
+    centerlines=build_centerlines_from_boundaries_xyz(boundary_dict)
+    # ##line_dict,
     for centerline in centerlines:
 
         center=centerline.centerline
