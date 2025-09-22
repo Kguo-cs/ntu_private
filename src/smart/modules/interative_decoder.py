@@ -440,7 +440,7 @@ class InterativeDecoder(nn.Module):
 
                         weight=agent_num[end_idx]
 
-                        weight=1/weight
+                        weight=1/weight[:,None]
 
                     interact_logits=next_token_logits[:,:,:1]*weight[:,None]
 
