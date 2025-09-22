@@ -27,7 +27,7 @@ model:
 
     smart: false
 
-ckpt_path: './ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL24_lcf336_val40_epoch=5-step=121752_0.7880.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -43,4 +43,4 @@ data:
   shuffle: false
   pin_memory: false
 
-action: test
+action: validate

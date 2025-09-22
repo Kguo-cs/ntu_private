@@ -22,7 +22,7 @@ rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/catk_highest3/2025-09-20_2
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc_edge1_drop01_t1_gnn_b40/2025-09-19_09-53-54/bc/l0npgll4/checkpoints/epoch=57-step=706150.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/AIRL24_lcf336_val40/2025-09-22_10-14-21/sim/unybrz6m/checkpoints/epoch=5-step=121752.ckpt ./
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf312_val40_learnmap/2025-09-19_10-35-35/sim/gothrsl7/checkpoints/epoch=4-step=30440.ckpt ./
 
