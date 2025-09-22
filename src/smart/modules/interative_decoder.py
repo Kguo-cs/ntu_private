@@ -437,9 +437,9 @@ class InterativeDecoder(nn.Module):
                     else:
                         weight=torch.exp(-dist[:,None]/3)*3
 
-                    interact_logits=next_token_logits[:,:,:1]*weight[:,None]
+                    interact_logits=next_token_logits[:,:,:1]#*weight[:,None]
 
-                    interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
+                    interact_logits_sum = scatter_mean(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
 
                     rewards=interact_logits_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
 
@@ -458,21 +458,21 @@ class InterativeDecoder(nn.Module):
                     rewards = next_token_logits[:,:,-1]
                     next_token_logits = next_token_logits.view(-1,1,1)
 
-                # all_rewards=torch.zeros_like(head_a)
-                #
-                # all_rewards[train_mask]=rewards
-                #
-                # weight2=torch.exp(-dist/3)*6
-                #
-                # flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
-                #
-                # weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight2
-                #
-                # nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
-                #
-                # nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+                all_rewards=torch.zeros_like(head_a)
 
-                rewards=(rewards.detach(),0)
+                all_rewards[train_mask]=rewards
+
+                weight2=torch.exp(-dist/3)*6
+
+                flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
+
+                weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight2
+
+                nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
+
+                nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+
+                rewards=(rewards.detach(),nei_sum_rewards.detach())
 
             elif self.use_counterfactual:
 
