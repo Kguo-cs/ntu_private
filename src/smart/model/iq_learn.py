@@ -688,7 +688,7 @@ class IQ_SoftQ(LightningModule):
 
                     if self.use_lcf:
 
-                        if nei_rewards==0:
+                        if nei_rewards is 0:
                             nei_rewards = get_nei_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
 
                         nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]
