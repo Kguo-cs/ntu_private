@@ -28,7 +28,7 @@ model:
     finetune: true
     smart : false
 
-ckpt_path : './logs/AIRL24_lcf336_val40/2025-09-22_10-14-21/sim/unybrz6m/checkpoints/last.ckpt' #'./ckpts/bc_map2_gnntype_drop01_t1_b40_epoch=58-step=718325_0.78605.ckpt' #'./ckpts/bc_map2_drop01_t1_b40_epoch=56-step=693975_0.78457.ckpt' #'./ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt'
+ckpt_path : './logs/AIRL24_lcf336_val40/2025-09-22_16-28-36/sim/06awnh8i/checkpoints/last.ckpt' #'./ckpts/bc_map2_gnntype_drop01_t1_b40_epoch=58-step=718325_0.78605.ckpt' #'./ckpts/bc_map2_drop01_t1_b40_epoch=56-step=693975_0.78457.ckpt' #'./ckpts/bc32_l3_adamw_histdrop01_a20_epoch=26-step=410913-val_closed_wosac=0.7856.ckpt'
 #'./logs/AIRL80_lcf336_val40_learnmap/2025-09-19_09-51-32/sim/yoiayy5f/checkpoints/last.ckpt' #~/code/sim/src/logs/AIRL24_lcf336_val40/2025-09-22_10-14-21/sim/unybrz6m/checkpoints
 trainer:
   limit_train_batches: 1.0
