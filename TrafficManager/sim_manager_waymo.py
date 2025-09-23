@@ -60,6 +60,7 @@ from desay_utils.check_oclluded import check_occlusion_fully_batched
 from desay_utils.decay_data_process import decode_map_features_from_json
 from desay_utils.idm_policy import idm_planner
 from desay_utils.random_trip import TrafficGenerator
+from collections import Counter
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -457,15 +458,18 @@ class SimulationManager:
                     end_at_last_point=True  # 终点为末尾 edge 的尾点
                 )
                 agents = TG.generate_batch(
-                    density01=0.6,
+                    density01=1,
                     class_ratio={"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1},
                     ego_edge_ids=ego_edge_ids,
                     seed=self.random_seed,
                     lift_to_lane_ids=True
                 )
 
-                print(f"生成 {len(agents)} 个参与者")
-                # print(agents[0].agent_id, agents[0].cls, agents[0].avg_speed_mps, len(agents[0].edge_ids))
+                counts = Counter(a["cls"] for a in agents)
+                print("Agent counts by type:")
+                for cls, n in counts.items():
+                    print(f"  {cls}: {n}")
+                    # print(agents[0].agent_id, agents[0].cls, agents[0].avg_speed_mps, len(agents[0].edge_ids))
 
                 agent_num=1+len(agents)#len(agents)
 

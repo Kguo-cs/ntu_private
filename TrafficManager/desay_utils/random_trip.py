@@ -26,6 +26,7 @@ def _to_xyz(arr) -> np.ndarray:
     return a
 
 def _arclen2d(xy: np.ndarray) -> np.ndarray:
+    if len(xy) < 2: return np.array([0.0])
     d = np.linalg.norm(np.diff(xy, axis=0), axis=1)
     return np.concatenate([[0.0], np.cumsum(d)])
 
@@ -109,22 +110,57 @@ class TrafficGenerator:
         vehicle_classes: Optional[Set[str]] = None,
         pedestrian_classes: Optional[Set[str]] = None
     ):
+        """
+        EG (edge graph):
+          - edges must have: 'id'
+          - preferred: 'geom' ([N,3]) for representative geometry; fallback to 'shape_xyz'
+          - optional: 'length_m' (else computed)
+          - optional: 'lanes' -> list of lane edge IDs (from G_lane)
+
+        G_lane (lane graph):
+          - read lane centerlines from edges with kind == 'lane' -> 'id', 'geom'
+        """
         self.EG = EG
         self.G_lane = G_lane
         self.router = router_func
         self._EID: Optional[nx.DiGraph] = None
 
-        # cache edge shapes & lengths
+        # cache edge shapes & lengths (prefer 'geom' from edge graph)
         self.edge_shapes: Dict[Any, np.ndarray] = {}
         self.edge_lengths: Dict[Any, float] = {}
+        self.edge_member_lanes: Dict[Any, List[Any]] = {}
+
         for _, _, ed in EG.edges(data=True):
             eid = _key_id(ed["id"])
-            P = _to_xyz(ed["shape_xyz"])
+            geom = ed.get("geom", ed.get("shape_xyz", None))
+            if geom is None:
+                # last resort: straight line between node xyz if available
+                pu = EG.nodes[_key_id(_[0])].get("xyz") if _ else None  # not reliable in this scope
+                pv = EG.nodes[_key_id(_[1])].get("xyz") if _ else None
+                if pu is not None and pv is not None:
+                    geom = np.vstack([_to_xyz(pu)[0], _to_xyz(pv)[0]])
+                else:
+                    raise ValueError(f"Edge {eid} missing 'geom'/'shape_xyz' and node xyz fallback failed.")
+            P = _to_xyz(geom)
             self.edge_shapes[eid] = P
             self.edge_lengths[eid] = float(ed.get("length_m", _arclen2d(P[:, :2])[-1]))
+            # member lane IDs (keep as keys)
+            lanes = ed.get("lanes", [])
+            self.edge_member_lanes[eid] = [_key_id(l) for l in lanes] if lanes is not None else []
 
-        # lane centerlines
-        self.lane_xyz: Dict[Any, np.ndarray] = { _key_id(lid): _to_xyz(nd["xyz"]) for lid, nd in G_lane.nodes(data=True) }
+        # lane centerlines from lane graph EDGES (kind == 'lane')
+        self.lane_xyz: Dict[Any, np.ndarray] = {}
+        for u, v, ed in G_lane.edges(data=True):
+            if ed.get("kind") == "lane":
+                lid = _key_id(ed.get("id", ed.get("edge_id", f"{u}->{v}")))
+                geom = ed.get("geom", None)
+                if geom is None:
+                    # fallback from u/v node xyz if present
+                    pu = G_lane.nodes[u].get("xyz"); pv = G_lane.nodes[v].get("xyz")
+                    if pu is not None and pv is not None:
+                        geom = np.vstack([_to_xyz(pu)[0], _to_xyz(pv)[0]])
+                if geom is not None:
+                    self.lane_xyz[lid] = _to_xyz(geom)
 
         # boundaries list + lengths
         if boundary_xyz is None:
@@ -139,7 +175,7 @@ class TrafficGenerator:
         self.vehicle_classes = set(vehicle_classes) if vehicle_classes is not None else {"car", "truck", "bicycle"}
         self.pedestrian_classes = set(pedestrian_classes) if pedestrian_classes is not None else {"pedestrian"}
 
-    # ---- ego route (unchanged) ----
+    # ---- ego route (unchanged API, uses new edge_shapes) ----
     def random_ego_edge_route(self, *, seed: Optional[int]=0, min_len_m: float=30.0, max_len_m: float=5000.0,
                               attempts: int=200, weight_attr: str="weight",
                               sample_start_on_edge: bool=True, end_at_last_point: bool=True
@@ -157,7 +193,7 @@ class TrafficGenerator:
                 edge_path = nx.shortest_path(EID, s_eid, g_eid, weight="weight")
             except nx.NetworkXNoPath:
                 continue
-            parts=[];
+            parts=[]
             for i,eid in enumerate(edge_path):
                 P = self.edge_shapes[eid]
                 if i==0 and sample_start_on_edge:
@@ -242,23 +278,28 @@ class TrafficGenerator:
 
     def _spawn_on_random_lane_of_edge(self, start_edge_id: Any, rng: np.random.Generator) -> Tuple[np.ndarray, float, float]:
         """Return start_xyz, heading_rad, and s (projected onto edge shape for de-dup)."""
-        # lanes for edge
-        lanes = None
-        for _,_,ed in self.EG.edges(data=True):
-            if _key_id(ed["id"]) == _key_id(start_edge_id):
-                lanes = list(ed.get("lanes", [])); break
-        lanes = [_key_id(l) for l in (lanes or [])]
-        if lanes:
-            lid = _key_id(rng.choice(lanes)); L = self.lane_xyz.get(lid)
-            if L is not None and len(L) >= 2:
-                sL = _arclen2d(L[:, :2]); u = float(rng.uniform(0.0, sL[-1] if sL[-1] > 0 else 0.0))
-                xyz = _interp_xyz_at_s(L, sL, u); heading = _heading_at_s_dir(L, sL, u, dir_sign=+1)
-                # project to edge for s bookkeeping
-                ls_edge = LineString(self.edge_shapes[_key_id(start_edge_id)][:, :2])
-                s_on = float(ls_edge.project(Point(float(xyz[0]), float(xyz[1]))))
-                return xyz, heading, s_on
-        # fallback to edge shape
-        P = self.edge_shapes[_key_id(start_edge_id)]; sP = _arclen2d(P[:, :2])
+        eid = _key_id(start_edge_id)
+        # gather lane members from EG (lane edge IDs from G_lane)
+        member_lane_ids = self.edge_member_lanes.get(eid, [])
+        chosen_geom = None
+        if member_lane_ids:
+            # filter to those we actually have in lane_xyz dict
+            avail = [lid for lid in member_lane_ids if lid in self.lane_xyz]
+            if avail:
+                lid = _key_id(rng.choice(avail))
+                L = self.lane_xyz[lid]
+                if len(L) >= 2:
+                    sL = _arclen2d(L[:, :2])
+                    u = float(rng.uniform(0.0, sL[-1] if sL[-1] > 0 else 0.0))
+                    xyz = _interp_xyz_at_s(L, sL, u)
+                    heading = _heading_at_s_dir(L, sL, u, dir_sign=+1)
+                    # project sample onto the representative edge geometry for s bookkeeping
+                    ls_edge = LineString(self.edge_shapes[eid][:, :2])
+                    s_on = float(ls_edge.project(Point(float(xyz[0]), float(xyz[1]))))
+                    return xyz, heading, s_on
+                chosen_geom = L
+        # fallback to representative edge geometry
+        P = self.edge_shapes[eid]; sP = _arclen2d(P[:, :2])
         u = float(rng.uniform(0.0, sP[-1] if sP[-1] > 0 else 0.0))
         xyz = _interp_xyz_at_s(P, sP, u); heading = _heading_at_s_dir(P, sP, u, dir_sign=+1)
         return xyz, heading, u
@@ -349,7 +390,9 @@ class TrafficGenerator:
             best_s = best_g = None
             s_pt = Point(float(s_xy[0]), float(s_xy[1])); g_pt = Point(float(g_xy[0]), float(g_xy[1]))
             for _, _, ed in EG.edges(data=True):
-                eid = _key_id(ed["id"]); P = _to_xyz(ed["shape_xyz"]); ls = LineString(P[:, :2])
+                eid = _key_id(ed["id"])
+                P = self.edge_shapes[eid]
+                ls = LineString(P[:, :2])
                 ss = ls.project(s_pt); s_q = ls.interpolate(ss)
                 sg = float(s_pt.distance(s_q))
                 gg = ls.project(g_pt); g_q = ls.interpolate(gg)
@@ -410,7 +453,7 @@ class TrafficGenerator:
                         goal_xyz=Pg,
                         edge_ids=[_key_id(e) for e in edge_path],
                         route_xyz=route_xyz,
-                        lane_ids=None,  # can fill as before if needed
+                        lane_ids=self.edge_member_lanes.get(_key_id(s_eid), None) if lift_to_lane_ids else None,
                         spawn_source="lane_or_edge", path_type="edge_graph"
                     ))
                     id_counter += 1; made += 1
@@ -420,17 +463,14 @@ class TrafficGenerator:
                 if cls in self.pedestrian_classes and self.boundaries:
                     # choose a boundary
                     b_idx = int(rng.integers(0, len(self.boundaries)))
-                    B = self.boundaries[b_idx]; sB = _arclen2d(B[:, :2]); L = sB[-1]
-                    if L <= 0: continue
+                    B = self.boundaries[b_idx]; sB = _arclen2d(B[:, :2]); Lb = sB[-1]
+                    if Lb <= 0: continue
                     # spawn point s0 and direction
-                    s0 = float(rng.uniform(0.0, L))
+                    s0 = float(rng.uniform(0.0, Lb))
                     dir_sign = +1 if rng.random() < ped_forward_prob else -1
                     # choose travel length
                     seg_len = float(rng.uniform(ped_min_len_m, ped_max_len_m))
-                    if dir_sign > 0:
-                        s1 = min(L, s0 + seg_len)
-                    else:
-                        s1 = max(0.0, s0 - seg_len)
+                    s1 = min(Lb, s0 + seg_len) if dir_sign > 0 else max(0.0, s0 - seg_len)
                     # slice boundary & heading at start in travel direction
                     route_xyz = _slice_from_s_to_s(B, sB, s0, s1)
                     start_xyz = route_xyz[0]
@@ -440,7 +480,7 @@ class TrafficGenerator:
                     if self._start_conflict(start_xyz, ("B", b_idx), s0, taken_starts_xy, taken_s_per_key,
                                             min_start_spacing_m, min_same_edge_s_m):
                         continue
-                    # length check against global min/max (optional; or use ped-specific)
+                    # length check against ped limits
                     dsum = float(np.sum(np.linalg.norm(np.diff(route_xyz[:, :2], axis=0), axis=1)))
                     if not (ped_min_len_m <= dsum <= ped_max_len_m): continue
                     taken_starts_xy.append(start_xyz.copy())
@@ -459,9 +499,7 @@ class TrafficGenerator:
                     id_counter += 1; made += 1
                     continue
 
-                # If class is neither vehicle nor pedestrian, fall back to vehicle logic
-                # (you can specialize further if needed)
-                # Fallback:
+                # Fallback for other classes: use vehicle logic
                 s_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
                 g_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
                 Ps, heading_rad, s_on = self._spawn_on_random_lane_of_edge(s_eid, rng)
@@ -486,7 +524,7 @@ class TrafficGenerator:
                     goal_xyz=Pg,
                     edge_ids=[_key_id(e) for e in edge_path],
                     route_xyz=route_xyz,
-                    lane_ids=None,
+                    lane_ids=self.edge_member_lanes.get(_key_id(s_eid), None) if lift_to_lane_ids else None,
                     spawn_source="lane_or_edge", path_type="edge_graph"
                 ))
                 id_counter += 1; made += 1

@@ -141,6 +141,7 @@ class CenterlineResult:
     lane_count: int
     alpha: float
     centerline: np.ndarray      # [M,3]
+    group_key: int
 
 
 # ------------------------ Core algorithm (from scratch, 3D, variable lanes) ------------------------ #
@@ -215,6 +216,8 @@ def build_centerlines_from_boundaries_xyz(
                 prev_s, prev_e = a, b
         merged.append((prev_s, prev_e))
         return merged
+
+    group_key = 0
 
     # Loop over each boundary as reference A
     for a_id, a_xyz0 in boundary_dict.items():
@@ -360,6 +363,7 @@ def build_centerlines_from_boundaries_xyz(
             if not filtered_segments:
                 continue
 
+
             # Emit centerlines per segment and per lane index
             for (a_idx, b_idx, n_lanes) in filtered_segments:
                 # recompute rep width for segment to decide exact n_lanes (in case small variation)
@@ -382,7 +386,10 @@ def build_centerlines_from_boundaries_xyz(
                         lane_count=n_lanes,
                         alpha=float(alpha),
                         centerline=seg_center_xyz,
+                        group_key=group_key
                     ))
+
+                group_key=group_key+1
 
     return out
 
