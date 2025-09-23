@@ -145,8 +145,6 @@ class SMARTAgentDecoder(nn.Module):
         self.start_step=10//self.shift-1
         self.pred_vis = False
 
-        self.use_kl_penalty=True
-
         self.target_net=False
 
         if self.pred_vis:

@@ -606,8 +606,6 @@ class IQ_SoftQ(LightningModule):
 
                     target_q = self.bc_net(tokenized_agent_rollout, map_feature)["agent_q"]
 
-                    print('target_q', target_q)
-
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
 
