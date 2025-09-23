@@ -130,13 +130,13 @@ class TrafficGenerator:
         self.edge_lengths: Dict[Any, float] = {}
         self.edge_member_lanes: Dict[Any, List[Any]] = {}
 
-        for _, _, ed in EG.edges(data=True):
+        for u, v, ed in EG.edges(data=True):
             eid = _key_id(ed["id"])
             geom = ed.get("geom", ed.get("shape_xyz", None))
             if geom is None:
                 # last resort: straight line between node xyz if available
-                pu = EG.nodes[_key_id(_[0])].get("xyz") if _ else None  # not reliable in this scope
-                pv = EG.nodes[_key_id(_[1])].get("xyz") if _ else None
+                pu = EG.nodes[_key_id(u)].get("xyz", None)
+                pv = EG.nodes[_key_id(v)].get("xyz", None)
                 if pu is not None and pv is not None:
                     geom = np.vstack([_to_xyz(pu)[0], _to_xyz(pv)[0]])
                 else:
@@ -155,7 +155,6 @@ class TrafficGenerator:
                 lid = _key_id(ed.get("id", ed.get("edge_id", f"{u}->{v}")))
                 geom = ed.get("geom", None)
                 if geom is None:
-                    # fallback from u/v node xyz if present
                     pu = G_lane.nodes[u].get("xyz"); pv = G_lane.nodes[v].get("xyz")
                     if pu is not None and pv is not None:
                         geom = np.vstack([_to_xyz(pu)[0], _to_xyz(pv)[0]])
@@ -213,16 +212,43 @@ class TrafficGenerator:
                 return edge_path, ego_route_xyz, ego_start_xy, ego_goal_xy
         raise RuntimeError("Failed to sample a random ego route within length bounds.")
 
-    # ---- helper: dedup ----
-    def _start_conflict(self, new_xy: np.ndarray, new_edge: Any, new_s: float,
-                        taken_xy: List[np.ndarray], taken_per_edge_s: Dict[Any, List[float]],
-                        min_dist: float, min_same_edge_s: float) -> bool:
-        for p in taken_xy:
-            if np.linalg.norm(new_xy[:2] - p[:2]) < min_dist: return True
+    # ---- size-aware dedup ----
+    def _start_conflict(
+        self,
+        new_xy: np.ndarray,
+        new_edge: Any,
+        new_s: float,
+        taken: List[Dict[str, Any]],
+        taken_per_edge_s: Dict[Any, List[Tuple[float, float]]],  # [(s, length_L)]
+        *,
+        min_dist_buffer_m: float,
+        min_same_edge_buffer_m: float,
+        new_size_lwh_m: Tuple[float, float, float],
+    ) -> bool:
+        """Return True if new start conflicts with existing starts.
+
+        - Global proximity: ||Δxy|| < buffer + 0.5*(diag(new)+diag(old))
+        - Same-edge longitudinal: |Δs| < buffer + 0.5*(L_new + L_old)
+        """
+        L_new, W_new, _ = new_size_lwh_m
+        diag_new = float(np.hypot(L_new, W_new))
+
+        # Global Euclidean spacing (size-aware)
+        for rec in taken:
+            p = rec["xy"]; L_old, W_old, _ = rec["size_lwh"]
+            diag_old = float(np.hypot(L_old, W_old))
+            need = min_dist_buffer_m + 0.5 * (diag_new + diag_old)
+            if np.linalg.norm(new_xy[:2] - p[:2]) < need:
+                return True
+
+        # Same-edge longitudinal spacing (size-aware)
         k = _key_id(new_edge)
         if k in taken_per_edge_s:
-            for s in taken_per_edge_s[k]:
-                if abs(s - new_s) < min_same_edge_s: return True
+            for s_old, L_old in taken_per_edge_s[k]:
+                need = min_same_edge_buffer_m + 0.5 * (L_new + L_old)
+                if abs(new_s - s_old) < need:
+                    return True
+
         return False
 
     def _build_edge_id_graph(self, weight_attr: str = "weight") -> nx.DiGraph:
@@ -254,7 +280,8 @@ class TrafficGenerator:
                 out = set(srcs)
                 for s in srcs: out |= nx.descendants(Gdir, s)
                 return out
-            visited=set(srcs); dq=deque((s,0) for s in srcs)
+            visited=set(srcs); from collections import deque
+            dq=deque((s,0) for s in srcs); visited=set(srcs)
             while dq:
                 u,d = dq.popleft()
                 if d==max_hops: continue
@@ -281,9 +308,7 @@ class TrafficGenerator:
         eid = _key_id(start_edge_id)
         # gather lane members from EG (lane edge IDs from G_lane)
         member_lane_ids = self.edge_member_lanes.get(eid, [])
-        chosen_geom = None
         if member_lane_ids:
-            # filter to those we actually have in lane_xyz dict
             avail = [lid for lid in member_lane_ids if lid in self.lane_xyz]
             if avail:
                 lid = _key_id(rng.choice(avail))
@@ -297,7 +322,6 @@ class TrafficGenerator:
                     ls_edge = LineString(self.edge_shapes[eid][:, :2])
                     s_on = float(ls_edge.project(Point(float(xyz[0]), float(xyz[1]))))
                     return xyz, heading, s_on
-                chosen_geom = L
         # fallback to representative edge geometry
         P = self.edge_shapes[eid]; sP = _arclen2d(P[:, :2])
         u = float(rng.uniform(0.0, sP[-1] if sP[-1] > 0 else 0.0))
@@ -326,12 +350,12 @@ class TrafficGenerator:
         avg_speed_override: Optional[Dict[str, float]] = None,
         lift_to_lane_ids: bool = False,
         max_attempts_per_agent: int = 120,
-        min_start_spacing_m: float = 4.0,
-        min_same_edge_s_m: float = 12.0,
-        # --- NEW pedestrian params ---
+        min_start_spacing_m: float = 4.0,   # global buffer
+        min_same_edge_s_m: float = 12.0,    # same-edge longitudinal buffer
+        # --- pedestrian params ---
         ped_min_len_m: float = 20.0,
         ped_max_len_m: float = 200.0,
-        ped_forward_prob: float = 0.7     # chance to move increasing arclength
+        ped_forward_prob: float = 0.7
     ) -> List[Dict[str, Any]]:
 
         rng = np.random.default_rng(seed)
@@ -351,24 +375,22 @@ class TrafficGenerator:
         if not candidate_edges:
             candidate_edges = [ _key_id(ed["id"]) for _, _, ed in self.EG.edges(data=True) ]
 
-        # capacity & allocation
+        # capacity & allocation (lane-aware)
         HEADWAY_M = {"pedestrian":2.0, "bicycle":5.0, "car":12.0, "truck":20.0}
-        L = float(sum(self.edge_lengths[e] for e in candidate_edges))
         base_headway = HEADWAY_M["car"]
-        N_base = int(np.floor(np.clip(density01, 0, 1) * (L / base_headway)))
 
-        keys = list(class_ratio.keys())
-        vals = np.array([max(0.0, float(class_ratio[k])) for k in keys], float)
-        if vals.sum() <= 0: vals = np.ones_like(vals)
-        probs_class = vals / vals.sum()
-        alloc = {k: int(np.floor(N_base * p)) for k, p in zip(keys, probs_class)}
-        rem = N_base - sum(alloc.values()); i = 0
-        while rem > 0 and keys:
-            alloc[keys[i % len(keys)]] += 1; rem -= 1; i += 1
+        def _lanes_on_edge(eid):
+            return max(1, len(self.edge_member_lanes.get(eid, [])))
 
-        # vehicle edge sampling weights
+        cap_sum = 0.0
+        for e in candidate_edges:
+            cap_sum += (self.edge_lengths[e] * _lanes_on_edge(e)) / base_headway
+
+        N_base = int(np.floor(np.clip(density01, 0, 1) * cap_sum))
+
+        # vehicle edge sampling weights also lane-aware
         cand_edges = np.array(candidate_edges, dtype=object)
-        w_edges = np.array([self.edge_lengths[e] for e in cand_edges], float)
+        w_edges = np.array([self.edge_lengths[e] * _lanes_on_edge(e) for e in cand_edges], float)
         probs_edges = w_edges / (w_edges.sum() if w_edges.sum() > 0 else 1.0)
 
         # defaults
@@ -380,9 +402,9 @@ class TrafficGenerator:
         speeds   = dict(DEFAULT_CLASS_SPEED_MPS)
         if avg_speed_override: speeds.update(avg_speed_override)
 
-        # dedup caches
-        taken_starts_xy: List[np.ndarray] = []
-        taken_s_per_key: Dict[Any, List[float]] = {}
+        # dedup caches (size-aware)
+        taken_starts: List[Dict[str, Any]] = []                          # {"xy": np.ndarray, "size_lwh": (L,W,H)}
+        taken_s_per_key: Dict[Any, List[Tuple[float, float]]] = {}       # key -> [(s_on_edge, length_L)]
 
         # lightweight router for vehicles
         def _route(EG: nx.DiGraph, s_xy: np.ndarray, g_xy: np.ndarray):
@@ -414,6 +436,16 @@ class TrafficGenerator:
         id_counter = 0
 
         # --- generate ---
+        # compute class allocation from N_base
+        keys = list(class_ratio.keys())
+        vals = np.array([max(0.0, float(class_ratio[k])) for k in keys], float)
+        if vals.sum() <= 0: vals = np.ones_like(vals)
+        probs_class = vals / vals.sum()
+        alloc = {k: int(np.floor(N_base * p)) for k, p in zip(keys, probs_class)}
+        rem = N_base - sum(alloc.values()); i = 0
+        while rem > 0 and keys:
+            alloc[keys[i % len(keys)]] += 1; rem -= 1; i += 1
+
         for cls, n in alloc.items():
             if n <= 0: continue
             size_lwh = size_tab.get(cls, (4.0, 1.8, 1.6))
@@ -428,12 +460,15 @@ class TrafficGenerator:
                 if cls in self.vehicle_classes:
                     s_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
                     g_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
-                    # spawn on a lane of start edge (heading from lane), de-dup uses s on start edge
                     Ps, heading_rad, s_on = self._spawn_on_random_lane_of_edge(s_eid, rng)
                     Pg, _ = _sample_point_on_shape_with_s(self.edge_shapes[g_eid], rng)
-                    # conflict check (key = start edge)
-                    if self._start_conflict(Ps, s_eid, s_on, taken_starts_xy, taken_s_per_key,
-                                            min_start_spacing_m, min_same_edge_s_m):
+                    # size-aware conflict check
+                    if self._start_conflict(
+                        Ps, s_eid, s_on, taken_starts, taken_s_per_key,
+                        min_dist_buffer_m=min_start_spacing_m,
+                        min_same_edge_buffer_m=min_same_edge_s_m,
+                        new_size_lwh_m=size_lwh,
+                    ):
                         continue
                     # route over edge graph
                     try:
@@ -444,8 +479,8 @@ class TrafficGenerator:
                     except Exception:
                         continue
                     if not (min_route_m <= dist_m <= max_route_m): continue
-                    taken_starts_xy.append(Ps.copy())
-                    taken_s_per_key.setdefault(_key_id(s_eid), []).append(float(s_on))
+                    taken_starts.append({"xy": Ps.copy(), "size_lwh": size_lwh})
+                    taken_s_per_key.setdefault(_key_id(s_eid), []).append((float(s_on), float(size_lwh[0])))
                     agents.append(dict(
                         agent_id=f"A{id_counter}", cls=cls,
                         size_lwh_m=size_lwh, avg_speed_mps=avg_speed,
@@ -461,37 +496,36 @@ class TrafficGenerator:
 
                 # PEDESTRIANS: move along a boundary
                 if cls in self.pedestrian_classes and self.boundaries:
-                    # choose a boundary
                     b_idx = int(rng.integers(0, len(self.boundaries)))
                     B = self.boundaries[b_idx]; sB = _arclen2d(B[:, :2]); Lb = sB[-1]
                     if Lb <= 0: continue
-                    # spawn point s0 and direction
                     s0 = float(rng.uniform(0.0, Lb))
                     dir_sign = +1 if rng.random() < ped_forward_prob else -1
-                    # choose travel length
                     seg_len = float(rng.uniform(ped_min_len_m, ped_max_len_m))
                     s1 = min(Lb, s0 + seg_len) if dir_sign > 0 else max(0.0, s0 - seg_len)
-                    # slice boundary & heading at start in travel direction
                     route_xyz = _slice_from_s_to_s(B, sB, s0, s1)
                     start_xyz = route_xyz[0]
                     start_heading = _heading_at_s_dir(B, sB, s0, dir_sign=dir_sign)
                     goal_xyz = route_xyz[-1]
-                    # de-dup: key by ("B", b_idx) and s0
-                    if self._start_conflict(start_xyz, ("B", b_idx), s0, taken_starts_xy, taken_s_per_key,
-                                            min_start_spacing_m, min_same_edge_s_m):
+                    # size-aware conflict check (key by boundary)
+                    if self._start_conflict(
+                        start_xyz, ("B", b_idx), s0, taken_starts, taken_s_per_key,
+                        min_dist_buffer_m=min_start_spacing_m,
+                        min_same_edge_buffer_m=min_same_edge_s_m,
+                        new_size_lwh_m=size_lwh,
+                    ):
                         continue
-                    # length check against ped limits
                     dsum = float(np.sum(np.linalg.norm(np.diff(route_xyz[:, :2], axis=0), axis=1)))
                     if not (ped_min_len_m <= dsum <= ped_max_len_m): continue
-                    taken_starts_xy.append(start_xyz.copy())
-                    taken_s_per_key.setdefault(("B", b_idx), []).append(float(s0))
+                    taken_starts.append({"xy": start_xyz.copy(), "size_lwh": size_lwh})
+                    taken_s_per_key.setdefault(("B", b_idx), []).append((float(s0), float(size_lwh[0])))
                     agents.append(dict(
                         agent_id=f"A{id_counter}", cls=cls,
                         size_lwh_m=size_lwh, avg_speed_mps=avg_speed,
                         start_xyz=start_xyz, start_heading_rad=start_heading,
                         goal_xyz=goal_xyz,
-                        edge_ids=[],            # pedestrians don't use edge routing here
-                        route_xyz=route_xyz,    # boundary-following path
+                        edge_ids=[],
+                        route_xyz=route_xyz,
                         lane_ids=None,
                         boundary_id=b_idx,
                         spawn_source="boundary", path_type="boundary"
@@ -504,8 +538,12 @@ class TrafficGenerator:
                 g_eid = _key_id(np.random.default_rng().choice(cand_edges, p=probs_edges))
                 Ps, heading_rad, s_on = self._spawn_on_random_lane_of_edge(s_eid, rng)
                 Pg, _ = _sample_point_on_shape_with_s(self.edge_shapes[g_eid], rng)
-                if self._start_conflict(Ps, s_eid, s_on, taken_starts_xy, taken_s_per_key,
-                                        min_start_spacing_m, min_same_edge_s_m):
+                if self._start_conflict(
+                    Ps, s_eid, s_on, taken_starts, taken_s_per_key,
+                    min_dist_buffer_m=min_start_spacing_m,
+                    min_same_edge_buffer_m=min_same_edge_s_m,
+                    new_size_lwh_m=size_lwh,
+                ):
                     continue
                 try:
                     if self.router is not None:
@@ -515,8 +553,8 @@ class TrafficGenerator:
                 except Exception:
                     continue
                 if not (min_route_m <= dist_m <= max_route_m): continue
-                taken_starts_xy.append(Ps.copy())
-                taken_s_per_key.setdefault(_key_id(s_eid), []).append(float(s_on))
+                taken_starts.append({"xy": Ps.copy(), "size_lwh": size_lwh})
+                taken_s_per_key.setdefault(_key_id(s_eid), []).append((float(s_on), float(size_lwh[0])))
                 agents.append(dict(
                     agent_id=f"A{id_counter}", cls=cls,
                     size_lwh_m=size_lwh, avg_speed_mps=avg_speed,
