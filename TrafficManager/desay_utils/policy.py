@@ -48,11 +48,14 @@ class MOBILParams:
 
 class TorchIDMSimulator:
     """
-    Dual-rate simulator (CUDA-ready) with smooth lane changing:
+    Dual-rate simulator (CUDA-ready) with smooth lane changing and route following:
       - Physics tick (IDM + MOBIL) every dt_phys seconds -> refresh accelerations & lane-change decisions.
       - Output/integration tick every dt_out seconds -> integrates motion with held accelerations.
       - Lane change is a continuous lateral blend between from-lane and to-lane paths over a duration.
       - Agents are removed when within goal_tol meters from their goal_xy.
+      - If an agent dict has lane_ids=[...], it will follow that planned lane sequence:
+          * prefer successors matching the next planned lane,
+          * restrict/bias lane-change candidates to current/next planned lanes when possible.
     G_lane edges must have: kind='lane', id (or edge_id), geom [N,3].
     """
 
@@ -133,7 +136,7 @@ class TorchIDMSimulator:
             if lid in self.lid2idx:
                 self.vmax_of[self.lid2idx[lid]] = float(vmax)
 
-        # successors
+        # successors (by topology)
         self.successors: Dict[int, List[int]] = {}
         for u, v, ed in G_lane.edges(data=True):
             if ed.get("kind") != "lane": continue
@@ -168,20 +171,31 @@ class TorchIDMSimulator:
         self.lc_s_from0 = torch.empty(0, dtype=torch.float32, device=self.device) # s at start on from-lane
         self.lc_s_to0 = torch.empty(0, dtype=torch.float32, device=self.device)   # projected s at start on to-lane
 
+        # --- route-following state (per-agent, variable-length kept as Python lists) ---
+        # route_seq[i] is a list of lane indices (ints) for agent i; can be empty if no route.
+        self.route_seq: List[List[int]] = []
+        # pointer to current position inside the route (index into route_seq[i])
+        self.route_ptr = torch.empty(0, dtype=torch.long, device=self.device)
+        # whether this agent uses a route (len(route_seq[i]) >= 1)
+        self.route_active = torch.empty(0, dtype=torch.bool, device=self.device)
+
     # ------------------ public API ------------------
 
     def init_agents_from_batch(self, agents: List[Dict[str, Any]], v0_fraction: float = 0.9):
         lane_idx = []; s_list = []; v_list = []; v0_list = []; Lveh_list = []; timers = []
         goals: List[np.ndarray] = []
         self.agent_ids = []
+        self.route_seq = []  # reset routes
 
         for a in agents:
+            # --- choose start lane ---
             lid = a.get("start_lane_id", None)
             if lid is None or lid not in self.lid2idx:
                 start_xyz = np.asarray(a.get("start_xyz", [0,0,0]), float)
                 if start_xyz.shape[0] >= 2:
                     lid = self._nearest_lane_id_cpu(start_xyz[:2])
-                if lid is None or lid not in self.lid2idx: continue
+                if lid is None or lid not in self.lid2idx:
+                    continue
 
             li = self.lid2idx[lid]
             s0 = self._project_s_cpu(li, np.asarray(a.get("start_xyz", [0,0,0]), float)[:2])
@@ -190,12 +204,22 @@ class TorchIDMSimulator:
             Lveh = float(a.get("size_lwh_m", (4.5,1.8,1.6))[0])
             gxy = np.asarray(a.get("goal_xyz", [0.0, 0.0]), float)[:2]
 
+            # --- map optional lane_ids route to lane indices ---
+            route_lane_ids = a.get("lane_ids", None)
+            route_seq_i: List[int] = []
+            if route_lane_ids:
+                for rid in route_lane_ids:
+                    if rid in self.lid2idx:
+                        route_seq_i.append(self.lid2idx[rid])
+
             lane_idx.append(li); s_list.append(s0); v_list.append(v_init); v0_list.append(v0)
             Lveh_list.append(Lveh); timers.append(0.0); goals.append(gxy)
             self.agent_ids.append(a.get("agent_id", f"A{len(self.agent_ids)}"))
+            self.route_seq.append(route_seq_i)
 
         self.N = len(lane_idx)
-        if self.N == 0: raise ValueError("No agents could be initialized on lanes.")
+        if self.N == 0:
+            raise ValueError("No agents could be initialized on lanes.")
 
         dev = self.device
         self.lane_idx = torch.tensor(lane_idx, device=dev, dtype=torch.long)
@@ -214,6 +238,21 @@ class TorchIDMSimulator:
         self.lc_T = torch.ones((self.N,), dtype=torch.float32, device=dev)
         self.lc_s_from0 = self.s.clone()
         self.lc_s_to0 = self.s.clone()
+
+        # route flags and pointers
+        self.route_active = torch.tensor([len(seq) > 0 for seq in self.route_seq],
+                                         dtype=torch.bool, device=dev)
+        # pointer = nearest route lane to current lane (robust default)
+        ptr_list = []
+        for i, seq in enumerate(self.route_seq):
+            if not seq:
+                ptr_list.append(0)
+            else:
+                li = int(self.lane_idx[i].item())
+                # nearest in index space as a simple heuristic
+                k = int(np.argmin([abs(li - q) for q in seq])) if seq else 0
+                ptr_list.append(k)
+        self.route_ptr = torch.tensor(ptr_list, dtype=torch.long, device=dev)
 
         # initial physics tick
         self._physics_tick()
@@ -242,8 +281,6 @@ class TorchIDMSimulator:
         # goal removal
         pos_xy = self._current_xy_all()       # [N,2] blended if changing
         dist = torch.norm(pos_xy - self.goal_xy, dim=1)
-        #print(dist)
-        #print(self.agent_ids)
         alive_mask = dist > self.goal_tol
         if not alive_mask.all():
             self._remove_agents(~alive_mask)
@@ -274,6 +311,8 @@ class TorchIDMSimulator:
             "lc_alpha": self.lc_alpha.clone(),
             "lc_from": self.lc_from.clone(),
             "lc_to": self.lc_to.clone(),
+            "route_ptr": self.route_ptr.clone(),
+            "route_active": self.route_active.clone(),
         }
 
     # ------------------ physics tick ------------------
@@ -281,15 +320,12 @@ class TorchIDMSimulator:
     def _physics_tick(self):
         # build ordering on host lane (ownership during change: from-lane if alpha<0.5 else to-lane)
         owners = torch.where(self.lc_active & (self.lc_alpha >= 0.5), self.lc_to, self.lc_from)
-        # keep ownership consistent with current lane_idx as well
         owners = torch.where(self.lc_active, owners, self.lane_idx)
 
         leaders, followers, lane_sorted = self._build_lane_orderings(owners)
 
         # IDM accel
         a_now = self._idm_accel_vector(leaders)
-
-        print(a_now)
 
         # MOBIL decisions (start new lane changes only if not already changing)
         target_lane = self._mobil_decisions(owners, leaders, followers, lane_sorted, a_now)
@@ -302,7 +338,7 @@ class TorchIDMSimulator:
                 li_from = int(self.lane_idx[i].item())
                 li_to = int(target_lane[i].item())
                 # determine durations from lateral gap
-                xy_from = self._xy_of(li_from, self.s[i])
+                xy_from = self._current_xy(i)  # blended position is smoother
                 s_to0 = self._project_s_torch(li_to, xy_from)  # align along-arc
                 xy_to = self._xy_of(li_to, s_to0)
                 lat_dist = float(torch.norm(xy_to - xy_from).item())
@@ -316,11 +352,10 @@ class TorchIDMSimulator:
                 self.lc_T[i] = T
                 self.lc_s_from0[i] = self.s[i]
                 self.lc_s_to0[i] = s_to0
-                # keep timer reset to avoid immediate flip-flop
+                # reset timer to avoid immediate flip-flop
                 self.timer[i] = 0.0
 
         # hold acceleration until next physics tick
-        # (after starting lane changes; leaders unchanged until next tick)
         self.a_hold = a_now
 
     # ------------------ update smooth LC progress ------------------
@@ -361,6 +396,8 @@ class TorchIDMSimulator:
                 self.lc_to[i] = self.lane_idx[i]
                 self.lc_s_from0[i] = self.s[i]
                 self.lc_s_to0[i] = self.s[i]
+                # route pointer may advance if this lane is on route
+                self._advance_route_if_matched(i, int(self.lane_idx[i].item()))
 
     def _project_s_torch(self, li: int, xy: torch.Tensor) -> torch.Tensor:
         """Nearest-sample projection: argmin ||(X(li)-x, Y(li)-y)|| -> s."""
@@ -369,7 +406,6 @@ class TorchIDMSimulator:
             return torch.tensor(0.0, device=self.device)
         d2 = (self.lane_X[li, :n] - xy[0])**2 + (self.lane_Y[li, :n] - xy[1])**2
         k = int(torch.argmin(d2).item())
-        # map sample index back to s
         if self.lane_L[li] <= 1e-6:
             return torch.tensor(0.0, device=self.device)
         return (k / (n - 1)) * self.lane_L[li]
@@ -404,6 +440,7 @@ class TorchIDMSimulator:
         """
         Choose target lane for new lane changes. Agents already changing are skipped.
         'owners' gives the lane for ordering this tick (from-lane until half done).
+        Route-aware: restrict/bias candidates to current/next planned lanes when possible.
         """
         N = self.N
         target_lane = torch.full((N,), -1, dtype=torch.long, device=self.device)
@@ -418,14 +455,25 @@ class TorchIDMSimulator:
             cand_list = self.adj.get(li, [])
             if not cand_list: continue
 
+            # --- route restriction / bias ---
+            desired_cur = self._route_current_lane(i)
+            desired_next = self._route_next_lane(i)
+
+            route_cands = []
+            if desired_cur is not None:
+                route_cands.append(desired_cur)
+            if desired_next is not None:
+                route_cands.append(desired_next)
+            route_cands = [c for c in cand_list if c in route_cands]
+            cand_use = route_cands if route_cands else cand_list
+
             a_now = float(a_now_vec[i].item())
-            # project by current blended XY (not just from-lane)
             xy = self._current_xy(i)
 
             best_gain = self.mobil.a_thr
             best_lane = -1
 
-            for lj in cand_list:
+            for lj in cand_use:
                 if lj < 0: continue
                 s_cand = self._project_s_torch(lj, xy)
 
@@ -437,7 +485,6 @@ class TorchIDMSimulator:
 
                 a_self_new = self._idm_accel_single(i, leader_idx, lj, s_self=s_cand)
 
-                # followers' before/after
                 a_ft_now, a_ft_new = 0.0, 0.0
                 if follower_idx >= 0:
                     lead_ft_now = self._leader_of_idx(idx_sorted, follower_idx)
@@ -450,233 +497,19 @@ class TorchIDMSimulator:
                     a_fc_now = self._idm_accel_single(foll_cur, i, li)
                     a_fc_new = self._idm_accel_single(foll_cur, lead_cur, li)
 
-                # safety
+                # safety constraints
                 if (follower_idx >= 0) and (a_ft_new < -self.mobil.b_safe):
                     continue
                 if (foll_cur >= 0) and (a_fc_new < -self.mobil.b_safe):
                     continue
 
                 incentive = (a_self_new - a_now) + self.mobil.politeness * ((a_ft_new - a_ft_now) + (a_fc_new - a_fc_now))
+
+                # soft bias toward the planned next lane
+                if desired_next is not None and lj == desired_next:
+                    incentive += 0.25
+
                 if incentive > best_gain:
-                    # min gap on candidate lane
                     if self._has_min_gap_for_change(i, lj, s_cand, s_sorted, idx_sorted):
                         best_gain = incentive
                         best_lane = lj
-
-            if best_lane >= 0:
-                target_lane[i] = best_lane
-
-        return target_lane
-
-    def _idm_accel_single(self, idx: int, leader_idx: int, lane_idx: int, s_self: Optional[torch.Tensor]=None) -> float:
-        if idx < 0: return 0.0
-        p = self.idm
-        v = float(self.v[idx].item())
-        v0 = float(self.v0[idx].item())
-        amax = float(p.a_max); b = float(p.b_comf); T = float(p.T); s0 = float(p.s0); d = float(p.delta)
-        Lself = float(self.lenL[idx].item())
-        s_self_val = float((s_self if s_self is not None else self.s[idx]).item())
-        if leader_idx >= 0:
-            sL = float(self.s[leader_idx].item()); Llead = float(self.lenL[leader_idx].item())
-            s_rel = max(0.1, (sL - 0.5*Llead) - (s_self_val + 0.5*Lself))
-            dv = v - float(self.v[leader_idx].item())
-        else:
-            s_rel = 1e6; dv = 0.0
-        denom = 2.0 * math.sqrt(max(1e-6, amax * b))
-        s_star = s0 + max(0.0, v*T + v*dv/denom)
-        acc = amax * (1.0 - (v/max(0.1, v0))**d - (s_star/s_rel)**2)
-        return float(np.clip(acc, -b*2.5, amax))
-
-    def _has_min_gap_for_change(self, agent_idx: int, lane_j: int, s_cand: torch.Tensor,
-                                s_sorted: torch.Tensor, idx_sorted: torch.Tensor) -> bool:
-        p = self.mobil
-        pos = torch.searchsorted(s_sorted, s_cand)
-        leader_idx = int(idx_sorted[pos].item()) if pos < s_sorted.numel() else -1
-        follower_idx = int(idx_sorted[pos-1].item()) if pos > 0 else -1
-        L_new = float(self.lenL[agent_idx].item())
-        ok_front, ok_back = True, True
-        if leader_idx >= 0:
-            gap_front = (float(self.s[leader_idx].item()) - 0.5*float(self.lenL[leader_idx].item())) \
-                        - (float(s_cand.item()) + 0.5*L_new)
-            ok_front = (gap_front >= p.min_gap_lane_change)
-        if follower_idx >= 0:
-            gap_back = (float(s_cand.item()) - 0.5*L_new) \
-                       - (float(self.s[follower_idx].item()) + 0.5*float(self.lenL[follower_idx].item()))
-            ok_back = (gap_back >= p.min_gap_lane_change)
-        return bool(ok_front and ok_back)
-
-    # ------------------ ordering & transitions ------------------
-
-    def _build_lane_orderings(self, owner_lane_idx: torch.Tensor):
-        """Return (leaders, followers, lane_sorted) with respect to owner_lane_idx per agent."""
-        N = self.N
-        leaders = torch.full((N,), -1, dtype=torch.long, device=self.device)
-        followers = torch.full((N,), -1, dtype=torch.long, device=self.device)
-        lane_sorted: Dict[int, Dict[str, torch.Tensor]] = {}
-
-        uniq = torch.unique(owner_lane_idx).tolist()
-        for li in uniq:
-            mask = (owner_lane_idx == li)
-            idx = torch.nonzero(mask, as_tuple=False).squeeze(1)
-            if idx.numel() == 0:
-                lane_sorted[li] = {"s": torch.empty(0, device=self.device),
-                                   "idx": torch.empty(0, dtype=torch.long, device=self.device)}
-                continue
-            s_sorted, order = torch.sort(self.s[idx])
-            idx_sorted = idx[order]
-            lane_sorted[li] = {"s": s_sorted, "idx": idx_sorted}
-            leaders[idx_sorted[:-1]] = idx_sorted[1:]
-            followers[idx_sorted[1:]] = idx_sorted[:-1]
-        return leaders, followers, lane_sorted
-
-    def _lane_end_transitions(self):
-        """Transition across lane successors for the *current* lane_idx (host)."""
-        over = self.s > (self.lane_L[self.lane_idx] - 1e-6)
-        if not over.any(): return
-        idxs = torch.nonzero(over, as_tuple=False).squeeze(1).tolist()
-        for i in idxs:
-            li = int(self.lane_idx[i].item())
-            succ = self.successors.get(li, [])
-            if not succ:
-                self.s[i] = self.lane_L[li]
-                self.v[i] = torch.minimum(self.v[i], torch.tensor(0.0, device=self.device))
-                continue
-            h_now = self._heading_of(li, self.lane_L[li])
-            best, best_d = succ[0], 1e9
-            for cand in succ:
-                h_c = self._heading_of(cand, torch.tensor(0.02, device=self.device))
-                d = float(torch.abs(((h_c - h_now + math.pi) % (2*math.pi)) - math.pi))
-                if d < best_d: best, best_d = cand, d
-            extra = self.s[i] - self.lane_L[li]
-            self.lane_idx[i] = best
-            self.s[i] = torch.clamp(extra, 0.0, self.lane_L[best])
-            # If agent was mid-change, snap LC state to new lane context
-            if self.lc_active[i]:
-                self.lc_from[i] = self.lane_idx[i]
-                self.lc_to[i] = self.lane_idx[i]
-                self.lc_active[i] = False
-                self.lc_alpha[i] = 0.0
-                self.lc_T[i] = 1.0
-                self.lc_s_from0[i] = self.s[i]; self.lc_s_to0[i] = self.s[i]
-
-    # ------------------ geometry & pose (with smooth LC) ------------------
-
-    def _s_to_idx(self, li: int, s_val: torch.Tensor) -> torch.Tensor:
-        n = self.lane_N[li]; L = self.lane_L[li]
-        if L <= 1e-6:
-            return torch.zeros_like(s_val, dtype=torch.long, device=self.device)
-        t = torch.clamp(s_val / torch.clamp(L, min=1e-6), 0.0, 1.0)
-        idx = torch.round(t * (n - 1)).long()
-        return torch.clamp(idx, 0, n - 1)
-
-    def _xy_of(self, li: int, s_val: torch.Tensor) -> torch.Tensor:
-        idx = self._s_to_idx(li, s_val)
-        return torch.stack([self.lane_X[li, idx], self.lane_Y[li, idx]], dim=0)
-
-    def _heading_of(self, li: int, s_val: torch.Tensor) -> torch.Tensor:
-        idx = self._s_to_idx(li, s_val)
-        i0 = torch.clamp(idx - 1, 0, self.lane_N[li]-1)
-        i1 = torch.clamp(idx + 1, 0, self.lane_N[li]-1)
-        dx = self.lane_X[li, i1] - self.lane_X[li, i0]
-        dy = self.lane_Y[li, i1] - self.lane_Y[li, i0]
-        return torch.atan2(dy, dx)
-
-    def _current_xy(self, i: int) -> torch.Tensor:
-        """Blended XY for agent i (smooth lane change)."""
-        if not bool(self.lc_active[i].item()):
-            return self._xy_of(int(self.lane_idx[i].item()), self.s[i])
-        a = float(self.lc_alpha[i].item())
-        li_from = int(self.lc_from[i].item()); li_to = int(self.lc_to[i].item())
-        # map s on both lanes using stored offsets
-        s_from = self.lc_s_from0[i] + (self.s[i] - self.lc_s_from0[i])
-        s_to   = self.lc_s_to0[i]   + (self.s[i] - self.lc_s_from0[i])
-        xy_from = self._xy_of(li_from, s_from)
-        xy_to   = self._xy_of(li_to,   s_to)
-        return (1.0 - a) * xy_from + a * xy_to
-
-    def _current_xy_all(self) -> torch.Tensor:
-        N = self.N
-        out = torch.empty((N,2), dtype=torch.float32, device=self.device)
-        for i in range(N):
-            xy = self._current_xy(i)
-            out[i,0] = xy[0]; out[i,1] = xy[1]
-        return out
-
-    def _current_heading_all(self) -> torch.Tensor:
-        """Heading from blended path derivative."""
-        N = self.N
-        out = torch.empty((N,), dtype=torch.float32, device=self.device)
-        ds = torch.tensor(0.2, device=self.device)
-        for i in range(N):
-            if not bool(self.lc_active[i].item()):
-                out[i] = self._heading_of(int(self.lane_idx[i].item()), self.s[i])
-            else:
-                a = float(self.lc_alpha[i].item())
-                li_from = int(self.lc_from[i].item()); li_to = int(self.lc_to[i].item())
-                s0 = self.s[i]
-                s_from0 = self.lc_s_from0[i] + (s0 - self.lc_s_from0[i])
-                s_to0   = self.lc_s_to0[i]   + (s0 - self.lc_s_from0[i])
-                # sample left/right points and blend
-                p_from0 = self._xy_of(li_from, torch.clamp(s_from0 - ds, 0.0, self.lane_L[li_from]))
-                p_from1 = self._xy_of(li_from, torch.clamp(s_from0 + ds, 0.0, self.lane_L[li_from]))
-                p_to0   = self._xy_of(li_to,   torch.clamp(s_to0   - ds, 0.0, self.lane_L[li_to]))
-                p_to1   = self._xy_of(li_to,   torch.clamp(s_to0   + ds, 0.0, self.lane_L[li_to]))
-                p0 = (1.0 - a) * p_from0 + a * p_to0
-                p1 = (1.0 - a) * p_from1 + a * p_to1
-                dx = p1[0] - p0[0]; dy = p1[1] - p0[1]
-                out[i] = torch.atan2(dy, dx)
-        return out
-
-    # ------------------ removal ------------------
-
-    def _remove_agents(self, mask_remove: torch.Tensor):
-        keep = (~mask_remove)
-        if keep.sum() == keep.numel(): return
-        self.N = int(keep.sum().item())
-        self.agent_ids = [aid for aid, k in zip(self.agent_ids, keep.tolist()) if k]
-        self.lane_idx = self.lane_idx[keep]
-        self.s = self.s[keep]
-        self.v = self.v[keep]
-        self.v0 = self.v0[keep]
-        self.lenL = self.lenL[keep]
-        self.timer = self.timer[keep]
-        self.a_hold = self.a_hold[keep]
-        self.goal_xy = self.goal_xy[keep]
-        self.lc_active = self.lc_active[keep]
-        self.lc_from = self.lc_from[keep]
-        self.lc_to = self.lc_to[keep]
-        self.lc_alpha = self.lc_alpha[keep]
-        self.lc_T = self.lc_T[keep]
-        self.lc_s_from0 = self.lc_s_from0[keep]
-        self.lc_s_to0 = self.lc_s_to0[keep]
-
-    # ------------------ CPU helpers ------------------
-
-    def _nearest_lane_id_cpu(self, xy: np.ndarray) -> Optional[Any]:
-        best_i, best_d = None, 1e18
-        for li in range(len(self.idx2lid)):
-            n = int(self.lane_N[li].item())
-            X = self.lane_X[li, :n].detach().cpu().numpy()
-            Y = self.lane_Y[li, :n].detach().cpu().numpy()
-            d2 = (X - xy[0])**2 + (Y - xy[1])**2
-            k = int(np.argmin(d2)); d = float(np.sqrt(d2[k]))
-            if d < best_d: best_d, best_i = d, li
-        return self.idx2lid[best_i] if best_i is not None else None
-
-    def _project_s_cpu(self, li: int, xy: np.ndarray) -> float:
-        n = int(self.lane_N[li].item())
-        if n <= 1: return 0.0
-        X = self.lane_X[li, :n].detach().cpu().numpy()
-        Y = self.lane_Y[li, :n].detach().cpu().numpy()
-        d2 = (X - xy[0])**2 + (Y - xy[1])**2
-        k = int(np.argmin(d2))
-        L = float(self.lane_L[li].item())
-        return (k / max(1, n - 1)) * L
-
-    @staticmethod
-    def _leader_of_idx(idx_sorted: torch.Tensor, idx: int) -> int:
-        if idx < 0 or idx_sorted.numel() == 0: return -1
-        pos = (idx_sorted == idx).nonzero(as_tuple=False)
-        if pos.numel() == 0: return -1
-        k = int(pos[0,0].item())
-        return int(idx_sorted[k+1].item()) if (k+1) < idx_sorted.numel() else -1

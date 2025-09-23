@@ -27,7 +27,7 @@ model:
 
     smart: false
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_mean_neighhoodReward_epoch=11-step=73056_0.7889.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL50_kl10_epoch=1-step=19480_0.788839.ckpt'
 
 trainer:
   limit_train_batches: 1.0
