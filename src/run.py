@@ -133,8 +133,9 @@ def run(cfg: DictConfig) -> None:
         trainer.fit(model=model, datamodule=datamodule)#, ckpt_path=cfg.get("ckpt_path")
     elif cfg.action == "validate":
         log.info("Starting validating!")
+        model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
         trainer.validate(
-            model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
+            model=model, datamodule=datamodule#)##, ckpt_path=cfg.get("ckpt_path")
         )
     elif cfg.action == "test":
         log.info("Starting testing!")
