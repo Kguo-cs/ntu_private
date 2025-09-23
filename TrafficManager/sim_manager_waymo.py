@@ -59,7 +59,7 @@ from pynvml import *
 from desay_utils.check_oclluded import check_occlusion_fully_batched
 from desay_utils.decay_data_process import decode_map_features_from_json
 from desay_utils.idm_policy import idm_planner
-from desay_utils.random_trip import TrafficGenerator
+from desay_utils.scene_generator import TrafficGenerator
 from collections import Counter
 
 def print_cpu_usage(interval=1.0):
@@ -325,21 +325,21 @@ class SimulationManager:
 
                 all_velocity = (all_pos - prev_pos) / 0.1
 
-                new_pos, new_heading = idm_planner(route, idx, all_pos, all_heading, all_velocity, all_shape,
+                new_pos, new_heading = idm_planner(route, self.lane_graph, idx, all_pos, all_heading, all_velocity, all_shape,
                                                    desired_speed=20)  # plan 0.5 second
 
                 tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
                 tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
 
-                token_dict = self.planner.token_processor._match_agent_token(
-                    tokenized_agent["all_valid"],
-                    tokenized_agent['pred_traj_10hz'],
-                    tokenized_agent['pred_head_10hz'],
-                    tokenized_agent["token_agent_shape"],
-                    tokenized_agent["token_traj"],
-                )
-
-                tokenized_agent.update(token_dict)
+                # token_dict = self.planner.token_processor._match_agent_token(
+                #     tokenized_agent["all_valid"],
+                #     tokenized_agent['pred_traj_10hz'],
+                #     tokenized_agent['pred_head_10hz'],
+                #     tokenized_agent["token_agent_shape"],
+                #     tokenized_agent["token_traj"],
+                # )
+                #
+                # tokenized_agent.update(token_dict)
 
             self.traffic_model_time.append(time.time()-traffic_model_start)
            # print(get_process_memory() - rss_before)
@@ -458,7 +458,7 @@ class SimulationManager:
                     end_at_last_point=True  # 终点为末尾 edge 的尾点
                 )
                 agents = TG.generate_batch(
-                    density01=1,
+                    density01=0.1,
                     class_ratio={"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1},
                     ego_edge_ids=ego_edge_ids,
                     seed=self.random_seed,
