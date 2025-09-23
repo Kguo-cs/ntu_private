@@ -61,7 +61,7 @@ class SMARTDecoder(nn.Module):
         self.use_vae=False
         self.pred_col=False
         self.use_infogail=False
-        self.use_kl_penalty=True
+        self.use_kl_penalty=False
         self.use_roformer=False
         self.pred_light=False
 
