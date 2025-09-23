@@ -23,7 +23,7 @@ from waymo_open_dataset.protos import sim_agents_submission_pb2
 
 from src.utils import RankedLogger
 from src.utils.wosac_utils import get_scenario_id_int_tensor
-
+import shutil
 log = RankedLogger(__name__, rank_zero_only=False)
 
 
@@ -117,6 +117,8 @@ class WOSACSubmission(Metric):
                     arcname=output_filename + f"-of-{len(shard_files):05d}",
                 )
         log.info(f"DONE: Saved wosac submission files to {tar_file_name}")
+
+        shutil.rmtree(self.submission_dir)
 
     def _save_shard(self) -> None:
         shard_submission = sim_agents_submission_pb2.SimAgentsChallengeSubmission(

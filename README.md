@@ -17,7 +17,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation ke@10.87.114.128:~/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/validation guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/catk_highest3/2025-09-20_20-32-05/wosac_submission.tar.gz /home/ke/code/catk/src/waymo_data/
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/AIRL22_lcf336_val40_learnmap/2025-09-22_10-17-38/sim/0ckuxmj2/checkpoints/epoch=5-step=132821.ckpt ./
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
