@@ -404,20 +404,27 @@ class GUI(Process):
             parent=parent
         )
 
-    def drawVehicles(self, node,_pos,_yaw,ag_type):
+    def drawVehicles(self, node,_pos,_yaw,ag_type,agent_valid):
 
-        _valid=np.ones_like(_yaw).astype(bool)
+        _valid=agent_valid
+
 
         _yaw=_yaw[:,None]
+        #print(_valid)
 
         bbox_gt = self._get_agent_bbox(_valid, _pos, _yaw, self.ag_size)
         heading_start = self.get_line_tf(_pos[_valid], self.centerx, self.centery)
+        #print(_valid)
 
         _yaw = _yaw[:, 0][_valid]
         heading_end = self.get_line_tf( _pos[_valid] + 1.5 * np.stack([np.cos(_yaw), np.sin(_yaw)],axis=-1), self.centerx, self.centery)
 
         _type=ag_type[_valid]
+
         for i in range(_type.shape[0]):
+            if not _valid[i]:
+               # print(i)
+                continue
             if i==self.ego_idx:#[0]
                 color=COLOR_CYAN
             else:
@@ -601,7 +608,7 @@ class GUI(Process):
         #print(self.vp_x, self.vp_y, self.vp_w, self.vp_h)
 
         try:
-            agent_pos,agent_head,agent_type,light_idx,time_step=self.renderQueue.get()
+            agent_pos,agent_head,agent_type,agent_valid,time_step=self.renderQueue.get()
 
             ego_position=agent_pos[self.ego_idx]
 
@@ -611,7 +618,7 @@ class GUI(Process):
             if time_step is not None:
                 self.drawRoadgraph(canvasNode)
                 self.draw_traffic_light(canvasNode,time_step)
-                self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type)
+                self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type,agent_valid)
         except TypeError:
             return
 

@@ -61,6 +61,8 @@ from desay_utils.decay_data_process import decode_map_features_from_json
 from desay_utils.idm_policy import idm_planner
 from desay_utils.scene_generator import TrafficGenerator
 from collections import Counter
+from desay_utils.policy import TorchIDMSimulator,IDMParams,MOBILParams
+from desay_utils.plot_route import plot_agents_on_map
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -102,7 +104,7 @@ class SimulationManager:
     def __init__(self, model_cfg,config: str) -> None:
         self.config = config
         self.setup_planner(model_cfg)
-        self.GUI_DISPLAY = self.config["gui_display"]
+        self.GUI_DISPLAY =self.config["gui_display"]
 
         data_root = os.path.dirname(os.path.abspath(__file__))
 
@@ -309,27 +311,40 @@ class SimulationManager:
             # for key in ["pred_traj_10hz","pred_head_10hz"]:
             #     tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
 
-            tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
+            #tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
 
-            for id, route in self.route.items():
-                idx = torch.where(tokenized_agent["id"] == id)[0]
+            for k in range(5):  # 60 s
+                self.sim.step()  # integrates 0.1 s; physics updates every 0.5 s internally
+                poses = self.sim.get_positions()
+                for key in poses.keys():
+                    if key=="ego":
+                        idx=0
+                    else:
+                        idx=int(key[1:])+1
+                    tokenized_agent["pred_traj_10hz"][idx, self.timestamp + k+1,0]=poses[key][0]
+                    tokenized_agent["pred_traj_10hz"][idx, self.timestamp + k+1,1]=poses[key][1]
+                    tokenized_agent["pred_head_10hz"][idx, self.timestamp + k+1] = poses[key][2]
+                    tokenized_agent["all_valid"][idx, self.timestamp + k+1] = True
 
-                all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
+            # for id, route in self.route.items():
+            #     idx = torch.where(tokenized_agent["id"] == id)[0]
+            #
+                # all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
+                #
+                # all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
+                #
+                # all_shape = tokenized_agent["shape"][:, :2]  # length, width
+                #
+                # # route [n,2]
+                # prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
+                #
+                # all_velocity = (all_pos - prev_pos) / 0.1
+                #
+                # new_pos, new_heading = idm_planner(route, self.lane_graph, idx, all_pos, all_heading, all_velocity, all_shape,
+                #                                    desired_speed=20)  # plan 0.5 second
 
-                all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
-
-                all_shape = tokenized_agent["shape"][:, :2]  # length, width
-
-                # route [n,2]
-                prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
-
-                all_velocity = (all_pos - prev_pos) / 0.1
-
-                new_pos, new_heading = idm_planner(route, self.lane_graph, idx, all_pos, all_heading, all_velocity, all_shape,
-                                                   desired_speed=20)  # plan 0.5 second
-
-                tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
-                tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
+                # tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
+                # tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
 
                 # token_dict = self.planner.token_processor._match_agent_token(
                 #     tokenized_agent["all_valid"],
@@ -375,13 +390,14 @@ class SimulationManager:
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
+        valid=tokenized_agent["all_valid"]
 
-        light_idx = []#tokenized_agent["light_idx"][:,(self.timestamp-5)//5].cpu().numpy()
-        agent_pos=pos[:,self.timestamp].cpu().numpy()
-        agent_head=heading[:,self.timestamp].cpu().numpy()
+        agent_pos=pos[:,self.timestamp+1].cpu().numpy()
+        agent_head=heading[:,self.timestamp+1].cpu().numpy()
+        agent_valid=valid[:,self.timestamp+1].cpu().numpy()
 
         if self.GUI_DISPLAY:
-            self.gui.renderQueue.put((agent_pos, agent_head, agent_type, light_idx,self.timestamp))
+            self.gui.renderQueue.put((agent_pos, agent_head, agent_type, agent_valid,self.timestamp))
 
         output_start=time.time()
         #rss_before = get_process_memory()
@@ -394,7 +410,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(100)
+        #sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -465,6 +481,94 @@ class SimulationManager:
                     lift_to_lane_ids=True
                 )
 
+                # 1) Build an "ego" agent dict compatible with TrafficGenerator output
+                def make_ego_agent(ego_route_xyz: np.ndarray, ego_start_xy: np.ndarray, *,
+                                   ego_id="ego", cls="car", avg_speed_mps=14.0, size_lwh=(4.5, 1.85, 1.6)) -> dict:
+                    # route_xyz is already a continuous polyline along EG path
+                    start_xyz = np.array([ego_start_xy[0], ego_start_xy[1], 0.0], dtype=float)
+                    return dict(
+                        agent_id=ego_id,
+                        cls=cls,
+                        size_lwh_m=tuple(size_lwh),
+                        avg_speed_mps=float(avg_speed_mps),
+                        start_xyz=start_xyz,  # simulator will snap to the nearest lane
+                        route_xyz=np.asarray(ego_route_xyz, float),
+                        edge_ids=list(ego_edge_ids),  # optional; not required by the torch simulator
+                        start_lane_id=None,  # let the simulator pick nearest lane
+                        goal_xyz=ego_route_xyz[-1]
+                    )
+
+                ego_agent = make_ego_agent(ego_route_xyz, ego_start_xy, avg_speed_mps=15.0)
+
+                # 2) Combine with background traffic from TG
+                all_agents = list(agents) + [ego_agent]
+
+                # (optional) quick counts so you know what's inside
+                counts = Counter(a["cls"] for a in all_agents)
+                print("Agent class counts:", dict(counts))
+
+                #plot_agents_on_map(agents, map_infos, show_headings=True)
+                # 3) Build lane adjacency from your lane_graph (neighbors = same group, lane_index +/- 1)
+                import networkx as nx
+
+                def build_lane_adjacency_from_groups(G_lane: nx.DiGraph) -> dict:
+                    """
+                    Returns {lane_id: [adjacent_lane_ids]} using:
+                      - same 'group_key' (or same boundary_a_id/boundary_b_id/side if group_key missing)
+                      - |lane_index_i - lane_index_j| == 1
+                    """
+                    # collect lanes with metadata
+                    lanes = []
+                    for u, v, ed in G_lane.edges(data=True):
+                        if ed.get("kind") != "lane":
+                            continue
+                        lid = ed.get("id", ed.get("edge_id", f"{u}->{v}"))
+                        gi = ed.get("group_key", None)
+                        if gi is None:
+                            gi = (ed.get("boundary_a_id"), ed.get("boundary_b_id"), ed.get("side"))
+                        lanes.append((
+                            lid,
+                            gi,
+                            int(ed.get("lane_index", 0)),
+                            int(ed.get("lane_count", 1))
+                        ))
+
+                    # group by corridor group_key AND lane_count (so only same lane-count corridors connect)
+                    from collections import defaultdict
+                    groups = defaultdict(list)
+                    for lid, gk, idx, lcnt in lanes:
+                        groups[(gk, lcnt)].append((lid, idx))
+
+                    # build adjacency
+                    adj = {lid: [] for lid, *_ in lanes}
+                    for (gk, lcnt), items in groups.items():
+                        # sort by index
+                        items.sort(key=lambda t: t[1])
+                        for (lid_i, idx_i), (lid_j, idx_j) in zip(items, items[1:]):
+                            if abs(idx_i - idx_j) == 1:
+                                adj[lid_i].append(lid_j)
+                                adj[lid_j].append(lid_i)
+                    return adj
+
+                lane_adjacency = build_lane_adjacency_from_groups(map_infos["lane_graph"])
+
+                self.sim = TorchIDMSimulator(
+                    map_infos["lane_graph"],
+                    dt_out=0.1, dt_phys=0.5, ds_grid=0.5,
+                    idm=IDMParams(T=1.2, a_max=1.4, b_comf=2.0, s0=2.0, delta=4.0),
+                    mobil=MOBILParams(politeness=0.3, a_thr=0.1, b_safe=3.5, min_gap_lane_change=1.0,
+                                      min_time_in_lane=1.2,
+                                      lat_speed_mps=1.2, lc_min_s=0.9, lc_max_s=3.0),
+                    lane_adjacency=lane_adjacency,  # {lane_id: [adjacent...]}
+                    speed_limits=None,  # or {lane_id: vmax_mps}
+                    goal_tol=3.0
+                )
+
+                self.sim.init_agents_from_batch(all_agents, v0_fraction=0.95)
+
+                # Initialize agents (ego included). The simulator will snap each to the nearest lane if start_lane_id is None.
+                self.sim.init_agents_from_batch(all_agents, v0_fraction=0.95)
+
                 counts = Counter(a["cls"] for a in agents)
                 print("Agent counts by type:")
                 for cls, n in counts.items():
@@ -480,6 +584,8 @@ class SimulationManager:
                     "valid": np.ones([agent_num,91]).astype(bool),
                     "role": np.zeros([agent_num,3]).astype(bool),
                 }
+
+
 
                 # for i,route_i in enumerate(route):
 
@@ -513,6 +619,9 @@ class SimulationManager:
                     elif agent["cls"]=="bicycle":
                         track_infos["object_type"][j]=2
                     self.route[j]=torch.FloatTensor(route[:,:2]).cuda()
+
+                #print(track_infos['states'][:,10,:2])
+
 
             point_cnt=len(map_infos['all_polylines'])
 
@@ -713,6 +822,8 @@ class SimulationManager:
             for key in ["pred_traj_10hz","pred_head_10hz","all_valid"]:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
+
+            tokenized_agent["all_valid"]=torch.zeros_like(tokenized_agent["all_valid"])
 
 
             data_preproces_time=time.time()

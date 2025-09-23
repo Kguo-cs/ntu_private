@@ -39,7 +39,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
             else:#dot
                 cur_info["type"] = 6
                 # print(line_type)
-                plt.plot(xyz[:, 0], xyz[:, 1], color='g')
+                #plt.plot(xyz[:, 0], xyz[:, 1], color='g')
                 #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
                 line_dict[id]=xyz
 

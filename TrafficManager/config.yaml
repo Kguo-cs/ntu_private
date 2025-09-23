@@ -18,7 +18,7 @@ output_json_path: "./waymo/json_output/labels_occluded.json"
 
 input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json
 
-gui_display: True
+gui_display: False
 
 lidar_height: 1.84
 
