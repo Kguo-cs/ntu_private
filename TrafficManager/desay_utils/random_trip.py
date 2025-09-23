@@ -316,7 +316,7 @@ class TrafficGenerator:
         ego_auto_min_len_m: float = 300.0,
         ego_auto_max_len_m: float = 5000.0,
         ego_seed: Optional[int] = 0,
-        neighbor_hops: int = 1,
+        neighbor_hops: int = 3,
         neighbor_mode: str = "both",
         seed: Optional[int] = 42,
         min_route_m: float = 50.0,
