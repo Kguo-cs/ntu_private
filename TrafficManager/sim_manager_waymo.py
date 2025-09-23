@@ -59,7 +59,6 @@ from pynvml import *
 from desay_utils.check_oclluded import check_occlusion_fully_batched
 from desay_utils.decay_data_process import decode_map_features_from_json
 from desay_utils.idm_policy import idm_planner
-from desay_utils.desay_edge_graph import route_on_edge_graph
 from desay_utils.random_trip import TrafficGenerator
 
 def print_cpu_usage(interval=1.0):

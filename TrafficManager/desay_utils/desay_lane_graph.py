@@ -132,7 +132,7 @@ def build_lane_graph_with_connectors(
     forward_min_m: float = 0.0,
     forward_lateral_tol_m: float = 20.0,
     # lateral (lane-change) connector thresholds
-    enable_lateral: bool = True,
+    enable_lateral: bool = False,
     lateral_overlap_min_m: float = 10.0,
     lateral_spacing_m: float = 35.0,
     lateral_curve_len_m: float = 12.0,

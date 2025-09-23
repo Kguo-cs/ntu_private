@@ -1,524 +1,431 @@
-# edge_graph_topo_merge.py
-# Merge junction nodes using boundary coordinates & lane connections (not distance),
-# then build a SUMO-like edge graph with mutual lane-change grouping.
-# Requires: numpy, networkx, shapely, scipy
+# desay_edge_graph.py
+# Build a SUMO-like edge graph from a lane graph with robust node handling.
+# Requires: numpy, shapely, networkx, scipy (already used in your pipeline)
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Any, Optional, Iterable
 import numpy as np
 import networkx as nx
 from shapely.geometry import LineString, Point
-from shapely.strtree import STRtree
-from scipy.spatial import cKDTree
 
-# ---------- small array helpers ----------
+
+# ---------- helpers ----------
+
 def _to_xyz(arr) -> np.ndarray:
+    """
+    Normalize input to shape [N,3].
+    Accepts [N,3], [N,2], [3,N], [x,y,z], [x,y].
+    """
     a = np.asarray(arr, dtype=float)
-    if a.ndim != 2: raise ValueError("array must be 2D")
-    if a.shape[0] == 3 and a.shape[1] != 3: a = a.T
-    if a.shape[1] == 2: a = np.column_stack([a, np.zeros(len(a))])
-    if a.shape[1] != 3: raise ValueError("array must be [N,3],[N,2],or[3,N]")
+
+    # 1D vectors: [x,y] or [x,y,z]
+    if a.ndim == 1:
+        if a.shape[0] == 2:
+            a = np.array([[a[0], a[1], 0.0]], dtype=float)
+        elif a.shape[0] == 3:
+            a = a.reshape(1, 3)
+        else:
+            raise ValueError("1D xyz must have length 2 or 3")
+
+    if a.ndim != 2:
+        raise ValueError("xyz must be 2D after normalization")
+
+    # [3,N] -> transpose (but not a 3x3 matrix)
+    if a.shape[0] == 3 and a.shape[1] != 3:
+        a = a.T
+
+    # [N,2] -> pad z=0
+    if a.shape[1] == 2:
+        a = np.column_stack([a, np.zeros(len(a), dtype=float)])
+
+    if a.shape[1] != 3:
+        raise ValueError("xyz must be shape [N,3] (after normalization)")
+
     return a
 
-def _s_arclen_xy(xyz: np.ndarray) -> np.ndarray:
-    xy = xyz[:, :2]
-    d = np.linalg.norm(np.diff(xy, axis=0), axis=1)
-    return np.concatenate([[0.0], np.cumsum(d)])
 
-def _closest_on_ls_s(ls: LineString, p_xy: np.ndarray) -> Tuple[np.ndarray, float]:
-    s = ls.project(Point(float(p_xy[0]), float(p_xy[1])))
-    q = ls.interpolate(s)
-    return np.array([q.x, q.y], dtype=float), float(s)
+def _arclength2d(xy: np.ndarray) -> np.ndarray:
+    d = np.linalg.norm(np.diff(xy, axis=0), axis=1) if len(xy) > 1 else np.array([])
+    return np.concatenate([[0.0], np.cumsum(d)]) if d.size else np.array([0.0])
 
-# ---------- boundary cache & projection ----------
-@dataclass
-class BoundaryRec:
-    id: int
-    geom: LineString
-    s_len: float
 
-def _build_boundary_cache(boundary_dict: Dict[int, np.ndarray]) -> Tuple[Dict[int, BoundaryRec], STRtree]:
-    recs: List[BoundaryRec] = []
-    for bid, arr in boundary_dict.items():
-        xy = _to_xyz(arr)[:, :2]
-        if len(xy) < 2: continue
-        ls = LineString(xy)
-        recs.append(BoundaryRec(int(bid), ls, ls.length))
-    tree = STRtree([r.geom for r in recs])
-    # id->rec (preserve mapping by same index order used to build STRtree)
-    id2rec = {rec.id: rec for rec in recs}
-    return id2rec, tree
+def _lane_group_key_of_edge(data: Dict[str, Any]) -> Tuple[int, int, str]:
+    # expected format from previous builders
+    if 'group_key' in data and isinstance(data['group_key'], (tuple, list)):
+        gk = tuple(data['group_key'])
+        return (int(gk[0]), int(gk[1]), str(gk[2]))
+    return (int(data['boundary_a_id']), int(data['boundary_b_id']), str(data['side']))
 
-def _boundary_sbar_for_endpoint(p_xy: np.ndarray, pair: Tuple[int,int], id2rec: Dict[int, BoundaryRec]) -> float:
-    """Return mean corridor coordinate s̄ = 0.5*(sA+sB) for endpoint p on boundary pair."""
-    a, b = pair
-    recA = id2rec.get(a); recB = id2rec.get(b)
-    if (recA is None) or (recB is None):
-        return float("nan")
-    _, sA = _closest_on_ls_s(recA.geom, p_xy)
-    _, sB = _closest_on_ls_s(recB.geom, p_xy)
-    return 0.5 * (sA + sB)
 
-# ---------- DSU ----------
-class DSU:
-    def __init__(self, n:int):
-        self.p=list(range(n)); self.r=[0]*n
-    def find(self,x:int)->int:
-        while self.p[x]!=x:
-            self.p[x]=self.p[self.p[x]]; x=self.p[x]
-        return x
-    def union(self,a:int,b:int):
-        ra, rb = self.find(a), self.find(b)
-        if ra==rb: return
-        if self.r[ra]<self.r[rb]: ra, rb = rb, ra
-        self.p[rb]=ra
-        if self.r[ra]==self.r[rb]: self.r[ra]+=1
+def _pick_representative(lanes: List[Dict[str, Any]], mode: str = "median") -> Dict[str, Any]:
+    if not lanes:
+        raise ValueError("lanes list is empty")
+    if mode == "median":
+        idxs = sorted((int(ld['lane_index']), j) for j, ld in enumerate(lanes))
+        mid = idxs[len(idxs)//2][1]
+        return lanes[mid]
+    if mode in ("leftmost", "min", "min_index"):
+        j = min(range(len(lanes)), key=lambda j: int(lanes[j]['lane_index']))
+        return lanes[j]
+    if mode in ("rightmost", "max", "max_index"):
+        j = max(range(len(lanes)), key=lambda j: int(lanes[j]['lane_index']))
+        return lanes[j]
+    return lanes[len(lanes)//2]
 
-# ---------- lane snap (for routing later) ----------
-@dataclass
-class LaneGeom:
-    lane_id: Any
-    xyz: np.ndarray
-    s: np.ndarray
-    ls: LineString
-    length: float
 
-class LaneSnapIndex:
-    def __init__(self, G_lane: nx.DiGraph):
-        self.lanes: Dict[Any, LaneGeom] = {}
-        for lid, data in G_lane.nodes(data=True):
-            xyz = _to_xyz(data["xyz"])
-            s = _s_arclen_xy(xyz)
-            self.lanes[lid] = LaneGeom(lid, xyz, s, LineString(xyz[:, :2]), float(s[-1]))
+# ---------- result dataclass ----------
 
-    def nearest_lane(self, xy: np.ndarray) -> Tuple[Any, float, np.ndarray]:
-        xy = np.asarray(xy, float)
-        best = None
-        for lid, L in self.lanes.items():
-            _, s_on = _closest_on_ls_s(L.ls, xy)
-            q = np.array([np.interp(s_on, L.s, L.xyz[:,0]),
-                          np.interp(s_on, L.s, L.xyz[:,1]),
-                          np.interp(s_on, L.s, L.xyz[:,2])])
-            d = np.linalg.norm(q[:2] - xy[:2])
-            if (best is None) or (d < best[0]):
-                best = (d, lid, s_on, q)
-        _, lid, s_on, q = best
-        return lid, s_on, q
-
-# ---------- build: boundary/lane-connection merged nodes + mutual-lane-change edges ----------
 @dataclass
 class BuildResult:
-    EG: nx.DiGraph
-    lane_to_edge: Dict[Any, str]
-    node_positions: Dict[str, np.ndarray]
+    edge_graph: nx.DiGraph
+    junction_map: Dict[str, List[str]]        # merged_junction_id -> list(original lane node ids)
+    edge_members: Dict[str, List[str]]        # new edge id -> list(original lane edge ids)
+    node_xyz: Dict[str, np.ndarray]           # merged_junction_id -> representative xyz
+
+
+# ---------- main function ----------
 
 def build_edge_graph_from_lane_graph_topo(
     G_lane: nx.DiGraph,
     boundary_dict: Dict[int, np.ndarray],
     *,
-    s_merge_tol_m: float = 1,             # along-corridor tolerance on s̄ for merging
-    lateral_require_bidir: bool = True,     # mutual lane-change to be in same edge
-    lateral_min_overlap_frac: float = 0.25, # if present on edge, enforce minimum
-    representative: str = "median",         # representative lane per edge
+    s_merge_tol_m: float = 10.0,                 # arclength tolerance (meters) for merging
+    lateral_require_bidir: bool = True,         # mutual lane-change to be in same edge
+    lateral_min_overlap_frac: float = 0.25,     # best-effort check using anchors (optional)
+    representative: str = "median",             # representative lane per edge
     edge_id_prefix: str = "e",
 ) -> BuildResult:
     """
     Build a SUMO-like edge graph where:
-      - Junction nodes are merged using boundary arclength coordinates (s̄) and successor links.
+      - Junction nodes are merged using boundary arclength coordinates (s) and successor links.
       - Inside each (u->v) junction pair, lanes are grouped into edges by mutual lane-changing.
     """
-    # Boundary cache
-    id2rec, _ = _build_boundary_cache(boundary_dict)
 
-    # Collect endpoints with boundary-pair curvilinear coordinate
-    endpoints: List[Tuple[Any, str, np.ndarray, Tuple[int,int], float]] = []
-    # format: (lane_id, 'start'|'end', xy, boundary_pair, sbar)
-    for lid, data in G_lane.nodes(data=True):
-        bp = data.get("boundary_pair")
-        if not bp or len(bp)!=2:   # skip if no boundary pair
+    # 0) Precompute reference boundary geometries (LineString)
+    bgeom: Dict[int, LineString] = {}
+    for bid, xyz in boundary_dict.items():
+        xyz = _to_xyz(xyz)
+        bgeom[int(bid)] = LineString(xyz[:, :2])
+
+    # 1) Seed node_xyz from lane edges and/or node attributes (robust to missing/1D xyz)
+    node_xyz: Dict[str, np.ndarray] = {}
+
+    for u, v, data in G_lane.edges(data=True):
+        if data.get('kind') != 'lane':
             continue
-        bp = tuple(sorted(tuple(bp)))
-        sxy = np.asarray(data["start_xy"], float)
-        exy = np.asarray(data["end_xy"], float)
-        sbar_s = _boundary_sbar_for_endpoint(sxy, bp, id2rec)
-        sbar_e = _boundary_sbar_for_endpoint(exy, bp, id2rec)
-        endpoints.append((lid, "start", sxy, bp, sbar_s))
-        endpoints.append((lid, "end",   exy, bp, sbar_e))
+        # prefer graph node xyz if present and valid
+        if 'xyz' in G_lane.nodes[u]:
+            try:
+                node_xyz[u] = _to_xyz(G_lane.nodes[u]['xyz'])
+            except Exception:
+                pass
+        if 'xyz' in G_lane.nodes[v]:
+            try:
+                node_xyz[v] = _to_xyz(G_lane.nodes[v]['xyz'])
+            except Exception:
+                pass
 
-    if not endpoints:
-        return BuildResult(nx.DiGraph(), {}, {})
-
-    # Build DSU over endpoints (index in 'endpoints' list)
-    dsu = DSU(len(endpoints))
-
-    # Rule 1: merge by boundary curvilinear coordinate s̄ (same boundary_pair)
-    # Group indices by boundary_pair
-    # --- NEW: Rule 1 (safe boundary s̄ merge) ---
-    # Group by (boundary_pair, endpoint_type) so STARTS cluster with STARTS,
-    # ENDS cluster with ENDS. This prevents self start/end collapsing.
-    by_bp_typ: Dict[Tuple[Tuple[int, int], str], List[int]] = {}
-    for i, (lid, typ, xy, bp, sbar) in enumerate(endpoints):
-        by_bp_typ.setdefault((bp, typ), []).append(i)
-
-    # (Optional) small helper to get endpoint heading for gating
-    def _endpoint_heading(lid: Any, typ: str) -> np.ndarray:
-        xyz = np.asarray(G_lane.nodes[lid]["xyz"], float)
-        if xyz.ndim == 2 and xyz.shape[1] == 2:
-            xyz = np.column_stack([xyz, np.zeros(len(xyz))])
-        # simple finite diff near end
-        if typ == "start":
-            v = xyz[min(5, len(xyz) - 1), :2] - xyz[0, :2]
-        else:
-            v = xyz[-1, :2] - xyz[max(0, len(xyz) - 1 - 5), :2]
-        n = np.linalg.norm(v) + 1e-9
-        return v / n
-
-    # optional orientation gate (set to None to disable)
-    merge_max_heading_diff_deg: Optional[float] = 90.0
-    cos_thresh = None if merge_max_heading_diff_deg is None else np.cos(np.deg2rad(merge_max_heading_diff_deg))
-
-    for (bp, typ), inds in by_bp_typ.items():
-        # Sort by s̄; only union neighbors within tolerance, with extra guards
-        inds_sorted = sorted(inds, key=lambda i: endpoints[i][4])
-        # Precompute headings for this bucket
-        if cos_thresh is not None:
-            head_cache = {i: _endpoint_heading(endpoints[i][0], endpoints[i][1]) for i in inds_sorted}
-        for i0, i1 in zip(inds_sorted[:-1], inds_sorted[1:]):
-            lid0, typ0, xy0, bp0, s0 = endpoints[i0]
-            lid1, typ1, xy1, bp1, s1 = endpoints[i1]
-            if not (np.isfinite(s0) and np.isfinite(s1)):
-                continue
-            if abs(s1 - s0) > s_merge_tol_m:
-                continue
-            # ---- guards ----
-            if lid0 == lid1:
-                continue  # never merge start & end of the same lane
-            # heading compatibility for same-type endpoints (avoid opposite flows)
-            if cos_thresh is not None:
-                h0 = head_cache[i0];
-                h1 = head_cache[i1]
-                if float(np.dot(h0, h1)) < cos_thresh:
-                    continue
-            # OK: merge these two endpoints into the same junction
-            dsu.union(i0, i1)
-
-    # Rule 2: force-merge lane connections (successor)
-    # For any successor u->v, union end(u) with start(v)
-    # Build quick maps from lid to its endpoint indices
-    start_idx: Dict[Any, int] = {}
-    end_idx: Dict[Any, int] = {}
-    for idx, (lid, typ, *_rest) in enumerate(endpoints):
-        if typ == "start": start_idx[lid] = idx
-        else:              end_idx[lid]   = idx
-    for u, v, d in G_lane.edges(data=True):
-        if d.get("type") != "successor": continue
-        iu = end_idx.get(u); iv = start_idx.get(v)
-        if iu is not None and iv is not None:
-            dsu.union(iu, iv)
-
-    # Turn DSU clusters into junction nodes with positions (average of members)
-    clusters: Dict[int, List[int]] = {}
-    for i in range(len(endpoints)):
-        clusters.setdefault(dsu.find(i), []).append(i)
-
-    node_positions: Dict[str, np.ndarray] = {}
-    idx2nid: Dict[int, str] = {}
-    for comp in clusters.values():
-        pts = np.array([endpoints[i][2] for i in comp], dtype=float)
-        nid = f"J{len(node_positions)}"
-        node_positions[nid] = pts.mean(axis=0)
-        for i in comp: idx2nid[i] = nid
-
-    def node_of(lid, which):
-        # find endpoint tuple index and map via idx2nid
-        for idx, (ll, typ, *_rest) in enumerate(endpoints):
-            if ll == lid and typ == which:
-                return idx2nid[idx]
-        raise KeyError("endpoint not found")
-
-    # Assign each lane to a directed (u,v) node pair
-    lanes_by_uv: Dict[Tuple[str,str], List[Any]] = {}
-    for lid, _data in G_lane.nodes(data=True):
-        # skip lanes that were not in endpoints (e.g., missing boundary_pair)
-        if lid not in start_idx or lid not in end_idx:
+    # fallback to edge endpoints for any missing nodes
+    for u, v, data in G_lane.edges(data=True):
+        if data.get('kind') != 'lane':
             continue
-        u = node_of(lid, "start"); v = node_of(lid, "end")
-        lanes_by_uv.setdefault((u,v), []).append(lid)
+        geom = data.get('geom', None)
+        if geom is None or len(geom) < 1:
+            continue
+        geom = _to_xyz(geom)
+        if u not in node_xyz:
+            node_xyz[u] = geom[:1]
+        if v not in node_xyz:
+            node_xyz[v] = geom[-1:].copy()
 
-    # Build EG
-    EG = nx.DiGraph()
-    for nid, xy in node_positions.items():
-        EG.add_node(nid, xy=np.asarray(xy, float))
+    # 2) Collect lane edges and project their endpoints to boundary A arclength
+    node_s_by_group: Dict[str, Dict[Tuple[int, int, str], float]] = {}
+    lane_edges: List[Tuple[str, str, Dict[str, Any]]] = []
 
-    lane_to_edge: Dict[Any, str] = {}
-    comp_counter_by_uv: Dict[Tuple[str,str], int] = {}
+    for u, v, data in G_lane.edges(data=True):
+        if data.get('kind') != 'lane':
+            continue
+        lane_edges.append((u, v, data))
+        gk = _lane_group_key_of_edge(data)
+        bA = int(data['boundary_a_id'])
+        lsA = bgeom.get(bA)
+        if lsA is None:
+            continue
 
-    # Inside each (u,v), group lanes by mutual lane-change (bidirectional lateral)
-    def _mutual_ok(i, j) -> bool:
-        eij = G_lane.get_edge_data(i, j); eji = G_lane.get_edge_data(j, i)
-        if eij is None or eji is None:
-            return False if lateral_require_bidir else (eij is not None or eji is not None)
-        if eij.get("type") != "lateral" or eji.get("type") != "lateral":
+        # project start & end onto boundary A (if we have node positions)
+        if u in node_xyz:
+            pu = node_xyz[u][0, :2]
+            su = float(lsA.project(Point(float(pu[0]), float(pu[1]))))
+            node_s_by_group.setdefault(u, {})[gk] = su
+        if v in node_xyz:
+            pv = node_xyz[v][0, :2]
+            sv = float(lsA.project(Point(float(pv[0]), float(pv[1]))))
+            node_s_by_group.setdefault(v, {})[gk] = sv
+
+        # store s on the lane edge too (useful later)
+        data['_s_start_m'] = node_s_by_group.get(u, {}).get(gk, None)
+        data['_s_end_m']   = node_s_by_group.get(v, {}).get(gk, None)
+        data['_group_key'] = gk
+
+    # 3) Merge junctions per group_key by clustering nodes with similar s within tolerance
+    merged_id_map: Dict[Tuple[str, Tuple[int, int, str]], str] = {}  # (node_id, gk) -> merged_id
+    junction_members: Dict[str, List[str]] = {}                      # merged_id -> list(node_ids)
+    junction_xyz: Dict[str, np.ndarray] = {}                         # merged_id -> mean xyz
+    next_jid = 0
+
+    from collections import defaultdict
+    by_group_nodes = defaultdict(list)  # gk -> list[(node_id, s, xyz)]
+    for nid, per in node_s_by_group.items():
+        for gk, s in per.items():
+            xyz = node_xyz.get(nid)
+            if xyz is None:
+                continue
+            p = xyz[0] if xyz.ndim == 2 else xyz
+            by_group_nodes[gk].append((nid, float(s), np.asarray(p, float)))
+
+    def _flush_cluster(cluster: List[Tuple[str, float, np.ndarray]], gk):
+        nonlocal next_jid
+        if not cluster:
+            return
+        jid = f"j{next_jid:06d}"
+        next_jid += 1
+        members = [nid for (nid, _, _) in cluster]
+        for nid, _, _ in cluster:
+            merged_id_map[(nid, gk)] = jid
+        xyzs = np.stack([p for (_, _, p) in cluster], axis=0)
+        junction_members[jid] = members
+        junction_xyz[jid] = np.mean(xyzs, axis=0)
+
+    for gk, lst in by_group_nodes.items():
+        lst.sort(key=lambda x: x[1])  # sort by s
+        cluster = []
+        if not lst:
+            continue
+        s_anchor = lst[0][1]
+        for item in lst:
+            nid, s, p = item
+            if not cluster:
+                cluster = [item]
+                s_anchor = s
+            else:
+                if abs(s - s_anchor) <= s_merge_tol_m:
+                    cluster.append(item)
+                    s_anchor = min(s_anchor, s)
+                else:
+                    _flush_cluster(cluster, gk)
+                    cluster = [item]
+                    s_anchor = s
+        _flush_cluster(cluster, gk)
+
+    # 4) Bucket lane edges by merged junction pair (uJ -> vJ) and group_key
+    pair_to_lanes: Dict[Tuple[str, str, Tuple[int, int, str]], List[Dict[str, Any]]] = defaultdict(list)
+
+    for u, v, data in lane_edges:
+        gk = data['_group_key']
+        uJ = merged_id_map.get((u, gk))
+        vJ = merged_id_map.get((v, gk))
+        if uJ is None or vJ is None or uJ == vJ:
+            continue
+        rec = dict(
+            lane_edge_id=data.get('id', data.get('edge_id', f"{u}->{v}")),
+            lane_uid=f"corridor:{data['boundary_a_id']}-{data['boundary_b_id']}:{data['side']}:lane{int(data['lane_index']):02d}",
+            lane_index=int(data['lane_index']),
+            group_key=gk,
+            geom=np.asarray(data.get('geom'), float) if 'geom' in data else None,
+            _s_start_m=data.get('_s_start_m'),
+            _s_end_m=data.get('_s_end_m'),
+            _u=u, _v=v,
+        )
+        pair_to_lanes[(uJ, vJ, gk)].append(rec)
+
+    # 5) Build lateral connectivity between lane_uids from lateral connectors in G_lane
+    from collections import defaultdict as dd2
+    lateral_dir: Dict[Tuple[str, str], List[float]] = dd2(list)  # (from_uid, to_uid) -> [anchor_s...]
+    lateral_pairs: Dict[frozenset, Dict[str, bool]] = {}
+
+    for x, y, ed in G_lane.edges(data=True):
+        if ed.get('kind') != 'connector' or ed.get('subtype') != 'lateral':
+            continue
+        uid_from = ed.get('from_lane')
+        uid_to   = ed.get('to_lane')
+        if not uid_from or not uid_to:
+            continue
+        anchor_s = float(ed.get('anchor_s', 0.0))
+        lateral_dir[(uid_from, uid_to)].append(anchor_s)
+        key = frozenset([uid_from, uid_to])
+        lateral_pairs.setdefault(key, {'ab': False, 'ba': False})
+
+    # finalize mutual flags
+    for key in list(lateral_pairs.keys()):
+        a, b = tuple(key)
+        ab = (a, b) in lateral_dir and len(lateral_dir[(a, b)]) > 0
+        ba = (b, a) in lateral_dir and len(lateral_dir[(b, a)]) > 0
+        lateral_pairs[key]['ab'] = ab
+        lateral_pairs[key]['ba'] = ba
+
+    def _lanes_connected(uidA: str, uidB: str) -> bool:
+        key = frozenset([uidA, uidB])
+        if key not in lateral_pairs:
             return False
-        # optional overlap gating if present
-        oi = eij.get("overlap_frac"); oj = eji.get("overlap_frac")
-        if (oi is not None and oi < lateral_min_overlap_frac): return False
-        if (oj is not None and oj < lateral_min_overlap_frac): return False
-        return True
+        st = lateral_pairs[key]
+        return (st.get('ab', False) and st.get('ba', False)) if lateral_require_bidir \
+               else (st.get('ab', False) or st.get('ba', False))
 
-    for (u, v), lane_ids in lanes_by_uv.items():
-        if not lane_ids: continue
-        H = nx.Graph(); H.add_nodes_from(lane_ids)
-        for i in range(len(lane_ids)):
-            for j in range(i+1, len(lane_ids)):
-                a, b = lane_ids[i], lane_ids[j]
-                if _mutual_ok(a, b):
-                    H.add_edge(a, b)
-        comps = list(nx.connected_components(H)) if H.number_of_edges()>0 else [{lid} for lid in lane_ids]
+    def _approx_seg_len(seg: Dict[str, Any]) -> float:
+        geom = seg.get('geom')
+        if geom is None or len(geom) < 2:
+            return 1.0
+        s = _arclength2d(np.asarray(geom)[:, :2])
+        return float(s[-1])
 
-        for comp in comps:
-            comp = sorted(list(comp), key=lambda L: G_lane.nodes[L].get("lane_index", 0))
-            # representative lane shape
-            rep_lane = comp[0]
-            if representative == "median":
-                if all(G_lane.nodes[L].get("lane_index") is not None for L in comp):
-                    rep_lane = comp[len(comp)//2]
-            shape_xyz = _to_xyz(G_lane.nodes[rep_lane]["xyz"])
-            # edge length = mean of member lane lengths
-            lengths = []
-            for lid in comp:
-                s = _s_arclen_xy(_to_xyz(G_lane.nodes[lid]["xyz"]))
-                lengths.append(float(s[-1]))
-            length_m = float(np.mean(lengths)) if lengths else float(_s_arclen_xy(shape_xyz)[-1])
+    def _passes_overlap(uidA: str, uidB: str, approx_len: float) -> bool:
+        if lateral_min_overlap_frac <= 0:
+            return True
+        anchors = len(lateral_dir.get((uidA, uidB), [])) + len(lateral_dir.get((uidB, uidA), []))
+        if anchors == 0:
+            return False
+        typical_spacing = 30.0  # conservative if you place lateral anchors ~35m
+        est_cover = anchors * typical_spacing
+        return (est_cover / max(1.0, approx_len)) >= lateral_min_overlap_frac
 
-            k = comp_counter_by_uv.get((u, v), 0)
-            eid = f"{edge_id_prefix}_{u}_{v}_{k}"
-            comp_counter_by_uv[(u, v)] = k + 1
+    # 6) Build edge graph
+    EdgeG = nx.DiGraph()
 
-            EG.add_edge(u, v,
-                        id=eid,
-                        lanes=tuple(comp),
-                        num_lanes=len(comp),
-                        length_m=length_m,
-                        shape_xyz=shape_xyz,
-                        weight=length_m)
-            for lid in comp:
-                lane_to_edge[lid] = eid
+    for (uJ, vJ, gk), lanes in pair_to_lanes.items():
+        if not lanes:
+            continue
+        # sort by lane_index; contiguous indices may be grouped if laterally connected
+        lanes_sorted = sorted(lanes, key=lambda d: d['lane_index'])
+        groups: List[List[Dict[str, Any]]] = []
+        cur = [lanes_sorted[0]]
 
-    # Allowed edge turns: derive from lane successors
-    allowed_edge_turns = set()
-    for lu, lv, d in G_lane.edges(data=True):
-        if d.get("type") != "successor": continue
-        eu = lane_to_edge.get(lu); ev = lane_to_edge.get(lv)
-        if eu and ev:
-            allowed_edge_turns.add((eu, ev))
-    EG.graph["allowed_edge_turns"] = allowed_edge_turns
+        for i in range(1, len(lanes_sorted)):
+            A = lanes_sorted[i-1]
+            B = lanes_sorted[i]
+            contig = (abs(A['lane_index'] - B['lane_index']) == 1)
+            if not contig:
+                groups.append(cur); cur = [B]; continue
+            connected = _lanes_connected(A['lane_uid'], B['lane_uid'])
+            if connected:
+                seg_len = min(_approx_seg_len(A), _approx_seg_len(B))
+                if _passes_overlap(A['lane_uid'], B['lane_uid'], seg_len):
+                    cur.append(B)
+                else:
+                    groups.append(cur); cur = [B]
+            else:
+                groups.append(cur); cur = [B]
+        groups.append(cur)
 
-    return BuildResult(EG=EG, lane_to_edge=lane_to_edge, node_positions=node_positions)
+        # add one EdgeG edge per lane group
+        for gidx, group in enumerate(groups):
+            rep = _pick_representative(group, representative)
+            eid = f"{edge_id_prefix}_{uJ}_{vJ}_{gidx:02d}"
 
-# ---------- Router on the edge graph (unchanged API) ----------
-@dataclass
-class EdgeRoute:
-    edge_ids: List[str]
-    distance_m: float
-    route_xyz: Optional[np.ndarray]
-    start_edge: str
-    goal_edge: str
+            if uJ not in EdgeG:
+                EdgeG.add_node(uJ, xyz=None)  # fill below
+            if vJ not in EdgeG:
+                EdgeG.add_node(vJ, xyz=None)
 
-def route_on_edge_graph(
-    EG: nx.DiGraph,
-    G_lane: nx.DiGraph,
-    start_xy: np.ndarray,
-    goal_xy: np.ndarray,
-    *,
-    weight_attr: str = "weight",
-    build_geometry: bool = True,
-) -> EdgeRoute:
-    shape_of_e, length_of_e, lane_to_edge = {}, {}, {}
-    id2uv = {}
-    for u, v, ed in EG.edges(data=True):
-        eid = ed["id"]
-        id2uv[eid] = (u, v)
-        shape_of_e[eid] = _to_xyz(ed["shape_xyz"])
-        length_of_e[eid] = float(ed.get("length_m", _s_arclen_xy(shape_of_e[eid])[-1]))
-        for lid in ed["lanes"]:
-            lane_to_edge[lid] = eid
+            EdgeG.add_edge(
+                uJ, vJ,
+                id=eid,
+                lanes=[le['lane_edge_id'] for le in group],
+                lane_indices=[int(le['lane_index']) for le in group],
+                group_key=gk,
+                representative_lane=rep['lane_edge_id'],
+                representative_uid=rep['lane_uid'],
+                representative_index=int(rep['lane_index']),
+                geom=rep.get('geom', None),
+                type="edge",
+                lanes_count=len(group),
+            )
 
-    # snap start/goal to nearest lane → edge
-    snap = LaneSnapIndex(G_lane)
-    s_lane, _, _ = snap.nearest_lane(np.asarray(start_xy, float))
-    g_lane, _, _ = snap.nearest_lane(np.asarray(goal_xy, float))
-    s_edge = lane_to_edge.get(s_lane); g_edge = lane_to_edge.get(g_lane)
-    if s_edge is None or g_edge is None:
-        raise RuntimeError("Could not map snapped lanes to edges.")
+    # assign node xyz from merged clusters (mean of members)
+    # (junction_xyz is computed below)
+    # 7) Build junction maps / xyz
+    junction_map: Dict[str, List[str]] = {}
+    node_xyz_merged: Dict[str, np.ndarray] = {}
 
-    # edge-ID graph using allowed turns
-    EID = nx.DiGraph()
-    for eid in shape_of_e.keys(): EID.add_node(eid)
-    allowed = EG.graph.get("allowed_edge_turns", None)
-    if allowed:
-        for e1, e2 in allowed:
-            if (e1 in shape_of_e) and (e2 in shape_of_e):
-                # cost = weight of the next edge
-                w = None
-                for u, v, ed in EG.edges(data=True):
-                    if ed["id"] == e2:
-                        w = float(ed.get(weight_attr, ed.get("weight"))); break
-                if w is None: w = float(length_of_e[e2])
-                EID.add_edge(e1, e2, weight=w)
-    else:
-        # fallback: connect edges sharing a junction
-        for e1, (u1, v1) in id2uv.items():
-            for e2, (u2, _) in id2uv.items():
-                if v1 == u2:
-                    w = None
-                    for u, v, ed in EG.edges(data=True):
-                        if ed["id"] == e2:
-                            w = float(ed.get(weight_attr, ed.get("weight"))); break
-                    if w is None: w = float(length_of_e[e2])
-                    EID.add_edge(e1, e2, weight=w)
+    # reconstruct from merged_id_map: inverse mapping
+    from collections import defaultdict as dd
+    inv_map = dd(list)
+    for (nid, gk), jid in merged_id_map.items():
+        inv_map[jid].append(nid)
 
-    edge_path = nx.shortest_path(EID, s_edge, g_edge, weight="weight")
+    for jid, members in inv_map.items():
+        pts = []
+        for nid in members:
+            if nid in node_xyz:
+                p = node_xyz[nid][0] if node_xyz[nid].ndim == 2 else node_xyz[nid]
+                pts.append(p)
+        if pts:
+            xyz = np.mean(np.stack(pts, axis=0), axis=0)
+            node_xyz_merged[jid] = xyz
+        else:
+            node_xyz_merged[jid] = None
+        junction_map[jid] = members
 
-    dist = float(sum(length_of_e[eid] for eid in edge_path))
-    route_xyz = None
-    if build_geometry:
-        parts = []
-        for i, eid in enumerate(edge_path):
-            P = shape_of_e[eid]
-            if i>0 and len(parts) and np.allclose(parts[-1][-1], P[0], atol=1e-6):
-                parts[-1] = parts[-1][:-1]
-            parts.append(P)
-        route_xyz = np.vstack(parts)
+    # ensure EdgeG nodes get xyz
+    for n in EdgeG.nodes():
+        if EdgeG.nodes[n].get('xyz') is None:
+            EdgeG.nodes[n]['xyz'] = node_xyz_merged.get(n)
 
-    return EdgeRoute(edge_ids=edge_path, distance_m=dist, route_xyz=route_xyz,
-                     start_edge=s_edge, goal_edge=g_edge)
+    # 8) Build edge_members dict
+    edge_members: Dict[str, List[str]] = {}
+    for uJ, vJ, data in EdgeG.edges(data=True):
+        eid = data['id']
+        edge_members[eid] = list(data.get('lanes', []))
 
-# plot_edge_graph.py
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
+    return BuildResult(
+        edge_graph=EdgeG,
+        junction_map=junction_map,
+        edge_members=edge_members,
+        node_xyz=node_xyz_merged,
+    )
 
-def _to_xy(arr):
-    a = np.asarray(arr, dtype=float)
-    if a.ndim != 2: raise ValueError("array must be 2D")
-    if a.shape[1] == 3: return a[:, :2]
-    if a.shape[1] == 2: return a
-    if a.shape[0] == 3 and a.shape[1] != 3: return a.T[:, :2]
-    raise ValueError("expected [N,3] or [N,2] or [3,N]")
 
-def _midpoint(xy):
-    return xy[len(xy)//2]
-
-def plot_edge_graph(
-    EG,
-    *,
-    route_edge_ids=None,          # list like ["e0","e3","e9"] to overlay a route (optional)
-    show_edge_ids: bool=True,
-    show_junctions: bool=True,
-    show_junction_ids: bool=True,
-    base_lw: float=1.6,           # base linewidth
-    lanes_gain: float=0.5,        # extra lw per lane beyond 1
-    arrows: bool=True,            # tiny arrowheads to indicate edge direction
-    figsize=(11,11),
-    save_path: str|None=None,
-    ax=None,
-):
-    """Plot a SUMO-like edge graph built by `build_edge_graph_from_lane_graph`."""
-    created = False
-    if ax is None:
-        fig, ax = plt.subplots(figsize=figsize)
-        created = True
-
-    # 1) Draw edges (LineCollection for speed)
-    segs, lws, cols, mids, labels = [], [], [], [], []
-    for u, v, ed in EG.edges(data=True):
-        xy = _to_xy(ed["shape_xyz"])
-        segs.append(xy)
-        nlanes = int(ed.get("num_lanes", 1))
-        lws.append(base_lw + lanes_gain * max(0, nlanes - 1))
-        cols.append("C0")  # single hue; keep clean. (Change if you want per-edge colors.)
-        mids.append(_midpoint(xy))
-        labels.append(ed.get("id", f"{u}->{v}"))
-
-    if segs:
-        lc = LineCollection(segs, linewidths=lws, colors=cols, alpha=0.95, zorder=2)
-        ax.add_collection(lc)
-
-    # 2) Direction arrowheads (small, at 60% along each edge)
-    if arrows:
-        for xy in segs:
-            if len(xy) < 2: continue
-            s = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
-            if s[-1] <= 0: continue
-            t = 0.6 * s[-1]
-            # linear interpolation to position and local tangent
-            px = np.interp(t, s, xy[:,0]); py = np.interp(t, s, xy[:,1])
-            # tangent via finite diff
-            dt = min(max(0.02*s[-1], 1e-3), s[-1]/3)
-            p0x = np.interp(max(0,t-dt), s, xy[:,0]); p0y = np.interp(max(0,t-dt), s, xy[:,1])
-            p1x = np.interp(min(s[-1],t+dt), s, xy[:,0]); p1y = np.interp(min(s[-1],t+dt), s, xy[:,1])
-            ax.annotate("", xy=(p1x,p1y), xytext=(p0x,p0y),
-                        arrowprops=dict(arrowstyle="->", lw=0.9, alpha=0.75), zorder=3)
-
-    # 3) Edge ID labels (at midpoints)
-    if show_edge_ids:
-        for m, lab in zip(mids, labels):
-            ax.text(m[0], m[1], lab, fontsize=8, color="k", alpha=0.85)
-
-    # 4) Junctions
-    if show_junctions:
-        xs, ys, nids = [], [], []
-        for nid, nd in EG.nodes(data=True):
-            if "xy" not in nd: continue
-            p = np.asarray(nd["xy"], float)
-            xs.append(p[0]); ys.append(p[1]); nids.append(nid)
-        if xs:
-            ax.scatter(xs, ys, s=10, c="k", alpha=0.8, zorder=4)
-            if show_junction_ids:
-                for x, y, nid in zip(xs, ys, nids):
-                    ax.text(x, y, str(nid), fontsize=7, color="k", ha="left", va="bottom")
-
-    # 5) Optional route overlay (thicker)
-    if route_edge_ids:
-        # build a polyline by concatenating edge shapes in sequence
-        parts = []
-        for i, eid in enumerate(route_edge_ids):
-            # find the EG edge with this id
-            found = False
-            for u, v, ed in EG.edges(data=True):
-                if ed.get("id") == eid:
-                    P = _to_xy(ed["shape_xyz"])
-                    if i>0 and len(parts) and np.allclose(parts[-1][-1], P[0], atol=1e-6):
-                        parts[-1] = parts[-1][:-1]
-                    parts.append(P); found = True; break
-            if not found:
-                # silently skip unknown id
-                continue
-        if parts:
-            R = np.vstack(parts)
-            ax.plot(R[:,0], R[:,1], linewidth=3.0, alpha=0.95, zorder=5)
-
-    # Ax cosmetics
-    ax.set_aspect("equal", "box")
-    ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]")
-    ax.margins(0.05)
-    plt.show()
-    # if created:
-    #     plt.tight_layout()
-    #     if save_path:
-    #         plt.savefig(save_path, dpi=220)
-    return ax
-
-# # --- tiny demo ---
-# if __name__ == "__main__":
-#     import networkx as nx
-#     EG = nx.DiGraph()
-#     # nodes with positions
-#     EG.add_node("J0", xy=np.array([0,0])); EG.add_node("J1", xy=np.array([50,0])); EG.add_node("J2", xy=np.array([50,30]))
-#     # edges with shapes and lane counts
-#     EG.add_edge("J0","J1", id="e0", num_lanes=2, shape_xyz=np.array([[0,0,0],[50,0,0]]))
-#     EG.add_edge("J1","J2", id="e1", num_lanes=1, shape_xyz=np.array([[50,0,0],[50,30,0]]))
-#     plot_edge_graph(EG, route_edge_ids=["e0","e1"], show_edge_ids=True, show_junctions=True, show_junction_ids=True)
+# ---------- optional: quick plot ----------
+#
+# def plot_edge_graph(edge_result: BuildResult, show_nodes=True, show_labels=False, figsize=(10,10)):
+#     import matplotlib.pyplot as plt
+#     G = edge_result.edge_graph
+#     node_xyz = edge_result.node_xyz
+#
+#     fig, ax = plt.subplots(figsize=figsize)
+#
+#     # Draw edges
+#     for u, v, data in G.edges(data=True):
+#         geom = data.get('geom')
+#         if geom is not None and len(geom) >= 2:
+#             xy = np.asarray(geom)[:, :2]
+#             ax.plot(xy[:, 0], xy[:, 1], color='blue', linewidth=2, alpha=0.7, zorder=1)
+#             if show_labels:
+#                 mid = len(xy)//2
+#                 ax.text(xy[mid,0], xy[mid,1], data.get('id',''), fontsize=8, color='purple')
+#         else:
+#             pu = node_xyz.get(u); pv = node_xyz.get(v)
+#             if pu is not None and pv is not None:
+#                 ax.plot([pu[0], pv[0]], [pu[1], pv[1]], color='blue', linestyle='--', alpha=0.5)
+#
+#     # Draw nodes
+#     if show_nodes:
+#         for nid, p in node_xyz.items():
+#             if p is None:
+#                 continue
+#             ax.scatter(p[0], p[1], color='black', s=20, zorder=2)
+#             if show_labels:
+#                 ax.text(p[0], p[1], nid, fontsize=7, color='red')
+#
+#     ax.set_aspect('equal')
+#     ax.set_title("Edge Graph (SUMO-like)")
 #     plt.show()
+#
+#
+# # ---------- example ----------
+#
+# if __name__ == "__main__":
+#     # Example usage (requires you to supply G_lane and boundary_dict):
+#     # result = build_edge_graph_from_lane_graph_topo(G_lane, boundary_dict)
+#     # plot_edge_graph(result, show_nodes=True, show_labels=True)
+#     pass

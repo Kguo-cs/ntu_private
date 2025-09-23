@@ -2,8 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numpy as np
 from .desay_lane_graph import build_lane_graph_with_connectors
-from .desay_edge_graph import build_edge_graph_from_lane_graph_topo,plot_edge_graph
+from .desay_edge_graph import build_edge_graph_from_lane_graph_topo
 from .plot_lane_graph import  plot_lane_graph
+from .plot_edge_graph import  plot_edge_graph
 
 from .build_centerline import build_centerlines_from_boundaries_xyz
 
@@ -92,14 +93,11 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
     lane_graph=build_lane_graph_with_connectors(centerlines)
 
-    #edge_graph=build_edge_graph_from_lane_graph_topo(lane_graph,boundary_dict)
+    edge_graph=build_edge_graph_from_lane_graph_topo(lane_graph,boundary_dict)
 
+    plot_edge_graph(edge_graph, show_nodes=True, show_labels=True)
 
-
-    #plot_edge_graph(edge_graph.EG)
-
-
-    plot_lane_graph(lane_graph)
+    #plot_lane_graph(lane_graph)
 
     # # print(len(polylines))
     #
