@@ -215,8 +215,6 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
-            # if self.use_kl_penalty and "feat_a_token" not in tokenized_agent.keys():
-            #     return None,None,(feat_a_token.detach(),agent_token_emb.detach()),None,None
 
         # if latent_z not in tokenized_agent.keys():
         #     logits=self.latent_embed.infer_logits(feat_a_token)
