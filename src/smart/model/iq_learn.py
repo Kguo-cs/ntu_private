@@ -291,7 +291,7 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,pi,action_nll,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
 
-    def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,tokenized_map=None):
+    def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,target_q=None):
 
         sampled_pos=tokenized_agent["sampled_pos"]#torch.round(tokenized_agent["sampled_pos"]*10)/10##
         sampled_heading=tokenized_agent["sampled_heading"]#torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
@@ -315,12 +315,6 @@ class IQ_SoftQ(LightningModule):
 
         if key == "agent" and self.use_kl_penalty:
             with torch.no_grad():
-                if self.bc_map_net is not None:
-                    map_feature=self.bc_map_net(tokenized_map)
-                else:
-                    map_feature = tokenized_agent["map_feature"]
-
-                target_q = self.bc_net(tokenized_agent, map_feature)["agent_q"]
 
                 logp_ref = (torch.softmax(target_q / self.alpha, dim=-1)+1e-10).log()
 
@@ -603,6 +597,14 @@ class IQ_SoftQ(LightningModule):
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
             #tokenized_agent_rollout["train_mask"]=None
+            if self.use_kl_penalty:
+                with torch.no_grad():
+                    if self.bc_map_net is not None:
+                        map_feature = self.bc_map_net(tokenized_map)
+                    else:
+                        map_feature = tokenized_agent["map_feature"]
+
+                    target_q = self.bc_net(tokenized_agent_rollout, map_feature)["agent_q"]
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
@@ -621,7 +623,7 @@ class IQ_SoftQ(LightningModule):
                 if self.buffer_len>1:
                     with torch.no_grad():
                         agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
-                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None)
+                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None,target_q=target_q)
 
                     if self.global_step%2==0:
                         current_rollout={}
@@ -635,7 +637,7 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss, _, _, _ = self.get_reward(
                         old_rollout, None, None, "agent", None)
                 else:
-                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,tokenized_map=tokenized_map)
+                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,target_q=target_q)
 
                 critic_loss=expert_dis_loss + agent_dis_loss
 
