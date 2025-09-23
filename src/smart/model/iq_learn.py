@@ -606,16 +606,10 @@ class IQ_SoftQ(LightningModule):
 
                     target_q = self.bc_net(tokenized_agent_rollout, map_feature)["agent_q"]
 
+                    print('target_q', target_q)
+
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
-
-            # if "a2a_entropy" in tokenized_agent_rollout.keys():
-            #     a2a_entropy = tokenized_agent_rollout["a2a_entropy"].mean()
-            #     self.log("train/agent_a2a_ent", a2a_entropy.item(), on_step=True, batch_size=1)
-            #
-            #     expert_nll = expert_nll + 0.1 * a2a_entropy
-
-            #expert_nll=expert_nll-0.001*agent_entropy
 
             #tokenized_agent_rollout["train_mask"]=all_valid
 
