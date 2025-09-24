@@ -28,7 +28,7 @@ model:
     finetune: true
     smart : false
 
-ckpt_path : './logs/AIRL160_kl4_learnmap/2025-09-23_23-43-46/sim/do8byygi/checkpoints/last.ckpt' #
+ckpt_path : './logs/AIRL160_kl3_learnmap/2025-09-23_23-25-35/sim/qn51dxr8/checkpoints/last.ckpt' #
 #'./ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt'  # './ckpts/bc_map2_gnntype_drop01_t1_b40_epoch=58-step=718325_0.78605.ckpt'
 trainer:
   limit_train_batches: 1.0
