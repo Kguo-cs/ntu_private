@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "./waymo/model_checkpoint/sim.ckpt"
+planner_path: "/home/ke/code/catk/src/waymo_data/AIRL160_kl5_learnmap_epoch=15-step=48704_0.7893.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -18,13 +18,13 @@ output_json_path: "./waymo/json_output/labels_occluded.json"
 
 input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json
 
-gui_display: False
+gui_display: True
 
 lidar_height: 1.84
 
-max_sim_time: 500 #300 #9s
+max_sim_time: 150 #300 #9s
 
-random_seed: 42
+random_seed: 3
 
 static_object:
   add:

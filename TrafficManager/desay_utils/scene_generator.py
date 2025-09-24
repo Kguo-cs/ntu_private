@@ -442,13 +442,15 @@ class TrafficGenerator:
         avg_speed_override: Optional[Dict[str, float]] = None,
         lift_to_lane_ids: bool = False,
         max_attempts_per_agent: int = 120,
-        min_start_spacing_m: float = 4.0,
+        min_start_spacing_m: float = 20.0,
         min_same_edge_s_m: float = 4.0,
         diff_lane_same_edge_scale: float = 0.25,
         ped_min_len_m: float = 20.0,
         ped_max_len_m: float = 200.0,
         ped_forward_prob: float = 0.7
     ) -> List[Dict[str, Any]]:
+
+        min_start_spacing_m=min_start_spacing_m*(1.1-density01)
 
         # single RNG for the whole generation → deterministic
         rng = np.random.default_rng(seed)
@@ -486,9 +488,11 @@ class TrafficGenerator:
         w_edges = np.array([self.edge_lengths[e] * _lanes_on_edge(e) for e in cand_edges], float)
         probs_edges = w_edges / (w_edges.sum() if w_edges.sum() > 0 else 1.0)
 
+
+
         # defaults
         DEFAULT_CLASS_SIZES = {"pedestrian":(0.5,0.5,1.7), "bicycle":(1.8,0.6,1.6), "car":(4.4,1.8,1.6), "truck":(12.0,2.5,3.6)}
-        DEFAULT_CLASS_SPEED_MPS = {"pedestrian":1.4, "bicycle":4.5, "car":13.9, "truck":11.1}
+        DEFAULT_CLASS_SPEED_MPS = {"pedestrian":1.4, "bicycle":4.5*(1.1-density01), "car":13.9*(1.1-density01), "truck":11.1*(1.1-density01)}
         STYLE_SPEED_SCALE = {"conservative":0.85, "normal":1.0, "aggressive":1.15}
         size_tab = size_table or DEFAULT_CLASS_SIZES
         styles   = style_table or {}
