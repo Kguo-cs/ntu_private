@@ -27,7 +27,7 @@ model:
 
     smart: false
 
-ckpt_path: './waymo_data/epoch=14-step=45660.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL160_kl5_learnmap_epoch=15-step=48704_0.7893.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -37,7 +37,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 256
+  val_batch_size: 128
   test_batch_size: 128
   num_workers: 32
   shuffle: false
