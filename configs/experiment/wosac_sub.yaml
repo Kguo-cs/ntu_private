@@ -27,7 +27,7 @@ model:
 
     smart: false
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL160_kl5_learnmap_epoch=15-step=48704_0.7893.ckpt'
+ckpt_path: './waymo_data/epoch=6-step=21308.ckpt'
 
 trainer:
   limit_train_batches: 1.0

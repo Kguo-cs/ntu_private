@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 
 # ---- Global font size settings ----
 plt.rcParams.update({
-    "font.size": 18,       # base font size
+    "font.size": 24,       # base font size
     "axes.titlesize": 20,  # subplot titles
     "axes.labelsize": 20,  # x and y labels
-    "xtick.labelsize": 16,
-    "ytick.labelsize": 16,
-    "legend.fontsize": 16,
+    "xtick.labelsize": 20,
+    "ytick.labelsize": 20,
+    "legend.fontsize": 20,
 })
 
 # Load CSV file (replace with your filename if saved to disk)
@@ -53,7 +53,7 @@ for run, color in runs.items():
                     alpha=0.2, color=color)
 
 ax.set_xlabel("Global Step")
-ax.set_ylabel("Policy Discriminator Value")
+ax.set_ylabel("Policy Discriminator Score")
 ax.grid(True)
 ax.set_ylim(0.1,0.65)
 ax.set_xlim(0,20000)
@@ -65,29 +65,29 @@ x = np.concatenate([np.array([0]), x.values])
 
 ax = axes[1]
 runs = {
-    "AIRL80_lcf336_policygnn_type_val40": "tab:green",
     "AIRL80_val40_noedge5": "tab:blue",
     "AIRL80_val40_noedge10": "tab:orange",
     "AIRL80_val40_noedge20": "tab:red",
+    "AIRL80_lcf336_policygnn_type_val40": "tab:green",
 }
 lables = {
-    "AIRL80_val40_noedge20": "PS-GAIL (20 neighbors)",
-    "AIRL80_val40_noedge10": "PS-GAIL (10 neighbors)",
     "AIRL80_val40_noedge5": "PS-GAIL (5 neighbors)",
-    "AIRL80_lcf336_policygnn_type_val40": "DecompGAIL (20 neighbors)",
+    "AIRL80_val40_noedge10": "PS-GAIL (10 neighbors)",
+    "AIRL80_val40_noedge20": "PS-GAIL (all neighbors)",
+    "AIRL80_lcf336_policygnn_type_val40": "DecompGAIL (all neighbors)",
 }
 
 for run, color in runs.items():
-    y_mean = df[f"{run} - val_closed/wosac/realism_meta_metric"][:5] - 0.004
+    y_mean = df[f"{run} - val_closed/wosac/realism_meta_metric"][:5]
     y_mean = y_mean.values
-    y_mean = np.concatenate([np.array([0.7768]), y_mean])
+    y_mean = np.concatenate([np.array([0.7836]), y_mean])
     ax.plot(x, y_mean, label=lables[run], color=color)
 
 ax.set_xlabel("Global Step")
-ax.set_ylabel("Realism Meta Metric")
+ax.set_ylabel("Realism MetaMetric")
 ax.grid(True)
 ax.set_xlim(0,15000)
-ax.set_ylim(0.69,0.81)
+ax.set_ylim(0.70,0.83)
 ax.legend(loc="upper right")
 
 plt.tight_layout()
