@@ -726,7 +726,7 @@ class IQ_SoftQ(LightningModule):
 
                 gail_weight=1#-np.power(0.9999,self.global_step)
 
-                expert_nll = expert_nll +gail_weight*agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
+                expert_nll = 4*expert_nll +gail_weight*agent_wNLL +1e-3* value_loss #- 0.01 * agent_entropy.mean()
             else:
                 critic_loss=get_iqloss(expert_reward,agent_reward,agent_value_loss,expert_value_loss,expert_Q,agent_Q)
 
