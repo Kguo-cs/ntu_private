@@ -442,9 +442,9 @@ class InterativeDecoder(nn.Module):
                         #
                         # weight=1/weight[:,None]
 
-                    interact_logits=-torch.log(1-torch.sigmoid(next_token_logits[:,:,:1]))*weight[:,None]
+                    #interact_logits=-torch.log(1-torch.sigmoid(next_token_logits[:,:,:1]))*weight[:,None]
 
-                    #interact_logits=next_token_logits[:,:,:1]*weight[:,None]
+                    interact_logits=next_token_logits[:,:,:1]*weight[:,None]
 
                     interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=train_mask.shape[0]*n_step)#[0]
 
@@ -454,8 +454,8 @@ class InterativeDecoder(nn.Module):
                     rewards=interact_logits_sum.view( n_step,  -1).transpose(0, 1)
 
                     if not self.use_ego_loop:
-                        #ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
-                        ego_rewards=-torch.log(1-torch.sigmoid(ego_logits)).view(n_step,  -1).transpose(0, 1)
+                        ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
+                        #ego_rewards=-torch.log(1-torch.sigmoid(ego_logits)).view(n_step,  -1).transpose(0, 1)
 
                         rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
 
