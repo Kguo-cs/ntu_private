@@ -192,15 +192,15 @@ class SMART(LightningModule):
 
                     tokenized_agent["latent_z"] = latent_z
 
-                pred = self.encoder.inference(
-                    tokenized_map, tokenized_agent, self.validation_rollout_sampling
-                )
+                # pred = self.encoder.inference(
+                #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
+                # )
                 #latent_z = torch.multinomial(probs, 1) # [B]
                 #tokenized_agent["latent_z"] = latent_z
 
-                # pred = self.encoder.agent_encoder.inference(
-                #     tokenized_agent, map_feature,self.validation_rollout_sampling
-                # )
+                pred = self.encoder.agent_encoder.inference(
+                    tokenized_agent, map_feature,self.validation_rollout_sampling
+                )
                 # first set (top row)
                 # pred = torch.load("./waymo_data/pred.pt")
                 # scenario_path_A = data["tfrecord_path"][0]
