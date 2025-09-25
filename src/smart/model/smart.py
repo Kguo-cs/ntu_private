@@ -28,10 +28,9 @@ from src.smart.metrics import (
 )
 from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.utils.finetune import set_model_for_finetuning
-from src.utils.vis_waymo import VisWaymo
+from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-from src.smart.plot.plot_rollout import plot_rollout
-import time
+from src.smart.plot.plot_rollout import plot_rollout_frames,plot_rollout_frames1,plot_rollout_frames_pair
 
 class SMART(LightningModule):
 
@@ -193,17 +192,136 @@ class SMART(LightningModule):
 
                     tokenized_agent["latent_z"] = latent_z
 
-                # pred = self.encoder.inference(
-                #     tokenized_map, tokenized_agent, self.validation_rollout_sampling
-                # )
+                pred = self.encoder.inference(
+                    tokenized_map, tokenized_agent, self.validation_rollout_sampling
+                )
                 #latent_z = torch.multinomial(probs, 1) # [B]
                 #tokenized_agent["latent_z"] = latent_z
 
-                pred = self.encoder.agent_encoder.inference(
-                    tokenized_agent, map_feature,self.validation_rollout_sampling
-                )
+                # pred = self.encoder.agent_encoder.inference(
+                #     tokenized_agent, map_feature,self.validation_rollout_sampling
+                # )
+                # first set (top row)
+                # pred = torch.load("./waymo_data/pred.pt")
+                # scenario_path_A = data["tfrecord_path"][0]
+                # sampled_pos = pred["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
+                # sampled_heading = pred[
+                #     "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
+                #
+                # disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                #                                                     None,
+                #                                                     tokenized_agent["valid_mask"],  # expert_
+                #                                                     sampled_pos,
+                #                                                     sampled_heading,
+                #                                                     tokenized_agent,
+                #                                                     map_feature,
+                #                                                     [],
+                #                                                     None,
+                #                                                     # latent_z=tokenized_agent["latent_z"]
+                #                                                     )  # [0]#Metrics-Guided Adversarial Training
+                # ego_rewards_A, nei_sum_rewards_A = disc_out[2]  # .detach()
+                #
+                # disc_val_A = (ego_rewards_A + nei_sum_rewards_A).detach().cpu().numpy()  # shape [N, K]
+                #
+                # # second set (bottom row)
+                # tokenized_agent_B, pred_B, data_B, map_feature_B = torch.load("./waymo_data/pred2.pt")
+                # scenario_path_B = data_B["tfrecord_path"][0]
+                #
+                # sampled_pos = pred_B["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
+                # sampled_heading = pred_B[
+                #     "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
+                #
+                # disc_out = self.encoder.discriminator.predict_agent(tokenized_agent_B["sampled_idx"],
+                #                                                     None,
+                #                                                     tokenized_agent_B["valid_mask"],  # expert_
+                #                                                     sampled_pos,
+                #                                                     sampled_heading,
+                #                                                     tokenized_agent_B,
+                #                                                     map_feature_B,
+                #                                                     [],
+                #                                                     None,
+                #                                                     # latent_z=tokenized_agent["latent_z"]
+                #                                                     )  # [0]#Metrics-Guided Adversarial Training
+                # ego_rewards_B, nei_sum_rewards_B = disc_out[2]  # .detach()
+                #
+                # disc_val_B = (ego_rewards_B + nei_sum_rewards_B).detach().cpu().numpy()
+                #
+                # plot_rollout_frames_pair(
+                #     tokenized_agent, scenario_path_A, disc_val_A, pred,
+                #     tokenized_agent_B, scenario_path_B, disc_val_B, pred_B,
+                #     frames=(30, 50, 70, 90),
+                #     radius_m=45.0,
+                #     vmin=0.0, vmax=2.0,  # shared color scale
+                #     cmap_name="RdYlGn"
+                # )
 
-                #plot_rollout(tokenized_agent,tokenized_map,self.token_processor,pred)
+                # pred=torch.load("./smart/plot/pred.pt")
+                #
+                # scenario_path=data["tfrecord_path"][0]
+                #
+                # sampled_pos = pred["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
+                # sampled_heading = pred[
+                #     "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
+                #
+                # disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                #                                                     None,
+                #                                                     tokenized_agent["valid_mask"],  # expert_
+                #                                                     sampled_pos,
+                #                                                     sampled_heading,
+                #                                                     tokenized_agent,
+                #                                                     map_feature,
+                #                                                     [],
+                #                                                     None,
+                #                                                     # latent_z=tokenized_agent["latent_z"]
+                #                                                     )  # [0]#Metrics-Guided Adversarial Training
+                #
+                #
+                # ego_rewards, nei_sum_rewards = disc_out[2]  # .detach()
+                #
+                # rewards = ego_rewards + nei_sum_rewards
+                #
+                # print(rewards.max())
+                # print(rewards.min())
+                #
+                # disc_val=rewards.cpu().numpy() #[:,:,0]
+                #
+                # plot_rollout_frames(tokenized_agent,scenario_path,disc_val,pred)
+                #
+                # tokenized_agent,pred,data,map_feature=torch.load("./smart/plot/pred2.pt")
+                #
+                # #torch.save((tokenized_agent,pred,data,map_feature),'pred1.pt')#26
+                #
+                # scenario_path=data["tfrecord_path"][0]
+                #
+                # sampled_pos = pred["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
+                # sampled_heading = pred[
+                #     "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
+                #
+                # disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                #                                                     None,
+                #                                                     tokenized_agent["valid_mask"],  # expert_
+                #                                                     sampled_pos,
+                #                                                     sampled_heading,
+                #                                                     tokenized_agent,
+                #                                                     map_feature,
+                #                                                     [],
+                #                                                     None,
+                #                                                     # latent_z=tokenized_agent["latent_z"]
+                #                                                     )  # [0]#Metrics-Guided Adversarial Training
+                #
+                #
+                # agent_num = len(sampled_pos) * 16
+                # ego_rewards, nei_sum_rewards = disc_out[2]  # .detach()
+                #
+                # rewards = ego_rewards + nei_sum_rewards
+                #
+                # print(rewards.max())
+                # print(rewards.min())
+                #
+                # disc_val=rewards.cpu().numpy() #[:,:,0]
+                #
+                # plot_rollout_frames1(tokenized_agent,scenario_path,disc_val,pred)
+
                 pred_traj.append(pred["pred_traj_10hz"])
                 pred_z.append(pred["pred_z_10hz"])
                 pred_head.append(pred["pred_head_10hz"])

@@ -442,14 +442,20 @@ class InterativeDecoder(nn.Module):
                         #
                         # weight=1/weight[:,None]
 
-                    interact_logits=next_token_logits[:,:,:1]*weight[:,None]
+                    interact_logits=-torch.log(1-torch.sigmoid(next_token_logits[:,:,:1]))*weight[:,None]
 
-                    interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=len(train_repeat_mask))#[0]
+                    #interact_logits=next_token_logits[:,:,:1]*weight[:,None]
 
-                    rewards=interact_logits_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1)
+                    interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=train_mask.shape[0]*n_step)#[0]
+
+                    if train_repeat_mask is not None:
+                        interact_logits_sum=interact_logits_sum[train_repeat_mask]
+
+                    rewards=interact_logits_sum.view( n_step,  -1).transpose(0, 1)
 
                     if not self.use_ego_loop:
-                        ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
+                        #ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
+                        ego_rewards=-torch.log(1-torch.sigmoid(ego_logits)).view(n_step,  -1).transpose(0, 1)
 
                         rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
 
@@ -461,9 +467,12 @@ class InterativeDecoder(nn.Module):
                     rewards = next_token_logits[:,:,-1]
                     next_token_logits = next_token_logits.view(-1,1,1)
 
-                all_rewards=torch.zeros_like(head_a)
 
-                all_rewards[train_mask]=rewards
+                if train_mask is None:
+                    all_rewards=rewards
+                else:
+                    all_rewards = torch.zeros_like(head_a)
+                    all_rewards[train_mask]=rewards
 
                 weight2=torch.exp(-dist/3)*6
 
@@ -471,7 +480,7 @@ class InterativeDecoder(nn.Module):
 
                 weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight2
 
-                nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=len(train_repeat_mask))
+                nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=train_mask.shape[0]*n_step)
 
                 nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1).detach()
 

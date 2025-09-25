@@ -151,16 +151,6 @@ class SMARTAgentDecoder(nn.Module):
             self.vis_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=1 )
 
         #if not discriminator:
-
-        if self.interative_decoder.use_edge_feature==False:
-            self.use_lcf=False
-
-            # if self.use_lcf:
-            #     self.lcf_head=MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=10 )
-            #
-            #     self.svo_embedding=nn.Embedding(10, hidden_dim)
-        self.use_lcf=False
-
         self.use_infogail=False
         self.use_vae=False
 

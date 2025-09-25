@@ -1,3 +1,4 @@
+import torch
 
 from src.smart.utils import (
     cal_polygon_contour,
@@ -7,7 +8,10 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 
+import tensorflow as tf
+from waymo_open_dataset.protos import scenario_pb2, sim_agents_submission_pb2
 
+from src.utils.vis_waymo import VisWaymo,get_map_features
 
 
 
@@ -45,104 +49,100 @@ lane_style = [
     (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
 ]
 
+
 # def plot_boxes_and_trajs(tokenized_agent, t_box: int = 1, history_horizon: int = 11, future_horizon: int = 80):
+def plot_rollout_frames(
+    tokenized_agent,
+    scenario_path,
+    disc_val,
+    pred,
+    frames=(10, 30, 50, 70, 90),
+    ego_index=None,
+    ag_role=None,                 # Optional: [N, R] bool or 0/1
+    agent_role_style=None,        # Optional: dict{role_idx: (R,G,B)} using your COLOR_* tuples
+    arrow_len=1.5,                # meters
+    radius_m=45.0,                # crop around ego
+):
+    """
+    Render map + predicted agent boxes at specific frames in one horizontal figure.
+    - Real (GT/history) agents: alpha = 0.5
+    - Simulated agents: alpha = 1.0 (except frames f < 11 -> alpha = 0.5)
+    - Axes background black, figure background white.
+    - Panels centered on ego, only agents within radius_m.
 
+    Assumes the following globals are defined in your module:
+      lane_style, COLOR_* constants, get_map_features(...)
 
-def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
-    # global_edge = tokenized_map["global_edge"]
-    # import matplotlib as mpl
-    #
-    # mpl.rcParams['toolbar'] = 'None'
-
+    Required keys:
+      tokenized_agent:
+        - "shape" [N,2]
+        - "pred_traj_10hz" [N,Th,2]  (used here as GT/history layer)
+        - "pred_head_10hz" [N,Th]
+        - "all_valid" [N,Th] (bool)  for the GT/history layer
+        - optional "ego_mask" [N] bool
+      pred:
+        - "pred_traj_10hz" [N,Tp,2]
+        - "pred_head_10hz" [N,Tp]
+        - optional "all_valid" [N,Tp] (bool)  for the sim layer
+    """
     import numpy as np
     import matplotlib.pyplot as plt
     from matplotlib.patches import Polygon
     from matplotlib.collections import PatchCollection
     import math
+    import torch
+    import tensorflow as tf
+    from waymo_open_dataset.protos import scenario_pb2
+    import matplotlib as mpl
+    import matplotlib.colors as mcolors
+    from matplotlib.patches import Rectangle
 
-    position=tokenized_map["position"]
-    token_idx=tokenized_map['token_idx']
-    orientation=tokenized_map['orientation']
-    map_type=tokenized_map['type']
-    map_type[map_type > 9] = 9
+    eps = 1e-6
+    scores_all = np.maximum(eps, np.asarray(disc_val, dtype=float))  # [N, K] or flat
+    vmin = max(eps, np.nanpercentile(scores_all, 5))  # robust low
+    vmax = max(vmin * 10, np.nanpercentile(scores_all, 95))  # robust high
 
-    local_traj = token_processor.map_token_traj_src[token_idx]
+    print(vmin, vmax)
+    norm = mpl.colors.Normalize(vmin=0, vmax=2)
 
-    global_edge, _ = transform_to_global(pos_local=local_traj.reshape(-1, 11, 2), head_local=None, pos_now=position,
-                                         head_now=orientation)
+    cmap = plt.get_cmap("RdYlGn")  # low=red, high=green
 
-    ge = global_edge.cpu().detach().numpy()
-    mt = map_type.detach().cpu().numpy() if hasattr(map_type, "detach") else np.asarray(map_type)
+    # ---------- load scenario proto ----------
+    scenario = scenario_pb2.Scenario()
+    for data in tf.data.TFRecordDataset([scenario_path], compression_type=""):
+        scenario.ParseFromString(bytes(data.numpy()))
+        break
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    # ---------- colors ----------
+    def rgb01(c255):
+        import numpy as _np
+        return tuple(_np.array(c255, dtype=float) / 255.0)
 
-    # Collect starting points of each line
-    starts = ge[:, 0, :2]  # shape [num_lines, 2]
+    lane_rgba = [rgb01(rgb) for (rgb, _) in lane_style]
 
-    # # For each line, connect to neighbors within 20 m
-    # thresh = 20.0
-    # for i in range(len(starts)):
-    #     for j in range(i + 1, len(starts)):
-    #         dx, dy = starts[i] - starts[j]
-    #         dist = np.hypot(dx, dy)
-    #         if dist < thresh:
-    #             ax.plot(
-    #                 [starts[i, 0], starts[j, 0]],
-    #                 [starts[i, 1], starts[j, 1]],
-    #                 linestyle="--",
-    #                 color="gray",
-    #                 linewidth=0.8,
-    #                 alpha=0.6,
-    #                 zorder=0.5,  # behind lane lines
-    #             )
+    # fallback role colors
+    default_role_style = {
+        0: COLOR_ALUMINIUM_0,  # default/unknown
+        1: COLOR_BUTTER,
+        2: COLOR_CHAMELEON,
+        3: COLOR_ORANGE,
+        4: COLOR_PLUM,
+        5: COLOR_SKY_BLUE_0,
+    }
+    if agent_role_style is None:
+        agent_role_style = default_role_style
 
-    for i in range(ge.shape[0]):
-        x = ge[i, :, 0]
-        y = ge[i, :, 1]
+    # ---------- map features ----------
+    mp_xyz, mp_id, mp_type = get_map_features(scenario.map_features)
+    mp_type = np.asarray(mp_type)
+    mp_type = np.minimum(mp_type, 9)
 
-        idx = int(mt[i])
-
-        color_255, width = lane_style[idx]
-        color = tuple(np.array(color_255) / 255.0)
-
-        ax.plot(x, y, color=color, linewidth=2,alpha=0.5,zorder=1)
-
-        #mid = len(x) // 2
-        # plt.annotate(
-        #     '', xy=(x[mid + 1], y[mid + 1]), xytext=(x[mid], y[mid]),
-        #     arrowprops=dict(arrowstyle='->', lw=0.9)
-        # )
-    # #plot_boxes_and_trajs(tokenized_agent, t_box=11, history_horizon=11, future_horizon=80)
-
-    #plt.show()
-
-    t_box = 1
-    history_horizon = 2#*5
-    future_horizon = 16
-    #
+    # ---------- helpers ----------
     def to_np(x):
-        if hasattr(x, "detach"):
+        if isinstance(x, torch.Tensor):
             return x.detach().cpu().numpy()
         return np.asarray(x)
-    #
-    # pos = to_np(tokenized_agent["pred_traj_10hz"])        # [N, T, 2]
-    # head = to_np(tokenized_agent["pred_head_10hz"])   # [N, T] radians
-    # valid = to_np(tokenized_agent["all_valid"]).astype(bool)  # [N, T]
-    pos = to_np(tokenized_agent["sampled_pos"])        # [N, T, 2]
-    head = to_np(tokenized_agent["sampled_heading"])   # [N, T] radians
-    valid = to_np(tokenized_agent["valid_mask"]).astype(bool)  # [N, T]
-    #
-    #
-    N, T, _ = pos.shape
-    t_box = max(0, min(t_box, T - 1))
 
-    # Vehicle size
-    if "shape" in tokenized_agent:
-        shp = to_np(tokenized_agent["shape"])[:, :2]
-    else:
-        shp = np.tile(np.array([4.5, 2.0]), (N, 1))
-
-    # Helpers
     def oriented_box_corners(center_xy, heading, length, width):
         c, s = math.cos(heading), math.sin(heading)
         hx, hy = length * 0.5, width * 0.5
@@ -153,146 +153,887 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
         R = np.array([[c, -s], [s, c]], dtype=np.float32)
         return (local @ R.T) + center_xy[None, :]
 
-    t_now = t_box  # or any timestep you want (e.g., 1)
-    thresh = 60.0
+    # ---------- tensors ----------
+    # History/GT layer (drawn with alpha 0.5 when frame exists)
+    real_pos  = to_np(tokenized_agent["pred_traj_10hz"])         # [N, Th, 2]
+    real_head = to_np(tokenized_agent["pred_head_10hz"])         # [N, Th]
+    real_val  = to_np(tokenized_agent.get("all_valid",
+                  np.ones(real_pos.shape[:2], dtype=bool))).astype(bool)
 
-    # Get valid agent positions at t_now
-    mask = valid[:, t_now]
-    curr_pos = pos[mask, t_now]  # [M, 2] where M <= N
-    #
-    # M = len(curr_pos)
-    # for i in range(M):
-    #     for j in range(i + 1, M):
-    #         dx, dy = curr_pos[i] - curr_pos[j]
-    #         dist = np.hypot(dx, dy)
-    #         if dist < thresh:
-    #             ax.plot(
-    #                 [curr_pos[i, 0], curr_pos[j, 0]],
-    #                 [curr_pos[i, 1], curr_pos[j, 1]],
-    #                 linestyle="--",
-    #                 color="grey",
-    #                 linewidth=0.8,
-    #                 alpha=0.6,
-    #                 zorder=2,
-    #             )
+    # Sim layer: concat first 11 history frames + predicted future
+    hist_T = min(11, real_pos.shape[1])
+    sim_pos  = to_np(torch.cat(
+        (torch.as_tensor(real_pos[:, :hist_T]).cuda(), pred["pred_traj_10hz"]), dim=1))  # [N, hist_T+Tp, 2]
+    sim_head = to_np(torch.cat(
+        (torch.as_tensor(real_head[:, :hist_T]).cuda(), pred["pred_head_10hz"]), dim=1))  # [N, hist_T+Tp]
+    sim_val  = to_np(pred.get("all_valid",
+                  np.ones(sim_pos.shape[:2], dtype=bool))).astype(bool)
+    # make the first hist_T frames valid by default
+    if sim_val.shape[1] < sim_pos.shape[1]:
+        # pad val with True for the history portion
+        right = np.ones((sim_val.shape[0], sim_pos.shape[1] - sim_val.shape[1]), dtype=bool)
+        sim_val = np.concatenate([right, sim_val], axis=1)  # (this order won't matter if frames are clamped)
 
-    # --- History points (red→blue) ---
-    # hist_steps = min(history_horizon, T)
-    # cmap_hist = plt.get_cmap("coolwarm")  # red→blue
-    # for t in range(hist_steps):
-    #     mask_t = valid[:, t]
-    #     pts = pos[mask_t, t]
-    #     if len(pts) > 0:
-    #         u = t / max(1, hist_steps - 1)
-    #         ax.scatter(pts[:, 0], pts[:, 1], s=16, color=cmap_hist(u), alpha=0.9,
-    #                    label="history" if t == 0 else None)
-    #
-    # # --- Future points (blue→cyan) ---
+    N, T, _ = sim_pos.shape
 
-    #--- Boxes at t_box ---
-    # patches = []
-    # for i in range(N):
-    #     if not valid[i, t_box]:
-    #         continue
-    #     center = pos[i, t_box]
-    #     theta = float(head[i, t_box])
-    #     L, W = float(shp[i, 0]), float(shp[i, 1])
-    #     corners = oriented_box_corners(center, theta, L, W)
-    #     patches.append(Polygon(corners, closed=True))
-    #
-    # if patches:
-    #     pc = PatchCollection(patches, facecolors=(0.5, 0.5, 0.5, 1.0),
-    #                          edgecolors=(0, 0, 0, 0.9), linewidths=0.8)
-    #     ax.add_collection(pc)
+    # sizes
+    if "shape" in tokenized_agent:
+        shp = to_np(tokenized_agent["shape"])[:, :2]
+    else:
+        shp = np.tile(np.array([4.5, 2.0], dtype=np.float32), (N, 1))
 
-    # --- History boxes (color = #ffe6cc) ---
-    hist_steps = min(history_horizon, T)
-    # history_color = (255 / 255, 230 / 255, 204 / 255, 1.0)  # rgba for #ffe6cc
-    history_color = (215 / 255, 155 / 255, 0 / 255, 1.0)  # rgba for #d79b00
+    # roles (optional)
+    if ag_role is not None:
+        ag_role = to_np(ag_role).astype(bool)
+        if ag_role.ndim == 1:
+            ag_role = ag_role[:, None]
+    else:
+        ag_role = np.zeros((N, 1), dtype=bool)
 
-    for t in range(1,hist_steps):
-        mask_t = valid[:, t]
-        if not np.any(mask_t):
-            continue
+    # ego
+    if ego_index is None:
+        ego_mask = tokenized_agent.get("ego_mask", None)
+        if ego_mask is not None:
+            ego_index = int(np.argmax(to_np(ego_mask).astype(int)))
+        else:
+            ego_index = 0
+    ego_index = int(ego_index)
 
-        patches = []
-        for i in range(N):
-            if not mask_t[i]:
-                continue
-            center = pos[i, t]
-            theta = float(head[i, t])
-            L, W = float(shp[i, 0]), float(shp[i, 1])
-            corners = oriented_box_corners(center, theta, L, W)
-            patches.append(Polygon(corners, closed=True))
+    # clamp frames
+    frames = [int(max(0, min(f, T - 1))) for f in frames]
 
-        if patches:
-            pc = PatchCollection(
-                patches,
-                facecolors=history_color,
-                edgecolors="black",
-                linewidths=0.5,
-                alpha=0.5+t*0.5,
-                zorder=4,
-            )
-            ax.add_collection(pc)
-    # --- Future boxes (blue→cyan) ---
-    if history_horizon < T:
-        future_steps = min(future_horizon, T - history_horizon)
-        cmap_future = plt.get_cmap("winter")  # dark blue→cyan
-        for k in range(0,future_steps,2):
-            t = history_horizon + k
-            mask_t = valid[:, t]
-            if not np.any(mask_t):
-                continue
-            u = k / max(1, future_steps - 1)
-            color = cmap_future(u)  # RGBA
+    # ---------- figure ----------
+    n = len(frames)
+    fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 4.8), sharex=False, sharey=False, constrained_layout=True)
+    fig.patch.set_facecolor("white")  # white figure canvas (outside axes)
 
-            patches = []
-            for i in range(N):
-                if not mask_t[i]:
-                    continue
-                center = pos[i, t]
-                theta = float(head[i, t])
-                L, W = float(shp[i, 0]), float(shp[i, 1])
-                corners = oriented_box_corners(center, theta, L, W)
-                patches.append(Polygon(corners, closed=True))
+    if n == 1:
+        axes = [axes]
 
-            if patches:
-                pc = PatchCollection(
-                    patches,
-                    facecolors=(color[0], color[1], color[2], 0.3),  # translucent fill
-                    edgecolors=color,
-                    linewidths=0.6,
-                   # zorder=5,
+    for ax, f in zip(axes, frames):
+        # black axes background
+        ax.set_facecolor("black")
+        ax.patch.set_visible(True)
+        ax.patch.set_alpha(1.0)
+        # simplify frame
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+        ax.set_xticks([]); ax.set_yticks([])
+
+        f0 = f
+        ego_xy = sim_pos[ego_index, f0]
+
+        # ---- map ----
+        for i in range(len(mp_xyz)):
+            xy = np.asarray(mp_xyz[i])
+            idx = int(mp_type[i])
+            if idx in [0, 1, 2, 3, 4, 5, 9, 10]:
+                _, width = lane_style[idx]
+                ax.plot(
+                    xy[:, 0], xy[:, 1],
+                    color=lane_rgba[idx],
+                    linewidth=max(1, width // 2),
+                    alpha=1.0,
+                    zorder=1,
                 )
-                ax.add_collection(pc)
 
-    ax.set_aspect("equal", adjustable="box")
-    ax.axis("off")
-    #handles, labels = ax.get_legend_handles_labels()
-    # if labels:
-    #     seen, new_h, new_l = set(), [], []
-    #     for h, l in zip(handles, labels):
-    #         if l not in seen:
-    #             new_h.append(h); new_l.append(l); seen.add(l)
-    #     ax.legend(new_h, new_l, loc="upper right", frameon=False)
-    plt.tight_layout()
+        # ---- within radius (by sim positions) ----
+        mask_sim = sim_val[:, f0]
+        if mask_sim.any():
+            dxy = sim_pos[mask_sim, f0] - ego_xy[None, :]
+            dist = np.hypot(dxy[:, 0], dxy[:, 1])
+            local_sel_idx = np.where(mask_sim)[0][dist <= radius_m]
+        else:
+            local_sel_idx = np.array([], dtype=int)
+
+        # ensure ego included
+        if sim_val[ego_index, f0] and ego_index not in local_sel_idx:
+            local_sel_idx = np.concatenate([local_sel_idx, [ego_index]])
+
+        # ============================================================
+        # 1) REAL LAYER (alpha 0.5)  — only if that frame exists in GT
+        # ============================================================
+        if f0 < real_pos.shape[1]:
+            mask_real = real_val[:, f0]
+            real_idx = np.intersect1d(local_sel_idx, np.where(mask_real)[0], assume_unique=False)
+
+            if len(real_idx) > 0:
+                r_patches, r_edges, r_faces = [], [], []
+                r_arrow_starts, r_arrow_ends = [], []
+
+                for i in real_idx:
+                    center = real_pos[i, f0]
+                    theta  = float(real_head[i, f0])
+                    L, W   = float(shp[i, 0]), float(shp[i, 1])
+                    corners = oriented_box_corners(center, theta, L, W)
+                    r_patches.append(Polygon(corners, closed=True))
+                    # edges light gray on black
+                    r_edges.append((0.8, 0.8, 0.8, 1.0))
+                    # face color: ego cyan; others aluminum
+                    fc =rgb01(COLOR_ALUMINIUM_0) # rgb01(COLOR_CYAN) if i == ego_index else
+                    r_faces.append((*fc[:3], 1.0))
+                    # arrows (alpha 0.5)
+                    r_arrow_starts.append(center)
+                    r_arrow_ends.append(center + arrow_len * np.array([math.cos(theta), math.sin(theta)], dtype=float))
+
+                rpc = PatchCollection(
+                    r_patches,
+                    facecolors=r_faces,
+                    #edgecolors=r_edges,
+                    linewidths=0.8,
+                    alpha=0.5,           # <-- GT boxes at 0.5
+                    zorder=4,
+                )
+                ax.add_collection(rpc)
+
+                # GT arrows at alpha 0.5 (light gray/white)
+                for s, e in zip(r_arrow_starts, r_arrow_ends):
+                    ax.annotate(
+                        "", xy=(e[0], e[1]), xytext=(s[0], s[1]),
+                        arrowprops=dict(
+                            arrowstyle="-|>", lw=1.8,
+                            color="black",  # RGBA white with alpha
+                            alpha=0.5,
+                            shrinkA=0, shrinkB=0
+                        ),
+                        zorder=5,
+                    )
 
 
-    valid_pos=pos[valid]
+        # =========================================
+        # 2) SIM LAYER (alpha 1.0, except f<11 -> .5)
+        # =========================================
+        if len(local_sel_idx) > 0 and f>10:
+            s_patches, s_edges, s_faces = [], [], []
+            s_arrow_starts, s_arrow_ends = [], []
 
-    print( max(valid_pos[:, 0])-min(valid_pos[:, 0]))
+            # alpha rule for sim layer
+            sim_alpha = 1.0 if f0 >= hist_T else 0.5
 
-    print( max(valid_pos[:, 1])-min(valid_pos[:, 1]))
+            for i in local_sel_idx:
+                center = sim_pos[i, f0]
+                theta  = float(sim_head[i, f0])
+                L, W   = float(shp[i, 0]), float(shp[i, 1])
+                corners = oriented_box_corners(center, theta, L, W)
+                s_patches.append(Polygon(corners, closed=True))
+                # edges white on black
+                s_edges.append((1.0, 1.0, 1.0, 1.0))
+                # face color: ego cyan; others aluminum
+                if i == ego_index:
+                    fc = rgb01(COLOR_CYAN)
+                else:
+                    fc = rgb01(COLOR_RED)
 
-    #plt.xlim(min(valid_pos[:, 0])+44.5, max(valid_pos[:, 0])-45)
-    #plt.ylim(min(valid_pos[:, 1])-30, max(valid_pos[:, 1])+30)
+                score=disc_val[i][(f-10)//5-1]
+
+                # cmap = plt.get_cmap('RdYlGn')  # 0=red, 1=green
+                # s = float(np.clip(score, 0.0, 1.0))
+                # r, g, b, _ = cmap(s)
+                # s_faces.append((r, g, b, 1.0))
+                val = max(eps, float(score))  # score can be 0..inf
+                r, g, b, _ = cmap(norm(val))  # log-scaled to 0..1, colored red→green
+                s_faces.append((r, g, b, 1.0))
+
+                # heading arrow (sim only, in white)
+                s_arrow_starts.append(center)
+                s_arrow_ends.append(center + arrow_len * np.array([math.cos(theta), math.sin(theta)], dtype=float))
+
+            spc = PatchCollection(
+                s_patches,
+                facecolors=s_faces,
+                #edgecolors=s_edges,
+                linewidths=0.9,
+                alpha=sim_alpha,        # <-- 1.0 normally, 0.5 for warm-up frames
+                zorder=6,
+            )
+            ax.add_collection(spc)
+
+            # arrows for sim
+            for s, e in zip(s_arrow_starts, s_arrow_ends):
+                ax.annotate(
+                    "", xy=(e[0], e[1]), xytext=(s[0], s[1]),
+                    arrowprops=dict(arrowstyle="-|>", lw=2.0, color="black", shrinkA=0, shrinkB=0),
+                    zorder=7,
+                )
+
+        # ---- view & title ----
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlim(sim_pos[ego_index, 50][0] - 55, sim_pos[ego_index, 50][0] + 35)
+        ax.set_ylim(sim_pos[ego_index, 50][1] - radius_m, sim_pos[ego_index, 50][1] + radius_m)
+        ax.text(
+            0.02, 0.98, f"Frame {f0}",
+            transform=ax.transAxes,
+            ha="left", va="top",
+            fontsize=15, color="white", fontweight="bold", zorder=10,
+        )
+
+        if f==70:
+            x0 = ego_xy[0] - 45
+            y0 = ego_xy[1] - 10
+            rect = Rectangle((x0, y0), 10, 10,
+                             linewidth=2, edgecolor="red", facecolor="none",
+                             zorder=9)
+            ax.add_patch(rect)
+
+    # shared colorbar on the right for all subplots
+    sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])  # required for Matplotlib < 3.8
+    cbar = fig.colorbar(
+        sm, ax=axes, orientation="vertical",
+        fraction=0.05, pad=0.02  # tweak to taste
+    )
+    cbar.set_label("Reward", rotation=90)
+   # plt.savefig("comparison_plots_largefont.pdf", format="pdf")
+
     plt.show()
-
-    # pred_traj_10hz=tokenized_agent["pred_traj_10hz"]
-    # pred_head_10hz=tokenized_agent["pred_head_10hz"]
-    # all_valid=tokenized_agent["pred_head_10hz"]
+    return fig
 
 
-    # plt.show()
+def plot_rollout_frames1(
+    tokenized_agent,
+    scenario_path,
+    disc_val,
+    pred,
+    frames=(10, 30, 50, 70, 90),
+    ego_index=None,
+    ag_role=None,                 # Optional: [N, R] bool or 0/1
+    agent_role_style=None,        # Optional: dict{role_idx: (R,G,B)} using your COLOR_* tuples
+    arrow_len=1.5,                # meters
+    radius_m=45.0,                # crop around ego
+):
+    """
+    Render map + predicted agent boxes at specific frames in one horizontal figure.
+    - Real (GT/history) agents: alpha = 0.5
+    - Simulated agents: alpha = 1.0 (except frames f < 11 -> alpha = 0.5)
+    - Axes background black, figure background white.
+    - Panels centered on ego, only agents within radius_m.
 
+    Assumes the following globals are defined in your module:
+      lane_style, COLOR_* constants, get_map_features(...)
+
+    Required keys:
+      tokenized_agent:
+        - "shape" [N,2]
+        - "pred_traj_10hz" [N,Th,2]  (used here as GT/history layer)
+        - "pred_head_10hz" [N,Th]
+        - "all_valid" [N,Th] (bool)  for the GT/history layer
+        - optional "ego_mask" [N] bool
+      pred:
+        - "pred_traj_10hz" [N,Tp,2]
+        - "pred_head_10hz" [N,Tp]
+        - optional "all_valid" [N,Tp] (bool)  for the sim layer
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon
+    from matplotlib.collections import PatchCollection
+    import math
+    import torch
+    import tensorflow as tf
+    from waymo_open_dataset.protos import scenario_pb2
+    import matplotlib as mpl
+    import matplotlib.colors as mcolors
+    from matplotlib.patches import Rectangle
+
+    eps = 1e-6
+    scores_all = np.maximum(eps, np.asarray(disc_val, dtype=float))  # [N, K] or flat
+    vmin = max(eps, np.nanpercentile(scores_all, 5))  # robust low
+    vmax = max(vmin * 10, np.nanpercentile(scores_all, 95))  # robust high
+
+    print(vmin, vmax)
+    norm = mpl.colors.Normalize(vmin=0, vmax=2)
+
+    cmap = plt.get_cmap("RdYlGn")  # low=red, high=green
+
+    # ---------- load scenario proto ----------
+    scenario = scenario_pb2.Scenario()
+    for data in tf.data.TFRecordDataset([scenario_path], compression_type=""):
+        scenario.ParseFromString(bytes(data.numpy()))
+        break
+
+    # ---------- colors ----------
+    def rgb01(c255):
+        import numpy as _np
+        return tuple(_np.array(c255, dtype=float) / 255.0)
+
+    lane_rgba = [rgb01(rgb) for (rgb, _) in lane_style]
+
+    # fallback role colors
+    default_role_style = {
+        0: COLOR_ALUMINIUM_0,  # default/unknown
+        1: COLOR_BUTTER,
+        2: COLOR_CHAMELEON,
+        3: COLOR_ORANGE,
+        4: COLOR_PLUM,
+        5: COLOR_SKY_BLUE_0,
+    }
+    if agent_role_style is None:
+        agent_role_style = default_role_style
+
+    # ---------- map features ----------
+    mp_xyz, mp_id, mp_type = get_map_features(scenario.map_features)
+    mp_type = np.asarray(mp_type)
+    mp_type = np.minimum(mp_type, 9)
+
+    # ---------- helpers ----------
+    def to_np(x):
+        if isinstance(x, torch.Tensor):
+            return x.detach().cpu().numpy()
+        return np.asarray(x)
+
+    def oriented_box_corners(center_xy, heading, length, width):
+        c, s = math.cos(heading), math.sin(heading)
+        hx, hy = length * 0.5, width * 0.5
+        local = np.array([[ hx,  hy],
+                          [ hx, -hy],
+                          [-hx, -hy],
+                          [-hx,  hy]], dtype=np.float32)
+        R = np.array([[c, -s], [s, c]], dtype=np.float32)
+        return (local @ R.T) + center_xy[None, :]
+
+    # ---------- tensors ----------
+    # History/GT layer (drawn with alpha 0.5 when frame exists)
+    real_pos  = to_np(tokenized_agent["pred_traj_10hz"])         # [N, Th, 2]
+    real_head = to_np(tokenized_agent["pred_head_10hz"])         # [N, Th]
+    real_val  = to_np(tokenized_agent.get("all_valid",
+                  np.ones(real_pos.shape[:2], dtype=bool))).astype(bool)
+
+    # Sim layer: concat first 11 history frames + predicted future
+    hist_T = min(11, real_pos.shape[1])
+    sim_pos  = to_np(torch.cat(
+        (torch.as_tensor(real_pos[:, :hist_T]).cuda(), pred["pred_traj_10hz"]), dim=1))  # [N, hist_T+Tp, 2]
+    sim_head = to_np(torch.cat(
+        (torch.as_tensor(real_head[:, :hist_T]).cuda(), pred["pred_head_10hz"]), dim=1))  # [N, hist_T+Tp]
+    sim_val  = to_np(pred.get("all_valid",
+                  np.ones(sim_pos.shape[:2], dtype=bool))).astype(bool)
+    # make the first hist_T frames valid by default
+    if sim_val.shape[1] < sim_pos.shape[1]:
+        # pad val with True for the history portion
+        right = np.ones((sim_val.shape[0], sim_pos.shape[1] - sim_val.shape[1]), dtype=bool)
+        sim_val = np.concatenate([right, sim_val], axis=1)  # (this order won't matter if frames are clamped)
+
+    N, T, _ = sim_pos.shape
+
+    # sizes
+    if "shape" in tokenized_agent:
+        shp = to_np(tokenized_agent["shape"])[:, :2]
+    else:
+        shp = np.tile(np.array([4.5, 2.0], dtype=np.float32), (N, 1))
+
+    # roles (optional)
+    if ag_role is not None:
+        ag_role = to_np(ag_role).astype(bool)
+        if ag_role.ndim == 1:
+            ag_role = ag_role[:, None]
+    else:
+        ag_role = np.zeros((N, 1), dtype=bool)
+
+    # ego
+    if ego_index is None:
+        ego_mask = tokenized_agent.get("ego_mask", None)
+        if ego_mask is not None:
+            ego_index = int(np.argmax(to_np(ego_mask).astype(int)))
+        else:
+            ego_index = 0
+    ego_index = int(ego_index)
+
+    # clamp frames
+    frames = [int(max(0, min(f, T - 1))) for f in frames]
+
+    # ---------- figure ----------
+    n = len(frames)
+    fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 4.8), sharex=False, sharey=False, constrained_layout=True)
+    fig.patch.set_facecolor("white")  # white figure canvas (outside axes)
+
+    if n == 1:
+        axes = [axes]
+
+    for ax, f in zip(axes, frames):
+        # black axes background
+        ax.set_facecolor("black")
+        ax.patch.set_visible(True)
+        ax.patch.set_alpha(1.0)
+        # simplify frame
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+        ax.set_xticks([]); ax.set_yticks([])
+
+        f0 = f
+        ego_xy = sim_pos[ego_index, f0]
+
+        # ---- map ----
+        for i in range(len(mp_xyz)):
+            xy = np.asarray(mp_xyz[i])
+            idx = int(mp_type[i])
+            if idx in [0, 1, 2, 3, 4, 5, 9, 10]:
+                _, width = lane_style[idx]
+                ax.plot(
+                    xy[:, 0], xy[:, 1],
+                    color=lane_rgba[idx],
+                    linewidth=max(1, width // 2),
+                    alpha=1.0,
+                    zorder=1,
+                )
+
+        # ---- within radius (by sim positions) ----
+        mask_sim = sim_val[:, f0]
+        if mask_sim.any():
+            dxy = sim_pos[mask_sim, f0] - ego_xy[None, :]
+            dist = np.hypot(dxy[:, 0], dxy[:, 1])
+            local_sel_idx = np.where(mask_sim)[0][dist <= radius_m]
+        else:
+            local_sel_idx = np.array([], dtype=int)
+
+        # ensure ego included
+        if sim_val[ego_index, f0] and ego_index not in local_sel_idx:
+            local_sel_idx = np.concatenate([local_sel_idx, [ego_index]])
+
+        # ============================================================
+        # 1) REAL LAYER (alpha 0.5)  — only if that frame exists in GT
+        # ============================================================
+        if f0 < real_pos.shape[1]:
+            mask_real = real_val[:, f0]
+            real_idx = np.intersect1d(local_sel_idx, np.where(mask_real)[0], assume_unique=False)
+
+            if len(real_idx) > 0:
+                r_patches, r_edges, r_faces = [], [], []
+                r_arrow_starts, r_arrow_ends = [], []
+
+                for i in real_idx:
+                    center = real_pos[i, f0]
+                    theta  = float(real_head[i, f0])
+                    L, W   = float(shp[i, 0]), float(shp[i, 1])
+                    corners = oriented_box_corners(center, theta, L, W)
+                    r_patches.append(Polygon(corners, closed=True))
+                    # edges light gray on black
+                    r_edges.append((0.8, 0.8, 0.8, 1.0))
+                    # face color: ego cyan; others aluminum
+                    fc =rgb01(COLOR_ALUMINIUM_0) # rgb01(COLOR_CYAN) if i == ego_index else
+                    r_faces.append((*fc[:3], 1.0))
+                    # arrows (alpha 0.5)
+                    r_arrow_starts.append(center)
+                    r_arrow_ends.append(center + arrow_len * np.array([math.cos(theta), math.sin(theta)], dtype=float))
+
+                rpc = PatchCollection(
+                    r_patches,
+                    facecolors=r_faces,
+                    #edgecolors=r_edges,
+                    linewidths=0.8,
+                    alpha=0.5,           # <-- GT boxes at 0.5
+                    zorder=4,
+                )
+                ax.add_collection(rpc)
+
+                # GT arrows at alpha 0.5 (light gray/white)
+                for s, e in zip(r_arrow_starts, r_arrow_ends):
+                    ax.annotate(
+                        "", xy=(e[0], e[1]), xytext=(s[0], s[1]),
+                        arrowprops=dict(
+                            arrowstyle="-|>", lw=1.8,
+                            color="black",  # RGBA white with alpha
+                            alpha=0.5,
+                            shrinkA=0, shrinkB=0
+                        ),
+                        zorder=5,
+                    )
+
+
+        # =========================================
+        # 2) SIM LAYER (alpha 1.0, except f<11 -> .5)
+        # =========================================
+        if len(local_sel_idx) > 0 and f>10:
+            s_patches, s_edges, s_faces = [], [], []
+            s_arrow_starts, s_arrow_ends = [], []
+
+            # alpha rule for sim layer
+            sim_alpha = 1.0 if f0 >= hist_T else 0.5
+
+            for i in local_sel_idx:
+                center = sim_pos[i, f0]
+                theta  = float(sim_head[i, f0])
+                L, W   = float(shp[i, 0]), float(shp[i, 1])
+                corners = oriented_box_corners(center, theta, L, W)
+                s_patches.append(Polygon(corners, closed=True))
+                # edges white on black
+                s_edges.append((1.0, 1.0, 1.0, 1.0))
+                # face color: ego cyan; others aluminum
+                if i == ego_index:
+                    fc = rgb01(COLOR_CYAN)
+                else:
+                    fc = rgb01(COLOR_RED)
+
+                score=disc_val[i][(f-10)//5-1]
+
+                # cmap = plt.get_cmap('RdYlGn')  # 0=red, 1=green
+                # s = float(np.clip(score, 0.0, 1.0))
+                # r, g, b, _ = cmap(s)
+                # s_faces.append((r, g, b, 1.0))
+                val = max(eps, float(score))  # score can be 0..inf
+                r, g, b, _ = cmap(norm(val))  # log-scaled to 0..1, colored red→green
+                s_faces.append((r, g, b, 1.0))
+
+                # heading arrow (sim only, in white)
+                s_arrow_starts.append(center)
+                s_arrow_ends.append(center + arrow_len * np.array([math.cos(theta), math.sin(theta)], dtype=float))
+
+            spc = PatchCollection(
+                s_patches,
+                facecolors=s_faces,
+                #edgecolors=s_edges,
+                linewidths=0.9,
+                alpha=sim_alpha,        # <-- 1.0 normally, 0.5 for warm-up frames
+                zorder=6,
+            )
+            ax.add_collection(spc)
+
+            # arrows for sim
+            for s, e in zip(s_arrow_starts, s_arrow_ends):
+                ax.annotate(
+                    "", xy=(e[0], e[1]), xytext=(s[0], s[1]),
+                    arrowprops=dict(arrowstyle="-|>", lw=2.0, color="black", shrinkA=0, shrinkB=0),
+                    zorder=7,
+                )
+
+        # ---- view & title ----
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlim(sim_pos[ego_index, 50][0] - 45, sim_pos[ego_index, 50][0] + 45)
+        ax.set_ylim(sim_pos[ego_index, 50][1] - 55, sim_pos[ego_index, 50][1] + 35)
+        ax.text(
+            0.02, 0.98, f"Frame {f0}",
+            transform=ax.transAxes,
+            ha="left", va="top",
+            fontsize=15, color="white", fontweight="bold", zorder=10,
+        )
+
+        if f==70:
+            x0 = ego_xy[0] + 5
+            y0 = ego_xy[1] - 47
+            rect = Rectangle((x0, y0), 10, 10,
+                             linewidth=2, edgecolor="red", facecolor="none",
+                             zorder=9)
+            ax.add_patch(rect)
+
+    # shared colorbar on the right for all subplots
+    sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])  # required for Matplotlib < 3.8
+    cbar = fig.colorbar(
+        sm, ax=axes, orientation="vertical",
+        fraction=0.05, pad=0.02  # tweak to taste
+    )
+    cbar.set_label("Reward", rotation=90)
+   # plt.savefig("comparison_plots_largefont.pdf", format="pdf")
+
+    plt.show()
+    return fig
+
+def plot_rollout_frames_pair(
+    # Row 1 inputs
+    tokenized_agent_A,
+    scenario_path_A,
+    disc_val_A,
+    pred_A,
+    # Row 2 inputs
+    tokenized_agent_B,
+    scenario_path_B,
+    disc_val_B,
+    pred_B,
+    # Common params
+    frames=(30, 50, 70, 90),
+    ego_index=None,
+    arrow_len=1.5,
+    radius_m=45.0,
+    vmin=0.0,
+    vmax=2.0,
+    cmap_name="RdYlGn",
+):
+    """
+    Make a 2-row figure (row A on top, row B below), each row shows the given `frames` horizontally.
+    One shared colorbar on the right (linear Normalize with vmin..vmax).
+    """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    from matplotlib.patches import Polygon, Rectangle
+    from matplotlib.collections import PatchCollection
+    import matplotlib.transforms as T
+    import matplotlib.colors as mcolors
+    import math, torch, tensorflow as tf
+    from waymo_open_dataset.protos import scenario_pb2
+
+    # ---------------- utils ----------------
+    def rgb01(c255):
+        return tuple(np.array(c255, dtype=float) / 255.0)
+
+    def to_np(x):
+        if isinstance(x, torch.Tensor):
+            return x.detach().cpu().numpy()
+        return np.asarray(x)
+
+    def oriented_box_corners(center_xy, heading, length, width):
+        c, s = math.cos(heading), math.sin(heading)
+        hx, hy = length * 0.5, width * 0.5
+        local = np.array([[ hx,  hy],
+                          [ hx, -hy],
+                          [-hx, -hy],
+                          [-hx,  hy]], dtype=np.float32)
+        R = np.array([[c, -s], [s, c]], dtype=np.float32)
+        return (local @ R.T) + center_xy[None, :]
+
+    def load_scenario(scenario_path):
+        sc = scenario_pb2.Scenario()
+        for data in tf.data.TFRecordDataset([scenario_path], compression_type=""):
+            sc.ParseFromString(bytes(data.numpy()))
+            break
+        return sc
+
+    lane_rgba = [rgb01(rgb) for (rgb, _) in lane_style]  # uses your global lane_style
+
+    # ---------------- color scale (shared) ----------------
+    cmap = plt.get_cmap(cmap_name)
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    # ---------------- map features loader ----------------
+    def get_map(scenario_path):
+        scenario = load_scenario(scenario_path)
+        mp_xyz, mp_id, mp_type = get_map_features(scenario.map_features)  # you already have this
+        mp_type = np.asarray(mp_type)
+        mp_type = np.minimum(mp_type, 9)
+        return mp_xyz, mp_type
+
+    # ---------------- row renderer ----------------
+    def render_row(ax_row, tokenized_agent, scenario_path, disc_val, pred, row_tag: str):
+        """
+        Draw one horizontal row (len(frames) panels) into given axes list `ax_row`.
+        """
+        # map
+        mp_xyz, mp_type = get_map(scenario_path)
+
+        # tensors: GT (real) and SIM (history concat + pred)
+        real_pos  = to_np(tokenized_agent["pred_traj_10hz"])  # [N, Th, 2]
+        real_head = to_np(tokenized_agent["pred_head_10hz"])  # [N, Th]
+        real_val  = to_np(tokenized_agent.get("all_valid",
+                        np.ones(real_pos.shape[:2], dtype=bool))).astype(bool)
+
+        hist_T = min(11, real_pos.shape[1])
+        sim_pos  = to_np(torch.cat(
+            (torch.as_tensor(real_pos[:, :hist_T]).cuda(), pred["pred_traj_10hz"]), dim=1))
+        sim_head = to_np(torch.cat(
+            (torch.as_tensor(real_head[:, :hist_T]).cuda(), pred["pred_head_10hz"]), dim=1))
+        sim_val  = to_np(pred.get("all_valid",
+                        np.ones(sim_pos.shape[:2], dtype=bool))).astype(bool)
+        # ensure sim_val covers the hist_T part
+        if sim_val.shape[1] < sim_pos.shape[1]:
+            pad = np.ones((sim_val.shape[0], sim_pos.shape[1] - sim_val.shape[1]), dtype=bool)
+            sim_val = np.concatenate([pad, sim_val], axis=1)
+
+        N, T, _ = sim_pos.shape
+
+        # sizes
+        if "shape" in tokenized_agent:
+            shp = to_np(tokenized_agent["shape"])[:, :2]
+        else:
+            shp = np.tile(np.array([4.5, 2.0], dtype=np.float32), (N, 1))
+
+        # ego index
+        if ego_index is None:
+            ego_mask = tokenized_agent.get("ego_mask", None)
+            if ego_mask is not None:
+                ei = int(np.argmax(to_np(ego_mask).astype(int)))
+            else:
+                ei = 0
+        else:
+            ei = int(ego_index)
+
+        # clamp frames
+        frs = [int(max(0, min(f, T - 1))) for f in frames]
+
+        for ax, f in zip(ax_row, frs):
+            # axes styling
+            ax.set_facecolor("black")
+            ax.patch.set_visible(True)
+            ax.patch.set_alpha(1.0)
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            ax.set_xticks([]); ax.set_yticks([])
+
+            # ego center
+            ego_xy = sim_pos[ei, f]
+
+            # map
+            for i in range(len(mp_xyz)):
+                xy = np.asarray(mp_xyz[i])
+                idx = int(mp_type[i])
+                if idx in [0, 1, 2, 3, 4, 5, 9, 10]:
+                    _, width = lane_style[idx]
+                    ax.plot(xy[:, 0], xy[:, 1],
+                            color=lane_rgba[idx],
+                            linewidth=max(1, width // 2),
+                            alpha=1.0, zorder=1)
+
+            # local agents by sim positions
+            mask_sim = sim_val[:, f]
+            if mask_sim.any():
+                dxy = sim_pos[mask_sim, f] - ego_xy[None, :]
+                dist = np.hypot(dxy[:, 0], dxy[:, 1])
+                local_sel_idx = np.where(mask_sim)[0][dist <= radius_m]
+            else:
+                local_sel_idx = np.array([], dtype=int)
+
+            if sim_val[ei, f] and ei not in local_sel_idx:
+                local_sel_idx = np.concatenate([local_sel_idx, [ei]])
+
+            # ---------- GT layer (alpha 0.5), with arrows ----------
+            if f < real_pos.shape[1]:
+                mask_real = real_val[:, f]
+                real_idx = np.intersect1d(local_sel_idx, np.where(mask_real)[0], assume_unique=False)
+                if len(real_idx) > 0:
+                    r_patches, r_faces = [], []
+                    r_arrow_starts, r_arrow_ends = [], []
+                    for i in real_idx:
+                        center = real_pos[i, f]
+                        theta  = float(real_head[i, f])
+                        L, W   = float(shp[i, 0]), float(shp[i, 1])
+                        corners = oriented_box_corners(center, theta, L, W)
+                        r_patches.append(Polygon(corners, closed=True))
+                        fc = rgb01(COLOR_ALUMINIUM_0)  # GT face color
+                        r_faces.append((*fc[:3], 1.0))
+                        r_arrow_starts.append(center)
+                        r_arrow_ends.append(center + arrow_len * np.array([math.cos(theta), math.sin(theta)], dtype=float))
+                    rpc = PatchCollection(r_patches, facecolors=r_faces, linewidths=0.8,
+                                          alpha=0.5, zorder=4)  # GT alpha 0.5
+                    ax.add_collection(rpc)
+                    # GT arrows (white @ alpha 0.5)
+                    for s, e in zip(r_arrow_starts, r_arrow_ends):
+                        ax.annotate("", xy=(e[0], e[1]), xytext=(s[0], s[1]),
+                                    arrowprops=dict(arrowstyle="-|>", lw=1.8,
+                                                    color=(0, 0, 0, 0.5), alpha=0.5,
+                                                    shrinkA=0, shrinkB=0),
+                                    zorder=5)
+
+            # ---------- SIM layer (alpha 1.0; warm-up <11 -> 0.5) ----------
+            if len(local_sel_idx) > 0 and f > 10:
+                s_patches, s_faces = [], []
+                s_arrow_starts, s_arrow_ends = [], []
+                sim_alpha = 1.0 if f >= hist_T else 0.5
+                for i in local_sel_idx:
+                    center = sim_pos[i, f]
+                    theta  = float(sim_head[i, f])
+                    L, W   = float(shp[i, 0]), float(shp[i, 1])
+                    corners = oriented_box_corners(center, theta, L, W)
+                    s_patches.append(Polygon(corners, closed=True))
+                    # face color by disc score (ego stays cyan)
+                    # if i == ei:
+                    #     fc = rgb01(COLOR_CYAN)
+                    # else:
+                    # get score index for frames > 10
+                    idx_score = (f - 10)//5 - 1
+                    # guard index
+                    if idx_score < 0 or idx_score >= disc_val.shape[1]:
+                        s_faces.append((1, 1, 1, 1.0))
+                        continue
+                    s_val = float(disc_val[i][idx_score])
+                    r, g, b, _ = cmap(norm(s_val))
+                    fc = (r, g, b)
+                    s_faces.append((*fc[:3], 1.0))
+                    s_arrow_starts.append(center)
+                    s_arrow_ends.append(center + arrow_len * np.array([math.cos(theta), math.sin(theta)], dtype=float))
+                spc = PatchCollection(s_patches, facecolors=s_faces, linewidths=0.9,
+                                      alpha=sim_alpha, zorder=6)
+                ax.add_collection(spc)
+                # sim arrows (white, match alpha)
+                for s, e in zip(s_arrow_starts, s_arrow_ends):
+                    ax.annotate("", xy=(e[0], e[1]), xytext=(s[0], s[1]),
+                                arrowprops=dict(arrowstyle="-|>", lw=2.0,
+                                                color=(0, 0, 0, sim_alpha),
+                                                alpha=sim_alpha,
+                                                shrinkA=0, shrinkB=0),
+                                zorder=7)
+
+            # view + title
+            ax.set_aspect("equal", adjustable="box")
+            if row_tag=="Row A":
+                ax.set_xlim(sim_pos[ei, 50][0] - 55, sim_pos[ei, 50][0] + 35)
+                ax.set_ylim(sim_pos[ei, 50][1] - radius_m, sim_pos[ei, 50][1] + radius_m)
+
+                if f == 70:
+                    x0 = ego_xy[0] - 45
+                    y0 = ego_xy[1] - 10
+                    rect = Rectangle((x0, y0), 10, 10,
+                                     linewidth=2, edgecolor="red", facecolor="none",
+                                     zorder=9)
+                    ax.add_patch(rect)
+            else:
+                ax.set_xlim(sim_pos[ei, 50][0] - 45, sim_pos[ei, 50][0] + 45)
+                ax.set_ylim(sim_pos[ei, 50][1] - 55, sim_pos[ei, 50][1] + 35)
+
+                if f == 70:
+                    x0 = ego_xy[0] + 5
+                    y0 = ego_xy[1] - 47
+                    rect = Rectangle((x0, y0), 10, 10,
+                                     linewidth=2, edgecolor="red", facecolor="none",
+                                     zorder=9)
+                    ax.add_patch(rect)
+
+            ax.text(0.02, 0.98, f"Sim time {(f-10)//10} s",
+                    transform=ax.transAxes, ha="left", va="top",
+                    fontsize=13, color="white", fontweight="bold", zorder=10)
+
+    # ---------------- figure (2 x len(frames)) ----------------
+    n = len(frames)
+    fig, axes = plt.subplots(2, n, figsize=(4.2 * n, 8), constrained_layout=True)
+    fig.patch.set_facecolor("white")
+
+    if n == 1:
+        axes = np.array([[axes[0]], [axes[1]]])
+
+    # render rows
+    render_row(axes[0], tokenized_agent_A, scenario_path_A, np.asarray(disc_val_A), pred_A, row_tag="Row A")
+    render_row(axes[1], tokenized_agent_B, scenario_path_B, np.asarray(disc_val_B), pred_B, row_tag="Row B")
+
+    norm = mpl.colors.Normalize(vmin=0, vmax=10)
+
+    sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])
+    #
+    # cbar = fig.colorbar(
+    #     sm,
+    #     ax=axes.ravel().tolist(),
+    #     orientation="horizontal",
+    #     fraction=0.02,
+    #     pad=0.01,
+    #     shrink=0.7,
+    #     aspect=30,
+    # )
+    #
+    # # Bigger tick labels
+    # cbar.ax.tick_params(labelsize=12, length=3, width=0.8)
+    #
+    # # Remove the default xlabel (which sits under the bar)
+    # cbar.set_label("")
+    #
+    # # Add a right-side label next to the bar
+    # cbar.ax.text(
+    #     1.05, 0, "Reward",  # to the right of the bar, vertically centered
+    #     transform=cbar.ax.transAxes,
+    #     ha="left", va="center",
+    #     fontsize=20,  color="black",
+    # )
+    cbar = fig.colorbar(
+        sm,
+        ax=axes.ravel().tolist(),
+        orientation="vertical",
+        fraction=0.02,  # thinner bar (try 0.015–0.03)
+        pad=0.01,  # closer to plots
+        shrink=0.7,  # shorter bar (0.5–0.9)
+        aspect=30  # larger -> thinner; smaller -> thicker
+    )
+    cbar.set_label("Reward", rotation=90, fontsize=10, labelpad=8)
+    cbar.ax.tick_params(labelsize=9, length=3, width=0.6)
+
+    # If the right-side label is clipped, leave a little extra right margin:
+    # fig.subplots_adjust(right=0.98)   # or use constrained_layout=True when creating the figure
+    plt.savefig("reward.pdf", format="pdf")
+
+    plt.show()
+    return fig
