@@ -991,45 +991,31 @@ def plot_rollout_frames_pair(
     render_row(axes[0], tokenized_agent_A, scenario_path_A, np.asarray(disc_val_A), pred_A, row_tag="Row A")
     render_row(axes[1], tokenized_agent_B, scenario_path_B, np.asarray(disc_val_B), pred_B, row_tag="Row B")
 
-    norm = mpl.colors.Normalize(vmin=0, vmax=10)
 
     sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
     sm.set_array([])
-    #
-    # cbar = fig.colorbar(
-    #     sm,
-    #     ax=axes.ravel().tolist(),
-    #     orientation="horizontal",
-    #     fraction=0.02,
-    #     pad=0.01,
-    #     shrink=0.7,
-    #     aspect=30,
-    # )
-    #
-    # # Bigger tick labels
-    # cbar.ax.tick_params(labelsize=12, length=3, width=0.8)
-    #
-    # # Remove the default xlabel (which sits under the bar)
-    # cbar.set_label("")
-    #
-    # # Add a right-side label next to the bar
-    # cbar.ax.text(
-    #     1.05, 0, "Reward",  # to the right of the bar, vertically centered
-    #     transform=cbar.ax.transAxes,
-    #     ha="left", va="center",
-    #     fontsize=20,  color="black",
-    # )
+
     cbar = fig.colorbar(
         sm,
         ax=axes.ravel().tolist(),
         orientation="vertical",
         fraction=0.02,  # thinner bar (try 0.015–0.03)
         pad=0.01,  # closer to plots
-        shrink=0.7,  # shorter bar (0.5–0.9)
+        shrink=0.5,  # shorter bar (0.5–0.9)
         aspect=30  # larger -> thinner; smaller -> thicker
     )
-    cbar.set_label("Reward", rotation=90, fontsize=10, labelpad=8)
+   # cbar.set_label("Reward", rotation=90, fontsize=10, labelpad=8)
     cbar.ax.tick_params(labelsize=9, length=3, width=0.6)
+    cbar.set_label("")
+
+    cbar.ax.text(
+        0, -0.12, "Reward",  # centered below (x=0.5), a bit outside (y<0)
+        transform=cbar.ax.transAxes,
+        ha="center", va="top",
+        rotation=90, rotation_mode="anchor",
+        fontsize=14, fontweight="bold", color="black",
+        clip_on=False,  # avoid clipping
+    )
 
     # If the right-side label is clipped, leave a little extra right margin:
     # fig.subplots_adjust(right=0.98)   # or use constrained_layout=True when creating the figure
@@ -1037,3 +1023,14 @@ def plot_rollout_frames_pair(
 
     plt.show()
     return fig
+
+tokenized_agent, scenario_path_A, disc_val_A, pred,tokenized_agent_B, scenario_path_B, disc_val_B, pred_B=torch.load("/home/ke/code/catk/src/waymo_data/pred_all.pt")
+
+plot_rollout_frames_pair(
+    tokenized_agent, scenario_path_A, disc_val_A, pred,
+    tokenized_agent_B, scenario_path_B, disc_val_B, pred_B,
+    frames=(30, 50, 70, 90),
+    radius_m=45.0,
+    vmin=0.0, vmax=2.0,  # shared color scale
+    cmap_name="RdYlGn"
+)
