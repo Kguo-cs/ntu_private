@@ -1024,13 +1024,13 @@ def plot_rollout_frames_pair(
     plt.show()
     return fig
 
-tokenized_agent, scenario_path_A, disc_val_A, pred,tokenized_agent_B, scenario_path_B, disc_val_B, pred_B=torch.load("/home/ke/code/catk/src/waymo_data/pred_all.pt")
-
-plot_rollout_frames_pair(
-    tokenized_agent, scenario_path_A, disc_val_A, pred,
-    tokenized_agent_B, scenario_path_B, disc_val_B, pred_B,
-    frames=(30, 50, 70, 90),
-    radius_m=45.0,
-    vmin=0.0, vmax=2.0,  # shared color scale
-    cmap_name="RdYlGn"
-)
+# tokenized_agent, scenario_path_A, disc_val_A, pred,tokenized_agent_B, scenario_path_B, disc_val_B, pred_B=torch.load("/home/ke/code/catk/src/waymo_data/pred_all.pt")
+#
+# plot_rollout_frames_pair(
+#     tokenized_agent, scenario_path_A, disc_val_A, pred,
+#     tokenized_agent_B, scenario_path_B, disc_val_B, pred_B,
+#     frames=(30, 50, 70, 90),
+#     radius_m=45.0,
+#     vmin=0.0, vmax=2.0,  # shared color scale
+#     cmap_name="RdYlGn"
+# )
