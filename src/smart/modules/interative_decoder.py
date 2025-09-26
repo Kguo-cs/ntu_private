@@ -435,7 +435,7 @@ class InterativeDecoder(nn.Module):
                     if self.learn_weight:
                         weight =1
                     else:
-                        weight=torch.exp(-dist[:,None]/3)*3
+                        weight=torch.exp(-dist[:,None]/3)
                         # agent_num=scatter_sum(torch.ones_like(dist), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0] #torch.exp(-dist[:,None]/3)*3
                         #
                         # weight=agent_num[end_idx]
