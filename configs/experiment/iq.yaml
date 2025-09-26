@@ -28,7 +28,7 @@ model:
     #finetune: true
     smart: false
 
-ckpt_path : './logs/bc40_tpta3/2025-09-26_13-31-04/bc/uecn0xxy/checkpoints/last.ckpt'
+ckpt_path : './logs/bc40_tpta3/2025-09-26_18-05-52/bc/jmf4ohma/checkpoints'
 
 trainer:
   limit_train_batches: 1.0
