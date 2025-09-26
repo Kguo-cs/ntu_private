@@ -20,6 +20,7 @@ from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.my_model.diffusion_discriminator import Discriminator
+from src.smart.layers.relative_transformer import RoFormerBlock
 
 
 
@@ -47,7 +48,6 @@ class InterativeDecoder(nn.Module):
             pred_all_res,
             discriminator=False,
             value_network=False,
-            use_roformer=True
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -63,12 +63,34 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
+        self.use_roformer=discriminator
+
+        if self.use_roformer:
+            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
+                                              hist_len=self.agent_hist)
+        else:
+            self.t_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=hist_drop_prob,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+            self.token_cache=None
+
+
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
                                         share=discriminator,
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
-                                        use_roformer=use_roformer,
+                                        use_roformer=self.use_roformer,
                                         discriminator=discriminator)
 
         self.pt2a_attn_layers = nn.ModuleList(
@@ -191,7 +213,7 @@ class InterativeDecoder(nn.Module):
                 )
 
     def forward(self,all_features,map_feature,train_mask ):
-        feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
+        feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
 
         n_agent = mask_a.shape[0]
         n_step=mask_a.shape[1]
@@ -200,6 +222,34 @@ class InterativeDecoder(nn.Module):
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
+
+        # if self.use_roformer:
+        #     feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
+        # else:
+        #     if n_current == 0:
+        #         self.feat_a_token_cache = feat_a_token
+        #         self.pos_cache = pos_a
+        #         self.head_cache = head_a
+        #         inference_mask = None
+        #     else:
+        #         self.feat_a_token_cache = torch.cat((self.feat_a_token_cache, feat_a_token), dim=1)[:,
+        #                                   -self.agent_hist:]
+        #         self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
+        #         self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
+        #         head_vector_a = torch.stack([self.head_cache.cos(), self.head_cache.sin()], dim=-1)
+        #
+        #         inference_mask = mask.clone()
+        #
+        #         inference_mask[:, :-1] = False
+
+        edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask_a,  # [n_agent, n_step]
+            inference_mask=None
+        )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
+
 
         edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
             pos_pl=pos_pl,  # [n_pl, 2]
@@ -216,7 +266,7 @@ class InterativeDecoder(nn.Module):
             use_counterfactual=self.use_counterfactual
         )
 
-        feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
+        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
         if train_mask is not None:
             train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
@@ -329,6 +379,12 @@ class InterativeDecoder(nn.Module):
                     end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
+
+                feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1).flatten(0, 1)
+
+                feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
+                # [n_step*n_agent, hidden_dim]
+                feat_a = feat_a.view(n_agent, n_step, -1).transpose(0, 1).flatten(0, 1)
 
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 

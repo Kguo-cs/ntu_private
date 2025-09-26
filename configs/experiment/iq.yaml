@@ -26,6 +26,7 @@ model:
     val_open_loop: False
     #val_closed_loop: False
     #finetune: true
+    smart: false
 
 #ckpt_path : '~/keguo/sim/src/logs/bc32_histdrop01_03_formert/2025-08-26_09-40-54/sim/59h7bq2j/checkpoints/epoch=6-step=106533.ckpt'
 
@@ -38,7 +39,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data: 
-  train_batch_size: 32
+  train_batch_size: 40
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 32
