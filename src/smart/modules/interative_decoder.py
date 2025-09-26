@@ -385,6 +385,7 @@ class InterativeDecoder(nn.Module):
                 feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
                 # [n_step*n_agent, hidden_dim]
                 feat_a = feat_a.view(n_agent, n_step, -1).transpose(0, 1).flatten(0, 1)
+                feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
@@ -393,7 +394,6 @@ class InterativeDecoder(nn.Module):
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 
-                feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
         if  self.use_edge_feature and self.discriminator:
             feat_a_all = None
