@@ -28,14 +28,14 @@ model:
     #finetune: true
     smart: false
 
-ckpt_path : './logs/bc40_tpta3/2025-09-26_20-22-31/bc/705dof5j/checkpoints/last.ckpt'
+#ckpt_path : './logs/bc40_tpta3/2025-09-26_20-22-31/bc/705dof5j/checkpoints/last.ckpt'
 
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.00002
-  max_epochs: 32
+  max_epochs: 64
   #gradient_clip_val: 0.0
 
 data: 
