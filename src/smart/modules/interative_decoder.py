@@ -79,7 +79,7 @@ class InterativeDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                     )
-                    for _ in range(num_layers)
+                    for _ in range(1)
                 ]
             )
             self.token_cache=None
@@ -383,11 +383,13 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
-                feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1).flatten(0, 1)
+                if layer_i==0:
 
-                feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
-                # [n_step*n_agent, hidden_dim]
-                feat_a = feat_a.view(n_agent, n_step, -1).transpose(0, 1).flatten(0, 1)
+                    feat_a = feat_a.view(n_step, n_agent, -1).transpose(0, 1).flatten(0, 1)
+
+                    feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
+                    # [n_step*n_agent, hidden_dim]
+                    feat_a = feat_a.view(n_agent, n_step, -1).transpose(0, 1).flatten(0, 1)
 
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
