@@ -1,3 +1,4 @@
+import random
 from typing import Dict, Optional
 
 import torch
@@ -25,10 +26,18 @@ class EdgeEncoder(nn.Module):
             hist_drop_prob=0.0,
             time_span=30,
             use_roformer=True,
+            use_route=False,
             discriminator=False
     ) -> None:
         super(EdgeEncoder, self).__init__()
-        input_dim_r_pt2a = 3
+
+        self.use_route=use_route
+
+        if self.use_route:
+            input_dim_r_pt2a = 4
+        else:
+            input_dim_r_pt2a = 3
+
         input_dim_r_a2a = 3
 
         share=share
@@ -330,7 +339,8 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             mask_pl=None,
             train_mask=None,
-            use_counterfactual=False
+            use_counterfactual=False,
+            route_map_index=None
     ):
 
         if train_mask is not None and self.discriminator and not use_counterfactual:
@@ -384,17 +394,61 @@ class EdgeEncoder(nn.Module):
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
-        r_pl2a = torch.stack(
-            [
-                torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                    nbr_vector=rel_pos_pl2a[:, :2],
-                ),
-                rel_orient_pl2a,
-            ],
-            dim=-1,
-        )
+
+        if self.use_route:
+            route_embeeding = torch.zeros_like(rel_orient_pl2a)
+
+            if route_map_index is not None:
+
+                drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
+
+                agent_idx = edge_index_pl2a[1] % n_agent
+
+                drop_agent_mask = drop_mask[agent_idx]
+
+                route_idx = route_map_index[agent_idx[drop_agent_mask]]
+
+                map_idx = edge_index_pl2a[0][drop_agent_mask]
+
+                point_num = torch.bincount(batch_pl)
+
+                point_num = torch.cat([torch.zeros_like(point_num[:1]), point_num[:-1]])
+
+                cum_num = torch.cumsum(point_num, dim=0)
+
+                batch_cum_num = cum_num[batch_pl]
+
+                map_batch = map_idx - batch_cum_num[map_idx]
+
+                point_isin = torch.isin(map_batch, route_idx)
+
+                route_embeeding[drop_agent_mask] =point_isin.to(torch.float32)
+
+            r_pl2a = torch.stack(
+                [
+                    torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=head_vector_s[edge_index_pl2a[1]],
+                        nbr_vector=rel_pos_pl2a[:, :2],
+                    ),
+                    rel_orient_pl2a,
+                    route_embeeding
+                ],
+                dim=-1,
+            )
+
+        else:
+            r_pl2a = torch.stack(
+                [
+                    torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=head_vector_s[edge_index_pl2a[1]],
+                        nbr_vector=rel_pos_pl2a[:, :2],
+                    ),
+                    rel_orient_pl2a,
+                ],
+                dim=-1,
+            )
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 

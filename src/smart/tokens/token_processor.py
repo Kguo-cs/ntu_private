@@ -741,6 +741,9 @@ class TokenProcessor(torch.nn.Module):
             #
             # tokenized_agent['valid_mask']=valid_mask
 
+        if "route_map_index" in agent.keys():
+            tokenized_agent['route_map_index']=agent["route_map_index"]
+
         if self.use_light:
 
             tokenized_light = data["tokenized_light"]

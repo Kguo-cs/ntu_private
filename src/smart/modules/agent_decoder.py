@@ -241,12 +241,17 @@ class SMARTAgentDecoder(nn.Module):
         else:
             train_mask=None
 
+        if "route_map_index" in tokenized_agent.keys():
+            route_map_index=tokenized_agent["route_map_index"]
+        else:
+            route_map_index=None
+
         batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
             0, 1)
 
         all_features = [feat_a_token, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s, None, None]
 
-        next_token_logits,feat_a,proposal,rewards,weight=self.interative_decoder(all_features,map_feature,train_mask)
+        next_token_logits,feat_a,proposal,rewards,weight=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
         return next_token_logits,[],rewards,weight,proposal,feat_a
 

@@ -36,6 +36,7 @@ from tqdm import tqdm
 from waymo_open_dataset.protos import scenario_pb2
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 from src.data_preprocess import decode_tracks_from_proto,decode_map_features_from_proto,decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,_polygon_types,_polygon_light_type
+import matplotlib.pyplot as plt
 
 def get_agent_routes(data,map_infos):
     positions=data["agent"]['position'][:,5::5,:2]
@@ -361,21 +362,28 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
 
         #track_infos = decode_tracks_from_proto(scenario)
         map_infos = decode_map_features_from_proto(scenario.map_features)
-        dynamic_map_infos = decode_dynamic_map_states_from_proto(
-            scenario.dynamic_map_states
-        )## scenario.dynamic_map_states has stop_point
+        # dynamic_map_infos = decode_dynamic_map_states_from_proto(
+        #     scenario.dynamic_map_states
+        # )## scenario.dynamic_map_states has stop_point
+        #
+        # current_time_index = scenario.current_time_index
+        # scenario_id = scenario.scenario_id
+        # tf_lights = process_dynamic_map(dynamic_map_infos)
+        # tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+        # map_data = get_map_features(map_infos, tf_current_light)
+        # # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
+        # # map_data = get_map_features(map_infos, [])
+        # data = preprocess_map(map_data)
+        #
+        # # del data['pt_token']['light_type']
+        # del data['pt_token']['pl_type']
 
-        current_time_index = scenario.current_time_index
-        scenario_id = scenario.scenario_id
-        tf_lights = process_dynamic_map(dynamic_map_infos)
-        tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-        map_data = get_map_features(map_infos, tf_current_light)
-        # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
-        # map_data = get_map_features(map_infos, [])
-        data = preprocess_map(map_data)
-
-        # del data['pt_token']['light_type']
-        del data['pt_token']['pl_type']
+        # road_edges=map_infos["road_edge_list"]
+        #
+        # for road_edge in road_edges:
+        #     plt.plot(road_edge[:, 0], road_edge[:, 1], "o")
+        #
+        # plt.show()
 
         # data={"edge":map_infos['road_edge_list']}
 
@@ -405,8 +413,8 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         # data["light"]=process_light(map_infos,tf_lights,tf_current_light)
 
         #data["scenario_id"] = scenario_id
-        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-            pickle.dump(data, f)
+        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+        #     pickle.dump(data, f)
 
         # if output_dir_tfrecords_splitted is not None:
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
