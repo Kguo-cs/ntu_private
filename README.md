@@ -11,7 +11,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_smart_highest shanhel
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route40 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 

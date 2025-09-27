@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 from shapely.geometry import LineString
 from multiprocessing import Pool, cpu_count
 
-data_directory = "./waymo_data/full/training_map2_03_pred/"
-output_path = "./waymo_data/full/training_map2_03_edgeroute/"
+
+data_directory = "./waymo_data/full/" #training_map2_03_pred/"
+output_path = "./waymo_data/full/training_map2_03_route40/"
 
 
 
@@ -22,22 +23,79 @@ data_dict = {}
 os.makedirs(output_path, exist_ok=True)
 
 
-def interpolate_traj(points, step=0.5):
+import numpy as np
+
+def interpolate_traj_lookahead(points, step=2.0, lookahead=40.0, heading_last=None, eps=1e-9):
     """
-    Interpolate a 2D trajectory at fixed arc-length intervals.
+    Resample a 2D polyline at fixed spacing, then extend forward by `lookahead` meters
+    along the last heading.
 
     Args:
-        points: array-like [N,2] of x,y waypoints
-        step: spacing in meters (default 0.5)
+        points: [N,2] original xy waypoints (numpy or torch -> numpy)
+        step:   spacing in meters between samples (e.g., 2.0)
+        lookahead: extra distance to extend beyond the last point
+        heading_last: optional yaw (radians) for the final heading; if None, infer from last segment
 
     Returns:
-        np.ndarray [M,2] interpolated points
+        Q: [M,2] resampled + extended points
     """
-    line = LineString(points)
-    length = line.length
-    num = int(np.floor(length / step)) + 1
-    dists = np.linspace(0, length, num=num)
-    return np.array([line.interpolate(d).coords[0] for d in dists])
+    P = np.asarray(points, dtype=float)
+    if P.ndim != 2 or P.shape[1] != 2:
+        raise ValueError("points must be [N,2]")
+
+    # handle degenerate cases
+    if len(P) == 0:
+        return P.copy()
+    if len(P) == 1:
+        # only one point: use heading_last for extension
+        if heading_last is None:
+            heading_last = 0.0
+        dir_unit = np.array([np.cos(heading_last), np.sin(heading_last)], dtype=float)
+        t = np.arange(0.0, lookahead + 1e-9, step)
+        return P[0] + t[:, None] * dir_unit
+
+    # cumulative arc length along the polyline
+    seg = P[1:] - P[:-1]
+    seglen = np.linalg.norm(seg, axis=1)
+    nonzero = seglen > eps
+    if not np.any(nonzero):
+        # all points identical → same as single-point case
+        if heading_last is None:
+            heading_last = 0.0
+        dir_unit = np.array([np.cos(heading_last), np.sin(heading_last)], dtype=float)
+        t = np.arange(0.0, lookahead + 1e-9, step)
+        return P[:1] + t[:, None] * dir_unit
+
+    # keep only nonzero-length segments to avoid numerical issues
+    P = P[np.r_[True, nonzero]]
+    seg = P[1:] - P[:-1]
+    seglen = np.linalg.norm(seg, axis=1)
+    s = np.concatenate([[0.0], np.cumsum(seglen)])
+    total = s[-1]
+
+    # resample along the original polyline
+    s_new = np.arange(0.0, total + 1e-9, step)
+    x = np.interp(s_new, s, P[:, 0])
+    y = np.interp(s_new, s, P[:, 1])
+    Q = np.stack([x, y], axis=1)
+
+    # determine last heading
+    if heading_last is None:
+        # use last nonzero segment direction
+        last_vec = seg[-1]
+        n = np.linalg.norm(last_vec)
+        if n < eps:
+            heading_last = 0.0
+        else:
+            heading_last = float(np.arctan2(last_vec[1], last_vec[0]))
+
+    dir_unit = np.array([np.cos(heading_last), np.sin(heading_last)], dtype=float)
+
+    # extend forward for `lookahead` meters (avoid duplicating the last point)
+    t_ext = np.arange(step, lookahead + 1e-9, step)
+    tail = Q[-1] + t_ext[:, None] * dir_unit
+
+    return np.vstack([Q, tail]) if len(t_ext) > 0 else Q
 
 from scipy.spatial import cKDTree
 
@@ -109,102 +167,80 @@ def nearest_edges_biside(traj_xy: np.ndarray, yaw: np.ndarray, edge_xy: np.ndarr
 
 
 
-# ---- Per-agent worker ----
-def process_agent(agent, heading, valid, edge_xy, step=0.5, k=16, radius=40.0, max_cap=100):
-    if not bool(valid.any()):
-        return np.full(max_cap, -1, dtype=np.int16)
-
-    valid_traj = agent[valid].cpu().numpy()
-    inter = interpolate_traj(valid_traj, step=step)
-    hint = float(heading[valid][-1].item()) if valid.sum() > 0 else None
-    yaw = compute_yaw_from_traj(inter, heading_hint=hint)
-
-    L_idx, R_idx, L_d, R_d = nearest_edges_biside(inter, yaw, edge_xy, k=k, radius=radius)
-    all_idx = np.unique(np.concatenate([L_idx, R_idx]))
-
-    out = np.full(max_cap, -1, dtype=np.int16)
-    n = min(len(all_idx), max_cap)
-    out[:n] = all_idx[:n]
-    return out
-
-# ---- Parallel driver ----
-def build_route_map_index(sampled_pos, sampled_heading, valid_mask, edge_xy,
-                          step=0.5, k=16, radius=40.0, max_cap=120):
-    args = [
-        (sampled_pos[i], sampled_heading[i], valid_mask[i], edge_xy, step, k, radius, max_cap)
-        for i in range(len(sampled_pos))
-    ]
-    with Pool(processes=cpu_count()) as pool:
-        results = pool.starmap(process_agent, args)
-
-    return torch.tensor(np.stack(results), dtype=torch.int16)
-
-
-
 max_len=0
 
 for filename in tqdm(files):
     input_path = os.path.join(data_directory, filename)
-    with open(input_path, "rb") as f:
-        data = pickle.load(f)
 
-    tokenized_map=data["tokenized_map"]
+    if "training_map2_03_route40" in filename:
 
-    map_type=tokenized_map['type']
-    mask4 = (map_type == 4)
-    mask45 = (map_type == 4) | (map_type == 5)
+        # with open(input_path, "rb") as f:
+        #     data = pickle.load(f)
 
-    idx4 = mask4.nonzero(as_tuple=True)[0]
-    idx45 = mask45.nonzero(as_tuple=True)[0]
+        new_name=output_path+filename[24:]
 
-    # map idx4 into local indices inside idx45
-    # torch.searchsorted requires sorted input (idx45 is sorted by construction)
-    idx4_in_45 = torch.searchsorted(idx45, idx4)
-    position=tokenized_map["position"][mask4]
-    x, y = position[:, 0], position[:, 1]
+        os.rename(input_path, new_name)
 
-    edge_xy = np.column_stack([x, y])  # road-edge points
-
-    tokenized_agent=data["tokenized_agent"]
-
-    sampled_pos=tokenized_agent["sampled_pos"]
-    sampled_heading=tokenized_agent["sampled_heading"]
-
-    valid_mask=tokenized_agent['valid_mask']
-    #route_map_index = build_route_map_index(sampled_pos, sampled_heading, valid_mask, edge_xy)
-
-    route_map_index=torch.zeros([len(valid_mask),100]).to(torch.int16)-1
-
-
-    for i in range(len(sampled_pos)):
-        agent = sampled_pos[i]
-        heading = sampled_heading[i]  # radians, same length as agent
-        valid = valid_mask[i]
-
-        valid_traj = agent[valid].numpy()
-
-        interpolated_traj = interpolate_traj(valid_traj, step=2)  # your function
-
-        # heading hint: last valid heading (or first)
-        heading_hint = float(heading[valid][-1].item())
-
-        yaw_interp = compute_yaw_from_traj(interpolated_traj, heading_hint=heading_hint)
-
-        L_idx, R_idx, L_d, R_d = nearest_edges_biside(
-            interpolated_traj, yaw_interp, edge_xy, k=16, radius=40.0
-        )
-
-        all_idx=idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
-        n = min(len(all_idx), 100)
-
-        route_map_index[i][:n] =all_idx[:n]
-
-    #     max_len=max(max_len, len(all_idx))
+    # tokenized_map=data["tokenized_map"]
     #
-    # if max_len>120:
-    #     print(max_len)
-
-    data["tokenized_agent"]["route_map_index"]=route_map_index
+    # map_type=tokenized_map['type']
+    # #mask4 = (map_type == 4)
+    # mask45 = (map_type == 4) | (map_type == 5)
+    # #
+    # # idx4 = mask4.nonzero(as_tuple=True)[0]
+    # # idx45 = mask45.nonzero(as_tuple=True)[0]
+    #
+    # # map idx4 into local indices inside idx45
+    # # torch.searchsorted requires sorted input (idx45 is sorted by construction)
+    # #idx4_in_45 = torch.searchsorted(idx45, idx4)
+    # position=tokenized_map["position"][mask45]
+    # x, y = position[:, 0], position[:, 1]
+    #
+    # edge_xy = np.column_stack([x, y])  # road-edge points
+    #
+    # tokenized_agent=data["tokenized_agent"]
+    #
+    # sampled_pos=tokenized_agent["sampled_pos"][:,1:]
+    # sampled_heading=tokenized_agent["sampled_heading"][:,1:]
+    #
+    # valid_mask=tokenized_agent['valid_mask'][:,1:]
+    # #route_map_index = build_route_map_index(sampled_pos, sampled_heading, valid_mask, edge_xy)
+    #
+    # route_map_index=torch.zeros([len(valid_mask),100]).to(torch.int16)-1
+    #
+    #
+    # for i in range(len(sampled_pos)):
+    #     agent = sampled_pos[i]
+    #     heading = sampled_heading[i]  # radians, same length as agent
+    #     valid = valid_mask[i]
+    #
+    #     valid_traj = agent[valid].numpy()
+    #
+    #
+    #     # heading hint: last valid heading (or first)
+    #     heading_hint = float(heading[valid][-1].item())
+    #
+    #     interpolated_traj = interpolate_traj_lookahead(
+    #         valid_traj, step=2.0, lookahead=40.0, heading_last=heading_hint
+    #     )
+    #
+    #     yaw_interp = compute_yaw_from_traj(interpolated_traj, heading_hint=heading_hint)
+    #
+    #     L_idx, R_idx, L_d, R_d = nearest_edges_biside(
+    #         interpolated_traj, yaw_interp, edge_xy, k=16, radius=40.0
+    #     )
+    #
+    #     all_idx=torch.tensor(np.unique(np.concatenate([L_idx,R_idx])))#idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
+    #     n = min(len(all_idx), 100)
+    #
+    #     route_map_index[i][:n] =all_idx[:n]
+    #
+    # #     max_len=max(max_len, len(all_idx))
+    # #
+    # # if max_len>120:
+    # #     print(max_len)
+    #
+    # data["tokenized_agent"]["route_map_index"]=route_map_index
 
 
         # print(len(np.unique(L_idx)), len(np.unique(R_idx))  )
@@ -219,10 +255,10 @@ for filename in tqdm(files):
         #
         # plt.show()
 
-    output_file = output_path + filename
-
-    with open(output_file, "wb") as f:
-        pickle.dump(data, f)
+        # output_file = output_path + filename
+        #
+        # with open(output_file, "wb") as f:
+        #     pickle.dump(data, f)
     #
     #
 
