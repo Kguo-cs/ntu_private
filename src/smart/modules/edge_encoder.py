@@ -400,13 +400,13 @@ class EdgeEncoder(nn.Module):
 
             if route_map_index is not None:
 
-                route_number=torch.sum(route_map_index>0,dim=-1)
+                #route_number=torch.sum(route_map_index>0,dim=-1)
 
                 #max_num=torch.unique(route_map_index,dim=-1)
 
                 drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
 
-                keep_mask= drop_mask & (route_number>2)
+                keep_mask= drop_mask #& (route_number>2)
 
                 agent_idx = edge_index_pl2a[1] % n_agent
 
