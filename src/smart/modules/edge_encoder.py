@@ -396,9 +396,11 @@ class EdgeEncoder(nn.Module):
         )
 
         if self.use_route:
-            route_embeeding = torch.zeros_like(rel_orient_pl2a)
+            route_embeeding = torch.zeros_like(rel_orient_pl2a)-1
 
             if route_map_index is not None:
+
+                #max_num=torch.unique(route_map_index,dim=-1)
 
                 drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
 
