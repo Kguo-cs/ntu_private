@@ -11,7 +11,7 @@ from shapely.geometry import LineString
 from multiprocessing import Pool, cpu_count
 
 data_directory = "./waymo_data/full/training_map2_03_pred/"
-output_path = "./waymo_data/full/training_map2_03_route/"
+output_path = "./waymo_data/full/training_map2_03_edgeroute/"
 
 
 
@@ -151,8 +151,16 @@ for filename in tqdm(files):
     tokenized_map=data["tokenized_map"]
 
     map_type=tokenized_map['type']
-    mask = (map_type == 4) | (map_type == 5)
-    position=tokenized_map["position"][mask]
+    mask4 = (map_type == 4)
+    mask45 = (map_type == 4) | (map_type == 5)
+
+    idx4 = mask4.nonzero(as_tuple=True)[0]
+    idx45 = mask45.nonzero(as_tuple=True)[0]
+
+    # map idx4 into local indices inside idx45
+    # torch.searchsorted requires sorted input (idx45 is sorted by construction)
+    idx4_in_45 = torch.searchsorted(idx45, idx4)
+    position=tokenized_map["position"][mask4]
     x, y = position[:, 0], position[:, 1]
 
     edge_xy = np.column_stack([x, y])  # road-edge points
@@ -186,10 +194,10 @@ for filename in tqdm(files):
             interpolated_traj, yaw_interp, edge_xy, k=16, radius=40.0
         )
 
-        all_idx=np.unique(np.concatenate([L_idx,R_idx]))
+        all_idx=idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
         n = min(len(all_idx), 100)
 
-        route_map_index[i][:n] =torch.tensor(all_idx)[:n]
+        route_map_index[i][:n] =all_idx[:n]
 
     #     max_len=max(max_len, len(all_idx))
     #
