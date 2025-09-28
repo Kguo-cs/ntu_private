@@ -26,7 +26,7 @@ max_sim_time: 150 #300 #9s
 
 random_seed: 3
 
-agent_density: 1
+agent_density: 0.5 #0 : no agent , 1: max number agent
 
 agent_class_ratio:
   pedestrian: 1
@@ -42,6 +42,17 @@ agent_size:
 
 ego_size: [4.4, 1.8, 1.6]
 
+static_density: 0.5 #0 : no agent , 1: max number agent
+
+static_class_ratio:
+  cone: 1
+  water_barrier: 2
+  hydrant: 1
+
+static_size:
+  cone: [0.5, 0.5, 0.7]
+  water_barrier: [4.8, 0.5, 0.9]
+  hydrant: [0.6, 0.6, 0.9]
 
 static_object:
   add:

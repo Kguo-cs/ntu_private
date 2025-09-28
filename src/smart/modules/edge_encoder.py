@@ -396,7 +396,7 @@ class EdgeEncoder(nn.Module):
         )
 
         if self.use_route:
-            route_embeeding = torch.zeros_like(rel_orient_pl2a)
+            point_isin = torch.zeros_like(rel_orient_pl2a)
 
             if route_map_index is not None:
 
@@ -426,9 +426,7 @@ class EdgeEncoder(nn.Module):
 
                 map_batch = map_idx - batch_cum_num[map_idx]
 
-                point_isin = torch.isin(map_batch, route_idx)
-
-                route_embeeding[keep_agent_mask] =point_isin.to(torch.float32)
+                point_isin[keep_agent_mask] =torch.isin(map_batch, route_idx).to(torch.float32)
 
             r_pl2a = torch.stack(
                 [
@@ -438,7 +436,7 @@ class EdgeEncoder(nn.Module):
                         nbr_vector=rel_pos_pl2a[:, :2],
                     ),
                     rel_orient_pl2a,
-                    route_embeeding
+                    point_isin
                 ],
                 dim=-1,
             )

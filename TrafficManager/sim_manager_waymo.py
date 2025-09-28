@@ -56,8 +56,8 @@ from desay_utils.decay_data_process import decode_map_features_from_json
 # from desay_utils.idm_policy import idm_planner
 from desay_utils.scene_generator import TrafficGenerator,make_ego_agent
 from collections import Counter
-#from desay_utils.policy import TorchIDMSimulator,IDMParams,MOBILParams,build_lane_adjacency_from_groups
 from desay_utils.plot_route import plot_agents_on_map
+from desay_utils.static_object_generator import generate_static_elements_from_raw,StaticSpec,plot_static_on_map
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -465,9 +465,9 @@ class SimulationManager:
                     data = json.load(f)
                 map_infos = decode_map_features_from_json(data['annotation'], remove_mapid)
 
-                # agent_num=1
-                #
-                # route=generate_random_edge_trips(map_infos["edge_graph"],map_infos["lane_graph"],n_trips=agent_num,seed=self.random_seed)
+                boundary_dict=map_infos["boundary_dict"]
+                line_dict=map_infos["line_dict"]
+
                 TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"],boundary_xyz=map_infos["boundary_dict"])  # 或传入你已有的 router_func
 
                 # 假设已有 TG = TrafficGenerator(EG, G_lane)
@@ -486,6 +486,41 @@ class SimulationManager:
                     seed=self.random_seed
                 )
 
+                spec = StaticSpec(
+                    density01=0.7,
+                    ratios={"cone": 1, "water_barrier": 2, "hydrant": 1},
+                    seed=2025,
+                    ego_max_dist_m=40.0,
+                    ds_resample_m=1.0,
+                    smooth=(9, 2),
+                    cone_run_min=6, cone_run_max=14,
+                    barrier_run_min=3, barrier_run_max=8
+                )
+
+                static_objs = generate_static_elements_from_raw(
+                    boundary_dict=boundary_dict,
+                    lane_dict=line_dict,  # using lane_line as lane dividers
+                    EG=map_infos["edge_graph"],
+                    ego_edge_ids=ego_edge_ids,  # <— considered for corridor focus
+                    ego_route_xyz=None,  # optional
+                    drivable_area=None,  # if you have polygons, pass them to push hydrants outside
+                    spec=spec
+                )
+                import matplotlib.pyplot as plt
+
+                # visualize
+                fig, ax = plt.subplots(figsize=(10, 8))
+                # draw supports for context
+                for B in boundary_dict.values():
+                    B = np.asarray(B, float)
+                    ax.plot(B[:, 0], B[:, 1], lw=0.8, alpha=0.25, color="gray")
+                for L in line_dict.values():
+                    L = np.asarray(L, float)
+                    ax.plot(L[:, 0], L[:, 1], lw=0.6, alpha=0.25, color="lightgray")
+                plot_static_on_map(ax, static_objs)
+                ax.set_aspect("equal", "box")
+                ax.set_title("Static elements (cones, barriers, hydrants) near ego edge corridor")
+                plt.show()
 
                 # (optional) quick counts so you know what's inside
                 counts = Counter(a["cls"] for a in all_agents)

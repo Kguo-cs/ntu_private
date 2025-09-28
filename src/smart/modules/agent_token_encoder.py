@@ -152,7 +152,7 @@ class AgentTokenEncoder(nn.Module):
             if mean_speed is None:
                 mean_speed = torch.zeros_like(agent_type)
             else:
-                speed = self.speed_drop(mean_speed)
+                speed = self.speed_drop(mean_speed)/2
                 mean_speed = torch.clamp_max_(speed, max=24).to(torch.int)//5
 
             categorical_embs = [
