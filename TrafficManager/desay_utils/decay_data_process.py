@@ -41,7 +41,7 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
                 # print(line_type)
                 #plt.plot(xyz[:, 0], xyz[:, 1], color='g')
                 #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
-                line_dict[id]=xyz
+            line_dict[id]=xyz
 
         elif feature_data_type=="boundary":
             cur_info["type"] = 4
@@ -150,10 +150,10 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
         # print(1)
 
     map_infos["all_polylines_list"] = polylines
-    map_infos["centerline_list"]=centerline_list
     map_infos["lane_graph"]=lane_graph
     map_infos["edge_graph"]=edge_graph.edge_graph
-    map_infos["boundary_xyz"]=boundary_dict
+    map_infos["boundary_dict"]=boundary_dict
+    map_infos["line_dict"]=line_dict
 
     try:
         polylines = np.concatenate(polylines, axis=0).astype(np.float32)

@@ -200,23 +200,6 @@ def build_centerlines_from_boundaries_xyz(
         n = int(np.floor((rep_w + split_tolerance_m) / max(1e-6, desired_lane_width_m)))
         return int(np.clip(n, 1, max_lanes))
 
-    # Merge tiny segments (by index ranges) if their length < merge_short_segments_m
-    def _merge_short_segments(runs: List[Tuple[int,int]], s_table: np.ndarray, min_len: float) -> List[Tuple[int,int]]:
-        if not runs:
-            return runs
-        merged = []
-        prev_s, prev_e = runs[0]
-        for a,b in runs[1:]:
-            seg_len = s_table[prev_e - 1] - s_table[prev_s]
-            if seg_len < min_len:
-                # merge with next
-                prev_e = b
-            else:
-                merged.append((prev_s, prev_e))
-                prev_s, prev_e = a, b
-        merged.append((prev_s, prev_e))
-        return merged
-
     group_key = 0
 
     # Loop over each boundary as reference A

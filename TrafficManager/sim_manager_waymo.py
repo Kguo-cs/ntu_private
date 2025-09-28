@@ -9,12 +9,7 @@ import yaml
 torch.set_float32_matmul_precision("highest")#  #“highest” (default),
 
 import random
-seed=42
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(seed)
+
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 # Enforce deterministic ops where PyTorch supports them
@@ -58,10 +53,10 @@ from pynvml import *
 
 from desay_utils.check_oclluded import check_occlusion_fully_batched
 from desay_utils.decay_data_process import decode_map_features_from_json
-from desay_utils.idm_policy import idm_planner
-from desay_utils.scene_generator import TrafficGenerator
+# from desay_utils.idm_policy import idm_planner
+from desay_utils.scene_generator import TrafficGenerator,make_ego_agent
 from collections import Counter
-from desay_utils.policy import TorchIDMSimulator,IDMParams,MOBILParams,build_lane_adjacency_from_groups
+#from desay_utils.policy import TorchIDMSimulator,IDMParams,MOBILParams,build_lane_adjacency_from_groups
 from desay_utils.plot_route import plot_agents_on_map
 
 def print_cpu_usage(interval=1.0):
@@ -161,6 +156,16 @@ class SimulationManager:
         self.output_time=[]
 
         self.random_seed=int(self.config["random_seed"])
+        self.agent_density=float(self.config["agent_density"])
+        self.agent_class_ratio=self.config["agent_class_ratio"] #: {"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1}
+        self.agent_size=self.config["agent_size"]
+        self.ego_size=self.config["ego_size"]
+
+        random.seed(self.random_seed)
+        np.random.seed(self.random_seed)
+        torch.manual_seed(self.random_seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(self.random_seed)
 
     @staticmethod
     def load_config(config_path: str) -> Dict:
@@ -410,7 +415,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-     #   sleep(100)
+        sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -463,7 +468,7 @@ class SimulationManager:
                 # agent_num=1
                 #
                 # route=generate_random_edge_trips(map_infos["edge_graph"],map_infos["lane_graph"],n_trips=agent_num,seed=self.random_seed)
-                TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"],boundary_xyz=map_infos["boundary_xyz"])  # 或传入你已有的 router_func
+                TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"],boundary_xyz=map_infos["boundary_dict"])  # 或传入你已有的 router_func
 
                 # 假设已有 TG = TrafficGenerator(EG, G_lane)
                 ego_edge_ids, ego_route_xyz, ego_start_xy, ego_goal_xy = TG.random_ego_edge_route(
@@ -473,63 +478,21 @@ class SimulationManager:
                     sample_start_on_edge=True,  # 起点弧长随机
                     end_at_last_point=True  # 终点为末尾 edge 的尾点
                 )
-                agents = TG.generate_batch(
-                    density01=0.5,
-                    class_ratio={"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1},
+                all_agents = TG.generate_batch(
+                    density01=self.agent_density,
+                    class_ratio=self.agent_class_ratio,
+                    size_table=self.agent_size,
                     ego_edge_ids=ego_edge_ids,
-                    seed=self.random_seed,
-                    lift_to_lane_ids=True
+                    seed=self.random_seed
                 )
 
-                # 1) Build an "ego" agent dict compatible with TrafficGenerator output
-                def make_ego_agent(ego_route_xyz: np.ndarray, ego_start_xy: np.ndarray, *,
-                                   ego_id="ego", cls="car", avg_speed_mps=14.0, size_lwh=(4.5, 1.85, 1.6)) -> dict:
-                    # route_xyz is already a continuous polyline along EG path
-                    start_xyz = np.array([ego_start_xy[0], ego_start_xy[1], 0.0], dtype=float)
-                    return dict(
-                        agent_id=ego_id,
-                        cls=cls,
-                        size_lwh_m=tuple(size_lwh),
-                        avg_speed_mps=float(avg_speed_mps),
-                        start_xyz=start_xyz,  # simulator will snap to the nearest lane
-                        route_xyz=np.asarray(ego_route_xyz, float),
-                        edge_ids=list(ego_edge_ids),  # optional; not required by the torch simulator
-                        start_lane_id=None,  # let the simulator pick nearest lane
-                        goal_xyz=ego_route_xyz[-1]
-                    )
-
-                ego_agent = make_ego_agent(ego_route_xyz, ego_start_xy, avg_speed_mps=13.9)
-
-                # 2) Combine with background traffic from TG
-                all_agents = list(agents) + [ego_agent]
 
                 # (optional) quick counts so you know what's inside
                 counts = Counter(a["cls"] for a in all_agents)
                 print("Agent class counts:", dict(counts))
 
-                lane_adjacency = build_lane_adjacency_from_groups(map_infos["lane_graph"])
 
-                self.sim = TorchIDMSimulator(
-                    map_infos["lane_graph"],
-                    dt_out=0.1, dt_phys=0.5, ds_grid=0.5,
-                    idm=IDMParams(T=1.2, a_max=1.4, b_comf=2.0, s0=2.0, delta=4.0),
-                    mobil=MOBILParams(politeness=0.3, a_thr=0.1, b_safe=3.5, min_gap_lane_change=1.0,
-                                      min_time_in_lane=1.2,
-                                      lat_speed_mps=1.2, lc_min_s=0.9, lc_max_s=3.0),
-                    lane_adjacency=lane_adjacency,  # {lane_id: [adjacent...]}
-                    speed_limits=None,  # or {lane_id: vmax_mps}
-                    goal_tol=3.0
-                )
-
-                self.sim.init_agents_from_batch(all_agents, v0_fraction=0.95)
-
-                counts = Counter(a["cls"] for a in agents)
-                print("Agent counts by type:")
-                for cls, n in counts.items():
-                    print(f"  {cls}: {n}")
-                    # print(agents[0].agent_id, agents[0].cls, agents[0].avg_speed_mps, len(agents[0].edge_ids))
-
-                agent_num=1+len(agents)#len(agents)
+                agent_num=len(all_agents)#len(agents)
 
                 track_infos = {
                     "object_id": np.arange(agent_num),
@@ -539,31 +502,13 @@ class SimulationManager:
                     "role": np.zeros([agent_num,3]).astype(bool),
                 }
 
-                ego_route_xyz[:,1]-=100
-                ego_route_xyz[:,0]-=6
 
-                route=ego_route_xyz[:,:2]
-
-                ego_heading=np.arctan2(route[1,1]-route[0,1],route[1,0]-route[0,0])
-
-                ego_speed=ego_agent["avg_speed_mps"]
-
-                ego_velocity=np.array([np.cos(ego_heading)*ego_speed,np.sin(ego_heading)*ego_speed,0])
-
-                track_infos['states'][0,:,:3]=ego_route_xyz[:1]+ego_velocity[None]*np.arange(-1,8.1,0.1)[:,None]
-                track_infos['states'][0,:,3]=4.5
-                track_infos['states'][0,:,4]=1.85
-                track_infos['states'][0,:,5]=1.6
-                track_infos['states'][0,:,6]=np.arctan2(route[1,1]-route[0,1],route[1,0]-route[0,0])
                 track_infos['role'][0]=1
 
-                self.route[0]=torch.FloatTensor(route).cuda()
-
-                for i,agent in enumerate(agents):
-                    j=i+1
+                for j,agent in enumerate(all_agents):
                     size_lwh_m=agent["size_lwh_m"]
                     speed=agent["avg_speed_mps"]
-                    route=agent["route_xyz"]
+                    #route=agent["route_xyz"]
                     heading=agent["start_heading_rad"]
 
                     velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
@@ -577,7 +522,7 @@ class SimulationManager:
                         track_infos["object_type"][j]=1
                     elif agent["cls"]=="bicycle":
                         track_infos["object_type"][j]=2
-                    self.route[j]=torch.FloatTensor(route[:,:2]).cuda()
+                    #self.route[j]=torch.FloatTensor(route[:,:2]).cuda()
 
                 #print(track_infos['states'][:,10,:2])
 
@@ -944,12 +889,12 @@ class SimulationManager:
     def setup_planner(self,cfg):
         self.planner = SMART(cfg.model.model_config)
 
-        if torch.cuda.is_available():
-            state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
-        else:
-            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
-
-        self.planner.load_state_dict(state_dict,strict=False)
+        # if torch.cuda.is_available():
+        #     state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
+        # else:
+        #     state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
+        #
+        # self.planner.load_state_dict(state_dict,strict=False)
         self.planner.cuda()
         self.planner.eval()
 

@@ -29,7 +29,7 @@ class AgentTokenEncoder(nn.Module):
         self.use_mean_speed = True
 
         if self.use_mean_speed:
-            self.speed_embed = nn.Embedding(15, hidden_dim)
+            self.speed_embed = nn.Embedding(5, hidden_dim)
             self.speed_drop = nn.Dropout(0.5)
 
         self.x_a_emb = FourierEmbedding(
@@ -153,7 +153,7 @@ class AgentTokenEncoder(nn.Module):
                 mean_speed = torch.zeros_like(agent_type)
             else:
                 speed = self.speed_drop(mean_speed)
-                mean_speed = torch.clamp_max_(speed, max=28).to(torch.int)//2
+                mean_speed = torch.clamp_max_(speed, max=24).to(torch.int)//5
 
             categorical_embs = [
                 self.type_a_emb(agent_type),
