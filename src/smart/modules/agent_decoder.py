@@ -175,6 +175,8 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_col=False
         self.use_sign_dist=False
 
+
+
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)
@@ -193,15 +195,21 @@ class SMARTAgentDecoder(nn.Module):
         #     agent_token_emb=tokenized_agent["agent_token_emb"]
         # else:
         # ! get agent token embeddings
+        if "mean_speed" in tokenized_agent.keys():
+            mean_speed = tokenized_agent["mean_speed"]
+        else:
+            mean_speed = None
+
 
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             # trajectory_token_veh=self.token_processor.trajectory_token_veh,
             # trajectory_token_ped=self.token_processor.trajectory_token_ped,
             # trajectory_token_cyc=self.token_processor.trajectory_token_cyc,
+            mean_speed=mean_speed,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            agent_type=tokenized_agent["type"],  # [n_agent]
+            agent_type=tokenized_agent["type"].long(),  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 

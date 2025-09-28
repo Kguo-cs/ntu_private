@@ -23,8 +23,14 @@ class AgentTokenEncoder(nn.Module):
         self.hidden_dim = hidden_dim
         self.token_processor=token_processor
 
-        input_dim_x_a = 2
         input_dim_token = 8
+        input_dim_x_a = 2
+
+        self.use_mean_speed = True
+
+        if self.use_mean_speed:
+            self.speed_embed = nn.Embedding(15, hidden_dim)
+            self.speed_drop = nn.Dropout(0.5)
 
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,
@@ -54,12 +60,14 @@ class AgentTokenEncoder(nn.Module):
                 input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
             )
 
+
     def forward(
             self,
             agent_token_index,  # [n_agent, n_step]
             # trajectory_token_veh,  # [n_token, 8]
             # trajectory_token_ped,  # [n_token, 8]
             # trajectory_token_cyc,  # [n_token, 8]
+            mean_speed,
             pos_a,  # [n_agent, n_step, 2]
             head_vector_a,  # [n_agent, n_step, 2]
             agent_type,  # [n_agent]
@@ -139,10 +147,25 @@ class AgentTokenEncoder(nn.Module):
                 ],
                 dim=-1,
             )  # [n_agent, n_step, 2]
-        categorical_embs = [
-            self.type_a_emb(agent_type.long()),
-            self.shape_emb(agent_shape),
-        ]  # List of len=2, shape [n_agent, hidden_dim]
+
+        if self.use_mean_speed:
+            if mean_speed is None:
+                mean_speed = torch.zeros_like(agent_type)
+            else:
+                speed = self.speed_drop(mean_speed)
+                mean_speed = torch.clamp_max_(speed, max=28).to(torch.int)//2
+
+            categorical_embs = [
+                self.type_a_emb(agent_type),
+                self.shape_emb(agent_shape),
+                self.speed_embed(mean_speed),
+            ]  # List of len=2, shape [n_agent, hidden_dim]
+        else:
+            categorical_embs = [
+                self.type_a_emb(agent_type),
+                self.shape_emb(agent_shape),
+            ]  # List of len=2, shape [n_agent, hidden_dim]
+
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),

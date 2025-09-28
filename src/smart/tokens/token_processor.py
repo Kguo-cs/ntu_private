@@ -743,6 +743,29 @@ class TokenProcessor(torch.nn.Module):
         if "route_map_index" in agent.keys():
             tokenized_agent['route_map_index']=agent["route_map_index"]
 
+        pos = tokenized_agent["sampled_pos"]  # [N,T,2]
+        valid = tokenized_agent["valid_mask"]  # [N,T]
+
+        # consecutive displacements
+        disp = pos[:, 1:] - pos[:, :-1]  # [N,T-1,2]
+        dist = torch.norm(disp, dim=-1)  # [N,T-1]
+
+        # compute speeds per step
+        speed = dist / 0.5  # [N,T-1]
+
+        # valid timesteps = both ends must be valid
+        valid_step = valid[:, 1:] & valid[:, :-1]
+
+        # mask invalid speeds
+        speed = speed * valid_step
+
+        # mean per agent
+        sum_speed = speed.sum(dim=1)
+        count = valid_step.sum(dim=1).clamp(min=1)  # avoid div by 0
+        mean_speed = sum_speed / count
+
+        tokenized_agent["mean_speed"]=mean_speed
+
         if self.use_light:
 
             tokenized_light = data["tokenized_light"]
