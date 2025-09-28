@@ -69,6 +69,7 @@ class InterativeDecoder(nn.Module):
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
                                         use_roformer=use_roformer,
+                                        use_route=True,
                                         discriminator=discriminator)
 
         self.pt2a_attn_layers = nn.ModuleList(
@@ -190,7 +191,7 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-    def forward(self,all_features,map_feature,train_mask ):
+    def forward(self,all_features,map_feature,train_mask,route_map_index ):
         feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
 
         n_agent = mask_a.shape[0]
@@ -213,7 +214,8 @@ class InterativeDecoder(nn.Module):
             pl2a_radius=self.pl2a_radius,
             max_num_neighbors=self.pt2a_neighbor,
             train_mask=train_mask,
-            use_counterfactual=self.use_counterfactual
+            use_counterfactual=self.use_counterfactual,
+            route_map_index=route_map_index
         )
 
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
