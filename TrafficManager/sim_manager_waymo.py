@@ -487,23 +487,23 @@ class SimulationManager:
                 )
 
                 spec = StaticSpec(
-                    density01=0.7,
+                    density01=1,
                     ratios={"cone": 1, "water_barrier": 2, "hydrant": 1},
                     seed=2025,
                     ego_max_dist_m=40.0,
                     ds_resample_m=1.0,
                     smooth=(9, 2),
                     cone_run_min=6, cone_run_max=14,
-                    barrier_run_min=3, barrier_run_max=8
+                    barrier_run_min=1, barrier_run_max=8
                 )
 
                 static_objs = generate_static_elements_from_raw(
                     boundary_dict=boundary_dict,
                     lane_dict=line_dict,  # using lane_line as lane dividers
                     EG=map_infos["edge_graph"],
+                    lane_graph=map_infos["lane_graph"],
                     ego_edge_ids=ego_edge_ids,  # <— considered for corridor focus
                     ego_route_xyz=None,  # optional
-                    drivable_area=None,  # if you have polygons, pass them to push hydrants outside
                     spec=spec
                 )
                 import matplotlib.pyplot as plt
@@ -513,10 +513,10 @@ class SimulationManager:
                 # draw supports for context
                 for B in boundary_dict.values():
                     B = np.asarray(B, float)
-                    ax.plot(B[:, 0], B[:, 1], lw=0.8, alpha=0.25, color="gray")
+                    ax.plot(B[:, 0], B[:, 1], lw=0.8, alpha=1, color="gray")
                 for L in line_dict.values():
                     L = np.asarray(L, float)
-                    ax.plot(L[:, 0], L[:, 1], lw=0.6, alpha=0.25, color="lightgray")
+                    ax.plot(L[:, 0], L[:, 1], lw=0.6, alpha=1, color="lightgray")
                 plot_static_on_map(ax, static_objs)
                 ax.set_aspect("equal", "box")
                 ax.set_title("Static elements (cones, barriers, hydrants) near ego edge corridor")
