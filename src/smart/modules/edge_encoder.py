@@ -397,7 +397,7 @@ class EdgeEncoder(nn.Module):
         )
 
         if self.use_route:
-            point_isin = -torch.ones(rel_orient_pl2a)
+            point_isin = torch.zeros_like(rel_orient_pl2a)-1
 
             if route_map_index is not None:
 
