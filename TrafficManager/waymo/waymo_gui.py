@@ -135,7 +135,7 @@ class GUI(Process):
             COLOR_GREEN,  # GO = 1;
             COLOR_YELLOW,  # CAUTION = 2;
             COLOR_GREEN, #COLOR_ALUMINIUM_0,  # NO_LANE_STATE = 3;
-           COLOR_GREEN,# COLOR_ALUMINIUM_1,  # LANE_STATE_UNKNOWN = 4;
+            COLOR_GREEN,# COLOR_ALUMINIUM_1,  # LANE_STATE_UNKNOWN = 4;
         ]
 
         # sdc=0, interest=1, predict=2
@@ -174,6 +174,12 @@ class GUI(Process):
         self.ag_id=data["agent"]["id"].numpy()
 
         self.routing=data["routing"]
+
+        static_pos, static_yaw, static_size,self.static_type=data["static"]
+
+        self.static = self._get_agent_bbox(np.ones_like(static_yaw[:,0]).astype(np.bool),static_pos, static_yaw, static_size)
+
+        self.static_style = [COLOR_CHOCOLATE, COLOR_CHAMELEON, COLOR_RED,COLOR_BUTTER]
 
         self.ego_idx=np.where(ag_role[:,0])[0][0]
 
@@ -418,6 +424,24 @@ class GUI(Process):
                 parent=node
             )
 
+    def draw_static(self,node):
+
+        for object,object_type in zip(self.static,self.static_type):
+
+            #if object_type==2:
+
+            static_style=self.static_style[object_type]
+
+            bbox_gt1 = self.get_line_tf(object, self.centerx, self.centery)
+
+            dpg.draw_polygon(
+                points=bbox_gt1,  # ensure each pt is (x, y)
+                color=static_style,  # RGBA tuple, e.g., (255, 0, 0, 255)
+                fill=static_style,  # fill with the same color
+                thickness=1,  # outline thickness
+                parent=node  # your drawing layer
+            )
+
     def drawVehicles(self, node,_pos,_yaw,ag_type,agent_valid):
 
         _valid=agent_valid
@@ -436,7 +460,9 @@ class GUI(Process):
         _type=ag_type[_valid]
 
         for i in range(_type.shape[0]):
-            if not _valid[i]:
+            id=self.ag_id[i]
+
+            if not _valid[i] or id<0:
                # print(i)
                 continue
             if i==self.ego_idx:#[0]
@@ -453,6 +479,7 @@ class GUI(Process):
                 parent=node  # your drawing layer
             )
 
+
             # # Draw shaft of the arrow
             if _type[i]==0:
                 self.draw_arrow(heading_start[i], heading_end[i], COLOR_BLACK, thickness=1, tip_length=1.0, parent=node)
@@ -462,7 +489,7 @@ class GUI(Process):
             x=center[0]
             y=center[1]
 
-            id=self.ag_id[i]
+
 
             dpg.draw_text(
                 self.ctf.dpgCoord(x, y, self.centerx, self.centery),
@@ -551,9 +578,9 @@ class GUI(Process):
                     color = color_map[light["color"]] if is_active else color_map["off"]
 
                     if orientation == "vertical":
-                        x, y = start_x, start_y + i * (2 * radius + padding)
+                        x, y = start_x, start_y+20 + i * (2 * radius + padding)
                     else:
-                        x, y = start_x + i * (2 * radius + padding), start_y
+                        x, y = start_x +20+ i * (2 * radius + padding), start_y
 
                     dpg.draw_circle(center=[x, y], radius=radius, color=(0, 0, 0, 255),
                                     fill=color, thickness=2, parent=node)
@@ -633,6 +660,7 @@ class GUI(Process):
                 self.drawRoadgraph(canvasNode)
                 self.draw_route(canvasNode)
                 self.draw_traffic_light(canvasNode,time_step)
+                self.draw_static(canvasNode)
                 self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type,agent_valid)
         except TypeError:
             return

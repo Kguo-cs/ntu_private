@@ -163,6 +163,7 @@ class SimulationManager:
         self.agent_class_ratio=self.config["agent_class_ratio"] #: {"pedestrian": 1, "car": 8, "truck": 2, "bicycle": 1}
         self.agent_size=self.config["agent_size"]
         self.ego_size=self.config["ego_size"]
+        self.light = self.config["traffic_lights"]
 
         random.seed(self.random_seed)
         np.random.seed(self.random_seed)
@@ -177,9 +178,8 @@ class SimulationManager:
 
     def initialize_simulation(self,map_data,data):
         # Initialising models, planners, maps etc
-        light = self.config["traffic_lights"]
 
-        self.gui = GUI(map_data,data,light,self.initial_step)
+        self.gui = GUI(map_data,data,self.light,self.initial_step)
         if self.GUI_DISPLAY:
             self.gui.start()
 
@@ -375,7 +375,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-      #  sleep(100)
+       # sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -446,46 +446,40 @@ class SimulationManager:
                     seed=self.random_seed
                 )
 
-                # spec = StaticSpec(
-                #     density01=1,
-                #     ratios={"cone": 1, "water_barrier": 2, "hydrant": 1},
-                #     seed=2025,
-                #     ego_max_dist_m=40.0,
-                #     ds_resample_m=1.0,
-                #     smooth=(9, 2),
-                #     cone_run_min=6, cone_run_max=14,
-                #     barrier_run_min=1, barrier_run_max=8
-                # )
-                #
-                # static_objs = generate_static_elements_from_raw(
-                #     boundary_dict=boundary_dict,
-                #     lane_dict=line_dict,  # using lane_line as lane dividers
-                #     EG=map_infos["edge_graph"],
-                #     lane_graph=map_infos["lane_graph"],
-                #     ego_edge_ids=ego_edge_ids,  # <— considered for corridor focus
-                #     ego_route_xyz=None,  # optional
-                #     spec=spec
-                # )
-                # import matplotlib.pyplot as plt
-                #
-                # # visualize
-                # fig, ax = plt.subplots(figsize=(10, 8))
-                # # draw supports for context
-                # for B in boundary_dict.values():
-                #     B = np.asarray(B, float)
-                #     ax.plot(B[:, 0], B[:, 1], lw=0.8, alpha=1, color="gray")
-                # for L in line_dict.values():
-                #     L = np.asarray(L, float)
-                #     ax.plot(L[:, 0], L[:, 1], lw=0.6, alpha=1, color="lightgray")
-                # plot_static_on_map(ax, static_objs)
-                # ax.set_aspect("equal", "box")
-                # ax.set_title("Static elements (cones, barriers, hydrants) near ego edge corridor")
-                # plt.show()
+                spec = StaticSpec(
+                    density01=0.1,
+                    ratios={"cone": 1, "water_barrier": 2, "hydrant": 1},
+                    seed=2025,
+                    ego_max_dist_m=40.0,
+                    ds_resample_m=1.0,
+                    smooth=(9, 2),
+                    cone_run_min=6, cone_run_max=14,
+                    barrier_run_min=1, barrier_run_max=8
+                )
+
+                static_objs = generate_static_elements_from_raw(
+                    boundary_dict=boundary_dict,
+                    lane_dict=line_dict,  # using lane_line as lane dividers
+                    EG=map_infos["edge_graph"],
+                    lane_graph=map_infos["lane_graph"],
+                    ego_edge_ids=ego_edge_ids,  # <— considered for corridor focus
+                    ego_route_xyz=None,  # optional
+                    spec=spec
+                )
+
+                for light in self.light:
+                    static_objs.append(dict(
+                        id=f"light",
+                        cls='light',
+                        size_lwh_m=light["size"],
+                        x=light["position"][0], y=light["position"][1], z=0,
+                        heading_rad=light["heading"],
+                        meta={}
+                    ))
 
                 # (optional) quick counts so you know what's inside
                 counts = Counter(a["cls"] for a in all_agents)
                 print("Agent class counts:", dict(counts))
-
 
                 agent_num=len(all_agents)#len(agents)
 
@@ -500,7 +494,7 @@ class SimulationManager:
 
                 track_infos['role'][0]=1
 
-                all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
+               # all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
 
                 for j,agent in enumerate(all_agents):
                     size_lwh_m=agent["size_lwh_m"]
@@ -609,7 +603,7 @@ class SimulationManager:
             track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
             track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
 
-            track_infos["role"][:,-1]=True#control
+            track_infos["role"][:,-1]=True
 
             # add static object
             add_static = self.config["static_object"]["add"]
@@ -631,6 +625,53 @@ class SimulationManager:
                 track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
                 track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([add_static_num])])
 
+            if len(static_objs):
+                state_list=[]
+                static_pos, static_yaw, static_size,static_type=[],[],[],[]
+
+                for i,object in enumerate(static_objs):#{0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+                    object_type = object["cls"]
+                    new_state=np.zeros([91, 9])
+
+                    if object_type == "cone":
+                        static_type.append(1)
+                    elif object_type == "water_barrier":
+                        static_type.append(0)
+                    elif object_type == "light":
+                        static_type.append(3)
+                    else:
+                        static_type.append(2)
+
+                    new_state[:, 0] = object["x"]
+                    new_state[:, 1] = object["y"]
+                    new_state[:, 3:6] =np.array(object["size_lwh_m"])[None]
+                    new_state[:, 6] = object["heading_rad"]
+
+                    state_list.append(new_state)
+
+                    static_pos.append((object["x"],object["y"]))
+                    static_yaw.append(object["heading_rad"])
+                    static_size.append(object["size_lwh_m"])
+
+                static_pos=np.array(static_pos)
+                static_yaw=np.array(static_yaw)[:,None]
+                static_size=np.array(static_size)
+                static_type=np.array(static_type)
+
+                new_state=np.stack(state_list)
+
+                new_type=np.array(static_type)
+                new_type[static_type==2]=1
+                new_type[static_type==3]=0
+
+
+                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
+                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-100-np.arange(len(state_list))])
+                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([len(state_list),91]).astype(bool)])
+                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([len(state_list),3]).astype(bool)])
+                track_infos["object_type"]=np.concatenate([track_infos["object_type"],new_type])
+
+                data["static"]=(static_pos, static_yaw, static_size,static_type)
 
             if self.config["agent"]["stop"] is not None:
                 for agent in self.config["agent"]["stop"]:
@@ -655,6 +696,7 @@ class SimulationManager:
             )
             data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
+
 
             #find routing
 
@@ -727,11 +769,11 @@ class SimulationManager:
             tokenized_agent["route_map_index"]=route_map_index.cuda()
 
             #set mean speed:
-            mean_speed=torch.zeros_like(tokenized_agent["type"])
+            # mean_speed=torch.zeros_like(tokenized_agent["type"])
+            #
+            # mean_speed[0]=6
 
-            mean_speed[0]=6
-
-            tokenized_agent["mean_speed"]=mean_speed
+            # tokenized_agent["mean_speed"]=mean_speed
 
 
 

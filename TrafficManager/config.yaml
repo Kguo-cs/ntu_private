@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
+planner_path: "/home/ke/code/catk/src/ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -67,5 +67,30 @@ agent:
   stop:
   recording:
 
-traffic_lights:
+#traffic_lights:
 
+traffic_lights:
+  - position:  [20, 200]    # 信号灯的世界坐标
+    heading: 0
+    size: [2,2,5]
+    orientation: "vertical"         # vertical | horizontal
+    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
+      - color: "red"
+        shape: "left_arrow"
+      - color: "yellow"
+        shape: "circle"
+      - color: "green"
+        shape: "circle"
+    mode: "periodic"                # fixed | periodic | custom
+    periodic_schedule:              # 周期性切换设置
+      cycle_time: 60.0              # 整个周期长度（秒）
+      phases:                       # 每个状态阶段
+        - duration: 2.0
+          lights_on:
+            - color: "green"
+        - duration: 5.0
+          lights_on:
+            - color: "yellow"
+        - duration: 25.0
+          lights_on:
+            - color: "red"
