@@ -500,7 +500,7 @@ class SimulationManager:
 
                 track_infos['role'][0]=1
 
-                all_agents[0]["start_xyz"][:2]=np.array([5,-20])
+                all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
 
                 for j,agent in enumerate(all_agents):
                     size_lwh_m=agent["size_lwh_m"]
@@ -658,18 +658,20 @@ class SimulationManager:
 
             #find routing
 
-            id=0
+            #id=0
 
-            path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([5,-20]),np.array([5,200]))
+            #path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([0,-20]),np.array([5,200]))
             # path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([5,-20]),np.array([20,20]))
+            #
+            # yaw_interp=compute_yaw_from_traj(route_xyz)
+            #
+            # route={}
+            #
+            # route[id]=route_xyz[:,:2]
+            #
+            # data["routing"]=route
 
-            yaw_interp=compute_yaw_from_traj(route_xyz)
-
-            route={}
-
-            route[id]=route_xyz[:,:2]
-
-            data["routing"]=route
+            data["routing"]={}
 
 
             self.initialize_simulation(map_data,data)
@@ -689,37 +691,49 @@ class SimulationManager:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
 
-
-            route_map_index=torch.zeros([len(tokenized_agent["sampled_idx"]),100]).to(torch.int16)-1
+            route_map_index = torch.zeros([len(tokenized_agent["sampled_idx"]), 100]).to(torch.int16) - 1
 
             map_type = tokenized_map['type']
-            # mask4 = (map_type == 4)
             mask45 = (map_type == 4) | (map_type == 5)
 
             edge_xy = tokenized_map["position"][mask45].cpu().numpy()
 
-            L_idx, R_idx, L_d, R_d = nearest_edges_biside(
-                route_xyz[:,:2], yaw_interp, edge_xy, k=16, radius=40.0
-            )
+            for id,route_xyz in data["routing"].items():
 
-            all_idx = torch.tensor(
-                np.unique(np.concatenate([L_idx, R_idx])))  # idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
-            n = min(len(all_idx), 100)
+                yaw_interp = compute_yaw_from_traj(route_xyz)
 
-            # import  matplotlib.pyplot as plt
-            #
-            # for boud in boundary_dict.values():
-            #
-            #    plt.scatter(boud[:,0], boud[:,1], c="green")
-            #
-            # edge_point=edge_xy[all_idx.numpy()]
-            # plt.scatter(edge_point[:,0], edge_point[:,1], c="r")
-            #
-            # plt.show()
-            # print(len(all_idx))
+                L_idx, R_idx, L_d, R_d = nearest_edges_biside(
+                    route_xyz[:,:2], yaw_interp, edge_xy, k=16, radius=40.0
+                )
 
-            route_map_index[id][:n] = all_idx[:n]
+                all_idx = torch.tensor(
+                    np.unique(np.concatenate([L_idx, R_idx])))  # idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
+                n = min(len(all_idx), 100)
+
+                # import  matplotlib.pyplot as plt
+                #
+                # for boud in boundary_dict.values():
+                #
+                #    plt.scatter(boud[:,0], boud[:,1], c="green")
+                #
+                # edge_point=edge_xy[all_idx.numpy()]
+                # plt.scatter(edge_point[:,0], edge_point[:,1], c="r")
+                #
+                # plt.show()
+                # print(len(all_idx))
+
+                route_map_index[id][:n] = all_idx[:n]
+
             tokenized_agent["route_map_index"]=route_map_index.cuda()
+
+            #set mean speed:
+            mean_speed=torch.zeros_like(tokenized_agent["type"])
+
+            mean_speed[0]=6
+
+            tokenized_agent["mean_speed"]=mean_speed
+
+
 
             data_preproces_time=time.time()
 

@@ -429,7 +429,7 @@ class EdgeEncoder(nn.Module):
 
                 map_batch = map_idx - batch_cum_num[map_idx]
 
-                mask=torch.isin(route_idx,map_batch).any(dim=1)
+                mask=(route_idx==map_batch[:,None]).any(dim=1)
 
                 point_isin[keep_agent_mask] =mask.to(torch.float32)
 
