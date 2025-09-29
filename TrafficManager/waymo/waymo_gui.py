@@ -173,6 +173,8 @@ class GUI(Process):
         ag_role=data["agent"]["role"]
         self.ag_id=data["agent"]["id"].numpy()
 
+        self.routing=data["routing"]
+
         self.ego_idx=np.where(ag_role[:,0])[0][0]
 
         self.image_width = 560#767  #
@@ -404,6 +406,18 @@ class GUI(Process):
             parent=parent
         )
 
+    def draw_route(self,node):
+
+        for i,polyline in self.routing.items():
+            polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
+
+            dpg.draw_polyline(
+                points=polyline_tf,
+                color=(0,0,255),  # RGBA
+                thickness=2,
+                parent=node
+            )
+
     def drawVehicles(self, node,_pos,_yaw,ag_type,agent_valid):
 
         _valid=agent_valid
@@ -617,6 +631,7 @@ class GUI(Process):
 
             if time_step is not None:
                 self.drawRoadgraph(canvasNode)
+                self.draw_route(canvasNode)
                 self.draw_traffic_light(canvasNode,time_step)
                 self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type,agent_valid)
         except TypeError:

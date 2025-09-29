@@ -1,6 +1,8 @@
 import os
 import sys
 from typing import Dict
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import cv2
@@ -52,12 +54,13 @@ import psutil
 from pynvml import *
 
 from desay_utils.check_oclluded import check_occlusion_fully_batched
-from desay_utils.decay_data_process import decode_map_features_from_json
+from desay_utils.desay_data_process import decode_map_features_from_json
 # from desay_utils.idm_policy import idm_planner
 from desay_utils.scene_generator import TrafficGenerator,make_ego_agent
 from collections import Counter
 from desay_utils.plot_route import plot_agents_on_map
 from desay_utils.static_object_generator import generate_static_elements_from_raw,StaticSpec,plot_static_on_map
+from desay_utils.route_utils import compute_yaw_from_traj,nearest_edges_biside
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -318,49 +321,6 @@ class SimulationManager:
 
             tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
 
-            # for k in range(5):  # 60 s
-            #     self.sim.step()  # integrates 0.1 s; physics updates every 0.5 s internally
-            #     poses = self.sim.get_positions()
-            #     for key in poses.keys():
-            #         if key=="ego":
-            #             idx=0
-            #         else:
-            #             idx=int(key[1:])+1
-            #         tokenized_agent["pred_traj_10hz"][idx, self.timestamp + k+1,0]=poses[key][0]
-            #         tokenized_agent["pred_traj_10hz"][idx, self.timestamp + k+1,1]=poses[key][1]
-            #         tokenized_agent["pred_head_10hz"][idx, self.timestamp + k+1] = poses[key][2]
-            #         tokenized_agent["all_valid"][idx, self.timestamp + k+1] = True
-
-            # for id, route in self.route.items():
-            #     idx = torch.where(tokenized_agent["id"] == id)[0]
-            #
-                # all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
-                #
-                # all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
-                #
-                # all_shape = tokenized_agent["shape"][:, :2]  # length, width
-                #
-                # # route [n,2]
-                # prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
-                #
-                # all_velocity = (all_pos - prev_pos) / 0.1
-                #
-                # new_pos, new_heading = idm_planner(route, self.lane_graph, idx, all_pos, all_heading, all_velocity, all_shape,
-                #                                    desired_speed=20)  # plan 0.5 second
-
-                # tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
-                # tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
-
-                # token_dict = self.planner.token_processor._match_agent_token(
-                #     tokenized_agent["all_valid"],
-                #     tokenized_agent['pred_traj_10hz'],
-                #     tokenized_agent['pred_head_10hz'],
-                #     tokenized_agent["token_agent_shape"],
-                #     tokenized_agent["token_traj"],
-                # )
-                #
-                # tokenized_agent.update(token_dict)
-
             self.traffic_model_time.append(time.time()-traffic_model_start)
            # print(get_process_memory() - rss_before)
             #print(get_self_gpu_usage())
@@ -397,9 +357,9 @@ class SimulationManager:
         heading = tokenized_agent["pred_head_10hz"]
         valid=tokenized_agent["all_valid"]
 
-        agent_pos=pos[:,self.timestamp+1].cpu().numpy()
-        agent_head=heading[:,self.timestamp+1].cpu().numpy()
-        agent_valid=valid[:,self.timestamp+1].cpu().numpy()
+        agent_pos=pos[:,self.timestamp].cpu().numpy()
+        agent_head=heading[:,self.timestamp].cpu().numpy()
+        agent_valid=valid[:,self.timestamp].cpu().numpy()
 
         if self.GUI_DISPLAY:
             self.gui.renderQueue.put((agent_pos, agent_head, agent_type, agent_valid,self.timestamp))
@@ -415,7 +375,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        sleep(100)
+      #  sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -486,41 +446,41 @@ class SimulationManager:
                     seed=self.random_seed
                 )
 
-                spec = StaticSpec(
-                    density01=1,
-                    ratios={"cone": 1, "water_barrier": 2, "hydrant": 1},
-                    seed=2025,
-                    ego_max_dist_m=40.0,
-                    ds_resample_m=1.0,
-                    smooth=(9, 2),
-                    cone_run_min=6, cone_run_max=14,
-                    barrier_run_min=1, barrier_run_max=8
-                )
-
-                static_objs = generate_static_elements_from_raw(
-                    boundary_dict=boundary_dict,
-                    lane_dict=line_dict,  # using lane_line as lane dividers
-                    EG=map_infos["edge_graph"],
-                    lane_graph=map_infos["lane_graph"],
-                    ego_edge_ids=ego_edge_ids,  # <— considered for corridor focus
-                    ego_route_xyz=None,  # optional
-                    spec=spec
-                )
-                import matplotlib.pyplot as plt
-
-                # visualize
-                fig, ax = plt.subplots(figsize=(10, 8))
-                # draw supports for context
-                for B in boundary_dict.values():
-                    B = np.asarray(B, float)
-                    ax.plot(B[:, 0], B[:, 1], lw=0.8, alpha=1, color="gray")
-                for L in line_dict.values():
-                    L = np.asarray(L, float)
-                    ax.plot(L[:, 0], L[:, 1], lw=0.6, alpha=1, color="lightgray")
-                plot_static_on_map(ax, static_objs)
-                ax.set_aspect("equal", "box")
-                ax.set_title("Static elements (cones, barriers, hydrants) near ego edge corridor")
-                plt.show()
+                # spec = StaticSpec(
+                #     density01=1,
+                #     ratios={"cone": 1, "water_barrier": 2, "hydrant": 1},
+                #     seed=2025,
+                #     ego_max_dist_m=40.0,
+                #     ds_resample_m=1.0,
+                #     smooth=(9, 2),
+                #     cone_run_min=6, cone_run_max=14,
+                #     barrier_run_min=1, barrier_run_max=8
+                # )
+                #
+                # static_objs = generate_static_elements_from_raw(
+                #     boundary_dict=boundary_dict,
+                #     lane_dict=line_dict,  # using lane_line as lane dividers
+                #     EG=map_infos["edge_graph"],
+                #     lane_graph=map_infos["lane_graph"],
+                #     ego_edge_ids=ego_edge_ids,  # <— considered for corridor focus
+                #     ego_route_xyz=None,  # optional
+                #     spec=spec
+                # )
+                # import matplotlib.pyplot as plt
+                #
+                # # visualize
+                # fig, ax = plt.subplots(figsize=(10, 8))
+                # # draw supports for context
+                # for B in boundary_dict.values():
+                #     B = np.asarray(B, float)
+                #     ax.plot(B[:, 0], B[:, 1], lw=0.8, alpha=1, color="gray")
+                # for L in line_dict.values():
+                #     L = np.asarray(L, float)
+                #     ax.plot(L[:, 0], L[:, 1], lw=0.6, alpha=1, color="lightgray")
+                # plot_static_on_map(ax, static_objs)
+                # ax.set_aspect("equal", "box")
+                # ax.set_title("Static elements (cones, barriers, hydrants) near ego edge corridor")
+                # plt.show()
 
                 # (optional) quick counts so you know what's inside
                 counts = Counter(a["cls"] for a in all_agents)
@@ -540,10 +500,11 @@ class SimulationManager:
 
                 track_infos['role'][0]=1
 
+                all_agents[0]["start_xyz"][:2]=np.array([5,-20])
+
                 for j,agent in enumerate(all_agents):
                     size_lwh_m=agent["size_lwh_m"]
                     speed=agent["avg_speed_mps"]
-                    #route=agent["route_xyz"]
                     heading=agent["start_heading_rad"]
 
                     velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
@@ -557,10 +518,6 @@ class SimulationManager:
                         track_infos["object_type"][j]=1
                     elif agent["cls"]=="bicycle":
                         track_infos["object_type"][j]=2
-                    #self.route[j]=torch.FloatTensor(route[:,:2]).cuda()
-
-                #print(track_infos['states'][:,10,:2])
-
 
             point_cnt=len(map_infos['all_polylines'])
 
@@ -699,45 +656,21 @@ class SimulationManager:
             data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
 
+            #find routing
 
-            # if 'desay' in input_dir:
-            #     route=generate_random_edge_trips(map_infos["edge_graph"],map_infos["lane_graph"],n_trips=1,seed=self.random_seed)
-            #
-            #     #current_pos=route[0].start_xyz[:,:2]#np.array([2,20])
-            #    # goal_pos=route[0].goal_xyz[:,:2]#np.array([-200,400])
-            #
-            #     control_id=0
-            #
-            #     #edge_route=route_on_edge_graph(map_infos["edge_graph"],map_infos["lane_graph"],current_pos,goal_pos)
-            #
-            #
-            #     route=route[0].route_xyz[:,:2]
-            #
-            #     print(route)
-            #
-            #     #print(1)
-            #
-            #     # data["light"] = process_light(map_infos, tf_lights, tf_current_light)
-            #     # data["light"]["batch"]=torch.zeros(data["light"]["num_nodes"]).long()
-            #     # #
-            #   #  for lane in map_infos["centerline_list"]:
-            #    #     plt.plot(lane[:,0],lane[:,1])
-            #
-            #     # plt.show()
-            #    #  control_id=1010
-            #    #  current_pos=data["agent"]['position'][data["agent"]['id']==control_id][0,10,:2]
-            #    #
-            #    # # goal_pos=np.array([370,6325])
-            #    #  goal_pos=np.array([355,6355])
-            #    #
-            #    #  route=route_from_centerlines(map_infos['centerline_list'],current_pos,goal_pos)
-            #    #
-            #    #  route=np.array(route)
+            id=0
 
-            # self.route={}
-            # self.route[control_id]=torch.FloatTensor(route).cuda()
-            #plt.plot(route[:,0],route[:,1],linewidth=3,color='r')
-           # plt.show()
+            path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([5,-20]),np.array([5,200]))
+            # path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([5,-20]),np.array([20,20]))
+
+            yaw_interp=compute_yaw_from_traj(route_xyz)
+
+            route={}
+
+            route[id]=route_xyz[:,:2]
+
+            data["routing"]=route
+
 
             self.initialize_simulation(map_data,data)
 
@@ -745,7 +678,6 @@ class SimulationManager:
 
             batch_data = HeteroData(data).cuda()
             batch_data.num_graphs=1
-
 
             tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
 
@@ -757,8 +689,37 @@ class SimulationManager:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
 
-            tokenized_agent["all_valid"]=torch.zeros_like(tokenized_agent["all_valid"])
 
+            route_map_index=torch.zeros([len(tokenized_agent["sampled_idx"]),100]).to(torch.int16)-1
+
+            map_type = tokenized_map['type']
+            # mask4 = (map_type == 4)
+            mask45 = (map_type == 4) | (map_type == 5)
+
+            edge_xy = tokenized_map["position"][mask45].cpu().numpy()
+
+            L_idx, R_idx, L_d, R_d = nearest_edges_biside(
+                route_xyz[:,:2], yaw_interp, edge_xy, k=16, radius=40.0
+            )
+
+            all_idx = torch.tensor(
+                np.unique(np.concatenate([L_idx, R_idx])))  # idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
+            n = min(len(all_idx), 100)
+
+            # import  matplotlib.pyplot as plt
+            #
+            # for boud in boundary_dict.values():
+            #
+            #    plt.scatter(boud[:,0], boud[:,1], c="green")
+            #
+            # edge_point=edge_xy[all_idx.numpy()]
+            # plt.scatter(edge_point[:,0], edge_point[:,1], c="r")
+            #
+            # plt.show()
+            # print(len(all_idx))
+
+            route_map_index[id][:n] = all_idx[:n]
+            tokenized_agent["route_map_index"]=route_map_index.cuda()
 
             data_preproces_time=time.time()
 
@@ -924,12 +885,12 @@ class SimulationManager:
     def setup_planner(self,cfg):
         self.planner = SMART(cfg.model.model_config)
 
-        # if torch.cuda.is_available():
-        #     state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
-        # else:
-        #     state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
-        #
-        # self.planner.load_state_dict(state_dict,strict=False)
+        if torch.cuda.is_available():
+            state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
+        else:
+            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
+
+        self.planner.load_state_dict(state_dict,strict=False)
         self.planner.cuda()
         self.planner.eval()
 

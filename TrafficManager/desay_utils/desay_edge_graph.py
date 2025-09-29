@@ -203,7 +203,7 @@ def build_edge_graph_from_lane_graph_topo(
         if not lanes: raise ValueError("lanes list is empty")
         if mode == "median":
             idxs = sorted((int(ld['lane_index']), j) for j, ld in enumerate(lanes))
-            return lanes[idxs[len(idxs)//2][1]]
+            return lanes[idxs[(len(idxs)-1)//2][1]]
         if mode in ("leftmost","min","min_index"):
             return min(lanes, key=lambda d: int(d['lane_index']))
         if mode in ("rightmost","max","max_index"):

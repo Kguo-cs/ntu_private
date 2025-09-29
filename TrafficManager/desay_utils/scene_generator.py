@@ -365,6 +365,108 @@ class TrafficGenerator:
                 return edge_path, ego_route_xyz, ego_start_xy, ego_goal_xy
         raise RuntimeError("Failed to sample a random ego route within length bounds.")
 
+    def _route(self,  s_xy: np.ndarray, g_xy: np.ndarray):
+        EID = self._build_edge_id_graph("weight")
+        """
+        Route using edge-IDs and self.edge_shapes; distance accounts for start/goal offsets.
+        Returns: path_eids, dist_m, route_xyz, start_eid, goal_eid
+        """
+        s_pt = Point(float(s_xy[0]), float(s_xy[1]))
+        g_pt = Point(float(g_xy[0]), float(g_xy[1]))
+
+        # --- snap start & goal to the best edge-id by geometric distance
+
+        best_s_list = []  # (dist, eid, s_on_edge)
+        best_g_list = []  # (dist, eid, s_on_edge)
+
+        for eid, P in self.edge_shapes.items():
+            P = np.asarray(P, float)
+            if P.shape[0] < 2:
+                continue
+            ls = LineString(P[:, :2])
+
+            ss = float(ls.project(s_pt))
+            sg = float(s_pt.distance(ls))
+
+            gg = float(ls.project(g_pt))
+            dg = float(g_pt.distance(ls))
+
+            if sg < 40:
+                best_s_list.append((sg, eid, ss))
+            if dg < 40:
+                best_g_list.append((dg, eid, gg))
+
+        if len(best_s_list)==0:
+            raise RuntimeError("start place more than 40 m from road edge.")
+
+        if len(best_g_list)==0:
+            raise RuntimeError("goal place more than 40 m from road edge")
+
+        best_sum_dist=100
+        best_path=None
+
+        for best_s in best_s_list:
+            for best_g in best_g_list:
+
+                start_gap,start_eid, s_off = best_s
+                end_gap,goal_eid, g_off = best_g
+
+                # --- shortest path in the edge-id graph
+                try:
+                    path = nx.shortest_path(EID, start_eid, goal_eid, weight="weight")
+                    best_dist=start_gap+end_gap
+                    if best_dist<best_sum_dist:
+                        best_sum_dist=best_dist
+                        best_path=path,s_off,g_off
+                except nx.NetworkXNoPath:
+                    continue
+
+        if best_path is None:
+            raise RuntimeError(f"No path from {s_xy} to {g_xy}")
+
+        path,s_off,g_off=best_path
+
+        # --- build trimmed geometry and true distance
+        parts = []
+        dist_m = 0.0
+
+        if len(path) == 1:
+            # start and goal on the same edge
+            P = np.asarray(self.edge_shapes[path[0]], float)
+            s_tab = _arclen2d(P[:, :2])
+            s0, s1 = float(min(s_off, g_off)), float(max(s_off, g_off))
+            parts.append(_slice_from_s_to_s(P, s_tab, s0, s1))
+            dist_m += (s1 - s0)
+        else:
+            for i, eid in enumerate(path):
+                P = np.asarray(self.edge_shapes[eid], float)
+                s_tab = _arclen2d(P[:, :2])
+                if s_tab[-1] <= 0.0:
+                    continue
+
+                if i == 0:
+                    # first edge: trim from start offset to end
+                    seg = _slice_from_s_to_s(P, s_tab, float(s_off), float(s_tab[-1]))
+                    parts.append(seg)
+                    dist_m += (float(s_tab[-1]) - float(s_off))
+                elif i == len(path) - 1:
+                    # last edge: trim from 0 to goal offset
+                    seg = _slice_from_s_to_s(P, s_tab, 0.0, float(g_off))
+                    # stitch: remove duplicate first point if same as previous end
+                    if parts and np.allclose(parts[-1][-1, :2], seg[0, :2], atol=1e-6):
+                        seg = seg[1:]
+                    parts.append(seg)
+                    dist_m += float(g_off)
+                else:
+                    # middle edges: full length
+                    seg = P
+                    if parts and np.allclose(parts[-1][-1, :2], seg[0, :2], atol=1e-6):
+                        seg = seg[1:]
+                    parts.append(seg)
+                    dist_m += float(s_tab[-1])
+
+        route_xyz = np.vstack(parts) if parts else np.zeros((0, 3))
+        return path, dist_m, route_xyz, start_eid, goal_eid
 
     def generate_batch(
             self,

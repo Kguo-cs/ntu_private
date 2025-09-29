@@ -167,97 +167,90 @@ def nearest_edges_biside(traj_xy: np.ndarray, yaw: np.ndarray, edge_xy: np.ndarr
 
 
 
+
 max_len=0
 
 for filename in tqdm(files):
     input_path = os.path.join(data_directory, filename)
 
-    if "training_map2_03_route40" in filename:
 
-        # with open(input_path, "rb") as f:
-        #     data = pickle.load(f)
+    tokenized_map=data["tokenized_map"]
 
-        new_name=output_path+filename[24:]
+    map_type=tokenized_map['type']
+    #mask4 = (map_type == 4)
+    mask45 = (map_type == 4) | (map_type == 5)
+    #
+    # idx4 = mask4.nonzero(as_tuple=True)[0]
+    # idx45 = mask45.nonzero(as_tuple=True)[0]
 
-        os.rename(input_path, new_name)
+    # map idx4 into local indices inside idx45
+    # torch.searchsorted requires sorted input (idx45 is sorted by construction)
+    #idx4_in_45 = torch.searchsorted(idx45, idx4)
+    position=tokenized_map["position"][mask45]
+    x, y = position[:, 0], position[:, 1]
 
-    # tokenized_map=data["tokenized_map"]
-    #
-    # map_type=tokenized_map['type']
-    # #mask4 = (map_type == 4)
-    # mask45 = (map_type == 4) | (map_type == 5)
-    # #
-    # # idx4 = mask4.nonzero(as_tuple=True)[0]
-    # # idx45 = mask45.nonzero(as_tuple=True)[0]
-    #
-    # # map idx4 into local indices inside idx45
-    # # torch.searchsorted requires sorted input (idx45 is sorted by construction)
-    # #idx4_in_45 = torch.searchsorted(idx45, idx4)
-    # position=tokenized_map["position"][mask45]
-    # x, y = position[:, 0], position[:, 1]
-    #
-    # edge_xy = np.column_stack([x, y])  # road-edge points
-    #
-    # tokenized_agent=data["tokenized_agent"]
-    #
-    # sampled_pos=tokenized_agent["sampled_pos"][:,1:]
-    # sampled_heading=tokenized_agent["sampled_heading"][:,1:]
-    #
-    # valid_mask=tokenized_agent['valid_mask'][:,1:]
-    # #route_map_index = build_route_map_index(sampled_pos, sampled_heading, valid_mask, edge_xy)
-    #
-    # route_map_index=torch.zeros([len(valid_mask),100]).to(torch.int16)-1
-    #
-    #
-    # for i in range(len(sampled_pos)):
-    #     agent = sampled_pos[i]
-    #     heading = sampled_heading[i]  # radians, same length as agent
-    #     valid = valid_mask[i]
-    #
-    #     valid_traj = agent[valid].numpy()
-    #
-    #
-    #     # heading hint: last valid heading (or first)
-    #     heading_hint = float(heading[valid][-1].item())
-    #
-    #     interpolated_traj = interpolate_traj_lookahead(
-    #         valid_traj, step=2.0, lookahead=40.0, heading_last=heading_hint
-    #     )
-    #
-    #     yaw_interp = compute_yaw_from_traj(interpolated_traj, heading_hint=heading_hint)
-    #
-    #     L_idx, R_idx, L_d, R_d = nearest_edges_biside(
-    #         interpolated_traj, yaw_interp, edge_xy, k=16, radius=40.0
-    #     )
-    #
-    #     all_idx=torch.tensor(np.unique(np.concatenate([L_idx,R_idx])))#idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
-    #     n = min(len(all_idx), 100)
-    #
-    #     route_map_index[i][:n] =all_idx[:n]
-    #
-    # #     max_len=max(max_len, len(all_idx))
-    # #
-    # # if max_len>120:
-    # #     print(max_len)
-    #
-    # data["tokenized_agent"]["route_map_index"]=route_map_index
+    edge_xy = np.column_stack([x, y])  # road-edge points
+
+    tokenized_agent=data["tokenized_agent"]
+
+    sampled_pos=tokenized_agent["sampled_pos"][:,1:]
+    sampled_heading=tokenized_agent["sampled_heading"][:,1:]
+
+    valid_mask=tokenized_agent['valid_mask'][:,1:]
+    #route_map_index = build_route_map_index(sampled_pos, sampled_heading, valid_mask, edge_xy)
+
+    route_map_index=torch.zeros([len(valid_mask),100]).to(torch.int16)-1
 
 
-        # print(len(np.unique(L_idx)), len(np.unique(R_idx))  )
+    for i in range(len(sampled_pos)):
+        agent = sampled_pos[i]
+        heading = sampled_heading[i]  # radians, same length as agent
+        valid = valid_mask[i]
 
-        # plt.plot(valid_traj[:,0], valid_traj[:,1], 'g-')
-        # plt.plot(interpolated_traj[:,0], interpolated_traj[:,1], 'r-')
-        # for p, li, ri in zip(interpolated_traj, L_idx, R_idx):
-        #     if li >= 0: plt.plot([p[0], edge_xy[li,0]], [p[1], edge_xy[li,1]], 'b-', alpha=0.4)
-        #     if ri >= 0: plt.plot([p[0], edge_xy[ri,0]], [p[1], edge_xy[ri,1]], 'm-', alpha=0.4)
-        #
-        # plt.scatter(x, y)
-        #
-        # plt.show()
+        valid_traj = agent[valid].numpy()
 
-        # output_file = output_path + filename
-        #
-        # with open(output_file, "wb") as f:
-        #     pickle.dump(data, f)
+
+        # heading hint: last valid heading (or first)
+        heading_hint = float(heading[valid][-1].item())
+
+        interpolated_traj = interpolate_traj_lookahead(
+            valid_traj, step=2.0, lookahead=0.0, heading_last=heading_hint
+        )
+
+        yaw_interp = compute_yaw_from_traj(interpolated_traj, heading_hint=heading_hint)
+
+        L_idx, R_idx, L_d, R_d = nearest_edges_biside(
+            interpolated_traj, yaw_interp, edge_xy, k=16, radius=40.0
+        )
+
+        all_idx=torch.tensor(np.unique(np.concatenate([L_idx,R_idx])))#idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
+        n = min(len(all_idx), 100)
+
+        route_map_index[i][:n] =all_idx[:n]
+
+    #     max_len=max(max_len, len(all_idx))
     #
+    # if max_len>120:
+    #     print(max_len)
+
+    data["tokenized_agent"]["route_map_index"]=route_map_index
+
+
+        print(len(np.unique(L_idx)), len(np.unique(R_idx))  )
+
+        plt.plot(valid_traj[:,0], valid_traj[:,1], 'g-')
+        plt.plot(interpolated_traj[:,0], interpolated_traj[:,1], 'r-')
+        for p, li, ri in zip(interpolated_traj, L_idx, R_idx):
+            if li >= 0: plt.plot([p[0], edge_xy[li,0]], [p[1], edge_xy[li,1]], 'b-', alpha=0.4)
+            if ri >= 0: plt.plot([p[0], edge_xy[ri,0]], [p[1], edge_xy[ri,1]], 'm-', alpha=0.4)
+
+        plt.scatter(x, y)
+
+        plt.show()
+
+        output_file = output_path + filename
+
+        with open(output_file, "wb") as f:
+            pickle.dump(data, f)
+
     #

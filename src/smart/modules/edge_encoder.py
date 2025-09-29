@@ -35,6 +35,7 @@ class EdgeEncoder(nn.Module):
 
         if self.use_route:
             input_dim_r_pt2a = 4
+            self.route_drop=nn.Dropout(p=0.5)
         else:
             input_dim_r_pt2a = 3
 
@@ -404,9 +405,11 @@ class EdgeEncoder(nn.Module):
 
                 #max_num=torch.unique(route_map_index,dim=-1)
 
-                drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
+                keep_mask=self.route_drop(torch.ones(n_agent,device=head_s.device)).to(bool)
 
-                keep_mask= drop_mask #& (route_number>2)
+                # drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
+                #
+                # keep_mask= drop_mask #& (route_number>2)
 
                 agent_idx = edge_index_pl2a[1] % n_agent
 
@@ -426,7 +429,9 @@ class EdgeEncoder(nn.Module):
 
                 map_batch = map_idx - batch_cum_num[map_idx]
 
-                point_isin[keep_agent_mask] =torch.isin(map_batch, route_idx).to(torch.float32)
+                mask=torch.isin(route_idx,map_batch).any(dim=1)
+
+                point_isin[keep_agent_mask] =mask.to(torch.float32)
 
             r_pl2a = torch.stack(
                 [

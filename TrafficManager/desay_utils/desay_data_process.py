@@ -45,14 +45,23 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
 
         elif feature_data_type=="boundary":
             cur_info["type"] = 4
-           # plt.plot(xyz[:, 0], xyz[:, 1], color='y')
-            #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
             #
-            # if  id ==60:#id ==60 or
-            boundary_dict[id]=xyz
-                #plt.show()
+            # if  id in [40,66]:#id ==60 or
+            #     # def _arclen2d(xy: np.ndarray) -> np.ndarray:
+            #     #     if len(xy) < 2: return np.array([0.0])
+            #     #     d = np.linalg.norm(np.diff(xy, axis=0), axis=1)
+            #     #     return np.concatenate([[0.0], np.cumsum(d)])
+            #     #
+            #     plt.plot(xyz[:, 0], xyz[:, 1], color='y')
+            #     plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+            #
+            boundary_dict[id] = xyz
 
-               # print(id)#60,37
+                # plt.show()
+
+                # print(id,_arclen2d(xyz[:,:2]))
+
+            # print(id)#60,37
 
         elif feature_data_type == "speed_bump" or feature_data_type=="crosswalk":
             cur_info["type"] = 9
@@ -85,7 +94,10 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
     #     plt.plot(center[:2, 0], center[:2, 1], color='red')
     #
     # # plt.xlim(-100,250)
-    # # plt.ylim(0,350)
+    # #plt.ylim(0,350)
+    #
+    # plt.xlim(0, 30)
+    # plt.ylim(0, 30)
     #
     # plt.show()
 

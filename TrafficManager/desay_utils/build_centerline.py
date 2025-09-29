@@ -20,6 +20,8 @@ from scipy.signal import savgol_filter
 from shapely.geometry import LineString, Point
 from shapely.strtree import STRtree
 
+import matplotlib.pyplot as plt
+
 
 # ------------------------ Utilities (3D-aware) ------------------------ #
 
@@ -110,12 +112,26 @@ def _smooth_polyline_nd(arr: np.ndarray, window: int = 21, poly: int = 3) -> np.
     return np.stack(out, axis=1)
 
 
-def _closest_xyz_and_tangent_from_record(rec, p_xy: np.ndarray, ds: float = 0.5) -> Tuple[np.ndarray, np.ndarray, float]:
+def _closest_xyz_and_tangent_from_record(rec, p_xy: np.ndarray,p_t, ds: float = 0.5) -> Tuple[np.ndarray, np.ndarray, float]:
     """
     rec: (geom2d, id, xyz_d, s_table)
     returns: (q_xyz [3], tangent_xy [2], s_on_geom)
     """
-    geom2d, _bid, xyz_d, s_tab = rec
+    geom2d, _bid, xyz_d, s_tab,s_t = rec
+
+    # dist = np.linalg.norm(p_xy[None] - xyz_d[:, :2], axis=1)
+    #
+    # # th1 = np.arctan2(s_t[:,1], s_t[:,0])
+    # # th2 = np.arctan2(p_t[1], p_t[0])
+    # # d = th1 - th2
+    # #
+    # # angle_diff=(d + np.pi) % (2 * np.pi) - np.pi
+    #
+    # cost=dist#+angle_diff
+    #
+    # nearest=np.argmin(cost)
+    #
+    # xyz_point = xyz_d[nearest]
     s = geom2d.project(Point(float(p_xy[0]), float(p_xy[1])))
     L = geom2d.length
     s0 = max(0.0, s - ds)
@@ -124,7 +140,7 @@ def _closest_xyz_and_tangent_from_record(rec, p_xy: np.ndarray, ds: float = 0.5)
     t_xy = np.array([q1.x - q0.x, q1.y - q0.y], dtype=float)
     n = np.linalg.norm(t_xy) + 1e-9
     t_xy = t_xy / n
-    q_xyz = _resample_at_s_xyz(xyz_d, s, s_tab)
+    q_xyz =_resample_at_s_xyz(xyz_d, s, s_tab)
     return q_xyz, t_xy, float(s)
 
 
@@ -182,7 +198,8 @@ def build_centerlines_from_boundaries_xyz(
             continue
         geom2d = LineString(xyz_d[:, :2])
         s_tab = _arclength2d(xyz_d[:, :2])
-        records.append((geom2d, int(bid), xyz_d, s_tab))
+        s_t      = _tangents2d(xyz_d[:, :2])
+        records.append((geom2d, int(bid), xyz_d, s_tab,s_t))
     if not records:
         return []
 
@@ -223,7 +240,7 @@ def build_centerlines_from_boundaries_xyz(
 
         # pick best partner per side using parallelism + distance + side sign
         for idx in cand_idx:
-            geom2d_b, b_id, xyz_d_b, s_tab_b = records[idx]
+            geom2d_b, b_id, xyz_d_b, s_tab_b,_ = records[idx]
             if b_id == a_id:
                 continue
             par = _mean_parallelism_xy(a_xyz[:, :2], xyz_d_b[:, :2])
@@ -233,7 +250,8 @@ def build_centerlines_from_boundaries_xyz(
             signs = []
             for i in probe_idx:
                 p_xy = a_rs_xy[i]
-                q_xyz, tB, _s = _closest_xyz_and_tangent_from_record(records[idx], p_xy, ds=orient_ds)
+                p_t=a_t[i]
+                q_xyz, tB, _s = _closest_xyz_and_tangent_from_record(records[idx], p_xy,p_t, ds=orient_ds)
                 d_xy = q_xyz[:2] - p_xy
                 tA = a_t[i]
                 cross_z = tA[0]*d_xy[1] - tA[1]*d_xy[0]
@@ -258,7 +276,7 @@ def build_centerlines_from_boundaries_xyz(
             if best[side] is None:
                 continue
             _, idx, par, mean_dist = best[side]
-            geom2d_b, b_id, xyz_d_b, s_tab_b = records[idx]
+            geom2d_b, b_id, xyz_d_b, s_tab_b ,_= records[idx]
 
             pair_key = frozenset({int(a_id), int(b_id)})
             if pair_key in seen_pairs:
@@ -271,10 +289,28 @@ def build_centerlines_from_boundaries_xyz(
             b_tan_xy  = np.empty((nS, 2), dtype=float)
             b_s       = np.empty(nS, dtype=float)
             for i, p_xy in enumerate(a_rs_xy):
-                q_xyz, tB, sB = _closest_xyz_and_tangent_from_record(records[idx], p_xy, ds=orient_ds)
+                pt=a_t[i]
+
+                q_xyz, tB, sB = _closest_xyz_and_tangent_from_record(records[idx], p_xy,pt, ds=orient_ds)
                 b_pts_xyz[i] = q_xyz
                 b_tan_xy[i]  = tB
                 b_s[i]       = sB
+
+                #if i ==len(a_rs_xy)-1:
+                    # dist = np.linalg.norm(p_xy[None] - xyz_d[:, :2], axis=1)
+                    # nearest = np.argmin(dist)
+                    # xyz_point = xyz_d[nearest]
+                    #
+                    # print(dist)
+                    #
+                    # print(at,tB)
+
+            #         plt.scatter(p_xy[ 0], p_xy[ 1], color='r',s=10)
+            #         plt.scatter(q_xyz[ 0], q_xyz[1], color='r',s=10)
+            #
+            # plt.plot(b_pts_xyz[:, 0], b_pts_xyz[:, 1], color='r')
+            #
+            # plt.plot(a_rs_xyz[:, 0], a_rs_xyz[:, 1], color='green')
 
             band_vec_xyz = b_pts_xyz - a_rs_xyz
             width_series = np.linalg.norm(band_vec_xyz[:, :2], axis=1)
@@ -354,7 +390,16 @@ def build_centerlines_from_boundaries_xyz(
                 n_lanes = _decide_count(seg_rep_width)
                 for k in range(n_lanes):
                     alpha = (k + 0.5) / n_lanes
+                    #import matplotlib.pyplot as plt
+
+                    #base=a_rs_xyz[a_idx:b_idx]
+
+                   # plt.plot(base[:, 0], base[:, 1], color='r')
+
                     seg_center_xyz = a_rs_xyz[a_idx:b_idx] + alpha * band_vec_xyz[a_idx:b_idx]
+
+                    # plt.plot(seg_center_xyz[:, 0], seg_center_xyz[:, 1], color='green')
+
                     # smooth (per channel)
                     w = min(smoothing_window, (len(seg_center_xyz) // 2) * 2 - 1)
                     if w >= 3:

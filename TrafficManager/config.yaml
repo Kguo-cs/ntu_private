@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/waymo_data/AIRL160_kl5_learnmap_epoch=15-step=48704_0.7893.ckpt"
+planner_path: "/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -18,7 +18,7 @@ output_json_path: "./waymo/json_output/labels_occluded.json"
 
 input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json
 
-gui_display: True
+gui_display: False
 
 lidar_height: 1.84
 
