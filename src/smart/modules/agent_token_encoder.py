@@ -154,7 +154,7 @@ class AgentTokenEncoder(nn.Module):
                 mean_speed = torch.clamp_max_(mean_speed, max=19).to(torch.long)//5+1
 
                 if self.training:
-                    mask=torch.rand_like(agent_type.float())<0.5
+                    mask=torch.rand_like(agent_type.float())>0.8
                     agent_speed[mask] = mean_speed[mask]
                 else:
                     agent_speed=mean_speed
