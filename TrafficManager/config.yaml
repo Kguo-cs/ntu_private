@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
+planner_path: "/home/ke/code/catk/src/epoch=4-step=43485.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -20,7 +20,11 @@ input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) age
 
 gui_display: True
 
+gui_show_static_id: False
+
 lidar_height: 1.84
+
+export_mode: "agents" #    -> 仅导出交通参与者 ,"all"          -> 导出交通参与者 + 静态障碍物 + 交通灯
 
 max_sim_time: 150 #300 #9s
 
@@ -39,10 +43,9 @@ agent_size:
   bicycle: [1.8, 0.6, 1.6]
   car: [4.4, 1.8, 1.6]
   truck: [12.0, 2.5, 3.6]
+  ego: [4.4, 1.8, 1.6]
 
-ego_size: [4.4, 1.8, 1.6]
-
-static_density: 0.5 #0 : no agent , 1: max number agent
+static_density: 0.1 #0 : no agent , 1: max number agent
 
 static_class_ratio:
   cone: 1
@@ -63,6 +66,12 @@ map_object:
 
 agent:
   add:
+    - type: 'car'  #pedestrian,bicycle,car,truck
+      position: [ 360,6270 ]
+      heading:       # 可选
+      goal:       # 可选
+      mean_speed:  #可选
+      shape: #可选
   remove:
   stop:
   recording:

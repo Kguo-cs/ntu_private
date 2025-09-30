@@ -91,7 +91,7 @@ shape_symbols = {
 
 class GUI(Process):
     def __init__(
-            self, map_data,data,light,step_current
+            self, map_data,data,light,gui_show_static_id
     ) -> None:
         super().__init__()
         self.renderQueue = RenderQueue(1)
@@ -152,6 +152,8 @@ class GUI(Process):
         # draw gt
         # self.mp_xyz, self.mp_id, self.mp_type = get_map_features(scenario.map_features)
         #
+
+        self.gui_show_static_id=gui_show_static_id
 
         self.mp_id = map_data["map_polygon"]["polygon_ids"]
 
@@ -425,10 +427,9 @@ class GUI(Process):
             )
 
     def draw_static(self,node):
+        id=0
 
         for object,object_type in zip(self.static,self.static_type):
-
-            #if object_type==2:
 
             static_style=self.static_style[object_type]
 
@@ -441,6 +442,21 @@ class GUI(Process):
                 thickness=1,  # outline thickness
                 parent=node  # your drawing layer
             )
+            id = id - 1
+
+            if self.gui_show_static_id:
+                center=object.mean(0)
+
+                x=center[0]
+                y=center[1]
+
+                dpg.draw_text(
+                    self.ctf.dpgCoord(x, y, self.centerx, self.centery),
+                    id,
+                    color=(255, 255, 255),
+                    size=20,
+                    parent=node
+                )
 
     def drawVehicles(self, node,_pos,_yaw,ag_type,agent_valid):
 

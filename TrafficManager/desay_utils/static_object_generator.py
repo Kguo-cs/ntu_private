@@ -8,6 +8,8 @@ import math
 import numpy as np
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from shapely.ops import unary_union
+from collections import Counter
+from .scene_generator import _interp_xyz_at_s,_heading_at_s_dir
 
 try:
     from scipy.signal import savgol_filter
@@ -73,23 +75,16 @@ def _polyline_capacity_len(lines: List[np.ndarray]) -> float:
 
 @dataclass
 class StaticSpec:
-    density01: float = 0.6
+    density01: float = 0.1
     ratios: Dict[str, float] = None                  # {"cone":1, "water_barrier":2, "hydrant":1}
     sizes_lwh_m: Dict[str, Tuple[float,float,float]] = None
     seed: int = 1234
 
     # belong-to filtering around ego edges
     belong_tol_m: float = 10.0
-    ego_max_dist_m: float = 10.0
+    ego_max_dist_m: float = 40.0  #hydra generate within 40 m to ego route
+    drive_arae_m : float = 5.0  #hydra generate far from 10 m to all lines
 
-    # spacing baselines (the "spacing footprint" per object)
-    spacing_m: Dict[str, float] = None               # cone: ~5m, barrier: ~2m, hydrant: ~25m
-
-    # continuous run controls
-    cone_run_min: int = 6
-    cone_run_max: int = 15
-    barrier_run_min: int = 6
-    barrier_run_max: int = 15
 
     # resample params
     ds_resample_m: float = 1.0
@@ -99,17 +94,9 @@ class StaticSpec:
     max_run_shifts: int = 25       # how many s0 shifts we try when conflicts
     max_point_jitter_trials: int = 3  # after s picked, try small s jitter if still conflict
 
-    def __post_init__(self):
-        if self.ratios is None:
-            self.ratios = {"cone":1, "water_barrier":2, "hydrant":1}
-        if self.sizes_lwh_m is None:
-            self.sizes_lwh_m = {
-                "cone": (0.5, 0.5, 0.7),
-                "water_barrier": (4.4, 0.5, 0.9),
-                "hydrant": (0.6, 0.6, 0.9),
-            }
-        if self.spacing_m is None:
-            self.spacing_m = {"cone":5.0, "water_barrier":5.0, "hydrant":25.0}
+
+    jitter_xy = 0.1
+    jitter_heading = 0.02
 
 
 # ----------------- support-line collection (EGO-ONLY) -----------------
@@ -222,176 +209,150 @@ def generate_static_elements_from_raw(
     # ---- capacity & allocation ----
     support_len = _polyline_capacity_len(support_lines)
 
-    total_cap= support_len / spacing*spec.density01
+    total_cap= support_len / spacing*spec.density01/(spec.ratios["cone"]+spec.ratios["water_barrier"])
 
     alloc={}
 
-    alloc["cone"] = int(total_cap*spec.ratios["cone"]/(spec.ratios["cone"]+spec.ratios["water_barrier"]))
-    alloc["water_barrier"] =int(total_cap*spec.ratios["water_barrier"]/(spec.ratios["cone"]+spec.ratios["water_barrier"]))
-    alloc["hydrant"] = int(alloc["cone"]*spec.ratios["hydrant"]/spec.ratios["cone"])
+    alloc["cone"] = int(total_cap*spec.ratios["cone"])
+    alloc["water_barrier"] =int(total_cap*spec.ratios["water_barrier"])
+    alloc["hydrant"] = int(total_cap*spec.ratios["hydrant"])
 
-    line_occ: Dict[int, List[Tuple[float, float]]] = {i: [] for i in range(len(support_lines))}
+    lane_avail_lengths = {}
+    lane_avail_s = {}
+    lane_s = {}
 
-    def _conflicts_on_line(i_line: int, s_center: float, S_new: float) -> bool:
-        occ = line_occ[i_line]
-        half_new = 0.5 * S_new
-        for s_i, S_i in occ:
-            if abs(s_center - s_i) < 0.5 * (S_new + S_i) - 1e-6:
-                return True
-        return False
+    for id,lane in enumerate(support_lines):
 
-    def _reserve_on_line(i_line: int, s_center: float, S_new: float):
-        line_occ[i_line].append((s_center, S_new))
+        lane_length = _arclen2d(lane[:, :2])
+        lane_avail_lengths[id] = lane_length[-1]
+        lane_avail_s[id] = [np.array([0, lane_length[-1]])]
 
-    # ------------ helpers for placement ------------
-    def _place_runs_on_lines(
-        cls: str,
-        N_target: int,
-        base_spacing: float,
-        length_m: float,
-        run_min: int,
-        run_max: int,
-        jitter_xy: float,
-        jitter_heading: float,
-        align_heading: bool = True,
-    ) -> List[Tuple[np.ndarray, float]]:
-        if N_target <= 0: return []
-        # how many runs
-        if run_min > run_max: run_max = run_min
-        runs: List[int] = []
-        remain = N_target
-        while remain > 0:
-            r = int(rng.integers(run_min, run_max + 1))
-            r = min(r, remain)
-            runs.append(r)
-            remain -= r
+        lane_s[id] = lane_length
 
-        out: List[Tuple[np.ndarray, float]] = []
-        if not support_lines:
-            return out
 
-        lens = np.array([float(_arclen2d(L[:, :2])[-1]) for L in support_lines], float)
-        probs = lens / (lens.sum() if lens.sum() > 0 else 1.0)
 
-        # per-class footprint (spacing footprint used in occupancy)
-        S_fp = max(base_spacing, length_m)
+    def sample_objects(lanes,lane_s,lane_avail_lengths,lane_avail_s,spacing,object_min, object_max):
+        object_list=[]
+        cone_number=0
+        water_number=0
 
-        for r in runs:
-            i_line = int(rng.choice(np.arange(len(support_lines)), p=probs))
-            P = support_lines[i_line]
-            s_arr = _arclen2d(P[:, :2]); Ltot = float(s_arr[-1])
-            if Ltot <= 1e-6:
+        while True:
+            if cone_number<water_number*(spec.ratios["cone"]/spec.ratios["water_barrier"]):
+                type="cone"
+            else:
+                type="water_barrier"
+
+            weights = np.array(list(lane_avail_lengths.values()), dtype=float)-spacing
+
+            weights=np.clip(weights,a_min=0,a_max=1000)
+
+            if np.sum(weights)==0:
+                return object_list,cone_number,water_number
+
+            # sample one lane
+            sampled_lane = np.random.choice(range(len(lanes)), p=weights / weights.sum() )
+
+            object_number = int(rng.integers(object_min, object_max + 1))
+
+            object_spacing=object_number*spacing
+
+            new_gaps=[]
+
+            for sampled_lane_s in lane_avail_s[sampled_lane]:
+                new_gap=sampled_lane_s[1]-sampled_lane_s[0]-object_spacing
+                new_gaps.append(new_gap)
+
+            weights=np.array(new_gaps)
+
+            weights=np.clip(weights,a_min=0,a_max=1000)
+
+            if np.sum(weights)==0:
                 continue
 
-            step = max(base_spacing, length_m)
-            run_len = (r - 1) * step
-            if run_len > Ltot:
-                r_fit = max(2, int(Ltot // max(1e-3, step)) + 1)
-                if r_fit < 2:
-                    continue
-                r = r_fit
-                run_len = (r - 1) * step
+            sampled_seg=np.random.choice(len(new_gaps),p=weights/np.sum(weights))
 
-            # Try multiple s0 shifts to avoid occupancy conflicts
-            success_run = False
-            for _try in range(spec.max_run_shifts):
-                s0 = float(rng.uniform(0.0, max(1e-6, Ltot - run_len)))
-                # quick check: all centers OK?
-                centers = [s0 + k * step for k in range(r)]
-                if any(_conflicts_on_line(i_line, c, S_fp) for c in centers):
-                    continue
+            sampled_pos=np.random.rand()*new_gaps[sampled_seg]
 
-                # All k points placeable → reserve & emit
-                for k, u in enumerate(centers):
-                    # tiny extra s jitter if needed to break edge cases
-                    u_try = u
-                    placed = False
-                    for _jt in range(spec.max_point_jitter_trials):
-                        if not _conflicts_on_line(i_line, u_try, S_fp):
-                            # reserve the spacing footprint
-                            _reserve_on_line(i_line, u_try, S_fp)
-                            # compute pose
-                            x = np.interp(u_try, s_arr, P[:, 0])
-                            y = np.interp(u_try, s_arr, P[:, 1])
-                            z = np.interp(u_try, s_arr, P[:, 2])
-                            # heading along tangent
-                            if len(P) > 1:
-                                idxp = int(np.clip(round(u_try / max(1e-6, Ltot) * (len(P) - 1)), 0, len(P) - 1))
-                            else:
-                                idxp = 0
-                            hd = _tangent_heading_at(P, idxp) if align_heading else float(rng.uniform(-math.pi, math.pi))
-                            # position/heading jitter
-                            jpar = float(rng.normal(0.0, jitter_xy * 0.15))
-                            jlat = float(rng.normal(0.0, jitter_xy))
-                            dx = jpar * math.cos(hd) - jlat * math.sin(hd)
-                            dy = jpar * math.sin(hd) + jlat * math.cos(hd)
-                            xy = np.array([x + dx, y + dy, z], float)
-                            h = float(hd + rng.normal(0.0, jitter_heading))
-                            out.append((xy, h))
-                            placed = True
-                            break
-                        # small forward jitter (keeps order)
-                        u_try = min(Ltot, u_try + 0.15 * step)
+            lane_avail_lengths[sampled_lane]=lane_avail_lengths[sampled_lane]-object_spacing
 
-                    if not placed:
-                        # If any point in the run fails, roll back reservations for this run and retry a new s0
-                        # Rollback: remove just-reserved of this run
-                        for c_prev in centers[:k]:
-                            # erase last matching (c_prev, S_fp) from occ
-                            occ = line_occ[i_line]
-                            for j in range(len(occ)-1, -1, -1):
-                                if abs(occ[j][0] - c_prev) < 1e-9 and abs(occ[j][1] - S_fp) < 1e-9:
-                                    occ.pop(j); break
-                        break  # try a new s0
+            original_seg=lane_avail_s[sampled_lane][sampled_seg]
 
-                else:
-                    # loop didn't break: whole run placed
-                    success_run = True
-                    break
+            new_seg1=np.array([original_seg[0],original_seg[0]+sampled_pos])
 
-            # if run placement failed after attempts, skip this run silently
+            new_seg2=np.array([original_seg[0]+sampled_pos+object_spacing,original_seg[1]])
 
-        return out
+            del lane_avail_s[sampled_lane][sampled_seg]
+
+            lane_avail_s[sampled_lane].append(new_seg1)
+            lane_avail_s[sampled_lane].append(new_seg2)
+
+            u=original_seg[0]+sampled_pos
+
+            L = lanes[sampled_lane]
+            sL = lane_s[sampled_lane]
+
+            for i in range(object_number):
+                #u_try=u+i*spacing
+
+                xyz = _interp_xyz_at_s(L, sL, u+i*spacing)
+                heading = _heading_at_s_dir(L, sL, u, dir_sign=+1)
+
+                # P=L
+                # Ltot=sL[-1]
+                #
+                # x = np.interp(u_try, sL, P[:, 0])
+                # y = np.interp(u_try, sL, P[:, 1])
+                # z = np.interp(u_try, sL, P[:, 2])
+                #
+                #
+                # if len(P) > 1:
+                #     idxp = int(np.clip(round(u_try / max(1e-6, Ltot) * (len(P) - 1)), 0, len(P) - 1))
+                # else:
+                #     idxp = 0
+                # hd = _tangent_heading_at(P, idxp)
+                # position/heading jitter
+                jpar = float(rng.normal(0.0, spec.jitter_xy * 0.15))
+                jlat = float(rng.normal(0.0, spec.jitter_xy))
+                dx = jpar * math.cos(heading) - jlat * math.sin(heading)
+                dy = jpar * math.sin(heading) + jlat * math.cos(heading)
+                xyz[0]=xyz[0]+dx
+                xyz[1]=xyz[1]+dy
+                heading = float(heading + rng.normal(0.0, spec.jitter_heading))
+
+                agent=dict(
+                        id=f"{type}_{len(object_list):06d}",
+                        cls=type,
+                        size_lwh_m=spec.sizes_lwh_m[type],
+                        x=float(xyz[0]), y=float(xyz[1]), z=float(xyz[2]),
+                        heading_rad=float(heading),
+                    )
+                object_list.append(agent)
+
+            if type=="cone":
+                cone_number=cone_number+object_number
+            else:
+                water_number=water_number+object_number
+
+            if cone_number>alloc["cone"] or water_number>alloc["water_barrier"]:
+                return object_list,cone_number,water_number
+
+        return object_list,cone_number,water_number
+
+    spacing_m=max(5.0,spec.sizes_lwh_m["water_barrier"][0] )#{"cone":5.0, "water_barrier":5.0}
 
     # cones
-    L_cone = spec.sizes_lwh_m["cone"][0]
-    cones = _place_runs_on_lines(
-        "cone",
-        N_target=alloc["cone"],
-        base_spacing=spec.spacing_m["cone"],
-        length_m=L_cone,
-        run_min=spec.cone_run_min,
-        run_max=spec.cone_run_max,
-        jitter_xy=0.25,
-        jitter_heading=0.05,
-        align_heading=True
-    )
+    out,cone_number,water_number=sample_objects(support_lines,lane_s, lane_avail_lengths, lane_avail_s, spacing_m, 5, 50)
 
-    # water barriers
-    L_bar = spec.sizes_lwh_m["water_barrier"][0]
-    bars = _place_runs_on_lines(
-        "water_barrier",
-        N_target=alloc["water_barrier"],
-        base_spacing=max(spec.spacing_m["water_barrier"], L_bar),
-        length_m=L_bar,
-        run_min=spec.barrier_run_min,
-        run_max=spec.barrier_run_max,
-        jitter_xy=0.08,
-        jitter_heading=0.02,
-        align_heading=True
-    )
+    alloc["hydrant"] =int((cone_number+water_number)/(spec.ratios["cone"]+spec.ratios["water_barrier"])*spec.ratios["hydrant"])
 
     # hydrants (kept simple; not tied to support lines; spacing handled implicitly by random sampling region)
     hydrants: List[Tuple[np.ndarray, float]] = []
     N_h = alloc.get("hydrant", 0)
     if N_h > 0:
         corridor = None
-        if ego_union is not None:
-            corridor = ego_union.buffer(spec.ego_max_dist_m)
-        elif ego_route_xyz is not None:
-            R = _to_xyz(ego_route_xyz)
-            if len(R) >= 2:
-                corridor = LineString(R[:, :2]).buffer(spec.ego_max_dist_m)
+        R = _to_xyz(ego_route_xyz)
+        if len(R) >= 2:
+            corridor = LineString(R[:, :2]).buffer(spec.ego_max_dist_m)
 
         outside_region = None
         if outside_region is None:
@@ -401,10 +362,10 @@ def generate_static_elements_from_raw(
                 xy = np.asarray(geom)[:, :2]
                 lines.append(LineString(xy))
             if lines:
-                geom = unary_union(lines).buffer(10.0)
+                geom = unary_union(lines).buffer(spec.drive_arae_m)
                 minx, miny, maxx, maxy = geom.bounds
                 big = Polygon([(minx-200,miny-200),(minx-200,maxy+200),(maxx+200,maxy+200),(maxx+200,miny-200)])
-                outside_region = big.difference(geom.buffer(2.0))
+                outside_region = big.difference(geom)#.buffer(2.0)
 
         if outside_region and (not outside_region.is_empty):
             minx, miny, maxx, maxy = outside_region.bounds
@@ -422,8 +383,6 @@ def generate_static_elements_from_raw(
                 hydrants.append((np.array([x, y, 0.0], float), hd))
 
 
-    # ---- assemble output ----
-    out: List[Dict[str, Any]] = []
     counter = 0
 
     def _emit(objs, cls):
@@ -436,15 +395,15 @@ def generate_static_elements_from_raw(
                 size_lwh_m=LWH,
                 x=float(xyz[0]), y=float(xyz[1]), z=float(xyz[2]),
                 heading_rad=float(hd),
-                meta={}
             ))
             counter += 1
 
-    _emit(cones, "cone")
-    _emit(bars, "water_barrier")
     _emit(hydrants, "hydrant")
 
-    print("cone:",len(cones),"water_barrier",len(bars),"hydrant",len(hydrants))
+    counts = Counter(a["cls"] for a in out)
+    print("Agent class counts:", dict(counts))
+
+    # print("Static class counts: {'cones':", len(cones), 'water_barrier:', len(bars),"hydrant:", len(hydrants), "}")
 
     return out
 

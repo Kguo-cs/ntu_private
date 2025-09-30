@@ -6,6 +6,7 @@ import numpy as np
 import networkx as nx
 import torch.linalg
 from shapely.geometry import LineString, Point
+from collections import Counter
 
 # ------------------ utilities ------------------
 # 1) Build an "ego" agent dict compatible with TrafficGenerator output
@@ -247,7 +248,11 @@ class TrafficGenerator:
             for type in ['car','truck',"bicycle"]:
                 for agent_idx in range(class_ratio[type]):
                     lanes = list(lane_avail_lengths.keys())
-                    size_lwh=size_tab[type]
+
+                    if ego_start_lanes is not None:
+                        size_lwh=size_tab['ego']
+                    else:
+                        size_lwh=size_tab[type]
 
                     avg_speed=speeds[type]
 
@@ -477,7 +482,7 @@ class TrafficGenerator:
             neighbor_hops: int = 3,
             neighbor_mode: str = "both",
             seed: Optional[int] = 42,
-            size_table: Optional[Dict[str, Tuple[float,float,float]]] = None,
+            size_tab: Optional[Dict[str, Tuple[float,float,float]]] = None,
             avg_speed_override: Optional[Dict[str, float]] = None,
             ped_min_len_m: float = 20.0,
             ped_max_len_m: float = 200.0,
@@ -494,14 +499,10 @@ class TrafficGenerator:
         if not candidate_edges:
             candidate_edges = [ _key_id(ed["id"]) for _, _, ed in self.EG.edges(data=True) ]
 
-        # defaults
-        DEFAULT_CLASS_SIZES ={"pedestrian":(0.5,0.5,1.7), "bicycle":(1.8,0.6,1.6), "car":(4.4,1.8,1.6), "truck":(12.0,2.5,3.6)}
         DEFAULT_CLASS_SPEED_MPS = {"pedestrian":1.4, "bicycle":4.5*(1.1-density01), "car":13.9*(1.1-density01), "truck":11.1*(1.1-density01)}
-        #STYLE_SPEED_SCALE = {"conservative":0.85, "normal":1.0, "aggressive":1.15}
-        size_tab = size_table or DEFAULT_CLASS_SIZES
-        #styles   = style_table or {}
         speeds   = dict(DEFAULT_CLASS_SPEED_MPS)
-        if avg_speed_override: speeds.update(avg_speed_override)
+        if avg_speed_override:
+            speeds.update(avg_speed_override)
 
         lane_avail_lengths={}
         lane_avail_s = {}
@@ -549,5 +550,8 @@ class TrafficGenerator:
             )
 
             agent_list.append(agent)
+
+        counts = Counter(a["cls"] for a in agent_list)
+        print("Agent class counts:", dict(counts))
 
         return agent_list

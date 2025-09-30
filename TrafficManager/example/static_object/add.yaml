@@ -1,8 +1,9 @@
 static_object:
   add: #static object
-    - position: [362,6300]
-      heading: 0
-      shape: [10,10,1] #length,width,height
+    - type: 'cone'  #cone,water_barrier,hydrant
+      position: [362,6300]
+      heading:  # 可选
+      shape : #可选 [10,10,1] #length,width,height
 
 #    - position: [ 362,3600 ]#增加多个物体
 #      heading: 0
