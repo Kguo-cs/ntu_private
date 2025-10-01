@@ -108,6 +108,7 @@ class SMARTMapDecoder(nn.Module):
         # mask[(map_type!=4)&(map_type!=5)] = True
         # #
         map_type[map_type==5]=4
+        map_type[map_type==8]=7
 
         mask=(map_type==4) | (map_type==6) | (map_type==7) | (map_type==9)
 
