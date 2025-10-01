@@ -53,7 +53,8 @@ import time
 import psutil
 from pynvml import *
 
-from desay_utils.check_oclluded import check_occlusion_fully_batched
+from collections import defaultdict
+from desay_utils.check_visible import check_occlusion_multi_cam
 from desay_utils.desay_data_process import decode_map_features_from_json
 # from desay_utils.idm_policy import idm_planner
 from desay_utils.scene_generator import TrafficGenerator,make_ego_agent
@@ -481,7 +482,7 @@ class SimulationManager:
 
                 track_infos['role'][0]=1
 
-                all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
+               # all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
 
                 self.type=[]
 
@@ -888,16 +889,38 @@ class SimulationManager:
         boxes[:,3:6]=shape
         boxes[:,6]=head_local
 
-        visible_list=[]
+        # from collections import defaultdict
+        #
+        # groups = defaultdict(list)  # (H,W) -> [cam_idx]
+        # for i, key in enumerate(self.lidar2img.keys()):
+        #     groups[self.image_size[key]].append(i)
+        #
+        # cams_all = [torch.as_tensor(self.lidar2img[k], dtype=torch.float32, device=boxes.device)
+        #             for k in self.lidar2img.keys()]
+        # cams_all = torch.stack(cams_all, 0)  # (K,4,4)
+        #
+        # visible_accum = torch.zeros((1, boxes.shape[0]), dtype=torch.bool, device=boxes.device)
+        # for (H, W), idxs in groups.items():
+        #     cams_grp = cams_all[idxs]  # (Kg,4,4)
+        #     vis_grp = check_occlusion_multi_cam(boxes[None], cams_grp, (H, W))  # (1,N)
+        #     visible_accum |= vis_grp
+        #
+        # visible1 = visible_accum.to(torch.int).cpu().numpy()[0]  # (N,)
 
-        for key in self.lidar2img.keys():
-            lidar2img=torch.FloatTensor(self.lidar2img[key]).cuda()
+        # Prepare batched cameras (same resolution case)
+        cams = torch.stack(
+            [torch.as_tensor(self.lidar2img[k], dtype=torch.float32, device=boxes.device)
+             for k in self.lidar2img.keys()],
+            dim=0
+        )  # (K,4,4)
 
-            visible=check_occlusion_fully_batched(boxes[None],lidar2img[None],image_size=self.image_size[key])#width, height
-
-            visible_list.append(visible)
-
-        visible=torch.cat(visible_list).any(dim=0).to(torch.int).cpu().numpy()
+        # If every camera has the same (H,W):
+       # Hs, Ws = zip(*self.image_size.values())
+        H, W = self.image_size["CAM_FRONT"]
+        visible = check_occlusion_multi_cam(
+            boxes[None], cams, (H, W), tie_break_first=False  # set True if exact tie behavior matters
+        )  # (1,N) bool
+        visible = visible.to(torch.int).cpu().numpy()[0]
 
         boxes=boxes.cpu().numpy()
         tracking_id=tracking_id.cpu().numpy()

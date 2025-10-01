@@ -107,16 +107,16 @@ class SMARTMapDecoder(nn.Module):
         #
         # mask[(map_type!=4)&(map_type!=5)] = True
         # #
-        map_type[map_type==5]=4
-        map_type[map_type==8]=7
-
-        mask=(map_type==4) | (map_type==6) | (map_type==7) | (map_type==9)
-
-        batch = tokenized_map["batch"][mask]
-        pos_pt = tokenized_map["position"][mask]
-        orient_pt = tokenized_map["orientation"][mask]
-        token_idx=tokenized_map["token_idx"].long()[mask]
-        map_type=map_type[mask]
+        # map_type[map_type==5]=4
+        # map_type[map_type==8]=7
+        #
+        # mask=(map_type==4) | (map_type==6) | (map_type==7) | (map_type==9)
+        #
+        batch = tokenized_map["batch"]#[mask]
+        pos_pt = tokenized_map["position"]#[mask]
+        orient_pt = tokenized_map["orientation"]#[mask]
+        token_idx=tokenized_map["token_idx"].long()#[mask]
+        # map_type=map_type[mask]
 
         mask = (map_type == 4) | (map_type == 5)
 
