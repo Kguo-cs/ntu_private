@@ -26,7 +26,7 @@ class AgentTokenEncoder(nn.Module):
         input_dim_token = 8
         input_dim_x_a = 2
 
-        self.use_mean_speed = True
+        self.use_mean_speed = False
 
         if self.use_mean_speed:
             self.speed_embed = nn.Embedding(5, hidden_dim)
