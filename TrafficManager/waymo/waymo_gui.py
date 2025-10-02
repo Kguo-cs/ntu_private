@@ -417,7 +417,7 @@ class GUI(Process):
     def draw_route(self,node):
 
         for i,polyline in self.routing.items():
-            polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
+            polyline_tf = self.get_line_tf(polyline[:,:2], self.centerx, self.centery)
 
             dpg.draw_polyline(
                 points=polyline_tf,

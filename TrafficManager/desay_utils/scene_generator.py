@@ -499,10 +499,7 @@ class TrafficGenerator:
         if not candidate_edges:
             candidate_edges = [ _key_id(ed["id"]) for _, _, ed in self.EG.edges(data=True) ]
 
-        DEFAULT_CLASS_SPEED_MPS = {"pedestrian":1.4, "bicycle":4.5*(1.1-density01), "car":13.9*(1.1-density01), "truck":11.1*(1.1-density01)}
-        speeds   = dict(DEFAULT_CLASS_SPEED_MPS)
-        if avg_speed_override:
-            speeds.update(avg_speed_override)
+        self.default_speed = {"pedestrian":1.4, "bicycle":4.5*(1.1-density01), "car":13.9*(1.1-density01), "truck":11.1*(1.1-density01)}
 
         lane_avail_lengths={}
         lane_avail_s = {}
@@ -521,9 +518,9 @@ class TrafficGenerator:
 
         ego_start_lanes=self.edge_member_lanes.get(ego_edge_ids[0])
 
-        lane_avail_lengths,lane_avail_s,agent_list=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,speeds,size_tab,ego_start_lanes)
+        lane_avail_lengths,lane_avail_s,agent_list=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,self.default_speed,size_tab,ego_start_lanes)
 
-        lane_avail_lengths,lane_avail_s,agent_list=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,speeds,size_tab,None)
+        lane_avail_lengths,lane_avail_s,agent_list=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,self.default_speed,size_tab,None)
 
         all_agent_num=len(agent_list)
 
@@ -544,7 +541,7 @@ class TrafficGenerator:
                 agent_id=f"A{len(agent_list)}",
                 cls='pedestrian',
                 size_lwh_m=size_tab['pedestrian'],
-                avg_speed_mps=DEFAULT_CLASS_SPEED_MPS["pedestrian"],
+                avg_speed_mps=self.default_speed["pedestrian"],
                 start_xyz=start_xyz,
                 start_heading_rad=start_heading,
             )

@@ -60,7 +60,7 @@ from desay_utils.desay_data_process import decode_map_features_from_json
 from desay_utils.scene_generator import TrafficGenerator,make_ego_agent
 from desay_utils.plot_route import plot_agents_on_map
 from desay_utils.static_object_generator import generate_static_elements_from_raw,StaticSpec,plot_static_on_map
-from desay_utils.route_utils import compute_yaw_from_traj,nearest_edges_biside
+from desay_utils.route_utils import compute_yaw_from_traj,nearest_edges_biside,append_segment_with_step
 
 def print_cpu_usage(interval=1.0):
     pid = os.getpid()
@@ -371,7 +371,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-       # sleep(100)
+        #sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -479,9 +479,6 @@ class SimulationManager:
                     "role": np.zeros([agent_num,3]).astype(bool),
                 }
 
-
-                track_infos['role'][0]=1
-
                # all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
 
                 self.type=[]
@@ -560,6 +557,8 @@ class SimulationManager:
                     mask[track_infos["object_id"] == agent["id"]] = False
 
             if add_agents is not None:
+                for agent in add_agents:
+                    mask[track_infos["object_id"] == agent["id"]] = False
                 add_agent_num=len(add_agents)
             else:
                 add_agent_num=0
@@ -569,6 +568,7 @@ class SimulationManager:
             track_infos["states"] = track_infos["states"][mask]
             track_infos["valid"] = track_infos["valid"][mask]
             track_infos["role"] = track_infos["role"][mask]
+            self.type=np.array(self.type)[mask]
 
             new_state=np.zeros([add_agent_num,91,9])
             agent_type=[]
@@ -576,26 +576,51 @@ class SimulationManager:
 
             type_dict={"pedestrian":1,"bicycle":2,"car":0,"truck":0}
 
+            self.route={}
+
+            add_type=[]
+
             for i in range(add_agent_num):
                 agent=add_agents[i]
 
-                speed=agent["mean_speed"]
-                heading=agent["heading"]
+                id=agent["id"]
                 type=agent["type"]
+                position=np.array(agent["position"])
 
-                shape=self.config["agent_size"][type]
+                if agent['speed'] is None:
+                    speed=TG.default_speed[type]
+                else:
+                    speed = agent["speed"]
+
+                if agent["shape"] is None:
+                    shape=self.config["agent_size"][type]
+                else:
+                    shape=agent["shape"]
+
+                if agent["goal"] is not None:
+                    goal=np.array(agent["goal"])
+                    path, dist_m, route_xyz, start_eid, goal_eid = TG._route(position,goal)
+
+                    route_xy = append_segment_with_step(position,route_xyz[:,:2], goal, step=2.0)
+
+                    self.route[id]=route_xy
+
+                    heading= np.arctan2(route_xy[1,1]-route_xy[0,1], route_xy[1,0]-route_xy[0,0])
+
+                if agent["heading"] is not None:
+                    heading = agent["heading"]
+
                 velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed])
-                pos=np.array(agent["position"])[None]#+np.array(agent["velocity"])[None]*np.arange(-1,8.1,0.1)[:,None]
+                pos=position[None]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
 
                 new_state[i, :, :2] = pos
-                new_state[i, :, 3:6] =np.array(shape)[None]
+                new_state[i, :, 3:6]= np.array(shape)[None]
                 new_state[i, :, 6]  = heading
                 new_state[i,:, 7:9] = velocity[None]
 
-
                 agent_type.append(type_dict[agent["type"]])
                 object_id.append(agent["id"])
-                self.type.append(type)
+                add_type.append(type)
 
             track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(agent_type)])
             track_infos["states"]=np.concatenate([track_infos["states"],new_state])
@@ -603,7 +628,14 @@ class SimulationManager:
             track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
             track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
 
+            self.type=np.concatenate([self.type,np.array(add_type)])
+            data["routing"]=self.route
+
+            track_infos['role'][track_infos["object_id"]==0] = True
+
             track_infos["role"][:,-1]=True
+
+            static_cls=[]
 
             if len(static_objs):
                 static_list=[]
@@ -632,7 +664,7 @@ class SimulationManager:
                     static_pos.append((object["x"],object["y"]))
                     static_yaw.append(object["heading_rad"])
                     static_size.append(object["size_lwh_m"])
-                    self.type.append(object_type)
+                    static_cls.append(object_type)
 
                 static_pos=np.array(static_pos)
                 static_yaw=np.array(static_yaw)[:,None]
@@ -652,7 +684,9 @@ class SimulationManager:
                 track_infos["object_type"]=np.concatenate([track_infos["object_type"],new_type])
 
                 data["static"]=(static_pos, static_yaw, static_size,static_type)
-                
+
+            self.type=np.concatenate([self.type,np.array(static_cls)])
+
             # add static object
             add_static = self.config["static_object"]["add"]
 
@@ -697,25 +731,6 @@ class SimulationManager:
             )
             data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
-
-
-            #find routing
-
-            #id=0
-
-            #path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([0,-20]),np.array([5,200]))
-            # path, dist_m, route_xyz, start_eid, goal_eid = TG._route(np.array([5,-20]),np.array([20,20]))
-            #
-            # yaw_interp=compute_yaw_from_traj(route_xyz)
-            #
-            # route={}
-            #
-            # route[id]=route_xyz[:,:2]
-            #
-            # data["routing"]=route
-
-            data["routing"]={}
-
 
             self.initialize_simulation(map_data,data)
 
@@ -925,7 +940,7 @@ class SimulationManager:
         boxes=boxes.cpu().numpy()
         tracking_id=tracking_id.cpu().numpy()
 
-        labels=np.array(self.type[1:])
+        labels=np.array(self.type[no_ego.cpu().numpy()])
 
         # Read JSON from file
         if self.timestamp>self.initial_step:

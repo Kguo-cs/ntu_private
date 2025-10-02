@@ -112,22 +112,22 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
     # # print(len(polylines))
     #
 
-    centerline_list=[]
-
-    for i,centerline in enumerate(centerlines):
-        cur_info = {"id": max_id+1+i}
-
-        cur_info["type"] = 1
-        xyz = centerline.centerline
-
-        centerline_list.append(xyz[:,:2])
-
-        cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
-        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-        polylines.append(cur_polyline)
-        point_cnt += len(cur_polyline)
-
-        map_infos["lane"].append(cur_info)
+    # centerline_list=[]
+    #
+    # for i,centerline in enumerate(centerlines):
+    #     cur_info = {"id": max_id+1+i}
+    #
+    #     cur_info["type"] = 1
+    #     xyz = centerline.centerline
+    #
+    #     centerline_list.append(xyz[:,:2])
+    #
+    #     cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
+    #     cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+    #     polylines.append(cur_polyline)
+    #     point_cnt += len(cur_polyline)
+    #
+    #     map_infos["lane"].append(cur_info)
 
 
     # print(len(line_dict.keys()))

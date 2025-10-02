@@ -76,3 +76,61 @@ def nearest_edges_biside(traj_xy: np.ndarray, yaw: np.ndarray, edge_xy: np.ndarr
     Li[Ld==big] = -1; Ri[Rd==big] = -1
     Ld[Ld==big] = np.inf; Rd[Rd==big] = np.inf
     return Li, Ri, Ld, Rd
+
+
+
+import numpy as np
+
+def _arclen2d(xy: np.ndarray) -> np.ndarray:
+    """累积弧长"""
+    if len(xy) < 2:
+        return np.array([0.0])
+    d = np.linalg.norm(np.diff(xy, axis=0), axis=1)
+    return np.concatenate([[0.0], np.cumsum(d)])
+
+def _interp_at_s(xy: np.ndarray, s_arr: np.ndarray, s: float) -> np.ndarray:
+    """在弧长坐标 s 上插值点坐标"""
+    x = np.interp(s, s_arr, xy[:,0])
+    y = np.interp(s, s_arr, xy[:,1])
+    return np.array([x, y], float)
+
+def resample_polyline(xy: np.ndarray, step: float) -> np.ndarray:
+    """对一条 polyline 按 step(m) 均匀重采样"""
+    s = _arclen2d(xy)
+    L = s[-1]
+    if L < 1e-6:
+        return xy[:1]
+    s_new = np.arange(0.0, L, step)
+    if s_new[-1] < L:
+        s_new = np.append(s_new, L)
+    return np.stack([_interp_at_s(xy, s, u) for u in s_new])
+
+def append_segment_with_step(start: np.ndarray, route: np.ndarray, goal: np.ndarray, step: float=2.0) -> np.ndarray:
+    """
+    将 start → route → goal 连接在一起并按固定步长重采样.
+    start: (2,) numpy
+    route: (M,2) polyline
+    goal: (2,) numpy
+    step: float, 插值间隔
+    """
+    segs = []
+
+    # start → route[0]
+    if np.linalg.norm(route[0] - start) > 1e-3:
+        seg = np.vstack([start, route[0]])
+        segs.append(resample_polyline(seg, step))
+
+    # route polyline
+    segs.append(resample_polyline(route, step))
+
+    # route[-1] → goal
+    if np.linalg.norm(route[-1] - goal) > 1e-3:
+        seg = np.vstack([route[-1], goal])
+        segs.append(resample_polyline(seg, step))
+
+    # 拼接并去重重复点
+    out = np.vstack(segs)
+    _, idx = np.unique(out.round(6), axis=0, return_index=True)
+    out = out[np.sort(idx)]
+
+    return out
