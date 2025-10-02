@@ -169,7 +169,7 @@ class InterativeDecoder(nn.Module):
                 if self.use_iteract:
 
                     self.token_predict_head = MLPLayer(
-                        input_dim=hidden_dim * 3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                        input_dim=hidden_dim * 3, hidden_dim=hidden_dim*3, output_dim=n_token_agent
                     )
 
                 # self.token_predict_head = nn.Sequential(
