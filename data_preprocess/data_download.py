@@ -5,12 +5,12 @@ from tqdm import tqdm
 
 # List of URLs
 file_links = [
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_boston.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_pittsburgh.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_singapore.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_1.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_2.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_3.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_boston.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_pittsburgh.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_singapore.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_1.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_2.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_3.zip",
     "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_4.zip",
     "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_5.zip",
     "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_6.zip"
