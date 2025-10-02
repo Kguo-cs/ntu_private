@@ -10,17 +10,17 @@ import pickle
 from pathlib import Path
 from tqdm import tqdm
 import multiprocessing
-import ray
+# import ray
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path='/home/ke/code/sim'#os.getcwd() #'/home/ke/code/catk'
+gump_path='/home/ke/code/catk'#os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
 
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
-from data_preprocess.process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
+from nuplan_preprocess.process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
 
 scenario_mapping_config = {
     "scenario_map": {
@@ -135,7 +135,7 @@ scenario_filter=ScenarioFilter( scenario_types=None,
 
 
 
-scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+#scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
 
 past_time_horizon=1
 past_num_steps=10
@@ -149,13 +149,15 @@ os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
 # print(len(scenarios))
 #
-with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
-    pickle.dump(scenarios, f)
+# with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+#     pickle.dump(scenarios, f)
 
-# with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
-#     scenarios = pickle.load(f)
+print('finish scenarios filter')
 
+with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
+    scenarios = pickle.load(f)
 
+import matplotlib.pyplot as plt
 
 def get_map_vector(scenario,origin_ego):
 
@@ -165,7 +167,9 @@ def get_map_vector(scenario,origin_ego):
     map_infos = {"lane": [], "crosswalk": []}
 
     lanes = map_api.get_proximal_map_objects(origin, radius=200,
-                                             layers=[SemanticMapLayer.LANE, SemanticMapLayer.LANE_CONNECTOR,
+                                             layers=[SemanticMapLayer.BOUNDARIES,
+                                                     SemanticMapLayer.LANE,
+                                                     SemanticMapLayer.SPEED_BUMP,
                                                      SemanticMapLayer.CROSSWALK
                                                      ])
 
@@ -193,6 +197,8 @@ def get_map_vector(scenario,origin_ego):
         # cur_polyline = np.stack( [right_boundary,1+np.zeros([len(right_boundary),1]),len(polylines)+np.zeros([len(right_boundary),1])],axis=-1 )
         # polylines.append(cur_polyline)#RoadLine
 
+        plt.plot(baseline[0], baseline[1], color='r')
+
     for cross_walk in lanes[SemanticMapLayer.CROSSWALK]:
         xy = np.array(cross_walk.polygon.boundary.coords)
         xyz = np.concatenate([xy, np.zeros([len(xy), 1])], axis=-1)
@@ -210,17 +216,18 @@ def get_map_vector(scenario,origin_ego):
         polylines.append(cur_polyline)
         point_cnt += len(cur_polyline)
 
-    for lane_connector in lanes[SemanticMapLayer.LANE_CONNECTOR]:
-        baseline = lane_connector.baseline_path.linestring.coords.xy
-        id = int(lane_connector.id)
-        cur_info = {"id": id, "type": 0}
-
-        cur_polyline = np.stack(
-            [baseline[0], baseline[1], np.zeros([len(baseline[0])]), id + np.zeros([len(baseline[0])])], axis=-1)
-        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-        map_infos["lane"].append(cur_info)
-        polylines.append(cur_polyline)
-        point_cnt += len(cur_polyline)
+    plt.show()
+    # for lane_connector in lanes[SemanticMapLayer.LANE_CONNECTOR]:
+    #     baseline = lane_connector.baseline_path.linestring.coords.xy
+    #     id = int(lane_connector.id)
+    #     cur_info = {"id": id, "type": 0}
+    #
+    #     cur_polyline = np.stack(
+    #         [baseline[0], baseline[1], np.zeros([len(baseline[0])]), id + np.zeros([len(baseline[0])])], axis=-1)
+    #     cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+    #     map_infos["lane"].append(cur_info)
+    #     polylines.append(cur_polyline)
+    #     point_cnt += len(cur_polyline)
 
     try:
         polylines=np.concatenate(polylines, axis=0)
@@ -234,29 +241,29 @@ def get_map_vector(scenario,origin_ego):
 
     map_infos["all_polylines"] = polylines
 
-    signal_state = {
-        0: "LANE_STATE_GO",
-        #  States for traffic signals with arrows.
-        1: "LANE_STATE_CAUTION",
-        2: "LANE_STATE_STOP",
-        3: "LANE_STATE_UNKNOWN",
-    }
+    # signal_state = {
+    #     0: "LANE_STATE_GO",
+    #     #  States for traffic signals with arrows.
+    #     1: "LANE_STATE_CAUTION",
+    #     2: "LANE_STATE_STOP",
+    #     3: "LANE_STATE_UNKNOWN",
+    # }
 
-    tf_current_light = scenario.get_traffic_light_status_at_iteration(0)
+    # tf_current_light = scenario.get_traffic_light_status_at_iteration(0)
+    #
+    # dynamic_map_infos = {"lane_id": [], "state": []}
+    # lane_id, state = [], []
+    # for cur_signal in tf_current_light:  # (num_observed_signals)
+    #     lane_id.append(cur_signal.lane_connector_id)
+    #     state.append(signal_state[cur_signal.status])
+    #
+    # dynamic_map_infos["lane_id"].append(np.array([lane_id]))
+    # dynamic_map_infos["state"].append(np.array([state]))
+    #
+    # tf_lights = process_dynamic_map(dynamic_map_infos)
+    # tf_current_light = tf_lights.loc[tf_lights["time_step"] == 0]
 
-    dynamic_map_infos = {"lane_id": [], "state": []}
-    lane_id, state = [], []
-    for cur_signal in tf_current_light:  # (num_observed_signals)
-        lane_id.append(cur_signal.lane_connector_id)
-        state.append(signal_state[cur_signal.status])
-
-    dynamic_map_infos["lane_id"].append(np.array([lane_id]))
-    dynamic_map_infos["state"].append(np.array([state]))
-
-    tf_lights = process_dynamic_map(dynamic_map_infos)
-    tf_current_light = tf_lights.loc[tf_lights["time_step"] == 0]
-
-    map_data = get_map_features(map_infos, tf_current_light)
+    map_data = get_map_features(map_infos, {})
 
     data = preprocess_map(map_data)
 
