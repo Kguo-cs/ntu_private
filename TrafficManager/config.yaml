@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/epoch=29-step=260910.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
+planner_path: "/home/ke/code/catk/src/ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -26,7 +26,7 @@ lidar_height: 1.84
 
 export_mode: "all" #    -> 仅导出交通参与者 ,"all"          -> 导出交通参与者 + 静态障碍物 + 交通灯
 
-max_sim_time: 150 #300 #9s
+max_sim_time: 90 #9s
 
 random_seed: 3
 
@@ -42,7 +42,7 @@ agent_size:
   pedestrian: [0.8, 0.8, 1.7]
   bicycle: [1.8, 0.8, 1.7]
   car: [4.8, 2, 1.7]
-  truck: [10.0, 2.5, 3.6]
+  truck: [8.0, 2.5, 3.6]
   ego: [4.8, 2, 1.7]
 
 static_density: 0.5 #0 : no agent , 1: max number agent
@@ -53,36 +53,51 @@ static_class_ratio:
   hydrant: 1
 
 static_size:
-  cone: [0.8, 0.8, 1]
-  water_barrier: [4.8, 0.5, 1]
+  cone: [0.3, 0.2, 1]
+  water_barrier: [4.8, 0.2, 1]
   hydrant: [0.8, 0.8, 1]
 
 static_object:
-  add:
+  add: #static object
+#    - type: 'hydrant'  #cone,water_barrier,hydrant
+#      id: -1
+#      position: [0,0]
+#      heading:  1.57
+#      shape : #可选, 可根据type生成
+  remove:
+#    - id: -2 # give the remove agent id
+
 
 map_object:
-  add:
+  add: #static object
+#    - class: lane_line #[lane_line,boundary,speed_bump,crosswalk]
+#      attrs:
+#        laneline_type: solid #[solid, dot]
+#      xyz:
+#        - [0 , 0] #x
+#        - [0, 500] #y
+#        - [0 , 0] #z
+#      global_id: -100
   remove:
+#    - id: 35
 
 agent:
   add:
     - type: 'car'  #pedestrian,bicycle,car,truck
       id: 0
       position: [5, -20]
-      goal: [5,200] #[ 20,30 ]    # 可选
+      goal: # [5,200]   # 可选
       heading:   1.57    # 可选, 可根据goal生成
-      speed:  #可选
-      shape: #可选
+      speed:  #可选, 可根据type生成
+      shape: #可选, 可根据type生成
   remove:
   stop:
-  recording:
 
-#traffic_lights:
 
 traffic_lights:
   - position:  [20, 200]    # 信号灯的世界坐标
     heading: 0
-    size: [2,2,5]
+    size: [1,1,5]
     orientation: "vertical"         # vertical | horizontal
     type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
       - color: "red"

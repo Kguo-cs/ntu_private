@@ -175,7 +175,9 @@ class GUI(Process):
         ag_role=data["agent"]["role"]
         self.ag_id=data["agent"]["id"].numpy()
 
-        self.routing=data["routing"]
+        self.routing= {}
+        for id, (route,speed) in data["routing"].items():
+            self.routing[id]=route.cpu().numpy()
 
         static_pos, static_yaw, static_size,self.static_type=data["static"]
 

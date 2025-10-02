@@ -6,44 +6,34 @@ from .desay_edge_graph import build_edge_graph_from_lane_graph_topo,plot_edge_gr
 
 from .build_centerline import build_centerlines_from_boundaries_xyz
 
-def decode_map_features_from_json(annotation,remove_mapid=[]):
-    map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
-    polylines = []
-    # other_id=[]
-    point_cnt = 0
 
-    map_features=annotation['lines']+annotation["traffic_elements"]
-    line_dict={}
-    boundary_dict={}
-
-    max_id=0
-
+def process(map_infos,map_features,remove_mapid,line_dict,boundary_dict,polylines,point_cnt):
     for mf in map_features:
-        id=mf['global_id']
+
+        id = mf['global_id']
 
         if id in remove_mapid:
             continue
 
-        feature_data_type=mf['class']
-        xyz=np.array(mf['xyz']).T
+        feature_data_type = mf['class']
+        xyz = np.array(mf['xyz']).T
         cur_info = {"id": id}
-        max_id=max(max_id,id)
 
-        if feature_data_type=="lane_line":
+        if feature_data_type == "lane_line":
             line_type = mf['attrs']["laneline_type"]
-            if line_type=="solid":
+            if line_type == "solid":
                 cur_info["type"] = 7
-             #  plt.plot(xyz[:, 0], xyz[:, 1], color='r')
-                #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+            #  plt.plot(xyz[:, 0], xyz[:, 1], color='r')
+            # plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
 
-            else:#dot
+            else:  # dot
                 cur_info["type"] = 6
                 # print(line_type)
-                #plt.plot(xyz[:, 0], xyz[:, 1], color='g')
-                #plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
-            line_dict[id]=xyz
+                # plt.plot(xyz[:, 0], xyz[:, 1], color='g')
+                # plt.plot(xyz[:2, 0], xyz[:2, 1], color='b')
+            line_dict[id] = xyz
 
-        elif feature_data_type=="boundary":
+        elif feature_data_type == "boundary":
             cur_info["type"] = 4
             #
             # if  id in [40,66]:#id ==60 or
@@ -57,32 +47,49 @@ def decode_map_features_from_json(annotation,remove_mapid=[]):
             #
             boundary_dict[id] = xyz
 
-                # plt.show()
+            # plt.show()
 
-                # print(id,_arclen2d(xyz[:,:2]))
+            # print(id,_arclen2d(xyz[:,:2]))
 
             # print(id)#60,37
 
-        elif feature_data_type == "speed_bump" or feature_data_type=="crosswalk":
+        elif feature_data_type == "speed_bump" or feature_data_type == "crosswalk":
             cur_info["type"] = 9
         # elif feature_data_type=="arrow":
         #     continue
         else:
             continue
 
-        cur_polyline = np.concatenate([xyz,np.zeros([len(xyz),1])+cur_info["type"],np.zeros([len(xyz),1])+cur_info["id"]],axis=-1)
+        cur_polyline = np.concatenate(
+            [xyz, np.zeros([len(xyz), 1]) + cur_info["type"], np.zeros([len(xyz), 1]) + cur_info["id"]], axis=-1)
 
         cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
         polylines.append(cur_polyline)
         point_cnt += len(cur_polyline)
 
-        if feature_data_type=="lane_line":
+        if feature_data_type == "lane_line":
             map_infos["road_line"].append(cur_info)
         elif feature_data_type == "boundary":
             map_infos["road_edge"].append(cur_info)
         elif feature_data_type == "speed_bump":
             map_infos["crosswalk"].append(cur_info)
 
+    return map_infos,line_dict,boundary_dict,polylines,point_cnt
+
+
+def decode_map_features_from_json(annotation,remove_mapid=[],add_map_object=[]):
+    map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
+    line_dict={}
+    boundary_dict={}
+    polylines = []
+    point_cnt = 0
+
+    map_features=annotation['lines']+annotation["traffic_elements"]
+
+    map_infos,line_dict,boundary_dict,polylines,point_cnt=process(map_infos,map_features,remove_mapid,line_dict,boundary_dict,polylines,point_cnt)
+
+    if add_map_object is not None:
+        map_infos,line_dict,boundary_dict,polylines,point_cnt=process(map_infos,add_map_object,[],line_dict,boundary_dict,polylines,point_cnt)
 
     centerlines=build_centerlines_from_boundaries_xyz(boundary_dict)
     ##line_dict,

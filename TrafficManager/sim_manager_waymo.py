@@ -56,7 +56,7 @@ from pynvml import *
 from collections import defaultdict
 from desay_utils.check_visible import check_occlusion_multi_cam
 from desay_utils.desay_data_process import decode_map_features_from_json
-# from desay_utils.idm_policy import idm_planner
+from desay_utils.idm_policy import idm_planner
 from desay_utils.scene_generator import TrafficGenerator,make_ego_agent
 from desay_utils.plot_route import plot_agents_on_map
 from desay_utils.static_object_generator import generate_static_elements_from_raw,StaticSpec,plot_static_on_map
@@ -250,6 +250,7 @@ class SimulationManager:
             print("Simulation time end.")
             return False
         agent_type=tokenized_agent["type"].cpu().numpy()
+        control_mask = torch.zeros_like(self.agent_mask)
 
         if self.timestamp % 5 == 0:
             if self.GUI_DISPLAY:
@@ -310,17 +311,40 @@ class SimulationManager:
 
             for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
                 pred_value=pred_dict[key]
-                tokenized_agent[key][self.control_mask,:pred_value.shape[1]] = pred_value[self.control_mask]
+                tokenized_agent[key][self.agent_mask,:pred_value.shape[1]] = pred_value[self.agent_mask]
 
             for key in ["pred_traj_10hz","pred_head_10hz"]:
-                tokenized_agent[key][self.control_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.control_mask]
+                tokenized_agent[key][self.agent_mask,self.timestamp+1:self.timestamp+6] = pred_dict[key][self.agent_mask]
 
-            tokenized_agent["all_valid"][self.control_mask, self.timestamp + 1:self.timestamp + 6] = True
+            tokenized_agent["all_valid"][self.agent_mask, self.timestamp + 1:self.timestamp + 6] = True
 
             self.traffic_model_time.append(time.time()-traffic_model_start)
            # print(get_process_memory() - rss_before)
             #print(get_self_gpu_usage())
             #print(print_cpu_usage())
+
+
+            for id, (route,speed) in self.route.items():
+                idx = torch.where(tokenized_agent["id"] == id)[0]
+
+                control_mask[idx]=True
+
+                all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
+
+                all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
+
+                all_shape = tokenized_agent["shape"][:, :2]  # length, width
+
+                # route [n,2]
+                prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
+
+                all_velocity = (all_pos - prev_pos) / 0.1
+
+                new_pos, new_heading = idm_planner(route,  idx, all_pos, all_heading, all_velocity, all_shape,
+                                                   desired_speed=speed)  # plan 0.5 second
+
+                tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
+                tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
 
             #control ego
             if self.input_json_path is not None:
@@ -335,19 +359,23 @@ class SimulationManager:
                         bboxes=torch.tensor(data[t]["bboxes"]).cuda()
                         for id,box in zip(ids,bboxes):
                             obj_mask=id==object_id
+                            control_mask[obj_mask] = True
+
                             tokenized_agent['pred_traj_10hz'][obj_mask,int(t)]=box[:2]
                             tokenized_agent['pred_head_10hz'][obj_mask,int(t)]=box[-1]
                             tokenized_agent['shape'][obj_mask]=box[3:6]
                             tokenized_agent["all_valid"][obj_mask]=True
 
-                    token_dict =self.planner.token_processor._match_agent_token(
-                                                                             tokenized_agent["all_valid"],
-                                                                             tokenized_agent['pred_traj_10hz'],
-                                                                             tokenized_agent['pred_head_10hz'],
-                                                                             tokenized_agent["token_agent_shape"],
-                                                                             tokenized_agent["token_traj"],
-                                                                             )
-                    tokenized_agent.update(token_dict)
+        if self.input_json_path is not None or len(self.route):
+            token_dict = self.planner.token_processor._match_agent_token(
+                tokenized_agent["all_valid"][control_mask],
+                tokenized_agent['pred_traj_10hz'][control_mask],
+                tokenized_agent['pred_head_10hz'][control_mask],
+                tokenized_agent["token_agent_shape"][control_mask],
+                tokenized_agent["token_traj"][control_mask],
+            )
+            for key,value in token_dict.items():
+                tokenized_agent[key][control_mask] = value
 
         pos = tokenized_agent["pred_traj_10hz"]
         heading = tokenized_agent["pred_head_10hz"]
@@ -401,7 +429,7 @@ class SimulationManager:
             if add_map_object is not None:
 
                 for polyline in add_map_object:
-                    remove_mapid.append(polyline["id"])
+                    remove_mapid.append(polyline["global_id"])
 
             if 'desay' not in input_dir:
 
@@ -415,24 +443,87 @@ class SimulationManager:
                 scenario.ParseFromString(bytes(tf_data))
                 track_infos = decode_tracks_from_proto(scenario)
                 map_infos = decode_map_features_from_proto(scenario.map_features,remove_mapid)
+                point_cnt=len(map_infos['all_polylines'])
+
+                if add_map_object is not None:
+
+                    for polyline in add_map_object:
+                        feature_data_type= polyline["polygon_type"]
+                        cur_info = {"id": polyline["id"]}
+                        cur_info["type"] = polyline["polyline_type"]
+
+                        cur_polyline = np.stack(
+                            [
+                                np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
+                                for p in polyline["points"]
+                            ],
+                            axis=0,
+                        )
+                        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+
+                        map_infos[feature_data_type].append(cur_info)
+                        map_infos["all_polylines_list"].append(cur_polyline)
+                        point_cnt += len(cur_polyline)
+
+                    map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
 
             else:
                 with open(input_dir+'/'+scenario, "r") as f:
                     data = json.load(f)
-                map_infos = decode_map_features_from_json(data['annotation'], remove_mapid)
+                map_infos = decode_map_features_from_json(data['annotation'], remove_mapid,add_map_object)
 
                 boundary_dict=map_infos["boundary_dict"]
                 line_dict=map_infos["line_dict"]
 
                 TG = TrafficGenerator(map_infos["edge_graph"], map_infos["lane_graph"],boundary_xyz=map_infos["boundary_dict"])  # 或传入你已有的 router_func
 
-                ego_edge_ids, ego_route_xyz, ego_start_xy, ego_goal_xy = TG.random_ego_edge_route(
-                    seed=self.random_seed,
-                    min_len_m=40.0,
-                    max_len_m=3000.0,
-                    sample_start_on_edge=True,  # 起点弧长随机
-                    end_at_last_point=True  # 终点为末尾 edge 的尾点
-                )
+                ego_start=None
+                ego_goal=None
+                add_agents=self.config["agent"]["add"]
+
+                if add_agents is not None:
+                    for agent in add_agents:
+                        if agent['id']==0:
+                            ego_start= np.array(agent["position"])
+                            if agent["goal"] is not None:
+                                ego_goal= np.array(agent["goal"])
+                            else:
+                                ego_heading = np.array(agent["heading"])
+
+                self.route={}
+
+                if ego_goal is None and ego_start is None:
+                    ego_edge_ids, ego_route_xyz, ego_start_xy, ego_goal_xy = TG.random_ego_edge_route(
+                        seed=self.random_seed,
+                        min_len_m=40.0,
+                        max_len_m=3000.0,
+                        sample_start_on_edge=True,  # 起点弧长随机
+                        end_at_last_point=True,  # 终点为末尾 edge 的尾点
+                    )
+                elif ego_start is not None:
+                    if ego_goal is not None:
+                        ego_edge_ids, dist_m, ego_route_xyz, start_eid, goal_eid = TG._route(ego_start, ego_goal)
+                    else:
+                        while True:
+                            try:
+                                heading_goal_range = (100.0, 300.0)
+                                dist = float(np.random.uniform(*heading_goal_range))
+                                hd = float(ego_heading)
+                                dir_vec = np.array([np.cos(hd), np.sin(hd)], float)
+                                # lateral perturbation up to ±lateral_perturb_max (perpendicular to heading)
+                                nrm_vec = np.array([-np.sin(hd), np.cos(hd)], float)
+                                lat = float(np.random.uniform(-50, 50))
+                                ego_goal = ego_start[:2] + dist * dir_vec + lat * nrm_vec
+
+                                ego_edge_ids, dist_m, ego_route_xyz, start_eid, goal_eid = TG._route(ego_start,
+                                                                                                     ego_goal)
+                                break
+                            except:
+                                continue
+
+                    route_xy = append_segment_with_step(ego_start, ego_route_xyz[:, :2], ego_goal, step=2.0)
+
+                    self.route[0]=(torch.FloatTensor(route_xy).cuda(),13.9)
 
                 all_agents = TG.generate_batch(
                     density01=self.config["agent_density"],
@@ -441,6 +532,83 @@ class SimulationManager:
                     ego_edge_ids=ego_edge_ids,
                     seed=self.random_seed
                 )
+                # add agent
+                if add_agents is not None:
+                    for agent in add_agents:
+                        id = agent["id"]
+                        type = agent["type"]
+                        position = np.array(agent["position"])
+
+                        if agent['speed'] is None:
+                            speed = TG.default_speed[type]
+                        else:
+                            speed = agent["speed"]
+
+                        if agent["shape"] is None:
+                            shape = self.config["agent_size"][type]
+                        else:
+                            shape = agent["shape"]
+
+                        if agent["goal"] is not None:
+                            goal = np.array(agent["goal"])
+                            path, dist_m, route_xyz, start_eid, goal_eid = TG._route(position, goal)
+
+                            route_xy = append_segment_with_step(position, route_xyz[:, :2], goal, step=2.0)
+
+                            self.route[id] = (torch.FloatTensor(route_xy).cuda(),speed)
+
+                            heading = np.arctan2(route_xy[1, 1] - route_xy[0, 1], route_xy[1, 0] - route_xy[0, 0])
+
+                        if agent["heading"] is not None:
+                            heading = agent["heading"]
+
+                        all_agents[id]=dict(
+                                cls=type,
+                                size_lwh_m=shape,
+                                avg_speed_mps=speed,
+                                start_xyz=np.array([position[0],position[1],0]),
+                                start_heading_rad=heading,
+                            )
+
+                if self.config["agent"]["remove"] is not None:
+                    deleta_id = [agent["id"] for agent in self.config["agent"]["remove"]]
+                    all_agents = {id: obj for id, obj in all_agents.items() if id not in deleta_id}
+
+                agent_num=len(all_agents)#len(agents)
+
+                track_infos = {
+                    "object_id": np.arange(agent_num),
+                    "object_type": np.zeros([agent_num]),
+                    "states": np.zeros([agent_num,91,9]),
+                    "valid": np.ones([agent_num,91]).astype(bool),
+                    "role": np.zeros([agent_num,3]).astype(bool),
+                }
+
+                self.type=[]
+
+                for j,(id,agent) in enumerate(all_agents.items()):
+                    track_infos["object_id"][j]=id
+                    size_lwh_m=agent["size_lwh_m"]
+                    speed=agent["avg_speed_mps"]
+                    heading=agent["start_heading_rad"]
+
+                    velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
+                    track_infos['states'][j, :, :3] = agent["start_xyz"]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
+                    track_infos['states'][j, :, 3] = size_lwh_m[0]
+                    track_infos['states'][j, :, 4] = size_lwh_m[1]
+                    track_infos['states'][j, :, 5] = size_lwh_m[2]
+                    track_infos['states'][j, :, 6] = heading
+
+                    self.type.append(agent["cls"])
+
+                    if agent["cls"]=="pedestrian":
+                        track_infos["object_type"][j]=1
+                    elif agent["cls"]=="bicycle":
+                        track_infos["object_type"][j]=2
+
+                track_infos['role'][track_infos["object_id"]==0] = True
+
+                track_infos["role"][:,-1]=True
 
                 spec = StaticSpec(
                     density01=self.config["static_density"],
@@ -460,75 +628,92 @@ class SimulationManager:
                 )
 
                 for light in self.light:
-                    static_objs.append(dict(
-                        id=f"light",
+                    static_objs[-1-len(static_objs)]=dict(
                         cls='light',
                         size_lwh_m=light["size"],
                         x=light["position"][0], y=light["position"][1], z=0,
-                        heading_rad=light["heading"],
-                        meta={}
-                    ))
-
-                agent_num=len(all_agents)#len(agents)
-
-                track_infos = {
-                    "object_id": np.arange(agent_num),
-                    "object_type": np.zeros([agent_num]),
-                    "states": np.zeros([agent_num,91,9]),
-                    "valid": np.ones([agent_num,91]).astype(bool),
-                    "role": np.zeros([agent_num,3]).astype(bool),
-                }
-
-               # all_agents[0]["start_xyz"][:2]=np.array([0,0])#np.array([2,-20])
-
-                self.type=[]
-
-                for j,agent in enumerate(all_agents):
-                    size_lwh_m=agent["size_lwh_m"]
-                    speed=agent["avg_speed_mps"]
-                    heading=agent["start_heading_rad"]
-
-                    velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
-                    track_infos['states'][j, :, :3] = agent["start_xyz"]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
-                    track_infos['states'][j, :, 3] = size_lwh_m[0]
-                    track_infos['states'][j, :, 4] = size_lwh_m[1]
-                    track_infos['states'][j, :, 5] = size_lwh_m[2]
-                    track_infos['states'][j, :, 6] = heading
-
-                    self.type.append(agent["cls"])
-
-                    if agent["cls"]=="pedestrian":
-                        track_infos["object_type"][j]=1
-                    elif agent["cls"]=="bicycle":
-                        track_infos["object_type"][j]=2
-
-            point_cnt=len(map_infos['all_polylines'])
-
-            if add_map_object is not None:
-
-                for polyline in add_map_object:
-                    feature_data_type= polyline["polygon_type"]
-                    cur_info = {"id": polyline["id"]}
-                    cur_info["type"] = polyline["polyline_type"]
-
-                    cur_polyline = np.stack(
-                        [
-                            np.array([p[0], p[1], 0, cur_info["type"], cur_info["id"]])
-                            for p in polyline["points"]
-                        ],
-                        axis=0,
+                        heading_rad=light["heading"]
                     )
-                    cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
 
-                    map_infos[feature_data_type].append(cur_info)
-                    map_infos["all_polylines_list"].append(cur_polyline)
-                    point_cnt += len(cur_polyline)
+                # add static object
+                add_static = self.config["static_object"]["add"]
 
-                map_infos["all_polylines"] = np.concatenate(map_infos["all_polylines_list"], axis=0).astype(np.float32)
+                if add_static is not None:
+                    for static in add_static:
+                        id = static['id']
+                        type = static["type"]
 
-            tf_current_light={}
+                        if static["shape"] is None:
+                            shape = self.config["static_size"][type]
+                        else:
+                            shape = static["shape"]
 
-            current_time_index = 10 #scenario.current_time_index
+                        static_objs[id] = dict(
+                            cls=type,
+                            size_lwh_m=shape,
+                            x=float(static["position"][0]),
+                            y=float(static["position"][1]),
+                            z=0,
+                            heading_rad=static["heading"],
+                        )
+
+                if self.config["static_object"]["remove"] is not None:
+                    deleta_id = [agent["id"] for agent in self.config["static_object"]["remove"]]
+                    static_objs = {id: obj for id, obj in static_objs.items() if id not in deleta_id}
+
+                # static_objects
+                if len(static_objs):
+                    static_list = []
+                    static_pos, static_yaw, static_size, static_type, static_id = [], [], [], [], []
+
+                    for id, object in static_objs.items():  # {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+                        object_type = object["cls"]
+
+                        new_state = np.zeros([91, 9])
+
+                        if object_type == "cone":
+                            static_type.append(1)
+                        elif object_type == "water_barrier":
+                            static_type.append(0)
+                        elif object_type == "light":
+                            static_type.append(3)
+                        else:
+                            static_type.append(2)
+
+                        new_state[:, 0] = object["x"]
+                        new_state[:, 1] = object["y"]
+                        new_state[:, 3:6] = np.array(object["size_lwh_m"])[None]
+                        new_state[:, 6] = object["heading_rad"]
+
+                        static_list.append(new_state)
+
+                        static_pos.append((object["x"], object["y"]))
+                        static_yaw.append(object["heading_rad"])
+                        static_size.append(object["size_lwh_m"])
+                        static_id.append(id)
+                        self.type.append(object_type)
+
+                    static_pos = np.array(static_pos)
+                    static_yaw = np.array(static_yaw)[:, None]
+                    static_size = np.array(static_size)
+                    static_type = np.array(static_type)
+                    static_id = np.array(static_id)
+
+                    new_state = np.stack(static_list)
+
+                    new_type = np.array(static_type)
+                    new_type[static_type == 2] = 1
+                    new_type[static_type == 3] = 1
+
+                    track_infos["states"] = np.concatenate([track_infos["states"], new_state])
+                    track_infos["object_id"] = np.concatenate([track_infos["object_id"], static_id])
+                    track_infos["valid"] = np.concatenate(
+                        [track_infos["valid"], np.ones([len(static_list), 91]).astype(bool)])
+                    track_infos["role"] = np.concatenate(
+                        [track_infos["role"], np.zeros([len(static_list), 3]).astype(bool)])
+                    track_infos["object_type"] = np.concatenate([track_infos["object_type"], new_type])
+
+                self.type=np.array(self.type)
 
             data_loadding_time=time.time()
 
@@ -539,202 +724,28 @@ class SimulationManager:
             #print(get_self_gpu_usage())
             #print(print_cpu_usage())
 
-            map_data = get_map_features(map_infos, tf_current_light)
+            map_data = get_map_features(map_infos, {})
 
             if 'desay' not in input_dir:
                 data = preprocess_map(map_data,break_dist=3)
             else:
                 data = preprocess_map(map_data,break_dist=30)
 
-            #add agent
-            add_agents=self.config["agent"]["add"]
-
-            # delete agent
-            mask = np.ones(len(track_infos["object_id"])).astype(bool)
-
-            if self.config["agent"]["remove"] is not None:
-                for agent in self.config["agent"]["remove"]:
-                    mask[track_infos["object_id"] == agent["id"]] = False
-
-            if add_agents is not None:
-                for agent in add_agents:
-                    mask[track_infos["object_id"] == agent["id"]] = False
-                add_agent_num=len(add_agents)
-            else:
-                add_agent_num=0
-
-            track_infos["object_id"] = track_infos["object_id"][mask]
-            track_infos["object_type"] = track_infos["object_type"][mask]
-            track_infos["states"] = track_infos["states"][mask]
-            track_infos["valid"] = track_infos["valid"][mask]
-            track_infos["role"] = track_infos["role"][mask]
-            self.type=np.array(self.type)[mask]
-
-            new_state=np.zeros([add_agent_num,91,9])
-            agent_type=[]
-            object_id=[]
-
-            type_dict={"pedestrian":1,"bicycle":2,"car":0,"truck":0}
-
-            self.route={}
-
-            add_type=[]
-
-            for i in range(add_agent_num):
-                agent=add_agents[i]
-
-                id=agent["id"]
-                type=agent["type"]
-                position=np.array(agent["position"])
-
-                if agent['speed'] is None:
-                    speed=TG.default_speed[type]
-                else:
-                    speed = agent["speed"]
-
-                if agent["shape"] is None:
-                    shape=self.config["agent_size"][type]
-                else:
-                    shape=agent["shape"]
-
-                if agent["goal"] is not None:
-                    goal=np.array(agent["goal"])
-                    path, dist_m, route_xyz, start_eid, goal_eid = TG._route(position,goal)
-
-                    route_xy = append_segment_with_step(position,route_xyz[:,:2], goal, step=2.0)
-
-                    self.route[id]=route_xy
-
-                    heading= np.arctan2(route_xy[1,1]-route_xy[0,1], route_xy[1,0]-route_xy[0,0])
-
-                if agent["heading"] is not None:
-                    heading = agent["heading"]
-
-                velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed])
-                pos=position[None]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
-
-                new_state[i, :, :2] = pos
-                new_state[i, :, 3:6]= np.array(shape)[None]
-                new_state[i, :, 6]  = heading
-                new_state[i,:, 7:9] = velocity[None]
-
-                agent_type.append(type_dict[agent["type"]])
-                object_id.append(agent["id"])
-                add_type.append(type)
-
-            track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.array(agent_type)])
-            track_infos["states"]=np.concatenate([track_infos["states"],new_state])
-            track_infos["object_id"]=np.concatenate([track_infos["object_id"],np.array(object_id)])
-            track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_agent_num,91]).astype(bool)])
-            track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_agent_num,3]).astype(bool)])
-
-            self.type=np.concatenate([self.type,np.array(add_type)])
-            data["routing"]=self.route
-
-            track_infos['role'][track_infos["object_id"]==0] = True
-
-            track_infos["role"][:,-1]=True
-
-            static_cls=[]
-
-            if len(static_objs):
-                static_list=[]
-                static_pos, static_yaw, static_size,static_type=[],[],[],[]
-
-                for i,object in enumerate(static_objs):#{0: "vehicle", 1: "pedestrian", 2: "cyclist"}
-                    object_type = object["cls"]
-                    new_state=np.zeros([91, 9])
-
-                    if object_type == "cone":
-                        static_type.append(1)
-                    elif object_type == "water_barrier":
-                        static_type.append(0)
-                    elif object_type == "light":
-                        static_type.append(3)
-                    else:
-                        static_type.append(2)
-
-                    new_state[:, 0] = object["x"]
-                    new_state[:, 1] = object["y"]
-                    new_state[:, 3:6] =np.array(object["size_lwh_m"])[None]
-                    new_state[:, 6] = object["heading_rad"]
-
-                    static_list.append(new_state)
-
-                    static_pos.append((object["x"],object["y"]))
-                    static_yaw.append(object["heading_rad"])
-                    static_size.append(object["size_lwh_m"])
-                    static_cls.append(object_type)
-
-                static_pos=np.array(static_pos)
-                static_yaw=np.array(static_yaw)[:,None]
-                static_size=np.array(static_size)
-                static_type=np.array(static_type)
-
-                new_state=np.stack(static_list)
-
-                new_type=np.array(static_type)
-                new_type[static_type==2]=1
-                new_type[static_type==3]=0
-
-                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
-                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-np.arange(len(static_list))])
-                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([len(static_list),91]).astype(bool)])
-                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([len(static_list),3]).astype(bool)])
-                track_infos["object_type"]=np.concatenate([track_infos["object_type"],new_type])
-
-                data["static"]=(static_pos, static_yaw, static_size,static_type)
-
-            self.type=np.concatenate([self.type,np.array(static_cls)])
-
-            # add static object
-            add_static = self.config["static_object"]["add"]
-
-            if add_static is not None:
-                add_static_num=len(add_static)
-                new_state=np.zeros([add_static_num,91,9])
-
-                for i in range(add_static_num):
-                    static=add_static[i]
-                    new_state[i, :, :2] = np.array(static["position"])[None]
-                    new_state[i, :, 3:6] =np.array( static["shape"])[None]
-                    new_state[i, :, 6] = static["heading"]
-                    self.type.append(static["cls"])
-
-                track_infos["states"]=np.concatenate([track_infos["states"],new_state])
-
-                track_infos["object_id"]=np.concatenate([track_infos["object_id"],-1-len(static_list)-np.arange(add_static_num)])
-                track_infos["valid"]=np.concatenate([track_infos["valid"],np.ones([add_static_num,91]).astype(bool)])
-                track_infos["role"]=np.concatenate([track_infos["role"],np.zeros([add_static_num,3]).astype(bool)])
-                track_infos["object_type"]=np.concatenate([track_infos["object_type"],np.zeros([add_static_num])])
-
-            if self.config["agent"]["stop"] is not None:
-                for agent in self.config["agent"]["stop"]:
-                    id=agent["id"]
-                    mask=track_infos["object_id"]==id
-                    track_infos["valid"][mask]=True
-                    track_infos["states"][mask]=track_infos["states"][mask,10:11]
-                    track_infos["role"][mask,-1]=False
-
-            if self.config["agent"]["recording"] is not None:
-                for agent in self.config["agent"]["recording"]:
-                    id=agent["id"]
-                    mask=track_infos["object_id"]==id
-                    track_infos["role"][mask,-1]=False
-
-
             data["agent"] = get_agent_features(
                 track_infos,
                 split="validation",
-                num_historical_steps=current_time_index + 1,
+                num_historical_steps=11,
                 num_steps=91,
             )
             data["agent"]["batch"]=torch.zeros(data["agent"]["num_nodes"]).long()
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
 
+            data["routing"] = self.route
+            data["static"] = (static_pos, static_yaw, static_size, static_type)
+
             self.initialize_simulation(map_data,data)
 
-            self.control_mask=data["agent"]["role"][:,-1]
+            self.agent_mask=data["agent"]["role"][:,-1]
 
             batch_data = HeteroData(data).cuda()
             batch_data.num_graphs=1
@@ -749,40 +760,40 @@ class SimulationManager:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
 
-            route_map_index = torch.zeros([len(tokenized_agent["sampled_idx"]), 100]).to(torch.int16) - 1
-
-            map_type = tokenized_map['type']
-            mask45 = (map_type == 4) | (map_type == 5)
-
-            edge_xy = tokenized_map["position"][mask45].cpu().numpy()
-
-            for id,route_xyz in data["routing"].items():
-
-                yaw_interp = compute_yaw_from_traj(route_xyz)
-
-                L_idx, R_idx, L_d, R_d = nearest_edges_biside(
-                    route_xyz[:,:2], yaw_interp, edge_xy, k=16, radius=40.0
-                )
-
-                all_idx = torch.tensor(
-                    np.unique(np.concatenate([L_idx, R_idx])))  # idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
-                n = min(len(all_idx), 100)
-
-                # import  matplotlib.pyplot as plt
-                #
-                # for boud in boundary_dict.values():
-                #
-                #    plt.scatter(boud[:,0], boud[:,1], c="green")
-                #
-                # edge_point=edge_xy[all_idx.numpy()]
-                # plt.scatter(edge_point[:,0], edge_point[:,1], c="r")
-                #
-                # plt.show()
-                # print(len(all_idx))
-
-                route_map_index[id][:n] = all_idx[:n]
-
-            tokenized_agent["route_map_index"]=route_map_index.cuda()
+            # route_map_index = torch.zeros([len(tokenized_agent["sampled_idx"]), 100]).to(torch.int16) - 1
+            #
+            # map_type = tokenized_map['type']
+            # mask45 = (map_type == 4) | (map_type == 5)
+            #
+            # edge_xy = tokenized_map["position"][mask45].cpu().numpy()
+            #
+            # for id,route_xyz in data["routing"].items():
+            #
+            #     yaw_interp = compute_yaw_from_traj(route_xyz)
+            #
+            #     L_idx, R_idx, L_d, R_d = nearest_edges_biside(
+            #         route_xyz[:,:2], yaw_interp, edge_xy, k=16, radius=40.0
+            #     )
+            #
+            #     all_idx = torch.tensor(
+            #         np.unique(np.concatenate([L_idx, R_idx])))  # idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
+            #     n = min(len(all_idx), 100)
+            #
+            #     # import  matplotlib.pyplot as plt
+            #     #
+            #     # for boud in boundary_dict.values():
+            #     #
+            #     #    plt.scatter(boud[:,0], boud[:,1], c="green")
+            #     #
+            #     # edge_point=edge_xy[all_idx.numpy()]
+            #     # plt.scatter(edge_point[:,0], edge_point[:,1], c="r")
+            #     #
+            #     # plt.show()
+            #     # print(len(all_idx))
+            #
+            #     route_map_index[id][:n] = all_idx[:n]
+            #
+            # tokenized_agent["route_map_index"]=route_map_index.cuda()
 
             #set mean speed:
             # mean_speed=torch.zeros(len(tokenized_agent["type"])).cuda()-1

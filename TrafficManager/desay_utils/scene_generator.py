@@ -242,7 +242,7 @@ class TrafficGenerator:
         return xyz, heading, s0
 
     def sample_agent(self,lane_avail_lengths,lane_avail_s,class_ratio,speeds,size_tab,ego_start_lanes):
-        agent_list=[]
+        agent_dict={}
 
         while True:
             for type in ['car','truck',"bicycle"]:
@@ -268,7 +268,7 @@ class TrafficGenerator:
                     weights=np.clip(weights,a_min=0,a_max=1000)
 
                     if np.sum(weights)==0:
-                        return lane_avail_lengths,lane_avail_s,agent_list
+                        return lane_avail_lengths,lane_avail_s,agent_dict
 
                     # sample one lane
                     sampled_lane = np.random.choice(lanes, p=weights / weights.sum() )
@@ -284,7 +284,7 @@ class TrafficGenerator:
                     weights=np.clip(weights,a_min=0,a_max=1000)
 
                     if np.sum(weights)==0:
-                        return lane_avail_lengths,lane_avail_s,agent_list
+                        return lane_avail_lengths,lane_avail_s,agent_dict
 
                     sampled_seg=np.random.choice(len(new_gaps),p=weights/np.sum(weights))
 
@@ -311,8 +311,7 @@ class TrafficGenerator:
                     xyz = _interp_xyz_at_s(L, sL, u)
                     heading = _heading_at_s_dir(L, sL, u, dir_sign=+1)
 
-                    agent=dict(
-                            agent_id=f"A{len(agent_list)}",
+                    agent_dict[len(agent_dict)]=dict(
                             cls=type,
                             size_lwh_m=size_lwh,
                             avg_speed_mps=avg_speed,
@@ -320,19 +319,17 @@ class TrafficGenerator:
                             start_heading_rad=heading,
                         )
 
-                    agent_list.append(agent)
-
                     if ego_start_lanes is not None:
-                        return lane_avail_lengths,lane_avail_s,agent_list
+                        return lane_avail_lengths,lane_avail_s,agent_dict
 
 
-        return lane_avail_lengths,lane_avail_s,agent_list
+        return lane_avail_lengths,lane_avail_s,agent_dict
 
 
     # ---- ego route (unchanged API, uses seeded rng) ----
     def random_ego_edge_route(self, *, seed: Optional[int]=0, min_len_m: float=30.0, max_len_m: float=5000.0,
                               attempts: int=200, weight_attr: str="weight",
-                              sample_start_on_edge: bool=True, end_at_last_point: bool=True
+                              sample_start_on_edge: bool=True, end_at_last_point: bool=True,
                               ) -> Tuple[List[Any], np.ndarray, np.ndarray, np.ndarray]:
         rng = np.random.default_rng(seed)
         EID = self._build_edge_id_graph(weight_attr)
@@ -499,7 +496,10 @@ class TrafficGenerator:
         if not candidate_edges:
             candidate_edges = [ _key_id(ed["id"]) for _, _, ed in self.EG.edges(data=True) ]
 
-        self.default_speed = {"pedestrian":1.4, "bicycle":4.5*(1.1-density01), "car":13.9*(1.1-density01), "truck":11.1*(1.1-density01)}
+        # self.default_speed = {"pedestrian":1.4, "bicycle":4.5, "car":13.9, "truck":11.1}
+
+        self.default_speed = {"pedestrian":1.4, "bicycle":4.5, "car":20*(1.1-density01), "truck":15*(1.1-density01)}
+
 
         lane_avail_lengths={}
         lane_avail_s = {}
@@ -518,11 +518,11 @@ class TrafficGenerator:
 
         ego_start_lanes=self.edge_member_lanes.get(ego_edge_ids[0])
 
-        lane_avail_lengths,lane_avail_s,agent_list=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,self.default_speed,size_tab,ego_start_lanes)
+        lane_avail_lengths,lane_avail_s,agent_dict=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,self.default_speed,size_tab,ego_start_lanes)
 
-        lane_avail_lengths,lane_avail_s,agent_list=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,self.default_speed,size_tab,None)
+        lane_avail_lengths,lane_avail_s,agent_dict=self.sample_agent(lane_avail_lengths,lane_avail_s,class_ratio,self.default_speed,size_tab,None)
 
-        all_agent_num=len(agent_list)
+        all_agent_num=len(agent_dict)
 
         ped_num=int(all_agent_num/(class_ratio['car']+class_ratio['bicycle']+class_ratio['truck']) *class_ratio['pedestrian'])
 
@@ -537,8 +537,7 @@ class TrafficGenerator:
             route_xyz = _slice_from_s_to_s(B, sB, s0, s1)
             start_xyz = route_xyz[0]
             start_heading = _heading_at_s_dir(B, sB, s0, dir_sign=dir_sign)
-            agent = dict(
-                agent_id=f"A{len(agent_list)}",
+            agent_dict[len(agent_dict)] = dict(
                 cls='pedestrian',
                 size_lwh_m=size_tab['pedestrian'],
                 avg_speed_mps=self.default_speed["pedestrian"],
@@ -546,9 +545,7 @@ class TrafficGenerator:
                 start_heading_rad=start_heading,
             )
 
-            agent_list.append(agent)
-
-        counts = Counter(a["cls"] for a in agent_list)
+        counts = Counter(a["cls"] for a in agent_dict.values())
         print("Agent class counts:", dict(counts))
 
-        return agent_list
+        return agent_dict

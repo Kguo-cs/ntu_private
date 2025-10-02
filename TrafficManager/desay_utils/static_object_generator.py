@@ -64,10 +64,10 @@ def _tangent_heading_at(P: np.ndarray, idx: int) -> float:
     if dx == 0 and dy == 0: return 0.0
     return math.atan2(dy, dx)
 
-def _polyline_capacity_len(lines: List[np.ndarray]) -> float:
+def _polyline_capacity_len(lines: List[np.ndarray],spacing) -> float:
     total = 0.0
     for L in lines:
-        total += float(_arclen2d(_to_xyz(L)[:, :2])[-1])
+        total += int(float(_arclen2d(_to_xyz(L)[:, :2])[-1])//spacing)
     return total
 
 
@@ -207,9 +207,9 @@ def generate_static_elements_from_raw(
     spacing=5
 
     # ---- capacity & allocation ----
-    support_len = _polyline_capacity_len(support_lines)
+    support_len = _polyline_capacity_len(support_lines,spacing)
 
-    total_cap= support_len / spacing*spec.density01/(spec.ratios["cone"]+spec.ratios["water_barrier"])
+    total_cap= support_len*spec.density01/(spec.ratios["cone"]+spec.ratios["water_barrier"])
 
     alloc={}
 
@@ -229,10 +229,8 @@ def generate_static_elements_from_raw(
 
         lane_s[id] = lane_length
 
-
-
     def sample_objects(lanes,lane_s,lane_avail_lengths,lane_avail_s,spacing,object_min, object_max):
-        object_list=[]
+        object_dict= {}
         cone_number=0
         water_number=0
 
@@ -247,7 +245,7 @@ def generate_static_elements_from_raw(
             weights=np.clip(weights,a_min=0,a_max=1000)
 
             if np.sum(weights)==0:
-                return object_list,cone_number,water_number
+                return object_dict,cone_number,water_number
 
             # sample one lane
             sampled_lane = np.random.choice(range(len(lanes)), p=weights / weights.sum() )
@@ -320,13 +318,12 @@ def generate_static_elements_from_raw(
                 heading = float(heading + rng.normal(0.0, spec.jitter_heading))
 
                 agent=dict(
-                        id=f"{type}_{len(object_list):06d}",
                         cls=type,
                         size_lwh_m=spec.sizes_lwh_m[type],
                         x=float(xyz[0]), y=float(xyz[1]), z=float(xyz[2]),
                         heading_rad=float(heading),
                     )
-                object_list.append(agent)
+                object_dict[-1-len(object_dict)]=agent
 
             if type=="cone":
                 cone_number=cone_number+object_number
@@ -334,9 +331,9 @@ def generate_static_elements_from_raw(
                 water_number=water_number+object_number
 
             if cone_number>alloc["cone"] or water_number>alloc["water_barrier"]:
-                return object_list,cone_number,water_number
+                return object_dict,cone_number,water_number
 
-        return object_list,cone_number,water_number
+        return object_dict,cone_number,water_number
 
     spacing_m=max(5.0,spec.sizes_lwh_m["water_barrier"][0] )#{"cone":5.0, "water_barrier":5.0}
 
@@ -383,24 +380,21 @@ def generate_static_elements_from_raw(
                 hydrants.append((np.array([x, y, 0.0], float), hd))
 
 
-    counter = 0
-
     def _emit(objs, cls):
-        nonlocal counter, out
+        nonlocal  out
         LWH = spec.sizes_lwh_m.get(cls, (1.0,1.0,1.0))
         for (xyz, hd) in objs:
-            out.append(dict(
-                id=f"{cls}_{counter:06d}",
+            out[-1-len(out)]=dict(
                 cls=cls,
                 size_lwh_m=LWH,
                 x=float(xyz[0]), y=float(xyz[1]), z=float(xyz[2]),
                 heading_rad=float(hd),
-            ))
-            counter += 1
+            )
 
     _emit(hydrants, "hydrant")
+    # id = f"{cls}_{counter:06d}",
 
-    counts = Counter(a["cls"] for a in out)
+    counts = Counter(a["cls"] for a in out.values())
     print("Agent class counts:", dict(counts))
 
     # print("Static class counts: {'cones':", len(cones), 'water_barrier:', len(bars),"hydrant:", len(hydrants), "}")
