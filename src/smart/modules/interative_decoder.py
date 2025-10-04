@@ -169,7 +169,7 @@ class InterativeDecoder(nn.Module):
                 if self.use_iteract:
 
                     self.token_predict_head = MLPLayer(
-                        input_dim=hidden_dim * 3, hidden_dim=hidden_dim*3, output_dim=n_token_agent
+                        input_dim=hidden_dim * 3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
                 # self.token_predict_head = nn.Sequential(
@@ -437,7 +437,7 @@ class InterativeDecoder(nn.Module):
                     if self.learn_weight:
                         weight =1
                     else:
-                        weight=torch.exp(-dist[:,None]/3)*1
+                        weight=torch.exp(-dist[:,None]/3)*0.5
                         # agent_num=scatter_sum(torch.ones_like(dist), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0] #torch.exp(-dist[:,None]/3)*3
                         #
                         # weight=agent_num[end_idx]
