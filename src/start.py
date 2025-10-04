@@ -116,7 +116,7 @@ def main():
     # First attempt: run as given (don’t force a ckpt override on the very first try)
     attempt = 0
     cmd = list(child_argv)
-    rc = run_once(cmd, child_env, print_cmd=args.print_cmd)
+    rc =1 #run_once(cmd, child_env, print_cmd=args.print_cmd)
 
     while rc not in (0, 130) and attempt < args.max_retries:
         attempt += 1
