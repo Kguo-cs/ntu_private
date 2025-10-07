@@ -27,7 +27,7 @@ model:
 
     smart: false
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/bc56_map4679_epoch=56-step=495729_0.78428.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/bc56_epoch=62-step=547911_0.78437.ckpt'
 
 trainer:
   limit_train_batches: 1.0
