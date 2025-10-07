@@ -5,10 +5,10 @@ from tqdm import tqdm
 
 # List of URLs
 file_links = [
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_boston.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_pittsburgh.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_singapore.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_1.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_boston.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_pittsburgh.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_singapore.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_1.zip",
     "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_2.zip",
     "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_3.zip",
     "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_4.zip",
@@ -42,7 +42,7 @@ def download_and_unzip(url, output_path):
     with ZipFile(local_filename, 'r') as zip_ref:
         zip_ref.extractall(output_path)
     print(f"Extracted: {local_filename}")
-    os.remove(local_filename)  # Clean up zip file
+    # os.remove(local_filename)  # Clean up zip file
 
 
 # Download and unzip all files
