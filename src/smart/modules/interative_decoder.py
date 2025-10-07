@@ -21,6 +21,9 @@ from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.my_model.diffusion_discriminator import Discriminator
 
+def dirl(x):
+
+    return 0.5*torch.sigmoid(x)*(torch.tanh(x)+1)
 
 
 class InterativeDecoder(nn.Module):
@@ -437,7 +440,7 @@ class InterativeDecoder(nn.Module):
                     if self.learn_weight:
                         weight =1
                     else:
-                        weight=torch.clamp_max(torch.exp(-dist[:,None]/3)*0.2,1)
+                        weight=torch.exp(-dist[:,None]/3)*3#torch.clamp_max(*0.2,1)
                         # agent_num=scatter_sum(torch.ones_like(dist), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0] #torch.exp(-dist[:,None]/3)*3
                         #
                         # weight=agent_num[end_idx]
@@ -446,7 +449,7 @@ class InterativeDecoder(nn.Module):
 
                     #interact_logits=-torch.log(1-torch.sigmoid(next_token_logits[:,:,:1]))*weight[:,None]
 
-                    interact_logits=next_token_logits[:,:,:1]*weight[:,None]
+                    interact_logits=dirl(next_token_logits[:,:,:1])*weight[:,None]
 
                     interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=mask_a.shape[0]*n_step)#[0]
 
@@ -456,7 +459,7 @@ class InterativeDecoder(nn.Module):
                     rewards=interact_logits_sum.view( n_step,  -1).transpose(0, 1)
 
                     if not self.use_ego_loop:
-                        ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
+                        ego_rewards=dirl(ego_logits).view(n_step,  -1).transpose(0, 1)
                         #ego_rewards=-torch.log(1-torch.sigmoid(ego_logits)).view(n_step,  -1).transpose(0, 1)
 
                         rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
@@ -476,7 +479,7 @@ class InterativeDecoder(nn.Module):
                     all_rewards = torch.zeros_like(head_a)
                     all_rewards[train_mask]=rewards
 
-                weight2=torch.exp(-dist/2)*0.5
+                weight2=torch.exp(-dist/3)*6
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 
