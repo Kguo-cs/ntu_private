@@ -21,7 +21,7 @@ sys.path.append(gump_path)
 
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
-from src.data_preprocess import get_map_features
+from src.data_preprocess import get_map_features,get_agent_features
 
 scenario_mapping_config = {
     "scenario_map": {
@@ -192,9 +192,9 @@ def boundaries_in_range(gdf: gpd.GeoDataFrame, cx: float, cy: float, radius_m: f
 
     return roi.reset_index(drop=True)
 
-def extract_map_features(map_api, center, route_block_ids, radius=300):
+def extract_map_features(map_api, center,  radius):
     ret = {}
-    np.seterr(all='ignore')
+    #np.seterr(all='ignore')
     # Center is Important !
     layer_names = [
         # SemanticMapLayer.LANE_CONNECTOR,
@@ -378,16 +378,16 @@ def extract_map_features(map_api, center, route_block_ids, radius=300):
     #     ret[id] = {'boundary':block_points}
 
     #
-    for key,line in ret.items():
-        if 'solid' in key:
-            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
-        elif 'cross_walk' in key:
-
-            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
-        elif 'broken' in key:
-            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
-        elif 'boundary' in key:
-            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan',alpha=0.5)
+    # for key,line in ret.items():
+    #     if 'solid' in key:
+    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
+    #     elif 'cross_walk' in key:
+    #
+    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
+    #     elif 'broken' in key:
+    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
+    #     elif 'boundary' in key:
+    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan',alpha=0.5)
 
    # plt.show()
 
@@ -395,9 +395,9 @@ def extract_map_features(map_api, center, route_block_ids, radius=300):
 
 
 
-def get_map_vector(scenario,origin_ego):
+def get_map_vector(scenario,origin_ego,radius):
 
-    result = extract_map_features(scenario.map_api, origin_ego, [])
+    result = extract_map_features(scenario.map_api, origin_ego, radius)
 
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
 
@@ -435,7 +435,7 @@ def get_map_vector(scenario,origin_ego):
     try:
         polylines=np.concatenate(polylines, axis=0)
 
-        #polylines[:,:2]-=origin_ego[None]
+    #   polylines[:,:2]-=origin_ego[None]
 
         polylines = polylines.astype(np.float32)
     except:
@@ -470,22 +470,24 @@ def get_map_vector(scenario,origin_ego):
 
     data = preprocess_map(map_data,break_dist=300)
 
-    traj_pos= data['map_save']['traj_pos']
+    #traj_pos= data['map_save']['traj_pos']
 
-    type=data['pt_token']['type']
+  #  type=data['pt_token']['type']
 
 
-    print(len(traj_pos))
-
-    for traj in traj_pos[type==6]:
-
-        plt.plot(traj[:,0], traj[:,1], '.')
-    plt.show()
+    # print(len(traj_pos))
+    #
+    # print(len(traj_pos[type==6]))
+    #
+    # for traj in traj_pos:#[type==6]
+    #
+    #     plt.plot(traj[:,0], traj[:,1], '.')
+    # plt.show()
 
     return data
 
 
-def get_agent(scenario,origin_ego):
+def get_agent(scenario):
 
     detections = scenario.get_tracked_objects_at_iteration(past_num_steps)
 
@@ -494,10 +496,21 @@ def get_agent(scenario,origin_ego):
 
     for agent in detections.tracked_objects:
         track_type = agent.tracked_object_type.value
-        if track_type < 3:
+        if track_type < 7:
             track_token = agent.track_token
             id_mapping[track_token] = idx
             idx += 1
+        # else:
+        #     print(1)
+
+        # VEHICLE = 0, 'vehicle'
+        # PEDESTRIAN = 1, 'pedestrian'
+        # BICYCLE = 2, 'bicycle'
+        # TRAFFIC_CONE = 3, 'traffic_cone'
+        # BARRIER = 4, 'barrier'
+        # CZONE_SIGN = 5, 'czone_sign'
+        # GENERIC_OBJECT = 6, 'generic_object'
+        # EGO = 7, 'ego'
 
     num_agent = idx
 
@@ -517,8 +530,8 @@ def get_agent(scenario,origin_ego):
         agent = ego_state.agent
 
         track_infos["valid"][0][t] = True
-        track_infos["states"][0][t][0] = agent.center.x-origin_ego[0]
-        track_infos["states"][0][t][1] = agent.center.y-origin_ego[1]
+        track_infos["states"][0][t][0] = agent.center.x#-origin_ego[0]
+        track_infos["states"][0][t][1] = agent.center.y#-origin_ego[1]
         track_infos["states"][0][t][3] = agent.box.length
         track_infos["states"][0][t][4] = agent.box.width
         track_infos["states"][0][t][5] = agent.box.height
@@ -530,13 +543,13 @@ def get_agent(scenario,origin_ego):
             track_token = agent.track_token
             track_type = agent.tracked_object_type.value
 
-            if track_token in id_mapping.keys() and track_type < 3:
+            if track_token in id_mapping.keys() :
                 track_idx = id_mapping[track_token]
                 track_infos["valid"][track_idx][t] = True
                 track_infos["object_type"][track_idx] = track_type
 
-                track_infos["states"][track_idx][t][0] = agent.center.x-origin_ego[0]
-                track_infos["states"][track_idx][t][1] = agent.center.y-origin_ego[1]
+                track_infos["states"][track_idx][t][0] = agent.center.x#-origin_ego[0]
+                track_infos["states"][track_idx][t][1] = agent.center.y#-origin_ego[1]
                 track_infos["states"][track_idx][t][3] = agent.box.length
                 track_infos["states"][track_idx][t][4] = agent.box.width
                 track_infos["states"][track_idx][t][5] = agent.box.height
@@ -544,7 +557,16 @@ def get_agent(scenario,origin_ego):
                 track_infos["states"][track_idx][t][7] = agent.velocity.x
                 track_infos["states"][track_idx][t][8] = agent.velocity.y
 
-    out_dict = get_agent_features(track_infos, past_num_steps + 1,num_step )
+    out_dict = get_agent_features(track_infos,'train', past_num_steps + 1,num_step )
+
+    # position=out_dict["position"]
+    # valid=out_dict["valid_mask"]
+    #
+    # valid_pos=position[valid]
+
+   # plt.scatter(valid_pos[:,0], valid_pos[:,1])
+
+    #plt.show()
     
     return out_dict
 
@@ -554,13 +576,33 @@ def get_agent(scenario,origin_ego):
 # for scenario in tqdm(scenarios):
 # @ray.remote
 def process_scenario(scenario):
-    ego_state = scenario.get_ego_state_at_iteration(10)
+    agent=get_agent(scenario)
 
-    origin_ego=np.array([ego_state.center.x,ego_state.center.y])
+    position=agent["position"]
+    valid=agent["valid_mask"]
 
-    data=get_map_vector(scenario,origin_ego)
+    valid_pos=position[valid]
+
+    valid_pos=valid_pos.numpy()
+    valid_pos_max=np.max(valid_pos,axis=0)
+    valid_pos_min=np.min(valid_pos,axis=0)
+
+    center_pos=(valid_pos_max+valid_pos_min)/2
+
+    gap=np.linalg.norm(valid_pos-center_pos[None],axis=1).max()
+
+    # plt.scatter(valid_pos[:,0], valid_pos[:,1])
+    #
+    # plt.show()
+
+    #print(gap)
+
+    data=get_map_vector(scenario,center_pos[:2],gap+50)
+
+    data["agent"]=agent
+
+
     scenario_id=scenario.token
-    data["agent"]=get_agent(scenario,origin_ego)
 
     with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
         pickle.dump(data, f)
@@ -568,15 +610,15 @@ def process_scenario(scenario):
 
 # with multiprocessing.Pool(28) as p:
 #     r = list(tqdm(p.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-print(len(scenarios))
+#print(len(scenarios))
 
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-# with Pool(4) as pool:
-#     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-for scenario in tqdm(scenarios):
-    process_scenario(scenario)
+with Pool(8) as pool:
+    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+# for scenario in tqdm(scenarios):
+#     process_scenario(scenario)
 
 # # Submit tasks in parallel
 # futures = [process_scenario.remote(scenario) for scenario in scenarios]

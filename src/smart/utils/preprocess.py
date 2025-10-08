@@ -16,7 +16,8 @@ from typing import Any, Dict
 import numpy as np
 import torch
 from scipy.interpolate import interp1d
-from tensorflow_probability.python.internal.backend.jax import uint8
+
+
 
 
 def get_polylines_from_polygon(polygon: np.ndarray) -> np.ndarray:
@@ -42,6 +43,68 @@ def get_polylines_from_polygon(polygon: np.ndarray) -> np.ndarray:
         pl2 = _pl_interp_start_end(polygon[2], polygon[1])
     return np.concatenate([pl1, pl1[::-1], pl2, pl2[::-1]], axis=0)
 
+import numpy as np
+import warnings
+from scipy.interpolate import interp1d
+
+class InterpInputError(ValueError):
+    pass
+
+def _validate_dist(dist_along_path: np.ndarray, name="dist_along_path"):
+    if dist_along_path.ndim != 1:
+        raise InterpInputError(f"{name} must be 1D, got shape {dist_along_path.shape}")
+    if dist_along_path.size < 2:
+        raise InterpInputError(f"{name} needs >=2 points, got {dist_along_path.size}")
+    if not np.all(np.isfinite(dist_along_path)):
+        bad = np.where(~np.isfinite(dist_along_path))[0][:5]
+        raise InterpInputError(f"{name} has non-finite values at indices {bad.tolist()}")
+    # require strictly increasing
+    d = np.diff(dist_along_path)
+    if not np.all(d > 0):
+        bad = np.where(d <= 0)[0][:5]
+        raise InterpInputError(
+            f"{name} must be strictly increasing; non-positive Δ at indices {bad.tolist()}"
+        )
+
+def resample_polyline(dist_along_path: np.ndarray,
+                      polylines_cur: np.ndarray,
+                      distance: float) -> np.ndarray:
+    """
+    dist_along_path: (N,) strictly increasing, finite
+    polylines_cur:   (N, D) coordinates (D=2 or 3)
+    distance:        > 0 resampling step
+    """
+
+    if polylines_cur.ndim != 2 or polylines_cur.shape[0] != dist_along_path.size:
+        raise InterpInputError(
+            f"polylines_cur shape {polylines_cur.shape} incompatible with dist size {dist_along_path.size}"
+        )
+    if not np.all(np.isfinite(polylines_cur)):
+        raise InterpInputError("polylines_cur contains NaN/Inf")
+
+    # Build target samples
+    new_dist = np.arange(0.0, dist_along_path[-1], distance, dtype=float)
+    if new_dist.size == 0 or new_dist[-1] != dist_along_path[-1]:
+        new_dist = np.concatenate([new_dist, dist_along_path[[-1]]])
+
+    # Turn SciPy's RuntimeWarning into an exception (only for this block)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            category=RuntimeWarning,
+            module=r".*scipy\.interpolate\._interpolate"
+        )
+        fxy = interp1d(dist_along_path, polylines_cur, axis=0,
+                       kind="linear", bounds_error=True)
+
+        # If SciPy would have produced a RuntimeWarning (e.g., divide by zero),
+        # the next line will raise instead of silently warning.
+        new_poly = fxy(new_dist)
+
+    if not np.all(np.isfinite(new_poly)):
+        raise InterpInputError("Interpolation produced non-finite outputs")
+
+    return new_poly
 
 def _interplating_polyline(polylines, break_dist=3,distance=0.5, split_distace=5):
     # Calculate the cumulative distance along the path, up-sample the polyline to 0.5 meter
@@ -66,7 +129,13 @@ def _interplating_polyline(polylines, break_dist=3,distance=0.5, split_distace=5
         dist_along_path = dist_along_path_list[idx]
         polylines_cur = polylines_list[idx]
         # Create interpolation functions for x and y coordinates
-        fxy = interp1d(dist_along_path, polylines_cur, axis=0)
+
+        non_overlap_point=dist_along_path[:-1]!=dist_along_path[1:]
+
+        non_overlap_point=np.concatenate([np.ones_like(non_overlap_point[:1]),non_overlap_point])
+
+        fxy = interp1d(dist_along_path[non_overlap_point], polylines_cur[non_overlap_point], axis=0)
+
 
         # Create an array of distances at which to interpolate
         new_dist_along_path = np.arange(0, dist_along_path[-1], distance)
@@ -74,8 +143,14 @@ def _interplating_polyline(polylines, break_dist=3,distance=0.5, split_distace=5
             [new_dist_along_path, dist_along_path[[-1]]]
         )
 
+
         # Combine the new x and y coordinates into a single array
         new_polylines = fxy(new_dist_along_path)
+        # try:
+        #     new_polylines =resample_polyline(dist_along_path,polylines_cur, distance)
+        # except:
+        #     print(1)
+
         polyline_size = int(split_distace / distance)
         if new_polylines.shape[0] >= (polyline_size + 1):
             padding_size = (
@@ -139,7 +214,7 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
 
     for i in sorted(torch.unique(pt2pl[1])):
         index = pt2pl[0, pt2pl[1] == i]
-        if len(index) <= 2:
+        if len(index) <= 1:
             continue
 
         polygon_type = map_data["map_polygon"]["type"][i]

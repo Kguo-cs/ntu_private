@@ -71,10 +71,7 @@ def get_agent_features(
 
     idx_agents_to_add = []
     for i in range(len(track_infos["object_id"])):
-        if "train" in split:
-            add_agent = track_infos["valid"][i, ::5].any()
-        else:
-            add_agent = track_infos["valid"][i, num_historical_steps - 1]
+        add_agent = track_infos["valid"][i, num_historical_steps - 1]
 
         if add_agent:
             idx_agents_to_add.append(i)
@@ -102,7 +99,7 @@ def get_agent_features(
         states = track_infos["states"][idx]
 
         object_shape = states[:, 3:6]  # [n_step, 3], length, width, height
-        object_shape = object_shape[valid].mean(axis=0)  # [3] #[:11]
+        object_shape = object_shape[valid].mean(axis=0)  # [3]
         out_dict["shape"][i] = torch.from_numpy(object_shape)
 
         valid_steps = np.where(valid)[0]
@@ -128,7 +125,6 @@ def get_agent_features(
 
     return out_dict
 
-
 def get_map_features(map_infos, tf_current_light, dim=2):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
     num_polygons = len(polygon_ids)
@@ -140,25 +136,32 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     # point_orientation: List[Optional[torch.Tensor]] = [None] * num_polygons
     point_type: List[Optional[torch.Tensor]] = [None] * num_polygons
 
+    polygon_xyz=[]
+
+    map_type=[]
+
     for _key in _polygon_types:
         for _seg in map_infos[_key]:
             _idx = polygon_ids.index(_seg["id"])
             centerline = map_infos["all_polylines"][
                 _seg["polyline_index"][0] : _seg["polyline_index"][1]
             ]
+            polygon_xyz.append(centerline[:,:3])
             centerline = torch.from_numpy(centerline).float()
             polygon_type[_idx] = _polygon_types.index(_key)
 
-            point_position[_idx] = centerline[:-1, :dim]
-            center_vectors = centerline[1:] - centerline[:-1]
+            point_position[_idx] = centerline#[:-1, :dim]
+            #center_vectors = centerline[1:] - centerline[:-1]
             # point_orientation[_idx] = torch.cat(
             #     [torch.atan2(center_vectors[:, 1], center_vectors[:, 0])], dim=0
             # )
             point_type[_idx] = torch.full(
-                (len(center_vectors),), _seg["type"], dtype=torch.uint8
+                (len(centerline),), _seg["type"], dtype=torch.uint8
             )
 
-            if _key == "lane":
+           # map_type.append(_seg["type"])
+
+            if _key == "lane" and len(tf_current_light):
                 res = tf_current_light[tf_current_light["lane_id"] == _seg["id"]]
                 if len(res) != 0:
                     polygon_light_type[_idx] = _polygon_light_type.index(
@@ -184,6 +187,10 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     map_data["map_polygon"]["num_nodes"] = num_polygons
     map_data["map_polygon"]["type"] = polygon_type
     map_data["map_polygon"]["light_type"] = polygon_light_type
+   # map_data["map_polygon"]["polygon_ids"] = polygon_ids
+    #map_data["map_polygon"]["polygon_xyz"] = polygon_xyz
+    #map_data["map_polygon"]["map_type"] = map_type
+
     if len(num_points) == 0:
         map_data["map_point"]["num_nodes"] = 0
         map_data["map_point"]["position"] = torch.tensor([], dtype=torch.float)
@@ -200,6 +207,7 @@ def get_map_features(map_infos, tf_current_light, dim=2):
         "edge_index"
     ] = point_to_polygon_edge_index
     return map_data
+
 
 def process_dynamic_map(dynamic_map_infos):
     lane_ids = dynamic_map_infos["lane_id"]
@@ -529,7 +537,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/full"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=12)
     args = parser.parse_args()
 

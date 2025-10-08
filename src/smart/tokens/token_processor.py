@@ -80,15 +80,8 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        if not self.training:
-            if 'traj_theta' in data.keys():
-                tokenized_map = self.tokenize_map(data)
-            else:
-                tokenized_map = {}
-                map=data["tokenized_map"]
-                tokenized_map["traj_pos"] = map["traj_pos"]
-                tokenized_map["type"] = map["type"]
-                tokenized_map["batch"] = map["batch"]
+        if "token_idx" not in data.keys():
+            tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data)
 

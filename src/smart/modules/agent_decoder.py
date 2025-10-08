@@ -432,7 +432,7 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent["latent_z"]=None
 
         next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
-                                                                                tokenized_agent["goal_idx"],
+                                                                                None,
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
                                                                                 tokenized_agent["sampled_heading"] ,
