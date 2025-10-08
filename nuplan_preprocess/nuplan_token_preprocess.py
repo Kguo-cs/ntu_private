@@ -19,6 +19,7 @@ sys.path.append('/home/ke/code/catk')
 sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
+sys.path.append('/home/ke/keguo/sim')
 
 
 from src.smart.tokens.token_processor import TokenProcessor
@@ -34,8 +35,8 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_training/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_training_map2_03/"
+agent_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_training/"
+ouput_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_training_map2_03/"
 
 
 
