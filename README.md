@@ -11,7 +11,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route shanhel
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz ~/keguo/sim/src/waymo_data/full/nuplan_training_map2_03 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
@@ -79,7 +79,7 @@ pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.4.0+
 sudo apt-get install sumo sumo-tools sumo-doc
 pip install -r TrafficManager/requirements.txt
 
-nohup python run.py >  1.log 2>&1 &
+nohup python start.py >  1.log 2>&1 &
 
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
