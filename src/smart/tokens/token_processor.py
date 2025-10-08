@@ -669,7 +669,7 @@ class TokenProcessor(torch.nn.Module):
 
         agent_type = agent["type"]
 
-        agent_mask = agent_type < 5
+        agent_mask = agent_type < 6
 
         agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
             agent['type'][agent_mask]
