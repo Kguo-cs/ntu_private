@@ -71,7 +71,7 @@ def process(map_infos,map_features,remove_mapid,line_dict,boundary_dict,polyline
             map_infos["road_line"].append(cur_info)
         elif feature_data_type == "boundary":
             map_infos["road_edge"].append(cur_info)
-        elif feature_data_type == "speed_bump":
+        elif feature_data_type == "speed_bump" or feature_data_type == "crosswalk":
             map_infos["crosswalk"].append(cur_info)
 
     return map_infos,line_dict,boundary_dict,polylines,point_cnt

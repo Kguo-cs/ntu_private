@@ -20,7 +20,8 @@ import sys
 sys.path.append(gump_path)
 
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
-from nuplan_preprocess.process import get_polylines_from_polygon, preprocess_map,get_map_features,process_dynamic_map,get_agent_features
+from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
+from src.data_preprocess import get_map_features
 
 scenario_mapping_config = {
     "scenario_map": {
@@ -191,20 +192,20 @@ def boundaries_in_range(gdf: gpd.GeoDataFrame, cx: float, cy: float, radius_m: f
 
     return roi.reset_index(drop=True)
 
-def extract_map_features(map_api, center, route_block_ids, radius=200):
+def extract_map_features(map_api, center, route_block_ids, radius=300):
     ret = {}
     np.seterr(all='ignore')
     # Center is Important !
     layer_names = [
-        SemanticMapLayer.LANE_CONNECTOR,
+        # SemanticMapLayer.LANE_CONNECTOR,
         SemanticMapLayer.LANE,
         SemanticMapLayer.CROSSWALK,
         SemanticMapLayer.INTERSECTION,
-        SemanticMapLayer.STOP_LINE,
-        SemanticMapLayer.WALKWAYS,
-        SemanticMapLayer.CARPARK_AREA,
+        #SemanticMapLayer.STOP_LINE,
+        #SemanticMapLayer.WALKWAYS,
+       # SemanticMapLayer.CARPARK_AREA,
         SemanticMapLayer.ROADBLOCK,
-        SemanticMapLayer.ROADBLOCK_CONNECTOR,
+       # SemanticMapLayer.ROADBLOCK_CONNECTOR,
 
         # unsupported yet
         # SemanticMapLayer.STOP_SIGN,
@@ -218,76 +219,111 @@ def extract_map_features(map_api, center, route_block_ids, radius=200):
     #
     # inrange.plot()
 
-    boundaries =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
-    drivable_boundary=boundaries_in_range(boundaries, center[0],center[1], radius).boundary.explode(index_parts=True)
+  #  boundaries =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
+  #  drivable_boundary=boundaries_in_range(boundaries, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
 
-    # drivable_boundary.plot()
-    # plt.show()
+   # drivable_boundary.plot()
+   # plt.show()
     #
     # plt.savefig(Path(output_dir, f"map_{center}.png"))
     #
     # print(1/0)
 
     # Filter out stop polygons in turn stop
-    if SemanticMapLayer.STOP_LINE in nearest_vector_map:
-        stop_polygons = nearest_vector_map[SemanticMapLayer.STOP_LINE]
-        nearest_vector_map[SemanticMapLayer.STOP_LINE] = [
-            stop_polygon for stop_polygon in stop_polygons if stop_polygon.stop_line_type != StopLineType.TURN_STOP
-        ]
+    # if SemanticMapLayer.STOP_LINE in nearest_vector_map:
+    #     stop_polygons = nearest_vector_map[SemanticMapLayer.STOP_LINE]
+    #     nearest_vector_map[SemanticMapLayer.STOP_LINE] = [
+    #         stop_polygon for stop_polygon in stop_polygons if stop_polygon.stop_line_type != StopLineType.TURN_STOP
+    #     ]
     block_polygons = []
-    for layer in [SemanticMapLayer.ROADBLOCK, SemanticMapLayer.ROADBLOCK_CONNECTOR]:
+
+    couple=[]
+
+    #broken_dict={}
+
+    #solid_dict={}
+
+    for lane in nearest_vector_map[SemanticMapLayer.LANE]:
+        left_nei,right_nei=lane.adjacent_edges
+        if left_nei is not None:
+            if (left_nei.id, lane.id) not in couple:
+                couple.append((left_nei.id, lane.id))
+                # broken_dict[(left_nei.id, lane.id)] = lane.left_boundary
+                ret['broken_'+left_nei.id+'_' + lane.id] =get_points_from_boundary(lane.left_boundary, center)
+            # else:
+            #     print(left_nei.id, lane.id)
+        else:
+            #solid_dict[lane.id] = lane.left_boundary
+            # ret[left.id] = {'solid_line': get_points_from_boundary(left, center)}
+            ret['solid_left_'+lane.id] = get_points_from_boundary(lane.left_boundary, center)
+
+        if right_nei is not None:
+            if (lane.id,right_nei.id) not in couple:
+                couple.append((lane.id,right_nei.id))
+                ret['broken_'+lane.id+'_' + right_nei.id] = get_points_from_boundary(lane.right_boundary, center)
+
+                # broken_dict[(lane.id,right_nei.id)] = lane.right_boundary
+            # else:
+            #     print(lane.id,right_nei.id)
+        else:
+            # solid_dict[lane.id] = lane.right_boundary
+            ret['solid_right_'+lane.id] = get_points_from_boundary(lane.right_boundary, center)
+
+    #print(1)
+
+    for layer in [SemanticMapLayer.ROADBLOCK]:
         for block in nearest_vector_map[layer]:
-            edges = sorted(block.interior_edges, key=lambda lane: lane.index) \
-                if layer == SemanticMapLayer.ROADBLOCK else block.interior_edges
-            for index, lane_meta_data in enumerate(edges):
-                if not hasattr(lane_meta_data, "baseline_path"):
-                    continue
-                if isinstance(lane_meta_data.polygon.boundary, MultiLineString):
-                    boundary = gpd.GeoSeries(lane_meta_data.polygon.boundary).explode(index_parts=True)
-                    sizes = []
-                    for idx, polygon in enumerate(boundary[0]):
-                        sizes.append(len(polygon.xy[1]))
-                    points = boundary[0][np.argmax(sizes)].xy
-                elif isinstance(lane_meta_data.polygon.boundary, LineString):
-                    points = lane_meta_data.polygon.boundary.xy
-                polygon = [[points[0][i], points[1][i]] for i in range(len(points[0]))]
-                # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
-
-                # According to the map attributes, lanes are numbered left to right with smaller indices being on the
-                # left and larger indices being on the right.
-                # @ See NuPlanLane.adjacent_edges()
-                # ret[lane_meta_data.id] = {
-                #     SD.TYPE: MetaDriveType.LANE_SURFACE_STREET \
-                #         if layer == SemanticMapLayer.ROADBLOCK else MetaDriveType.LANE_SURFACE_UNSTRUCTURE,
-                #     SD.POLYLINE: extract_centerline(lane_meta_data, center),
-                #     SD.ENTRY: [edge.id for edge in lane_meta_data.incoming_edges],
-                #     SD.EXIT: [edge.id for edge in lane_meta_data.outgoing_edges],
-                #     SD.LEFT_NEIGHBORS: [edge.id for edge in block.interior_edges[:index]] \
-                #         if layer == SemanticMapLayer.ROADBLOCK else [],
-                #     SD.RIGHT_NEIGHBORS: [edge.id for edge in block.interior_edges[index + 1:]] \
-                #         if layer == SemanticMapLayer.ROADBLOCK else [],
-                #     SD.POLYGON: polygon,
-                #     "is_sdc_route": lane_meta_data.get_roadblock_id() in route_block_ids,
-                #     "speed_limit_mps": lane_meta_data.speed_limit_mps,
-                # }
-
-                left_neighbors =  [edge.id for edge in block.interior_edges[:index]]  if layer == SemanticMapLayer.ROADBLOCK else []
-
-                ret[lane_meta_data.id]={'lane':polygon}
-                if layer == SemanticMapLayer.ROADBLOCK_CONNECTOR:
-                    continue
-                left = lane_meta_data.left_boundary
-                if len(left_neighbors)>0:
-                    # only broken line in nuPlan data
-                    # line_type = get_line_type(int(boundaries.loc[[str(left.id)]]["boundary_type_fid"]))
-                    # line_type = MetaDriveType.LINE_BROKEN_SINGLE_WHITE
-                    #if line_type != MetaDriveType.LINE_UNKNOWN:
-                # if len(left_neighbors)!=0:
-                    #print(len(left_neighbors))
-                    ret[left.id] = {'broken_line': get_points_from_boundary(left, center)}
-                else:
-                   #print(len(left_neighbors))
-                   ret[left.id] = {'solid_line': get_points_from_boundary(left, center)}
+            # edges = sorted(block.interior_edges, key=lambda lane: lane.index) \
+            #     if layer == SemanticMapLayer.ROADBLOCK else block.interior_edges
+            # for index, lane_meta_data in enumerate(edges):
+            #     if not hasattr(lane_meta_data, "baseline_path"):
+            #         continue
+            #     if isinstance(lane_meta_data.polygon.boundary, MultiLineString):
+            #         boundary = gpd.GeoSeries(lane_meta_data.polygon.boundary).explode(index_parts=True)
+            #         sizes = []
+            #         for idx, polygon in enumerate(boundary[0]):
+            #             sizes.append(len(polygon.xy[1]))
+            #         points = boundary[0][np.argmax(sizes)].xy
+            #     elif isinstance(lane_meta_data.polygon.boundary, LineString):
+            #         points = lane_meta_data.polygon.boundary.xy
+            #     polygon = [[points[0][i], points[1][i]] for i in range(len(points[0]))]
+            #     # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
+            #
+            #     # According to the map attributes, lanes are numbered left to right with smaller indices being on the
+            #     # left and larger indices being on the right.
+            #     # @ See NuPlanLane.adjacent_edges()
+            #     # ret[lane_meta_data.id] = {
+            #     #     SD.TYPE: MetaDriveType.LANE_SURFACE_STREET \
+            #     #         if layer == SemanticMapLayer.ROADBLOCK else MetaDriveType.LANE_SURFACE_UNSTRUCTURE,
+            #     #     SD.POLYLINE: extract_centerline(lane_meta_data, center),
+            #     #     SD.ENTRY: [edge.id for edge in lane_meta_data.incoming_edges],
+            #     #     SD.EXIT: [edge.id for edge in lane_meta_data.outgoing_edges],
+            #     #     SD.LEFT_NEIGHBORS: [edge.id for edge in block.interior_edges[:index]] \
+            #     #         if layer == SemanticMapLayer.ROADBLOCK else [],
+            #     #     SD.RIGHT_NEIGHBORS: [edge.id for edge in block.interior_edges[index + 1:]] \
+            #     #         if layer == SemanticMapLayer.ROADBLOCK else [],
+            #     #     SD.POLYGON: polygon,
+            #     #     "is_sdc_route": lane_meta_data.get_roadblock_id() in route_block_ids,
+            #     #     "speed_limit_mps": lane_meta_data.speed_limit_mps,
+            #     # }
+            #
+            #     left_neighbors =  [edge.id for edge in block.interior_edges[:index]]  if layer == SemanticMapLayer.ROADBLOCK else []
+            #
+            #     ret[lane_meta_data.id]={'lane':polygon}
+            #     if layer == SemanticMapLayer.ROADBLOCK_CONNECTOR:
+            #         continue
+            #     left = lane_meta_data.left_boundary
+            #     if len(left_neighbors)>0:
+            #         # only broken line in nuPlan data
+            #         # line_type = get_line_type(int(boundaries.loc[[str(left.id)]]["boundary_type_fid"]))
+            #         # line_type = MetaDriveType.LINE_BROKEN_SINGLE_WHITE
+            #         #if line_type != MetaDriveType.LINE_UNKNOWN:
+            #     # if len(left_neighbors)!=0:
+            #         #print(len(left_neighbors))
+            #         ret[left.id] = {'broken_line': get_points_from_boundary(left, center)}
+            #     else:
+            #        #print(len(left_neighbors))
+            #        ret[left.id] = {'solid_line': get_points_from_boundary(left, center)}
 
 
 
@@ -295,24 +331,7 @@ def extract_map_features(map_api, center, route_block_ids, radius=200):
                 block_polygons.append(block.polygon)
 
     # walkway
-    for area in nearest_vector_map[SemanticMapLayer.WALKWAYS]:
-        if isinstance(area.polygon.exterior, MultiLineString):
-            boundary = gpd.GeoSeries(area.polygon.exterior).explode(index_parts=True)
-            sizes = []
-            for idx, polygon in enumerate(boundary[0]):
-                sizes.append(len(polygon.xy[1]))
-            points = boundary[0][np.argmax(sizes)].xy
-        elif isinstance(area.polygon.exterior, LineString):
-            points = area.polygon.exterior.xy
-        polygon = [[points[0][i], points[1][i]] for i in range(len(points[0]))]
-        #polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
-        ret[area.id] = {
-            'sidewalk': polygon,
-            # SD.POLYGON: polygon,
-        }
-
-    # corsswalk
-    # for area in nearest_vector_map[SemanticMapLayer.CROSSWALK]:
+    # for area in nearest_vector_map[SemanticMapLayer.WALKWAYS]:
     #     if isinstance(area.polygon.exterior, MultiLineString):
     #         boundary = gpd.GeoSeries(area.polygon.exterior).explode(index_parts=True)
     #         sizes = []
@@ -322,11 +341,25 @@ def extract_map_features(map_api, center, route_block_ids, radius=200):
     #     elif isinstance(area.polygon.exterior, LineString):
     #         points = area.polygon.exterior.xy
     #     polygon = [[points[0][i], points[1][i]] for i in range(len(points[0]))]
-    #     # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
+    #     #polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
     #     ret[area.id] = {
-    #         'cross_walk':
-    #         polygon,
+    #         'sidewalk': polygon,
+    #         # SD.POLYGON: polygon,
     #     }
+    #
+    # corsswalk
+    for area in nearest_vector_map[SemanticMapLayer.CROSSWALK]:
+        if isinstance(area.polygon.exterior, MultiLineString):
+            boundary = gpd.GeoSeries(area.polygon.exterior).explode(index_parts=True)
+            sizes = []
+            for idx, polygon in enumerate(boundary[0]):
+                sizes.append(len(polygon.xy[1]))
+            points = boundary[0][np.argmax(sizes)].xy
+        elif isinstance(area.polygon.exterior, LineString):
+            points = area.polygon.exterior.xy
+        polygon = [[points[0][i], points[1][i]] for i in range(len(points[0]))]
+        # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
+        ret['cross_walk_'+area.id] = polygon
 
     interpolygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.INTERSECTION]]
     boundaries = gpd.GeoSeries(unary_union(interpolygons + block_polygons)).boundary.explode(index_parts=True)
@@ -336,7 +369,7 @@ def extract_map_features(map_api, center, route_block_ids, radius=200):
         block_points = np.array(list(i for i in zip(boundary.coords.xy[0], boundary.coords.xy[1])))
         #block_points = nuplan_to_metadrive_vector(block_points, center)
         id = "boundary_{}".format(idx)
-        ret[id] = {'boundary':block_points}
+        ret[id] =block_points
 
     # for idx, boundary in enumerate(drivable_boundary):
     #     block_points = np.array(list(i for i in zip(boundary.coords.xy[0], boundary.coords.xy[1])))
@@ -344,19 +377,19 @@ def extract_map_features(map_api, center, route_block_ids, radius=200):
     #     id = "boundary1_{}".format(idx)
     #     ret[id] = {'boundary':block_points}
 
+    #
+    for key,line in ret.items():
+        if 'solid' in key:
+            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
+        elif 'cross_walk' in key:
 
-    for key,value in ret.items():
-        for key1, line in value.items():
-            if key1=='solid_line':
-                plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
-            elif key1=='cross_walk':
-                plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
-            elif key1=='broken_line':
-                plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
-            elif key1=='boundary':
-                plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan')
+            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
+        elif 'broken' in key:
+            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
+        elif 'boundary' in key:
+            plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan',alpha=0.5)
 
-    plt.show()
+   # plt.show()
 
     return ret
 
@@ -364,82 +397,45 @@ def extract_map_features(map_api, center, route_block_ids, radius=200):
 
 def get_map_vector(scenario,origin_ego):
 
-    origin = Point2D(origin_ego[0],origin_ego[1])
-
-    map_api = scenario.map_api
-    map_infos = {"lane": [], "crosswalk": []}
-
-   # boundaries = map_api._get_vector_map_layer(SemanticMapLayer.BOUNDARIES)
-
     result = extract_map_features(scenario.map_api, origin_ego, [])
 
-    lanes = map_api.get_proximal_map_objects(origin, radius=200,
-                                             layers=[SemanticMapLayer.BOUNDARIES,
-                                                     SemanticMapLayer.LANE,
-                                                     SemanticMapLayer.SPEED_BUMP,
-                                                     SemanticMapLayer.CROSSWALK
-                                                     ])
+    map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
 
     polylines = []
     point_cnt = 0
 
-    for lane in lanes[SemanticMapLayer.LANE]:
-        baseline = np.array(lane.baseline_path.linestring.coords.xy)
-        id = int(lane.id)
-        cur_info = {"id": id, "type": 0}
+    for id,(key,value) in enumerate(result.items()):
+        if 'solid' in key:
+            line_type=7
+        elif 'cross_walk' in key:
+            line_type=9
+        elif 'broken' in key:
+            line_type=6
+        elif 'boundary' in key:
+            line_type=4
 
-        cur_polyline = np.stack(
-            [baseline[0], baseline[1], np.zeros([len(baseline[0])]), id + np.zeros([len(baseline[0])])], axis=-1)
+        cur_info = {"id": id,"type":line_type}
+
+        xyz=np.array(value)
+
+        cur_polyline = np.concatenate(
+            [xyz,np.zeros([len(xyz), 1]), np.zeros([len(xyz), 1]) + line_type, np.zeros([len(xyz), 1]) +id], axis=-1)
+
         cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-        map_infos["lane"].append(cur_info)
         polylines.append(cur_polyline)
         point_cnt += len(cur_polyline)
 
-        # left_boundary=lane.left_boundary.linestring.coords.xy
-        #
-        # cur_polyline = np.stack( [left_boundary,1+np.zeros([len(left_boundary),1]),len(polylines)+np.zeros([len(left_boundary),1])],axis=-1 )
-        # polylines.append(cur_polyline)#RoadLine
-        #
-        # right_boundary=lane.right_boundary.linestring.coords.xy
-        # cur_polyline = np.stack( [right_boundary,1+np.zeros([len(right_boundary),1]),len(polylines)+np.zeros([len(right_boundary),1])],axis=-1 )
-        # polylines.append(cur_polyline)#RoadLine
-
-        plt.plot(baseline[0], baseline[1], color='r')
-
-    for cross_walk in lanes[SemanticMapLayer.CROSSWALK]:
-        xy = np.array(cross_walk.polygon.boundary.coords)
-        xyz = np.concatenate([xy, np.zeros([len(xy), 1])], axis=-1)
-        polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
-        pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
-        id = int(cross_walk.id)
-
-        cur_info = {"id": id, "type": 1}
-
-        cur_polyline = np.stack(
-            [pl_polygon[0], pl_polygon[1], np.zeros([len(pl_polygon[0])]), id + np.zeros([len(pl_polygon[0])])],
-            axis=-1)
-        cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-        map_infos["crosswalk"].append(cur_info)
-        polylines.append(cur_polyline)
-        point_cnt += len(cur_polyline)
-
-    plt.show()
-    # for lane_connector in lanes[SemanticMapLayer.LANE_CONNECTOR]:
-    #     baseline = lane_connector.baseline_path.linestring.coords.xy
-    #     id = int(lane_connector.id)
-    #     cur_info = {"id": id, "type": 0}
-    #
-    #     cur_polyline = np.stack(
-    #         [baseline[0], baseline[1], np.zeros([len(baseline[0])]), id + np.zeros([len(baseline[0])])], axis=-1)
-    #     cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-    #     map_infos["lane"].append(cur_info)
-    #     polylines.append(cur_polyline)
-    #     point_cnt += len(cur_polyline)
+        if line_type == 7 or line_type == 6:
+            map_infos["road_line"].append(cur_info)
+        elif line_type == 4:
+            map_infos["road_edge"].append(cur_info)
+        elif line_type == 9:
+            map_infos["crosswalk"].append(cur_info)
 
     try:
         polylines=np.concatenate(polylines, axis=0)
 
-        polylines[:,:2]-=origin_ego[None]
+        #polylines[:,:2]-=origin_ego[None]
 
         polylines = polylines.astype(np.float32)
     except:
@@ -472,7 +468,19 @@ def get_map_vector(scenario,origin_ego):
 
     map_data = get_map_features(map_infos, {})
 
-    data = preprocess_map(map_data)
+    data = preprocess_map(map_data,break_dist=300)
+
+    traj_pos= data['map_save']['traj_pos']
+
+    type=data['pt_token']['type']
+
+
+    print(len(traj_pos))
+
+    for traj in traj_pos[type==6]:
+
+        plt.plot(traj[:,0], traj[:,1], '.')
+    plt.show()
 
     return data
 

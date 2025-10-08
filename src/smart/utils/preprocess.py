@@ -94,6 +94,12 @@ def _interplating_polyline(polylines, break_dist=3,distance=0.5, split_distace=5
             new_polylines[1:, 0] - new_polylines[:-1, 0],
         )
         new_heading = torch.cat([new_heading, new_heading[-1:]], -1)[..., None]
+
+        # print(new_heading.shape,new_polylines.shape)
+        #
+        # if len(new_heading)==0:
+        #     print(1)
+
         new_polylines = torch.cat([new_polylines, new_heading], -1)
         if new_polylines.shape[0] >= (polyline_size + 1):
             multi_polylines = new_polylines.unfold(
