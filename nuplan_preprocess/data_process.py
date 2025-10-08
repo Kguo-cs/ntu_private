@@ -14,7 +14,7 @@ import multiprocessing
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path='/home/ke/code/catk'#os.getcwd() #'/home/ke/code/catk'
+gump_path='/home/ke/keguo/sim'#os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
@@ -136,7 +136,7 @@ scenario_filter=ScenarioFilter( scenario_types=None,
 
 
 
-#scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
 
 past_time_horizon=1
 past_num_steps=10
@@ -148,10 +148,10 @@ scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
-# print(len(scenarios))
-#
-# with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
-#     pickle.dump(scenarios, f)
+print(len(scenarios))
+
+with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+    pickle.dump(scenarios, f)
 
 print('finish scenarios filter')
 
