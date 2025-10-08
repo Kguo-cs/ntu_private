@@ -667,8 +667,12 @@ class TokenProcessor(torch.nn.Module):
             if "light_type" in data.keys():
                 tokenized_map["light_type"] = map["light_type"]
 
+        agent_type = agent["type"]
+
+        agent_mask = agent_type < 5
+
         agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
-            agent['type']
+            agent['type'][agent_mask]
         )
 
         tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
@@ -712,10 +716,11 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
 
         else:
-            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
-                tokenized_agent[key] = agent[key]
 
-            tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
+            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
+                tokenized_agent[key] = agent[key][agent_mask]
+
+            tokenized_agent["sampled_idx"]=agent["sampled_idx"][agent_mask].long()
 
             if "gt_pos_raw" in agent.keys():
 
@@ -736,28 +741,28 @@ class TokenProcessor(torch.nn.Module):
         if "route_map_index" in agent.keys():
             tokenized_agent['route_map_index']=agent["route_map_index"]
 
-        pos = tokenized_agent["sampled_pos"]  # [N,T,2]
-        valid = tokenized_agent["valid_mask"]  # [N,T]
-
-        # consecutive displacements
-        disp = pos[:, 1:] - pos[:, :-1]  # [N,T-1,2]
-        dist = torch.norm(disp, dim=-1)  # [N,T-1]
-
-        # compute speeds per step
-        speed = dist / 0.5  # [N,T-1]
-
-        # valid timesteps = both ends must be valid
-        valid_step = valid[:, 1:] & valid[:, :-1]
-
-        # mask invalid speeds
-        speed = speed * valid_step
-
-        # mean per agent
-        sum_speed = speed.sum(dim=1)
-        count = valid_step.sum(dim=1).clamp(min=1)  # avoid div by 0
-        mean_speed = sum_speed / count
-
-        tokenized_agent["mean_speed"]=mean_speed
+        # pos = tokenized_agent["sampled_pos"]  # [N,T,2]
+        # valid = tokenized_agent["valid_mask"]  # [N,T]
+        #
+        # # consecutive displacements
+        # disp = pos[:, 1:] - pos[:, :-1]  # [N,T-1,2]
+        # dist = torch.norm(disp, dim=-1)  # [N,T-1]
+        #
+        # # compute speeds per step
+        # speed = dist / 0.5  # [N,T-1]
+        #
+        # # valid timesteps = both ends must be valid
+        # valid_step = valid[:, 1:] & valid[:, :-1]
+        #
+        # # mask invalid speeds
+        # speed = speed * valid_step
+        #
+        # # mean per agent
+        # sum_speed = speed.sum(dim=1)
+        # count = valid_step.sum(dim=1).clamp(min=1)  # avoid div by 0
+        # mean_speed = sum_speed / count
+        #
+        # tokenized_agent["mean_speed"]=mean_speed
 
         if self.use_light:
 
