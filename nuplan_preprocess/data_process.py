@@ -136,7 +136,7 @@ scenario_filter=ScenarioFilter( scenario_types=None,
 
 
 
-scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+# scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
 
 past_time_horizon=1
 past_num_steps=10
@@ -148,10 +148,10 @@ scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
-print(len(scenarios))
-
-with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
-    pickle.dump(scenarios, f)
+# print(len(scenarios))
+#
+# with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+#     pickle.dump(scenarios, f)
 
 print('finish scenarios filter')
 
@@ -615,7 +615,7 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(8) as pool:
+with Pool(32) as pool:
     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 # for scenario in tqdm(scenarios):
 #     process_scenario(scenario)
