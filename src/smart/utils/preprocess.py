@@ -124,7 +124,7 @@ def _interplating_polyline(polylines, break_dist=3,distance=0.5, split_distace=5
 
     multi_polylines_list = []
     for idx in range(len(dist_along_path_list)):
-        if len(dist_along_path_list[idx]) < 2:
+        if len(dist_along_path_list[idx]) < 2 or dist_along_path_list[idx][-1]==0:
             continue
         dist_along_path = dist_along_path_list[idx]
         polylines_cur = polylines_list[idx]
