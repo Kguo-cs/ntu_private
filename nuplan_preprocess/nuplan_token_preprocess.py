@@ -37,7 +37,7 @@ token_processor.eval()
 gump_path=os.path.dirname(os.getcwd()) #'/home/ke/code/catk''/home/ke/keguo/sim'#
 
 agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100/"
-ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100_03/"
+ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100_05/"
 
 
 
@@ -176,8 +176,14 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(agent_data_directory)
+    scenarios = os.listdir(agent_data_directory)
 
-    for file in tqdm(files):
+    for file in tqdm(scenarios):
         process_file(file)
 
+# from multiprocessing import Pool
+#
+# scenarios = os.listdir(agent_data_directory)
+#
+# with Pool(2) as pool:
+#     results = list(tqdm(pool.imap_unordered(process_file, scenarios), total=len(scenarios)))
