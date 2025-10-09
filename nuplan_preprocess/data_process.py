@@ -197,7 +197,7 @@ def extract_map_features(map_api, center,  radius):
     #np.seterr(all='ignore')
     # Center is Important !
     layer_names = [
-        SemanticMapLayer.LANE_CONNECTOR,
+       # SemanticMapLayer.LANE_CONNECTOR,
         SemanticMapLayer.LANE,
         SemanticMapLayer.CROSSWALK,
         SemanticMapLayer.INTERSECTION,
@@ -244,10 +244,10 @@ def extract_map_features(map_api, center,  radius):
     #broken_dict={}
 
     #solid_dict={}
-    for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
-        path = lane.baseline_path.discrete_path
-        points = np.array([[pose.x, pose.y] for pose in path])
-        ret[lane.id]=('lane',points)
+    # for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
+    #     path = lane.baseline_path.discrete_path
+    #     points = np.array([[pose.x, pose.y] for pose in path])
+    #     ret[lane.id]=('lane',points)
 
     for lane in nearest_vector_map[SemanticMapLayer.LANE]:
         path = lane.baseline_path.discrete_path
