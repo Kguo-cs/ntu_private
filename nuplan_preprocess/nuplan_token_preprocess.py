@@ -30,7 +30,7 @@ token_processor = TokenProcessor(
     agent_token_file="agent_vocab_555_s2.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0}
-)#.cuda()
+).cuda()
 token_processor.eval()
 
 # Set paths
@@ -74,7 +74,7 @@ def process_file(filename):
     # else:
     #     data["agent"]["train_mask"] = train_mask  # [n_agent]
 
-    data1= HeteroData(data)#.cuda()
+    data1= HeteroData(data).cuda()
 
     tokenized_map = token_processor.tokenize_map(data1)
 
