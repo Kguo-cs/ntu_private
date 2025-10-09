@@ -315,7 +315,7 @@ class TokenProcessor(torch.nn.Module):
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         speed=None,
         shift=5,
-        error_dist=0.5
+        error_dist=0.3
     ) -> Dict[str, Tensor]:
         """n_step_token=n_step//5
         n_step_token=18 for train with BC.
