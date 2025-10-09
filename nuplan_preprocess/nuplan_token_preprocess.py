@@ -35,8 +35,8 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_training/"
-ouput_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_training_map2_03/"
+agent_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_static100/"
+ouput_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_static100_03/"
 
 
 
