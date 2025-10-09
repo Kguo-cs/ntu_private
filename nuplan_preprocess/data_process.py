@@ -14,7 +14,7 @@ import multiprocessing
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path='/home/ke/keguo/sim'#os.getcwd() #'/home/ke/code/catk'
+gump_path=os.path.dirname(os.getcwd()) #'/home/ke/code/catk''/home/ke/keguo/sim'#
 import sys
 
 sys.path.append(gump_path)
@@ -143,7 +143,7 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_lane'
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_lane100'
 scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
@@ -197,14 +197,14 @@ def extract_map_features(map_api, center,  radius):
     #np.seterr(all='ignore')
     # Center is Important !
     layer_names = [
-       # SemanticMapLayer.LANE_CONNECTOR,
+        SemanticMapLayer.LANE_CONNECTOR,
         SemanticMapLayer.LANE,
         SemanticMapLayer.CROSSWALK,
-        SemanticMapLayer.INTERSECTION,
+       # SemanticMapLayer.INTERSECTION,
         #SemanticMapLayer.STOP_LINE,
         #SemanticMapLayer.WALKWAYS,
        # SemanticMapLayer.CARPARK_AREA,
-        SemanticMapLayer.ROADBLOCK,
+        #SemanticMapLayer.ROADBLOCK,
        # SemanticMapLayer.ROADBLOCK_CONNECTOR,
 
         # unsupported yet
@@ -219,10 +219,33 @@ def extract_map_features(map_api, center,  radius):
     #
     # inrange.plot()
 
-  #  boundaries =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
-  #  drivable_boundary=boundaries_in_range(boundaries, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
+    boundaries =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
+    drivable_boundary=boundaries_in_range(boundaries, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
 
-   # drivable_boundary.plot()
+    #drivable_boundary.plot()
+    boundary = drivable_boundary.union_all().boundary
+    if isinstance(boundary, LineString):
+        block_points = np.array(boundary.xy).T
+        #block_points = nuplan_to_metadrive_vector(block_points, center)
+        id = "boundary_0"
+        #ret[id] =block_points
+        ret[id] = ('boundary', block_points)
+
+    #     plt.plot(x, y, color='r')
+    #
+    elif isinstance(boundary, MultiLineString):
+        for idx,line in enumerate(boundary.geoms):
+            id = "boundary_{}".format(idx)
+            block_points = np.array(line.xy).T
+
+            ret[id] =  ('boundary', block_points)
+
+            # x, y = line.xy
+    #         plt.plot(x, y, color='r')
+
+    #plt.show()
+
+    #drivable_boundary.plot()
    # plt.show()
     #
     # plt.savefig(Path(output_dir, f"map_{center}.png"))
@@ -235,19 +258,12 @@ def extract_map_features(map_api, center,  radius):
     #     nearest_vector_map[SemanticMapLayer.STOP_LINE] = [
     #         stop_polygon for stop_polygon in stop_polygons if stop_polygon.stop_line_type != StopLineType.TURN_STOP
     #     ]
-    block_polygons = []
+    #block_polygons = []
 
-    # couple=[]
-    #
-    # boundary_dict={}
-
-    #broken_dict={}
-
-    #solid_dict={}
-    # for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
-    #     path = lane.baseline_path.discrete_path
-    #     points = np.array([[pose.x, pose.y] for pose in path])
-    #     ret[lane.id]=('lane',points)
+    for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
+        path = lane.baseline_path.discrete_path[::4]
+        points = np.array([[pose.x, pose.y] for pose in path])
+        ret[lane.id]=('lane',points)
 
     for lane in nearest_vector_map[SemanticMapLayer.LANE]:
         path = lane.baseline_path.discrete_path
@@ -306,8 +322,8 @@ def extract_map_features(map_api, center,  radius):
 
     #print(1)
 
-    for layer in [SemanticMapLayer.ROADBLOCK]:
-        for block in nearest_vector_map[layer]:
+    # for layer in [SemanticMapLayer.ROADBLOCK]:
+    #     for block in nearest_vector_map[layer]:
             # edges = sorted(block.interior_edges, key=lambda lane: lane.index) \
             #     if layer == SemanticMapLayer.ROADBLOCK else block.interior_edges
             # for index, lane_meta_data in enumerate(edges):
@@ -362,8 +378,8 @@ def extract_map_features(map_api, center,  radius):
 
 
 
-            if layer == SemanticMapLayer.ROADBLOCK:
-                block_polygons.append(block.polygon)
+            # if layer == SemanticMapLayer.ROADBLOCK:
+            #     block_polygons.append(block.polygon)
 
     # walkway
     # for area in nearest_vector_map[SemanticMapLayer.WALKWAYS]:
@@ -396,36 +412,16 @@ def extract_map_features(map_api, center,  radius):
         # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
         ret[area.id] = ('crosswalk', polygon)
 
-    interpolygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.INTERSECTION]]
-    boundaries = gpd.GeoSeries(unary_union(interpolygons + block_polygons)).boundary.explode(index_parts=True)
+    #interpolygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.INTERSECTION]]
+    #boundaries = gpd.GeoSeries(unary_union(interpolygons + block_polygons)).boundary.explode(index_parts=True)
     # boundaries.plot()
     # plt.show()
-    for idx, boundary in enumerate(boundaries[0]):
-        block_points = np.array(list(i for i in zip(boundary.coords.xy[0], boundary.coords.xy[1])))
-        #block_points = nuplan_to_metadrive_vector(block_points, center)
-        id = "boundary_{}".format(idx)
-        #ret[id] =block_points
-        ret[id] = ('boundary', block_points)
-
-    # for idx, boundary in enumerate(drivable_boundary):
+    # for idx, boundary in enumerate(boundaries[0]):
     #     block_points = np.array(list(i for i in zip(boundary.coords.xy[0], boundary.coords.xy[1])))
     #     #block_points = nuplan_to_metadrive_vector(block_points, center)
-    #     id = "boundary1_{}".format(idx)
-    #     ret[id] = {'boundary':block_points}
-
-    #
-    # for key,line in ret.items():
-    #     if 'solid' in key:
-    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
-    #     elif 'cross_walk' in key:
-    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
-    #     elif 'broken' in key:
-    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
-    #     elif 'boundary' in key:
-    #         plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan',alpha=0.5)
-
-   # plt.show()
-
+    #     id = "boundary_{}".format(idx)
+    #     #ret[id] =block_points
+    #     ret[id] = ('boundary', block_points)
     return ret
 
 
@@ -442,19 +438,19 @@ def get_map_vector(scenario,origin_ego,center,radius):
     for id,(key,line) in enumerate(result.values()):
 
         if 'solid' in key:
-          #  plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
+           # plt.plot(np.array(line)[:,0],np.array(line)[:,1],'red')
 
             line_type=7
         elif 'cross_walk' in key:
-           # plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
+            #plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
 #
             line_type=9
         elif 'broken' in key:
-            #plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
+           # plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
 
             line_type=6
         elif 'boundary' in key:
-           # plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan',alpha=0.5)
+            #plt.plot(np.array(line)[:,0],np.array(line)[:,1],'cyan',alpha=0.5)
             line_type=4
         elif 'lane' in key:
             #plt.plot(np.array(line)[:,0],np.array(line)[:,1],'grey')
@@ -481,7 +477,7 @@ def get_map_vector(scenario,origin_ego,center,radius):
         elif line_type == 1:
             map_infos["lane"].append(cur_info)
 
-    #plt.show()
+  #  plt.show()
 
     try:
         polylines=np.concatenate(polylines, axis=0)
@@ -656,7 +652,7 @@ def process_scenario(scenario):
 
     #print(gap)
 
-    data=get_map_vector(scenario,origin_ego,center_pos,gap+50)
+    data=get_map_vector(scenario,origin_ego,center_pos,gap+100)
 
     data["agent"]=agent
 
@@ -674,7 +670,7 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(16) as pool:
+with Pool(32) as pool:
     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 # for scenario in tqdm(scenarios):
 #     process_scenario(scenario)
