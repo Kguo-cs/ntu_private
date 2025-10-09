@@ -261,7 +261,7 @@ def extract_map_features(map_api, center,  radius):
     #block_polygons = []
 
     for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
-        path = lane.baseline_path.discrete_path[::4]
+        path = lane.baseline_path.discrete_path[::10]
         points = np.array([[pose.x, pose.y] for pose in path])
         ret[lane.id]=('lane',points)
 
