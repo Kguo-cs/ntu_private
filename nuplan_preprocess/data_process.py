@@ -14,7 +14,7 @@ import multiprocessing
 from multiprocessing import Pool
 
 #gump_path='/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' #'/home/ke/code/catk'#'/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim' # # #'/home/ke/code/catk'
-gump_path='/home/ke/code/catk'#'/home/ke/keguo/sim'#os.getcwd() #'/home/ke/code/catk'
+gump_path='/home/ke/keguo/sim'#os.getcwd() #'/home/ke/code/catk'
 import sys
 
 sys.path.append(gump_path)
@@ -674,10 +674,10 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-# with Pool(32) as pool:
-#     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-for scenario in tqdm(scenarios):
-    process_scenario(scenario)
+with Pool(32) as pool:
+    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+# for scenario in tqdm(scenarios):
+#     process_scenario(scenario)
 
 # # Submit tasks in parallel
 # futures = [process_scenario.remote(scenario) for scenario in scenarios]
