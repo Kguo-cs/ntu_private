@@ -50,3 +50,27 @@ rich==13.8.0 # MIT License: https://github.com/Textualize/rich/blob/master/LICEN
 
 # Waymo Dataset
 # Waymo Dataset License Agreement for Non-Commercial Use: https://waymo.com/open/terms/
+  Attempting uninstall: protobuf
+    Found existing installation: protobuf 4.25.7
+    Uninstalling protobuf-4.25.7:
+      Successfully uninstalled protobuf-4.25.7
+  Attempting uninstall: numpy
+    Found existing installation: numpy 1.23.5
+    Uninstalling numpy-1.23.5:
+      Successfully uninstalled numpy-1.23.5
+  Attempting uninstall: tensorboard
+    Found existing installation: tensorboard 2.12.3
+    Uninstalling tensorboard-2.12.3:
+      Successfully uninstalled tensorboard-2.12.3
+  Attempting uninstall: pyogrio
+    Found existing installation: pyogrio 0.11.1
+    Uninstalling pyogrio-0.11.1:
+      Successfully uninstalled pyogrio-0.11.1
+  Attempting uninstall: matplotlib
+    Found existing installation: matplotlib 3.5.3
+    Uninstalling matplotlib-3.5.3:
+      Successfully uninstalled matplotlib-3.5.3
+  Attempting uninstall: keras
+    Found existing installation: keras 2.12.0
+    Uninstalling keras-2.12.0:
+      Successfully uninstalled keras-2.12.0
