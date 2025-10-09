@@ -240,16 +240,19 @@ class TokenProcessor(torch.nn.Module):
             "velocity": [n_agent, n_step, 2], float32
             "shape": [n_agent, 3], float32
         """
+
+        agent_mask=data["agent"]["type"]<3
+
         # ! collate width/length, traj tokens for current batch
         agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
-            data["agent"]["type"]
+            data["agent"]["type"][agent_mask]
         )
 
         # ! get raw trajectory data
-        valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
-        heading = data["agent"]["heading"]  # [n_agent, n_step]
-        pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-        vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+        valid = data["agent"]["valid_mask"][agent_mask]  # [n_agent, n_step]
+        heading = data["agent"]["heading"] [agent_mask] # [n_agent, n_step]
+        pos = data["agent"]["position"][..., :2].contiguous() [agent_mask] # [n_agent, n_step, 2]
+        vel = data["agent"]["velocity"][agent_mask]  # [n_agent, n_step, 2]
 
         # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
 
@@ -263,11 +266,11 @@ class TokenProcessor(torch.nn.Module):
         # ! prepare output dict
         tokenized_agent = {
             "num_graphs": data.num_graphs,
-            "type": data["agent"]["type"],
-            "shape": data["agent"]["shape"],
-            "ego_mask": data["agent"]["role"][:, 0],  # [n_agent]
+            "type": data["agent"]["type"][agent_mask],
+            "shape": data["agent"]["shape"][agent_mask],
+            "ego_mask": data["agent"]["role"][:, 0][agent_mask],  # [n_agent]
             "token_agent_shape":  agent_shape,  # [n_agent, 2]
-            "batch": data["agent"]["batch"],
+            "batch": data["agent"]["batch"][agent_mask],
             "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
             "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
@@ -277,7 +280,7 @@ class TokenProcessor(torch.nn.Module):
             "pred_traj_10hz": pos,
             "pred_head_10hz": heading,
             "all_valid": valid,
-            "id": data["agent"]["id"],
+            "id": data["agent"]["id"][agent_mask],
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
@@ -611,12 +614,13 @@ class TokenProcessor(torch.nn.Module):
             if k == "veh":
                 width = 2.0
                 length = 4.8
-            elif k == "cyc":
-                width = 1.0
-                length = 2.0
-            else:
+            elif k == "ped":
                 width = 1.0
                 length = 1.0
+            else:
+                width = 1.0
+                length = 2.0
+
             agent_shape += torch.stack([width * mask, length * mask], dim=-1)
 
             token_traj_all += mask[:, None, None, None, None] * (
@@ -667,12 +671,12 @@ class TokenProcessor(torch.nn.Module):
             if "light_type" in data.keys():
                 tokenized_map["light_type"] = map["light_type"]
 
-        agent_type = agent["type"]
+        #agent_type = agent["type"]
 
-        agent_mask = agent_type < 3
+        #agent_mask = agent_type < 3
 
         agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
-            agent['type'][agent_mask]
+            agent['type']#[agent_mask]
         )
 
         tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
@@ -718,9 +722,9 @@ class TokenProcessor(torch.nn.Module):
         else:
 
             for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
-                tokenized_agent[key] = agent[key][agent_mask]
+                tokenized_agent[key] = agent[key]#[agent_mask]
 
-            tokenized_agent["sampled_idx"]=agent["sampled_idx"][agent_mask].long()
+            tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
 
             if "gt_pos_raw" in agent.keys():
 

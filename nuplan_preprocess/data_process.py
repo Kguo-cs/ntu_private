@@ -143,7 +143,7 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_lane100'
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_static100'
 scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
@@ -219,8 +219,8 @@ def extract_map_features(map_api, center,  radius):
     #
     # inrange.plot()
 
-    boundaries =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
-    drivable_boundary=boundaries_in_range(boundaries, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
+    drivable_area =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
+    drivable_boundary=boundaries_in_range(drivable_area, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
 
     #drivable_boundary.plot()
     boundary = drivable_boundary.union_all().boundary
@@ -425,7 +425,6 @@ def extract_map_features(map_api, center,  radius):
     return ret
 
 
-
 def get_map_vector(scenario,origin_ego,center,radius):
 
     result = extract_map_features(scenario.map_api, center, radius)
@@ -533,6 +532,35 @@ def get_map_vector(scenario,origin_ego,center,radius):
 
     return data
 
+DRIVABLE_LAYERS = {
+    SemanticMapLayer.ROADBLOCK,
+    SemanticMapLayer.ROADBLOCK_CONNECTOR,
+    SemanticMapLayer.CARPARK_AREA,
+}
+from shapely.prepared import prep
+
+import numpy as np
+import matplotlib.pyplot as plt
+from shapely.ops import unary_union
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.prepared import prep
+from matplotlib.patches import Polygon as MplPolygon
+
+# --- 2) Helper: add shapely polygon(s) to matplotlib axes ---
+def add_poly_or_multipoly(ax, geom, *, facecolor=None, edgecolor="k", alpha=1.0, lw=0.8):
+    if geom.is_empty:
+        return
+    if isinstance(geom, Polygon):
+        exterior = np.asarray(geom.exterior.coords, float)
+        patch = MplPolygon(exterior, closed=True, facecolor=facecolor, edgecolor=edgecolor, alpha=alpha, linewidth=lw)
+        ax.add_patch(patch)
+        # holes (optional): draw with no facecolor
+        for ring in geom.interiors:
+            ring_xy = np.asarray(ring.coords, float)
+            ax.add_patch(MplPolygon(ring_xy, closed=True, facecolor="none", edgecolor=edgecolor, alpha=alpha*0.6, linewidth=lw*0.6))
+    elif isinstance(geom, MultiPolygon):
+        for g in geom.geoms:
+            add_poly_or_multipoly(ax, g, facecolor=facecolor, edgecolor=edgecolor, alpha=alpha, lw=lw)
 
 def get_agent(scenario,origin_ego):
 
@@ -540,15 +568,38 @@ def get_agent(scenario,origin_ego):
 
     id_mapping = {}
     idx = 1
+    # drivable = scenario.map_api.get_proximal_map_objects(
+    #     Point2D(*origin_ego), 500, DRIVABLE_LAYERS
+    # )
+    #
+    # # 2) collect polygon geometries
+    # drv_polys = []
+    # for _, objs in drivable.items():
+    #     for o in objs:
+    #         g = o.polygon
+    #         drv_polys.append(g)
+    #
+    # drivable_union = unary_union(drv_polys)
+    # drivable_prepped = prep(drivable_union)  # speeds up repeated intersects
+    # static_geoms=[]
+
+    drivable_area =scenario.map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
+    drivable_range=boundaries_in_range(drivable_area, origin_ego[0],origin_ego[1], 300)#.buffer(0.1).boundary.explode(index_parts=True)
 
     for agent in detections.tracked_objects:
         track_type = agent.tracked_object_type.value
-        if track_type < 7:
+        if track_type < 3:
             track_token = agent.track_token
             id_mapping[track_token] = idx
             idx += 1
-        # else:
-        #     print(1)
+        else:
+            # static_geoms.append(agent.box.geometry)
+            if  drivable_range.intersects(agent.box.geometry).any():
+                track_token = agent.track_token
+                id_mapping[track_token] = idx
+                idx += 1
+                #static_geoms.append(agent.box.geometry)
+
 
         # VEHICLE = 0, 'vehicle'
         # PEDESTRIAN = 1, 'pedestrian'
@@ -558,6 +609,34 @@ def get_agent(scenario,origin_ego):
         # CZONE_SIGN = 5, 'czone_sign'
         # GENERIC_OBJECT = 6, 'generic_object'
         # EGO = 7, 'ego'
+
+    # drivable_area =scenario.map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
+    # drivable_boundary=boundaries_in_range(drivable_area, origin_ego[0],origin_ego[1], 500)#.buffer(0.1).boundary.explode(index_parts=True)
+    #
+    #
+    # fig, ax = plt.subplots(figsize=(8, 8))
+    #
+    # # Drivable area (filled light gray)
+    # add_poly_or_multipoly(ax, drivable_union, facecolor="#d0d0d0", edgecolor="#888", alpha=0.8, lw=0.6)
+    #
+    # # Static objects (red outlines, semi-opaque fill)
+    # for g in static_geoms:
+    #     add_poly_or_multipoly(ax, g, facecolor="#ffdddd", edgecolor="r", alpha=0.8, lw=1.2)
+    #
+    # # Nice view
+    # ax.set_aspect("equal", adjustable="box")
+    # ax.set_title("Drivable area (gray) with static objects (red)")
+    # ax.set_xlabel("X (m)")
+    # ax.set_ylabel("Y (m)")
+    #
+    # # Optional: center/zoom around ego origin and 500 m radius
+    # cx, cy = origin_ego
+    # rad = 500.0
+    # ax.set_xlim(cx - rad, cx + rad)
+    # ax.set_ylim(cy - rad, cy + rad)
+    #
+    # plt.tight_layout()
+    # plt.show()
 
     num_agent = idx
 
@@ -617,11 +696,6 @@ def get_agent(scenario,origin_ego):
     
     return out_dict
 
-# ray.init(num_cpus=2)  # or ray.init(num_cpus=...)
-
-# print(len(scenarios))
-# for scenario in tqdm(scenarios):
-# @ray.remote
 def process_scenario(scenario):
 
     ego_state = scenario.get_ego_state_at_iteration(10)
@@ -657,6 +731,8 @@ def process_scenario(scenario):
     data["agent"]=agent
 
 
+    #filter map
+
     scenario_id=scenario.token
 
     with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
@@ -670,10 +746,10 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(32) as pool:
-    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-# for scenario in tqdm(scenarios):
-#     process_scenario(scenario)
+# with Pool(32) as pool:
+#     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+for scenario in tqdm(scenarios):
+    process_scenario(scenario)
 
 # # Submit tasks in parallel
 # futures = [process_scenario.remote(scenario) for scenario in scenarios]
