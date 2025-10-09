@@ -17,7 +17,7 @@ rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nupla
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/validation guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_training /home/ke/code/catk/src/waymo_data/full/
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_training_map2_03 /home/ke/code/catk/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
