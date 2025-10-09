@@ -30,13 +30,14 @@ token_processor = TokenProcessor(
     agent_token_file="agent_vocab_555_s2.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0}
-).cuda()
+)#.cuda()
 token_processor.eval()
 
 # Set paths
+gump_path=os.path.dirname(os.getcwd()) #'/home/ke/code/catk''/home/ke/keguo/sim'#
 
-agent_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_static100/"
-ouput_data_directory = "/home/ke/keguo/sim/src/waymo_data/full/nuplan_static100_03/"
+agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100/"
+ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100_03/"
 
 
 
@@ -73,7 +74,7 @@ def process_file(filename):
     # else:
     #     data["agent"]["train_mask"] = train_mask  # [n_agent]
 
-    data1= HeteroData(data).cuda()
+    data1= HeteroData(data)#.cuda()
 
     tokenized_map = token_processor.tokenize_map(data1)
 

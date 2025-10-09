@@ -11,7 +11,8 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route shanhel
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_lane ~/code/sim/src/waymo_data/full/
+rsync -avz ~/code/catk/src/waymo_data/full/validation_nuplan ke@10.87.216.98:~/keguo/sim/src/waymo_data/full/
+
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
