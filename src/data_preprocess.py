@@ -387,7 +387,7 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
 
-        elif feature_data_type in ["speed_bump", "driveway", "crosswalk"]:
+        elif feature_data_type in ["crosswalk"]:#"speed_bump", "driveway",
             xyz = np.array([[p.x, p.y, p.z] for p in feature.polygon])
             polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
             pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
