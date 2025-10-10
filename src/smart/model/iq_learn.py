@@ -329,9 +329,9 @@ class IQ_SoftQ(LightningModule):
                 kl_coef=5#np.power(0.9999,self.global_step)
                 logr = (agent_log_prob - logp_a_ref)
 
-                kl_taken=-logr.exp()+1+logr
-
-                kl_per_token=-kl_coef *kl_taken
+                #kl_taken=-logr.exp()+1+logr
+                kl_per_token = kl_coef * (logr.exp() - 1 - logr)
+                #kl_per_token=-kl_coef *kl_taken
 
         else:
             kl_per_token=0
