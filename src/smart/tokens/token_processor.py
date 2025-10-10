@@ -208,7 +208,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.noise=True
 
-        if self.training:
+        if self.training and self.noise:
             topk_indices = torch.argsort(dist, dim=1)[:, :8]
             sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
             token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
@@ -375,9 +375,14 @@ class TokenProcessor(torch.nn.Module):
                 pos_now=prev_pos,  # [n_agent, 2]
                 head_now=prev_head,  # [n_agent]
             )[0].view(*token_traj.shape)
-            min_dist,token_idx_gt = torch.min(
-                torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1), dim=-1
-            )  # [n_agent]
+            all_dist=torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1)
+
+            if  self.training and self.noise:
+                topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
+                sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
+                token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
+            else:
+                min_dist,token_idx_gt = torch.min(  all_dist, dim=-1 )  # [n_agent]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
