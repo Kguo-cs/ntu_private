@@ -327,11 +327,11 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
 
                 kl_coef=5#np.power(0.9999,self.global_step)
-                logr = (agent_log_prob - logp_a_ref)
+                logr = logp_a_ref-agent_log_prob
 
                 #kl_taken=-logr.exp()+1+logr
-                kl_per_token = kl_coef * (logr.exp() - 1 - logr)
-                #kl_per_token=-kl_coef *kl_taken
+                kl_per_token = -kl_coef * ((logr).exp() - 1 - logr)
+                #kl_per_token=kl_coef *kl_taken
 
         else:
             kl_per_token=0
