@@ -341,10 +341,11 @@ class EdgeEncoder(nn.Module):
             mask_pl=None,
             train_mask=None,
             use_counterfactual=False,
-            route_map_index=None
+            route_map_index=None,
+            layer_num=1
     ):
 
-        if train_mask is not None and self.discriminator and not use_counterfactual:
+        if train_mask is not None and layer_num==1 and not use_counterfactual:
             mask=mask[train_mask,:16]
             pos_a=pos_a[train_mask,:16]
             head_a=head_a[train_mask,:16]

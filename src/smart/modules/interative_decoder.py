@@ -215,7 +215,8 @@ class InterativeDecoder(nn.Module):
             max_num_neighbors=self.pt2a_neighbor,
             train_mask=train_mask,
             use_counterfactual=self.use_counterfactual,
-            route_map_index=route_map_index
+            route_map_index=route_map_index,
+            layer_num=self.num_layers
         )
 
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
