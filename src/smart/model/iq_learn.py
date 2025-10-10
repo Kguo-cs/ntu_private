@@ -31,6 +31,7 @@ from src.smart.metrics import (
     WOSACSubmission,
     minADE,
 )
+from src.smart.plot.plot_s import plot_rollout
 
 class IQ_SoftQ(LightningModule):
 
@@ -757,6 +758,9 @@ class IQ_SoftQ(LightningModule):
     def training_step(self, data, batch_idx):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
+
+        plot_rollout(tokenized_agent,tokenized_map,self.token_processor)
+
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

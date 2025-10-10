@@ -22,7 +22,9 @@ sys.path.append(gump_path)
 from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 from src.data_preprocess import get_map_features,get_agent_features
+import matplotlib as mpl
 
+mpl.rcParams['toolbar'] = 'None'
 scenario_mapping_config = {
     "scenario_map": {
         # scenario_name: [scenario_duration, extraction_offset]
@@ -143,7 +145,7 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_static100'
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_drive60'
 scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
@@ -200,12 +202,12 @@ def extract_map_features(map_api, center,  radius):
         SemanticMapLayer.LANE_CONNECTOR,
         SemanticMapLayer.LANE,
         SemanticMapLayer.CROSSWALK,
-       # SemanticMapLayer.INTERSECTION,
+       SemanticMapLayer.INTERSECTION,
         #SemanticMapLayer.STOP_LINE,
         #SemanticMapLayer.WALKWAYS,
-       # SemanticMapLayer.CARPARK_AREA,
-        #SemanticMapLayer.ROADBLOCK,
-       # SemanticMapLayer.ROADBLOCK_CONNECTOR,
+       SemanticMapLayer.CARPARK_AREA,
+        SemanticMapLayer.ROADBLOCK,
+       #SemanticMapLayer.ROADBLOCK_CONNECTOR,
 
         # unsupported yet
         # SemanticMapLayer.STOP_SIGN,
@@ -219,26 +221,28 @@ def extract_map_features(map_api, center,  radius):
     #
     # inrange.plot()
 
-    drivable_area =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
-    drivable_boundary=boundaries_in_range(drivable_area, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
+    # drivable_area =map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
+    # drivable_boundary=boundaries_in_range(drivable_area, center[0],center[1], radius)#.buffer(0.1).boundary.explode(index_parts=True)
+
+
 
     #drivable_boundary.plot()
-    boundary = drivable_boundary.union_all().boundary
-    if isinstance(boundary, LineString):
-        block_points = np.array(boundary.xy).T
-        #block_points = nuplan_to_metadrive_vector(block_points, center)
-        id = "boundary_0"
-        #ret[id] =block_points
-        ret[id] = ('boundary', block_points)
-
-    #     plt.plot(x, y, color='r')
+    # boundary = drivable_boundary.union_all().boundary
+    # if isinstance(boundary, LineString):
+    #     block_points = np.array(boundary.xy).T
+    #     #block_points = nuplan_to_metadrive_vector(block_points, center)
+    #     id = "boundary_0"
+    #     #ret[id] =block_points
+    #     ret[id] = ('boundary', block_points)
     #
-    elif isinstance(boundary, MultiLineString):
-        for idx,line in enumerate(boundary.geoms):
-            id = "boundary_{}".format(idx)
-            block_points = np.array(line.xy).T
-
-            ret[id] =  ('boundary', block_points)
+    # #     plt.plot(x, y, color='r')
+    # #
+    # elif isinstance(boundary, MultiLineString):
+    #     for idx,line in enumerate(boundary.geoms):
+    #         id = "boundary_{}".format(idx)
+    #         block_points = np.array(line.xy).T
+    #
+    #         ret[id] =  ('boundary', block_points)
 
             # x, y = line.xy
     #         plt.plot(x, y, color='r')
@@ -412,16 +416,23 @@ def extract_map_features(map_api, center,  radius):
         # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
         ret[area.id] = ('crosswalk', polygon)
 
-    #interpolygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.INTERSECTION]]
-    #boundaries = gpd.GeoSeries(unary_union(interpolygons + block_polygons)).boundary.explode(index_parts=True)
-    # boundaries.plot()
+
+    block_polygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.ROADBLOCK]]
+    carpark_polygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.CARPARK_AREA]]
+    interpolygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.INTERSECTION]]
+    boundaries = gpd.GeoSeries(unary_union(block_polygons+interpolygons+carpark_polygons)).boundary.explode(index_parts=True)
+    # interpolygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.INTERSECTION]]
+    # boundaries = gpd.GeoSeries(unary_union(interpolygons))#.boundary.explode(index_parts=True)
+   # boundaries.plot()
+
+   # plt.show()
     # plt.show()
-    # for idx, boundary in enumerate(boundaries[0]):
-    #     block_points = np.array(list(i for i in zip(boundary.coords.xy[0], boundary.coords.xy[1])))
-    #     #block_points = nuplan_to_metadrive_vector(block_points, center)
-    #     id = "boundary_{}".format(idx)
-    #     #ret[id] =block_points
-    #     ret[id] = ('boundary', block_points)
+    for idx, boundary in enumerate(boundaries[0]):
+        block_points = np.array(list(i for i in zip(boundary.coords.xy[0], boundary.coords.xy[1])))
+        #block_points = nuplan_to_metadrive_vector(block_points, center)
+        id = "boundary_{}".format(idx)
+        #ret[id] =block_points
+        ret[id] = ('boundary', block_points)
     return ret
 
 
@@ -442,7 +453,6 @@ def get_map_vector(scenario,origin_ego,center,radius):#373222
             line_type=7
         elif 'cross_walk' in key:
             #plt.plot(np.array(line)[:,0],np.array(line)[:,1],'green')
-#
             line_type=9
         elif 'broken' in key:
            # plt.plot(np.array(line)[:,0],np.array(line)[:,1],'blue')
@@ -532,11 +542,7 @@ def get_map_vector(scenario,origin_ego,center,radius):#373222
 
     return data
 
-DRIVABLE_LAYERS = {
-    SemanticMapLayer.ROADBLOCK,
-    SemanticMapLayer.ROADBLOCK_CONNECTOR,
-    SemanticMapLayer.CARPARK_AREA,
-}
+
 from shapely.prepared import prep
 
 import numpy as np
@@ -726,7 +732,7 @@ def process_scenario(scenario):
 
     #print(gap)
 
-    data=get_map_vector(scenario,origin_ego,center_pos,gap+100)
+    data=get_map_vector(scenario,origin_ego,center_pos,gap+60)
 
     data["agent"]=agent
 

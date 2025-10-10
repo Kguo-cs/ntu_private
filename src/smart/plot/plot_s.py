@@ -1,9 +1,60 @@
+import torch
 
-def plot_rollout(tokenized_agent,tokenized_map,token_processor,pred):
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    angle_between_2d_vectors
+)
+
+import tensorflow as tf
+from waymo_open_dataset.protos import scenario_pb2, sim_agents_submission_pb2
+
+from src.utils.vis_waymo import VisWaymo,get_map_features
+
+
+
+COLOR_BLACK = (0, 0, 0)
+COLOR_WHITE = (255, 255, 255)
+COLOR_RED = (255, 0, 0)
+COLOR_GREEN = (0, 255, 0)
+COLOR_CYAN = (0, 255, 255)
+COLOR_MAGENTA = (255, 0, 255)
+COLOR_YELLOW = (255, 255, 0)
+COLOR_VIOLET = (170, 0, 255)
+COLOR_BUTTER = (252, 233, 79)
+COLOR_ORANGE = (209, 92, 0)
+COLOR_CHOCOLATE = (143, 89, 2)
+COLOR_CHAMELEON = (78, 154, 6)
+COLOR_SKY_BLUE_0 = (114, 159, 207)
+COLOR_SKY_BLUE_1 = (32, 74, 135)
+COLOR_PLUM = (92, 53, 102)
+COLOR_SCARLET_RED = (164, 0, 0)
+COLOR_ALUMINIUM_0 = (238, 238, 236)
+COLOR_ALUMINIUM_1 = (211, 215, 207)
+COLOR_ALUMINIUM_2 = (66, 62, 64)
+
+lane_style = [
+    (COLOR_WHITE, 6),  # FREEWAY = 0
+    (COLOR_ALUMINIUM_2, 6),  # SURFACE_STREET = 1
+    (COLOR_ORANGE, 6),  # STOP_SIGN = 2
+    (COLOR_CHOCOLATE, 6),  # BIKE_LANE = 3
+    (COLOR_RED, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
+    (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
+    (COLOR_BUTTER, 2),  # BROKEN = 6
+    (COLOR_MAGENTA, 2),  # SOLID_SINGLE = 7
+    (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
+    (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
+    (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
+]
+
+
+def plot_rollout(tokenized_agent,tokenized_map,token_processor):
     # global_edge = tokenized_map["global_edge"]
-    # import matplotlib as mpl
-    #
-    # mpl.rcParams['toolbar'] = 'None'
+    import matplotlib as mpl
+
+    mpl.rcParams['toolbar'] = 'None'
 
     import numpy as np
     import matplotlib.pyplot as plt
