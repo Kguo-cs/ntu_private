@@ -155,7 +155,7 @@ print(len(scenarios))
 with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
     pickle.dump(scenarios, f)
 
-print('finish scenarios filter')#
+print('finish scenarios filter')#373222
 print(1/0)
 
 with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
