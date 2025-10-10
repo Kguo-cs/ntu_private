@@ -425,7 +425,7 @@ def extract_map_features(map_api, center,  radius):
     return ret
 
 
-def get_map_vector(scenario,origin_ego,center,radius):
+def get_map_vector(scenario,origin_ego,center,radius):#373222
 
     result = extract_map_features(scenario.map_api, center, radius)
 
