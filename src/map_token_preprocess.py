@@ -34,9 +34,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
-map_data_directory  = "/home/ke/code/catk/src/waymo_data/map1_10/training/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_edge1_03_light/"
+agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_static100_clean/"
+map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/nuplan_static100/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_noisemap_clean/"
 
 
 
@@ -109,6 +109,7 @@ def process_file(filename):
     data1=HeteroData(data2).cuda()
 
     tokenized_map = token_processor.tokenize_map(data1)
+    del tokenized_map["light_type"]
 
     for key in tokenized_map.keys():
         tokenized_map[key] = tokenized_map[key].cpu()

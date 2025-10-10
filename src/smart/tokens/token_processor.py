@@ -206,7 +206,14 @@ class TokenProcessor(torch.nn.Module):
             dim=(-2, -1),
         )  # [n_pl, n_token]
 
-        token_idx = torch.argmin(dist, dim=-1)
+        self.noise=True
+
+        if self.noise:
+            topk_indices = torch.argsort(dist, dim=1)[:, :8]
+            sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
+            token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
+        else:
+            token_idx = torch.argmin(dist, dim=-1)
 
         position=traj_pos[:, 0].contiguous()
 
