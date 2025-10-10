@@ -208,7 +208,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.noise=True
 
-        if self.training and self.noise:
+        if  self.noise:
             topk_indices = torch.argsort(dist, dim=1)[:, :8]
             sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
             token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
@@ -382,7 +382,7 @@ class TokenProcessor(torch.nn.Module):
             out_dict["gt_idx"].append(token_idx_gt)
 
 
-            if  self.training and self.noise:
+            if   self.noise:
                 topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
                 token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
