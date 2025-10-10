@@ -13,7 +13,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_drive60 ~/code/sim/src/waymo_data/full/ 
 
-rsync -avz ~/code/catk/src/waymo_data/full/nuplan_noisemap_clean ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz ~/code/catk/src/waymo_data/full/validation_nuplan2 ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
@@ -30,7 +30,7 @@ rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AI
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf336_val40_learnmap/2025-09-21_21-46-30/sim/393i2wqy/checkpoints/epoch=12-step=76100.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL152_learnmap_a10/2025-10-07_11-19-03/sim/cbu5bqfg/checkpoints/epoch=13-step=44856.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL112_learnmap_all0531_arn10/2025-10-09_11-55-12/sim/upxl5mgc/checkpoints/epoch=13-step=60886.ckpt ./
 
 
 rsync -avz /home/ke/PAD/exp/navsim_result/pad64_share/05.10_21.45/epoch=17-step=23922.ckpt lyuchen@aspire2pntu.nscc.sg:/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/exp/ke/pad_64_share/05.12_15.32/pad/m6vultai/checkpoints/epoch=17-step=23922.ckpt
