@@ -136,7 +136,7 @@ scenario_filter=ScenarioFilter( scenario_types=None,
 
 
 
-scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
+# scenarios= scenario_builder.get_scenarios(scenario_filter, worker)
 
 past_time_horizon=1
 past_num_steps=10
@@ -148,15 +148,15 @@ scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
 output_dir = Path(output_dir)
-print(len(scenarios))
+# print(len(scenarios))
+#
+# with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
+#     pickle.dump(scenarios, f)
 
-with open(Path(scene_dir) / f"scenarios.pkl", "wb+") as f:
-    pickle.dump(scenarios, f)
+print('finish scenarios filter')#
 
-print('finish scenarios filter')
-print(1/0)
-# with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
-#     scenarios = pickle.load(f)
+with open(Path(scene_dir) / f"scenarios.pkl", "rb+") as f:
+    scenarios = pickle.load(f)
 
 import matplotlib.pyplot as plt
 from shapely.geometry.linestring import LineString

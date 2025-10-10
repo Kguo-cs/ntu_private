@@ -8,11 +8,11 @@ file_links = [
     # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_boston.zip",
     # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_pittsburgh.zip",
     # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_singapore.zip",
-    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_1.zip",
-    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_2.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_3.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_4.zip",
-    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_5.zip",
+    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_1.zip",
+    # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_2.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_3.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_4.zip",
+    "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_5.zip",
     # "https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.0/nuplan-v1.0_train_vegas_6.zip",
     # "https://d1qinkmu0ju04f.cloudfront.net/public/nuplan-v1.1/nuplan-maps-v1.0.zip"
 ]
