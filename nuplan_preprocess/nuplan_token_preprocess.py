@@ -37,7 +37,7 @@ token_processor.eval()
 gump_path=os.path.dirname(os.getcwd()) #'/home/ke/code/catk''/home/ke/keguo/sim'#
 
 agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100/"
-ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100_05/"
+ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100_clean/"
 
 
 
@@ -102,9 +102,13 @@ def process_file(filename):
         valid, pos, heading, vel
     )
 
-    tokenized_agent = token_processor._match_agent_token(valid, pos,
-                                        heading,
-                                        agent_shape, token_traj  )
+    tokenized_agent = token_processor._match_agent_token(valid,
+                                                         pos,
+                                                            heading,
+                                                            agent_shape,
+                                                         token_traj
+
+                                                         )
 
     # role_mask = data1["agent"]["role"]
     #
