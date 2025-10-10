@@ -326,8 +326,10 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
 
-                kl_coef=4#np.power(0.9999,self.global_step)
-                kl_taken = (agent_log_prob - logp_a_ref)
+                kl_coef=1#np.power(0.9999,self.global_step)
+                logr = (agent_log_prob - logp_a_ref)
+
+                kl_taken=-logr.exp()+1+logr
 
                 kl_per_token=-kl_coef *kl_taken
 
@@ -478,10 +480,10 @@ class IQ_SoftQ(LightningModule):
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
 
-        # if "pred_mask" in tokenized_agent.keys():
-        #     all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
-        # else:
-        all_valid=valid_mask.all(-1)
+        if "pred_mask" in tokenized_agent.keys():
+            all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
+        else:
+            all_valid=valid_mask.all(-1)
 
         if self.use_kl_penalty:
             expert_nll=0
