@@ -358,6 +358,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
+            'gt_idx':[]
            # 'token_valid':[]
         }
 
@@ -376,13 +377,15 @@ class TokenProcessor(torch.nn.Module):
                 head_now=prev_head,  # [n_agent]
             )[0].view(*token_traj.shape)
             all_dist=torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1)
+            min_dist, token_idx_gt = torch.min(all_dist, dim=-1)  # [n_agent]
+
+            out_dict["gt_idx"].append(token_idx_gt)
+
 
             if  self.training and self.noise:
                 topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
                 token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
-            else:
-                min_dist,token_idx_gt = torch.min(  all_dist, dim=-1 )  # [n_agent]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
