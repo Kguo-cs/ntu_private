@@ -145,7 +145,7 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_drive60'
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_inter2'
 scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
