@@ -116,6 +116,8 @@ class SMART(LightningModule):
 
     def validation_step(self, data, batch_idx):
 
+        tokenized_map, tokenized_agent = self.token_processor(data)
+
 
         # # ! open-loop vlidation
         # if self.val_open_loop:
@@ -147,7 +149,7 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head = [], [], []
             # tokenized_map, tokenized_agent = self.token_processor(data)
             #
-            # map_feature = self.encoder.map_encoder(tokenized_map)
+            map_feature = self.encoder.map_encoder(tokenized_map)
 
             if self.encoder.use_vae:
                 # logits = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
@@ -186,9 +188,6 @@ class SMART(LightningModule):
             #t1=time.time()
 
             for _ in range(self.n_rollout_closed_val):
-                tokenized_map, tokenized_agent = self.token_processor(data)
-
-                map_feature = self.encoder.map_encoder(tokenized_map)
 
                 if self.encoder.use_vae:
                     latent_z = mu + torch.randn_like(std) * std
