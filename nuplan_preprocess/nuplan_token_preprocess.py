@@ -36,8 +36,8 @@ token_processor.eval()
 # Set paths
 gump_path=os.path.dirname(os.getcwd()) #'/home/ke/code/catk''/home/ke/keguo/sim'#
 
-agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100/"
-ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_static100_clean/"
+agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_inter2/"
+ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_inter2_clean/"
 
 
 
