@@ -180,7 +180,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    scenarios = os.listdir(agent_data_directory)
+    scenarios = os.listdir(agent_data_directory)#[171577:]
 
     for file in tqdm(scenarios):
         process_file(file)
