@@ -23,6 +23,7 @@ from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import Sce
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 from src.data_preprocess import get_map_features,get_agent_features
 import matplotlib as mpl
+import torch
 
 mpl.rcParams['toolbar'] = 'None'
 scenario_mapping_config = {
@@ -145,7 +146,7 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_cross1'
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_cross2'
 scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
@@ -740,6 +741,12 @@ def process_scenario(scenario):
 
 
     #filter map
+    map_pos=data['map_save']['traj_pos'][:,0]
+
+    agent_pos=agent['position'][:,:,:2].reshape(-1,2)
+
+    dist=torch.norm(agent_pos[:,None]-map_pos[None],dim=-1)
+
 
     scenario_id=scenario.token
 
@@ -754,10 +761,10 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(64) as pool:
-    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-# for scenario in tqdm(scenarios):
-#     process_scenario(scenario)
+# with Pool(64) as pool:
+#     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+for scenario in tqdm(scenarios):
+    process_scenario(scenario)
 
 # # Submit tasks in parallel
 # futures = [process_scenario.remote(scenario) for scenario in scenarios]

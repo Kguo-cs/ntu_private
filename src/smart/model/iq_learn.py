@@ -759,7 +759,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        plot_rollout(tokenized_agent,tokenized_map,self.token_processor)
+        #plot_rollout(tokenized_agent,tokenized_map,self.token_processor)
 
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
