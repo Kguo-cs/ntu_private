@@ -529,19 +529,7 @@ def get_map_vector(scenario,origin_ego,center,radius):#373222
 
     data = preprocess_map(map_data,break_dist=300)
 
-    #traj_pos= data['map_save']['traj_pos']
 
-  #  type=data['pt_token']['type']
-
-
-    # print(len(traj_pos))
-    #
-    # print(len(traj_pos[type==6]))
-    #
-    # for traj in traj_pos:#[type==6]
-    #
-    #     plt.plot(traj[:,0], traj[:,1], '.')
-    # plt.show()
 
     return data
 
@@ -577,21 +565,6 @@ def get_agent(scenario,origin_ego):
 
     id_mapping = {}
     idx = 1
-    # drivable = scenario.map_api.get_proximal_map_objects(
-    #     Point2D(*origin_ego), 500, DRIVABLE_LAYERS
-    # )
-    #
-    # # 2) collect polygon geometries
-    # drv_polys = []
-    # for _, objs in drivable.items():
-    #     for o in objs:
-    #         g = o.polygon
-    #         drv_polys.append(g)
-    #
-    # drivable_union = unary_union(drv_polys)
-    # drivable_prepped = prep(drivable_union)  # speeds up repeated intersects
-    # static_geoms=[]
-
     drivable_area =scenario.map_api._get_vector_map_layer(SemanticMapLayer.DRIVABLE_AREA)
     drivable_range=boundaries_in_range(drivable_area, origin_ego[0],origin_ego[1], 300)#.buffer(0.1).boundary.explode(index_parts=True)
 
@@ -741,23 +714,35 @@ def process_scenario(scenario):
 
 
     #filter map
-    map_pos=data['map_save']['traj_pos'][:,0]
-
-    agent_pos=agent['position'][:,:,:2].reshape(-1,2)
-
-    dist=torch.norm(agent_pos[:,None]-map_pos[None],dim=-1)
-
-    min_dist=dist.amin(0)
-
-    mask=min_dist<60
-
-    data['map_save']['traj_pos']=data['map_save']['traj_pos'][mask]
-    data['map_save']['traj_theta']=data['map_save']['traj_theta'][mask]
-    data['pt_token']['type']=data['pt_token']['type'][mask]
-    data['pt_token']['pl_type']=data['pt_token']['pl_type'][mask]
-    data['pt_token']['num_nodes']=len(data['pt_token']['pl_type'])
+    # map_pos=data['map_save']['traj_pos'][:,0]
+    #
+    # agent_pos=agent['position'][:,:,:2].reshape(-1,2)
+    #
+    # dist=torch.norm(agent_pos[:,None]-map_pos[None],dim=-1)
+    #
+    # min_dist=dist.amin(0)
+    #
+    # mask=min_dist<60
+    #
+    # data['map_save']['traj_pos']=data['map_save']['traj_pos'][mask]
+    # data['map_save']['traj_theta']=data['map_save']['traj_theta'][mask]
+    # data['pt_token']['type']=data['pt_token']['type'][mask]
+    # data['pt_token']['pl_type']=data['pt_token']['pl_type'][mask]
+    # data['pt_token']['num_nodes']=len(data['pt_token']['pl_type'])
 
     del data['pt_token']['light_type']
+    # traj_pos = data['map_save']['traj_pos']
+    #
+    # # type=data['pt_token']['type']
+    #
+    # # print(len(traj_pos))
+    # #
+    # # print(len(traj_pos[type==6]))
+    # #
+    # for traj in traj_pos:  # [type==6]
+    #
+    #     plt.plot(traj[:, 0], traj[:, 1], '-')
+    # plt.show()
 
     scenario_id=scenario.token
 
@@ -772,10 +757,10 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(32) as pool:
-    results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
-# for scenario in tqdm(scenarios):
-#     process_scenario(scenario)
+# with Pool(64) as pool:
+#     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
+for scenario in tqdm(scenarios):
+    process_scenario(scenario)
 
 # # Submit tasks in parallel
 # futures = [process_scenario.remote(scenario) for scenario in scenarios]
