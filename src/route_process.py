@@ -244,8 +244,10 @@ def process_scenario( filename):
     with open(output_file, "wb") as f:
         pickle.dump(data, f)
 
-with Pool(16) as pool:
-    results = list(tqdm(pool.imap_unordered(process_scenario, files), total=len(files)))
+# with Pool(16) as pool:
+#     results = list(tqdm(pool.imap_unordered(process_scenario, files), total=len(files)))
+for scenario in tqdm(files):
+    process_scenario(scenario)
 
     # print(1)
         # print(len(np.unique(L_idx)), len(np.unique(R_idx))  )

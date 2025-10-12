@@ -190,7 +190,7 @@ class IQ_SoftQ(LightningModule):
             proposal_loss=0
             proposal_log_prob=0
 
-        action = tokenized_agent["gt_idx"][:, self.start_step+1:]
+        action = tokenized_agent["sampled_idx"][:, self.start_step+1:]
 
         if pred["agent_q"] is None:
             return 0,0,0,0,0,proposal_loss,0,0

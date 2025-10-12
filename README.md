@@ -11,13 +11,13 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_route shanhel
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_cross2 ~/code/sim/src/waymo_data/full/ 
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_cross2 ~/code/catk/src/waymo_data/full/ 
 
 rsync -avz ~/code/catk/src/waymo_data/full/validation_nuplan_2 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
-rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/validation_nuplan_1 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/nuplan_cross2_clean_route guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_training_map2_03 /home/ke/code/catk/src/waymo_data/full/
 
@@ -105,7 +105,7 @@ setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
 
 
-CUDA_VISIBLE_DEVICES=2  python run.py >  3.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=3  python run.py >  4.log 2>&1 & 
 
 
 

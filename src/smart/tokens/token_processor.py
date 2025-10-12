@@ -742,10 +742,12 @@ class TokenProcessor(torch.nn.Module):
 
         else:
 
-            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
+            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask",'token_mask']:
                 tokenized_agent[key] = agent[key]#[agent_mask]
 
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
+
+
 
             if "gt_pos_raw" in agent.keys():
 
