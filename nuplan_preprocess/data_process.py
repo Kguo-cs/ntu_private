@@ -200,13 +200,13 @@ def extract_map_features(map_api, center,  radius):
     #np.seterr(all='ignore')
     # Center is Important !
     layer_names = [
-        SemanticMapLayer.LANE_CONNECTOR,
+        #SemanticMapLayer.LANE_CONNECTOR,
         SemanticMapLayer.LANE,
         SemanticMapLayer.CROSSWALK,
-       SemanticMapLayer.INTERSECTION,
+        SemanticMapLayer.INTERSECTION,
         #SemanticMapLayer.STOP_LINE,
         #SemanticMapLayer.WALKWAYS,
-       SemanticMapLayer.CARPARK_AREA,
+        SemanticMapLayer.CARPARK_AREA,
         SemanticMapLayer.ROADBLOCK,
        #SemanticMapLayer.ROADBLOCK_CONNECTOR,
 
@@ -265,15 +265,15 @@ def extract_map_features(map_api, center,  radius):
     #     ]
     #block_polygons = []
 
-    for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
-        path = lane.baseline_path.discrete_path[::10]
-        points = np.array([[pose.x, pose.y] for pose in path])
-        ret[lane.id]=('lane',points)
+    # for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
+    #     path = lane.baseline_path.discrete_path[::10]
+    #     points = np.array([[pose.x, pose.y] for pose in path])
+    #     ret[lane.id]=('lane',points)
 
     for lane in nearest_vector_map[SemanticMapLayer.LANE]:
-        path = lane.baseline_path.discrete_path
-        points = np.array([[pose.x, pose.y] for pose in path])
-        ret[lane.id]=('lane',points)
+        # path = lane.baseline_path.discrete_path
+        # points = np.array([[pose.x, pose.y] for pose in path])
+        # ret[lane.id]=('lane',points)
 
         left_nei,right_nei=lane.adjacent_edges
         left_boundary=lane.left_boundary
