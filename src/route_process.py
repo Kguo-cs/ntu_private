@@ -11,7 +11,7 @@ from shapely.geometry import LineString
 from multiprocessing import Pool, cpu_count
 
 
-data_directory = "./waymo_data/full/" #training_map2_03_pred/"
+data_directory = "./waymo_data/full/nuplan_cross2_clean" #training_map2_03_pred/"
 output_path = "./waymo_data/full/training_map2_03_route40/"
 
 

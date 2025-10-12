@@ -17,7 +17,7 @@ rsync -avz ~/code/catk/src/waymo_data/full/validation_nuplan_2 ke@10.87.216.98:~
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
-rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/waymo_data/full/nuplan_cross1 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/validation_nuplan_1 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_training_map2_03 /home/ke/code/catk/src/waymo_data/full/
 
@@ -105,7 +105,7 @@ setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
 
 
-CUDA_VISIBLE_DEVICES=0  python run.py >  1.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=1  python run.py >  2.log 2>&1 & 
 
 
 
