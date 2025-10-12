@@ -194,6 +194,9 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
+        if self.training:
+            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.1
+
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
             head_global=None,  # [n_pl, 1]

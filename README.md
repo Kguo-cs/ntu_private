@@ -13,7 +13,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_drive60 ~/code/sim/src/waymo_data/full/ 
 
-rsync -avz ~/keguo/sim/src/waymo_data/full/nuplan_inter2 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz ~/code/catk/src/waymo_data/full/validation_nuplan1 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
