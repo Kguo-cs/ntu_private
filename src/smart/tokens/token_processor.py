@@ -197,6 +197,11 @@ class TokenProcessor(torch.nn.Module):
         if self.training:
             traj_pos=traj_pos+torch.randn_like(traj_pos)*0.1
 
+        traj_theta = torch.atan2(
+            traj_pos[:,1, 1] - traj_pos[:,0, 1],
+            traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        )
+
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
             head_global=None,  # [n_pl, 1]
