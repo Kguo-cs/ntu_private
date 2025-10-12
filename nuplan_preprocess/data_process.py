@@ -415,7 +415,7 @@ def extract_map_features(map_api, center,  radius):
             points = area.polygon.exterior.xy
         polygon = [[points[0][i], points[1][i]] for i in range(len(points[0]))]
         # polygon = nuplan_to_metadrive_vector(polygon, nuplan_center=[center[0], center[1]])
-        ret[area.id] = ('crosswalk', polygon)
+        ret[area.id] = ('cross_walk', polygon)
 
 
     block_polygons = [block.polygon for block in nearest_vector_map[SemanticMapLayer.ROADBLOCK]]

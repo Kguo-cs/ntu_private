@@ -194,13 +194,13 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        if self.training:
-            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
+        # if self.training:
+        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
 
-        traj_theta = torch.atan2(
-            traj_pos[:,1, 1] - traj_pos[:,0, 1],
-            traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        )
+        # traj_theta = torch.atan2(
+        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
+        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        # )
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -366,12 +366,15 @@ class TokenProcessor(torch.nn.Module):
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
-            'gt_idx':[]
+            'gt_idx':[],
+            'token_mask':[]
            # 'token_valid':[]
         }
 
         for i in range(shift, n_step, shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - shift] & valid[:, i]  # [n_agent]
+
+            out_dict["token_mask"].append(_valid_mask)
 
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
@@ -633,12 +636,12 @@ class TokenProcessor(torch.nn.Module):
             if k == "veh":
                 width = 2.0
                 length = 4.8
-            elif k == "cyc":
-                width = 1.0
-                length = 2.0
-            else:
+            elif k == "ped":
                 width = 1.0
                 length = 1.0
+            else:
+                width = 1.0
+                length = 2.0
             agent_shape += torch.stack([width * mask, length * mask], dim=-1)
 
             token_traj_all += mask[:, None, None, None, None] * (

@@ -71,6 +71,8 @@ class AgentTokenEncoder(nn.Module):
             head_vector_a,  # [n_agent, n_step, 2]
             agent_type,  # [n_agent]
             agent_shape,  # [n_agent, 3]
+            token_mask,
+            batch_idx,
             inference=False,
     ):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
@@ -80,7 +82,7 @@ class AgentTokenEncoder(nn.Module):
             if self.use_type:
                 veh_mask = agent_type == 0
                 ped_mask = agent_type == 1
-                cyc_mask = agent_type == 2
+                cyc_mask = agent_type ==2
                 #  [n_token, hidden_dim]
                 agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                 agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
@@ -171,6 +173,15 @@ class AgentTokenEncoder(nn.Module):
                 self.shape_emb(agent_shape),
             ]  # List of len=2, shape [n_agent, hidden_dim]
 
+        if self.training:
+            rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
+
+            rand_mask=rand_idx[batch_idx]<1
+
+            token_mask[rand_mask[:,0],:2]=False
+
+        feature_a[~token_mask]=0
+        agent_token_emb[~token_mask]=0
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),

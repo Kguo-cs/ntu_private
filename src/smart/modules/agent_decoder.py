@@ -181,7 +181,7 @@ class SMARTAgentDecoder(nn.Module):
         self.discriminator=discriminator
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx,goal_idx, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,post_sampling=False):
+    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,post_sampling=False):
 
         #pos_a=torch.round(pos_a*10)/10
         #head_a=torch.round(head_a*10)/10
@@ -211,6 +211,8 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             agent_type=tokenized_agent["type"].long(),  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
+            token_mask=token_mask,
+            batch_idx=tokenized_agent['batch']
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
 
@@ -432,7 +434,7 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent["latent_z"]=None
 
         next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
-                                                                                None,
+                                                                                tokenized_agent["token_mask"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
                                                                                 tokenized_agent["sampled_heading"] ,
@@ -498,7 +500,7 @@ class SMARTAgentDecoder(nn.Module):
 
         # tokenized_agent["latent_z"]=tokenized_agent["latent_z"][:, :current_step]
 
-        goal_idx=torch.zeros([0,2]) #tokenized_agent["goal_idx"][:,:2]
+        token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -531,7 +533,7 @@ class SMARTAgentDecoder(nn.Module):
                         self.a_t_roformer.attn.caching=True
                         if self.pred_light and not self.light_encoder.share:
                             self.light_encoder.lg_t_roformer.attn.caching=True
-                    next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,goal_idx, mask, pos_a,
+                    next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,post_sampling)
                 if self.use_roformer:
                     self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
@@ -545,7 +547,7 @@ class SMARTAgentDecoder(nn.Module):
 
             else:
                 next_token_logits, next_light_logits, _, _, proposal, next_goal_logits = self.predict_agent(
-                    sampled_idx[:, -1:], goal_idx[:, -1:], mask[:, - self.agent_hist:],
+                    sampled_idx[:, -1:], token_mask[:, -1:], mask[:, - self.agent_hist:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
                     mask_lg[:, -self.light_hist:], t - 1, latent_z, post_sampling)
 
@@ -665,6 +667,7 @@ class SMARTAgentDecoder(nn.Module):
                 # else:
                 #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
+                token_mask =torch.cat([token_mask,torch.ones_like(token_mask[:,-1:]).to(torch.bool)], dim=1)
 
             # if self.pred_vis:
             #     vis=torch.rand_like(visibility[:,-1:,0])<torch.sigmoid(visibility[:,-1:,0])
@@ -692,6 +695,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_pos": pos_a,  # [n_agent, 18, 2]
             "sampled_heading": head_a,  # [n_agent, 18]
             "valid_mask": mask,  # [n_agent, 18]
+            "token_mask":token_mask,
             "sampled_idx": sampled_idx,  # [n_agent, 18]
            # "sampled_log_prob":sampled_log_prob,
            # "vis_mask": vis_mask,

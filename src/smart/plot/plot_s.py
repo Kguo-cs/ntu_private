@@ -43,10 +43,10 @@ lane_style = [
     (COLOR_RED, 4),  # TYPE_ROAD_EDGE_BOUNDARY = 4
     (COLOR_PLUM, 4),  # TYPE_ROAD_EDGE_MEDIAN = 5
     (COLOR_BUTTER, 2),  # BROKEN = 6
-    (COLOR_GREEN, 2),  # SOLID_SINGLE = 7
+    (COLOR_SKY_BLUE_0, 2),  # SOLID_SINGLE = 7
     (COLOR_SCARLET_RED, 2),  # DOUBLE = 8
-    (COLOR_CHAMELEON, 4),  # SPEED_BUMP = 9
-    (COLOR_SKY_BLUE_0, 4),  # CROSSWALK = 10
+    (COLOR_GREEN, 4),  # SPEED_BUMP = 9
+    (COLOR_GREEN, 4),  # CROSSWALK = 10
 ]
 
 
@@ -104,8 +104,8 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor):
 
         idx = int(mt[i])
 
-        # if idx==7:
-        #     continue
+        if idx==7:
+            continue
 
         color_255, width = lane_style[idx]
         color = tuple(np.array(color_255) / 255.0)
