@@ -12,7 +12,7 @@ from multiprocessing import Pool, cpu_count
 
 
 data_directory = "./waymo_data/full/nuplan_cross2_clean" #training_map2_03_pred/"
-output_path = "./waymo_data/full/training_map2_03_route40/"
+output_path = "./waymo_data/full/nuplan_cross2_clean_route/"
 
 
 
@@ -168,25 +168,29 @@ def nearest_edges_biside(traj_xy: np.ndarray, yaw: np.ndarray, edge_xy: np.ndarr
 
 
 
-max_len=0
+# max_len=0
 
-for filename in tqdm(files):
+def process_scenario( filename):
     input_path = os.path.join(data_directory, filename)
-
+    with open(input_path, "rb") as f:
+        data = pickle.load(f)
 
     tokenized_map=data["tokenized_map"]
 
     map_type=tokenized_map['type']
-    #mask4 = (map_type == 4)
-    mask45 = (map_type == 4) | (map_type == 5)
+   # mask467 = (map_type == 4) |  (map_type == 6) |   (map_type == 7)
+    mask4 = (map_type == 4) #| (map_type == 5)
     #
-    # idx4 = mask4.nonzero(as_tuple=True)[0]
-    # idx45 = mask45.nonzero(as_tuple=True)[0]
+    #idx467 = mask467.nonzero(as_tuple=True)[0]
+    #idx4 = mask4.nonzero(as_tuple=True)[0]
 
     # map idx4 into local indices inside idx45
     # torch.searchsorted requires sorted input (idx45 is sorted by construction)
-    #idx4_in_45 = torch.searchsorted(idx45, idx4)
-    position=tokenized_map["position"][mask45]
+    #idx4_in_467 = torch.searchsorted(idx467, idx4)
+
+
+
+    position=tokenized_map["position"][mask4]
     x, y = position[:, 0], position[:, 1]
 
     edge_xy = np.column_stack([x, y])  # road-edge points
@@ -224,33 +228,41 @@ for filename in tqdm(files):
         )
 
         all_idx=torch.tensor(np.unique(np.concatenate([L_idx,R_idx])))#idx4_in_45[np.unique(np.concatenate([L_idx,R_idx]))]
+
+        # all_idx=idx4_in_467[all_idx]
         n = min(len(all_idx), 100)
 
         route_map_index[i][:n] =all_idx[:n]
 
-    #     max_len=max(max_len, len(all_idx))
-    #
-    # if max_len>120:
-    #     print(max_len)
+
+
 
     data["tokenized_agent"]["route_map_index"]=route_map_index
 
+    output_file = output_path + filename
 
-        print(len(np.unique(L_idx)), len(np.unique(R_idx))  )
+    with open(output_file, "wb") as f:
+        pickle.dump(data, f)
 
-        plt.plot(valid_traj[:,0], valid_traj[:,1], 'g-')
-        plt.plot(interpolated_traj[:,0], interpolated_traj[:,1], 'r-')
-        for p, li, ri in zip(interpolated_traj, L_idx, R_idx):
-            if li >= 0: plt.plot([p[0], edge_xy[li,0]], [p[1], edge_xy[li,1]], 'b-', alpha=0.4)
-            if ri >= 0: plt.plot([p[0], edge_xy[ri,0]], [p[1], edge_xy[ri,1]], 'm-', alpha=0.4)
+with Pool(16) as pool:
+    results = list(tqdm(pool.imap_unordered(process_scenario, files), total=len(files)))
 
-        plt.scatter(x, y)
-
-        plt.show()
-
-        output_file = output_path + filename
-
-        with open(output_file, "wb") as f:
-            pickle.dump(data, f)
-
+    # print(1)
+        # print(len(np.unique(L_idx)), len(np.unique(R_idx))  )
+        #
+        # plt.plot(valid_traj[:,0], valid_traj[:,1], 'g-')
+        # plt.plot(interpolated_traj[:,0], interpolated_traj[:,1], 'r-')
+        # for p, li, ri in zip(interpolated_traj, L_idx, R_idx):
+        #     if li >= 0: plt.plot([p[0], edge_xy[li,0]], [p[1], edge_xy[li,1]], 'b-', alpha=0.4)
+        #     if ri >= 0: plt.plot([p[0], edge_xy[ri,0]], [p[1], edge_xy[ri,1]], 'm-', alpha=0.4)
+        #
+        # plt.scatter(x, y)
+        #
+        # plt.show()
+        #
+        # output_file = output_path + filename
+        #
+        # with open(output_file, "wb") as f:
+        #     pickle.dump(data, f)
+        #
     #
