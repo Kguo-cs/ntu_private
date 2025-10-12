@@ -754,7 +754,7 @@ def process_scenario(scenario):
 #
 # with Pool(28) as pool:
 #     results = pool.starmap(process_scenario, zip(scenarios))
-with Pool(32) as pool:
+with Pool(64) as pool:
     results = list(tqdm(pool.imap_unordered(process_scenario, scenarios), total=len(scenarios)))
 # for scenario in tqdm(scenarios):
 #     process_scenario(scenario)

@@ -52,9 +52,9 @@ lane_style = [
 
 def plot_rollout(tokenized_agent,tokenized_map,token_processor):
     # global_edge = tokenized_map["global_edge"]
-    import matplotlib as mpl
-
-    mpl.rcParams['toolbar'] = 'None'
+    # import matplotlib as mpl
+    #
+    # mpl.rcParams['toolbar'] = 'None'
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -104,7 +104,7 @@ def plot_rollout(tokenized_agent,tokenized_map,token_processor):
 
         idx = int(mt[i])
 
-        if idx==7:
+        if idx==1:
             continue
 
         color_255, width = lane_style[idx]
