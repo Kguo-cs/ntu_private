@@ -122,7 +122,7 @@ class VisWaymo:
         raster_map, self.top_left_px = self._register_map(mp_xyz, self.px_per_m)
         self._draw_map(raster_map, mp_xyz, mp_type)
 
-        self.interval=1
+        self.interval=2
 
         im_gt_maps = [raster_map.copy() for _ in range(0,n_step,self.interval)]
         self._draw_traffic_lights(im_gt_maps, tl_lane_state[::self.interval], tl_lane_id[::self.interval], mp_xyz, mp_id)

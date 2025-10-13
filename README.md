@@ -26,16 +26,15 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/AIRL152_bc4_learnmap/2025-09-24_14-57-54/wosac_submission.tar.gz ./
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf312_val40_learnmap/2025-09-19_10-35-35/sim/gothrsl7/checkpoints/epoch=4-step=30440.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_nuplan_drive4679_inter2_pt20_route_drop01/2025-10-12_22-23-06/bc/6gcowjxm/checkpoints/epoch=26-step=144774.ckpt /home/ke/code/catk/src/waymo_data/full/
+
+
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf336_val40_learnmap/2025-09-21_21-46-30/sim/393i2wqy/checkpoints/epoch=12-step=76100.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL160_learnmap_arn10_kl4/2025-10-11_14-10-16/sim/7a8i19q8/checkpoints/epoch=15-step=48704.ckpt ./
 
 
-rsync -avz /home/ke/PAD/exp/navsim_result/pad64_share/05.10_21.45/epoch=17-step=23922.ckpt lyuchen@aspire2pntu.nscc.sg:/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/exp/ke/pad_64_share/05.12_15.32/pad/m6vultai/checkpoints/epoch=17-step=23922.ckpt
-
-rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/ntu/exp/ke/ke ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
@@ -105,7 +104,7 @@ setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
 
 
-CUDA_VISIBLE_DEVICES=3  python run.py >  4.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=0  python run.py >  1.log 2>&1 & 
 
 
 
