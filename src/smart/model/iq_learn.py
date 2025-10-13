@@ -196,10 +196,10 @@ class IQ_SoftQ(LightningModule):
             return 0,0,0,0,0,proposal_loss,0,0
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
-            train_mask=tokenized_agent["train_mask"]
-            valid_mask=valid_mask[train_mask]
-            action=action[train_mask]
-            train_mask=train_mask[train_mask]
+            agent_mask=tokenized_agent["train_mask"]
+            train_mask=train_mask[agent_mask]
+            valid_mask=valid_mask[agent_mask]
+            action=action[agent_mask]
 
         all_valid_mask=valid_mask.all(-1)
 
@@ -477,6 +477,8 @@ class IQ_SoftQ(LightningModule):
     def iq_update(self, tokenized_map, tokenized_agent):
 
         tokenized_agent["train_mask"]=tokenized_agent["type"]<3
+
+        #print(torch.all(tokenized_agent["train_mask"]))
 
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]

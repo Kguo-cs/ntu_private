@@ -180,8 +180,8 @@ class AgentTokenEncoder(nn.Module):
 
             token_mask[rand_mask[:,0],:2]=False
 
-        # feature_a[~token_mask]=0
-        # agent_token_emb[~token_mask]=0
+        feature_a[~token_mask]=0
+        agent_token_emb[~token_mask]=0
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),
