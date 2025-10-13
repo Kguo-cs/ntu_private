@@ -81,9 +81,11 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route=True
 
+        self.noise=True
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        if 'token_idx' not in data.keys():
+        if 'sampled_idx' not in data.keys():
             tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data)
@@ -200,13 +202,13 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        if self.training:
-            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.02
-
-        traj_theta = torch.atan2(
-            traj_pos[:,1, 1] - traj_pos[:,0, 1],
-            traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        )
+        # if self.training:
+        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.02
+        #
+        # traj_theta = torch.atan2(
+        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
+        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        # )
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -220,7 +222,6 @@ class TokenProcessor(torch.nn.Module):
             dim=(-2, -1),
         )  # [n_pl, n_token]
 
-        self.noise=False
 
         if  self.training and self.noise:
             topk_indices = torch.argsort(dist, dim=1)[:, :8]
@@ -676,6 +677,9 @@ class TokenProcessor(torch.nn.Module):
         map = data["tokenized_map"]
         agent = data["tokenized_agent"]
 
+        if len(map) == 0:
+            map=self.tokenize_map(data)
+
         if 'traj_pos' in map.keys():
             tokenized_map["traj_pos"] = map["traj_pos"]
             tokenized_map["type"] = map["type"]
@@ -689,8 +693,9 @@ class TokenProcessor(torch.nn.Module):
                     (self.map_token_sample_pt[:,:,1:] - map["traj_pos_local"].unsqueeze(1)) ** 2,
                     dim=(-2, -1),
                 )  # [n_pl, n_token]
+                token_idx = torch.argmin(dist, dim=-1)
 
-                tokenized_map["token_idx"] = torch.argmin(dist, dim=-1)
+                tokenized_map["token_idx"] = token_idx
 
                 tokenized_map["traj_pos_local"] = map["traj_pos_local"]
 
