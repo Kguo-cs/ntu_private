@@ -36,8 +36,8 @@ token_processor.eval()
 # Set paths
 gump_path=os.path.dirname(os.getcwd()) #'/home/ke/code/catk''/home/ke/keguo/sim'#
 
-agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_cross2/"
-ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_cross2_clean/"
+agent_data_directory = gump_path+"/src/waymo_data/full/nuplan_cross2_route/"
+ouput_data_directory = gump_path+"/src/waymo_data/full/nuplan_cross2_03_map/"
 
 
 
@@ -76,15 +76,18 @@ def process_file(filename):
 
     data1= HeteroData(data).cuda()
 
-    tokenized_map = token_processor.tokenize_map(data1)
-
-    for key in tokenized_map.keys():
-        tokenized_map[key] = tokenized_map[key].cpu()
+    # tokenized_map = token_processor.tokenize_map(data1)
+    #
+    # for key in tokenized_map.keys():
+    #     tokenized_map[key] = tokenized_map[key].cpu()
 
     out_data={}
 
-    out_data["tokenized_map"]=tokenized_map
-    out_data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
+    out_data["map_save"]=data['map_save']
+    out_data["pt_token"]=data['pt_token']
+
+    # out_data["tokenized_map"]=tokenized_map
+    # out_data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
 
     agent = data1["agent"]
 
@@ -180,7 +183,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    scenarios = os.listdir(agent_data_directory)#[171577:]
+    scenarios = os.listdir(agent_data_directory)[100000:]
 
     for file in tqdm(scenarios):
         process_file(file)
