@@ -69,7 +69,7 @@ class InterativeDecoder(nn.Module):
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
                                         use_roformer=use_roformer,
-                                        use_route=False,
+                                        use_route=token_processor.use_route,
                                         discriminator=discriminator)
 
         self.pt2a_attn_layers = nn.ModuleList(

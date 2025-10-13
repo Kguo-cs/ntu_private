@@ -31,6 +31,7 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 from src.smart.loss.iq_loss import padding
+from src.route_process import process_route_noloop,process_route
 
 class TokenProcessor(torch.nn.Module):
 
@@ -77,6 +78,8 @@ class TokenProcessor(torch.nn.Module):
         self.pred_goal=False
 
         self.use_smart=False
+
+        self.use_route=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -130,6 +133,9 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["goal_idx"]=goal_idx.to(torch.long)
             else:
                 tokenized_agent["goal_idx"]=torch.zeros([0,18])
+
+        if self.use_route and 'route'
+
 
         return tokenized_map, tokenized_agent
 
