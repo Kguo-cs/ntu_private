@@ -80,7 +80,7 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        if 'token_idx' in data.keys():
+        if 'token_idx' not in data.keys():
             tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data)
