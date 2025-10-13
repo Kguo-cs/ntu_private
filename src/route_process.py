@@ -523,7 +523,7 @@ if __name__ == "__main__":
     data_directory = "./waymo_data/full/nuplan_cross2"  # training_map2_03_pred/"_clean
     output_path = "./waymo_data/full/nuplan_cross2_route/"
 
-    files = os.listdir(data_directory)[300000:]
+    files = os.listdir(data_directory)#[:300000]
 
     data_dict = {}
 

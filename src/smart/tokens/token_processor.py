@@ -79,7 +79,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_smart=False
 
-        self.use_route=False
+        self.use_route=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -134,7 +134,7 @@ class TokenProcessor(torch.nn.Module):
             else:
                 tokenized_agent["goal_idx"]=torch.zeros([0,18])
 
-        # if self.use_route and 'route'
+
 
 
         return tokenized_map, tokenized_agent
@@ -322,6 +322,8 @@ class TokenProcessor(torch.nn.Module):
             token_traj=token_traj,
             speed=speed
         )
+        if "route_map_index" in data["agent"].keys():
+            tokenized_agent['route_map_index']=data["agent"]["route_map_index"]
 
         tokenized_agent.update(token_dict)
 
