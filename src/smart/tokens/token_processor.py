@@ -221,7 +221,7 @@ class TokenProcessor(torch.nn.Module):
         #     sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
         #     token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
         # else:
-        #     token_idx = torch.argmin(dist, dim=-1)
+        token_idx = torch.argmin(dist, dim=-1)
 
         position=traj_pos[:, 0].contiguous()
 
