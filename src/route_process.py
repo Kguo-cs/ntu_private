@@ -149,173 +149,215 @@ import numpy as np
 import torch
 from scipy.spatial import cKDTree
 
-def process_route_noloop(tokenized_map, tokenized_agent,
-                         k: int = 16,
-                         radius: float = 40.0,
-                         max_idx_per_agent: int = 100,
-                         eps: float = 1e-9) -> torch.Tensor:
-    """
-    Fully vectorized (no Python loop over agents):
-      1) Flatten all valid agent points.
-      2) Compute per-point yaw without looping (forward diff within agent groups).
-      3) Single KDTree query for all points.
-      4) Per-agent unique (left ∪ right) edge indices in appearance order, capped at K.
-      5) Scatter into (N, K) tensor, -1 padded.
+import numpy as np
+import torch
+from scipy.spatial import cKDTree
 
-    Uses the ORIGINAL valid points (no resampling).
+def process_route_resample_noloop(tokenized_map, tokenized_agent,
+                                  step: float = 2.0,
+                                  lookahead: float = 0.0,  # kept for API symmetry; here we use 0.0
+                                  k: int = 16,
+                                  radius: float = 40.0,
+                                  max_idx_per_agent: int = 100,
+                                  eps: float = 1e-9) -> torch.Tensor:
+    """
+    No Python loop over agents, but resamples each agent's valid trajectory at fixed `step`.
+    Then finds left/right nearest road-edge points with one KD-tree query and returns
+    per-agent sorted-unique indices (padded with -1 to `max_idx_per_agent`).
+
+    Notes:
+    - Matches your 'sorted unique' behavior per agent (like np.unique's sorted result).
+    - lookahead is kept for signature; here we assume 0.0 to match your current code path.
     """
 
-    # --- 1) Road-edge points (types 4 or 5) ---
+    # ---- Road-edge points (type 4 or 5) ----
     map_type = tokenized_map['type']
     mask45 = (map_type == 4) | (map_type == 5)
-    pos = tokenized_map['position'][mask45]            # (M,2) torch
+    pos = tokenized_map['position'][mask45]              # (M,2) torch
     edge_xy = pos.detach().cpu().numpy()
     num_edges = edge_xy.shape[0]
 
     N = tokenized_agent["valid_mask"].shape[0]
-    Tm1 = tokenized_agent["valid_mask"].shape[1] - 0  # already sliced in caller if you did [:,1:]
-
     if num_edges == 0 or N == 0:
         return (torch.zeros((N, max_idx_per_agent), dtype=torch.int16) - 1)
 
-    # --- 2) Slice agent tensors (skip t0 like your original code) ---
-    sampled_pos = tokenized_agent["sampled_pos"][:, 1:]         # (N, T-1, 2)
-    sampled_heading = tokenized_agent["sampled_heading"][:, 1:] # (N, T-1)
-    valid_mask = tokenized_agent["valid_mask"][:, 1:]           # (N, T-1)
+    # ---- Agent tensors, drop t0 to match your code ----
+    sampled_pos = tokenized_agent["sampled_pos"][:, 1:]          # (N, T-1, 2)
+    sampled_heading = tokenized_agent["sampled_heading"][:, 1:]  # (N, T-1)
+    valid_mask = tokenized_agent["valid_mask"][:, 1:]            # (N, T-1)
 
-    pos_np = sampled_pos.detach().cpu().numpy()       # float
-    head_np = sampled_heading.detach().cpu().numpy()  # float (radians)
-    mask_np = valid_mask.detach().cpu().numpy().astype(bool)
+    P = sampled_pos.detach().cpu().numpy()
+    H = sampled_heading.detach().cpu().numpy()
+    Msk = valid_mask.detach().cpu().numpy().astype(bool)
 
-    # --- 3) Flatten valid points across all agents (no loops) ---
-    # Indices of valid (agent, time)
-    ag_idx, t_idx = np.where(mask_np)                # both shape (M_all,)
-    # Points
-    pts_flat = pos_np[ag_idx, t_idx, :]              # (M_all, 2)
-    # Agent ids per point
-    agents_flat = ag_idx                             # (M_all,)
-
-    # Last valid heading per agent (for last point yaw fallback)
-    # Find last valid time per agent: argmax on reversed mask trick
-    # reverse along time axis
-    rev_mask = mask_np[:, ::-1]
-    # distance to last True from the end
-    last_from_end = rev_mask.argmax(axis=1)          # if no True, returns 0
-    has_any = mask_np.any(axis=1)
-    # compute last index safely
-    last_t = (mask_np.shape[1] - 1) - last_from_end
-    # for agents with no valid, last_t meaningless; but they won't appear in agents_flat anyway
-    last_heading = head_np[np.arange(N), np.clip(last_t, 0, mask_np.shape[1]-1)]
-    last_heading[~has_any] = 0.0
-
-    # --- 4) Per-point yaw without loops (forward diff within agent blocks) ---
-    # Data are grouped by agent already because mask_np is row-major in np.where output
-    # Build a "next point" difference but zero it across agent boundaries.
-    M_all = pts_flat.shape[0]
-    if M_all == 0:
+    # ---- Flatten valid points grouped by agent (no loops) ----
+    ag_idx, t_idx = np.where(Msk)           # row-major → grouped by agent
+    if ag_idx.size == 0:
         return (torch.zeros((N, max_idx_per_agent), dtype=torch.int16) - 1)
 
-    # Forward differences
-    dxy = np.zeros_like(pts_flat, dtype=np.float64)
-    dxy[:-1] = pts_flat[1:] - pts_flat[:-1]
+    pts = P[ag_idx, t_idx, :]               # (M_all, 2), grouped by agent
+    agents_flat = ag_idx                    # (M_all,)
 
-    # Zero out at boundaries where agent changes
-    boundary = (agents_flat[1:] != agents_flat[:-1])
-    dxy[:-1][boundary] = 0.0
+    # ---- Per-agent last heading (for yaw fill on degenerate steps) ----
+    rev = Msk[:, ::-1]
+    last_from_end = rev.argmax(axis=1)
+    has_any = Msk.any(axis=1)
+    last_t = (Msk.shape[1] - 1) - last_from_end
+    last_heading = H[np.arange(N), np.clip(last_t, 0, Msk.shape[1]-1)]
+    last_heading[~has_any] = 0.0  # unused for empty agents
 
-    # Yaw from forward diffs
-    norms = np.hypot(dxy[:, 0], dxy[:, 1])
-    yaw_flat = np.zeros(M_all, dtype=np.float64)
-    nz = norms > eps
-    yaw_flat[nz] = np.arctan2(dxy[nz, 1], dxy[nz, 0])
+    # ---- Compute groupwise cumulative arclength s for original valid points ----
+    # forward diffs within agent; zero across boundaries
+    dxy = np.zeros_like(pts, dtype=np.float64)
+    M_all = pts.shape[0]
+    if M_all > 1:
+        boundary = (agents_flat[1:] != agents_flat[:-1])
+        dxy[:-1] = pts[1:] - pts[:-1]
+        dxy[:-1][boundary] = 0.0
+    seglen = np.hypot(dxy[:, 0], dxy[:, 1])
 
-    # For points with zero diff (including the last point of each agent block),
-    # fill with that agent's last_heading
-    yaw_flat[~nz] = last_heading[agents_flat[~nz]]
+    # cumsum that resets per agent:
+    # counts of valid points per agent (including agents with zero valid)
+    counts = np.bincount(agents_flat, minlength=N)
+    starts = np.cumsum(np.r_[0, counts[:-1]])               # start index in flat arrays
+    csum = np.cumsum(seglen)                                 # global cumsum
+    # offsets per point = csum at group start repeated by count
+    off = np.repeat(csum[starts], counts, axis=0)
+    s_flat = csum - off                                      # (M_all,), per-agent cumulative s
+    # ensure s[0]==0 for each agent: seglen[start]==0 → ok
 
-    # --- 5) Single KD-Tree query for all points; then side selection ---
+    # ---- Drop zero-length segments like your helper (keep first point and points with seg>eps) ----
+    # Equivalent to keeping points where previous segment length > eps or group start
+    keep = np.ones(M_all, dtype=bool)
+    if M_all > 1:
+        keep[1:] = (seglen[1:] > eps)
+        keep[starts] = True  # always keep the first point of each agent
+    pts = pts[keep]
+    s_flat = s_flat[keep]
+    agents_flat = agents_flat[keep]
+
+    if pts.shape[0] == 0:
+        return (torch.zeros((N, max_idx_per_agent), dtype=torch.int16) - 1)
+
+    # recompute counts/starts after filtering
+    counts = np.bincount(agents_flat, minlength=N)
+    starts = np.cumsum(np.r_[0, counts[:-1]])
+
+    # per-agent total lengths (last s in each group or 0 if empty)
+    totals = np.zeros(N, dtype=np.float64)
+    nonempty = counts > 0
+    last_indices = starts[nonempty] + counts[nonempty] - 1
+    totals[nonempty] = s_flat[last_indices]
+
+    # ---- Build resampling grid for each agent without loops ----
+    # number of resampled points per agent: floor(total/step) + 1 (includes 0)
+    k_per_agent = (np.floor(totals / max(step, eps)).astype(np.int64) + 1) * (counts > 0)
+    K = int(k_per_agent.sum())  # total resampled points across all agents
+
+    if K == 0:
+        return (torch.zeros((N, max_idx_per_agent), dtype=torch.int16) - 1)
+
+    starts_new = np.cumsum(np.r_[0, k_per_agent[:-1]])  # starts in resampled flat arrays, len N
+    j = np.arange(K, dtype=np.int64)
+    # agent id per resampled sample via searchsorted on group starts
+    ag_new = np.searchsorted(starts_new, j, side="right") - 1
+    # position within agent block
+    pos_in_group = j - starts_new[ag_new]
+    s_new = pos_in_group.astype(np.float64) * step      # (K,)
+
+    # ---- Interpolate x/y for all agents at s_new (one shot) ----
+    # Give each agent a large s-offset so groups don't mix in np.interp
+    Lmax = float(totals.max()) if nonempty.any() else 0.0
+    sep = Lmax + 1.0
+    s_off = np.arange(N, dtype=np.float64) * sep
+
+    # Build original (s,x,y) with offsets
+    s_orig_off = s_flat + s_off[agents_flat]
+    # np.interp requires sorted x; groups are already grouped by agent and s increasing
+    x_orig = pts[:, 0]
+    y_orig = pts[:, 1]
+
+    # Build query s with offsets
+    s_query_off = s_new + s_off[ag_new]
+
+    # Perform interpolation
+    x_new = np.interp(s_query_off, s_orig_off, x_orig)
+    y_new = np.interp(s_query_off, s_orig_off, y_orig)
+    Q = np.stack([x_new, y_new], axis=1)                 # (K, 2)
+
+    # ---- Compute yaw for resampled points (vectorized, per-agent) ----
+    dQ = np.zeros_like(Q, dtype=np.float64)
+    if K > 1:
+        bnd2 = (ag_new[1:] != ag_new[:-1])
+        dQ[:-1] = Q[1:] - Q[:-1]
+        dQ[:-1][bnd2] = 0.0
+    norms2 = np.hypot(dQ[:, 0], dQ[:, 1])
+    yaw = np.zeros(K, dtype=np.float64)
+    nz2 = norms2 > eps
+    yaw[nz2] = np.arctan2(dQ[nz2, 1], dQ[nz2, 0])
+    # fill degenerate with each agent's last heading hint
+    yaw[~nz2] = last_heading[ag_new[~nz2]]
+
+    # ---- Single KD-tree query + side selection ----
     tree = cKDTree(edge_xy)
-    dists, idxs = tree.query(pts_flat, k=k, distance_upper_bound=radius)
+    dists, idxs = tree.query(Q, k=k, distance_upper_bound=radius)
     if k == 1:
-        dists = dists[:, None]
-        idxs  = idxs[:, None]
+        dists = dists[:, None]; idxs = idxs[:, None]
+    E = edge_xy.shape[0]
 
-    E = num_edges
-    cosh, sinh = np.cos(yaw_flat), np.sin(yaw_flat)
-    n_left  = np.stack([-sinh,  cosh], axis=1)      # (M_all, 2)
+    cosh, sinh = np.cos(yaw), np.sin(yaw)
+    n_left  = np.stack([-sinh,  cosh], axis=1)
     n_right = np.stack([ sinh, -cosh], axis=1)
 
-    # Candidate vectors to neighbors
-    # Initialize zeros; invalid neighbors (idx>=E) will be ignored via cost=inf
-    cand = np.zeros((M_all, k, 2), dtype=np.float64)
-    valid_n = (idxs < E)
-    # gather edge coords
-    safe_idxs = np.where(valid_n, idxs, 0)
-    cand = edge_xy[safe_idxs] - pts_flat[:, None, :]
+    safe_idxs = np.where(idxs < E, idxs, 0)
+    cand = edge_xy[safe_idxs] - Q[:, None, :]
 
     dot_left  = (cand * n_left[:, None, :]).sum(axis=2)
     dot_right = (cand * n_right[:, None, :]).sum(axis=2)
-
     big = np.inf
+    valid_n = (idxs < E)
     left_cost  = np.where(valid_n & (dot_left  > 0), dists, big)
     right_cost = np.where(valid_n & (dot_right > 0), dists, big)
 
     li = np.argmin(left_cost,  axis=1)
     ri = np.argmin(right_cost, axis=1)
-    Ld = left_cost[np.arange(M_all), li]
-    Rd = right_cost[np.arange(M_all), ri]
-    Li = idxs[np.arange(M_all), li]
-    Ri = idxs[np.arange(M_all), ri]
-
-    # mark invalids as -1
+    Ld = left_cost[np.arange(K), li]
+    Rd = right_cost[np.arange(K), ri]
+    Li = idxs[np.arange(K), li]
+    Ri = idxs[np.arange(K), ri]
     Li[np.isinf(Ld)] = -1
     Ri[np.isinf(Rd)] = -1
 
-    # --- 6) Per-agent unique {Li ∪ Ri} in order of first appearance, no loops ---
-    cand_edges = np.concatenate([Li, Ri], axis=0)                           # (2*M_all,)
-    cand_agents = np.concatenate([agents_flat, agents_flat], axis=0)        # (2*M_all,)
-    valid_cand = (cand_edges >= 0)
-    cand_edges = cand_edges[valid_cand]
-    cand_agents = cand_agents[valid_cand]
+    # ---- Per-agent **sorted unique** {Li ∪ Ri} and scatter (no loops) ----
+    cand_edges = np.concatenate([Li, Ri])
+    cand_agents = np.concatenate([ag_new, ag_new])
+    valid_edges = cand_edges >= 0
+    cand_edges = cand_edges[valid_edges]
+    cand_agents = cand_agents[valid_edges]
 
-    if cand_edges.size == 0:
-        return (torch.zeros((N, max_idx_per_agent), dtype=torch.int16) - 1)
-
-    # Build pair keys (agent, edge) as a structured array to uniquify
-    pairs = np.empty(cand_edges.size, dtype=[('a', cand_agents.dtype), ('e', cand_edges.dtype)])
-    pairs['a'] = cand_agents
-    pairs['e'] = cand_edges
-
-    # indices of first occurrence in ORIGINAL order
-    _, first_idx = np.unique(pairs, return_index=True)
-    # restore original order of first occurrences
-    first_idx_sorted = np.sort(first_idx)
-
-    a_first = cand_agents[first_idx_sorted]  # agent ids (in order encountered)
-    e_first = cand_edges[first_idx_sorted]   # edge ids (first time seen for that agent)
-
-    # For each agent, take first K = max_idx_per_agent occurrences in appearance order.
-    # Compute index-in-group without loops:
-    # mark group starts
-    start_flags = np.empty_like(a_first, dtype=bool)
-    start_flags[0] = True
-    start_flags[1:] = a_first[1:] != a_first[:-1]
-    # running start index of the current group
-    starts_positions = np.where(start_flags, np.arange(a_first.size), 0)
-    last_start_pos = np.maximum.accumulate(starts_positions)
-    idx_in_group = np.arange(a_first.size) - last_start_pos  # 0,1,2,... within each agent block
-
-    keep = idx_in_group < max_idx_per_agent
-    a_keep = a_first[keep]
-    e_keep = e_first[keep]
-    c_keep = idx_in_group[keep]  # column for scatter
-
-    # --- 7) Scatter into (N, max_idx_per_agent), -1 padded ---
     out = np.full((N, max_idx_per_agent), -1, dtype=np.int16)
-    # scatter (note: if duplicates somehow survive, the first occurrence order already enforced)
-    out[a_keep, c_keep] = e_keep.astype(np.int16, copy=False)
+    if cand_edges.size > 0:
+        # sort by (agent, edge) then drop duplicates → sorted-unique per agent
+        order = np.lexsort((cand_edges, cand_agents))
+        a_sorted = cand_agents[order]
+        e_sorted = cand_edges[order]
+        dup = np.zeros_like(a_sorted, dtype=bool)
+        dup[1:] = (a_sorted[1:] == a_sorted[:-1]) & (e_sorted[1:] == e_sorted[:-1])
+        a_unique = a_sorted[~dup]
+        e_unique = e_sorted[~dup]
+
+        # within each agent group, take first K indices
+        start_flags = np.ones_like(a_unique, dtype=bool)
+        start_flags[1:] = a_unique[1:] != a_unique[:-1]
+        starts_pos = np.where(start_flags, np.arange(a_unique.size), 0)
+        group_start = np.maximum.accumulate(starts_pos)
+        idx_in_group = np.arange(a_unique.size) - group_start
+        keep = idx_in_group < max_idx_per_agent
+
+        out[a_unique[keep], idx_in_group[keep]] = e_unique[keep].astype(np.int16, copy=False)
 
     return torch.from_numpy(out)
+
 
 def process_route(tokenized_map,tokenized_agent):
 
@@ -383,7 +425,7 @@ def process_scenario( filename):
     tokenized_agent = data["tokenized_agent"]
 
     route_map_index=process_route(tokenized_map, tokenized_agent)
-    route_map_index1=process_route_noloop(tokenized_map, tokenized_agent)
+    route_map_index1=process_route_resample_noloop(tokenized_map, tokenized_agent)
 
     print(torch.all(route_map_index == route_map_index1))
 
