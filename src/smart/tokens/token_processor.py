@@ -392,10 +392,10 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["gt_idx"].append(token_idx_gt)
 
-            # if self.training and self.noise:
-            #     topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
-            #     sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
-            #     token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
+            if self.training and self.noise:
+                topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
+                sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
+                token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]

@@ -19,10 +19,9 @@ rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nupla
 
 rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/nuplan_cross1_clean_route guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_training_map2_03 /home/ke/code/catk/src/waymo_data/full/
-
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/AIRL152_bc4_learnmap/2025-09-24_14-57-54/wosac_submission.tar.gz ./
 
@@ -102,6 +101,7 @@ git pull
 setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29502  -m run trainer=ddp
 
 
 CUDA_VISIBLE_DEVICES=0  python run.py >  1.log 2>&1 & 
