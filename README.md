@@ -17,7 +17,7 @@ rsync -avz ~/code/catk/src/waymo_data/full/nuplan_cross2_clean_route ke@10.87.11
 
 rsync -avz ./nuplan-v1.0_train_pittsburgh.zip ke@10.87.114.128:~/keguo/sim/nuplan_preprocess/nuplan_data/
 
-rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/nuplan_cross2_clean_route guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/nuplan_cross1_clean_route guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/nuplan_training_map2_03 /home/ke/code/catk/src/waymo_data/full/
 

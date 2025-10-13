@@ -11,8 +11,8 @@ from shapely.geometry import LineString
 from multiprocessing import Pool, cpu_count
 
 
-data_directory = "./waymo_data/full/nuplan_cross2_clean" #training_map2_03_pred/"
-output_path = "./waymo_data/full/nuplan_cross2_clean_route/"
+data_directory = "./waymo_data/full/nuplan_cross1_clean" #training_map2_03_pred/"
+output_path = "./waymo_data/full/nuplan_cross1_clean_route/"
 
 
 
@@ -244,11 +244,11 @@ def process_scenario( filename):
     with open(output_file, "wb") as f:
         pickle.dump(data, f)
 
-# with Pool(16) as pool:
-#     results = list(tqdm(pool.imap_unordered(process_scenario, files), total=len(files)))
-for scenario in tqdm(files):
-    process_scenario(scenario)
-
+with Pool(16) as pool:
+    results = list(tqdm(pool.imap_unordered(process_scenario, files), total=len(files)))
+# for scenario in tqdm(files):
+#     process_scenario(scenario)
+#
     # print(1)
         # print(len(np.unique(L_idx)), len(np.unique(R_idx))  )
         #
