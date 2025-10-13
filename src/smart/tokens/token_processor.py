@@ -200,13 +200,13 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        # if self.training:
-        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.01
+        if self.training:
+            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.02
 
-        # traj_theta = torch.atan2(
-        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
-        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        # )
+        traj_theta = torch.atan2(
+            traj_pos[:,1, 1] - traj_pos[:,0, 1],
+            traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        )
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -220,7 +220,7 @@ class TokenProcessor(torch.nn.Module):
             dim=(-2, -1),
         )  # [n_pl, n_token]
 
-        self.noise=True
+        self.noise=False
 
         if  self.training and self.noise:
             topk_indices = torch.argsort(dist, dim=1)[:, :8]
