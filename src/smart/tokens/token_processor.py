@@ -134,7 +134,7 @@ class TokenProcessor(torch.nn.Module):
             else:
                 tokenized_agent["goal_idx"]=torch.zeros([0,18])
 
-        if self.use_route and 'route'
+        # if self.use_route and 'route'
 
 
         return tokenized_map, tokenized_agent
