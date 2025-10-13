@@ -214,7 +214,7 @@ class TokenProcessor(torch.nn.Module):
             dim=(-2, -1),
         )  # [n_pl, n_token]
 
-        # self.noise=True
+        self.noise=True
         #
         # if  self.training and self.noise:
         #     topk_indices = torch.argsort(dist, dim=1)[:, :8]
