@@ -200,13 +200,13 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        if self.training:
-            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.01
+        # if self.training:
+        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.01
 
-        traj_theta = torch.atan2(
-            traj_pos[:,1, 1] - traj_pos[:,0, 1],
-            traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        )
+        # traj_theta = torch.atan2(
+        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
+        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        # )
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -221,13 +221,13 @@ class TokenProcessor(torch.nn.Module):
         )  # [n_pl, n_token]
 
         self.noise=False
-        #
-        # if  self.training and self.noise:
-        #     topk_indices = torch.argsort(dist, dim=1)[:, :8]
-        #     sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
-        #     token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
-        # else:
-        token_idx = torch.argmin(dist, dim=-1)
+
+        if  self.training and self.noise:
+            topk_indices = torch.argsort(dist, dim=1)[:, :8]
+            sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
+            token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
+        else:
+            token_idx = torch.argmin(dist, dim=-1)
 
         position=traj_pos[:, 0].contiguous()
 
