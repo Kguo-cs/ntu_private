@@ -31,7 +31,7 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 from src.smart.loss.iq_loss import padding
-from src.route_process import process_route_noloop,process_route
+from src.route_process import process_route
 
 class TokenProcessor(torch.nn.Module):
 
