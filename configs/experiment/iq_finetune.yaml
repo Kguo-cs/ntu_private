@@ -28,7 +28,7 @@ model:
     finetune: true
     smart : false
 
-ckpt_path : './ckpts/bc56_routeneg1_map4679_epoch=52-step=460941_0.78507.ckpt'  #'./logs/AIRL24_lcf336_val40/2025-09-21_14-35-37/sim/xxhqjrfn/checkpoints/last.ckpt' #
+ckpt_path : './ckpts/bc_map2_gnntype_drop01_t1_b40_epoch=58-step=718325_0.78605.ckpt'  #'./logs/AIRL24_lcf336_val40/2025-09-21_14-35-37/sim/xxhqjrfn/checkpoints/last.ckpt' #
 #'./ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt'  #
 trainer:
   limit_train_batches: 1.0
@@ -40,7 +40,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 2
+  train_batch_size: 64
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 16

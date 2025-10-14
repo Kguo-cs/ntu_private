@@ -487,10 +487,10 @@ class IQ_SoftQ(LightningModule):
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
 
-        # if "pred_mask" in tokenized_agent.keys():
-        #     all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
-        # else:
-        all_valid=valid_mask.all(-1) & (tokenized_agent["type"]<3)
+        if "pred_mask" in tokenized_agent.keys():
+            all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1) & (tokenized_agent["type"]<3)
+        else:
+            all_valid=valid_mask.all(-1) & (tokenized_agent["type"]<3)
 
         if self.use_kl_penalty:
             expert_nll=0

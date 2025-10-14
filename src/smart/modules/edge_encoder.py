@@ -400,39 +400,39 @@ class EdgeEncoder(nn.Module):
         if self.use_route:
             point_isin = torch.zeros_like(rel_orient_pl2a)-1
 
-            if route_map_index is not None:
-
-                #route_number=torch.sum(route_map_index>0,dim=-1)
-
-                #max_num=torch.unique(route_map_index,dim=-1)
-
-                keep_mask=self.route_drop(torch.ones(n_agent,device=head_s.device)).to(bool)
-
-                # drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
-                #
-                # keep_mask= drop_mask #& (route_number>2)
-
-                agent_idx = edge_index_pl2a[1] % n_agent
-
-                keep_agent_mask = keep_mask[agent_idx]
-
-                route_idx = route_map_index[agent_idx[keep_agent_mask]]
-
-                map_idx = edge_index_pl2a[0][keep_agent_mask]
-
-                point_num = torch.bincount(batch_pl)
-
-                point_num = torch.cat([torch.zeros_like(point_num[:1]), point_num[:-1]])
-
-                cum_num = torch.cumsum(point_num, dim=0)
-
-                batch_cum_num = cum_num[batch_pl]
-
-                map_batch = map_idx - batch_cum_num[map_idx]
-
-                mask=(route_idx==map_batch[:,None]).any(dim=1)
-
-                point_isin[keep_agent_mask] =mask.to(torch.float32)
+            # if route_map_index is not None:
+            #
+            #     #route_number=torch.sum(route_map_index>0,dim=-1)
+            #
+            #     #max_num=torch.unique(route_map_index,dim=-1)
+            #
+            #     keep_mask=self.route_drop(torch.ones(n_agent,device=head_s.device)).to(bool)
+            #
+            #     # drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
+            #     #
+            #     # keep_mask= drop_mask #& (route_number>2)
+            #
+            #     agent_idx = edge_index_pl2a[1] % n_agent
+            #
+            #     keep_agent_mask = keep_mask[agent_idx]
+            #
+            #     route_idx = route_map_index[agent_idx[keep_agent_mask]]
+            #
+            #     map_idx = edge_index_pl2a[0][keep_agent_mask]
+            #
+            #     point_num = torch.bincount(batch_pl)
+            #
+            #     point_num = torch.cat([torch.zeros_like(point_num[:1]), point_num[:-1]])
+            #
+            #     cum_num = torch.cumsum(point_num, dim=0)
+            #
+            #     batch_cum_num = cum_num[batch_pl]
+            #
+            #     map_batch = map_idx - batch_cum_num[map_idx]
+            #
+            #     mask=(route_idx==map_batch[:,None]).any(dim=1)
+            #
+            #     point_isin[keep_agent_mask] =mask.to(torch.float32)
 
             r_pl2a = torch.stack(
                 [

@@ -523,4 +523,4 @@ class InterativeDecoder(nn.Module):
         else:
             rewards=torch.tensor(0.0),torch.tensor(0.0)
 
-        return next_token_logits,feat_a_all,proposal,rewards,weight
+        return next_token_logits,feat_a,proposal,rewards,weight

@@ -79,7 +79,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_smart=False
 
-        self.use_route=True
+        self.use_route=False
 
         self.noise=False
 
