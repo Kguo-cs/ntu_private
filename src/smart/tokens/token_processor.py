@@ -81,7 +81,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route=True
 
-        self.noise=True
+        self.noise=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -218,13 +218,13 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        # if self.training:
-        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.03
-        #
-        # traj_theta = torch.atan2(
-        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
-        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        # )
+        if self.training:
+            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.03
+
+        traj_theta = torch.atan2(
+            traj_pos[:,1, 1] - traj_pos[:,0, 1],
+            traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        )
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
