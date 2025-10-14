@@ -701,6 +701,7 @@ class SMARTAgentDecoder(nn.Module):
             "valid_mask": mask,  # [n_agent, 18]
             "token_mask":token_mask,
             "sampled_idx": sampled_idx,  # [n_agent, 18]
+            "gt_idx": sampled_idx,
            # "sampled_log_prob":sampled_log_prob,
            # "vis_mask": vis_mask,
             "light_idx": light_idx,

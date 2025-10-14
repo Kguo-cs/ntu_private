@@ -53,9 +53,9 @@ static_class_ratio:
   hydrant: 1
 
 static_size:
-  cone: [0.3, 0.2, 1]
-  water_barrier: [4.8, 0.2, 1]
-  hydrant: [0.8, 0.8, 1]
+  cone: [0.5, 0.5, 1]
+  water_barrier: [4, 0.5, 1]
+  hydrant: [0.5, 0.5, 1]
 
 static_object:
   add: #static object
@@ -83,13 +83,13 @@ map_object:
 
 agent:
   add:
-    - type: 'car'  #pedestrian,bicycle,car,truck
-      id: 0
-      position: [5, -20]
-      goal: # [5,200]   # 可选
-      heading:   1.57    # 可选, 可根据goal生成
-      speed:  #可选, 可根据type生成
-      shape: #可选, 可根据type生成
+#    - type: 'car'  #pedestrian,bicycle,car,truck
+#      id: 0
+#      position: [5, -20]
+#      goal: # [5,200]   # 可选
+#      heading:   1.57    # 可选, 可根据goal生成
+#      speed:  #可选, 可根据type生成
+#      shape: #可选, 可根据type生成
   remove:
   stop:
 

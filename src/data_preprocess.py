@@ -159,7 +159,7 @@ def get_map_features(map_infos, tf_current_light, dim=2):
                 (len(centerline),), _seg["type"], dtype=torch.uint8
             )
 
-           # map_type.append(_seg["type"])
+            map_type.append(_seg["type"])
 
             if _key == "lane" and len(tf_current_light):
                 res = tf_current_light[tf_current_light["lane_id"] == _seg["id"]]
@@ -187,9 +187,9 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     map_data["map_polygon"]["num_nodes"] = num_polygons
     map_data["map_polygon"]["type"] = polygon_type
     map_data["map_polygon"]["light_type"] = polygon_light_type
-   # map_data["map_polygon"]["polygon_ids"] = polygon_ids
-    #map_data["map_polygon"]["polygon_xyz"] = polygon_xyz
-    #map_data["map_polygon"]["map_type"] = map_type
+    map_data["map_polygon"]["polygon_ids"] = polygon_ids
+    map_data["map_polygon"]["polygon_xyz"] = polygon_xyz
+    map_data["map_polygon"]["map_type"] = map_type
 
     if len(num_points) == 0:
         map_data["map_point"]["num_nodes"] = 0

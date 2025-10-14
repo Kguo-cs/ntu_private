@@ -182,7 +182,7 @@ class SimulationManager:
         self.data_template = torch.load(self.DATA_TEMPLATE_PATH,weights_only=False)
 
         self.timestamp = self.initial_step
-        self.MAX_SIM_TIME = self.config["max_sim_time"]
+        self.MAX_SIM_TIME = self.config["max_sim_time"]+self.initial_step
 
         self.recording = True
 
@@ -672,13 +672,13 @@ class SimulationManager:
                         new_state = np.zeros([91, 9])
 
                         if object_type == "cone":
-                            static_type.append(1)
-                        elif object_type == "water_barrier":
-                            static_type.append(0)
-                        elif object_type == "light":
                             static_type.append(3)
+                        elif object_type == "water_barrier":
+                            static_type.append(4)
+                        elif object_type == "light":
+                            static_type.append(6)
                         else:
-                            static_type.append(2)
+                            static_type.append(6)
 
                         new_state[:, 0] = object["x"]
                         new_state[:, 1] = object["y"]
