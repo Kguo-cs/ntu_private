@@ -477,7 +477,7 @@ class InterativeDecoder(nn.Module):
                     all_rewards = torch.zeros_like(head_a)
                     all_rewards[train_mask]=rewards
 
-                weight2=2*weight
+                weight2=torch.exp(-dist/3)*1
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 

@@ -149,8 +149,6 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent['token_mask']=token_mask
 
-
-
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
