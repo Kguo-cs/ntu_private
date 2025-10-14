@@ -18,7 +18,7 @@ class AgentTokenEncoder(nn.Module):
             discriminator=False
     ) -> None:
         super(AgentTokenEncoder, self).__init__()
-        self.type_a_emb = nn.Embedding(3, hidden_dim)
+        self.type_a_emb = nn.Embedding(7, hidden_dim)
         self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
         self.hidden_dim = hidden_dim
         self.token_processor=token_processor
@@ -174,9 +174,9 @@ class AgentTokenEncoder(nn.Module):
             ]  # List of len=2, shape [n_agent, hidden_dim]
 
 
-        # feature_a[~token_mask]=0
-        # if not self.discriminator:
-        #     agent_token_emb[~token_mask]=0
+        feature_a[~token_mask]=0
+        if not self.discriminator:
+            agent_token_emb[~token_mask]=0
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),

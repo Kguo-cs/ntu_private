@@ -13,10 +13,10 @@ import numpy as np
 # raw_data= "/home/ke/code/catk/src/waymo_data/full/training_inter10_col/"
 
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean/"
-raw_data= "/home/ke/code/catk/src/waymo_data/full/training_a/"
+data_directory = "../waymo_data/full/nuplan_cross2_03_map/"
+raw_data= "../waymo_data/full/nuplan_cross2_route/"
 
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_clean_pred/"
+output_path = "../waymo_data/full/nuplan_cross2_03_route/"
 
 files = os.listdir(data_directory)
 
@@ -39,11 +39,9 @@ for filename in tqdm(files):
 
     # data['tokenized_agent']["col_mask"]=data1['tokenized_agent']["col_mask"]
 
-    role_mask=data1["agent"]["role"]
+    route_map_index=data1["agent"]["route_map_index"]
 
-    pred_mask=role_mask[:,0] | role_mask[:,2]
-
-    data['tokenized_agent']["pred_mask"]=pred_mask
+    data['tokenized_agent']["route_map_index"]=route_map_index
 
     output_file = output_path + filename
 

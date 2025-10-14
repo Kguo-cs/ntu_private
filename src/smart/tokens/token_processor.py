@@ -79,7 +79,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_smart=False
 
-        self.use_route=False
+        self.use_route=True
 
         self.noise=False
 
@@ -136,18 +136,24 @@ class TokenProcessor(torch.nn.Module):
             else:
                 tokenized_agent["goal_idx"]=torch.zeros([0,18])
 
-        # if self.training:
-        #     batch_idx=tokenized_agent['batch']
-        #
-        #     token_mask=tokenized_agent['token_mask']
-        #
-        #     rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
-        #
-        #     rand_mask=rand_idx[batch_idx]<1
-        #
-        #     token_mask[rand_mask[:,0],:2]=False
-        #
-        #     tokenized_agent['token_mask']=token_mask
+        if self.training:
+            batch_idx=tokenized_agent['batch']
+
+            token_mask=tokenized_agent['token_mask']
+
+            rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
+
+            rand_mask=rand_idx[batch_idx]<1
+
+            token_mask[rand_mask[:,0],:2]=False
+
+            tokenized_agent['token_mask']=token_mask
+
+        if self.use_route and self.training:
+            batch=tokenized_agent['batch']
+            keep_mask = torch.rand(len(batch), device=batch.device)<0.5
+
+            tokenized_agent['route_map_index'][keep_mask]=-2
 
         return tokenized_map, tokenized_agent
 
