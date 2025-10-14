@@ -19,6 +19,7 @@
 *.pcd
 *.png
 *.mp4
+*.pt
 
 **/logs
 **/waymo_data

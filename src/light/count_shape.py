@@ -8,26 +8,26 @@ from torch_geometric.data import HeteroData
 import numpy as np
 
 
-# data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_cross2_03_route/"
+
+files = os.listdir(data_directory)
+
+shape=[]
+type=[]
+
+for filename in tqdm(files):
+    input_path = os.path.join(data_directory, filename)
+    with open(input_path, "rb") as f:
+        data = pickle.load(f)
+
+    shape.append(data['tokenized_agent']['shape'])
+    type.append(data['tokenized_agent']['type'])
+
+shape =torch.cat(shape)
+type=torch.cat(type)
 #
-# files = os.listdir(data_directory)
-#
-# shape=[]
-# type=[]
-#
-# for filename in tqdm(files):
-#     input_path = os.path.join(data_directory, filename)
-#     with open(input_path, "rb") as f:
-#         data = pickle.load(f)
-#
-#     shape.append(data['tokenized_agent']['shape'])
-#     type.append(data['tokenized_agent']['type'])
-#
-# shape =torch.cat(shape)
-# type=torch.cat(type)
-#
-# torch.save(shape,'shape.pt')
-# torch.save(type,'type.pt')
+torch.save(shape,'shape.pt')
+torch.save(type,'type.pt')
 import matplotlib
 
 import torch
@@ -53,7 +53,7 @@ bins = np.linspace(0, 1, 10)
 # Unique types
 unique_types = np.unique(atype)
 
-fig, axes = plt.subplots(len(unique_types), 3, figsize=(15, 4 * len(unique_types)))
+fig, axes = plt.subplots(len(unique_types), 7, figsize=(15, 4 * len(unique_types)))
 
 if len(unique_types) == 1:  # single row case
     axes = np.expand_dims(axes, axis=0)

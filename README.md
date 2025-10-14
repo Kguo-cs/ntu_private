@@ -16,7 +16,7 @@ rsync -avz ~/code/catk/src/waymo_data/full/nuplan_cross2_03_route  ke@10.87.114.
 rsync -avz ~/code/catk/src/waymo_data/full/nuplan_cross2_route ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 
-rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/nuplan_cross2_03_map guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/nuplan_cross2_route guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
@@ -24,7 +24,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/AIRL152_bc4_learnmap/2025-09-24_14-57-54/wosac_submission.tar.gz ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_agent467_inter2_drop01_03/2025-10-13_22-47-35/bc/d34cjk5o/checkpoints/epoch=12-step=151658.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_agent467_inter2_drop01_03/2025-10-13_22-47-35/bc/d34cjk5o/checkpoints/epoch=19-step=233320.ckpt ./
 
 
 
