@@ -499,13 +499,12 @@ class SMARTAgentDecoder(nn.Module):
             latent_z=None
 
         # tokenized_agent["latent_z"]=tokenized_agent["latent_z"][:, :current_step]
-
+        type=tokenized_agent["type"]
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
-                    next_token_logits = tokenized_agent["next_token_logits"][:, :1]
 
                     if tokenized_agent["proposal"] is not None:
                         proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
@@ -522,6 +521,9 @@ class SMARTAgentDecoder(nn.Module):
                     #     next_goal_logits = tokenized_agent["next_goal_logits"][:, :1]
                     # else:
                     #     next_goal_logits = []
+                    next_token_logits=torch.zeros([len(type),1,2048],device=sampled_idx.device)
+
+                    next_token_logits[type<3]= tokenized_agent["next_token_logits"][:, :1]
 
 
                     feat_a = tokenized_agent["feat_a"][:, :1]
@@ -556,6 +558,8 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 next_token_idx = Categorical(
                     logits=next_token_logits[:, -1, ] / self.alpha).sample()
+                next_token_idx[type > 2] = 0
+
                 # range_a = torch.arange(next_token_logits.shape[0])
                 #
                 # topk_logits, topk_indices = torch.topk(

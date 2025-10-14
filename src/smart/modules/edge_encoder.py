@@ -31,7 +31,7 @@ class EdgeEncoder(nn.Module):
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
-        self.use_route=use_route
+        self.use_route=use_route & (not discriminator)
 
         if self.use_route:
             input_dim_r_pt2a = 4

@@ -24,7 +24,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/AIRL152_bc4_learnmap/2025-09-24_14-57-54/wosac_submission.tar.gz ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_nuplan_drive4679_inter2_pt20_route_drop01/2025-10-12_22-23-06/bc/6gcowjxm/checkpoints/epoch=26-step=144774.ckpt /home/ke/code/catk/src/waymo_data/full/
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_agent467_inter2_drop01_03/2025-10-13_22-47-35/bc/d34cjk5o/checkpoints/epoch=12-step=151658.ckpt ./
 
 
 

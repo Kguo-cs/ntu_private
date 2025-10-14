@@ -197,7 +197,10 @@ class IQ_SoftQ(LightningModule):
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             agent_mask=tokenized_agent["train_mask"]
-            train_mask=train_mask[agent_mask]
+            if train_mask is not None:
+                train_mask=train_mask[agent_mask]
+            else:
+                train_mask=agent_mask[agent_mask]
             valid_mask=valid_mask[agent_mask]
             action=action[agent_mask]
 
@@ -299,7 +302,7 @@ class IQ_SoftQ(LightningModule):
         # sampled_heading=torch.round(wrap_angle(tokenized_agent["sampled_heading"])/10)*10#tokenized_agent["sampled_heading"]#
 
         disc_out= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                        None,
+                                                        tokenized_agent["token_mask"],
                                                         tokenized_agent["valid_mask"],#expert_
                                                         sampled_pos,
                                                         sampled_heading ,
@@ -487,7 +490,7 @@ class IQ_SoftQ(LightningModule):
         # if "pred_mask" in tokenized_agent.keys():
         #     all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1)
         # else:
-        all_valid=valid_mask.all(-1)
+        all_valid=valid_mask.all(-1) & (tokenized_agent["type"]<3)
 
         if self.use_kl_penalty:
             expert_nll=0
@@ -526,8 +529,6 @@ class IQ_SoftQ(LightningModule):
             expert_nll=expert_nll+error_vae
 
         tokenized_agent["train_mask"] = all_valid
-
-        #train_mask=train_mask[all_valid]
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
@@ -648,7 +649,7 @@ class IQ_SoftQ(LightningModule):
                     expert_nll=expert_nll+col_loss
 
                 if self.encoder.use_value:
-                    feat_a=tokenized_agent_rollout["feat_a_nodetach"][all_valid]
+                    feat_a=tokenized_agent_rollout["feat_a_nodetach"]#[all_valid]
 
                     if self.encoder.discriminator.interative_decoder.centric:
                         index=tokenized_agent_rollout["batch"][all_valid][:,None].repeat(1,feat_a.shape[1])
@@ -688,7 +689,7 @@ class IQ_SoftQ(LightningModule):
                         if nei_rewards is 0:#
                             nei_rewards =get_nei_returns(tokenized_agent, agent_rewards,train_mask=all_valid)
 
-                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a_nodetach"][all_valid])[:,:,0]
+                        nei_value_pred=self.encoder.nei_value_network(tokenized_agent_rollout["feat_a_nodetach"])[:,:,0]
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
 

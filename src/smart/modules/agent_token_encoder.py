@@ -173,7 +173,7 @@ class AgentTokenEncoder(nn.Module):
                 self.shape_emb(agent_shape),
             ]  # List of len=2, shape [n_agent, hidden_dim]
 
-        if self.training:
+        if self.training and not self.discriminator:
             rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
 
             rand_mask=rand_idx[batch_idx]<1
@@ -181,7 +181,8 @@ class AgentTokenEncoder(nn.Module):
             token_mask[rand_mask[:,0],:2]=False
 
         feature_a[~token_mask]=0
-        agent_token_emb[~token_mask]=0
+        if not self.discriminator:
+            agent_token_emb[~token_mask]=0
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),
