@@ -16,7 +16,7 @@ import numpy as np
 data_directory = "../waymo_data/full/nuplan_cross2_03_map/"
 raw_data= "../waymo_data/full/nuplan_cross2_route/"
 
-output_path = "../waymo_data/full/nuplan_cross2_03_route/"
+output_path = "~/keguo/sim/src/waymo_data/full/nuplan_cross2_03_route/"
 
 files = os.listdir(data_directory)
 
