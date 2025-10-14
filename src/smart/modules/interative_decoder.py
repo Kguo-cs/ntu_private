@@ -360,9 +360,6 @@ class InterativeDecoder(nn.Module):
 
         if self.n_token_agent>1 and self.n_token_agent<2048:
             feat_a=torch.amax(feat_a, dim=1,keepdim=True)
-            # index=batch_s_repeat[train_mask]
-            # #feat_a, argmax = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
-            # feat_a = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
 
         if self.pred_last_res:
             if self.training:
@@ -438,7 +435,7 @@ class InterativeDecoder(nn.Module):
                     if self.learn_weight:
                         weight =1
                     else:
-                        weight=torch.exp(-dist[:,None]/3)*3
+                        weight=torch.exp(-dist[:,None]/3)*1
                         # agent_num=scatter_sum(torch.ones_like(dist), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0] #torch.exp(-dist[:,None]/3)*3
                         #
                         # weight=agent_num[end_idx]
@@ -477,7 +474,7 @@ class InterativeDecoder(nn.Module):
                     all_rewards = torch.zeros_like(head_a)
                     all_rewards[train_mask]=rewards
 
-                weight2=torch.exp(-dist/3)*6
+                weight2=torch.exp(-dist/3)*2
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 

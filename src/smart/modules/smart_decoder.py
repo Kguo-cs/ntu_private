@@ -49,7 +49,7 @@ class SMARTDecoder(nn.Module):
         self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=False
+        self.iq_learn=True
         self.use_gail=True
         self.use_value=True
         self.use_critic=False
@@ -57,7 +57,7 @@ class SMARTDecoder(nn.Module):
 
         self.use_smart=token_processor.use_smart
 
-        self.use_lcf=True
+        self.use_lcf=False
         self.use_vae=False
         self.pred_col=False
         self.use_infogail=False
