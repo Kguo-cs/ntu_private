@@ -15,6 +15,10 @@ from TrafficManager.LimSim.simModel.DataQueue import (
 )
 import importlib.util
 
+import matplotlib as mpl
+
+mpl.rcParams['toolbar'] = 'None'
+
 COLOR_BLACK = (0, 0, 0, 255)
 COLOR_WHITE = (255, 255, 255, 255)
 COLOR_RED = (255, 0, 0, 255)
