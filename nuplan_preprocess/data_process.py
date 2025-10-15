@@ -146,7 +146,7 @@ past_num_steps=10
 future_time_horizon=8
 future_num_steps=80
 num_step = future_num_steps + past_num_steps + 1
-output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_cross2'
+output_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full/nuplan_lane102'
 scene_dir = os.getenv("NUPLAN_EXP_ROOT") + '/src/waymo_data/full'
 
 os.makedirs(output_dir,exist_ok=True)
@@ -201,7 +201,7 @@ def extract_map_features(map_api, center,  radius):
     #np.seterr(all='ignore')
     # Center is Important !
     layer_names = [
-        #SemanticMapLayer.LANE_CONNECTOR,
+        SemanticMapLayer.LANE_CONNECTOR,
         SemanticMapLayer.LANE,
         SemanticMapLayer.CROSSWALK,
         SemanticMapLayer.INTERSECTION,
@@ -266,15 +266,15 @@ def extract_map_features(map_api, center,  radius):
     #     ]
     #block_polygons = []
 
-    # for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
-    #     path = lane.baseline_path.discrete_path[::10]
-    #     points = np.array([[pose.x, pose.y] for pose in path])
-    #     ret[lane.id]=('lane',points)
+    for lane in nearest_vector_map[SemanticMapLayer.LANE_CONNECTOR]:
+        path = lane.baseline_path.discrete_path[::10]
+        points = np.array([[pose.x, pose.y] for pose in path])
+        ret[lane.id]=('lane',points)
 
     for lane in nearest_vector_map[SemanticMapLayer.LANE]:
-        # path = lane.baseline_path.discrete_path
-        # points = np.array([[pose.x, pose.y] for pose in path])
-        # ret[lane.id]=('lane',points)
+        path = lane.baseline_path.discrete_path
+        points = np.array([[pose.x, pose.y] for pose in path])
+        ret[lane.id]=('lane',points)
 
         left_nei,right_nei=lane.adjacent_edges
         left_boundary=lane.left_boundary
@@ -466,8 +466,6 @@ def get_map_vector(scenario,origin_ego,center,radius):#373222
         elif 'lane' in key:
             #plt.plot(np.array(line)[:,0],np.array(line)[:,1],'grey')
             line_type=1
-            continue
-
 
         cur_info = {"id": id,"type":line_type}
 
@@ -714,21 +712,21 @@ def process_scenario(scenario):
 
 
     #filter map
-    # map_pos=data['map_save']['traj_pos'][:,0]
-    #
-    # agent_pos=agent['position'][:,:,:2].reshape(-1,2)
-    #
-    # dist=torch.norm(agent_pos[:,None]-map_pos[None],dim=-1)
-    #
-    # min_dist=dist.amin(0)
-    #
-    # mask=min_dist<60
-    #
-    # data['map_save']['traj_pos']=data['map_save']['traj_pos'][mask]
-    # data['map_save']['traj_theta']=data['map_save']['traj_theta'][mask]
-    # data['pt_token']['type']=data['pt_token']['type'][mask]
-    # data['pt_token']['pl_type']=data['pt_token']['pl_type'][mask]
-    # data['pt_token']['num_nodes']=len(data['pt_token']['pl_type'])
+    map_pos=data['map_save']['traj_pos'][:,0]
+
+    agent_pos=agent['position'][:,:,:2].reshape(-1,2)
+
+    dist=torch.norm(agent_pos[:,None]-map_pos[None],dim=-1)
+
+    min_dist=dist.amin(0)
+
+    mask=min_dist<60
+
+    data['map_save']['traj_pos']=data['map_save']['traj_pos'][mask]
+    data['map_save']['traj_theta']=data['map_save']['traj_theta'][mask]
+    data['pt_token']['type']=data['pt_token']['type'][mask]
+    data['pt_token']['pl_type']=data['pt_token']['pl_type'][mask]
+    data['pt_token']['num_nodes']=len(data['pt_token']['pl_type'])
 
     del data['pt_token']['light_type']
     # traj_pos = data['map_save']['traj_pos']
