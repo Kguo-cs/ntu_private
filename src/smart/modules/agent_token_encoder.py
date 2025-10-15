@@ -18,7 +18,7 @@ class AgentTokenEncoder(nn.Module):
             discriminator=False
     ) -> None:
         super(AgentTokenEncoder, self).__init__()
-        self.type_a_emb = nn.Embedding(3, hidden_dim)
+        self.type_a_emb = nn.Embedding(7, hidden_dim)
         self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
         self.hidden_dim = hidden_dim
         self.token_processor=token_processor
