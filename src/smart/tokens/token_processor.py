@@ -151,7 +151,7 @@ class TokenProcessor(torch.nn.Module):
 
         if self.use_route and self.training:
             batch=tokenized_agent['batch']
-            keep_mask = torch.rand(len(batch), device=batch.device)<1
+            keep_mask = torch.rand(len(batch), device=batch.device)<0.5
 
             tokenized_agent['route_map_index'][keep_mask]=-2
 
