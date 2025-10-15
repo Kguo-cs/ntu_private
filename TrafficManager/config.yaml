@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/waymo_data/bc64_bothnoise_inter2_drop01_03_route_epoch=14-step=87495.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
+planner_path: "/home/ke/code/catk/src/ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -24,7 +24,7 @@ gui_show_static_id: False
 
 lidar_height: 1.84
 
-export_mode: "all" #    -> 仅导出交通参与者 ,"all"          -> 导出交通参与者 + 静态障碍物 + 交通灯
+export_mode: "all" #  "agent"  -> 仅导出交通参与者 ,"all"          -> 导出交通参与者 + 静态障碍物 + 交通灯
 
 max_sim_time: 90 #9s
 

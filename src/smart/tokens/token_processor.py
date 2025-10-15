@@ -79,9 +79,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_smart=False
 
-        self.use_route=True
+        self.use_route=False
 
-        self.noise=True
+        self.noise=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:

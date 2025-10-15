@@ -38,7 +38,7 @@ import hydra
 from waymo_open_dataset.protos import scenario_pb2
 import tensorflow as tf
 
-from src.smart.model.smart import SMART
+from src.smart.model.smart_gail import SMART_IQ
 
 from src.my_data_preprocess import (decode_tracks_from_proto, decode_map_features_from_proto,
                                     get_map_features, get_agent_features, preprocess_map)
@@ -678,13 +678,13 @@ class SimulationManager:
                         new_state = np.zeros([91, 9])
 
                         if object_type == "cone":
-                            static_type.append(3)
+                            static_type.append(1)
                         elif object_type == "water_barrier":
-                            static_type.append(4)
+                            static_type.append(0)
                         elif object_type == "light":
-                            static_type.append(6)
+                            static_type.append(3)
                         else:
-                            static_type.append(6)
+                            static_type.append(2)
 
                         new_state[:, 0] = object["x"]
                         new_state[:, 1] = object["y"]
@@ -756,7 +756,7 @@ class SimulationManager:
             batch_data = HeteroData(data).cuda()
             batch_data.num_graphs=1
 
-            tokenized_map, tokenized_agent = self.planner.token_processor(batch_data,extrapolate=False)
+            tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)#,extrapolate=False
 
             for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","token_mask"]:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME//5-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
@@ -994,14 +994,14 @@ class SimulationManager:
             self.video_writer.release()
 
     def setup_planner(self,cfg):
-        self.planner = SMART(cfg.model.model_config)
+        self.planner = SMART_IQ(cfg.model.model_config)
 
         if torch.cuda.is_available():
             state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
         else:
             state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
 
-        self.planner.load_state_dict(state_dict,strict=False)
+        self.planner.load_state_dict(state_dict)#,strict=False
         self.planner.cuda()
         self.planner.eval()
 
