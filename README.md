@@ -28,7 +28,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_agent467_inter2_drop01_03/
 
 
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/bc64_bothnoise_inter2_drop01_03_route/2025-10-14_10-39-36/bc/m2g1hdt1/checkpoints/epoch=14-step=87495.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/airl56_nolcf/2025-10-15_10-08-28/sim/k9p5rb2d/checkpoints/epoch=2-step=20000.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL160_learnmap_arn10_kl4/2025-10-11_14-10-16/sim/7a8i19q8/checkpoints/epoch=15-step=48704.ckpt ./
 
