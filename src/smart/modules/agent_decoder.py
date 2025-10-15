@@ -396,10 +396,10 @@ class SMARTAgentDecoder(nn.Module):
         else:
             route_map_index = None
 
-        if 'vis_mask' in tokenized_agent.keys():
-            vis_mask = tokenized_agent['vis_mask']
-
-            all_features=[feature[vis_mask] for feature in all_features if feature is not None]
+        # if 'vis_mask' in tokenized_agent.keys():
+        #     vis_mask = tokenized_agent['vis_mask']
+        #
+        #     all_features=[feature[vis_mask] for feature in all_features if feature is not None]
 
         next_token_logits,feat_a,proposal,rewards,weight=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
@@ -545,14 +545,14 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,post_sampling)
 
-                    if 'vis_mask' in tokenized_agent.keys():
-                        vis_mask = tokenized_agent['vis_mask']
-
-                        next_token_logits1=torch.zeros([len(type),1,2048],device=sampled_idx.device)
-
-                        next_token_logits1[vis_mask]= next_token_logits[:, :1]
-
-                        next_token_logits=next_token_logits1
+                    # if 'vis_mask' in tokenized_agent.keys():
+                    #     vis_mask = tokenized_agent['vis_mask']
+                    #
+                    #     next_token_logits1=torch.zeros([len(type),1,2048],device=sampled_idx.device)
+                    #
+                    #     next_token_logits1[vis_mask]= next_token_logits[:, :1]
+                    #
+                    #     next_token_logits=next_token_logits1
 
                 if self.use_roformer:
                     self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
