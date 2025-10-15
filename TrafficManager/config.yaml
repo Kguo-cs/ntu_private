@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/ckpts/AIRL80_lcf336_val40_learnmap_epoch=11-step=73056_0.78771.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
+planner_path: "./waymo/sim.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -57,16 +57,6 @@ static_size:
   water_barrier: [4, 0.5, 1]
   hydrant: [0.5, 0.5, 1]
 
-static_object:
-  add: #static object
-#    - type: 'hydrant'  #cone,water_barrier,hydrant
-#      id: -1
-#      position: [0,0]
-#      heading:  1.57
-#      shape : #可选, 可根据type生成
-  remove:
-#    - id: -2 # give the remove agent id
-
 
 map_object:
   add: #static object
@@ -86,36 +76,82 @@ agent:
 #    - type: 'car'  #pedestrian,bicycle,car,truck
 #      id: 0
 #      position: [5, -20]
-#      goal: # [5,200]   # 可选
-#      heading:   1.57    # 可选, 可根据goal生成
+#      goal: [5,200]   # 可选
+#      heading:   #1.57    # 可选, 可根据goal生成
+#      speed:  #可选, 可根据type生成
+#      shape: #可选, 可根据type生成
+#    - type: 'bicycle'  #pedestrian,bicycle,car,truck
+#      id: 1000
+#      position: [0,200]
+#      goal: #[5,200]   # 可选
+#      heading: 1.57    # 可选, 可根据goal生成
 #      speed:  #可选, 可根据type生成
 #      shape: #可选, 可根据type生成
   remove:
-  stop:
+#    - id: 10 # give the remove agent id
 
+static_object:
+  add: #static object
+#    - type: 'water_barrier'  #cone,water_barrier,hydrant
+#      id: -1000
+#      position: [40,250]
+#      heading:  1.57
+#      shape : #可选, 可根据type生成
+  remove:
+#    - id: -166 # give the remove agent id
 
 traffic_lights:
-  - position:  [20, 200]    # 信号灯的世界坐标
-    heading: 0
-    size: [1,1,5]
-    orientation: "vertical"         # vertical | horizontal
-    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
-      - color: "red"
-        shape: "left_arrow"
-      - color: "yellow"
-        shape: "circle"
-      - color: "green"
-        shape: "circle"
-    mode: "periodic"                # fixed | periodic | custom
-    periodic_schedule:              # 周期性切换设置
-      cycle_time: 60.0              # 整个周期长度（秒）
-      phases:                       # 每个状态阶段
-        - duration: 2.0
-          lights_on:
-            - color: "green"
-        - duration: 5.0
-          lights_on:
-            - color: "yellow"
-        - duration: 25.0
-          lights_on:
-            - color: "red"
+
+#  - position:  [20, 240]    # 信号灯的世界坐标
+#    heading: 0
+#    size: [1,1,5]
+#    orientation: "vertical"         # vertical | horizontal
+#    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
+#      - color: "red"
+#        shape: "left_arrow"
+#      - color: "yellow"
+#        shape: "circle"
+#      - color: "green"
+#        shape: "circle"
+#    mode: "fixed"                # fixed | periodic | custom
+#    fixed_state: "red"            # 仅在 fixed 模式下使用
+
+#  - position:  [20, 200]    # 信号灯的世界坐标
+#    heading: 0
+#    size: [1,1,5]
+#    orientation: "vertical"         # vertical | horizontal
+#    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
+#      - color: "red"
+#        shape: "left_arrow"
+#      - color: "yellow"
+#        shape: "circle"
+#      - color: "green"
+#        shape: "circle"
+#    mode: "periodic"                # fixed | periodic | custom
+#    periodic_schedule:              # 周期性切换设置
+#      cycle_time: 60.0              # 整个周期长度（秒）
+#      phases:                       # 每个状态阶段
+#        - duration: 2.0
+#          lights_on:
+#            - color: "green"
+#        - duration: 5.0
+#          lights_on:
+#            - color: "yellow"
+#        - duration: 25.0
+#          lights_on:
+#            - color: "red"
+
+#  - position:  [20, 220]    # 信号灯的世界坐标
+#    heading: 0
+#    size: [1,1,5]
+#    orientation: "vertical"         # vertical | horizontal
+#    type:                           # 灯泡组合类型 #color: red, yellow, green # shape: circle, left_arrow,right_arrow,forward_arrow,uturn
+#      - color: "red"
+#        shape: "left_arrow"
+#      - color: "yellow"
+#        shape: "circle"
+#      - color: "green"
+#        shape: "circle"
+#    mode: "custom"                # fixed | periodic | custom
+#    custom_logic:                  # 可扩展自定义控制逻辑
+#      script_path: "custom_logic.py"              # 指向外部 Python 文件（可选）

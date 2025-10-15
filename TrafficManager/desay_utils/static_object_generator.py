@@ -293,7 +293,7 @@ def generate_static_elements_from_raw(
                 #u_try=u+i*spacing
 
                 xyz = _interp_xyz_at_s(L, sL, u+i*spacing)
-                heading = _heading_at_s_dir(L, sL, u, dir_sign=+1)
+                heading = _heading_at_s_dir(L, sL, u+i*spacing, dir_sign=+1)
 
                 # P=L
                 # Ltot=sL[-1]

@@ -1,13 +1,13 @@
 static_object:
   add: #static object
-    - type: 'cone'  #cone,water_barrier,hydrant
-      position: [362,6300]
-      heading:  # 可选
-      shape : #可选 [10,10,1] #length,width,height
+    - type: 'water_barrier'  #cone,water_barrier,hydrant
+      id: -1000
+      position: [40,250]
+      heading:  1.57
+      shape : #可选, 可根据type生成
 
 #    - position: [ 362,3600 ]#增加多个物体
 #      heading: 0
 #      shape: [ 10,10,1 ] #length,width,height
-
 
 

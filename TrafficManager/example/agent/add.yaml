@@ -1,8 +1,9 @@
 agent:
   add:
-    - type: 'car'  #pedestrian,bicycle,car,truck
-      position: [360,6270]
-      heading:       # 可选
-      goal:       # 可选
-      mean_speed:  #可选
-      shape : #可选
+    - type: 'bicycle'  #pedestrian,bicycle,car,truck
+      id: 1000
+      position: [0,200]
+      goal: #[5,200]   # 可选
+      heading: 1.57    # 可选, 可根据goal生成
+      speed:  #可选, 可根据type生成
+      shape: #可选, 可根据type生成

@@ -1,0 +1,5 @@
+static_object:
+  remove:
+    - id: -166
+
+gui_show_static_id: True

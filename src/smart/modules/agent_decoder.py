@@ -548,9 +548,9 @@ class SMARTAgentDecoder(nn.Module):
                     if 'vis_mask' in tokenized_agent.keys():
                         vis_mask = tokenized_agent['vis_mask']
 
-                        next_token_logits1=torch.zeros([len(type),next_token_logits.shape[1],2048],device=sampled_idx.device)
+                        next_token_logits1=torch.zeros([len(type),1,2048],device=sampled_idx.device)
 
-                        next_token_logits1[vis_mask]= next_token_logits
+                        next_token_logits1[vis_mask]= next_token_logits[:, :1]
 
                         next_token_logits=next_token_logits1
 

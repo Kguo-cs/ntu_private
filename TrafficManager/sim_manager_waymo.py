@@ -1,8 +1,6 @@
 import os
 import sys
 from typing import Dict
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import cv2
@@ -51,7 +49,7 @@ import json
 from omegaconf import OmegaConf
 import time
 import psutil
-from pynvml import *
+# from pynvml import *
 
 from collections import defaultdict
 from desay_utils.check_visible import check_occlusion_multi_cam
@@ -73,24 +71,24 @@ def print_cpu_usage(interval=1.0):
 
     print(f"🧠 当前进程 CPU 占用率：{cpu_usage:.2f}%")
 
-def get_self_gpu_usage():
-    nvmlInit()
-    pid = os.getpid()
-    device_count = nvmlDeviceGetCount()
-
-    for i in range(device_count):
-        handle = nvmlDeviceGetHandleByIndex(i)
-        procs = nvmlDeviceGetComputeRunningProcesses(handle)
-
-        for p in procs:
-            if p.pid == pid:
-                meminfo = nvmlDeviceGetMemoryInfo(handle)
-                util = nvmlDeviceGetUtilizationRates(handle)
-                print(f"[GPU:{i}] PID={pid} 使用显存: {p.usedGpuMemory / 1024**2:.1f} MiB / {meminfo.total / 1024**2:.1f} MiB")
-                print(f"[GPU:{i}] GPU 核心利用率: {util.gpu}%")
-                break
-
-    nvmlShutdown()
+# def get_self_gpu_usage():
+#     nvmlInit()
+#     pid = os.getpid()
+#     device_count = nvmlDeviceGetCount()
+#
+#     for i in range(device_count):
+#         handle = nvmlDeviceGetHandleByIndex(i)
+#         procs = nvmlDeviceGetComputeRunningProcesses(handle)
+#
+#         for p in procs:
+#             if p.pid == pid:
+#                 meminfo = nvmlDeviceGetMemoryInfo(handle)
+#                 util = nvmlDeviceGetUtilizationRates(handle)
+#                 print(f"[GPU:{i}] PID={pid} 使用显存: {p.usedGpuMemory / 1024**2:.1f} MiB / {meminfo.total / 1024**2:.1f} MiB")
+#                 print(f"[GPU:{i}] GPU 核心利用率: {util.gpu}%")
+#                 break
+#
+#     nvmlShutdown()
 
 
 def get_process_memory():
@@ -184,7 +182,7 @@ class SimulationManager:
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = self.config["max_sim_time"]+self.initial_step
 
-        self.recording = True
+        self.recording = False
 
         if self.recording:
             self.record_path = "./results/video/record.mp4"
@@ -633,13 +631,14 @@ class SimulationManager:
                     spec=spec
                 )
 
-                for light in self.light:
-                    static_objs[-1-len(static_objs)]=dict(
-                        cls='light',
-                        size_lwh_m=light["size"],
-                        x=light["position"][0], y=light["position"][1], z=0,
-                        heading_rad=light["heading"]
-                    )
+                if self.light is not None:
+                    for light in self.light:
+                        static_objs[-1-len(static_objs)]=dict(
+                            cls='light',
+                            size_lwh_m=light["size"],
+                            x=light["position"][0], y=light["position"][1], z=0,
+                            heading_rad=light["heading"]
+                        )
 
                 # add static object
                 add_static = self.config["static_object"]["add"]
@@ -747,7 +746,7 @@ class SimulationManager:
             data["pt_token"]["batch"]=torch.zeros(data["pt_token"]["num_nodes"]).long()
 
             data["routing"] = self.route
-            data["static"] = (static_pos, static_yaw, static_size, static_type)
+            data["static"] = (static_pos, static_yaw, static_size, static_type,static_id)
 
             self.initialize_simulation(map_data,data)
 
@@ -758,7 +757,7 @@ class SimulationManager:
 
             tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)#,extrapolate=False
 
-            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","token_mask"]:
+            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","token_mask",'gt_idx']:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME//5-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
 
@@ -766,7 +765,7 @@ class SimulationManager:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
 
-            tokenized_agent["vis_mask"]=tokenized_agent["type"]<5
+            #tokenized_agent["vis_mask"]=tokenized_agent["type"]<5
 
             # route_map_index = torch.zeros([len(tokenized_agent["sampled_idx"]), 100]).to(torch.int16) - 1
             #
@@ -824,17 +823,17 @@ class SimulationManager:
             map_embedding_time=time.time()
 
             print("map embedding time:", map_embedding_time-data_preproces_time)
-            map_embedding_memory = get_process_memory()
-            print(f"map embedding memory  : {map_embedding_memory - data_preproces_memory:.1f} MB")
+            # map_embedding_memory = get_process_memory()
+            # print(f"map embedding memory  : {map_embedding_memory - data_preproces_memory:.1f} MB")
             #print(get_self_gpu_usage())
             #print(print_cpu_usage())
             while True:
                 if not self.process_frame(data,map_feature, tokenized_agent):
                     break
 
-            print("camera_rendering_time:",np.mean(self.camera_rendering_time))
-            print("traffic_model_time:",np.mean(self.traffic_model_time))
-            print("output_time:",np.mean(self.output_time))
+            # print("camera_rendering_time:",np.mean(self.camera_rendering_time))
+            # print("traffic_model_time:",np.mean(self.traffic_model_time))
+            # print("output_time:",np.mean(self.output_time))
 
             self.cleanup()
 

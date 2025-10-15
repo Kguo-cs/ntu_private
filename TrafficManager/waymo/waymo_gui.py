@@ -182,7 +182,7 @@ class GUI(Process):
         for id, (route,speed) in data["routing"].items():
             self.routing[id]=route.cpu().numpy()
 
-        static_pos, static_yaw, static_size,self.static_type=data["static"]
+        static_pos, static_yaw, static_size,self.static_type,self.static_id=data["static"]
 
         self.static = self._get_agent_bbox(np.ones_like(static_yaw[:,0]).astype(np.bool),static_pos, static_yaw, static_size)
 
@@ -432,9 +432,8 @@ class GUI(Process):
             )
 
     def draw_static(self,node):
-        id=0
 
-        for object,object_type in zip(self.static,self.static_type):
+        for id,object,object_type in zip(self.static_id,self.static,self.static_type):
 
             static_style=self.static_style[object_type]
 
@@ -447,7 +446,6 @@ class GUI(Process):
                 thickness=1,  # outline thickness
                 parent=node  # your drawing layer
             )
-            id = id - 1
 
             if self.gui_show_static_id:
                 center=object.mean(0)
