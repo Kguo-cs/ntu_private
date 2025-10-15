@@ -3,7 +3,7 @@ ssh lyuchen@aspire2pntu.nscc.sg
 Lyuchen2025!
 
 
-export PBS_JOBID=83255.pbs111
+export PBS_JOBID=98329.pbs111
 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_03_route shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
