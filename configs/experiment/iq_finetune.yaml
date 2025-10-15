@@ -28,7 +28,7 @@ model:
     finetune: true
     smart : false
 
-ckpt_path : '~/scratch/keguo_projects/sim/src/logs/bc64_bothnoise_inter2_drop01_03_route/2025-10-14_10-39-36/bc/m2g1hdt1/checkpoints/epoch=14-step=87495.ckpt'
+ckpt_path : '/home/users/ntu/shanhelo/scratch/keguo_projects/sim/src/logs/bc64_bothnoise_inter2_drop01_03_route/2025-10-14_10-39-36/bc/m2g1hdt1/checkpoints/epoch=14-step=87495.ckpt'
 
 trainer:
   limit_train_batches: 1.0
