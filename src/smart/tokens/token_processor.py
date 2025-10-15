@@ -84,11 +84,11 @@ class TokenProcessor(torch.nn.Module):
         self.noise=True
 
     @torch.no_grad()
-    def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if 'sampled_idx' not in data.keys():
             tokenized_map = self.tokenize_map(data)
 
-            tokenized_agent = self.tokenize_agent(data)
+            tokenized_agent = self.tokenize_agent(data,extrapolate)
 
             if self.use_light:
                 light=data["light"]
@@ -266,7 +266,7 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map
 
-    def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
+    def tokenize_agent(self, data: HeteroData,extrapolate=True) -> Dict[str, Tensor]:
         """
         Args: data["agent"]: Dict
             "valid_mask": [n_agent, n_step], bool
@@ -293,10 +293,12 @@ class TokenProcessor(torch.nn.Module):
 
         # # if not (self.pred_last_res and self.pred_all_res):
         heading = self._clean_heading(valid, heading)
+
+        if extrapolate:
         # ! extrapolate to previous 5th step.
-        valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
-            valid, pos, heading, vel
-        )
+            valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
+                valid, pos, heading, vel
+            )
 
         # ! prepare output dict
         tokenized_agent = {

@@ -30,7 +30,6 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-from src.smart.plot.plot_rollout import plot_rollout_frames,plot_rollout_frames1,plot_rollout_frames_pair
 
 class SMART(LightningModule):
 

@@ -306,10 +306,11 @@ class SimulationManager:
             traffic_model_start=time.time()
            # rss_before = get_process_memory()
 
+
             with torch.no_grad():
                 pred_dict = self.planner.encoder.agent_encoder.inference( tokenized_agent, map_feature ,step_current_10hz=self.timestamp,n_step_future_10hz=5 )
 
-            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
+            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","token_mask"]:
                 pred_value=pred_dict[key]
                 tokenized_agent[key][self.agent_mask,:pred_value.shape[1]] = pred_value[self.agent_mask]
 
@@ -540,7 +541,7 @@ class SimulationManager:
                         position = np.array(agent["position"])
 
                         if agent['speed'] is None:
-                            speed = TG.default_speed[type]
+                            speed = TG.default_speed[type]#None #
                         else:
                             speed = agent["speed"]
 
@@ -592,8 +593,13 @@ class SimulationManager:
                     speed=agent["avg_speed_mps"]
                     heading=agent["start_heading_rad"]
 
-                    velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
-                    track_infos['states'][j, :, :3] = agent["start_xyz"]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
+                    if speed is not None:
+                        velocity=np.array([np.cos(heading)*speed,np.sin(heading)*speed,0])
+                        track_infos['states'][j, :, :3] = agent["start_xyz"]+velocity[None]*np.arange(-1,8.1,0.1)[:,None]
+                    else:
+                        track_infos['states'][j, :, :3] = agent["start_xyz"]
+                        track_infos["valid"][j,:10]=False
+
                     track_infos['states'][j, :, 3] = size_lwh_m[0]
                     track_infos['states'][j, :, 4] = size_lwh_m[1]
                     track_infos['states'][j, :, 5] = size_lwh_m[2]
@@ -750,15 +756,17 @@ class SimulationManager:
             batch_data = HeteroData(data).cuda()
             batch_data.num_graphs=1
 
-            tokenized_map, tokenized_agent = self.planner.token_processor(batch_data)
+            tokenized_map, tokenized_agent = self.planner.token_processor(batch_data,extrapolate=False)
 
-            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask"]:
+            for key in ["sampled_idx","sampled_pos","sampled_heading","valid_mask","token_mask"]:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME//5-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
 
             for key in ["pred_traj_10hz","pred_head_10hz","all_valid"]:
                 pad_value=tokenized_agent[key][:,-1:].repeat(1,self.MAX_SIM_TIME+1-tokenized_agent[key].shape[1], *([1] * (tokenized_agent[key].ndim - 2)))
                 tokenized_agent[key]=torch.cat([tokenized_agent[key],pad_value],dim=1)
+
+            tokenized_agent["vis_mask"]=tokenized_agent["type"]<5
 
             # route_map_index = torch.zeros([len(tokenized_agent["sampled_idx"]), 100]).to(torch.int16) - 1
             #

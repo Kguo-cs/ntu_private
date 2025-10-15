@@ -1,6 +1,9 @@
 import os
 from math import cos, pi, sin
 from multiprocessing import Process
+import matplotlib as mpl
+
+mpl.rcParams['toolbar'] = 'None'
 
 import dearpygui.dearpygui as dpg
 from rich import print
@@ -183,7 +186,7 @@ class GUI(Process):
 
         self.static = self._get_agent_bbox(np.ones_like(static_yaw[:,0]).astype(np.bool),static_pos, static_yaw, static_size)
 
-        self.static_style = [COLOR_CHOCOLATE, COLOR_CHAMELEON, COLOR_RED,COLOR_BUTTER]
+        self.static_style = [COLOR_ALUMINIUM_0, COLOR_GREEN, COLOR_MAGENTA,COLOR_CHOCOLATE, COLOR_CHAMELEON, COLOR_RED,COLOR_BUTTER]
 
         self.ego_idx=np.where(ag_role[:,0])[0][0]
 

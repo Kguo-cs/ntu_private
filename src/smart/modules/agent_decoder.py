@@ -303,6 +303,9 @@ class SMARTAgentDecoder(nn.Module):
                 feat_lg=feat_lg[:, -n_step:]
                 light_idx=light_idx[:, -n_step:]
 
+
+
+
         mask_a=mask[:,-n_step:]
         batch_a=tokenized_agent["batch"]
 
@@ -351,8 +354,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             train_mask=None
 
-        # if vis_mask is not None:
-        #     vis_mask = vis_mask[:, -n_step:]
 
         if n_step>1:
             batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step - 1).reshape(-1,n_agent).transpose(
@@ -390,11 +391,15 @@ class SMARTAgentDecoder(nn.Module):
                 0, 1)
 
             all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
-
         if "route_map_index" in tokenized_agent.keys():
             route_map_index = tokenized_agent["route_map_index"]
         else:
             route_map_index = None
+
+        if 'vis_mask' in tokenized_agent.keys():
+            vis_mask = tokenized_agent['vis_mask']
+
+            all_features=[feature[vis_mask] for feature in all_features if feature is not None]
 
         next_token_logits,feat_a,proposal,rewards,weight=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
@@ -535,8 +540,20 @@ class SMARTAgentDecoder(nn.Module):
                         self.a_t_roformer.attn.caching=True
                         if self.pred_light and not self.light_encoder.share:
                             self.light_encoder.lg_t_roformer.attn.caching=True
+
+
                     next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,post_sampling)
+
+                    if 'vis_mask' in tokenized_agent.keys():
+                        vis_mask = tokenized_agent['vis_mask']
+
+                        next_token_logits1=torch.zeros([len(type),1,2048],device=sampled_idx.device)
+
+                        next_token_logits1[vis_mask]= next_token_logits[:, :1]
+
+                        next_token_logits=next_token_logits1
+
                 if self.use_roformer:
                     self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
                     if self.pred_light and not self.light_encoder.share:
@@ -702,8 +719,6 @@ class SMARTAgentDecoder(nn.Module):
             "token_mask":token_mask,
             "sampled_idx": sampled_idx,  # [n_agent, 18]
             "gt_idx": sampled_idx,
-           # "sampled_log_prob":sampled_log_prob,
-           # "vis_mask": vis_mask,
             "light_idx": light_idx,
         }
 

@@ -1,15 +1,3 @@
-import torch
-
-from src.smart.utils import (
-    cal_polygon_contour,
-    transform_to_global,
-    transform_to_local,
-    wrap_angle,
-    angle_between_2d_vectors
-)
-
-import tensorflow as tf
-from waymo_open_dataset.protos import scenario_pb2, sim_agents_submission_pb2
 
 from src.utils.vis_waymo import VisWaymo,get_map_features
 
