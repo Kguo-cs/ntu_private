@@ -10,7 +10,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/waymo_data/epoch=19-step=233320.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
+planner_path: "/home/ke/code/catk/src/waymo_data/bc64_bothnoise_inter2_drop01_03_route_epoch=14-step=87495.ckpt"#"/home/ke/code/catk/src/waymo_data/ckpts/epoch=21-step=223212.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
