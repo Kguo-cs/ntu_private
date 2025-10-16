@@ -253,7 +253,7 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
             # 6e4 such that it's within the range of float16.
             "traj_pos": torch.zeros([1, 3, 2], dtype=torch.float32) + 6e4,
             "traj_theta": torch.zeros([1], dtype=torch.float32),
-            "pl_idx_list": torch.zeros([1], dtype=torch.float32)
+            "pl_idx_list": torch.zeros([1], dtype=torch.int16)
         }
         data["pt_token"] = {
             "type": torch.tensor([0], dtype=torch.uint8),
@@ -265,7 +265,7 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
         data["map_save"] = {
             "traj_pos": torch.cat(split_polyline_pos, dim=0),  # [num_nodes, 3, 2]
             "traj_theta": torch.cat(split_polyline_theta, dim=0)[:, 0],  # [num_nodes]
-            "pl_idx_list":torch.cat(pl_idx_list, dim=0)
+            "pl_idx_list":torch.cat(pl_idx_list, dim=0).to(torch.int16)
         }
         data["pt_token"] = {
             "type": torch.cat(split_polyline_type, dim=0),  # [num_nodes], uint8
