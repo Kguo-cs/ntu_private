@@ -725,10 +725,10 @@ def process_scenario(scenario):
     data['map_save']['traj_pos']=data['map_save']['traj_pos'][mask]
     data['map_save']['traj_theta']=data['map_save']['traj_theta'][mask]
     data['pt_token']['type']=data['pt_token']['type'][mask]
-    data['pt_token']['pl_type']=data['pt_token']['pl_type'][mask]
     data['pt_token']['num_nodes']=len(data['pt_token']['pl_type'])
 
     del data['pt_token']['light_type']
+    del data['pt_token']['pl_type']
     # traj_pos = data['map_save']['traj_pos']
     #
     # # type=data['pt_token']['type']
