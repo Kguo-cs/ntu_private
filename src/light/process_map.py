@@ -8,14 +8,14 @@ from torch_geometric.data import HeteroData
 import numpy as np
 
 
-# data_directory = "/home/ke/code/catk/src/waymo_data/full/training_light_inter10/"
-# output_path = "/home/ke/code/catk/src/waymo_data/full/training_inter10_light_col/"
-# raw_data= "/home/ke/code/catk/src/waymo_data/full/training_inter10_col/"
+data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pred/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_raw_03/"
+raw_data= "/home/ke/code/catk/src/waymo_data/full/training_a/"
 
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/validation_light/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/validation_edge1_light/"
-raw_data= "/home/ke/code/catk/src/waymo_data/map1_10/validation/"
+# data_directory = "/home/ke/code/catk/src/waymo_data/full/validation_light/"
+# output_path = "/home/ke/code/catk/src/waymo_data/full/validation_edge1_light/"
+# raw_data= "/home/ke/code/catk/src/waymo_data/map1_10/validation/"
 
 
 files = os.listdir(data_directory)

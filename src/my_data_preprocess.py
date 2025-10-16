@@ -37,110 +37,6 @@ from waymo_open_dataset.protos import scenario_pb2
 from src.smart.utils.preprocess import get_polylines_from_polygon, preprocess_map
 from src.data_preprocess import decode_tracks_from_proto,decode_map_features_from_proto,decode_dynamic_map_states_from_proto,process_dynamic_map,get_map_features,get_agent_features,_polygon_types,_polygon_light_type
 
-def get_agent_routes(data,map_infos):
-    positions=data["agent"]['position'][:,5::5,:2]
-    heading=data["agent"]["heading"][:,5::5]
-    valid_mask=data["agent"]['valid_mask'][:,5::5]
-    last_velocity=data["agent"]['velocity'][:,-1]
-
-    extended_goal_pos=positions[:,-1] + last_velocity * 1
-
-    positions=torch.cat([positions,extended_goal_pos[:,None]],dim=1)
-    heading=torch.cat([heading,heading[:,-1:]],dim=1)
-    valid_mask=torch.cat([valid_mask,valid_mask[:,-1:]],dim=1)
-
-    map_data=data["map_save"]
-
-    map_pos=map_data['traj_pos']
-    map_dir=map_data['traj_theta']
-
-    pl_type=data['pt_token']['type']
-    ln_id=data['pt_token']['ln_id']
-
-    lane_mask=torch.isin(pl_type,torch.tensor([0, 1, 2,3]))
-    veh_lane_pos = map_pos[lane_mask][:, 1, :2].reshape(-1, 2)
-    veh_lane_dir = map_dir[lane_mask]
-
-    dist = torch.linalg.norm(veh_lane_pos[None,None] - positions[:,:,None], dim=-1)
-    rot = torch.einsum('i,mj->mji', veh_lane_dir, heading)
-    dist_rot=5*(rot<0)+dist
-    routing_idx = torch.argmin(dist_rot,dim=-1)
-
-    route_id=ln_id[routing_idx]
-
-    route_id[~valid_mask]=-1
-
-    dest_map_ids=route_id[:,-1]
-    map_edge=map_infos["mp_edge"]
-
-    inter_routes=[]
-
-    for dest_map_id in dest_map_ids:
-
-        next_list=[]
-
-        next_map_id = dest_map_id
-        max_len=4
-        while next_map_id!=-1 and len(next_list)<max_len:
-            next_edges = np.where(map_edge[:, 0] == next_map_id)[0]        # t_mask=valid_mask[veh_mask]
-            dest_map_id, next_map_id = map_edge[np.random.choice(next_edges)]        # routing_dist = torch.amin(dist_rot,dim=-1)*t_mask
-            next_list.append(next_map_id)
-
-        next_list=next_list+[-1]*(max_len-len(next_list))
-
-        inter_routes.append(next_list)
-
-    route=torch.cat([route_id,torch.tensor(inter_routes)],dim=1)
-    B, L = route.shape
-
-    next_route=torch.zeros_like(route[:,:L-5])
-
-    for t in range(L-5):
-        fut_route=route[:,t+1:]
-
-        cur_route=route[:,t]
-
-        mask=fut_route!=cur_route[:,None]
-
-        next_idx=torch.argmax(mask.to(torch.int),dim=1)+t+1
-
-        next_route[:,t]=route[torch.arange(len(next_idx)),next_idx]
-
-    data["agent"]["route"]=route
-    data["agent"]["next_route"]=next_route
-
-def interpolate_polyline(polyline: torch.Tensor, num_points: int = 10) -> torch.Tensor:
-    # Step 1: Compute segment lengths
-    segment_vectors = polyline[1:] - polyline[:-1]  # (N-1, 2)
-    segment_lengths = torch.norm(segment_vectors, dim=1)  # (N-1,)
-
-    total_length = segment_lengths.sum()
-    cumulative_lengths = torch.cat([torch.tensor([0.0], device=polyline.device), segment_lengths.cumsum(0)])  # (N,)
-
-    # Step 2: Interpolate positions along the total length
-    target_lengths = torch.linspace(0, total_length, steps=num_points)  # (num_points,)
-
-    # Step 3: For each target length, find which segment it falls in
-    points = []
-    for t_len in target_lengths:
-        seg_idx = torch.searchsorted(cumulative_lengths, t_len, right=True) - 1
-        seg_idx = torch.clamp(seg_idx, 0, len(segment_vectors) - 1)
-
-        seg_start = polyline[seg_idx]
-        seg_vec = segment_vectors[seg_idx]
-        seg_len = segment_lengths[seg_idx]
-
-        # Avoid division by zero
-        if seg_len > 0:
-            alpha = (t_len - cumulative_lengths[seg_idx]) / seg_len
-        else:
-            alpha = 0.0
-
-        point = seg_start + alpha * seg_vec
-        points.append(point)
-
-    return torch.stack(points)  # (num_points, 2)
-
 def process_light(map_infos,tf_lights,tf_current_light):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]#189
     polyline_index = [x["polyline_index"] for k in _polygon_types for x in map_infos[k]]#189
@@ -225,130 +121,6 @@ def process_light(map_infos,tf_lights,tf_current_light):
     return light
 
 
-def generate_batch_polylines_from_map(polylines, point_sampled_interval=1, vector_break_dist_thresh=1.0,
-                                      num_points_each_polyline=20):
-    """
-    Args:
-        polylines (num_points, 7): [x, y, z, dir_x, dir_y, dir_z, global_type]
-
-    Returns:
-        ret_polylines: (num_polylines, num_points_each_polyline, 7)
-        ret_polylines_mask: (num_polylines, num_points_each_polyline)
-    """
-    point_dim = polylines.shape[-1]
-
-    sampled_points = polylines[::point_sampled_interval]
-    sampled_points_shift = np.roll(sampled_points, shift=1, axis=0)
-    buffer_points = np.concatenate((sampled_points[:, 0:2], sampled_points_shift[:, 0:2]),
-                                   axis=-1)  # [ed_x, ed_y, st_x, st_y]
-    buffer_points[0, 2:4] = buffer_points[0, 0:2]
-
-    break_idxs = \
-    (np.linalg.norm(buffer_points[:, 0:2] - buffer_points[:, 2:4], axis=-1) > vector_break_dist_thresh).nonzero()[0]
-    polyline_list = np.array_split(sampled_points, break_idxs, axis=0)
-    ret_polylines = []
-    ret_polylines_mask = []
-
-    def append_single_polyline(new_polyline):
-        cur_polyline = np.zeros((num_points_each_polyline, point_dim), dtype=np.float32)
-        cur_valid_mask = np.zeros((num_points_each_polyline), dtype=np.int32)
-        cur_polyline[:len(new_polyline)] = new_polyline
-        cur_valid_mask[:len(new_polyline)] = 1
-        ret_polylines.append(cur_polyline)
-        ret_polylines_mask.append(cur_valid_mask)
-
-    for k in range(len(polyline_list)):
-        if polyline_list[k].__len__() <= 0:
-            continue
-        for idx in range(0, len(polyline_list[k]), num_points_each_polyline):
-            append_single_polyline(polyline_list[k][idx: idx + num_points_each_polyline])
-
-    ret_polylines = np.stack(ret_polylines, axis=0)
-    ret_polylines_mask = np.stack(ret_polylines_mask, axis=0)
-
-    ret_polylines = torch.from_numpy(ret_polylines)
-    ret_polylines_mask = torch.from_numpy(ret_polylines_mask)
-
-    return ret_polylines, ret_polylines_mask
-
-
-def process_map(polylines_list):
-
-    split_polyline_pos = []
-    split_polyline_type=[]
-
-    for polylines in polylines_list:
-        cur_type=torch.from_numpy(polylines[:,-2])
-        polylines=polylines[:, :2]
-
-        euclidean_dists = np.linalg.norm(polylines[1:, :2] - polylines[:-1, :2], axis=-1)
-        euclidean_dists = np.concatenate([[0], euclidean_dists])
-        breakpoints = np.where(euclidean_dists > 3)[0]
-        breakpoints = np.concatenate([[0], breakpoints, [polylines.shape[0]]])
-        dist_along_path_list = []
-
-        polylines_list=[]
-
-        for i in range(1, breakpoints.shape[0]):
-            start = breakpoints[i - 1]
-            end = breakpoints[i]
-            dist_along_path_list.append(
-                np.cumsum(euclidean_dists[start:end]) - euclidean_dists[start]
-            )
-            polylines_list.append(polylines[start:end])
-
-        #multi_polylines_list = []
-        #num_points = 10
-        for idx in range(len(dist_along_path_list)):
-            if len(dist_along_path_list[idx]) < 2 or dist_along_path_list[idx][-1]<1:
-                continue
-
-            dist_along_path = dist_along_path_list[idx]
-            polylines_cur = polylines_list[idx]
-            # Create interpolation functions for x and y coordinates
-            fxy = interp1d(dist_along_path, polylines_cur, axis=0)
-
-            num_points=int(dist_along_path[-1]//50+1)*10
-
-            # Create an array of distances at which to interpolate
-            new_dist_along_path = np.linspace(0, dist_along_path[-1], num_points) #[:num_points]
-
-            # Combine the new x and y coordinates into a single array
-            new_polylines = fxy(new_dist_along_path)
-            new_polylines = torch.from_numpy(new_polylines)
-            new_heading = torch.atan2(
-                new_polylines[1:, 1] - new_polylines[:-1, 1],
-                new_polylines[1:, 0] - new_polylines[:-1, 0],
-            )
-            new_heading = torch.cat([new_heading, new_heading[-1:]], -1)[..., None]
-            new_polylines = torch.cat([new_polylines, new_heading], -1)
-
-            new_polylines=new_polylines.reshape(-1,10,3)
-
-            split_polyline_pos.append(new_polylines)
-            split_polyline_type.append(cur_type[0].repeat(new_polylines.shape[0]))
-
-    data = {}
-    if len(split_polyline_pos) == 0:  # add dummy empty map
-        data["tokenized_map"] = {
-            # 6e4 such that it's within the range of float16.
-            "traj_pos": torch.zeros([1, 3, 2], dtype=torch.float32) + 6e4,
-            "traj_theta": torch.zeros([1], dtype=torch.float32),
-            "type": torch.tensor([0], dtype=torch.uint8),
-            "num_nodes": 1,
-        }
-    else:
-        pos= torch.cat(split_polyline_pos, dim=0)
-        data["tokenized_map"] = {
-            "traj_pos": pos.to(torch.float32),  # [num_nodes, 3, 2]
-            "type": torch.cat(split_polyline_type, dim=0).to(torch.int8),  # [num_nodes], uint8
-            "num_nodes": pos.shape[0]
-        }
-
-    return data
-
-
-
 def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
     dataset = tf.data.TFRecordDataset(
         file_path, compression_type="", num_parallel_reads=3
@@ -361,20 +133,20 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
 
         #track_infos = decode_tracks_from_proto(scenario)
         map_infos = decode_map_features_from_proto(scenario.map_features)
-        dynamic_map_infos = decode_dynamic_map_states_from_proto(
-            scenario.dynamic_map_states
-        )## scenario.dynamic_map_states has stop_point
+        # dynamic_map_infos = decode_dynamic_map_states_from_proto(
+        #     scenario.dynamic_map_states
+        # )## scenario.dynamic_map_states has stop_point
 
-        current_time_index = scenario.current_time_index
+       # current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id
-        tf_lights = process_dynamic_map(dynamic_map_infos)
-        tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-        map_data = get_map_features(map_infos, tf_current_light)
+        #tf_lights = process_dynamic_map(dynamic_map_infos)
+        #tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+        map_data = get_map_features(map_infos, {})
         # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
         # map_data = get_map_features(map_infos, [])
         data = preprocess_map(map_data)
 
-        # del data['pt_token']['light_type']
+        del data['pt_token']['light_type']
         del data['pt_token']['pl_type']
 
         # data={"edge":map_infos['road_edge_list']}
@@ -423,7 +195,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[33:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])
     func = partial(
         wm2argo,
         split=split,
@@ -445,9 +217,9 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map1_10"
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map2"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
