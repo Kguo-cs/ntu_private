@@ -219,7 +219,7 @@ class TokenProcessor(torch.nn.Module):
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
         if self.training:
-            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.1
+            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.04
 
         traj_theta = torch.atan2(
             traj_pos[:,1, 1] - traj_pos[:,0, 1],
