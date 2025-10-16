@@ -103,7 +103,7 @@ CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29502  -m run trainer=ddp
 
 
-CUDA_VISIBLE_DEVICES=2  python run.py >  1.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=3  python run.py >  2.log 2>&1 & 
 
 
 
