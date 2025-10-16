@@ -31,6 +31,7 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 
+from src.smart.layers import MLPLayer
 
 class SMARTMapDecoder(nn.Module):
 
@@ -88,6 +89,12 @@ class SMARTMapDecoder(nn.Module):
 
         self.pred_offroad=False
 
+        self.pred_map=True
+
+        if self.pred_map:
+            self.token_size = 1024
+            self.token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
+                                               output_dim=self.token_size)
 
         self.apply(weight_init)
 
@@ -257,11 +264,25 @@ class SMARTMapDecoder(nn.Module):
             orient_pt=orient_edge
             batch=batch_edge
 
-        # for i in range(self.num_layers):
-        #     x_pt = self.pt2pt_layers[i](x_pt, r_pt2pt, edge_index_pt2pt)
 
-        # mask=torch.isin(tokenized_map["type"],torch.tensor([0,1,2,3,4,5]).to(batch.device))#9,,10
-        #mask=(map_type==4)  |(map_type==5)
+
+        output={
+            "pt_token": x_pt,
+            "position": pos_pt,
+            "orientation": orient_pt,
+            "batch": batch,
+        }
+
+        if self.pred_map:
+            pt_pred_mask = tokenized_map['pt_pred_mask']
+
+            next_token_prob = self.token_predict_head(x_pt[pt_pred_mask])
+
+            output['map_next_token_prob']=next_token_prob
+
+
+        return output
+
         #tensor([0.010, 0.488, 0.020, 0.034, 0.145, 0.025, 0.063, 0.071, 0.017, 0.127],
         # polyline_type = {
         #     # for lane
@@ -280,13 +301,7 @@ class SMARTMapDecoder(nn.Module):
         #     "TYPE_CROSSWALK": 9,
         # }
 
-        return {
-            "pt_token": x_pt,#[mask],
-            "position": pos_pt,#[mask],
-            "orientation": orient_pt,#[mask],
-            "batch": batch,#[mask],
-        }
-        #
+
         # lengths = torch.bincount(batch).tolist()
         #
         # padded_pt_feature = padding(x_pt, lengths)

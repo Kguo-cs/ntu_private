@@ -210,7 +210,7 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
     split_polyline_theta = []
     split_polygon_type = []
     split_light_type = []
-    #split_polyline_id=[]
+    pl_idx_list = []
 
     for i in sorted(torch.unique(pt2pl[1])):
         index = pt2pl[0, pt2pl[1] == i]
@@ -231,10 +231,10 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
         if split_polyline is None:
             continue
 
-        if polygon_type !=1:
-            split_polyline=split_polyline[::10]
-        else:
-            split_polyline=split_polyline[::2]
+        # if polygon_type !=1:
+        #     split_polyline=split_polyline[::10]
+        # else:
+        #     split_polyline=split_polyline[::2]
 
         pl_type=cur_type[0].repeat(split_polyline.shape[0])
         split_polyline_pos.append(split_polyline[..., :2])
@@ -242,7 +242,10 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
         split_polyline_type.append(pl_type)
         split_polygon_type.append(polygon_type.repeat(split_polyline.shape[0]))
         split_light_type.append(light_type.repeat(split_polyline.shape[0]))
-        #split_polyline_id.append(torch.zeros([split_polyline.shape[0]],dtype=torch.int64)+i)
+        cur_pl_idx = torch.Tensor([i])
+        new_cur_pl_idx = cur_pl_idx.repeat(split_polyline.shape[0])
+
+        pl_idx_list.append(new_cur_pl_idx)
 
     data = {}
     if len(split_polyline_pos) == 0:  # add dummy empty map
@@ -250,6 +253,7 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
             # 6e4 such that it's within the range of float16.
             "traj_pos": torch.zeros([1, 3, 2], dtype=torch.float32) + 6e4,
             "traj_theta": torch.zeros([1], dtype=torch.float32),
+            "pl_idx_list": torch.zeros([1], dtype=torch.float32)
         }
         data["pt_token"] = {
             "type": torch.tensor([0], dtype=torch.uint8),
@@ -261,6 +265,7 @@ def preprocess_map(map_data: Dict[str, Any],break_dist=3) -> Dict[str, Any]:
         data["map_save"] = {
             "traj_pos": torch.cat(split_polyline_pos, dim=0),  # [num_nodes, 3, 2]
             "traj_theta": torch.cat(split_polyline_theta, dim=0)[:, 0],  # [num_nodes]
+            "pl_idx_list":torch.cat(pl_idx_list, dim=0)
         }
         data["pt_token"] = {
             "type": torch.cat(split_polyline_type, dim=0),  # [num_nodes], uint8
