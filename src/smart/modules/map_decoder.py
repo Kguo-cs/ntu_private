@@ -89,7 +89,7 @@ class SMARTMapDecoder(nn.Module):
 
         self.pred_offroad=False
 
-        self.pred_map=True
+        self.pred_map=False
 
         if self.pred_map:
             self.token_size = 1024
