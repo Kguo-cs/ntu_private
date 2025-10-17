@@ -116,7 +116,8 @@ class IQ_SoftQ(LightningModule):
         if self.use_ce:
             self.training_loss = CrossEntropy(**model_config.training_loss)
 
-        # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
+        self.pred_map_token=self.encoder.map_encoder.pred_map_token
+
 
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
@@ -293,7 +294,24 @@ class IQ_SoftQ(LightningModule):
         # else:
         #     light_nll=0
 
-        return  reward,value_loss,pi,action_nll,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
+        if pred['next_map_token_logits'] is not None and key=='expert':
+            next_map_token_logits=pred['next_map_token_logits']
+            pt_target=tokenized_map["pt_target"].unsqueeze(-1)
+
+            pi = torch.softmax( next_map_token_logits, dim=-1)
+
+            logpi= torch.log(pi+ 1e-10)#.clamp_min(min=1e-10)
+
+            log_prob = torch.gather(logpi, dim=-1, index=pt_target).squeeze(-1)
+
+            map_nll=-log_prob.mean()
+
+            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+
+        else:
+            map_nll=0
+
+        return  reward,value_loss,pi,action_nll+map_nll,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
 
     def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,target_q=None):
 
