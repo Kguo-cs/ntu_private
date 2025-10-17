@@ -319,7 +319,7 @@ class TokenProcessor(torch.nn.Module):
             exist_pl_idx=pl_idx[::2]
             pt_pred_mask=exist_pl_idx[:len(masked_pl_idx)]==masked_pl_idx
 
-            tokenized_map['pt_target']=token_idx[1::2]
+            tokenized_map['pt_target']=token_idx[1::2][pt_pred_mask]
             tokenized_map['pt_pred_mask']=pt_pred_mask
 
         return tokenized_map
