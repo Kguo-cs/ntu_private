@@ -9,8 +9,8 @@ import numpy as np
 
 
 data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pred/"
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_raw_03/"
-raw_data= "/home/ke/code/catk/src/waymo_data/full/training_a/"
+raw_data= "/home/ke/code/catk/src/waymo_data/map2/training/"
+output_path = "/home/ke/code/catk/src/waymo_data/full/training_map1_03/"
 
 
 # data_directory = "/home/ke/code/catk/src/waymo_data/full/validation_light/"
@@ -41,6 +41,8 @@ for filename in tqdm(files):
 
     data["map_save"]=data1["map_save"]
     data["pt_token"]=data1["pt_token"]
+
+    del data["tokenized_map"]
 
 
     output_file = output_path + filename

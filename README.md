@@ -205,3 +205,8 @@ centric discriminator: AIRL64_value0001_disexpertvalidcentric
 
 
 AIRL64_value0001noclip_distr402060a5_expertvalid influence of range 
+
+
+#to do 
+
+#progressive diffusion discretiezed

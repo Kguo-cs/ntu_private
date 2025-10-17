@@ -312,41 +312,41 @@ class TokenProcessor(torch.nn.Module):
 
         #if self.training and self.pred_map_token:
             # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
-        #if self.training:
-        pl_idx = data['map_save']['pl_idx_list']  # shape [T]
+        if self.training:
+            pl_idx = data['map_save']['pl_idx_list']  # shape [T]
 
-        T = pl_idx.numel()
-        idx = torch.arange(T, device=pl_idx.device)
+            T = pl_idx.numel()
+            idx = torch.arange(T, device=pl_idx.device)
 
-        # --- per-lane local index (0,1,2,...) without loops ---
-        # lane boundary flag
-        lane_change = torch.ones_like(pl_idx, dtype=torch.bool)
-        lane_change[1:] = pl_idx[1:] != pl_idx[:-1]
+            # --- per-lane local index (0,1,2,...) without loops ---
+            # lane boundary flag
+            lane_change = torch.ones_like(pl_idx, dtype=torch.bool)
+            lane_change[1:] = pl_idx[1:] != pl_idx[:-1]
 
-        # start index of current lane for each position (forward-filled)
-        starts = torch.where(lane_change, idx, torch.zeros((), dtype=idx.dtype, device=idx.device))
-        lane_start_idx = torch.cummax(starts, dim=0).values
+            # start index of current lane for each position (forward-filled)
+            starts = torch.where(lane_change, idx, torch.zeros((), dtype=idx.dtype, device=idx.device))
+            lane_start_idx = torch.cummax(starts, dim=0).values
 
-        # local index within its lane
-        local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
+            # local index within its lane
+            local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
 
-        # --- keep every 2nd point per lane (even local index) ---
-        keep_mask =(local_idx % 2 == 0)  # True => keep, False => drop
+            # --- keep every 2nd point per lane (even local index) ---
+            keep_mask =(local_idx % 2 == 0)  # True => keep, False => drop
 
-        keep_mask[-1]=False
+            keep_mask[-1]=False
 
-        for key in tokenized_map.keys():
-            tokenized_map[key] = tokenized_map[key][keep_mask]
+            for key in tokenized_map.keys():
+                tokenized_map[key] = tokenized_map[key][keep_mask]
 
-        if self.pred_map_token:
+            if self.pred_map_token:
 
-            kept_idx = torch.nonzero(keep_mask, as_tuple=False).squeeze(-1)  # [K]
-            next_idx = kept_idx + 1  # [K] 安全：上面已保证最后一个不保留
+                kept_idx = torch.nonzero(keep_mask, as_tuple=False).squeeze(-1)  # [K]
+                next_idx = kept_idx + 1  # [K] 安全：上面已保证最后一个不保留
 
-            same_mask = (pl_idx[next_idx] == pl_idx[kept_idx])  # [K] 布尔
+                same_mask = (pl_idx[next_idx] == pl_idx[kept_idx])  # [K] 布尔
 
-            tokenized_map['pt_pred_mask'] = same_mask  # [K]，与过滤后的 token 对齐
-            tokenized_map['pt_target'] = gt_idx[next_idx][same_mask]  # 目标是“下一帧”的 token
+                tokenized_map['pt_pred_mask'] = same_mask  # [K]，与过滤后的 token 对齐
+                tokenized_map['pt_target'] = gt_idx[next_idx][same_mask]  # 目标是“下一帧”的 token
 
         return tokenized_map
 
