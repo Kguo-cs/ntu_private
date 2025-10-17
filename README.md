@@ -16,7 +16,7 @@ rsync -avz ~/code/catk/src/waymo_data/full/nuplan_cross2_03_route  ke@10.87.114.
 rsync -avz ~/keguo/sim/src/waymo_data/full/nuplan_lane2 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 
-rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/waymo_data/full/nuplan_lane2 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/waymo_data/full/nuplan_lane1 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
