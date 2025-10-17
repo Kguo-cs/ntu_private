@@ -276,7 +276,7 @@ class SMARTMapDecoder(nn.Module):
         if self.pred_map_token and self.training:
             pt_pred_mask = tokenized_map['pt_pred_mask']
 
-            next_map_token_logits = self.token_predict_head(x_pt[:len(pt_pred_mask)][pt_pred_mask])
+            next_map_token_logits = self.token_predict_head(x_pt[pt_pred_mask])
 
             output['next_map_token_logits']=next_map_token_logits
 

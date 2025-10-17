@@ -83,7 +83,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.noise=True
 
-        self.pred_map_token=False
+        self.pred_map_token=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -311,18 +311,26 @@ class TokenProcessor(torch.nn.Module):
 
         #if self.training and self.pred_map_token:
             # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
-        for key in tokenized_map.keys():
-            tokenized_map[key] = tokenized_map[key][::2]
+        if self.training:
+            keep_mask=torch.zeros_like(traj_theta).to(torch.bool)# '#torch.rand_like(traj_theta)< 0.5
+            keep_mask[::2]=True
 
-        if self.pred_map_token:
+            keep_mask[-1]=False
 
-            pl_idx = data['map_save']['pl_idx_list']
-            masked_pl_idx = pl_idx[1::2]
-            exist_pl_idx=pl_idx[::2]
-            pt_pred_mask=exist_pl_idx[:len(masked_pl_idx)]==masked_pl_idx
+            for key in tokenized_map.keys():
+                tokenized_map[key] = tokenized_map[key][keep_mask]
 
-            tokenized_map['pt_target']=token_idx[1::2][pt_pred_mask]
-            tokenized_map['pt_pred_mask']=pt_pred_mask
+            if self.pred_map_token:
+
+                pl_idx = data['map_save']['pl_idx_list']
+
+                kept_idx = torch.nonzero(keep_mask, as_tuple=False).squeeze(-1)  # [K]
+                next_idx = kept_idx + 1  # [K] 安全：上面已保证最后一个不保留
+
+                same_mask = (pl_idx[next_idx] == pl_idx[kept_idx])  # [K] 布尔
+
+                tokenized_map['pt_pred_mask'] = same_mask  # [K]，与过滤后的 token 对齐
+                tokenized_map['pt_target'] = token_idx[next_idx][same_mask]  # 目标是“下一帧”的 token
 
         return tokenized_map
 
