@@ -83,6 +83,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.noise=True
 
+        self.pred_map=False
+
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if 'sampled_idx' not in data.keys():
@@ -213,7 +215,7 @@ class TokenProcessor(torch.nn.Module):
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
         traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"] # [n_pl]
+       # traj_theta = data["map_save"]["traj_theta"] # [n_pl]
         type = data["pt_token"]["type"]  # [n_pl]
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
@@ -248,6 +250,49 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
+        # if self.pred_map and self.training:
+        #     pl_idx_list = data['map_save']['pl_idx_list']
+        #
+        #     data['pt_token']['side']=torch.zeros_like(pl_idx_list)
+        #
+        #     pl_idx_full = pl_idx_list.clone()
+        #     token2pl = torch.stack([torch.arange(len(pl_idx_list), device=traj_pos.device), pl_idx_full.long()])
+        #     count_nums = []
+        #     for pl in pl_idx_full.unique():
+        #         pt = token2pl[0, token2pl[1, :] == pl]
+        #         left_side = (data['pt_token']['side'][pt] == 0).sum()
+        #         right_side = (data['pt_token']['side'][pt] == 1).sum()
+        #         center_side = (data['pt_token']['side'][pt] == 2).sum()
+        #         count_nums.append(torch.Tensor([left_side, right_side, center_side]))
+        #     count_nums = torch.stack(count_nums, dim=0)
+        #     num_polyline = int(count_nums.max().item())
+        #     traj_mask = torch.zeros((int(len(pl_idx_full.unique())), 3, num_polyline), dtype=bool)
+        #     idx_matrix = torch.arange(traj_mask.size(2)).unsqueeze(0).unsqueeze(0)
+        #     idx_matrix = idx_matrix.expand(traj_mask.size(0), traj_mask.size(1), -1)  #
+        #     counts_num_expanded = count_nums.unsqueeze(-1)
+        #     mask_update = idx_matrix < counts_num_expanded
+        #     traj_mask[mask_update] = True
+        #
+        #     raw_pt_index = torch.arange(1, traj_mask.shape[2]).repeat(traj_mask.shape[0], traj_mask.shape[1], 1)
+        #     masked_pt_index = raw_pt_index.view(-1)[torch.randperm(raw_pt_index.numel())[:traj_mask.shape[0]*traj_mask.shape[1]*((traj_mask.shape[2]-1)//3)].reshape(traj_mask.shape[0], traj_mask.shape[1], (traj_mask.shape[2]-1)//3)]
+        #     masked_pt_index = torch.sort(masked_pt_index, -1)[0]
+        #     pt_valid_mask = traj_mask.clone()
+        #     pt_valid_mask.scatter_(2, masked_pt_index, False)
+        #     pt_pred_mask = traj_mask.clone()
+        #     pt_pred_mask.scatter_(2, masked_pt_index, False)
+        #     tmp_mask = pt_pred_mask.clone()
+        #     tmp_mask[:, :, :] = True
+        #     tmp_mask.scatter_(2, masked_pt_index-1, False)
+        #     pt_pred_mask.masked_fill_(tmp_mask, False)
+        #     pt_pred_mask = pt_pred_mask * torch.roll(traj_mask, shifts=-1, dims=2)
+        #     pt_target_mask = torch.roll(pt_pred_mask, shifts=1, dims=2)
+        #
+        #     pt_valid_mask1 = pt_valid_mask[traj_mask]
+        #     pt_pred_mask1= pt_pred_mask[traj_mask]
+        #     pt_target_mask1 = pt_target_mask[traj_mask]
+        #
+        #     print(1)
+
         tokenized_map = {
             "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
@@ -263,6 +308,11 @@ class TokenProcessor(torch.nn.Module):
             tokenized_map["batch"] = data["pt_token"]["batch"]
         if "light_type" in data["pt_token"].keys():
             tokenized_map["light_type"] = data["pt_token"]["light_type"].long()
+
+        if self.training:
+            random_mask=torch.rand_like(traj_theta)< 0.5
+            for key in tokenized_map.keys():
+                tokenized_map[key] = tokenized_map[key][random_mask]
 
         return tokenized_map
 

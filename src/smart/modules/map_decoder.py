@@ -89,7 +89,7 @@ class SMARTMapDecoder(nn.Module):
 
         self.pred_offroad=False
 
-        self.pred_map=False
+        self.pred_map=token_processor.pred_map
 
         if self.pred_map:
             self.token_size = 1024
@@ -128,7 +128,7 @@ class SMARTMapDecoder(nn.Module):
         token_idx=tokenized_map["token_idx"].long()[mask]
         map_type=map_type[mask]
 
-        mask =(map_type==4) | (map_type==6) | (map_type==9)| (map_type==1)#  |#| | (map_type==7)   (map_type==4) | # | (map_type==7) #(map_type == 4) | (map_type == 5)
+        mask =(map_type==4) | (map_type==6) | (map_type==7) | (map_type==9)| (map_type==1)#  |#|   (map_type==4) | # | (map_type==7) #(map_type == 4) | (map_type == 5)
 
         if self.pred_offroad:
 

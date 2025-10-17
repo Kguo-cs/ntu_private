@@ -59,6 +59,7 @@ class WaymoTargetBuilderTrain(BaseTransform):
 
             # print(data["light"]['type'].shape)
        # print(data["light"]['pos'].shape)
+        data['pt_token']['num_nodes'] = len(data['pt_token']['type'])
 
         return HeteroData(data)
 
