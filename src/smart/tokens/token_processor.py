@@ -312,8 +312,25 @@ class TokenProcessor(torch.nn.Module):
         #if self.training and self.pred_map_token:
             # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
         if self.training:
-            keep_mask=torch.zeros_like(traj_theta).to(torch.bool)# '#torch.rand_like(traj_theta)< 0.5
-            keep_mask[::2]=True
+            pl_idx = data['map_save']['pl_idx_list']  # shape [T]
+
+            T = pl_idx.numel()
+            idx = torch.arange(T, device=pl_idx.device)
+
+            # --- per-lane local index (0,1,2,...) without loops ---
+            # lane boundary flag
+            lane_change = torch.ones_like(pl_idx, dtype=torch.bool)
+            lane_change[1:] = pl_idx[1:] != pl_idx[:-1]
+
+            # start index of current lane for each position (forward-filled)
+            starts = torch.where(lane_change, idx, torch.zeros((), dtype=idx.dtype, device=idx.device))
+            lane_start_idx = torch.cummax(starts, dim=0).values
+
+            # local index within its lane
+            local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
+
+            # --- keep every 2nd point per lane (even local index) ---
+            keep_mask = (local_idx % 2 == 0)  # True => keep, False => drop
 
             keep_mask[-1]=False
 
@@ -321,8 +338,6 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_map[key] = tokenized_map[key][keep_mask]
 
             if self.pred_map_token:
-
-                pl_idx = data['map_save']['pl_idx_list']
 
                 kept_idx = torch.nonzero(keep_mask, as_tuple=False).squeeze(-1)  # [K]
                 next_idx = kept_idx + 1  # [K] 安全：上面已保证最后一个不保留
