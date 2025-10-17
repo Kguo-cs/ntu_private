@@ -83,7 +83,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.noise=True
 
-        self.pred_map_token=True
+        self.pred_map_token=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -782,12 +782,7 @@ class TokenProcessor(torch.nn.Module):
         agent = data["tokenized_agent"]
 
         if len(map) == 0:
-            map=self.tokenize_map(data)
-
-        if 'traj_pos' in map.keys():
-            tokenized_map["traj_pos"] = map["traj_pos"]
-            tokenized_map["type"] = map["type"]
-            tokenized_map["batch"] = map["batch"]
+            tokenized_map=self.tokenize_map(data)
         else:
             if "token_idx"in map.keys():
                 tokenized_map["token_idx"] = map["token_idx"]
