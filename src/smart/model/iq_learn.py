@@ -306,7 +306,7 @@ class IQ_SoftQ(LightningModule):
 
             map_nll=-log_prob.mean()
 
-            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_map_nll", map_nll.item(), on_step=True, batch_size=1)
 
         else:
             map_nll=0
