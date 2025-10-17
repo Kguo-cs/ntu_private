@@ -279,8 +279,6 @@ class SMARTMapDecoder(nn.Module):
             next_map_token_logits = self.token_predict_head(x_pt[:len(pt_pred_mask)][pt_pred_mask])
 
             output['next_map_token_logits']=next_map_token_logits
-        else:
-            output['next_map_token_logits']=None
 
 
         return output

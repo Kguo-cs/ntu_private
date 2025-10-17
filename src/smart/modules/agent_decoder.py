@@ -455,14 +455,19 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["feat_a"] =feat_a.detach()
         tokenized_agent["feat_a_nodetach"] =feat_a
         tokenized_agent["proposal"] = proposal
+
         # tokenized_agent["agent_token_emb"]=agent_token_emb
+        if 'next_map_token_logits' in map_feature.keys() :
+            next_map_token_logits=map_feature["next_map_token_logits"]
+        else:
+            next_map_token_logits=None
 
         return {
             #"proposal":proposal,
             "goal_q":None,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
-            'next_map_token_logits':map_feature["next_map_token_logits"]
+            'next_map_token_logits':next_map_token_logits
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):

@@ -83,7 +83,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.noise=True
 
-        self.pred_map_token=True
+        self.pred_map_token=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -309,10 +309,12 @@ class TokenProcessor(torch.nn.Module):
         if "light_type" in data["pt_token"].keys():
             tokenized_map["light_type"] = data["pt_token"]["light_type"].long()
 
-        if self.training and self.pred_map_token:
+        #if self.training and self.pred_map_token:
             # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
-            for key in tokenized_map.keys():
-                tokenized_map[key] = tokenized_map[key][::2]
+        for key in tokenized_map.keys():
+            tokenized_map[key] = tokenized_map[key][::2]
+
+        if self.pred_map_token:
 
             pl_idx = data['map_save']['pl_idx_list']
             masked_pl_idx = pl_idx[1::2]
