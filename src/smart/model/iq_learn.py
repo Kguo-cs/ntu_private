@@ -79,8 +79,6 @@ class IQ_SoftQ(LightningModule):
             else:
                 self.bc_map_net = None
 
-        self.reward_type='rpgan'
-
         if self.iq_learn and self.use_gail:
             #self.running_meanstd=RunningMeanStdTorch(shape=(1))
 
@@ -90,7 +88,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.use_lcf
 
-        self.dis_loss="gail"
+        self.dis_loss="rpgan"
 
         self.learn_lcf=self.encoder.learn_lcf
 
