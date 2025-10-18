@@ -90,7 +90,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.use_lcf
 
-        self.dis_loss="wgan"
+        self.dis_loss="rpgan"
 
         self.learn_lcf=self.encoder.learn_lcf
 
@@ -291,7 +291,7 @@ class IQ_SoftQ(LightningModule):
 
         return  reward,value_loss,pi,action_nll,current_Q,proposal_loss,log_prob+proposal_log_prob,entropy
 
-    def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,target_q=None):
+    def get_reward(self,tokenized_agent,agent_log_prob,agent_pi,key,train_mask=None,expert_disc_val=0,target_q=None,expert_dis_logit=None):
 
         sampled_pos=tokenized_agent["sampled_pos"]#torch.round(tokenized_agent["sampled_pos"]*10)/10##
         sampled_heading=tokenized_agent["sampled_heading"]#torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
@@ -345,6 +345,9 @@ class IQ_SoftQ(LightningModule):
         # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
         #
         # rewards = 0.5 * rewards + 0.5 * nei_rewards
+        if key == "agent" and self.dis_loss =='rpgan':
+            rewards=-torch.log(torch.sigmoid(logit[:,:,0]-expert_dis_logit)).detach()
+
 
         returns = get_return(rewards, self.gamma)
 
@@ -385,6 +388,8 @@ class IQ_SoftQ(LightningModule):
                     bce_loss = torch.clamp(bce_loss, min=-1.0 * pugail_beta)
 
             bce_loss = bce_loss.mean()
+        elif self.dis_loss =='rpgan':
+            bce_loss = logit[:, :, 0]
         elif self.dis_loss=="wgan":
             if key == "expert":
                 bce_loss = -logit[:, :, 0].mean()#self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
@@ -406,7 +411,6 @@ class IQ_SoftQ(LightningModule):
                 if len(other_disc_val)>0:
                     bce_loss =bce_loss+F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val), weight=weight, reduction='mean')
 
-        self.log("train/"+key+"_dis_loss", bce_loss, on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
         self.log("train/"+key+"_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
@@ -470,9 +474,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/"+key+"_gp", gp, on_step=True, batch_size=1)
 
-        bce_loss=gp+bce_loss
-
-        return bce_loss,rewards,nei_sum_rewards, disc_val#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        return bce_loss,rewards,nei_sum_rewards, disc_val,gp#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
@@ -533,7 +535,7 @@ class IQ_SoftQ(LightningModule):
                 #     self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
 
 
-                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
+                expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat,expert_gp=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
                 if self.encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
 
@@ -612,8 +614,8 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if self.buffer_len>1:
                     with torch.no_grad():
-                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
-                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None,target_q=target_q)
+                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat,agent_gp = self.get_reward(
+                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None,target_q=target_q,expert_dis_logit=expert_dis_loss)
 
                     if self.global_step%2==0:
                         current_rollout={}
@@ -627,9 +629,12 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss, _, _, _ = self.get_reward(
                         old_rollout, None, None, "agent", None)
                 else:
-                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,target_q=target_q)
+                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat,agent_gp = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,target_q=target_q,expert_dis_logit=expert_dis_loss)
 
-                critic_loss=expert_dis_loss + agent_dis_loss
+                if self.dis_loss =='rpgan':
+                    critic_loss =   -torch.log(torch.sigmoid(expert_dis_loss-agent_dis_loss)).mean() +      expert_gp+agent_gp
+                else:
+                    critic_loss=expert_dis_loss + agent_dis_loss+expert_gp+agent_gp
 
 
                 if self.encoder.pred_col:
