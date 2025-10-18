@@ -90,7 +90,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.use_lcf
 
-        self.dis_loss="gail"
+        self.dis_loss="wgan"
 
         self.learn_lcf=self.encoder.learn_lcf
 
@@ -540,11 +540,6 @@ class IQ_SoftQ(LightningModule):
                     expert_nll=expert_nll+col_loss
 
             #expert_light_idx=tokenized_agent["light_idx"].clone()
-
-            #if self.dis_loss=="wgan":
-          #  tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
-            #tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
-           # tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
 
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
