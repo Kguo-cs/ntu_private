@@ -90,7 +90,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf=self.encoder.use_lcf
 
-        self.dis_loss="wgan"
+        self.dis_loss="gail"
 
         self.learn_lcf=self.encoder.learn_lcf
 
