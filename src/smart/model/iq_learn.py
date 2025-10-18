@@ -468,7 +468,7 @@ class IQ_SoftQ(LightningModule):
 
         gp=gradients.pow(2).sum(dim=-1).mean()
 
-        self.log("train/gp", gp, on_step=True, batch_size=1)
+        self.log("train/"+key+"_gp", gp, on_step=True, batch_size=1)
 
         bce_loss=gp+bce_loss
 
