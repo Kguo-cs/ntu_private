@@ -220,8 +220,8 @@ class TokenProcessor(torch.nn.Module):
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        # if self.training:
-        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.04
+        if self.training:
+            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
 
         traj_theta = torch.atan2(
             traj_pos[:,1, 1] - traj_pos[:,0, 1],
@@ -242,12 +242,12 @@ class TokenProcessor(torch.nn.Module):
 
         gt_idx = torch.argmin(dist, dim=-1)
 
-        if  self.training and self.noise:
-            topk_indices = torch.argsort(dist, dim=1)[:, :8]
-            sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
-            token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
-        else:
-            token_idx = gt_idx
+        # if  self.training and self.noise:
+        #     topk_indices = torch.argsort(dist, dim=1)[:, :8]
+        #     sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
+        #     token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
+        # else:
+        token_idx = gt_idx
 
         position=traj_pos[:, 0].contiguous()
 
@@ -506,10 +506,10 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["gt_idx"].append(token_idx_gt)
 
-            # if self.training and self.noise:
-            #     topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
-            #     sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
-            #     token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
+            if self.training and self.noise:
+                topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
+                sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
+                token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
