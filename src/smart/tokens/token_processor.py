@@ -215,18 +215,18 @@ class TokenProcessor(torch.nn.Module):
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
         traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
-       # traj_theta = data["map_save"]["traj_theta"] # [n_pl]
+        traj_theta = data["map_save"]["traj_theta"] # [n_pl]
         type = data["pt_token"]["type"]  # [n_pl]
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
         #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
-        if self.training:
-            traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
-
-        traj_theta = torch.atan2(
-            traj_pos[:,1, 1] - traj_pos[:,0, 1],
-            traj_pos[:,1, 0] - traj_pos[:,0, 0]
-        )
+        # if self.training:
+        #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
+        #
+        # traj_theta = torch.atan2(
+        #     traj_pos[:,1, 1] - traj_pos[:,0, 1],
+        #     traj_pos[:,1, 0] - traj_pos[:,0, 0]
+        # )
 
         traj_pos_local, _ = transform_to_local(
             pos_global=traj_pos,  # [n_pl, 3, 2]
@@ -242,12 +242,12 @@ class TokenProcessor(torch.nn.Module):
 
         gt_idx = torch.argmin(dist, dim=-1)
 
-        # if  self.training and self.noise:
-        #     topk_indices = torch.argsort(dist, dim=1)[:, :8]
-        #     sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
-        #     token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
-        # else:
-        token_idx = gt_idx
+        if  self.training and self.noise:
+            topk_indices = torch.argsort(dist, dim=1)[:, :8]
+            sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
+            token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
+        else:
+            token_idx = gt_idx
 
         position=traj_pos[:, 0].contiguous()
 
