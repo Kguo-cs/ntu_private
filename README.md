@@ -103,7 +103,7 @@ setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
 
 
-CUDA_VISIBLE_DEVICES=0,2 torchrun --nproc_per_node=2 --master_port=29504  -m run trainer=ddp
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29504  -m run trainer=ddp
 
 
 
