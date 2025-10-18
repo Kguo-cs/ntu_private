@@ -81,7 +81,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route=False
 
-        self.noise=True
+        self.noise=False
 
         self.pred_map_token=False
 
@@ -251,49 +251,6 @@ class TokenProcessor(torch.nn.Module):
 
         position=traj_pos[:, 0].contiguous()
 
-        # if self.pred_map and self.training:
-        #     pl_idx_list = data['map_save']['pl_idx_list']
-        #
-        #     data['pt_token']['side']=torch.zeros_like(pl_idx_list)
-        #
-        #     pl_idx_full = pl_idx_list.clone()
-        #     token2pl = torch.stack([torch.arange(len(pl_idx_list), device=traj_pos.device), pl_idx_full.long()])
-        #     count_nums = []
-        #     for pl in pl_idx_full.unique():
-        #         pt = token2pl[0, token2pl[1, :] == pl]
-        #         left_side = (data['pt_token']['side'][pt] == 0).sum()
-        #         right_side = (data['pt_token']['side'][pt] == 1).sum()
-        #         center_side = (data['pt_token']['side'][pt] == 2).sum()
-        #         count_nums.append(torch.Tensor([left_side, right_side, center_side]))
-        #     count_nums = torch.stack(count_nums, dim=0)
-        #     num_polyline = int(count_nums.max().item())
-        #     traj_mask = torch.zeros((int(len(pl_idx_full.unique())), 3, num_polyline), dtype=bool)
-        #     idx_matrix = torch.arange(traj_mask.size(2)).unsqueeze(0).unsqueeze(0)
-        #     idx_matrix = idx_matrix.expand(traj_mask.size(0), traj_mask.size(1), -1)  #
-        #     counts_num_expanded = count_nums.unsqueeze(-1)
-        #     mask_update = idx_matrix < counts_num_expanded
-        #     traj_mask[mask_update] = True
-        #
-        #     raw_pt_index = torch.arange(1, traj_mask.shape[2]).repeat(traj_mask.shape[0], traj_mask.shape[1], 1)
-        #     masked_pt_index = raw_pt_index.view(-1)[torch.randperm(raw_pt_index.numel())[:traj_mask.shape[0]*traj_mask.shape[1]*((traj_mask.shape[2]-1)//3)].reshape(traj_mask.shape[0], traj_mask.shape[1], (traj_mask.shape[2]-1)//3)]
-        #     masked_pt_index = torch.sort(masked_pt_index, -1)[0]
-        #     pt_valid_mask = traj_mask.clone()
-        #     pt_valid_mask.scatter_(2, masked_pt_index, False)
-        #     pt_pred_mask = traj_mask.clone()
-        #     pt_pred_mask.scatter_(2, masked_pt_index, False)
-        #     tmp_mask = pt_pred_mask.clone()
-        #     tmp_mask[:, :, :] = True
-        #     tmp_mask.scatter_(2, masked_pt_index-1, False)
-        #     pt_pred_mask.masked_fill_(tmp_mask, False)
-        #     pt_pred_mask = pt_pred_mask * torch.roll(traj_mask, shifts=-1, dims=2)
-        #     pt_target_mask = torch.roll(pt_pred_mask, shifts=1, dims=2)
-        #
-        #     pt_valid_mask1 = pt_valid_mask[traj_mask]
-        #     pt_pred_mask1= pt_pred_mask[traj_mask]
-        #     pt_target_mask1 = pt_target_mask[traj_mask]
-        #
-        #     print(1)
-
         tokenized_map = {
             "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
@@ -316,27 +273,27 @@ class TokenProcessor(torch.nn.Module):
         if 'pl_idx_list' in data.keys():
             pl_idx = data['map_save']['pl_idx_list']  # shape [T]
 
-            # T = pl_idx.numel()
-            # idx = torch.arange(T, device=pl_idx.device)
-            #
-            # # --- per-lane local index (0,1,2,...) without loops ---
-            # # lane boundary flag
-            # lane_change = torch.ones_like(pl_idx, dtype=torch.bool)
-            # lane_change[1:] = pl_idx[1:] != pl_idx[:-1]
-            #
-            # # start index of current lane for each position (forward-filled)
-            # starts = torch.where(lane_change, idx, torch.zeros((), dtype=idx.dtype, device=idx.device))
-            # lane_start_idx = torch.cummax(starts, dim=0).values
-            #
-            # # local index within its lane
-            # local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
-            #
-            # # --- keep every 2nd point per lane (even local index) ---
-            # keep_mask =(local_idx % 2 == 0)  # True => keep, False => drop
+            T = pl_idx.numel()
+            idx = torch.arange(T, device=pl_idx.device)
 
-            keep_mask= torch.rand_like(traj_theta)<0.5
+            # --- per-lane local index (0,1,2,...) without loops ---
+            # lane boundary flag
+            lane_change = torch.ones_like(pl_idx, dtype=torch.bool)
+            lane_change[1:] = pl_idx[1:] != pl_idx[:-1]
 
-            keep_mask[-1]=False
+            # start index of current lane for each position (forward-filled)
+            starts = torch.where(lane_change, idx, torch.zeros((), dtype=idx.dtype, device=idx.device))
+            lane_start_idx = torch.cummax(starts, dim=0).values
+
+            # local index within its lane
+            local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
+
+            # --- keep every 2nd point per lane (even local index) ---
+            keep_mask =(local_idx % 2 == 0)  # True => keep, False => drop
+
+            # keep_mask= torch.rand_like(traj_theta)<0.5
+            #
+            # keep_mask[-1]=False
 
             for key in tokenized_map.keys():
                 tokenized_map[key] = tokenized_map[key][keep_mask]
