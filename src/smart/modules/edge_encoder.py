@@ -1,6 +1,7 @@
 import random
 from typing import Dict, Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
@@ -269,7 +270,7 @@ class EdgeEncoder(nn.Module):
         dist=torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1)
 
         if self.tokenized_pos:
-            bins = torch.tensor([0.25, 1, 4, 9, 16, 25, 36, 49, 64], device=dist.device)
+            bins = torch.arange(0.5,8,0.25, device=dist.device).square()#torch.tensor([0.25, 1, 4, 9, 16, 25, 36, 49, 64], device=dist.device)
 
             # Compute nearest bin for each distance
             idx = torch.argmin((dist.unsqueeze(-1) - bins).abs(), dim=-1)
