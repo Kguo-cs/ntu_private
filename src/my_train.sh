@@ -13,6 +13,6 @@ cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
 conda activate catk
 
 #torchrun --nproc_per_node=2  -m run trainer=ddp  > AIRL160_kl3_learnmap.log  2>&1
-python  run.py > AIRL64_learnmap_arn10_nolcf_r2.log  2>&1
+python  run.py > AIRL76_learnmap_arn10_nolcf_gp1.log  2>&1
 
 ##python -m torch.distributed.run --nproc_per_node=4 --master_port=29502 run.py > pad064_32_noshare.log  2>&1

@@ -428,16 +428,16 @@ class IQ_SoftQ(LightningModule):
         # expert_pos=tokenized_agent["sampled_pos"]#tokenized_agent["expert_sampled_pos"]#
         # expert_sampled_heading=tokenized_agent["sampled_heading"]#tokenized_agent["expert_sampled_heading"]#
         # expert_valid_mask=tokenized_agent["valid_mask"]#tokenized_agent["expert_valid_mask"]#
-        # pos=tokenized_agent["sampled_pos"]
-        # heading=tokenized_agent["sampled_heading"]
-        # valid_mask=tokenized_agent["valid_mask"]
+        pos=tokenized_agent["sampled_pos"]
+        heading=tokenized_agent["sampled_heading"]
+        valid_mask=tokenized_agent["valid_mask"]
+
+        # batch_idx = tokenized_agent['batch']
+        # alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
         #
-        # # batch_idx = tokenized_agent['batch']
-        # # alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
-        # #
-        # # alpha=alpha[batch_idx]
-        #
-        # #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
+        # alpha=alpha[batch_idx]
+
+        #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
         # interpolate_pos = pos.clone()#alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
         # interpolate_heading =heading.clone() #alpha * expert_sampled_heading + (1 - alpha) * heading
         #
@@ -448,16 +448,18 @@ class IQ_SoftQ(LightningModule):
         # interpolates.requires_grad_(True)  # IMPORTANT
         #
         # interpolates_pos[valid_mask]=interpolates
-        #
-        # scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-        #                                                 None,
-        #                                                 valid_mask,
-        #                                                 interpolates_pos[:,:,:2],
-        #                                                 interpolates_pos[:,:,2] ,
-        #                                                 tokenized_agent,
-        #                                                 tokenized_agent["detach_map_feature"],
-        #                                                 tokenized_agent["light_idx"],
-        #                                                 None)[0]
+        perturbed_pos=pos+0.01*torch.randn_like(pos)
+        perturbed_heading=heading+0.01*torch.randn_like(heading)
+
+        scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                        None,
+                                                        valid_mask,
+                                                        perturbed_pos,
+                                                        perturbed_heading ,
+                                                        tokenized_agent,
+                                                        tokenized_agent["detach_map_feature"],
+                                                        tokenized_agent["light_idx"],
+                                                        None)[0]
         # score_sum = scores.view(-1).sum()
         #
         # gradients = torch.autograd.grad(
@@ -467,12 +469,13 @@ class IQ_SoftQ(LightningModule):
         #     retain_graph=True,
         #     only_inputs=True,
         # )[0]  # shape: [B, T, 3]
-        #
-        # gp=gradients.pow(2).sum(dim=-1).mean()
-        #
-        # self.log("train/"+key+"_gp", gp, on_step=True, batch_size=1)
+        gradients = (scores - logit) / 0.01
 
-        return bce_loss,rewards,nei_sum_rewards, disc_val,0#gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        gp=gradients.pow(2).mean()
+
+        self.log("train/"+key+"_gp", gp, on_step=True, batch_size=1)
+
+        return bce_loss,rewards,nei_sum_rewards, disc_val,gp#gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
