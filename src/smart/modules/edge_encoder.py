@@ -55,6 +55,8 @@ class EdgeEncoder(nn.Module):
         #     input_dim_r_a2a = 2
 
         if a2a:
+            self.tokenized_pos=True
+
             self.r_a2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_a2a,
                 hidden_dim=hidden_dim,
@@ -265,6 +267,13 @@ class EdgeEncoder(nn.Module):
         #     )
         # else:
         dist=torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1)
+
+        if self.tokenized_pos:
+            bins = torch.tensor([0.25, 1, 4, 9, 16, 25, 36, 49, 64], device=dist.device)
+
+            # Compute nearest bin for each distance
+            idx = torch.argmin((dist.unsqueeze(-1) - bins).abs(), dim=-1)
+            dist = bins[idx]
 
         r_a2a = torch.stack(
             [
