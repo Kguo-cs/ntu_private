@@ -210,3 +210,8 @@ AIRL64_value0001noclip_distr402060a5_expertvalid influence of range
 #to do 
 
 #progressive diffusion discretiezed
+
+
+
+1. locate the area or agent where causes  the traffic jam 
+2. simulate the bird behavior
