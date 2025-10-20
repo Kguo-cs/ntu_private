@@ -81,13 +81,13 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route=False
 
-        self.noise=False
+        self.noise=True
 
         self.pred_map_token=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        if 'sampled_idx' not in data.keys():
+        if 'token_idx' not in data.keys():
             tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data,extrapolate)
@@ -242,12 +242,12 @@ class TokenProcessor(torch.nn.Module):
 
         gt_idx = torch.argmin(dist, dim=-1)
 
-        if  self.training and self.noise:
-            topk_indices = torch.argsort(dist, dim=1)[:, :8]
-            sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
-            token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
-        else:
-            token_idx = gt_idx
+        # if  self.training and self.noise:
+        #     topk_indices = torch.argsort(dist, dim=1)[:, :8]
+        #     sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
+        #     token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
+        # else:
+        token_idx = gt_idx
 
         position=traj_pos[:, 0].contiguous()
 
