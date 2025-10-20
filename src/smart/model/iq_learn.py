@@ -397,7 +397,7 @@ class IQ_SoftQ(LightningModule):
             # if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
             #     disc_val=disc_val[train_mask]
             agent_num=rewards.shape[0]*rewards.shape[1]
-            ego_dis_eval=disc_val[:agent_num][train_mask[tokenized_agent["train_mask"]].reshape(-1)]
+            ego_dis_eval=disc_val[:agent_num][train_mask[tokenized_agent["train_mask"]].transpose(0, 1).reshape(-1)]
             other_disc_val=disc_val[agent_num:]
 
             edge_index_a2a=disc_out[1]
