@@ -463,10 +463,10 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["gt_idx"].append(token_idx_gt)
 
-            if self.training and self.noise:
-                topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
-                sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
-                token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
+            # if self.training and self.noise:
+            #     topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
+            #     sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
+            #     token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
@@ -750,7 +750,12 @@ class TokenProcessor(torch.nn.Module):
                     (self.map_token_sample_pt[:,:,1:] - map["traj_pos_local"].unsqueeze(1)) ** 2,
                     dim=(-2, -1),
                 )  # [n_pl, n_token]
-                token_idx = torch.argmin(dist, dim=-1)
+                if   self.noise:
+                    topk_indices = torch.argsort(dist, dim=1)[:, :8]
+                    sample_topk = torch.randint(0, topk_indices.shape[-1], size=(topk_indices.shape[0], 1), device=topk_indices.device)
+                    token_idx = torch.gather(topk_indices, 1, sample_topk).squeeze(-1)
+                else:
+                    token_idx = torch.argmin(dist, dim=-1)
 
                 tokenized_map["token_idx"] = token_idx
 
