@@ -96,7 +96,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_ego_loop=False
         self.use_counterfactual=False
-        self.use_edge_feature=False
+        self.use_edge_feature=True
 
         if discriminator and self.use_counterfactual:
             self.a2a_attn_layers = nn.ModuleList(
@@ -224,7 +224,7 @@ class InterativeDecoder(nn.Module):
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
         if train_mask is not None:
-            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
+            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1) #n_step, n_agent
         else:
             train_repeat_mask=None
 
@@ -525,4 +525,4 @@ class InterativeDecoder(nn.Module):
         else:
             rewards=torch.tensor(0.0),torch.tensor(0.0)
 
-        return next_token_logits,feat_a_all,proposal,rewards,weight
+        return next_token_logits,feat_a_all,proposal,rewards,weight,edge_index_a2a
