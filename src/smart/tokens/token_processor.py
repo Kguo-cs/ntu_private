@@ -87,7 +87,7 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        if 'token_idx' not in data.keys():
+        if not self.training:
             tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data,extrapolate)
@@ -780,7 +780,7 @@ class TokenProcessor(torch.nn.Module):
         if "pred_mask" in agent.keys():
             tokenized_agent["pred_mask"] = agent["pred_mask"]
 
-        if "gt_valid_raw" in agent.keys():
+        if "gt_valid_raw" in data.keys():
             for key in ["type", "batch", "shape"]:
                 tokenized_agent[key] = agent[key]
 
