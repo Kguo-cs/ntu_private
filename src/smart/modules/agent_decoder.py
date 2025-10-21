@@ -28,6 +28,7 @@ from src.smart.utils.rollout import cal_polygon_contour
 from src.smart.modules.light_encoder import LightEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
+from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep
 
 
 class SMARTAgentDecoder(nn.Module):
@@ -101,12 +102,21 @@ class SMARTAgentDecoder(nn.Module):
             self.token_cache=None
 
         #if not discriminator:
+        self.use_diffusion=True
+
+        if self.use_diffusion:
+            n_token_agent=5*4*2
+
+            self.schedule = NoiseSchedule.cosine(timesteps=1000)
+            self.t_embed = SinusoidalTimestep(hidden_dim)
+            self.fut_embed = nn.Linear(n_token_agent, hidden_dim)
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
+
 
         self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
                                                     pl2a_radius,a2a_radius,num_freq_bands,
@@ -176,12 +186,11 @@ class SMARTAgentDecoder(nn.Module):
         self.use_sign_dist=False
 
 
-
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,post_sampling=False):
+    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,fut_noisy=None,t_cont=None):
 
         #pos_a=torch.round(pos_a*10)/10
         #head_a=torch.round(head_a*10)/10
@@ -303,9 +312,6 @@ class SMARTAgentDecoder(nn.Module):
                 feat_lg=feat_lg[:, -n_step:]
                 light_idx=light_idx[:, -n_step:]
 
-
-
-
         mask_a=mask[:,-n_step:]
         batch_a=tokenized_agent["batch"]
 
@@ -396,6 +402,10 @@ class SMARTAgentDecoder(nn.Module):
         else:
             route_map_index = None
 
+        if self.use_diffusion:
+            all_features[0]=all_features[0]+self.fut_embed(fut_noisy)+self.t_embed(t_cont)
+
+
         # if 'vis_mask' in tokenized_agent.keys():
         #     vis_mask = tokenized_agent['vis_mask']
         #
@@ -438,6 +448,27 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
+        if self.use_diffusion:
+
+            token_traj_all = tokenized_agent["token_traj_all"].reshape(-1,2048,5*4*2)
+            fut_idx = tokenized_agent["sampled_idx"][:,2:]
+
+            future=token_traj_all[torch.arange(len(fut_idx))[:, None], fut_idx]
+            batch_idx = tokenized_agent['batch']
+            T = self.schedule.timesteps
+
+            t_idx_batch = torch.randint(low=0, high=T, size=(max(batch_idx) + 1, future.shape[1]), device=batch_idx.device)
+            t_idx = t_idx_batch[batch_idx]
+
+            t_cont = (t_idx.float() + 0.5) / T
+            noise = torch.randn_like(future)
+            a_bar = self.schedule.at(t_idx)[:,:,None]
+            fut_noisy = torch.sqrt(a_bar) * future + torch.sqrt(1 - a_bar) * noise
+        else:
+            fut_noisy=None
+            t_cont=None
+            noise=None
+
         next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["token_mask"],
                                                                                 tokenized_agent["valid_mask"],
@@ -448,7 +479,8 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 light_idx,
                                                                                 mask_lg,
                                                                                 latent_z=tokenized_agent["latent_z"],
-                                                                                post_sampling=post_sampling)
+                                                                                fut_noisy=fut_noisy,
+                                                                                t_cont=t_cont)
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
@@ -464,11 +496,40 @@ class SMARTAgentDecoder(nn.Module):
 
         return {
             #"proposal":proposal,
+            "noise":noise,
             "goal_q":None,
             "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
             'next_map_token_logits':next_map_token_logits
          }
+    @torch.no_grad()
+    def sample(self, past: torch.Tensor, steps: int = 50, guidance_w: float = 1.5, eta: float = 0.0):
+
+        # DDIM when eta=0; DDPM-like when eta>0
+        device = past.device
+        B = past.size(0)
+        Tf = self.model.tf
+        x = torch.randn(B, Tf, 2, device=device)
+        T_sched = self.schedule.timesteps
+        t_vals = torch.linspace(1.0, 0.0, steps, device=device)
+
+        for i, t in enumerate(t_vals):
+            t_idx = (t * T_sched).clamp(0, T_sched - 1 - 1e-6).long()
+            a_bar = self.schedule.at(t_idx)[:, None, None]
+            eps = self.model(x, t.expand(B), past)
+            x0 = (x - torch.sqrt(1 - a_bar) * eps) / torch.sqrt(a_bar)
+            if i == steps - 1:
+                x = x0
+            break
+            a_bar_prev = self.schedule.at((t_idx - 1).clamp(min=0))[:, None, None]
+            # DDIM update with optional stochasticity via eta
+            sigma = eta * torch.sqrt((1 - a_bar_prev) / (1 - a_bar)) * torch.sqrt(1 - a_bar / a_bar_prev)
+            dir_xt = torch.sqrt(1 - a_bar_prev - sigma ** 2) * eps
+            x = torch.sqrt(a_bar_prev) * x0 + dir_xt
+            if eta > 0:
+                x = x + sigma * torch.randn_like(x)
+        return x
+
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 

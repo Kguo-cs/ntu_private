@@ -31,7 +31,6 @@ from src.smart.metrics import (
     WOSACSubmission,
     minADE,
 )
-from src.smart.my_model.NoiseSchedule import NoiseSchedule
 # from src.smart.plot.plot_s import plot_rollout
 
 class IQ_SoftQ(LightningModule):
@@ -119,31 +118,11 @@ class IQ_SoftQ(LightningModule):
 
         self.pred_map_token=self.encoder.map_encoder.pred_map_token
 
-        self.schedule = NoiseSchedule.cosine(timesteps=1000)
 
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
     #         if param.grad is None:
     #             print(f"Unused parameter: {name}")
-    def q_sample(self, x0, t_idx, noise):
-        a_bar = self.schedule.at(t_idx).view(-1, 1, 1)
-
-        return torch.sqrt(a_bar) * x0 + torch.sqrt(1 - a_bar) * noise
-
-    def diffusion_loss(self,future):
-        B = future.size(0)
-        T = self.schedule.timesteps
-        t_idx = torch.randint(0, T, (B,), device=future.device)
-        t_cont = (t_idx.float() + 0.5) / T
-        noise = torch.randn_like(future)
-        a_bar = self.schedule.at(t_idx).view(-1, 1, 1)
-        x_t=torch.sqrt(a_bar) * future + torch.sqrt(1 - a_bar) * noise
-
-        eps_pred = self.model(x_t, t_cont, past)
-        return F.smooth_l1_loss(eps_pred, noise)
-
-        return loss
-
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -178,9 +157,17 @@ class IQ_SoftQ(LightningModule):
         return log_prob,pi,actor_loss,entropy,current_Q,V,value_loss,reward
 
     def get_QV(self, tokenized_map, tokenized_agent,train_mask, key='expert'):
-        valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
-
         pred = self.encoder(tokenized_map, tokenized_agent)#,post_sampling=(key=='expert')
+
+        if self.encoder.agent_encoder.use_diffusion:
+            noise=pred["noise"]
+            eps_pred=pred["agent_q"]
+            diffusion_loss=F.smooth_l1_loss(eps_pred[train_mask], noise[train_mask])
+            self.log("train/" + key + "_diffusion_loss", diffusion_loss.item(), on_step=True, batch_size=1)
+
+            return 0,0,0,diffusion_loss,0,0,0,0
+
+        valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
 
         if "proposal" in pred.keys():
 
@@ -768,7 +755,6 @@ class IQ_SoftQ(LightningModule):
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         #plot_rollout(tokenized_agent,tokenized_map,self.token_processor)
-
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

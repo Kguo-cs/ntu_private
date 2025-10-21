@@ -33,6 +33,24 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
 
+class SinusoidalTimestep(nn.Module):
+    def __init__(self, dim: int):
+        super().__init__()
+        self.dim = dim
+        self.proj = nn.Sequential(
+            nn.Linear(dim, dim*2), nn.SiLU(), nn.Linear(dim*2, dim)
+        )
+
+    def forward(self, t: torch.Tensor):
+        # t in [0,1], shape [B]
+        half = self.dim // 2
+        device = t.device
+        freqs = torch.exp(torch.linspace(math.log(1.0), math.log(10000.0), steps=half, device=device))
+        ang = t[:,:, None] * freqs[None,None, :]
+        emb = torch.cat([torch.sin(ang), torch.cos(ang)], dim=-1)
+        if self.dim % 2 == 1:
+            emb = F.pad(emb, (0,1))
+        return self.proj(emb)
 
 
 # ------------------------------
@@ -43,8 +61,8 @@ class NoiseSchedule:
     alphas_cumprod: torch.Tensor
 
     @classmethod
-    def cosine(cls, timesteps: int, s: float = 0.008, device='cpu'):
-        t = torch.linspace(0, timesteps, timesteps+1) / timesteps
+    def cosine(cls, timesteps: int, s: float = 0.008, device='cuda'):
+        t = torch.linspace(0, timesteps, timesteps+1,device=device) / timesteps
         a_bar = torch.cos(((t + s) / (1+s)) * math.pi/2) ** 2
         a_bar = a_bar / a_bar[0]
         return cls(alphas_cumprod=a_bar[1:])
