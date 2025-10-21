@@ -1,224 +1,152 @@
-# Not a contribution
-# Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
-# NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
-# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
-#
-# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-# property and proprietary rights in and to this material, related
-# documentation and any modifications thereto. Any use, reproduction,
-# disclosure or distribution of this material and related documentation
-# without an express license agreement from NVIDIA CORPORATION or
-# its affiliates is strictly prohibited.
+#!/usr/bin/env python3
+"""
+Run Hydra+Lightning training and auto-resume from the latest checkpoint if it fails.
 
-from typing import List
+Usage:
+  python run_with_resume.py -- python run.py action=fit
+  # (any extra Hydra overrides can follow; we'll append ckpt_path=... only on retries)
 
-import hydra
-import lightning as L
-import torch
-import wandb
-from lightning import Callback, LightningDataModule, LightningModule, Trainer
-from lightning.pytorch.loggers import Logger
-from lightning.pytorch.loggers.wandb import WandbLogger
-from omegaconf import DictConfig
-import sys
+Options:
+  --max-retries N       Max number of retries after failures (default: 5)
+  --sleep-seconds S     Seconds to sleep between retries (default: 15)
+  --search-root PATH    Where to search for *.ckpt (default: current working dir)
+  --prefer-last         Prefer files named 'last.ckpt' if present (default: True)
+  --offline             Set WANDB_MODE=offline for the child process
+  --no-offline          Do not force W&B offline
+  --print-cmd           Echo the spawned command before each run
+  --hydra-full-error    Set HYDRA_FULL_ERROR=1 for clearer stack traces
+  --env KEY=VALUE ...   Extra environment variables to set for the child process
+"""
+from __future__ import annotations
+
+import argparse
 import os
-import torch
-import numpy as np
-import random
+import shlex
+import signal
+import sys
+import time
+from pathlib import Path
+from typing import List, Optional, Tuple
+import subprocess
+import glob
 
-from typing import Iterable, Pattern, Union
+def parse_args() -> Tuple[argparse.Namespace, List[str]]:
+    if "--" in sys.argv:
+        sep = sys.argv.index("--")
+        wrapper_argv = sys.argv[1:sep]
+        child_argv = sys.argv[sep + 1:]
+    else:
+        # Default child command if not provided
+        wrapper_argv = sys.argv[1:]
+        child_argv = ["python", "run.py", "action=fit"]
 
-os.environ["WANDB_SILENT"] = "true"
+    ap = argparse.ArgumentParser(add_help=True)
+    ap.add_argument("--max-retries", type=int, default=5)
+    ap.add_argument("--sleep-seconds", type=int, default=15)
+    ap.add_argument("--search-root", type=str, default=os.getcwd())
+    ap.add_argument("--prefer-last", action="store_true", default=True)
+    ap.add_argument("--offline", dest="offline", action="store_true", default=False)
+    ap.add_argument("--no-offline", dest="offline", action="store_false")
+    ap.add_argument("--print-cmd", action="store_true", default=False)
+    ap.add_argument("--hydra-full-error", action="store_true", default=True)
+    ap.add_argument("--env", nargs="*", default=[], help="KEY=VALUE pairs for child env")
+    args = ap.parse_args(wrapper_argv)
+    return args, child_argv
 
-wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
-wandb.require("service")  # forces the new service backend
-# Optional: use thread start (very robust in multiprocess settings)
-settings = wandb.Settings(start_method="thread")
-os.environ["WANDB__SERVICE_WAIT"] = "3000"
+def already_has_ckpt_override(argv: List[str]) -> bool:
+    for a in argv:
+        # Accept both 'ckpt_path=...' and 'trainer.ckpt_path=...' in case user wires it differently
+        if a.startswith("ckpt_path=") or a.startswith("trainer.ckpt_path="):
+            return True
+    return False
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
-sys.path.append('/home/ke/code/sim')
-sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
-sys.path.append('/home/ke/code/catk')
-sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
-sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
-sys.path.append('/mnt/d/code/sim')
-sys.path.append('/home/ke/keguo/sim')
-sys.path.append('/home/guoke/sim')
-working_dir=os.getcwd()
+def pick_latest_ckpt(search_root: str, prefer_last: bool=True) -> Optional[Path]:
+    root = Path(search_root)
+    if not root.exists():
+        return None
 
-print('keguo' in working_dir or "guoke" in working_dir)
+    # Fast path: prefer files called 'last.ckpt'
+    if prefer_last:
+        last_candidates = list(root.rglob("last.ckpt"))
+        if last_candidates:
+            # pick newest by mtime
+            last_candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return last_candidates[0]
 
-from src.utils import (
-    RankedLogger,
-    instantiate_callbacks,
-    instantiate_loggers,
-    log_hyperparameters,
-    print_config_tree,
-)
+    # Otherwise pick newest *.ckpt by mtime
+    candidates = list(root.rglob("*.ckpt"))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]
 
-log = RankedLogger(__name__, rank_zero_only=True)
+def run_once(cmd: List[str], extra_env: dict, print_cmd: bool=False) -> int:
+    if print_cmd:
+        print("[run_with_resume] Command:", " ".join(shlex.quote(c) for c in cmd), flush=True)
+    try:
+        proc = subprocess.run(cmd, env={**os.environ, **extra_env})
+        return proc.returncode
+    except KeyboardInterrupt:
+        # Propagate Ctrl-C cleanly
+        return 130
+    except Exception as e:
+        print(f"[run_with_resume] Subprocess failed to start: {e}", flush=True)
+        return 127
 
-torch.set_float32_matmul_precision("highest")# #“highest” (default),
+def main():
+    args, child_argv = parse_args()
 
-# seed = 42
-# random.seed(seed)
-# np.random.seed(seed)
-# torch.manual_seed(seed)
-# torch.cuda.manual_seed(seed)
-# torch.cuda.manual_seed_all(seed)
-# torch.use_deterministic_algorithms(True)
-# torch.backends.cudnn.deterministic = True
-# torch.backends.cudnn.benchmark = False
-# torch.cuda.synchronize()
-# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-# torch.backends.cuda.matmul.allow_tf32 = True
-# torch.backends.cuda.allow_tf32 = True
-# print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
+    # Build base env for child process
+    child_env = {}
+    if args.hydra_full_error:
+        child_env["HYDRA_FULL_ERROR"] = "1"
+    if args.offline:
+        # safer on flaky networks; you can later `wandb sync` the folder
+        child_env["WANDB_MODE"] = "offline"
+    # Any extra KEY=VALUE
+    for kv in args.env:
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            child_env[k] = v
 
-#h800 ==4090 highest
+    # Normalize command: allow starting with 'python' omitted
+    if child_argv and child_argv[0].endswith(".py"):
+        child_argv = ["python"] + child_argv
 
+    # First attempt: run as given (don’t force a ckpt override on the very first try)
+    attempt = 0
+    cmd = list(child_argv)
+    rc =1#run_once(cmd, child_env, print_cmd=args.print_cmd)
 
-def run(cfg: DictConfig) -> None:
-    if cfg.get("seed"):
-        L.seed_everything(cfg.seed, workers=True)
+    while rc not in (0, 130) and attempt < args.max_retries:
+        attempt += 1
+        print(f"[run_with_resume] Run failed with return code {rc}. Attempt {attempt}/{args.max_retries}.", flush=True)
 
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+        ckpt = pick_latest_ckpt(args.search_root, prefer_last=args.prefer_last)
+        if ckpt is None:
+            print(f"[run_with_resume] No checkpoint found under: {args.search_root}. Will retry without resume.", flush=True)
+            resume_cmd = list(child_argv)
+        else:
+            # Append Hydra override if not already present
+            resume_cmd = list(child_argv)
+            if not already_has_ckpt_override(resume_cmd):
+                resume_cmd += [f"ckpt_path={str(ckpt)}"]
+            print(f"[run_with_resume] Resuming from checkpoint: {ckpt}", flush=True)
 
-    log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = hydra.utils.instantiate(cfg.model, _recursive_=False)
+        if args.sleep_seconds > 0:
+            time.sleep(args.sleep_seconds)
 
-    #model=torch.compile(model)
+        rc = run_once(resume_cmd, child_env, print_cmd=args.print_cmd)
 
-    log.info("Instantiating callbacks...")
-    callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
-
-    log.info(f"Instantiating loggers...")
-    logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
-    # setup model watching
-    for _logger in logger:
-        if isinstance(_logger, WandbLogger):
-            _logger.watch(model, log="all")
-
-    log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
-    trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger
-    )
-
-    log.info("Logging hyperparameters!")
-    log_hyperparameters(
-        {
-            "cfg": cfg,
-            "datamodule": datamodule,
-            "model": model,
-            "callbacks": callbacks,
-            "logger": logger,
-            "trainer": trainer,
-        }
-    )
-
-    log.info(f"Resuming from ckpt: cfg.ckpt_path={cfg.ckpt_path}")
-    if cfg.action == "fit":
-        log.info("Starting training!")
-        trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
-    elif cfg.action == "finetune":
-        log.info("Starting finetuning!")
-        model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
-
-        # def load_matching(
-        #         dst_module: torch.nn.Module,
-        #         src_module: torch.nn.Module,
-        #         skip: Iterable[Union[str, Pattern]] = (),
-        #         slice_overlapping: bool = False,  # set True only if you want partial copies
-        # ) -> dict:
-        #     """
-        #     Copy params from src_module -> dst_module, but only when names match and shapes match.
-        #     Optionally skip keys by substring / regex. Optionally copy overlapping slices.
-        #     Returns a summary dict with what was loaded / skipped.
-        #     """
-        #     dst_sd = dst_module.state_dict()
-        #     src_sd = src_module.state_dict()
-        #
-        #     def should_skip(k: str) -> bool:
-        #         for pat in skip:
-        #             if isinstance(pat, str):
-        #                 if pat in k:
-        #                     return True
-        #             else:  # regex
-        #                 if re.search(pat, k):
-        #                     return True
-        #         return False
-        #
-        #     to_load = {}
-        #     loaded, skipped, sliced = [], [], []
-        #
-        #     for k, w in src_sd.items():
-        #         if should_skip(k):  # explicit skip
-        #             skipped.append((k, 'pattern'))
-        #             continue
-        #         if k not in dst_sd:  # name not present in dst
-        #             skipped.append((k, 'missing in dst'))
-        #             continue
-        #
-        #         dw = dst_sd[k]
-        #         if w.shape == dw.shape:  # perfect shape match
-        #             to_load[k] = w
-        #             loaded.append(k)
-        #         elif slice_overlapping and w.ndim == dw.ndim:
-        #             # copy overlapping slice (use with caution)
-        #             take = tuple(slice(0, min(a, b)) for a, b in zip(w.shape, dw.shape))
-        #             tmp = dw.clone()
-        #             tmp[take] = w[take]
-        #             to_load[k] = tmp
-        #             sliced.append((k, w.shape, dw.shape))
-        #         else:
-        #             skipped.append((k, f'shape {tuple(w.shape)} -> {tuple(dw.shape)}'))
-        #
-        #     # merge and load without warnings
-        #     dst_sd.update(to_load)
-        #     dst_module.load_state_dict(dst_sd, strict=False)
-        #
-        #     return {"loaded": loaded, "sliced": sliced, "skipped": skipped}
-        #
-        # # model.encoder.discriminator.load_state_dict(model.encoder.agent_encoder.state_dict(), strict=False)
-        # info = load_matching(
-        #     model.encoder.discriminator,
-        #     model.encoder.agent_encoder,
-        #     skip=("interative_decoder.token_predict_head",)  # substring match
-        #     # slice_overlapping=False   # keep False to fully skip mismatched tensors
-        # )
-
-        if model.encoder.use_kl_penalty:
-            model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
-            if model.bc_map_net is not None:
-                model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule)#, ckpt_path=cfg.get("ckpt_path")
-    elif cfg.action == "validate":
-        log.info("Starting validating!")
-        trainer.validate(
-            model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
-        )
-    elif cfg.action == "test":
-        log.info("Starting testing!")
-        trainer.test(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
-
-
-@hydra.main(config_path="../configs/", config_name="run.yaml", version_base=None)
-def main(cfg: DictConfig) -> None:
-    torch.set_printoptions(precision=3)
-
-    log.info("Printing config tree with Rich! <cfg.extras.print_config=True>")
-    #print_config_tree(cfg, resolve=True, save_to_file=True)
-
-    run(cfg)  # train/val/test the model
-
-    log.info("Closing wandb!")
-    wandb.finish()
-    log.info(f"Output dir: {cfg.paths.output_dir}")
-
+    if rc == 0:
+        print("[run_with_resume] Completed successfully.", flush=True)
+        sys.exit(0)
+    elif rc == 130:
+        print("[run_with_resume] Interrupted by user (SIGINT).", flush=True)
+        sys.exit(130)
+    else:
+        print(f"[run_with_resume] Exhausted retries. Last return code: {rc}", flush=True)
+        sys.exit(rc)
 
 if __name__ == "__main__":
     main()
-    log.info("run.py DONE!!!")

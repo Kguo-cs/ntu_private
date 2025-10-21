@@ -253,7 +253,7 @@ class InterativeDecoder(nn.Module):
                     start_index=edge_index_a2a[0]
                     end_index=edge_index_a2a[1]
 
-                    start_edge_feature=feat_a[start_index].detach()
+                    start_edge_feature=feat_a[start_index]#.detach()
                     end_edge_feature=feat_a[end_index]
 
                 if  train_mask is not None and self.num_layers==1:
