@@ -20,6 +20,7 @@ from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.my_model.diffusion_discriminator import Discriminator
+from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep
 
 
 
@@ -125,6 +126,14 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
+        self.use_diffusion=True
+
+        if self.use_diffusion:
+            n_token_agent=5*4*2
+
+            self.schedule = NoiseSchedule.cosine(timesteps=1000)
+            self.t_embed = SinusoidalTimestep(hidden_dim)
+            self.fut_embed = nn.Linear(n_token_agent, hidden_dim)
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
@@ -191,57 +200,14 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-    def forward(self,all_features,map_feature,train_mask,route_map_index ):
-        feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
 
-        n_agent = mask_a.shape[0]
-        n_step=mask_a.shape[1]
 
-        batch_pl = map_feature["batch"]
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
-        feat_map = map_feature["pt_token"]
 
-        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-            pos_pl=pos_pl,  # [n_pl, 2]
-            orient_pl=orient_pl,  # [n_pl]
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_a=head_a,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            mask=mask_a,  # [n_agent, n_step]
-            batch_s=batch_s_repeat,  # [n_agent,n_step]
-            batch_pl=batch_pl,  # [n_pl*n_step]
-            pl2a_radius=self.pl2a_radius,
-            max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask,
-            use_counterfactual=self.use_counterfactual,
-            route_map_index=route_map_index,
-            layer_num=self.num_layers
-        )
-
-        feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
-
-        if train_mask is not None:
-            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
-        else:
-            train_repeat_mask=None
-
-        #if not self.discriminator or  self.use_iteract:
-
-        edge_index_a2a, r_a2a,dist = self.edge_encoder.build_interaction_edge(
-            pos_s=pos_s,  # [n_agent, n_step, 2]
-            head_s=head_s,  # [n_agent, n_step]
-            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-            batch_s=batch_s,  # [n_agent*n_step]
-            mask=mask_s,  # [n_agent, n_step]
-            max_radius=self.a2a_radius,
-            max_num_neighbors=self.a2a_neighbor,
-            proposal=None,
-            vis_mask=None,
-            value=False,
-            train_mask = train_repeat_mask,
-            loop= self.use_ego_loop
-        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+    def predict_agent(self,feat_a,feat_map,n_step,n_agent,
+                      r_pl2a, edge_index_pl2a,
+                      r_a2a,edge_index_a2a,
+                      batch_s_repeat,train_mask,dist,
+                      train_repeat_mask):
 
         for layer_i in range(self.num_layers):
 
@@ -497,30 +463,125 @@ class InterativeDecoder(nn.Module):
                 ablated_logit[valid_mask]=next_token_logits[n_agent:,:,0]
 
                 rewards=(logit_original - ablated_logit).detach()
-                # reward_list=[]
-                #
-                # batch_id=batch_s_repeat[train_mask,0]
-                #
-                # a_i=0
-                #
-                # for i,b in enumerate(batch_id):
-                #     logit_a=logit_original[batch_id==b]
-                #
-                #     ablated_logit_a=ablated_logit[a_i:a_i+feat_list[i].shape[1]]
-                #
-                #     a_i+=feat_list[i].shape[1]
-                #
-                #     if len(ablated_logit_a)>0:
-                #         reward = logit_a.mean(dim=0)-ablated_logit_a.mean(dim=0)
-                #     else:
-                #         reward=logit_a.mean(dim=0)
-                #
-                #     reward_list.append(reward)
-                #
-                # rewards=torch.stack(reward_list)
             else:
                 rewards=next_token_logits[:,:,0].detach(),torch.tensor(0.0)
         else:
             rewards=torch.tensor(0.0),torch.tensor(0.0)
 
         return next_token_logits,feat_a,proposal,rewards,weight
+
+    def forward(self,all_features,map_feature,train_mask,route_map_index ):
+        feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
+
+        n_agent = mask_a.shape[0]
+        n_step=mask_a.shape[1]
+
+        batch_pl = map_feature["batch"]
+        pos_pl = map_feature["position"]
+        orient_pl = map_feature["orientation"]
+        feat_map = map_feature["pt_token"]
+
+        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+            pos_pl=pos_pl,  # [n_pl, 2]
+            orient_pl=orient_pl,  # [n_pl]
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask_a,  # [n_agent, n_step]
+            batch_s=batch_s_repeat,  # [n_agent,n_step]
+            batch_pl=batch_pl,  # [n_pl*n_step]
+            pl2a_radius=self.pl2a_radius,
+            max_num_neighbors=self.pt2a_neighbor,
+            train_mask=train_mask,
+            use_counterfactual=self.use_counterfactual,
+            route_map_index=route_map_index,
+            layer_num=self.num_layers
+        )
+
+        feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
+
+        if train_mask is not None:
+            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
+        else:
+            train_repeat_mask=None
+
+        #if not self.discriminator or  self.use_iteract:
+
+        edge_index_a2a, r_a2a,dist = self.edge_encoder.build_interaction_edge(
+            pos_s=pos_s,  # [n_agent, n_step, 2]
+            head_s=head_s,  # [n_agent, n_step]
+            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
+            batch_s=batch_s,  # [n_agent*n_step]
+            mask=mask_s,  # [n_agent, n_step]
+            max_radius=self.a2a_radius,
+            max_num_neighbors=self.a2a_neighbor,
+            proposal=None,
+            vis_mask=None,
+            value=False,
+            train_mask = train_repeat_mask,
+            loop= self.use_ego_loop
+        )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+        noise = None
+
+        if self.use_diffusion:
+            if self.training:
+
+                token_traj_all =self.token_processor.token_traj_all
+
+                future = token_traj_all[torch.arange(len(sampled_idx))[:, None], sampled_idx]
+                batch_idx = batch_s_repeat[:,0]
+                T = self.schedule.timesteps
+
+                t_idx_batch = torch.randint(low=0, high=T, size=(max(batch_idx) + 1, future.shape[1]),
+                                            device=batch_idx.device)
+                t_idx = t_idx_batch[batch_idx]
+
+                t_cont = (t_idx.float() + 0.5) / T
+                noise = torch.randn_like(future)
+                a_bar = self.schedule.at(t_idx)[:, :, None]
+                fut_noisy = torch.sqrt(a_bar) * future + torch.sqrt(1 - a_bar) * noise
+                fut_embed=self.fut_embed(fut_noisy)+self.t_embed(t_cont)
+                feat_a=feat_a+fut_embed.transpose(0, 1).flatten(0, 1)
+            else:
+                device = feat_a.device
+                steps=50
+                eta=0
+
+                x = torch.randn(n_agent, 1, self.n_token_agent, device=device)
+                T_sched = self.schedule.timesteps
+                t_vals = torch.linspace(1.0, 0.0, steps, device=device)
+
+                for i, t in enumerate(t_vals):
+                    t_idx = (t * T_sched).clamp(0, T_sched - 1 - 1e-6).long()[None, None, None]
+                    a_bar = self.schedule.at(t_idx)
+
+                    fut_embed = self.fut_embed(x) + self.t_embed(t[None,None])
+
+                    feat_a_f_t = feat_a + fut_embed.transpose(0, 1).flatten(0, 1)
+
+                    eps = self.predict_agent(feat_a_f_t,feat_map,n_step,n_agent,
+                      r_pl2a, edge_index_pl2a,
+                      r_a2a,edge_index_a2a,
+                      batch_s_repeat,train_mask,dist,
+                      train_repeat_mask)[0]
+
+                    x0 = (x - torch.sqrt(1 - a_bar) * eps) / torch.sqrt(a_bar)
+                    if i == steps - 1:
+                        x = x0
+                        return x, feat_a, None, None, None
+                    a_bar_prev = self.schedule.at((t_idx - 1).clamp(min=0))
+                    # DDIM update with optional stochasticity via eta
+                    sigma = eta * torch.sqrt((1 - a_bar_prev) / (1 - a_bar)) * torch.sqrt(1 - a_bar / a_bar_prev)
+                    dir_xt = torch.sqrt(1 - a_bar_prev - sigma ** 2) * eps
+                    x = torch.sqrt(a_bar_prev) * x0 + dir_xt
+                    if eta > 0:
+                        x = x + sigma * torch.randn_like(x)
+
+        next_token_logits, feat_a, proposal, rewards, weight=self.predict_agent(feat_a,feat_map,n_step,n_agent,
+                      r_pl2a, edge_index_pl2a,
+                      r_a2a,edge_index_a2a,
+                      batch_s_repeat,train_mask,dist,
+                      train_repeat_mask)
+
+        return next_token_logits, feat_a, proposal, rewards, noise

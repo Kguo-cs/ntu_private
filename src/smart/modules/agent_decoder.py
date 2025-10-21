@@ -28,7 +28,6 @@ from src.smart.utils.rollout import cal_polygon_contour
 from src.smart.modules.light_encoder import LightEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
-from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep
 
 
 class SMARTAgentDecoder(nn.Module):
@@ -102,21 +101,12 @@ class SMARTAgentDecoder(nn.Module):
             self.token_cache=None
 
         #if not discriminator:
-        self.use_diffusion=True
-
-        if self.use_diffusion:
-            n_token_agent=5*4*2
-
-            self.schedule = NoiseSchedule.cosine(timesteps=1000)
-            self.t_embed = SinusoidalTimestep(hidden_dim)
-            self.fut_embed = nn.Linear(n_token_agent, hidden_dim)
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
 
         self.pred_last_res = pred_last_res
         self.pred_all_res = pred_all_res
-
 
         self.interative_decoder = InterativeDecoder(hidden_dim,num_historical_steps,num_future_steps,time_span,
                                                     pl2a_radius,a2a_radius,num_freq_bands,
@@ -126,6 +116,8 @@ class SMARTAgentDecoder(nn.Module):
                                                     token_processor,output_gmm,pred_last_res,pred_all_res,discriminator,
                                                     use_roformer=self.use_roformer
                                                     )
+
+        self.use_diffusion=self.interative_decoder.use_diffusion
 
         self.use_light = False
         self.pred_light = True
@@ -185,12 +177,11 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_col=False
         self.use_sign_dist=False
 
-
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,fut_noisy=None,t_cont=None):
+    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None):
 
         #pos_a=torch.round(pos_a*10)/10
         #head_a=torch.round(head_a*10)/10
@@ -209,7 +200,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             mean_speed = None
 
-
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             # trajectory_token_veh=self.token_processor.trajectory_token_veh,
@@ -223,7 +213,6 @@ class SMARTAgentDecoder(nn.Module):
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch']
         )  # feat_a: [n_agent, n_step, hidden_dim]
-
 
         # if latent_z not in tokenized_agent.keys():
         #     logits=self.latent_embed.infer_logits(feat_a_token)
@@ -241,11 +230,6 @@ class SMARTAgentDecoder(nn.Module):
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
             feat_a_token=feat_a_token+latent_embedding
-        #
-        # if self.pred_goal and not self.discriminator:
-        #     goal_token_emb=self.goal_embedding(goal_idx)
-        #     feat_a_token=feat_a_token+goal_token_emb
-        #
 
         if len(light_idx):
             feat_lg = self.light_encoder.light_embedding(light_idx)
@@ -319,9 +303,6 @@ class SMARTAgentDecoder(nn.Module):
             0, 1)
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
 
-        #batch_pl=build_batch(map_feature["batch"], tokenized_agent["num_graphs"], n_step).reshape(n_step,-1).transpose(0,1)
-        #batch_pl=map_feature["batch"]
-
         if len(light_idx):
             batch_lg = build_batch(tokenized_agent["batch_lg"],tokenized_agent["num_graphs"],n_step )
 
@@ -349,8 +330,6 @@ class SMARTAgentDecoder(nn.Module):
             feat_lg=feat_lg.swapaxes(0, 1).flatten(0, 1)
         else:
             next_light_logits =feat_lg=r_lg2a=edge_index_lg2a= []
-
-        #feat_a = feat_a_t.flatten(0, 1)#.transpose(0, 1)
 
         if len(feat_lg):
             feat_a = self.lg2a_attn_layers[0]((feat_lg, feat_a), r_lg2a, edge_index_lg2a)
@@ -397,23 +376,15 @@ class SMARTAgentDecoder(nn.Module):
                 0, 1)
 
             all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
+
         if "route_map_index" in tokenized_agent.keys():
             route_map_index = tokenized_agent["route_map_index"]
         else:
             route_map_index = None
 
-        if self.use_diffusion:
-            all_features[0]=all_features[0]+self.fut_embed(fut_noisy)+self.t_embed(t_cont)
+        next_token_logits,feat_a,proposal,rewards,noise=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
-
-        # if 'vis_mask' in tokenized_agent.keys():
-        #     vis_mask = tokenized_agent['vis_mask']
-        #
-        #     all_features=[feature[vis_mask] for feature in all_features if feature is not None]
-
-        next_token_logits,feat_a,proposal,rewards,weight=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
-
-        return next_token_logits,next_light_logits,rewards,weight,proposal,feat_a
+        return next_token_logits,next_light_logits,rewards,noise,proposal,feat_a
 
     def forward(
             self,
@@ -448,28 +419,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
-        if self.use_diffusion:
-
-            token_traj_all = tokenized_agent["token_traj_all"].reshape(-1,2048,5*4*2)
-            fut_idx = tokenized_agent["sampled_idx"][:,2:]
-
-            future=token_traj_all[torch.arange(len(fut_idx))[:, None], fut_idx]
-            batch_idx = tokenized_agent['batch']
-            T = self.schedule.timesteps
-
-            t_idx_batch = torch.randint(low=0, high=T, size=(max(batch_idx) + 1, future.shape[1]), device=batch_idx.device)
-            t_idx = t_idx_batch[batch_idx]
-
-            t_cont = (t_idx.float() + 0.5) / T
-            noise = torch.randn_like(future)
-            a_bar = self.schedule.at(t_idx)[:,:,None]
-            fut_noisy = torch.sqrt(a_bar) * future + torch.sqrt(1 - a_bar) * noise
-        else:
-            fut_noisy=None
-            t_cont=None
-            noise=None
-
-        next_token_logits,next_light_logits,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,next_light_logits,rewards,noise,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["token_mask"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -478,9 +428,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 map_feature,
                                                                                 light_idx,
                                                                                 mask_lg,
-                                                                                latent_z=tokenized_agent["latent_z"],
-                                                                                fut_noisy=fut_noisy,
-                                                                                t_cont=t_cont)
+                                                                                latent_z=tokenized_agent["latent_z"])
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["next_light_logits"] = next_light_logits
@@ -502,35 +450,6 @@ class SMARTAgentDecoder(nn.Module):
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
             'next_map_token_logits':next_map_token_logits
          }
-    @torch.no_grad()
-    def sample(self, past: torch.Tensor, steps: int = 50, guidance_w: float = 1.5, eta: float = 0.0):
-
-        # DDIM when eta=0; DDPM-like when eta>0
-        device = past.device
-        B = past.size(0)
-        Tf = self.model.tf
-        x = torch.randn(B, Tf, 2, device=device)
-        T_sched = self.schedule.timesteps
-        t_vals = torch.linspace(1.0, 0.0, steps, device=device)
-
-        for i, t in enumerate(t_vals):
-            t_idx = (t * T_sched).clamp(0, T_sched - 1 - 1e-6).long()
-            a_bar = self.schedule.at(t_idx)[:, None, None]
-            eps = self.model(x, t.expand(B), past)
-            x0 = (x - torch.sqrt(1 - a_bar) * eps) / torch.sqrt(a_bar)
-            if i == steps - 1:
-                x = x0
-            break
-            a_bar_prev = self.schedule.at((t_idx - 1).clamp(min=0))[:, None, None]
-            # DDIM update with optional stochasticity via eta
-            sigma = eta * torch.sqrt((1 - a_bar_prev) / (1 - a_bar)) * torch.sqrt(1 - a_bar / a_bar_prev)
-            dir_xt = torch.sqrt(1 - a_bar_prev - sigma ** 2) * eps
-            x = torch.sqrt(a_bar_prev) * x0 + dir_xt
-            if eta > 0:
-                x = x + sigma * torch.randn_like(x)
-        return x
-
-
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
         sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
@@ -576,7 +495,7 @@ class SMARTAgentDecoder(nn.Module):
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
-                if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
+                if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None and not self.use_diffusion:
 
                     if tokenized_agent["proposal"] is not None:
                         proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
@@ -608,9 +527,8 @@ class SMARTAgentDecoder(nn.Module):
                         if self.pred_light and not self.light_encoder.share:
                             self.light_encoder.lg_t_roformer.attn.caching=True
 
-
                     next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,post_sampling)
+                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z)
 
                     # if 'vis_mask' in tokenized_agent.keys():
                     #     vis_mask = tokenized_agent['vis_mask']
@@ -635,14 +553,21 @@ class SMARTAgentDecoder(nn.Module):
                 next_token_logits, next_light_logits, _, _, proposal, next_goal_logits = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, - self.agent_hist:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
-                    mask_lg[:, -self.light_hist:], t - 1, latent_z, post_sampling)
+                    mask_lg[:, -self.light_hist:], t - 1, latent_z)
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
             else:
-                next_token_idx = Categorical(
-                    logits=next_token_logits[:, -1, ] / self.alpha).sample()
-                next_token_idx[type > 2] = 0
+
+                if self.use_diffusion:
+
+                    dist=torch.linalg.norm(next_token_logits.reshape(-1,1,5,4,2)[:,:,-1] - token_traj,dim=-1).mean(-1)
+
+                    next_token_idx=torch.argmin(dist,dim=1)
+                else:
+                    next_token_idx = Categorical(
+                        logits=next_token_logits[:, -1, ] / self.alpha).sample()
+                    next_token_idx[type > 2] = 0
 
                 # range_a = torch.arange(next_token_logits.shape[0])
                 #

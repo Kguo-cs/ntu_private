@@ -719,6 +719,8 @@ class TokenProcessor(torch.nn.Module):
                 getattr(self, f"agent_token_all_{k}").unsqueeze(0)
             )
 
+        self.token_traj_all = token_traj_all.reshape(-1, 2048, 5 * 4 * 2)
+
         token_traj = token_traj_all[:, :, -1, :, :].contiguous()
 
         if self.pred_all_res:
