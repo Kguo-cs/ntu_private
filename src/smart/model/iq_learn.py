@@ -31,6 +31,7 @@ from src.smart.metrics import (
     WOSACSubmission,
     minADE,
 )
+from src.smart.my_model.NoiseSchedule import NoiseSchedule
 # from src.smart.plot.plot_s import plot_rollout
 
 class IQ_SoftQ(LightningModule):
@@ -118,12 +119,31 @@ class IQ_SoftQ(LightningModule):
 
         self.pred_map_token=self.encoder.map_encoder.pred_map_token
 
+        self.schedule = NoiseSchedule.cosine(timesteps=1000)
 
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
     #         if param.grad is None:
     #             print(f"Unused parameter: {name}")
-    #
+    def q_sample(self, x0, t_idx, noise):
+        a_bar = self.schedule.at(t_idx).view(-1, 1, 1)
+
+        return torch.sqrt(a_bar) * x0 + torch.sqrt(1 - a_bar) * noise
+
+    def diffusion_loss(self,future):
+        B = future.size(0)
+        T = self.schedule.timesteps
+        t_idx = torch.randint(0, T, (B,), device=future.device)
+        t_cont = (t_idx.float() + 0.5) / T
+        noise = torch.randn_like(future)
+        a_bar = self.schedule.at(t_idx).view(-1, 1, 1)
+        x_t=torch.sqrt(a_bar) * future + torch.sqrt(1 - a_bar) * noise
+
+        eps_pred = self.model(x_t, t_cont, past)
+        return F.smooth_l1_loss(eps_pred, noise)
+
+        return loss
+
 
     def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
 
@@ -499,8 +519,6 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["type"]<3
 
-        #print(torch.all(tokenized_agent["train_mask"]))
-
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
@@ -550,25 +568,11 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn:
             if self.use_gail and not self.use_distance:
-
-                # with torch.no_grad():
-                #     expert_Value=self.encoder.value_network(tokenized_agent["feat_a_nodetach"][all_valid])[:,:,0]
-                #
-                #     self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
-
-
                 expert_dis_loss, expert_rewards, expert_returns,expert_dis_feat=self.get_reward(tokenized_agent,None,None,"expert",all_valid)
                 if self.encoder.pred_col:
                     col_loss=self.get_collision_loss(tokenized_agent,tokenized_map,expert_dis_feat,None,all_valid,'expert')
 
                     expert_nll=expert_nll+col_loss
-
-            #expert_light_idx=tokenized_agent["light_idx"].clone()
-
-            #if self.dis_loss=="wgan":
-          #  tokenized_agent["expert_sampled_pos"]=tokenized_agent["sampled_pos"].clone()
-            #tokenized_agent["expert_sampled_heading"]=tokenized_agent["sampled_heading"].clone()
-           # tokenized_agent["expert_valid_mask"]=tokenized_agent["valid_mask"].clone()
 
             if self.use_distance:
                 #gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
@@ -639,24 +643,7 @@ class IQ_SoftQ(LightningModule):
             #tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
-                if self.buffer_len>1:
-                    with torch.no_grad():
-                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat = self.get_reward(
-                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None,target_q=target_q)
-
-                    if self.global_step%2==0:
-                        current_rollout={}
-
-                        for key in {"sampled_idx","goal_idx","valid_mask","sampled_heading","sampled_pos","detach_map_feature","light_idx","type","shape","batch","num_graphs","train_mask"}:
-                            current_rollout[key]=tokenized_agent_rollout[key]
-
-                        self.replay_buffer.append(current_rollout)
-
-                    old_rollout = random.sample(self.replay_buffer, 1)[0]
-                    agent_dis_loss, _, _, _ = self.get_reward(
-                        old_rollout, None, None, "agent", None)
-                else:
-                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,target_q=target_q)
+                agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat = self.get_reward(tokenized_agent_rollout, agent_log_prob,agent_pi, "agent",all_valid,target_q=target_q)
 
                 critic_loss=expert_dis_loss + agent_dis_loss
 
