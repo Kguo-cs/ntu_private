@@ -130,7 +130,7 @@ def run(cfg: DictConfig) -> None:
             model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
             if model.bc_map_net is not None:
                 model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule, ckpt_path='./logs/AIRL152_learnmap_arn10_pred/2025-10-20_06-13-19/sim/9vtkji4b/checkpoints/last.ckpt')#cfg.get("ckpt_path"))
+        trainer.fit(model=model, datamodule=datamodule)#cfg.get("ckpt_path")), ckpt_path='./logs/AIRL152_learnmap_arn10_pred/2025-10-20_06-13-19/sim/9vtkji4b/checkpoints/last.ckpt'
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
