@@ -23,7 +23,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2
 
 rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/AIRL152_bc4_learnmap/2025-09-24_14-57-54/wosac_submission.tar.gz ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc32_agent467_inter2_drop01_03/2025-10-13_22-47-35/bc/d34cjk5o/checkpoints/epoch=19-step=233320.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_waymo_4_map2_drop0/2025-10-20_11-13-11/bc/a2z29dfs/checkpoints/epoch=61-step=754850.ckpt ./
 
 
 
@@ -117,7 +117,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python run.py >  1.log 2>&1 &
+nohup python start.py >  1.log 2>&1 &
 
 
 
