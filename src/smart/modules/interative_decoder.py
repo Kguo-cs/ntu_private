@@ -126,7 +126,7 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
-        self.use_diffusion=True
+        self.use_diffusion=False
 
         if self.use_diffusion:
             n_token_agent=5*4*2
