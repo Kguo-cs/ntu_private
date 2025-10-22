@@ -400,21 +400,20 @@ class IQ_SoftQ(LightningModule):
             ego_dis_eval=disc_val[:agent_num]
             other_disc_val=disc_val[agent_num:]
             
-            if key =='expert':
-                ego_dis_eval=ego_dis_eval[train_mask[tokenized_agent["train_mask"]].transpose(0, 1).reshape(-1)]
+            ego_dis_eval=ego_dis_eval[train_mask[tokenized_agent["train_mask"]].transpose(0, 1).reshape(-1)]
 
-                edge_index_a2a=disc_out[1]
+            edge_index_a2a=disc_out[1]
 
-                start_index = edge_index_a2a[0]
-                end_index = edge_index_a2a[1]
+            start_index = edge_index_a2a[0]
+            end_index = edge_index_a2a[1]
 
-                dis_mask=train_mask.transpose(0, 1).flatten(0, 1)
+            dis_mask=train_mask.transpose(0, 1).flatten(0, 1)
 
-                edge_mask = dis_mask[start_index] & dis_mask[end_index]
+            edge_mask = dis_mask[start_index] & dis_mask[end_index]
 
-                other_disc_val=other_disc_val[edge_mask]
+            other_disc_val=other_disc_val[edge_mask]
 
-                weight=weight[edge_mask]
+            weight=weight[edge_mask]
 
             if key == "expert":
 
@@ -612,7 +611,6 @@ class IQ_SoftQ(LightningModule):
             if self.encoder.pred_light:
                 eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
 
-            #tokenized_agent_rollout["train_mask"]=None
             if self.use_kl_penalty:
                 with torch.no_grad():
                     if self.bc_map_net is not None:
@@ -626,8 +624,6 @@ class IQ_SoftQ(LightningModule):
 
             agent_reward, agent_value_loss, agent_pi, agent_nll,agent_Q,agent_proposal_loss,agent_log_prob,agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None,key='agent')
-
-            #tokenized_agent_rollout["train_mask"]=all_valid
 
             if self.use_gail:
                 if self.buffer_len>1:
@@ -680,19 +676,11 @@ class IQ_SoftQ(LightningModule):
                     #agent_rewards = torch.clamp(agent_rewards, -2, 2)
                     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
 
-                    # with torch.no_grad():
-                    #     v_denorm, _=self.encoder.value_network(feat_a)
-                    #     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
-                    #
-                    #     self.encoder.value_network.update_stats_and_rescale(agent_returns.reshape(-1))
-                    #     y_norm = (gae_returns - self.encoder.value_network.mu) / (self.encoder.value_network.sigma + self.encoder.value_network.eps)
 
-                    # normalized target
+                    train_valid_mask=train_mask[all_valid]
 
-                    # _, v_norm=self.encoder.value_network(feat_a)
-                    # value_loss = F.mse_loss(v_norm, y_norm)  # train on normalized target
 
-                    value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0,max=100).mean()#
+                    value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0,max=100)[train_valid_mask].mean()#
 
                     advantages=ego_advantages
 
@@ -705,7 +693,7 @@ class IQ_SoftQ(LightningModule):
 
                         nei_advantages,nei_returns=compute_advantages(nei_rewards,nei_value_pred.detach(),None,gamma=self.gamma)
 
-                        nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).clamp(min=0,max=100).mean()
+                        nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).clamp(min=0,max=100)[train_valid_mask].mean()
 
                         value_loss = nei_value_loss + value_loss
 
@@ -723,18 +711,7 @@ class IQ_SoftQ(LightningModule):
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
 
-                if self.rollout_freq>1:
-                    prev_log_prob=tokenized_agent_rollout["sampled_log_prob"][tokenized_agent_rollout["train_mask"]]
-                    ratio = torch.exp(agent_log_prob - prev_log_prob)
-                    clip_param = 0.2
-
-                    surr1 = ratio * advantages
-                    surr2 = torch.clamp(ratio,
-                                        1.0 - clip_param,
-                                        1.0 + clip_param) * advantages
-                    agent_wNLL = -torch.min(surr1, surr2).mean()
-                else:
-                    agent_wNLL=-(agent_log_prob*advantages).mean()#[all_valid]
+                agent_wNLL=-(agent_log_prob*advantages)[train_valid_mask].mean()#[all_valid]
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
