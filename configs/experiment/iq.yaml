@@ -28,7 +28,7 @@ model:
     #finetune: true
     smart: false
 
-#ckpt_path : '~/keguo/sim/src/logs/bc32_histdrop01_03_formert/2025-08-26_09-40-54/sim/59h7bq2j/checkpoints/epoch=6-step=106533.ckpt'
+#ckpt_path : '/home/ke/code/catk/src/logs/bc40_pt30_14679_map2_diff/2025-10-21_17-00-59/bc/bngtvmsx/checkpoints/epoch=0-step=12175.ckpt'
 
 trainer:
   limit_train_batches: 1.0

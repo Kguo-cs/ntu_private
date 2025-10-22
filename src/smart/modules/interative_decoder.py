@@ -20,7 +20,7 @@ from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.my_model.diffusion_discriminator import Discriminator
-from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep
+from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep,cosine_beta_schedule
 
 
 
@@ -130,9 +130,22 @@ class InterativeDecoder(nn.Module):
 
         if self.use_diffusion:
             n_token_agent=5*4*2
+            
+            self.n_steps = n_steps = 1000
+
+            betas = cosine_beta_schedule(self.n_steps)
+            self.betas = betas#.to(self.args.device)
+            alphas = 1 - betas
+            alphas_prod = torch.cumprod(alphas, 0)
+            alphas_bar_sqrt = torch.sqrt(alphas_prod)#.to(self.args.device)
+            one_minus_alphas_bar_sqrt = torch.sqrt(1 - alphas_prod)#.to(self.args.device)
+            
+            self.register_buffer("alphas_bar_sqrt",alphas_bar_sqrt)
+            self.register_buffer("one_minus_alphas_bar_sqrt",one_minus_alphas_bar_sqrt)     
+
 
             self.schedule = NoiseSchedule.cosine(timesteps=1000)
-            self.t_embed = SinusoidalTimestep(hidden_dim)
+            self.t_embed = nn.Embedding(n_steps, hidden_dim)
             self.fut_embed = nn.Linear(n_token_agent, hidden_dim)
 
         self.pred_last_res = pred_last_res
@@ -537,26 +550,38 @@ class InterativeDecoder(nn.Module):
                                             device=batch_idx.device)
                 t_idx = t_idx_batch[batch_idx]
 
-                t_cont = (t_idx.float() + 0.5) / T
                 noise = torch.randn_like(future)
-                a_bar = self.schedule.at(t_idx)[:, :, None]
-                fut_noisy = torch.sqrt(a_bar) * future + torch.sqrt(1 - a_bar) * noise
-                fut_embed=self.fut_embed(fut_noisy)+self.t_embed(t_cont)
+                
+                a = self.alphas_bar_sqrt[t_idx][:, :, None]
+
+                # coefficient of eps
+                aml = self.one_minus_alphas_bar_sqrt[t_idx][:, :, None]  
+
+                fut_noisy = a * future + aml * noise
+                fut_embed=self.fut_embed(fut_noisy)+self.t_embed(t_idx)
                 feat_a=feat_a+fut_embed.transpose(0, 1).flatten(0, 1)
             else:
                 device = feat_a.device
                 steps=50
-                eta=0
 
                 x = torch.randn(n_agent, 1, self.n_token_agent, device=device)
-                T_sched = self.schedule.timesteps
-                t_vals = torch.linspace(1.0, 0.0, steps, device=device)
+                a = self.n_steps// steps
 
-                for i, t in enumerate(t_vals):
-                    t_idx = (t * T_sched).clamp(0, T_sched - 1 - 1e-6).long()[None, None, None]
-                    a_bar = self.schedule.at(t_idx)
+                time_steps = torch.arange(0, self.n_steps, a,device=device)[:,None,None]
+                time_steps = time_steps + 1
+                # previous sequence
+                time_steps_prev = torch.cat([torch.zeros_like(time_steps[:1]), time_steps[:-1]])
 
-                    fut_embed = self.fut_embed(x) + self.t_embed(t[None,None])
+                for i in reversed(range(0, steps)):
+                    t_idx = time_steps[i]
+                    t_prev= time_steps_prev[i]
+                    a = self.alphas_bar_sqrt[t_idx]
+                    aml = self.one_minus_alphas_bar_sqrt[t_idx]
+                    
+                    a_prev= self.alphas_bar_sqrt[t_prev]
+                    aml_prev= self.one_minus_alphas_bar_sqrt[t_prev]
+
+                    fut_embed = self.fut_embed(x) + self.t_embed(t_idx)
 
                     feat_a_f_t = feat_a + fut_embed.transpose(0, 1).flatten(0, 1)
 
@@ -566,17 +591,12 @@ class InterativeDecoder(nn.Module):
                       batch_s_repeat,train_mask,dist,
                       train_repeat_mask)[0]
 
-                    x0 = (x - torch.sqrt(1 - a_bar) * eps) / torch.sqrt(a_bar)
-                    if i == steps - 1:
+                    x0 = (x - aml * eps) / a
+                    if i == 0:
                         x = x0
                         return x, feat_a, None, None, None
-                    a_bar_prev = self.schedule.at((t_idx - 1).clamp(min=0))
-                    # DDIM update with optional stochasticity via eta
-                    sigma = eta * torch.sqrt((1 - a_bar_prev) / (1 - a_bar)) * torch.sqrt(1 - a_bar / a_bar_prev)
-                    dir_xt = torch.sqrt(1 - a_bar_prev - sigma ** 2) * eps
-                    x = torch.sqrt(a_bar_prev) * x0 + dir_xt
-                    if eta > 0:
-                        x = x + sigma * torch.randn_like(x)
+                    
+                    x = a_prev * x0 +  aml_prev * eps
 
         next_token_logits, feat_a, proposal, rewards, weight=self.predict_agent(feat_a,feat_map,n_step,n_agent,
                       r_pl2a, edge_index_pl2a,
