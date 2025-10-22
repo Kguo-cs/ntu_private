@@ -397,21 +397,24 @@ class IQ_SoftQ(LightningModule):
             # if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
             #     disc_val=disc_val[train_mask]
             agent_num=rewards.shape[0]*rewards.shape[1]
-            ego_dis_eval=disc_val[:agent_num][train_mask[tokenized_agent["train_mask"]].transpose(0, 1).reshape(-1)]
+            ego_dis_eval=disc_val[:agent_num]
             other_disc_val=disc_val[agent_num:]
+            
+            if key =='expert':
+                ego_dis_eval=ego_dis_eval[train_mask[tokenized_agent["train_mask"]].transpose(0, 1).reshape(-1)]
 
-            edge_index_a2a=disc_out[1]
+                edge_index_a2a=disc_out[1]
 
-            start_index = edge_index_a2a[0]
-            end_index = edge_index_a2a[1]
+                start_index = edge_index_a2a[0]
+                end_index = edge_index_a2a[1]
 
-            dis_mask=train_mask.transpose(0, 1).flatten(0, 1)
+                dis_mask=train_mask.transpose(0, 1).flatten(0, 1)
 
-            edge_mask = dis_mask[start_index] & dis_mask[end_index]
+                edge_mask = dis_mask[start_index] & dis_mask[end_index]
 
-            other_disc_val=other_disc_val[edge_mask]
+                other_disc_val=other_disc_val[edge_mask]
 
-            weight=weight[edge_mask]
+                weight=weight[edge_mask]
 
             if key == "expert":
 
