@@ -27,11 +27,11 @@ from src.smart.metrics import (
     minADE,
 )
 from src.smart.modules.smart_decoder import SMARTDecoder
-from src.smart.plot.plot_s import plot_rollout
+# from src.smart.plot.plot_s import plot_rollout
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-from src.smart.plot.plot_bird import plot_bird_from_tensors
+#from src.smart.plot.plot_bird import plot_bird_from_tensors
 
 class SMART(LightningModule):
 
