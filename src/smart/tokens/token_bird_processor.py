@@ -83,9 +83,26 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-        tokenized_map={}
 
         tokenized_agent = self.tokenize_agent(data)
+        batch_number=torch.amax(tokenized_agent['batch']).item()+1
+
+        position=torch.zeros([batch_number,3],device=tokenized_agent['batch'].device)
+
+        position[:,0]=0.6
+        position[:,1]= 14.5
+        position[:,2]=2.6
+
+        orientation=torch.zeros_like(position[:,0])
+        batch=torch.arange(batch_number,device=tokenized_agent['batch'].device)
+
+        tokenized_map = {
+            #"pt_token": pt_token,
+            "position": position,
+            "orientation": orientation,
+            "batch": batch,
+        }
+
 
         tokenized_agent["light_idx"] = torch.zeros([0, 18])
         tokenized_agent["token_mask"]=tokenized_agent["valid_mask"]
@@ -93,9 +110,8 @@ class TokenProcessor(torch.nn.Module):
         return tokenized_map, tokenized_agent
 
     def init_agent_token(self, agent_token_path) -> None:
-        fps = 29.97
 
-        agent_token = torch.load(agent_token_path)/ fps
+        agent_token = pickle.load(open(agent_token_path, "rb"))
 
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
 
@@ -123,6 +139,8 @@ class TokenProcessor(torch.nn.Module):
 
         heading= wrap_angle(torch.arctan2(vel[:,:,1], vel[:,:,0]))
 
+        pos=pos[:,1:]
+        valid=valid[:,1:]
 
         tokenized_agent = {
             "num_graphs": data.num_graphs,
@@ -133,15 +151,13 @@ class TokenProcessor(torch.nn.Module):
             "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
             "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
-            # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+             "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-            # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             # "pred_traj_10hz": pos,
             # "pred_head_10hz": heading,
             # "all_valid": valid
         }
-        pos=pos[:,1:]
-        valid=valid[:,1:]
 
         data["agent"]["position"]=pos
         data["agent"]["valid_mask"]=valid

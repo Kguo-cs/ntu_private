@@ -41,17 +41,26 @@ class EdgeEncoder(nn.Module):
         else:
             input_dim_r_pt2a = 3
 
-        input_dim_r_a2a = 3
 
         share=share
 
         if not use_bird:
-            self.r_pt2a_emb = FourierEmbedding(
-                input_dim=input_dim_r_pt2a,
-                hidden_dim=hidden_dim,
-                num_freq_bands=num_freq_bands,
-                share=share
-            )
+            input_dim_r_t = 4
+            input_dim_r_a2a = 3
+            input_dim_r_pt2a=3
+        else:
+            input_dim_r_t = 5
+            input_dim_r_a2a = 4
+            input_dim_r_pt2a=4
+
+
+        self.r_pt2a_emb = FourierEmbedding(
+            input_dim=input_dim_r_pt2a,
+            hidden_dim=hidden_dim,
+            num_freq_bands=num_freq_bands,
+            share=share
+        )
+
         self.discriminator=discriminator
 
         # if self.discriminator:
@@ -70,7 +79,6 @@ class EdgeEncoder(nn.Module):
         self.use_roformer = use_roformer
 
         if not self.use_roformer:
-            input_dim_r_t = 4
 
             self.r_t_emb = FourierEmbedding(
                 input_dim=input_dim_r_t,
@@ -114,19 +122,21 @@ class EdgeEncoder(nn.Module):
                        :, edge_index_t[1] - edge_index_t[0] <= self.time_span / self.shift
                        ]
         rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
-        rel_pos_t = rel_pos_t[:, :2]
         rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
         r_t = torch.stack(
             [
                 torch.norm(rel_pos_t, p=2, dim=-1),
                 angle_between_2d_vectors(
-                    ctr_vector=head_vector_t[edge_index_t[1]], nbr_vector=rel_pos_t
+                    ctr_vector=head_vector_t[edge_index_t[1]], nbr_vector=rel_pos_t[:, :2]
                 ),
                 rel_head_t,
                 edge_index_t[0] - edge_index_t[1],
             ],
             dim=-1,
         )
+
+        r_t=torch.cat([r_t,rel_pos_t[:,2:]],dim=-1)
+
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
         return edge_index_t, r_t
 
@@ -269,7 +279,7 @@ class EdgeEncoder(nn.Module):
         #         dim=-1,
         #     )
         # else:
-        dist=torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1)
+        dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
 
         if self.tokenized_pos:
             bins = torch.tensor([0.25, 1, 4, 9, 16, 25, 36, 49, 64], device=dist.device)#torch.arange(0.5,8,0.25, device=dist.device).square()#
@@ -290,6 +300,7 @@ class EdgeEncoder(nn.Module):
             dim=-1,
         )
 
+        r_a2a=torch.cat([r_a2a,rel_pos_a2a[:,2:]],dim=-1)
 
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
@@ -462,7 +473,7 @@ class EdgeEncoder(nn.Module):
         else:
             r_pl2a = torch.stack(
                 [
-                    torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+                    torch.norm(rel_pos_pl2a, p=2, dim=-1),
                     angle_between_2d_vectors(
                         ctr_vector=head_vector_s[edge_index_pl2a[1]],
                         nbr_vector=rel_pos_pl2a[:, :2],
@@ -471,6 +482,8 @@ class EdgeEncoder(nn.Module):
                 ],
                 dim=-1,
             )
+
+        r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 

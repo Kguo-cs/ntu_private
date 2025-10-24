@@ -32,7 +32,7 @@ class minADE(Metric):
 
         # [n_agent, n_rollout, n_step]
         dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
-        dist = (dist * target_valid.unsqueeze(1)).sum(-1).min(-1).values  # [n_agent]
+        dist = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1) # [n_agent]
 
         dist = dist / (target_valid.sum(-1) + 1e-6)  # [n_agent]
         self.sum += dist.sum()

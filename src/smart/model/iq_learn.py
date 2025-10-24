@@ -752,6 +752,15 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
+        sampled_pos=tokenized_agent["sampled_pos"]
+        gt_pos_raw=tokenized_agent["gt_pos_raw"]
+        valid_mask=tokenized_agent["valid_mask"]
+
+        max_dist=torch.linalg.norm(sampled_pos-gt_pos_raw,dim=-1)[valid_mask]
+
+        self.log("train/mean_token_error", max_dist.mean().item(), on_step=True, batch_size=1)
+        self.log("train/max_token_error", max_dist.max().item(), on_step=True, batch_size=1)
+
         #plot_rollout(tokenized_agent,tokenized_map,self.token_processor)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)

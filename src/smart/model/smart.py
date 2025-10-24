@@ -27,9 +27,11 @@ from src.smart.metrics import (
     minADE,
 )
 from src.smart.modules.smart_decoder import SMARTDecoder
+from src.smart.plot.plot_s import plot_rollout
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
+from src.smart.plot.plot_bird import plot_bird_from_tensors
 
 class SMART(LightningModule):
 
@@ -256,10 +258,12 @@ class SMART(LightningModule):
                 # )
                 if self.token_processor.use_bird:
                     pred_traj.append(pred["sampled_pos"][:,2:])
+
                 else:
                     pred_traj.append(pred["pred_traj_10hz"])
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
+
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             if not self.token_processor.use_bird:
@@ -271,6 +275,9 @@ class SMART(LightningModule):
             # pred_head=torch.load("/home/ke/code/catk/src/waymo_data/pred_head.pt").cuda()
             #self.all_time+=time.time()-t1
           #  self.all_count+=    self.n_rollout_closed_val*16
+          #   plot_bird_from_tensors(pred_traj,tokenized_agent['sampled_pos'],
+          #             tokenized_agent["gt_pos_raw"],tokenized_agent["valid_mask"],
+          #             )
 
             #print(time.time()-t1)
             #self.wosac_metrics = WOSACMetrics("val_closed")
@@ -311,7 +318,7 @@ class SMART(LightningModule):
                     target_valid=data["agent"]["valid_mask"][
                         :, self.num_historical_steps :
                     ],
-                )
+                ) #minimum sum distance
 
                 # WOSAC metrics
                 if batch_idx < self.n_batch_wosac_metric:
@@ -355,7 +362,7 @@ class SMART(LightningModule):
         if self.val_closed_loop:
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
-                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()
+                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
                 if self.global_rank == 0:
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
@@ -363,7 +370,7 @@ class SMART(LightningModule):
                     # self.logger.log_metrics(epoch_wosac_metrics)
                     #print("Logged keys:", epoch_wosac_metrics.keys())
 
-                    for key, value in epoch_wosac_metrics.items():
+                    for key, value in epoch_wosac_metrics.items():#minADE is the time average distance for evaluated agent
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
 
                 self.wosac_metrics.reset()

@@ -60,13 +60,19 @@ class MultiDataset(Dataset):
         #
         #
         # else:
-        raw_dir = Path(raw_dir)
 
-        self._raw_paths = [p.as_posix() for p in sorted(raw_dir.glob("*"))]
+        self._raw_paths = [p.as_posix() for p in sorted(Path(raw_dir).glob("*"))]
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
+
+        if self.bird and tfrecord_dir is not None:
+            # random_idx= np.random.choice(self._num_samples, size=64*5, replace=False)
+            np.random.shuffle(self._raw_paths)
+            #self._num_samples=64*5
+            # print(self._raw_paths)
 
         # shuffle(self._raw_paths)
         self._num_samples = len(self._raw_paths)
+
 
         log.info("Length of {} dataset is ".format(raw_dir) + str(self._num_samples))
         super(MultiDataset, self).__init__(
@@ -183,6 +189,7 @@ class MultiDataset(Dataset):
         #     with open('./waymo_data/full/validation_map2/'+self.selected_files[idx//device_number], "rb") as handle:
         #         data = pickle.load(handle)
         # else:
+
         idx = idx // num_gpus
 
         # if self.brid:

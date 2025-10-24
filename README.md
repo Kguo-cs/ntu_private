@@ -21,7 +21,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.216.98:/home/ke/code/sim/src/logs/AIRL152_bc4_learnmap/2025-09-24_14-57-54/wosac_submission.tar.gz ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc40_pt20_14679_map2/2025-10-22_17-19-02/bc/6y841x4m/checkpoints/epoch=7-step=97400.ckpt ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_waymo_4_map2_drop0/2025-10-20_11-13-11/bc/a2z29dfs/checkpoints/epoch=61-step=754850.ckpt ./
 
