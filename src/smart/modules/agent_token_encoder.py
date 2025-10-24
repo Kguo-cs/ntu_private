@@ -1,5 +1,6 @@
 from typing import Dict, Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from src.smart.layers import MLPLayer
@@ -38,6 +39,11 @@ class AgentTokenEncoder(nn.Module):
             self.type_a_emb = nn.Embedding(3, hidden_dim)
             self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
             input_dim_x_a=2
+
+        self.use_goal = self.token_processor.use_goal
+
+        if self.use_goal:
+            input_dim_x_a+=2
 
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,
@@ -79,6 +85,7 @@ class AgentTokenEncoder(nn.Module):
             agent_shape,  # [n_agent, 3]
             token_mask,
             batch_idx,
+            goal_pos,
             inference=False,
     ):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
@@ -146,6 +153,32 @@ class AgentTokenEncoder(nn.Module):
             )  # [n_agent, n_step, 2]
             feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
+        if self.use_goal:
+            if goal_pos is not None:
+                goal_vector_a = goal_pos[:,None]-pos_a
+
+                feature_goal=torch.stack(
+                    [
+                        torch.norm(goal_vector_a, p=2, dim=-1),
+                        angle_between_2d_vectors(
+                            ctr_vector=head_vector_a, nbr_vector=goal_vector_a[:, :, :2]
+                        ),
+                    ],
+                    dim=-1,
+                )  # [n_agent, n_step, 2]
+                rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
+
+                rand_mask=rand_idx[batch_idx]<1
+
+                rand_mask[np.random.random(len(rand_mask))<0.5]=True
+
+                feature_goal[rand_mask[:,0]]=0
+            else:
+                feature_goal=torch.zeros_like(feature_a)
+
+            feature_a = torch.cat([feature_a, feature_goal], dim=-1)
+
+
         if self.use_mean_speed:
             agent_speed = torch.zeros_like(agent_type)
 
@@ -173,7 +206,6 @@ class AgentTokenEncoder(nn.Module):
                 categorical_embs = [
                     v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
                 ]
-                categorical_embs=torch.stack(categorical_embs).sum(dim=0)
             else:
                 categorical_embs = None
 

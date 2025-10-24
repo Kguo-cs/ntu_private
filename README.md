@@ -23,7 +23,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc40_pt20_14679_map2/2025-10-22_17-19-02/bc/6y841x4m/checkpoints/epoch=7-step=97400.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_waymo_4_map2_drop0/2025-10-20_11-13-11/bc/a2z29dfs/checkpoints/epoch=61-step=754850.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc56_ep64_routeneg1_map4679/2025-10-02_11-34-24/bc/xvncvkxw/checkpoints/epoch=60-step=530517.ckpt ./
 
 
 
