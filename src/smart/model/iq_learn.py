@@ -677,7 +677,7 @@ class IQ_SoftQ(LightningModule):
                     ego_advantages,gae_returns=compute_advantages(agent_rewards,v_denorm.detach(),None,gamma=self.gamma)#[all_valid]
 
 
-                    train_valid_mask=valid_mask.all(-1)[all_valid]
+                    train_valid_mask=train_mask[all_valid]
 
 
                     value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0,max=100)[train_valid_mask].mean()#
