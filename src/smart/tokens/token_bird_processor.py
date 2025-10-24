@@ -1,0 +1,286 @@
+# Not a contribution
+# Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
+# NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
+# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+
+import os
+import pickle
+from typing import Dict, Tuple
+
+import torch
+from omegaconf import DictConfig
+from torch import Tensor
+from torch.distributions import Categorical
+from torch_geometric.data import HeteroData
+
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+)
+
+
+class TokenProcessor(torch.nn.Module):
+
+    def __init__(
+        self,
+        map_token_file: str,
+        agent_token_file: str,
+        map_token_sampling: DictConfig,
+        agent_token_sampling: DictConfig,
+    ) -> None:
+        super(TokenProcessor, self).__init__()
+        self.map_token_sampling = map_token_sampling
+        self.agent_token_sampling = agent_token_sampling
+        self.shift = 1
+        self.use_dynamic = False
+
+        module_dir = os.path.dirname(__file__)
+        self.init_agent_token(os.path.join(module_dir, agent_token_file))
+        self.n_token_agent = self.agent_token_all.shape[0]
+
+        self.light_type = 5
+
+        self.use_light = False
+
+        self.pred_proposal = False
+
+        if self.pred_proposal:
+            self.n_token_agent = 16
+
+        self.interval_t = self.shift / 10
+
+        self.pred_last_res = False
+        if self.pred_last_res:
+            self.n_token_agent += 1
+
+        self.pred_all_res = False
+
+        if self.pred_all_res:
+            self.n_token_agent = self.agent_token_all_veh.shape[0]
+            self.pred_last_res = False
+
+        self.pred_goal = False
+
+        self.use_smart = False
+
+        self.use_route = False
+
+        self.noise = False
+
+        self.pred_map_token = False
+
+        self.use_bird=True
+
+    @torch.no_grad()
+    def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+        tokenized_map={}
+
+        tokenized_agent = self.tokenize_agent(data)
+
+        tokenized_agent["light_idx"] = torch.zeros([0, 18])
+        tokenized_agent["token_mask"]=tokenized_agent["valid_mask"]
+
+        return tokenized_map, tokenized_agent
+
+    def init_agent_token(self, agent_token_path) -> None:
+        fps = 29.97
+
+        agent_token = torch.load(agent_token_path)/ fps
+
+        self.register_buffer(f"agent_token_all", agent_token, persistent=False)
+
+    def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
+        """
+        Args: data["agent"]: Dict
+            "valid_mask": [n_agent, n_step], bool
+            "role": [n_agent, 3], bool
+            "id": [n_agent], int64
+            "type": [n_agent], uint8
+            "position": [n_agent, n_step, 3], float32
+            "heading": [n_agent, n_step], float32
+            "velocity": [n_agent, n_step, 2], float32
+            "shape": [n_agent, 3], float32
+        """
+        # ! collate width/length, traj tokens for current batch
+
+        token_traj_all=token_traj=self.agent_token_all[None,:,:].repeat(len(data["agent"]["valid_mask"]),1,1)
+
+        # ! get raw trajectory data
+        valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
+        pos = data["agent"]["position"] # [n_agent, n_step, 2]
+
+        vel=pos[:,1:]-pos[:,:-1]
+
+        heading= wrap_angle(torch.arctan2(vel[:,:,1], vel[:,:,0]))
+
+
+        tokenized_agent = {
+            "num_graphs": data.num_graphs,
+            "type": torch.zeros_like(pos[:,0,0]),
+            "shape": None,
+            "token_agent_shape":None,
+            "batch": data["agent"]["batch"],
+            "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
+            "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
+            # for step {5, 10, ..., 90}
+            # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+            # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            # "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            # "pred_traj_10hz": pos,
+            # "pred_head_10hz": heading,
+            # "all_valid": valid
+        }
+        pos=pos[:,1:]
+        valid=valid[:,1:]
+
+        data["agent"]["position"]=pos
+        data["agent"]["valid_mask"]=valid
+
+
+
+        token_dict = self._match_agent_token(
+            valid=valid,
+            pos=pos,
+            heading=heading,
+            token_traj=token_traj,
+        )
+        tokenized_agent.update(token_dict)
+        return tokenized_agent
+
+    def _match_agent_token(
+        self,
+        valid: Tensor,  # [n_agent, n_step]
+        pos: Tensor,  # [n_agent, n_step, 2]
+        heading: Tensor,  # [n_agent, n_step]
+        token_traj: Tensor,  # [n_agent, n_token, 4, 2]
+    ) -> Dict[str, Tensor]:
+        """n_step_token=n_step//5
+        n_step_token=18 for train with BC.
+        n_step_token=2 for val/test and train with closed-loop rollout.
+        Returns: Dict
+            # ! action that goes from [(0->5), (5->10), ..., (85->90)]
+            "valid_mask": [n_agent, n_step_token]
+            "gt_idx": [n_agent, n_step_token]
+            # ! at step [5, 10, 15, ..., 90]
+            "gt_pos": [n_agent, n_step_token, 2]
+            "gt_heading": [n_agent, n_step_token]
+            # ! noisy sampling for training data augmentation
+            "sampled_idx": [n_agent, n_step_token]
+            "sampled_pos": [n_agent, n_step_token, 2]
+            "sampled_heading": [n_agent, n_step_token]
+        """
+        num_k = self.agent_token_sampling.num_k if self.training else 1
+        n_agent, n_step = valid.shape
+        range_a = torch.arange(n_agent)
+
+        prev_pos, prev_head = pos[:, 0], heading[:, 0]  # [n_agent, 2], [n_agent]
+        prev_pos_sample, prev_head_sample = pos[:, 0], heading[:, 0]
+
+        out_dict = {
+            "valid_mask": [],
+            "gt_idx": [],
+            "gt_pos": [],
+            "gt_heading": [],
+            "sampled_idx": [],
+            "sampled_pos": [],
+            "sampled_heading": [],
+        }
+
+        token_xy=token_traj[:,:,:2]
+        token_z=token_traj[:,:,2:]
+
+        for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
+            _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
+            _invalid_mask = ~_valid_mask
+            out_dict["valid_mask"].append(_valid_mask)
+
+            # #! gt_contour: [n_agent, 4, 2] in global coord
+            # gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
+            # gt_contour = gt_contour.unsqueeze(1)  # [n_agent, 1, 4, 2]
+
+            gt_contour=pos[:, i].unsqueeze(1)
+
+            # ! tokenize without sampling
+            token_world_gt = transform_to_global(
+                pos_local=token_xy,  # [n_agent, n_token*4, 2]
+                head_local=None,
+                pos_now=prev_pos[:,:2],  # [n_agent, 2]
+                head_now=prev_head,  # [n_agent]
+            )[0]
+
+            token_world_gt_z=prev_pos[:,None,2:]+token_z
+
+            token_world_gt=torch.cat((token_world_gt, token_world_gt_z), dim=-1)
+
+            token_idx_gt = torch.argmin(
+                torch.norm(token_world_gt - gt_contour, dim=-1), dim=-1
+            )  # [n_agent]
+            # [n_agent, 4, 2]
+            token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
+
+            # udpate prev_pos, prev_head
+            prev_head = heading[:, i].clone()
+            dxy = token_contour_gt[:,:2] - prev_pos[:,:2]
+            prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
+            prev_pos = pos[:, i].clone()
+            prev_pos[_valid_mask] = token_contour_gt[_valid_mask]
+            # add to output dict
+            out_dict["gt_idx"].append(token_idx_gt)
+            out_dict["gt_pos"].append(
+                prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
+            )
+            out_dict["gt_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
+
+            # ! tokenize from sampled rollout state
+            if num_k == 1:  # K=1 means no sampling
+                out_dict["sampled_idx"].append(out_dict["gt_idx"][-1])
+                out_dict["sampled_pos"].append(out_dict["gt_pos"][-1])
+                out_dict["sampled_heading"].append(out_dict["gt_heading"][-1])
+            else:
+                # contour: [n_agent, n_token, 4, 2], 2HZ, global coord
+                token_world_sample = transform_to_global(
+                    pos_local=token_traj.flatten(1, 2),  # [n_agent, n_token*4, 2]
+                    head_local=None,
+                    pos_now=prev_pos_sample,  # [n_agent, 2]
+                    head_now=prev_head_sample,  # [n_agent]
+                )[0].view(*token_traj.shape)
+
+                # dist: [n_agent, n_token]
+                dist = torch.norm(token_world_sample - gt_contour, dim=-1).mean(-1)
+                topk_dists, topk_indices = torch.topk(
+                    dist, num_k, dim=-1, largest=False, sorted=False
+                )  # [n_agent, K]
+
+                topk_logits = (-1.0 * topk_dists) / self.agent_token_sampling.temp
+                _samples = Categorical(logits=topk_logits).sample()  # [n_agent] in K
+                token_idx_sample = topk_indices[range_a, _samples]
+                token_contour_sample = token_world_sample[range_a, token_idx_sample]
+
+                # udpate prev_pos_sample, prev_head_sample
+                prev_head_sample = heading[:, i].clone()
+                dxy = token_contour_sample[:, 0] - token_contour_sample[:, 3]
+                prev_head_sample[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[
+                    _valid_mask
+                ]
+                prev_pos_sample = pos[:, i].clone()
+                prev_pos_sample[_valid_mask] = token_contour_sample.mean(1)[_valid_mask]
+                # add to output dict
+                out_dict["sampled_idx"].append(token_idx_sample)
+                out_dict["sampled_pos"].append(
+                    prev_pos_sample.masked_fill(_invalid_mask.unsqueeze(1), 0.0)
+                )
+                out_dict["sampled_heading"].append(
+                    prev_head_sample.masked_fill(_invalid_mask, 0.0)
+                )
+        out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
+        return out_dict

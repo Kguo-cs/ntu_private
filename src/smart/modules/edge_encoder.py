@@ -28,7 +28,8 @@ class EdgeEncoder(nn.Module):
             time_span=30,
             use_roformer=True,
             use_route=False,
-            discriminator=False
+            discriminator=False,
+            use_bird=False
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
@@ -44,12 +45,13 @@ class EdgeEncoder(nn.Module):
 
         share=share
 
-        self.r_pt2a_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2a,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-            share=share
-        )
+        if not use_bird:
+            self.r_pt2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_pt2a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                share=share
+            )
         self.discriminator=discriminator
 
         # if self.discriminator:

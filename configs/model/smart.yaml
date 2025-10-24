@@ -57,3 +57,4 @@ model_config:
     label_smoothing: 0.1
     rollout_as_gt: false
   finetune: false
+  bird: false

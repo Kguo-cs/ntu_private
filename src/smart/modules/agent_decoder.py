@@ -208,7 +208,7 @@ class SMARTAgentDecoder(nn.Module):
             mean_speed=mean_speed,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            agent_type=tokenized_agent["type"].long(),  # [n_agent]
+            agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch']
@@ -437,10 +437,10 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["proposal"] = proposal
 
         # tokenized_agent["agent_token_emb"]=agent_token_emb
-        if 'next_map_token_logits' in map_feature.keys() :
-            next_map_token_logits=map_feature["next_map_token_logits"]
-        else:
-            next_map_token_logits=None
+        # if 'next_map_token_logits' in map_feature.keys() :
+        #     next_map_token_logits=map_feature["next_map_token_logits"]
+        # else:
+        next_map_token_logits=None
 
         return {
             #"proposal":proposal,
@@ -629,26 +629,42 @@ class SMARTAgentDecoder(nn.Module):
             if not self.pred_all_res:
                 next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
 
-            token_traj_global = transform_to_global(
-                pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
-                head_local=None,
-                pos_now=pos_a[:, -1],  # [n_agent, 2]
-                head_now=head_a[:, -1],  # [n_agent]
-            )[0].view(*next_token_traj_all.shape)
-
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
-            if "gt_z_raw" in tokenized_agent.keys():
-                pred_traj = token_traj_global[:, :].mean(2)
-                pred_traj_10hz.append(pred_traj)
-                diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
-                pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
-                pred_head_10hz.append(pred_head)
+            if self.token_processor.use_bird:
+                token_traj_global_xy = transform_to_global(
+                    pos_local=next_token_traj_all[:,None,:2],  # [n_agent, 6*4, 2]
+                    head_local=None,
+                    pos_now=pos_a[:, -1,:2],  # [n_agent, 2]
+                    head_now=head_a[:, -1],  # [n_agent]
+                )[0][:,0]
+                token_traj_global_z=next_token_traj_all[:,2:]+pos_a[:, -1,2:]
 
-            # ! get pos_a_next and head_a_next, spawn unseen agents
-            pos_a_next = token_traj_global[:, -1].mean(dim=1)
-            diff_xy_next = token_traj_global[:, -1, 0] - token_traj_global[:, -1, 3]
-            head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+                pos_a_next=torch.cat([token_traj_global_xy, token_traj_global_z], dim=1)
+
+                diff_xy_next = token_traj_global_xy - pos_a[:, -1, :2]
+                head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+
+            else:
+                token_traj_global = transform_to_global(
+                    pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
+                    head_local=None,
+                    pos_now=pos_a[:, -1],  # [n_agent, 2]
+                    head_now=head_a[:, -1],  # [n_agent]
+                )[0].view(*next_token_traj_all.shape)
+
+
+                if "gt_z_raw" in tokenized_agent.keys():
+                    pred_traj = token_traj_global[:, :].mean(2)
+                    pred_traj_10hz.append(pred_traj)
+                    diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
+                    pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+                    pred_head_10hz.append(pred_head)
+
+                # ! get pos_a_next and head_a_next, spawn unseen agents
+                pos_a_next = token_traj_global[:, -1].mean(dim=1)
+                diff_xy_next = token_traj_global[:, -1, 0] - token_traj_global[:, -1, 3]
+                head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
@@ -718,6 +734,7 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
+
 
         return out_dict
 

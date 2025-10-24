@@ -116,8 +116,6 @@ class IQ_SoftQ(LightningModule):
         if self.use_ce:
             self.training_loss = CrossEntropy(**model_config.training_loss)
 
-        self.pred_map_token=self.encoder.map_encoder.pred_map_token
-
 
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
@@ -504,16 +502,16 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        tokenized_agent["train_mask"]=tokenized_agent["type"]<3
+        # tokenized_agent["train_mask"]=tokenized_agent["type"]<3
 
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
         train_mask = valid_mask[:, 1:] &  valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
 
         if "pred_mask" in tokenized_agent.keys():
-            all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1) & (tokenized_agent["type"]<3)
+            all_valid=tokenized_agent["pred_mask"] & valid_mask.all(-1) #& (tokenized_agent["type"]<3)
         else:
-            all_valid=valid_mask.all(-1) & (tokenized_agent["type"]<3)
+            all_valid=valid_mask.all(-1) #& (tokenized_agent["type"]<3)
 
         if self.use_kl_penalty:
             expert_nll=0

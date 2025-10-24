@@ -54,51 +54,56 @@ class SMARTMapDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        self.type_pt_emb = nn.Embedding(10, hidden_dim)
-        self.polygon_type_emb = nn.Embedding(4, hidden_dim)
-        # if not self.token_processor.pred_light:
-        #     self.light_pl_emb = nn.Embedding(5, hidden_dim)
+        if not self.token_processor.use_bird:
+
+            self.type_pt_emb = nn.Embedding(10, hidden_dim)
+            self.polygon_type_emb = nn.Embedding(4, hidden_dim)
+            # if not self.token_processor.pred_light:
+            #     self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
 
-        self.head_dim=head_dim
+            self.head_dim=head_dim
 
-        # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
-        self.my_map=False
+            # map_token_traj_src: [n_token, 11, 2].flatten(0,1)
+            self.my_map=False
 
-        if self.my_map:
-            self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
-        else:
-            self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
-        #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
+            if self.my_map:
+                self.token_emb = MLPEmbedding(input_dim=4, hidden_dim=hidden_dim)
+            else:
+                self.token_emb = MLPEmbedding(input_dim=22, hidden_dim=hidden_dim)
+            #self.token_emb = nn.Embedding(token_processor.n_token_map, hidden_dim)
 
-        self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,share=False,a2a=False)
+            self.edge_encoder = EdgeEncoder(hidden_dim,num_freq_bands,share=False,a2a=False)
 
-        self.pt2pt_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
+            self.pt2pt_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
 
-        self.pred_offroad=False
+            self.pred_offroad=False
 
-        self.pred_map_token=token_processor.pred_map_token
+            self.pred_map_token=token_processor.pred_map_token
 
-        if self.pred_map_token:
-            self.token_size = 1024
-            self.token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                               output_dim=self.token_size)
+            if self.pred_map_token:
+                self.token_size = 1024
+                self.token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
+                                                   output_dim=self.token_size)
 
-        self.apply(weight_init)
+            self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict):
+
+        if self.token_processor.use_bird:
+            return None
 
         map_type=tokenized_map["type"].long()
         map_type[map_type>9] = 9

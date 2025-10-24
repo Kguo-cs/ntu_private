@@ -18,26 +18,32 @@ class AgentTokenEncoder(nn.Module):
             discriminator=False
     ) -> None:
         super(AgentTokenEncoder, self).__init__()
-        self.type_a_emb = nn.Embedding(7, hidden_dim)
-        self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
+
         self.hidden_dim = hidden_dim
         self.token_processor=token_processor
 
         input_dim_token = 8
-        input_dim_x_a = 2
 
         self.use_mean_speed = False
 
         if self.use_mean_speed:
             self.speed_embed = nn.Embedding(5, hidden_dim)
 
+        self.use_type=True
+
+        if self.token_processor.use_bird:
+            self.use_type=False
+            input_dim_x_a=3
+        else:
+            self.type_a_emb = nn.Embedding(3, hidden_dim)
+            self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
+            input_dim_x_a=2
+
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
         )
-
-        self.use_type=True
 
         self.discriminator=discriminator
 
@@ -111,23 +117,13 @@ class AgentTokenEncoder(nn.Module):
         # else:
         motion_vector_a = torch.cat(
             [
-                pos_a.new_zeros(agent_token_index.shape[0], 1, 2),
+                pos_a.new_zeros(agent_token_index.shape[0], 1, pos_a.shape[-1]),
                 pos_a[:, 1:] - pos_a[:, :-1],
             ],
             dim=1,
         ) [:,-n_step:] # [n_agent, n_step, 2]
 
         if self.discriminator:
-            # feature_a = torch.stack(
-            #     [
-            #         torch.norm(motion_vector_a[:, :, :2], p=2, dim=-1),
-            #
-            #         angle_between_2d_vectors(
-            #             ctr_vector=head_vector_a, nbr_vector=motion_vector_a[:, :, :2]
-            #         ),
-            #     ],
-            #     dim=-1,
-            # )  # [n_agent, n_step, 2]
             u=motion_vector_a[:, :, :2]
             v=head_vector_a
 
@@ -141,13 +137,14 @@ class AgentTokenEncoder(nn.Module):
         else:
             feature_a = torch.stack(
                 [
-                    torch.norm(motion_vector_a[:, :, :2], p=2, dim=-1),
+                    torch.norm(motion_vector_a, p=2, dim=-1),
                     angle_between_2d_vectors(
                         ctr_vector=head_vector_a, nbr_vector=motion_vector_a[:, :, :2]
                     ),
                 ],
                 dim=-1,
             )  # [n_agent, n_step, 2]
+            feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
         if self.use_mean_speed:
             agent_speed = torch.zeros_like(agent_type)
@@ -168,21 +165,26 @@ class AgentTokenEncoder(nn.Module):
                 self.speed_embed(agent_speed),
             ]  # List of len=2, shape [n_agent, hidden_dim]
         else:
-            categorical_embs = [
-                self.type_a_emb(agent_type),
-                self.shape_emb(agent_shape),
-            ]  # List of len=2, shape [n_agent, hidden_dim]
+            if agent_shape is not None:
+                categorical_embs = [
+                    self.type_a_emb(agent_type),
+                    self.shape_emb(agent_shape),
+                ]  # List of len=2, shape [n_agent, hidden_dim]
+                categorical_embs = [
+                    v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
+                ]
+                categorical_embs=torch.stack(categorical_embs).sum(dim=0)
+            else:
+                categorical_embs = None
 
 
-        # feature_a[~token_mask]=0
-        # if not self.discriminator:
-        #     agent_token_emb[~token_mask]=0
+        feature_a[~token_mask]=0
+        if not self.discriminator:
+            agent_token_emb[~token_mask]=0
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),
-            categorical_embs=[
-                v.repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
-            ],
+            categorical_embs=categorical_embs,
         )  # [n_agent*n_step, hidden_dim]
         x_a = x_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
 

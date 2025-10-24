@@ -46,9 +46,12 @@ class SMART(LightningModule):
         self.val_closed_loop = model_config.val_closed_loop
 
         self.use_smart=model_config.smart
+        self.use_bird=model_config.bird
 
         if self.use_smart:
             from src.smart.tokens.smart_token_processsor import TokenProcessor
+        elif self.use_bird:
+            from src.smart.tokens.token_bird_processor import TokenProcessor
         else:
             from src.smart.tokens.token_processor import TokenProcessor
 
@@ -147,7 +150,6 @@ class SMART(LightningModule):
         if self.global_rank == 0 and self.val_closed_loop:
             pred_traj, pred_z, pred_head = [], [], []
             # tokenized_map, tokenized_agent = self.token_processor(data)
-            #
             map_feature = self.encoder.map_encoder(tokenized_map)
 
             if self.encoder.use_vae:
@@ -252,14 +254,17 @@ class SMART(LightningModule):
                 #     vmin=0.0, vmax=2.0,  # shared color scale
                 #     cmap_name="RdYlGn"
                 # )
-
-                pred_traj.append(pred["pred_traj_10hz"])
-                pred_z.append(pred["pred_z_10hz"])
-                pred_head.append(pred["pred_head_10hz"])
+                if self.token_processor.use_bird:
+                    pred_traj.append(pred["sampled_pos"][:,2:])
+                else:
+                    pred_traj.append(pred["pred_traj_10hz"])
+                    pred_z.append(pred["pred_z_10hz"])
+                    pred_head.append(pred["pred_head_10hz"])
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
-            pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
-            pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+            if not self.token_processor.use_bird:
+                pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
+                pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
             #print(data.scenario_id)
             # pred_traj=torch.load("/home/ke/code/catk/src/waymo_data/pred_traj.pt").cuda()
             # pred_z=torch.load("/home/ke/code/catk/src/waymo_data/pred_z.pt").cuda()
