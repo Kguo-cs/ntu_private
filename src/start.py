@@ -41,7 +41,7 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         child_argv = ["python", "run.py", "action=fit"]
 
     ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument("--max-retries", type=int, default=5)
+    ap.add_argument("--max-retries", type=int, default=50)
     ap.add_argument("--sleep-seconds", type=int, default=15)
     ap.add_argument("--search-root", type=str, default=os.getcwd())
     ap.add_argument("--prefer-last", action="store_true", default=True)
