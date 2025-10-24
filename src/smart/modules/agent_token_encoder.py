@@ -41,9 +41,10 @@ class AgentTokenEncoder(nn.Module):
             input_dim_x_a=2
 
         self.use_goal = self.token_processor.use_goal
+        self.use_bird=token_processor.use_bird
 
         if self.use_goal:
-            input_dim_x_a+=2
+            input_dim_x_a*=2
 
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,
@@ -155,7 +156,7 @@ class AgentTokenEncoder(nn.Module):
 
         if self.use_goal:
             if goal_pos is not None:
-                goal_vector_a = goal_pos[:,None]-pos_a
+                goal_vector_a = goal_pos[:,None]-pos_a[:,-n_step:]
 
                 feature_goal=torch.stack(
                     [
@@ -166,13 +167,17 @@ class AgentTokenEncoder(nn.Module):
                     ],
                     dim=-1,
                 )  # [n_agent, n_step, 2]
-                rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
 
-                rand_mask=rand_idx[batch_idx]<1
+                if self.use_bird:
+                    feature_goal = torch.cat([feature_goal, goal_vector_a[:, :, 2:]], dim=-1)
+                else:
+                    rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
 
-                rand_mask[np.random.random(len(rand_mask))<0.5]=True
+                    rand_mask=rand_idx[batch_idx]<1
 
-                feature_goal[rand_mask[:,0]]=0
+                    rand_mask[np.random.random(len(rand_mask))<0.5]=True
+
+                    feature_goal[rand_mask[:,0]]=0
             else:
                 feature_goal=torch.zeros_like(feature_a)
 

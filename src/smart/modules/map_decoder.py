@@ -54,9 +54,9 @@ class SMARTMapDecoder(nn.Module):
 
         self.token_processor=token_processor
 
-        if  self.token_processor.use_bird:
-            self.pt_embed=nn.Embedding(1, hidden_dim)
-        else:
+        if  not self.token_processor.use_bird:
+        #     self.pt_embed=nn.Embedding(1, hidden_dim)
+        # else:
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
             # if not self.token_processor.pred_light:
@@ -105,9 +105,9 @@ class SMARTMapDecoder(nn.Module):
 
         if self.token_processor.use_bird:
 
-            pt_token=self.pt_embed.weight.repeat(len(tokenized_map["position"]), 1)
-
-            tokenized_map["pt_token"]=pt_token
+            # pt_token=self.pt_embed.weight.repeat(len(tokenized_map["position"]), 1)
+            #
+            # tokenized_map["pt_token"]=pt_token
 
             return tokenized_map
 

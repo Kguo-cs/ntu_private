@@ -75,19 +75,20 @@ class InterativeDecoder(nn.Module):
                                         use_bird=token_processor.use_bird
                                         )
 
-        self.pt2a_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    bipartite=True,
-                    has_pos_emb=True,
-                )
-                for _ in range(num_layers)
-            ]
-        )
+        if not token_processor.use_bird:
+            self.pt2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
         self.discriminator = discriminator
 
         self.state_action = False
@@ -321,7 +322,8 @@ class InterativeDecoder(nn.Module):
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 
-                feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                if not self.token_processor.use_bird:
+                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
         if  self.use_edge_feature and self.discriminator:
             feat_a_all = None
@@ -491,27 +493,31 @@ class InterativeDecoder(nn.Module):
         n_agent = mask_a.shape[0]
         n_step=mask_a.shape[1]
 
-        batch_pl = map_feature["batch"]
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
-        feat_map = map_feature["pt_token"]
+        if not self.token_processor.use_bird:
 
-        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-            pos_pl=pos_pl,  # [n_pl, 2]
-            orient_pl=orient_pl,  # [n_pl]
-            pos_a=pos_a,  # [n_agent, n_step, 2]
-            head_a=head_a,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            mask=mask_a,  # [n_agent, n_step]
-            batch_s=batch_s_repeat,  # [n_agent,n_step]
-            batch_pl=batch_pl,  # [n_pl*n_step]
-            pl2a_radius=self.pl2a_radius,
-            max_num_neighbors=self.pt2a_neighbor,
-            train_mask=train_mask,
-            use_counterfactual=self.use_counterfactual,
-            route_map_index=route_map_index,
-            layer_num=self.num_layers
-        )
+            batch_pl = map_feature["batch"]
+            pos_pl = map_feature["position"]
+            orient_pl = map_feature["orientation"]
+            feat_map = map_feature["pt_token"]
+
+            edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                pos_pl=pos_pl,  # [n_pl, 2]
+                orient_pl=orient_pl,  # [n_pl]
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask=mask_a,  # [n_agent, n_step]
+                batch_s=batch_s_repeat,  # [n_agent,n_step]
+                batch_pl=batch_pl,  # [n_pl*n_step]
+                pl2a_radius=self.pl2a_radius,
+                max_num_neighbors=self.pt2a_neighbor,
+                train_mask=train_mask,
+                use_counterfactual=self.use_counterfactual,
+                route_map_index=route_map_index,
+                layer_num=self.num_layers
+            )
+        else:
+            edge_index_pl2a=r_pl2a=feat_map=None
 
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
@@ -521,8 +527,7 @@ class InterativeDecoder(nn.Module):
             train_repeat_mask=None
 
         #if not self.discriminator or  self.use_iteract:
-
-        edge_index_a2a, r_a2a,dist = self.edge_encoder.build_interaction_edge(
+        edge_index_a2a, r_a2a, dist = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
@@ -533,8 +538,8 @@ class InterativeDecoder(nn.Module):
             proposal=None,
             vis_mask=None,
             value=False,
-            train_mask = train_repeat_mask,
-            loop= self.use_ego_loop
+            train_mask=train_repeat_mask,
+            loop=self.use_ego_loop
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         noise = None

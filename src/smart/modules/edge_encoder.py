@@ -36,11 +36,7 @@ class EdgeEncoder(nn.Module):
         self.use_route=use_route & (not discriminator)
 
         if self.use_route:
-            input_dim_r_pt2a = 4
             self.route_drop=nn.Dropout(p=0.5)
-        else:
-            input_dim_r_pt2a = 3
-
 
         share=share
 
@@ -48,18 +44,18 @@ class EdgeEncoder(nn.Module):
             input_dim_r_t = 4
             input_dim_r_a2a = 3
             input_dim_r_pt2a=3
+
+            self.r_pt2a_emb = FourierEmbedding(
+                input_dim=input_dim_r_pt2a,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                share=share
+            )
+
         else:
             input_dim_r_t = 5
             input_dim_r_a2a = 4
-            input_dim_r_pt2a=4
 
-
-        self.r_pt2a_emb = FourierEmbedding(
-            input_dim=input_dim_r_pt2a,
-            hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-            share=share
-        )
 
         self.discriminator=discriminator
 

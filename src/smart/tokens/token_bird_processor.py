@@ -81,27 +81,38 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_bird=True
 
+        self.use_goal=True
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
         tokenized_agent = self.tokenize_agent(data)
-        batch_number=torch.amax(tokenized_agent['batch']).item()+1
+        # batch_number=torch.amax(tokenized_agent['batch']).item()+1
+        #
+        # position=torch.zeros([batch_number,3],device=tokenized_agent['batch'].device)
+        #
+        # position[:,0]=0.6
+        # position[:,1]= 14.5
+        # position[:,2]=2.6
+        #
+        # orientation=torch.zeros_like(position[:,0])
+        # batch=torch.arange(batch_number,device=tokenized_agent['batch'].device)
+        #
+        # tokenized_map = {
+        #     #"pt_token": pt_token,
+        #     "position": position,
+        #     "orientation": orientation,
+        #     "batch": batch,
+        # }
+        goal_pos=torch.zeros_like(tokenized_agent["sampled_pos"][:,0])
 
-        position=torch.zeros([batch_number,3],device=tokenized_agent['batch'].device)
+        goal_pos[:,0]=0.6
+        goal_pos[:,1]= 14.5
+        goal_pos[:,2]=2.6
 
-        position[:,0]=0.6
-        position[:,1]= 14.5
-        position[:,2]=2.6
+        tokenized_agent["goal_pos"] = goal_pos
 
-        orientation=torch.zeros_like(position[:,0])
-        batch=torch.arange(batch_number,device=tokenized_agent['batch'].device)
-
-        tokenized_map = {
-            #"pt_token": pt_token,
-            "position": position,
-            "orientation": orientation,
-            "batch": batch,
-        }
+        tokenized_map={}
 
 
         tokenized_agent["light_idx"] = torch.zeros([0, 18])
