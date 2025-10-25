@@ -9,21 +9,37 @@ defaults:
 #  filename: "epoch_{epoch:03d}"
 #  save_last: link
 #  auto_insert_metric_name: false
+#model_checkpoint:
+#  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+#  dirpath: null
+#  filename: "epoch={epoch}-step={step}" #-val_closed_wosac={val_closed/wosac_likelihood/metametric:.4f}
+#  monitor: "step"
+#  verbose: false
+#  save_last: true
+#  save_top_k: 10
+#  mode: "max"
+#  auto_insert_metric_name: false
+#  save_weights_only: false
+#  every_n_train_steps: null
+#  train_time_interval: null
+#  every_n_epochs: null
+#  save_on_train_epoch_end: false
+
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
-  dirpath: null
-  filename: "epoch={epoch}-step={step}" #-val_closed_wosac={val_closed/wosac_likelihood/metametric:.4f}
-  monitor: "step"
+  dirpath: ${paths.checkpoints}        # or any directory you prefer
+  filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
+  monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
   verbose: false
   save_last: true
-  save_top_k: 16
-  mode: "max"
+  save_top_k: 8
+  mode: "max"                          # "max" since your metric increases with performance
   auto_insert_metric_name: false
   save_weights_only: false
   every_n_train_steps: null
   train_time_interval: null
   every_n_epochs: null
-  save_on_train_epoch_end: false
+  save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 model_summary:
   max_depth: -1

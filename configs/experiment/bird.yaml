@@ -9,7 +9,7 @@ model:
     lr: 5e-4
     lr_min_ratio: 1e-2
     token_processor:
-      agent_token_file: "bird.pkl" #my2048 #agent_vocab_555_s2
+      agent_token_file: "bird5.pkl" #my2048 #agent_vocab_555_s2
       map_token_sampling: # open-loop
         num_k: 1 # for k nearest neighbors
         temp: 1.0 # uniform sampling
@@ -31,11 +31,16 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     decoder:
-      num_historical_steps: 3
-      num_future_steps: 16
+#      num_historical_steps: 3
+#      num_future_steps: 16
       num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
+      a2a_neighbor: 10
+      hidden_dim: 64
+      num_freq_bands: 32
+      num_heads: 8
+      head_dim: 8
 
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird/2025-10-23_23-15-08/bc/8sbd8s5d/checkpoints/epoch=22-step=538315.ckpt'
@@ -47,6 +52,7 @@ trainer:
   limit_train_batches: 1.0
   #limit_val_batches: 1.0
   check_val_every_n_epoch: 1
+  #val_check_interval: 0.2
   val_check_interval: 0.2
   max_epochs: 64
   #gradient_clip_val: 0.0
@@ -55,9 +61,9 @@ data:
   train_batch_size: 3
   val_batch_size: 64
   test_batch_size: 10
-  num_workers: 1
-  train_raw_dir: ${paths.cache_root}/bird_pre #rawboth #_route #_03nuplan_cross2_03_map #training_map2_03_route #training_map2_03_pred #training_map2_03_pred #training_smart_highest #_raw #clean #training_map2_clean  #training_map2_2049 #training_inter10_raw_light  #training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
-  val_raw_dir: ${paths.cache_root}/bird_pre #_map2 #validation_map2 #validation_light #validation_map2
+  num_workers: 16
+  train_raw_dir: ${paths.cache_root}/bird_all #rawboth #_route #_03nuplan_cross2_03_map #training_map2_03_route #training_map2_03_pred #training_map2_03_pred #training_smart_highest #_raw #clean #training_map2_clean  #training_map2_2049 #training_inter10_raw_light  #training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
+  val_raw_dir: ${paths.cache_root}/bird_train #_map2 #validation_map2 #validation_light #validation_map2
 
 logger:
   wandb:

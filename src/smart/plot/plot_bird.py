@@ -1,7 +1,5 @@
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 def _to_np(x):
     if isinstance(x, torch.Tensor):
@@ -75,15 +73,71 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     maxs = np.nanmax(stack, axis=0)
     pads = 0.03 * np.maximum(1e-6, maxs - mins)
 
+    import matplotlib.pyplot as plt
+
     # Plot
     fig = plt.figure(figsize=(8.5, 7.5))
     ax = fig.add_subplot(111, projection='3d')
 
+
+
+    # token_error=np.linalg.norm(P[:,0,4::5]-G[:,2:],axis=-1)*M[:,2:]
+    #
+    # token_error_max=token_error.max(-1)
+    #
+    # print(token_error_max)
+
+
+
+
+    #0,-30,0
+
+    # print(np.linalg.norm(P[:,0,4::5]-G[:,2:],axis=-1))
+
+    #P[...,1]+=30
+    nan_mask= (P==0).all(axis=-1)
+
+    P[nan_mask] = np.nan
+
+
+    # print(np.linalg.norm(P[:,0]-np.array([30,-40,20])[None,None],axis=-1))#30,-40,20
+
+
     # Predicted rollouts (ALL agents × rollouts)
+
+    first_rollout_label = True
+
     for a in range(A):
-        for k in range(P.shape[1]):
-            traj = P[a, k]  # (T,3)
-            ax.plot(traj[:,0], traj[:,1], traj[:,2], alpha=alpha_pred, lw=lw_pred, color="tab:blue")
+       for k in range(P.shape[1]):
+            traj = P[a, k]  # (T, 3)
+
+            # Plot trajectory
+            ax.plot(
+                traj[:, 0], traj[:, 1], traj[:, 2],
+                alpha=alpha_pred, lw=lw_pred, color="tab:blue",
+                label="rollout" if first_rollout_label else None
+            )
+            first_rollout_label = False
+    # #valid = ~nan_mask[a,k]
+    #
+    # # Skip if no valid positions
+    # if not valid.any():
+    #     continue
+
+    #
+        # # --- show agent ID at its first valid position --- #
+        # first_idx = np.where(valid)[0][0].item()
+        # x0, y0, z0 = traj[first_idx].tolist()
+        #
+        # ax.text(
+        #     x0, y0, z0,
+        #     f"{int(a)}",  # display agent ID
+        #     fontsize=6,
+        #     color="black",
+        #     ha="center",
+        #     va="center",
+        #     backgroundcolor="white",
+        # )
 
     # Tokenized reference (masked)
     first_token_label = True

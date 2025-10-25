@@ -154,6 +154,10 @@ class AgentTokenEncoder(nn.Module):
             )  # [n_agent, n_step, 2]
             feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
+        feature_a[~token_mask]=0
+        if not self.discriminator:
+            agent_token_emb[~token_mask]=0
+
         if self.use_goal:
             if goal_pos is not None:
                 goal_vector_a = goal_pos[:,None]-pos_a[:,-n_step:]
@@ -215,9 +219,6 @@ class AgentTokenEncoder(nn.Module):
                 categorical_embs = None
 
 
-        feature_a[~token_mask]=0
-        if not self.discriminator:
-            agent_token_emb[~token_mask]=0
 
         x_a = self.x_a_emb(
             continuous_inputs=feature_a.view(-1, feature_a.size(-1)),

@@ -41,7 +41,7 @@ class TokenProcessor(torch.nn.Module):
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
-        self.shift = 1
+        self.shift = 5
         self.use_dynamic = False
 
         module_dir = os.path.dirname(__file__)
@@ -140,7 +140,9 @@ class TokenProcessor(torch.nn.Module):
         """
         # ! collate width/length, traj tokens for current batch
 
-        token_traj_all=token_traj=self.agent_token_all[None,:,:].repeat(len(data["agent"]["valid_mask"]),1,1)
+        token_traj_all=self.agent_token_all[None,:,:].repeat(len(data["agent"]["valid_mask"]),1,1,1)
+
+        token_traj=token_traj_all[:,:,-2:]
 
         # ! get raw trajectory data
         valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
@@ -151,7 +153,7 @@ class TokenProcessor(torch.nn.Module):
         heading= wrap_angle(torch.arctan2(vel[:,:,1], vel[:,:,0]))
 
         pos=pos[:,1:]
-        valid=valid[:,1:]
+        valid=valid[:,1:] & valid[:,:-1]
 
         tokenized_agent = {
             "num_graphs": data.num_graphs,
@@ -172,8 +174,6 @@ class TokenProcessor(torch.nn.Module):
 
         data["agent"]["position"]=pos
         data["agent"]["valid_mask"]=valid
-
-
 
         token_dict = self._match_agent_token(
             valid=valid,
@@ -223,8 +223,8 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [],
         }
 
-        token_xy=token_traj[:,:,:2]
-        token_z=token_traj[:,:,2:]
+        token_xy=token_traj[:,:,:,:2]
+        token_z=token_traj[:,:,:,2:]
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
@@ -238,29 +238,29 @@ class TokenProcessor(torch.nn.Module):
             gt_contour=pos[:, i].unsqueeze(1)
 
             # ! tokenize without sampling
-            token_world_gt = transform_to_global(
-                pos_local=token_xy,  # [n_agent, n_token*4, 2]
+            token_world_xy = transform_to_global(
+                pos_local=token_xy.flatten(1, 2),  # [n_agent, n_token*4, 2]
                 head_local=None,
                 pos_now=prev_pos[:,:2],  # [n_agent, 2]
                 head_now=prev_head,  # [n_agent]
-            )[0]
+            )[0].view(*token_xy.shape)
 
-            token_world_gt_z=prev_pos[:,None,2:]+token_z
+            token_world_gt_z=prev_pos[:,None,None,2:]+token_z
 
-            token_world_gt=torch.cat((token_world_gt, token_world_gt_z), dim=-1)
+            token_world_gt=torch.cat((token_world_xy, token_world_gt_z), dim=-1)
 
             token_idx_gt = torch.argmin(
-                torch.norm(token_world_gt - gt_contour, dim=-1), dim=-1
+                torch.norm(token_world_gt[:,:,-1] - gt_contour, dim=-1), dim=-1
             )  # [n_agent]
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
-            dxy = token_contour_gt[:,:2] - prev_pos[:,:2]
+            dxy = token_contour_gt[:,-1] - token_contour_gt[:,-2]
             prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
             prev_pos = pos[:, i].clone()
-            prev_pos[_valid_mask] = token_contour_gt[_valid_mask]
+            prev_pos[_valid_mask] = token_contour_gt[:,-1][_valid_mask]
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
             out_dict["gt_pos"].append(

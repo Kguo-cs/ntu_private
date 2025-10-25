@@ -31,7 +31,7 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-#from src.smart.plot.plot_bird import plot_bird_from_tensors
+from src.smart.plot.plot_bird import plot_bird_from_tensors
 
 class SMART(LightningModule):
 
@@ -256,11 +256,9 @@ class SMART(LightningModule):
                 #     vmin=0.0, vmax=2.0,  # shared color scale
                 #     cmap_name="RdYlGn"
                 # )
-                if self.token_processor.use_bird:
-                    pred_traj.append(pred["sampled_pos"][:,2:])
+                pred_traj.append(pred["pred_traj_10hz"])
 
-                else:
-                    pred_traj.append(pred["pred_traj_10hz"])
+                if not self.token_processor.use_bird:
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
 
@@ -275,9 +273,14 @@ class SMART(LightningModule):
             # pred_head=torch.load("/home/ke/code/catk/src/waymo_data/pred_head.pt").cuda()
             #self.all_time+=time.time()-t1
           #  self.all_count+=    self.n_rollout_closed_val*16
-          #   plot_bird_from_tensors(pred_traj,tokenized_agent['sampled_pos'],
-          #             tokenized_agent["gt_pos_raw"],tokenized_agent["valid_mask"],
-          #             )
+
+            if self.token_processor.use_bird:
+                batch=pred["batch"]
+                save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
+                plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
+                          tokenized_agent["gt_pos_raw"][batch==0],tokenized_agent["valid_mask"][batch==0],
+                                       show=False,      save_path=save_path
+                          )
 
             #print(time.time()-t1)
             #self.wosac_metrics = WOSACMetrics("val_closed")

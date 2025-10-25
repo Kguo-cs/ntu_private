@@ -453,26 +453,24 @@ class SMARTAgentDecoder(nn.Module):
          }
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
-        sampled_idx=tokenized_agent["sampled_idx"][:, :current_step].clone()
-        mask = tokenized_agent["valid_mask"][:, :current_step].clone()
-        pos_a = tokenized_agent["sampled_pos"][:, :current_step].clone()
-        head_a = tokenized_agent["sampled_heading"][:, :current_step].clone()
+        gt_valid=tokenized_agent["valid_mask"].clone()
+        gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
+        gt_pos=tokenized_agent["sampled_pos"].clone()
+        gt_head=tokenized_agent["sampled_heading"].clone()
+
+        sampled_idx=gt_sampled_idx[:, :current_step]
+        mask = gt_valid[:, :current_step]
+        pos_a = gt_pos[:, :current_step]
+        head_a = gt_head[:, :current_step]
 
         token_agent_shape=tokenized_agent["token_agent_shape"]
         token_traj=tokenized_agent["token_traj"]
         token_traj_all = tokenized_agent["token_traj_all"]
         light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
 
-
         mask_lg=light_idx<self.light_type
 
         n_agent = sampled_idx.shape[0]
-
-        if post_sampling:
-            gt_valid=tokenized_agent["valid_mask"]
-            gt_pos=tokenized_agent["sampled_pos"]
-            gt_head=tokenized_agent["sampled_heading"]
-            gt_sampled_idx = tokenized_agent["sampled_idx"]
 
         pred_traj_10hz = []
         pred_head_10hz = []
@@ -634,16 +632,21 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.token_processor.use_bird:
                 token_traj_global_xy = transform_to_global(
-                    pos_local=next_token_traj_all[:,None,:2],  # [n_agent, 6*4, 2]
+                    pos_local=next_token_traj_all[:,:,:2],  # [n_agent, 6*4, 2]
                     head_local=None,
                     pos_now=pos_a[:, -1,:2],  # [n_agent, 2]
                     head_now=head_a[:, -1],  # [n_agent]
-                )[0][:,0]
-                token_traj_global_z=next_token_traj_all[:,2:]+pos_a[:, -1,2:]
+                )[0]
+                token_traj_global_z=next_token_traj_all[:,:,2:]+pos_a[:, -1:,2:]
 
-                pos_a_next=torch.cat([token_traj_global_xy, token_traj_global_z], dim=1)
+                pred_traj=torch.cat([token_traj_global_xy, token_traj_global_z], dim=-1)
 
-                diff_xy_next = token_traj_global_xy - pos_a[:, -1, :2]
+                pred_traj[~mask[:,-1]]=0
+                pred_traj_10hz.append(pred_traj)
+
+                pos_a_next=pred_traj[:,-1]
+
+                diff_xy_next = pred_traj[:, -1, :2] - pos_a[:, -2, :2]
                 head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
             else:
@@ -692,12 +695,24 @@ class SMARTAgentDecoder(nn.Module):
 
                 mask =torch.cat([mask,valid_mask[:,None]], dim=1)
             else:
+
+                new_agent_mask=~mask[:,-1]  & gt_valid[:,t]
+
+                pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
+                head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
+                sampled_idx[new_agent_mask,-1]=gt_sampled_idx[new_agent_mask, t]
+                next_mask= mask[:,-1] | new_agent_mask
+
+                # print(t,mask[294],pred_traj[294])
+
                 #if "gt_z_raw" in tokenized_agent.keys():
-                mask =torch.cat([mask,torch.ones_like(mask[:,-1:]).to(torch.bool)], dim=1)
+                mask =torch.cat([mask,next_mask[:,None]], dim=1)
                 # else:
                 #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
                 mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
-                token_mask =torch.cat([token_mask,torch.ones_like(token_mask[:,-1:]).to(torch.bool)], dim=1)
+                token_mask =torch.cat([token_mask,next_mask[:,None]], dim=1)
+
+
 
             # if self.pred_vis:
             #     vis=torch.rand_like(visibility[:,-1:,0])<torch.sigmoid(visibility[:,-1:,0])
@@ -731,8 +746,11 @@ class SMARTAgentDecoder(nn.Module):
             "light_idx": light_idx,
         }
 
-        if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+        if len(pred_traj_10hz):
             out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
+
+
+        if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
