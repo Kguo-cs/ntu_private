@@ -35,7 +35,7 @@ model:
       num_future_steps: 16
       num_agent_layers: 1
       pl2a_radius: 100
-      #a2a_radius: 100
+      a2a_radius: 100
 
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird/2025-10-23_23-15-08/bc/8sbd8s5d/checkpoints/epoch=22-step=538315.ckpt'
