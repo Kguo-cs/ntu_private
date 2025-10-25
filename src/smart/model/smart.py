@@ -83,6 +83,7 @@ class SMART(LightningModule):
 
         self.video_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         self.video_dir = Path(self.video_dir) / "videos"
+        self.video_dir.mkdir(exist_ok=True, parents=True)
 
         self.training_rollout_sampling = model_config.training_rollout_sampling
         self.validation_rollout_sampling = model_config.validation_rollout_sampling

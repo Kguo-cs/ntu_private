@@ -27,7 +27,7 @@ defaults:
 
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
-  dirpath: ${paths.checkpoints}        # or any directory you prefer
+  dirpath: null     # or any directory you prefer
   filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
   monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
   verbose: false
