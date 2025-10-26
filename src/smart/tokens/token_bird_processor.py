@@ -259,7 +259,7 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
 
-            token_valid=min_dist<0.5
+            token_valid=min_dist<1
             _valid_mask[~token_valid]=False
 
 
