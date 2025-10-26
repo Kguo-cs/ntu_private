@@ -164,3 +164,71 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
         plt.show()
     else:
         plt.close(fig)
+
+    import matplotlib.animation as animation
+
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_title(title)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+
+    rollout_idx = torch.randint(0, K, (A,)) if max_rollouts_per_agent is None else \
+                  torch.arange(min(K, max_rollouts_per_agent))
+
+    lines_pred, lines_gt, lines_sampled = [], [], []
+
+    alpha_gt=0.5
+
+    alpha_pred=1
+
+    fps=29.97/5
+
+    # Initialize line objects
+    for a in range(A):
+        (lp,) = ax.plot([], [], [], color="tab:blue", lw=lw_pred, alpha=alpha_pred)
+        (lg,) = ax.plot([], [], [], color="tab:green", lw=lw_ref, alpha=alpha_gt)
+        lines_pred.append(lp)
+        lines_gt.append(lg)
+
+    # Set axis limits
+    all_coords = torch.cat([pred_traj.reshape(-1, 3),
+                            gt_pos_raw.reshape(-1, 3),
+                            sampled_pos.reshape(-1, 3)], dim=0)
+    mins = all_coords.min(0).values.cpu().numpy()
+    maxs = all_coords.max(0).values.cpu().numpy()
+    for i, label in enumerate(["x", "y", "z"]):
+        getattr(ax, f"set_{label}lim")(mins[i], maxs[i])
+
+    # Animation update function
+    def update(frame_idx):
+        for a in range(A):
+
+            traj_pred = pred_traj[a, rollout_idx[a] if rollout_idx.ndim == 1 else a % len(rollout_idx)].cpu().numpy()
+            traj_gt = gt_pos_raw[a].cpu().numpy()
+
+            lines_pred[a].set_data(traj_pred[:frame_idx, 0], traj_pred[:frame_idx, 1])
+            lines_pred[a].set_3d_properties(traj_pred[:frame_idx, 2])
+
+            lines_gt[a].set_data(traj_gt[:frame_idx, 0], traj_gt[:frame_idx, 1])
+            lines_gt[a].set_3d_properties(traj_gt[:frame_idx, 2])
+
+        ax.set_title(f"{title}\nFrame {frame_idx}/{T}")
+        return lines_pred + lines_gt
+
+    ani = animation.FuncAnimation(
+        fig, update, frames=T, interval=1000/fps, blit=False
+    )
+
+    # Save to video
+    if save_path:
+        ani.save(save_path, writer="ffmpeg", fps=fps)
+        print(f"✅ Saved video to: {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+

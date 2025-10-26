@@ -116,7 +116,7 @@ class TokenProcessor(torch.nn.Module):
 
 
         tokenized_agent["light_idx"] = torch.zeros([0, 18])
-        tokenized_agent["token_mask"]=tokenized_agent["valid_mask"]
+       # tokenized_agent["token_mask"]=tokenized_agent["valid_mask"]
 
         return tokenized_map, tokenized_agent
 
@@ -221,6 +221,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
+            'token_mask': []
         }
 
         token_xy=token_traj[:,:,:,:2]
@@ -229,7 +230,10 @@ class TokenProcessor(torch.nn.Module):
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
             _invalid_mask = ~_valid_mask
-            out_dict["valid_mask"].append(_valid_mask)
+
+            out_dict["token_mask"].append(_valid_mask)
+
+            # out_dict["valid_mask"].append(_valid_mask)
 
             # #! gt_contour: [n_agent, 4, 2] in global coord
             # gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
@@ -249,11 +253,15 @@ class TokenProcessor(torch.nn.Module):
 
             token_world_gt=torch.cat((token_world_xy, token_world_gt_z), dim=-1)
 
-            token_idx_gt = torch.argmin(
+            min_dist, token_idx_gt = torch.min(
                 torch.norm(token_world_gt[:,:,-1] - gt_contour, dim=-1), dim=-1
             )  # [n_agent]
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
+
+            token_valid=min_dist<0.5
+            _valid_mask[~token_valid]=False
+
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -261,6 +269,13 @@ class TokenProcessor(torch.nn.Module):
             prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
             prev_pos = pos[:, i].clone()
             prev_pos[_valid_mask] = token_contour_gt[:,-1][_valid_mask]
+
+            _valid_mask=valid[:, i]
+
+            _invalid_mask = ~valid[:, i]
+
+            out_dict["valid_mask"].append(_valid_mask)
+
             # add to output dict
             out_dict["gt_idx"].append(token_idx_gt)
             out_dict["gt_pos"].append(
