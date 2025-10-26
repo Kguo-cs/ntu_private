@@ -174,9 +174,6 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
 
-    rollout_idx = torch.randint(0, K, (A,)) if max_rollouts_per_agent is None else \
-                  torch.arange(min(K, max_rollouts_per_agent))
-
     lines_pred, lines_gt, lines_sampled = [], [], []
 
     alpha_gt=0.5
@@ -194,8 +191,7 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
 
     # Set axis limits
     all_coords = torch.cat([pred_traj.reshape(-1, 3),
-                            gt_pos_raw.reshape(-1, 3),
-                            sampled_pos.reshape(-1, 3)], dim=0)
+                            gt_pos_raw.reshape(-1, 3)], dim=0)
     mins = all_coords.min(0).values.cpu().numpy()
     maxs = all_coords.max(0).values.cpu().numpy()
     for i, label in enumerate(["x", "y", "z"]):
@@ -205,14 +201,18 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     def update(frame_idx):
         for a in range(A):
 
-            traj_pred = pred_traj[a, rollout_idx[a] if rollout_idx.ndim == 1 else a % len(rollout_idx)].cpu().numpy()
-            traj_gt = gt_pos_raw[a].cpu().numpy()
+            traj_pred = P[a, 0]
+            traj_gt = G[a]
 
-            lines_pred[a].set_data(traj_pred[:frame_idx, 0], traj_pred[:frame_idx, 1])
-            lines_pred[a].set_3d_properties(traj_pred[:frame_idx, 2])
+            if traj_pred[frame_idx, 0]!=np.nan :
 
-            lines_gt[a].set_data(traj_gt[:frame_idx, 0], traj_gt[:frame_idx, 1])
-            lines_gt[a].set_3d_properties(traj_gt[:frame_idx, 2])
+                lines_pred[a].set_data(traj_pred[:frame_idx, 0], traj_pred[:frame_idx, 1])
+                lines_pred[a].set_3d_properties(traj_pred[:frame_idx, 2])
+
+            if traj_gt[frame_idx, 0]!=np.nan :
+
+                lines_gt[a].set_data(traj_gt[:frame_idx, 0], traj_gt[:frame_idx, 1])
+                lines_gt[a].set_3d_properties(traj_gt[:frame_idx, 2])
 
         ax.set_title(f"{title}\nFrame {frame_idx}/{T}")
         return lines_pred + lines_gt
@@ -223,7 +223,7 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
 
     # Save to video
     if save_path:
-        ani.save(save_path, writer="ffmpeg", fps=fps)
+        ani.save(save_path.with_suffix(".mp4"), writer="ffmpeg", fps=fps)
         print(f"✅ Saved video to: {save_path}")
 
     if show:

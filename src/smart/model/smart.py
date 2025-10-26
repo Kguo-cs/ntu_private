@@ -275,13 +275,13 @@ class SMART(LightningModule):
             #self.all_time+=time.time()-t1
           #  self.all_count+=    self.n_rollout_closed_val*16
 
-            if self.token_processor.use_bird:
-                batch=pred["batch"]
-                save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
-                plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
-                          tokenized_agent["gt_pos_raw"][batch==0],tokenized_agent["valid_mask"][batch==0],
-                                       show=False,      save_path=save_path
-                          )
+            # if self.token_processor.use_bird:
+            #     batch=pred["batch"]
+            #     save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
+            #     plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
+            #               tokenized_agent["gt_pos_raw"][batch==0],tokenized_agent["valid_mask"][batch==0],
+            #                            show=False,      save_path=save_path
+            #               )
 
             #print(time.time()-t1)
             #self.wosac_metrics = WOSACMetrics("val_closed")
