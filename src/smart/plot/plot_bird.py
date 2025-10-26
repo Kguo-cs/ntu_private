@@ -167,55 +167,98 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
 
     import matplotlib.animation as animation
 
-    fig = plt.figure(figsize=(6, 6))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_title(title)
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
+    fig = plt.figure(figsize=(12, 6))
+    ax_gt = fig.add_subplot(1, 2, 1, projection='3d')
+    ax_pred = fig.add_subplot(1, 2, 2, projection='3d')
 
-    lines_pred, lines_gt, lines_sampled = [], [], []
+    ax_gt.set_title("Ground Truth")
+    ax_gt.set_xlabel("X");
+    ax_gt.set_ylabel("Y");
+    ax_gt.set_zlabel("Z")
 
-    alpha_gt=0.5
+    ax_pred.set_title("Prediction")
+    ax_pred.set_xlabel("X");
+    ax_pred.set_ylabel("Y");
+    ax_pred.set_zlabel("Z")
 
-    alpha_pred=1
+    fps = 29.97 / 5
 
-    fps=29.97/5
-
-    # Initialize line objects
-    for a in range(A):
-        (lp,) = ax.plot([], [], [], color="tab:blue", lw=lw_pred, alpha=alpha_pred)
-        (lg,) = ax.plot([], [], [], color="tab:green", lw=lw_ref, alpha=alpha_gt)
-        lines_pred.append(lp)
-        lines_gt.append(lg)
-
-    # Set axis limits
+    # --- compute shared axis limits from all coords (safe conversion) --- #
     all_coords = torch.cat([pred_traj.reshape(-1, 3),
                             gt_pos_raw.reshape(-1, 3)], dim=0)
     mins = all_coords.min(0).values.cpu().numpy()
     maxs = all_coords.max(0).values.cpu().numpy()
     for i, label in enumerate(["x", "y", "z"]):
-        getattr(ax, f"set_{label}lim")(mins[i], maxs[i])
+        getattr(ax_gt, f"set_{label}lim")(mins[i], maxs[i])
+        getattr(ax_pred, f"set_{label}lim")(mins[i], maxs[i])
 
-    # Animation update function
+    # --- pre-convert tensors to numpy arrays (faster in update) --- #
+    P_np = P # shape (A, K, T, 3) or (A, T, 3) depending on your variable
+    # If P is (A, T, 3) (you used P[a,0] earlier), adapt: ensure shape is (A, K, T, 3)
+    if P_np.ndim == 3:
+        # assume shape (A, T, 3) and single rollout
+        P_np = P_np[:, None, :, :]  # becomes (A, 1, T, 3)
+
+    G_np = G_masked  # (A, T, 3)
+
+    A = P_np.shape[0]
+    T = P_np.shape[2]
+
+    # --- create line artists: one per agent per axis --- #
+    lines_gt = []
+    lines_pred = []
+    alpha_gt = 0.5
+    alpha_pred = 1.0
+
+    for a in range(A):
+        (lg,) = ax_gt.plot([], [], [], color="tab:green", lw=lw_ref, alpha=alpha_gt)
+        (lp,) = ax_pred.plot([], [], [], color="tab:blue", lw=lw_pred, alpha=alpha_pred)
+        lines_gt.append(lg)
+        lines_pred.append(lp)
+
+    # --- robust helper to set 3D line from finite points only --- #
+    def set_3d_line_from_traj(line_artist, traj_slice):
+        """
+        traj_slice: (N,3) numpy array (may contain NaN)
+        if there are any finite rows, set the line to those points (in order).
+        otherwise clear the line.
+        """
+        if traj_slice.size == 0:
+            line_artist.set_data([], [])
+            line_artist.set_3d_properties([])
+            return
+
+        finite_mask = np.isfinite(traj_slice).all(axis=1)
+        if finite_mask.any():
+            pts = traj_slice[finite_mask]
+            line_artist.set_data(pts[:, 0], pts[:, 1])
+            line_artist.set_3d_properties(pts[:, 2])
+        else:
+            line_artist.set_data([], [])
+            line_artist.set_3d_properties([])
+
+    # --- update function updates both subplots each frame --- #
     def update(frame_idx):
+        artists = []
         for a in range(A):
+            traj_pred = P_np[a, 0]  # choose rollout 0 (shape (T,3))
+            traj_gt = G_np[a]
 
-            traj_pred = P[a, 0]
-            traj_gt = G[a]
+            # slice up to and including current frame
+            endp = min(frame_idx + 1, traj_pred.shape[0])
+            endg = min(frame_idx + 1, traj_gt.shape[0])
 
-            if traj_pred[frame_idx, 0]!=np.nan :
+            set_3d_line_from_traj(lines_pred[a], traj_pred[:endp])
+            set_3d_line_from_traj(lines_gt[a], traj_gt[:endg])
 
-                lines_pred[a].set_data(traj_pred[:frame_idx, 0], traj_pred[:frame_idx, 1])
-                lines_pred[a].set_3d_properties(traj_pred[:frame_idx, 2])
+            artists.append(lines_pred[a])
+            artists.append(lines_gt[a])
 
-            if traj_gt[frame_idx, 0]!=np.nan :
+        ax_gt.set_title(f"Ground Truth\nFrame {frame_idx}/{T - 1}")
+        ax_pred.set_title(f"Prediction\nFrame {frame_idx}/{T - 1}")
 
-                lines_gt[a].set_data(traj_gt[:frame_idx, 0], traj_gt[:frame_idx, 1])
-                lines_gt[a].set_3d_properties(traj_gt[:frame_idx, 2])
-
-        ax.set_title(f"{title}\nFrame {frame_idx}/{T}")
-        return lines_pred + lines_gt
+        # return list of artists to animate
+        return artists
 
     ani = animation.FuncAnimation(
         fig, update, frames=T, interval=1000/fps, blit=False
