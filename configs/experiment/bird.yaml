@@ -50,20 +50,20 @@ model:
 
 trainer:
   limit_train_batches: 1.0
-  #limit_val_batches: 1.0
+  limit_val_batches: 8
   check_val_every_n_epoch: 1
-  #val_check_interval: 0.2
-  val_check_interval: 0.00002
+  val_check_interval: 0.5
+  #val_check_interval: 0.00002
   max_epochs: 64
   #gradient_clip_val: 0.0
 
 data:
   train_batch_size: 3
-  val_batch_size: 64
+  val_batch_size: 40
   test_batch_size: 10
   num_workers: 16
   train_raw_dir: ${paths.cache_root}/bird_all #rawboth #_route #_03nuplan_cross2_03_map #training_map2_03_route #training_map2_03_pred #training_map2_03_pred #training_smart_highest #_raw #clean #training_map2_clean  #training_map2_2049 #training_inter10_raw_light  #training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
-  val_raw_dir: ${paths.cache_root}/bird_train #_map2 #validation_map2 #validation_light #validation_map2
+  val_raw_dir: ${paths.cache_root}/bird_all #_map2 #validation_map2 #validation_light #validation_map2
 
 logger:
   wandb:

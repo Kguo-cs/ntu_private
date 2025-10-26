@@ -31,6 +31,11 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     G = _to_np(gt_pos_raw)      # (A,T,3)
     M = _to_np(gt_valid_raw)    # (A,T)
 
+    S=S[:,2:]
+    G=G[:,2:]
+    M=M[:,2:]
+    P=P[:,:,4::5]
+
     assert S.ndim == 3 and S.shape[-1] == 3, f"sampled_pos must be (A,T,3), got {S.shape}"
     assert G.ndim == 3 and G.shape[-1] == 3, f"gt_pos_raw must be (A,T,3), got {G.shape}"
     assert M.shape[:2] == S.shape[:2], f"gt_valid_raw must match (A,T), got {M.shape}"
@@ -79,23 +84,9 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     fig = plt.figure(figsize=(8.5, 7.5))
     ax = fig.add_subplot(111, projection='3d')
 
-
-
-    # token_error=np.linalg.norm(P[:,0,4::5]-G[:,2:],axis=-1)*M[:,2:]
-    #
-    # token_error_max=token_error.max(-1)
-    #
-    # print(token_error_max)
-
-
-
-
-    #0,-30,0
-
-    # print(np.linalg.norm(P[:,0,4::5]-G[:,2:],axis=-1))
-
-    #P[...,1]+=30
     nan_mask= (P==0).all(axis=-1)
+
+    nan_mask=nan_mask | ~M[:,None]
 
     P[nan_mask] = np.nan
 

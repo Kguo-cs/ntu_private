@@ -27,15 +27,20 @@ import torch
 import numpy as np
 import random
 
-from typing import Iterable, Pattern, Union
+#import torch.multiprocessing as mp
 
-os.environ["WANDB_SILENT"] = "true"
+# mp.set_start_method("spawn", force=True)
+# os.environ["WANDB_MODE"] = "offline"  # offline logs to ./wandb, no server
+# os.environ["WANDB_START_METHOD"] = "thread"  # safer with dataloader workers
+# os.environ.setdefault("WANDB__SERVICE_WAIT", "300")
+# # Optional: fully disable the service process (prevents socket at all)
+# os.environ["WANDB__DISABLE_SERVICE"] = "true"
+os.environ.setdefault("WANDB_WATCH", "false")  # disables any accidental wandb.watch()
 
-wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
-wandb.require("service")  # forces the new service backend
-# Optional: use thread start (very robust in multiprocess settings)
-settings = wandb.Settings(start_method="thread")
-os.environ["WANDB__SERVICE_WAIT"] = "3000"
+# wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+# wandb.require("service")  # forces the new service backend
+# # Optional: use thread start (very robust in multiprocess settings)
+# settings = wandb.Settings(start_method="thread")
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
@@ -44,8 +49,9 @@ sys.path.append('/home/ke/code/catk')
 sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
-sys.path.append('/home/ke/keguo/sim')
 sys.path.append('/home/guoke/sim')
+sys.path.append('/home/ke/keguo/sim')
+
 working_dir=os.getcwd()
 
 print('keguo' in working_dir or "guoke" in working_dir)
@@ -60,7 +66,7 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-torch.set_float32_matmul_precision("highest")# #“highest” (default),
+torch.set_float32_matmul_precision("highest")#  #“highest” (default),
 
 # seed = 42
 # random.seed(seed)
@@ -126,75 +132,8 @@ def run(cfg: DictConfig) -> None:
     elif cfg.action == "finetune":
         log.info("Starting finetuning!")
         model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
-
-        # def load_matching(
-        #         dst_module: torch.nn.Module,
-        #         src_module: torch.nn.Module,
-        #         skip: Iterable[Union[str, Pattern]] = (),
-        #         slice_overlapping: bool = False,  # set True only if you want partial copies
-        # ) -> dict:
-        #     """
-        #     Copy params from src_module -> dst_module, but only when names match and shapes match.
-        #     Optionally skip keys by substring / regex. Optionally copy overlapping slices.
-        #     Returns a summary dict with what was loaded / skipped.
-        #     """
-        #     dst_sd = dst_module.state_dict()
-        #     src_sd = src_module.state_dict()
-        #
-        #     def should_skip(k: str) -> bool:
-        #         for pat in skip:
-        #             if isinstance(pat, str):
-        #                 if pat in k:
-        #                     return True
-        #             else:  # regex
-        #                 if re.search(pat, k):
-        #                     return True
-        #         return False
-        #
-        #     to_load = {}
-        #     loaded, skipped, sliced = [], [], []
-        #
-        #     for k, w in src_sd.items():
-        #         if should_skip(k):  # explicit skip
-        #             skipped.append((k, 'pattern'))
-        #             continue
-        #         if k not in dst_sd:  # name not present in dst
-        #             skipped.append((k, 'missing in dst'))
-        #             continue
-        #
-        #         dw = dst_sd[k]
-        #         if w.shape == dw.shape:  # perfect shape match
-        #             to_load[k] = w
-        #             loaded.append(k)
-        #         elif slice_overlapping and w.ndim == dw.ndim:
-        #             # copy overlapping slice (use with caution)
-        #             take = tuple(slice(0, min(a, b)) for a, b in zip(w.shape, dw.shape))
-        #             tmp = dw.clone()
-        #             tmp[take] = w[take]
-        #             to_load[k] = tmp
-        #             sliced.append((k, w.shape, dw.shape))
-        #         else:
-        #             skipped.append((k, f'shape {tuple(w.shape)} -> {tuple(dw.shape)}'))
-        #
-        #     # merge and load without warnings
-        #     dst_sd.update(to_load)
-        #     dst_module.load_state_dict(dst_sd, strict=False)
-        #
-        #     return {"loaded": loaded, "sliced": sliced, "skipped": skipped}
-        #
-        # # model.encoder.discriminator.load_state_dict(model.encoder.agent_encoder.state_dict(), strict=False)
-        # info = load_matching(
-        #     model.encoder.discriminator,
-        #     model.encoder.agent_encoder,
-        #     skip=("interative_decoder.token_predict_head",)  # substring match
-        #     # slice_overlapping=False   # keep False to fully skip mismatched tensors
-        # )
-
-        if model.encoder.use_kl_penalty:
-            model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
-            if model.bc_map_net is not None:
-                model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule)#, ckpt_path=cfg.get("ckpt_path")
+        #model.target_net.load_state_dict(model.encoder.agent_encoder.state_dict())
+        trainer.fit(model=model, datamodule=datamodule)
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
