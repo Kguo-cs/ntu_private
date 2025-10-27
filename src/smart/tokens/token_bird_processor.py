@@ -116,7 +116,7 @@ class TokenProcessor(torch.nn.Module):
 
 
         tokenized_agent["light_idx"] = torch.zeros([0, 18])
-       # tokenized_agent["token_mask"]=tokenized_agent["valid_mask"]
+        tokenized_agent["rand_mask"] =None
 
         return tokenized_map, tokenized_agent
 
