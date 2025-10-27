@@ -35,14 +35,14 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.00002
-  max_epochs: 64
+  max_epochs: 32
   #gradient_clip_val: 0.0
 
 data: 
-  train_batch_size: 40
+  train_batch_size: 56
   val_batch_size: 32
   test_batch_size: 10
-  num_workers: 1
+  num_workers: 8
 
 #action: validate
 #action: finetune
