@@ -224,8 +224,7 @@ class InterativeDecoder(nn.Module):
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
                       train_repeat_mask,
-                      head_a,
-
+                      head_a
                       ):
 
         for layer_i in range(self.num_layers):

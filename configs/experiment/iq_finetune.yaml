@@ -49,6 +49,7 @@ logger:
     job_type: ""
     resume: allow
 
+task_name: AIRL152_allvalidrollout0_355_goal
 
 trainer:
   limit_train_batches: 1.0

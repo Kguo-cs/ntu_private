@@ -47,6 +47,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird_alla2a10_token1/2025-10-26_23-10-14/bird/8zfoz8dk/checkpoints/last.ckpt'
 
+task_name: bird_alla2a5_val8
 
 
 
