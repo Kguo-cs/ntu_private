@@ -384,16 +384,16 @@ class SMARTAgentDecoder(nn.Module):
         else:
             route_map_index = None
 
-        next_token_logits,feat_a,proposal,rewards,noise=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
+        next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
-        return next_token_logits,next_light_logits,rewards,noise,proposal,feat_a
+        return next_token_logits,edge_index_a2a,rewards,weight,proposal,feat_a
 
     def forward(
             self,
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
-    ) -> Dict[str, torch.Tensor]:
+    ) :
 
         light_idx = tokenized_agent["light_idx"].clone()
 
@@ -421,7 +421,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
-        next_token_logits,next_light_logits,rewards,noise,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,edge_index_a2a,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["token_mask"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -433,9 +433,9 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 latent_z=tokenized_agent["latent_z"])
 
         tokenized_agent["next_token_logits"] = next_token_logits
-        tokenized_agent["next_light_logits"] = next_light_logits
-        tokenized_agent["feat_a"] =feat_a.detach()
-        tokenized_agent["feat_a_nodetach"] =feat_a
+        tokenized_agent["edge_index_a2a"] = edge_index_a2a
+        tokenized_agent["feat_a"] = feat_a.detach()
+        tokenized_agent["feat_a_nodetach"] = feat_a
         tokenized_agent["proposal"] = proposal
 
         # tokenized_agent["agent_token_emb"]=agent_token_emb
@@ -445,13 +445,11 @@ class SMARTAgentDecoder(nn.Module):
         next_map_token_logits=None
 
         return {
-            #"proposal":proposal,
-            "noise":noise,
             "goal_q":None,
-            "light_q": next_light_logits,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
             'next_map_token_logits':next_map_token_logits
          }
+
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
 
         gt_valid=tokenized_agent["valid_mask"].clone()
@@ -715,7 +713,7 @@ class SMARTAgentDecoder(nn.Module):
                 # else:
                 #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
                 mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
-                token_mask =torch.cat([token_mask,next_mask[:,None]], dim=1)
+                token_mask =torch.cat([token_mask,torch.ones_like(token_mask[:,-1:])], dim=1)
 
 
 

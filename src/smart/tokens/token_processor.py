@@ -210,7 +210,7 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent['type']=tokenized_agent['type'].long()
 
-        tokenized_agent["token_mask"]=None
+        tokenized_agent["token_mask"]=torch.zeros([0,18])
 
         return tokenized_map, tokenized_agent
 

@@ -223,7 +223,10 @@ class InterativeDecoder(nn.Module):
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask):
+                      train_repeat_mask,
+                      head_a,
+
+                      ):
 
         for layer_i in range(self.num_layers):
 
@@ -432,7 +435,7 @@ class InterativeDecoder(nn.Module):
 
                     interact_logits=next_token_logits[:,:,:1]*weight[:,None]
 
-                    interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=mask_a.shape[0]*n_step)#[0]
+                    interact_logits_sum = scatter_sum(interact_logits, end_idx, dim=0, dim_size=head_a.shape[0]*n_step)#[0]
 
                     if train_repeat_mask is not None:
                         interact_logits_sum=interact_logits_sum[train_repeat_mask]
@@ -466,7 +469,7 @@ class InterativeDecoder(nn.Module):
 
                 weighted_nei_reward=flatten_reward[edge_index_a2a[0]]*weight2
 
-                nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=mask_a.shape[0]*n_step)
+                nei_sum = scatter_sum(weighted_nei_reward, end_idx, dim=0, dim_size=head_a.shape[0]*n_step)
 
                 nei_sum_rewards=nei_sum[train_repeat_mask].view( n_step,  -1).transpose(0, 1).detach()
 
@@ -609,6 +612,6 @@ class InterativeDecoder(nn.Module):
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask)
+                      train_repeat_mask,head_a)
 
-        return next_token_logits, feat_a, proposal, rewards, noise
+        return next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a
