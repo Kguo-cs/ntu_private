@@ -39,6 +39,22 @@ trainer:
   max_epochs: 32
   #gradient_clip_val: 0.0
 
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: null     # or any directory you prefer
+  filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
+  monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
+  verbose: false
+  save_last: true
+  save_top_k: 8
+  mode: "max"                          # "max" since your metric increases with performance
+  auto_insert_metric_name: false
+  save_weights_only: false
+  every_n_train_steps: null
+  train_time_interval: null
+  every_n_epochs: null
+  save_on_train_epoch_end: false       # <== important, disables save after training epoch
+
 data: 
   train_batch_size: 56
   val_batch_size: 32
