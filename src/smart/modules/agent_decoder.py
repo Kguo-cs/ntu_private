@@ -212,7 +212,8 @@ class SMARTAgentDecoder(nn.Module):
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch'],
-            goal_pos=tokenized_agent["goal_pos"]
+            goal_pos=tokenized_agent["goal_pos"],
+            rand_mask=tokenized_agent["rand_mask"]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
         # if latent_z not in tokenized_agent.keys():
@@ -641,7 +642,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_traj=torch.cat([token_traj_global_xy, token_traj_global_z], dim=-1)
 
-                pred_traj[~mask[:,-1]]=0
+                #pred_traj[~mask[:,-1]]=0
+                pred_traj[~gt_valid[:,t]]=0
                 pred_traj_10hz.append(pred_traj)
 
                 pos_a_next=pred_traj[:,-1]
@@ -696,20 +698,23 @@ class SMARTAgentDecoder(nn.Module):
                 mask =torch.cat([mask,valid_mask[:,None]], dim=1)
             else:
 
-                new_agent_mask=~mask[:,-1]  & gt_valid[:,t]
+                if self.token_processor.use_bird:
+                    new_agent_mask=~mask[:,-1]  & gt_valid[:,t]
+                    #
+                    pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
+                    head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
+                    sampled_idx[new_agent_mask,-1]=gt_sampled_idx[new_agent_mask, t]
+                    # next_mask= mask[:,-1] | new_agent_mask
+                    next_mask=gt_valid[:,t]
+                else:
+                    next_mask = mask[:,-1]
 
-                pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
-                head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
-                sampled_idx[new_agent_mask,-1]=gt_sampled_idx[new_agent_mask, t]
-                next_mask= mask[:,-1] | new_agent_mask
 
-                # print(t,mask[294],pred_traj[294])
-
-                #if "gt_z_raw" in tokenized_agent.keys():
-                mask =torch.cat([mask,next_mask[:,None]], dim=1)
+                # if "gt_z_raw" in tokenized_agent.keys():
+                mask = torch.cat([mask, next_mask[:, None]], dim=1)
                 # else:
                 #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
-                mask_lg =torch.cat([mask_lg,torch.ones_like(mask_lg[:,-1:]).to(torch.bool)], dim=1)
+                mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
                 token_mask =torch.cat([token_mask,next_mask[:,None]], dim=1)
 
 

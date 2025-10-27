@@ -68,11 +68,8 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
 
 
 
-    # Global bounds
-    all_pred = P.reshape(-1, 3)
-    all_tok  = S_masked.reshape(-1, 3)
     all_gt   = G_masked.reshape(-1, 3)
-    stack = np.vstack([all_pred, all_tok, all_gt])
+    stack = all_gt
     # ignore NaNs
     mins = np.nanmin(stack, axis=0)
     maxs = np.nanmax(stack, axis=0)
@@ -184,8 +181,7 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     fps = 29.97 / 5
 
     # --- compute shared axis limits from all coords (safe conversion) --- #
-    all_coords = torch.cat([pred_traj.reshape(-1, 3),
-                            gt_pos_raw.reshape(-1, 3)], dim=0)
+    all_coords = gt_pos_raw.reshape(-1, 3)
     mins = all_coords.min(0).values.cpu().numpy()
     maxs = all_coords.max(0).values.cpu().numpy()
     for i, label in enumerate(["x", "y", "z"]):
@@ -248,8 +244,8 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
             endp = min(frame_idx + 1, traj_pred.shape[0])
             endg = min(frame_idx + 1, traj_gt.shape[0])
 
-            set_3d_line_from_traj(lines_pred[a], traj_pred[:endp])
-            set_3d_line_from_traj(lines_gt[a], traj_gt[:endg])
+            set_3d_line_from_traj(lines_pred[a], traj_pred[max(endp-10,0):endp])
+            set_3d_line_from_traj(lines_gt[a], traj_gt[max(endg-10,0):endg])
 
             artists.append(lines_pred[a])
             artists.append(lines_gt[a])

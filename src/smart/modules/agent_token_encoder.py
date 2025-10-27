@@ -87,6 +87,7 @@ class AgentTokenEncoder(nn.Module):
             token_mask,
             batch_idx,
             goal_pos,
+            rand_mask,
             inference=False,
     ):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
@@ -154,9 +155,10 @@ class AgentTokenEncoder(nn.Module):
             )  # [n_agent, n_step, 2]
             feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
-        # feature_a[~token_mask]=0
-        # if not self.discriminator:
-        #     agent_token_emb[~token_mask]=0
+        if token_mask is not None:
+            feature_a[~token_mask]=0
+            if not self.discriminator:
+                agent_token_emb[~token_mask]=0
 
         if self.use_goal:
             if goal_pos is not None:
@@ -175,12 +177,6 @@ class AgentTokenEncoder(nn.Module):
                 if self.use_bird:
                     feature_goal = torch.cat([feature_goal, goal_vector_a[:, :, 2:]], dim=-1)
                 else:
-                    rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
-
-                    rand_mask=rand_idx[batch_idx]<1
-
-                    rand_mask[np.random.random(len(rand_mask))<0.5]=True
-
                     feature_goal[rand_mask[:,0]]=0
             else:
                 feature_goal=torch.zeros_like(feature_a)

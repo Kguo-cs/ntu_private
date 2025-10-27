@@ -27,8 +27,28 @@ model:
     #val_closed_loop: False
     finetune: true
     smart : false
+    decoder:
+      hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path : './ckpts/epoch=12-step=151658.ckpt'
+ckpt_path : './ckpts/bc_pt30_14679_goal_epoch=61-step=754850.ckpt'
+
+logger:
+  wandb:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    name: ${task_name}
+    save_dir: "${paths.output_dir}"
+    offline: False
+    id: null # pass correct id to resume experiment!
+    anonymous: null # enable anonymous logging
+    project: sim
+    log_model: False # upload lightning ckpts
+    prefix: "" # a string to put at the beginning of metric keys
+    entity: u3006612
+    group: ""
+    tags: []
+    job_type: ""
+    resume: allow
+
 
 trainer:
   limit_train_batches: 1.0
@@ -40,8 +60,8 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 10
-  val_batch_size: 32
+  train_batch_size: 38
+  val_batch_size: 40
   test_batch_size: 10
   num_workers: 16
 

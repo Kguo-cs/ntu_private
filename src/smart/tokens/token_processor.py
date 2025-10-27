@@ -192,10 +192,25 @@ class TokenProcessor(torch.nn.Module):
             goal_pos = last_pos + goal_dist[:, None] * last_dir
 
             tokenized_agent["goal_pos"]=goal_pos
+
+            batch_idx=tokenized_agent["batch"]
+
+            rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+
+            rand_mask = rand_idx[batch_idx] < 1
+
+            rand_mask[np.random.random(len(rand_mask)) < 0.5] = True
+
+            tokenized_agent["rand_mask"]=rand_mask
+
+
         else:
             tokenized_agent["goal_pos"]=None
+            tokenized_agent["rand_mask"]=None
 
         tokenized_agent['type']=tokenized_agent['type'].long()
+
+        tokenized_agent["token_mask"]=None
 
         return tokenized_map, tokenized_agent
 
