@@ -38,7 +38,7 @@ model:
       num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
-      a2a_neighbor: 10
+      a2a_neighbor: 5
       hidden_dim: 64
       num_freq_bands: 32
       num_heads: 8
@@ -47,7 +47,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird_alla2a10_token1/2025-10-26_23-10-14/bird/8zfoz8dk/checkpoints/last.ckpt'
 
-task_name: bird_alla2a10_val8
+task_name: bird_alla2a5_exit
 
 
 

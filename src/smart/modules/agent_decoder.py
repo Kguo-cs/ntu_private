@@ -556,7 +556,6 @@ class SMARTAgentDecoder(nn.Module):
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
             else:
-
                 if self.use_diffusion:
 
                     dist=torch.linalg.norm(next_token_logits.reshape(-1,1,5,4,2)[:,:,-1] - token_traj,dim=-1).mean(-1)
@@ -624,10 +623,51 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 token_traj_current=token_traj_all
 
+            if self.token_processor.pred_exit:
+                exit_mask=next_token_idx==token_traj_current.shape[1]
+                next_token_idx=torch.clip(next_token_idx,0,token_traj_current.shape[1]-1)
+
             if not self.pred_all_res:
                 next_token_traj_all = token_traj_current[torch.arange(n_agent), next_token_idx]
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
+
+            if post_sampling:
+                prev_valid=gt_valid[:,t-1]
+                pos_a[:,-1][~prev_valid] = gt_pos[:, t][~prev_valid]
+                head_a[:,-1][~prev_valid] = gt_head[:, t][~prev_valid]
+
+                valid_mask=prev_valid & gt_valid[:,t]
+                _invalid_mask = ~valid_mask
+
+                pos_a[:,-1]=pos_a[:,-1].masked_fill(_invalid_mask.unsqueeze(1), 0)
+                head_a[:,-1]=head_a[:,-1].masked_fill(_invalid_mask, 0)
+
+                mask =torch.cat([mask,valid_mask[:,None]], dim=1)
+            else:
+
+                if self.token_processor.use_bird:
+                    new_agent_mask=~mask[:,-1]  & gt_valid[:,t]
+
+                    pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
+                    head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
+                    sampled_idx[new_agent_mask,-1]=gt_sampled_idx[new_agent_mask, t]
+
+                    if self.token_processor.pred_exit:
+                        next_mask=(mask[:,-1] & ~exit_mask)| new_agent_mask
+                    else:
+                        next_mask=gt_valid[:,t]
+                else:
+                    next_mask = mask[:,-1]
+
+
+                # if "gt_z_raw" in tokenized_agent.keys():
+                mask = torch.cat([mask, next_mask[:, None]], dim=1)
+                # else:
+                #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
+                mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
+                token_mask =torch.cat([token_mask,torch.ones_like(token_mask[:,-1:])], dim=1)
+
 
             if self.token_processor.use_bird:
                 token_traj_global_xy = transform_to_global(
@@ -640,8 +680,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_traj=torch.cat([token_traj_global_xy, token_traj_global_z], dim=-1)
 
-                #pred_traj[~mask[:,-1]]=0
-                pred_traj[~gt_valid[:,t]]=0
+                pred_traj[~mask[:,-1]]=0
                 pred_traj_10hz.append(pred_traj)
 
                 pos_a_next=pred_traj[:,-1]
@@ -673,68 +712,12 @@ class SMARTAgentDecoder(nn.Module):
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
-            # if len(next_light_logits):
-            #
-            #     next_light_idx = Categorical(logits=next_light_logits[:, -1] / self.alpha).sample()
-            #
-            #     light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
-            #
-            # elif self.use_light:
-            #     light_idx = tokenized_agent["light_idx"][:,t:t+1]
-
-            if post_sampling:
-                prev_valid=gt_valid[:,t-1]
-                pos_a[:,-1][~prev_valid] = gt_pos[:, t][~prev_valid]
-                head_a[:,-1][~prev_valid] = gt_head[:, t][~prev_valid]
-
-                valid_mask=prev_valid & gt_valid[:,t]
-                _invalid_mask = ~valid_mask
-
-                pos_a[:,-1]=pos_a[:,-1].masked_fill(_invalid_mask.unsqueeze(1), 0)
-                head_a[:,-1]=head_a[:,-1].masked_fill(_invalid_mask, 0)
-
-                mask =torch.cat([mask,valid_mask[:,None]], dim=1)
-            else:
-
-                if self.token_processor.use_bird:
-                    new_agent_mask=~mask[:,-1]  & gt_valid[:,t]
-                    #
-                    pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
-                    head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
-                    sampled_idx[new_agent_mask,-1]=gt_sampled_idx[new_agent_mask, t]
-                    # next_mask= mask[:,-1] | new_agent_mask
-                    next_mask=gt_valid[:,t]
-                else:
-                    next_mask = mask[:,-1]
-
-
-                # if "gt_z_raw" in tokenized_agent.keys():
-                mask = torch.cat([mask, next_mask[:, None]], dim=1)
-                # else:
-                #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
-                mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
-                token_mask =torch.cat([token_mask,torch.ones_like(token_mask[:,-1:])], dim=1)
-
-
-
-            # if self.pred_vis:
-            #     vis=torch.rand_like(visibility[:,-1:,0])<torch.sigmoid(visibility[:,-1:,0])
-            #     vis=vis_mask[:,-1:] & vis
-            #     vis_mask=torch.cat([vis_mask,vis],dim=1)
-
-            # if self.pred_goal:
-            #     next_goal_idx=Categorical(logits=next_goal_logits[:, -1] / self.alpha).sample()
-            #
-            #     goal_idx = torch.cat([goal_idx, next_goal_idx[:, None]], dim=1)
-
-
         if self.use_roformer:
 
             self.a_t_roformer.attn.kv_caching(0)
             if self.pred_light and not self.light_encoder.share:
                 self.light_encoder.lg_t_roformer.attn.kv_caching(0)
 
-        #sampled_log_prob=torch.stack(sampled_log_prob,dim=1)
 
         out_dict = {
             "type": tokenized_agent["type"],
@@ -780,3 +763,23 @@ class SMARTAgentDecoder(nn.Module):
         out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz,post_sampling)
 
         return out_dict
+
+# if len(next_light_logits):
+#
+#     next_light_idx = Categorical(logits=next_light_logits[:, -1] / self.alpha).sample()
+#
+#     light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
+#
+# elif self.use_light:
+#     light_idx = tokenized_agent["light_idx"][:,t:t+1]
+
+
+# if self.pred_vis:
+#     vis=torch.rand_like(visibility[:,-1:,0])<torch.sigmoid(visibility[:,-1:,0])
+#     vis=vis_mask[:,-1:] & vis
+#     vis_mask=torch.cat([vis_mask,vis],dim=1)
+
+# if self.pred_goal:
+#     next_goal_idx=Categorical(logits=next_goal_logits[:, -1] / self.alpha).sample()
+#
+#     goal_idx = torch.cat([goal_idx, next_goal_idx[:, None]], dim=1)
