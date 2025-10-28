@@ -702,7 +702,7 @@ class IQ_SoftQ(LightningModule):
                     # agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
                     # agent_rewards = torch.clamp(agent_rewards, -2, 2)
 
-                    train_valid_mask = valid_mask.all(-1)[all_valid]
+                    train_valid_mask = train_mask[all_valid]
 
                     # agent_rewards[~train_valid_mask]=0
                     # v_denorm[~train_valid_mask]=0
