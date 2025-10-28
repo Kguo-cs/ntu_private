@@ -83,7 +83,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_goal=True
 
-        self.pred_exit=True
+        self.pred_exit=False
 
         if self.pred_exit:
             self.n_token_agent+=1
@@ -138,10 +138,6 @@ class TokenProcessor(torch.nn.Module):
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
-        token_traj_all=self.agent_token_all[None,:,:].repeat(len(data["agent"]["valid_mask"]),1,1,1)
-
-        token_traj=token_traj_all[:,:,-2:]
-
         # ! get raw trajectory data
         valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
         pos = data["agent"]["position"] # [n_agent, n_step, 2]
@@ -153,12 +149,21 @@ class TokenProcessor(torch.nn.Module):
         pos=pos[:,1:]
         valid=valid[:,1:] & valid[:,:-1]
 
+        fut_valid=valid[:,self.shift:].any(dim=-1)
+
+        pos=pos[fut_valid]
+        valid=valid[fut_valid]
+        heading=heading[fut_valid]
+        token_traj_all=self.agent_token_all[None,:,:].repeat(len(pos),1,1,1)
+        token_traj=token_traj_all[:,:,-2:]
+        batch=data["agent"]["batch"][fut_valid]
+
         tokenized_agent = {
             "num_graphs": data.num_graphs,
             "type": torch.zeros_like(pos[:,0,0]),
             "shape": None,
             "token_agent_shape":None,
-            "batch": data["agent"]["batch"],
+            "batch": batch,
             "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
             "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
