@@ -44,7 +44,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_target_q = False
 
-        self.start_step = 10 // self.token_processor.shift - 1
+        self.start_step = self.encoder.agent_encoder.start_step
 
         self.use_gail = self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
