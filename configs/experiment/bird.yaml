@@ -34,7 +34,7 @@ model:
     n_rollout_closed_val: 16
     decoder:
       num_historical_steps: 6
-      num_future_steps: 800
+      num_future_steps: 805 #800
       num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
