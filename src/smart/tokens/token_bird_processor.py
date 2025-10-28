@@ -170,12 +170,12 @@ class TokenProcessor(torch.nn.Module):
              "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
              "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-             "gt_traj_10hz": pos,
-             "gt_head_10hz": heading,
-              "gt_valid_10hz": valid
+             # "gt_traj_10hz": pos,
+             # "gt_head_10hz": heading,
+             #  "gt_valid_10hz": valid
         }
 
-        data["agent"]["position"]=pos
+        data["agent"]["position"]=pos.to(torch.float16)
         data["agent"]["valid_mask"]=valid
 
         token_dict = self._match_agent_token(

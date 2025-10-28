@@ -277,16 +277,20 @@ class SMART(LightningModule):
           #  self.all_count+=    self.n_rollout_closed_val*16
 
             if self.token_processor.use_bird :
+                pred_traj=pred_traj.to(torch.float16)
 
-                linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood=compute_bird_metrics(pred_traj,tokenized_agent["gt_traj_10hz"][:,self.num_historical_steps :],
-                                     tokenized_agent["gt_valid_10hz"][:,self.num_historical_steps :],
+                linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood,exist_likelihood=compute_bird_metrics(pred_traj,
+                                                                                                    data["agent"]["position"][:,self.num_historical_steps :],
+                                     data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"])
+
                 for i in range(len(linear_speed_likelihood)):
                     self.wosac_metrics.scenario_counter += 1
                     self.wosac_metrics.linear_speed_likelihood += linear_speed_likelihood[i]
                     self.wosac_metrics.linear_acceleration_likelihood += linear_acc_likelihood[i]
                     self.wosac_metrics.angular_speed_likelihood += angular_speed_likelihood[i]
                     self.wosac_metrics.angular_acceleration_likelihood += angular_acceleration_likelihood[i]
+                    self.wosac_metrics.metametric+= exist_likelihood[i]
 
                 if batch_idx < self.n_vis_batch:
                     batch=pred["batch"]

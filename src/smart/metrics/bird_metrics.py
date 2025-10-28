@@ -39,15 +39,15 @@ import torch
 
 def histogram_estimate_torch(
         batch,
-    log_samples: torch.Tensor,        # (B, L)
-    sim_samples: torch.Tensor,        # (B, S)
-    min_val: float,
-    max_val: float,
-    num_bins: int = 11,
-    additive_smoothing_pseudocount: float = 0.1,
-    gt_valid_mask: torch.Tensor = None,   # (B, L) bool/byte/0-1
-    sim_valid_mask: torch.Tensor = None   # (B, S) bool/byte/0-1
-) -> torch.Tensor:
+        log_samples: torch.Tensor,        # (B, L)
+        sim_samples: torch.Tensor,        # (B, S)
+        min_val: float,
+        max_val: float,
+        num_bins: int = 11,
+        additive_smoothing_pseudocount: float = 0.1,
+        gt_valid_mask: torch.Tensor = None,   # (B, L) bool/byte/0-1
+        sim_valid_mask: torch.Tensor = None   # (B, S) bool/byte/0-1
+    ) -> torch.Tensor:
     """
     Vectorized histogram-based likelihood estimator.
 
@@ -77,47 +77,52 @@ def histogram_estimate_torch(
     log_clamped = torch.clamp(log_samples, min_val, max_val)
     sim_clamped = torch.clamp(sim_samples, min_val, max_val)
 
-    # Build edges and bucketize
-    edges = torch.linspace(min_val, max_val, num_bins + 1, device=device, dtype=dtype)
+    # 2) linear binning (vectorized arithmetic, no bucketize)
+    # Map value -> [0, num_bins). We treat last bin as inclusive.
+    span = float(max_val) - float(min_val)
+    if span <= 0.0:
+        raise ValueError("max_val must be > min_val")
 
-    # ---- Build per-batch sim histograms (vectorized, only using valid sim samples) ----
-    sim_flat = sim_clamped.reshape(-1)                              # (B*S,)
-    sim_valid_flat = sim_valid_mask.reshape(-1)                     # (B*S,) bool
+    # flatten sim samples and masks
+    sim_flat = sim_clamped.reshape(-1)                  # (B*S,)
+    sim_valid_flat = sim_valid_mask.reshape(-1)         # (B*S,)
+    # normalized fraction in [0,1]
+    frac = (sim_flat[sim_valid_flat] - min_val) / span
+    # scale to [0, num_bins), use floor, then clamp
+    bin_idx_flat = torch.floor(frac * num_bins).to(torch.int32)
+    # values exactly == max_val will give index == num_bins, clamp to num_bins-1
+    bin_idx_flat = torch.clamp(bin_idx_flat, 0, num_bins - 1)
 
-    # Compute bin indices for all flattened sim samples, then filter by valid mask
-    sim_bin_flat = torch.bucketize(sim_flat, edges) - 1
-    sim_bin_flat = sim_bin_flat.clamp(0, num_bins - 1).to(torch.long)   # (B*S,)
-
-    # Batch index for each flattened sim element
+    # batch indices
     batch_idx = (
-        torch.arange(B, device=device, dtype=torch.long)
+        torch.arange(B, device=device, dtype=torch.int32)
         .unsqueeze(1).expand(B, S)
         .reshape(-1)
-    )  # (B*S,)
+    ) [sim_valid_flat] # (B*S,)
 
-    # Only keep valid entries
-    valid_dest = batch_idx[sim_valid_flat].to(torch.long) * num_bins + sim_bin_flat[sim_valid_flat].to(torch.long)
-    if valid_dest.numel() == 0:
-        # No valid sim samples at all: produce zero counts (pseudocount will handle it)
-        sim_counts = torch.zeros((B, num_bins), device=device, dtype=dtype)
-    else:
-        # Accumulate counts into a flat buffer of length B * num_bins
+    # keep only valid sim entries
+    valid_mask = sim_valid_flat
+    if valid_mask.any():
+        dest = batch_idx* num_bins + bin_idx_flat
+        # bincount: produce counts for length B * num_bins
         total_bins = B * num_bins
-        counts_flat = torch.zeros((total_bins,), device=device, dtype=dtype)
-        ones = torch.ones_like(valid_dest, dtype=dtype)
-        counts_flat = counts_flat.scatter_add_(0, valid_dest, ones)  # (B*num_bins,)
-        sim_counts = counts_flat.view(B, num_bins)                  # (B, num_bins)
+        counts_flat = torch.bincount(dest, minlength=total_bins).to(dtype)
+        sim_counts = counts_flat.view(B, num_bins)
+    else:
+        sim_counts = torch.zeros((B, num_bins), device=device, dtype=dtype)
 
     # ---- Add pseudocounts and convert to log-probabilities ----
+    # 3) add pseudocount and normalize
     sim_counts = sim_counts + float(additive_smoothing_pseudocount)
-    sim_probs = sim_counts / (sim_counts.sum(dim=1, keepdim=True) + eps)   # (B, num_bins)
-    log_sim_probs = torch.log(sim_probs.clamp_min(eps))                   # (B, num_bins)
+    sim_probs = sim_counts / (sim_counts.sum(dim=1, keepdim=True) + eps)  # (B, num_bins)
+    log_sim_probs = torch.log(sim_probs.clamp_min(eps))
 
-    # ---- Score log_samples: find bin for each and gather log-prob, then mask ----
-    log_flat = log_clamped.reshape(-1)                      # (B*L,)
-    log_bin_flat = torch.bucketize(log_flat, edges) - 1
-    log_bin_flat = log_bin_flat.clamp(0, num_bins - 1).to(torch.long)
-    log_bins = log_bin_flat.view(B, L)                      # (B, L)
+    # 4) bin log_samples using the same linear mapping
+    log_flat = log_clamped.reshape(-1)
+    frac_log = (log_flat - min_val) / span
+    log_bin_flat = torch.floor(frac_log * num_bins).to(torch.long)
+    log_bin_flat = torch.clamp(log_bin_flat, 0, num_bins - 1)
+    log_bins = log_bin_flat.view(B, L)  # (B, L)
 
     # Gather log-prob per sample
     per_sample_logprob = torch.gather(log_sim_probs, 1, log_bins)   # (B, L)
@@ -164,22 +169,30 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
     gt_angular_acc_mask=gt_acc_mask[:,1:] & gt_acc_mask[:,:-1]
 
 
-    linear_speed_likelihood= histogram_estimate_torch(batch,speed.flatten(1,2),gt_speed.flatten(1,2),min_val=4,max_val=10,num_bins=10,
+    linear_speed_likelihood= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,num_bins=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
                                                       )
 
-    linear_acc_likelihood= histogram_estimate_torch(batch,acc.flatten(1,2),gt_acc.flatten(1,2),min_val=-4,max_val=4,
+    linear_acc_likelihood= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-4,max_val=4,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_speed_likelihood=histogram_estimate_torch(batch,ang_speed.flatten(1,2),gt_ang_speed.flatten(1,2),min_val=-1.8,max_val=1.8,
+    angular_speed_likelihood=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1.8,max_val=1.8,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_acceleration_likelihood=histogram_estimate_torch(batch,ang_acc.flatten(1,2),gt_ang_acc.flatten(1,2),min_val=-40,max_val=40,
+    angular_acceleration_likelihood=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-40,max_val=40,
                                                       gt_valid_mask=gt_angular_acc_mask,sim_valid_mask=pred_angular_acc_mask.flatten(1,2),
                                                       )
 
 
-    return linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood
+    # exist_likelihood=histogram_estimate_torch(batch,gt_mask.to(torch.float16),pred_mask.flatten(1,2).to(torch.float16),
+    #                                                     min_val=-0.5,max_val=1.5,num_bins=2
+    #                                                   )
+    exist_likelihood=(gt_mask[:,None]==pred_mask).float().mean(-1).mean(-1)
+
+    exist_likelihood=scatter_mean(exist_likelihood, batch)
+
+
+    return linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood,exist_likelihood
 
