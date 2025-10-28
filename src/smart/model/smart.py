@@ -285,7 +285,9 @@ class SMART(LightningModule):
                           )
 
             # if self.token_processor.use_bird:
-            #     compute_bird_metrics(pred_traj,data["agent"]["position"],data["agent"]["valid_mask"])
+            #     compute_bird_metrics(pred_traj,tokenized_agent["gt_traj_10hz"][:,self.num_historical_steps :],
+            #                          tokenized_agent["gt_head_10hz"][:,self.num_historical_steps :],
+            #                          tokenized_agent["gt_valid_10hz"][:,self.num_historical_steps :])
 
 
             # ! WOSAC

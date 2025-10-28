@@ -31,9 +31,9 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
-    n_rollout_closed_val: 32
+    n_rollout_closed_val: 16
     decoder:
-#      num_historical_steps: 3
+      num_historical_steps: 6
       num_future_steps: 800
       num_agent_layers: 1
       pl2a_radius: 100
@@ -47,7 +47,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird_alla2a10_token1/2025-10-26_23-10-14/bird/8zfoz8dk/checkpoints/last.ckpt'
 
-task_name: bird_alla2a5_exit_val32
+task_name: bird_alla2a5_exit_hist6_val16
 
 
 

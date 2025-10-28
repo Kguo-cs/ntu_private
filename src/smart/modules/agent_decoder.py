@@ -144,7 +144,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             self.pred_light=False
 
-        self.start_step=10//self.shift-1
+        self.start_step=self.num_historical_steps//self.shift-1
         self.pred_vis = False
 
         self.target_net=False
@@ -685,7 +685,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 pos_a_next=pred_traj[:,-1]
 
-                diff_xy_next = pred_traj[:, -1, :2] - pos_a[:, -2, :2]
+                diff_xy_next = pred_traj[:, -1, :2] - pred_traj[:, -2, :2]
                 head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
             else:
