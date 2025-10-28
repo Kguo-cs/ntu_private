@@ -89,6 +89,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_goal=True
 
+        self.pred_exit=False
+
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if not self.training:

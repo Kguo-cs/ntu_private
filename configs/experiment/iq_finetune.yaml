@@ -30,7 +30,7 @@ model:
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path : './ckpts/bc_pt30_14679_goal_epoch=61-step=754850.ckpt'
+ckpt_path : './ckpts/bc56_pt30_14679_notokenmask_goal32_epoch=31-valmeta=0.7832.ckpt'
 
 logger:
   wandb:

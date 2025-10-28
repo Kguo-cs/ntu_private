@@ -32,6 +32,7 @@ from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
 from src.smart.plot.plot_bird import plot_bird_from_tensors
+from src.smart.metrics.bird_metrics import compute_bird_metrics
 
 class SMART(LightningModule):
 
@@ -283,14 +284,9 @@ class SMART(LightningModule):
                                        show=False,      save_path=save_path
                           )
 
-            #print(time.time()-t1)
-            #self.wosac_metrics = WOSACMetrics("val_closed")
+            # if self.token_processor.use_bird:
+            #     compute_bird_metrics(pred_traj,data["agent"]["position"],data["agent"]["valid_mask"])
 
-            # torch.save(pred_traj.cpu(),"pred_traj.pt")
-            # torch.save(pred_z.cpu(),"pred_z.pt")
-            # torch.save(pred_head.cpu(),"pred_head.pt")
-
-            #print(self.all_time/self.all_count)
 
             # ! WOSAC
             scenario_rollouts = None

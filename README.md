@@ -23,7 +23,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc40_pt20_14679_map2/2025-10-22_17-19-02/bc/6y841x4m/checkpoints/epoch=7-step=97400.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc_pt30_14679_goal/2025-10-24_19-30-26/bc/6jeindx1/checkpoints/epoch=61-step=754850.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc56_pt30_14679_notokenmask_goal32/2025-10-27_13-18-12/bc/25c0l93r/checkpoints/epoch=31-valmeta=0.7832.ckpt ./
 
 
 
@@ -214,3 +214,6 @@ AIRL64_value0001noclip_distr402060a5_expertvalid influence of range
 
 1. locate the area or agent where causes  the traffic jam 
 2. simulate the bird behavior
+
+#only need keep all thus pred agent all valid , allow new entry agent and exit agent .
+
