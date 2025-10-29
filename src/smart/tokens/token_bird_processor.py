@@ -123,10 +123,10 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["light_idx"] = torch.zeros([0, 18])
 
-        if self.training:
-            tokenized_agent["goal_mask"] =torch.rand_like(tokenized_agent["type"])<0.5
-        else:
-            tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
+        # if self.training:
+        #     tokenized_agent["goal_mask"] =torch.rand_like(tokenized_agent["type"])<0.5
+        # else:
+        tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
         if self.pred_exit:
             valid_mask=tokenized_agent["valid_mask"]
@@ -255,7 +255,7 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
 
-            token_valid=min_dist<1
+            token_valid=min_dist<2
             _valid_mask[~token_valid]=False
 
 
