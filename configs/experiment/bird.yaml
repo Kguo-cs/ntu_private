@@ -43,11 +43,12 @@ model:
       num_freq_bands: 32
       num_heads: 8
       head_dim: 8
+      time_span: 10
 
 
 #ckpt_path : '/home/ke/code/catk/epoch=31-step=372384.ckpt'
 
-task_name: bird_alla2a100_exit_goal05
+task_name: bird_alla2a100_t10_exit_goal05
 
 
 

@@ -25,9 +25,12 @@ model:
       method_link: anonymous
       account_name: anonymous
 
-    smart: false
+    finetune: true
+    smart : false
+    decoder:
+      hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/bc40_pt20_14679_map2_epoch=61-step=754850_0.7871.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL152_predrollout_355_goalpolicy_ep13_0.78765.ckpt'
 
 trainer:
   limit_train_batches: 1.0

@@ -680,13 +680,19 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_traj=torch.cat([token_traj_global_xy, token_traj_global_z], dim=-1)
 
-                pred_traj[~mask[:,-1]]=0
+                _invalid_mask=~mask[:,-1]
+
+                pred_traj[_invalid_mask]=0
                 pred_traj_10hz.append(pred_traj)
 
                 pos_a_next=pred_traj[:,-1]
 
                 diff_xy_next = pred_traj[:, -1, :2] - pred_traj[:, -2, :2]
                 head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+
+                pos_a_next=pos_a_next.masked_fill(_invalid_mask.unsqueeze(1), 0)
+                head_a_next=head_a_next.masked_fill(_invalid_mask, 0)
+
 
             else:
                 token_traj_global = transform_to_global(

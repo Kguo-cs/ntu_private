@@ -156,7 +156,7 @@ class TokenProcessor(torch.nn.Module):
         pos=pos[:,1:]
         valid=valid[:,1:] & valid[:,:-1]
 
-        fut_valid=valid[:,self.shift:].any(dim=-1)
+        fut_valid=valid[:,self.shift:: self.shift].any(dim=-1)
 
         pos=pos[fut_valid]
         valid=valid[fut_valid]
