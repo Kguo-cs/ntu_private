@@ -30,14 +30,14 @@ model:
     smart: false
     bird: true
     n_batch_wosac_metric: 0
-    n_vis_batch: 1
+    n_vis_batch: 0
     n_rollout_closed_val: 16
     decoder:
       num_historical_steps: 6
       num_future_steps: 805 #800
       num_agent_layers: 1
       pl2a_radius: 100
-      a2a_radius: 50
+      a2a_radius: 100
       a2a_neighbor: 5
       hidden_dim: 64
       num_freq_bands: 32
@@ -47,7 +47,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/epoch=31-step=372384.ckpt'
 
-task_name: bird_alla2a50_addexit_hist6_val_metric
+task_name: bird_alla2a100_exit_hist6_val_metric
 
 
 

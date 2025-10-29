@@ -102,11 +102,6 @@ class SimulationManager:
         self.setup_planner(model_cfg)
         self.GUI_DISPLAY =self.config["gui_display"]
 
-        data_root = os.path.dirname(os.path.abspath(__file__))
-
-        self.DATA_TEMPLATE_PATH = os.path.join(
-            data_root, self.config["data"]["template_path"]
-        )
         self.TARGET_SIZE = tuple(self.config["image"]["target_size"])
 
         self.map_classes= [ 'ped_crossing','divider', 'boundary']#green, blue,red
@@ -177,12 +172,10 @@ class SimulationManager:
         if self.GUI_DISPLAY:
             self.gui.start()
 
-        self.data_template = torch.load(self.DATA_TEMPLATE_PATH,weights_only=False)
-
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = self.config["max_sim_time"]+self.initial_step
 
-        self.recording = False
+        self.recording = True
 
         if self.recording:
             self.record_path = "./results/video/record.mp4"
@@ -259,7 +252,7 @@ class SimulationManager:
                 agent_heading=tokenized_agent['sampled_heading'][:,self.timestamp//5-1].cpu().numpy()
 
                 diffusion_data = self.gui.limsim2diffusion(
-                    agent_pos,agent_heading,agent_type,self.data_template
+                    agent_pos,agent_heading,agent_type
                 )
 
                 gt_vecs_label=diffusion_data["gt_vecs_label"]
@@ -323,27 +316,27 @@ class SimulationManager:
             #print(print_cpu_usage())
 
 
-            for id, (route,speed) in self.route.items():
-                idx = torch.where(tokenized_agent["id"] == id)[0]
-
-                control_mask[idx]=True
-
-                all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
-
-                all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
-
-                all_shape = tokenized_agent["shape"][:, :2]  # length, width
-
-                # route [n,2]
-                prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
-
-                all_velocity = (all_pos - prev_pos) / 0.1
-
-                new_pos, new_heading = idm_planner(route,  idx, all_pos, all_heading, all_velocity, all_shape,
-                                                   desired_speed=speed)  # plan 0.5 second
-
-                tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
-                tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
+            # for id, (route,speed) in self.route.items():
+            #     idx = torch.where(tokenized_agent["id"] == id)[0]
+            #
+            #     control_mask[idx]=True
+            #
+            #     all_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp]
+            #
+            #     all_heading = tokenized_agent["pred_head_10hz"][:, self.timestamp]
+            #
+            #     all_shape = tokenized_agent["shape"][:, :2]  # length, width
+            #
+            #     # route [n,2]
+            #     prev_pos = tokenized_agent["pred_traj_10hz"][:, self.timestamp - 1]
+            #
+            #     all_velocity = (all_pos - prev_pos) / 0.1
+            #
+            #     new_pos, new_heading = idm_planner(route,  idx, all_pos, all_heading, all_velocity, all_shape,
+            #                                        desired_speed=speed)  # plan 0.5 second
+            #
+            #     tokenized_agent["pred_traj_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_pos
+            #     tokenized_agent["pred_head_10hz"][idx, self.timestamp + 1:self.timestamp + 6]=new_heading
 
             #control ego
             if self.input_json_path is not None:
@@ -520,7 +513,7 @@ class SimulationManager:
                             except:
                                 continue
 
-                    route_xy = append_segment_with_step(ego_start, ego_route_xyz[:, :2], ego_goal, step=2.0)
+                    route_xy = np.stack([ego_start, ego_goal], axis=1)#append_segment_with_step(ego_start, ego_route_xyz[:, :2], ego_goal, step=2.0)
 
                     self.route[0]=(torch.FloatTensor(route_xy).cuda(),13.9)
 
@@ -550,13 +543,15 @@ class SimulationManager:
 
                         if agent["goal"] is not None:
                             goal = np.array(agent["goal"])
-                            path, dist_m, route_xyz, start_eid, goal_eid = TG._route(position, goal)
+                            # path, dist_m, route_xyz, start_eid, goal_eid = TG._route(position, goal)
+                            #
+                            # route_xy = append_segment_with_step(position, route_xyz[:, :2], goal, step=2.0)
 
-                            route_xy = append_segment_with_step(position, route_xyz[:, :2], goal, step=2.0)
+                            route_xy=np.stack([position, goal], axis=1)
 
                             self.route[id] = (torch.FloatTensor(route_xy).cuda(),speed)
 
-                            heading = np.arctan2(route_xy[1, 1] - route_xy[0, 1], route_xy[1, 0] - route_xy[0, 0])
+                            # heading = np.arctan2(route_xy[1, 1] - route_xy[0, 1], route_xy[1, 0] - route_xy[0, 0])
 
                         if agent["heading"] is not None:
                             heading = agent["heading"]
@@ -808,6 +803,10 @@ class SimulationManager:
             # mean_speed[0]=30
             #
             # tokenized_agent["mean_speed"]=mean_speed
+
+            tokenized_agent["goal_pos"]=None
+            tokenized_agent["rand_mask"]=None
+
 
 
             data_preproces_time=time.time()

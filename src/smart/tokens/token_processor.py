@@ -91,6 +91,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_exit=False
 
+        self.use_token=False
+
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if not self.training:
@@ -211,8 +213,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["rand_mask"]=None
 
         tokenized_agent['type']=tokenized_agent['type'].long()
-
-        tokenized_agent["token_mask"]=torch.zeros([0,18])
 
         return tokenized_map, tokenized_agent
 

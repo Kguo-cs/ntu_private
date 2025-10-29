@@ -29,7 +29,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird_alla2a50_exit_hist6_val_me
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/airl56_nolcf/2025-10-15_10-08-28/sim/k9p5rb2d/checkpoints/epoch=2-step=20000.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL160_learnmap_arn10_kl4/2025-10-11_14-10-16/sim/7a8i19q8/checkpoints/epoch=15-step=48704.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL152_predrollout_355_goalpolicy/2025-10-28_07-42-25/sim/q2z7mddo/checkpoints/epoch=13-step=44856.ckpt ./
 
 
 

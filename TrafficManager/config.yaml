@@ -1,7 +1,3 @@
-# Data Configuration
-data:
-  template_path: "data/data_template.pth"
-
 # Image Configuration
 image:
   size: 200
@@ -10,7 +6,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "./waymo/sim.ckpt"
+planner_path: "/home/ke/code/catk/src/waymo_data/epoch=13-step=44856.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
@@ -18,7 +14,7 @@ output_json_path: "./waymo/json_output/labels_occluded.json"
 
 input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json
 
-gui_display: True
+gui_display: False
 
 gui_show_static_id: False
 
@@ -73,13 +69,13 @@ map_object:
 
 agent:
   add:
-#    - type: 'car'  #pedestrian,bicycle,car,truck
-#      id: 0
-#      position: [5, -20]
-#      goal: [5,200]   # 可选
-#      heading:   #1.57    # 可选, 可根据goal生成
-#      speed:  #可选, 可根据type生成
-#      shape: #可选, 可根据type生成
+    - type: 'car'  #pedestrian,bicycle,car,truck
+      id: 0
+      position: [5, -20]
+      goal: [5,200]   # 可选
+      heading:   1.57
+      speed:  #可选, 可根据type生成
+      shape: #可选, 可根据type生成
 #    - type: 'bicycle'  #pedestrian,bicycle,car,truck
 #      id: 1000
 #      position: [0,200]

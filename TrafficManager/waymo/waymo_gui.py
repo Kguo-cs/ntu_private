@@ -785,7 +785,6 @@ class GUI(Process):
             agent_pos,
             agent_heading,
             agent_type,
-            data_template,
             agent_command=2,
             last_pose=torch.eye(4),
             drivable_mask=np.ones((200, 200), dtype=np.uint8),
@@ -855,24 +854,24 @@ class GUI(Process):
 
         send_data = {}
         # ------------ meta ------------ #
-        send_data["metas"] = data_template["metas"]
-        send_data["metas"]["location"] = gen_location
-        send_data["metas"]["description"] = gen_prompts
-        # print(
-        #     f"location: {send_data['metas']['location']}\ndescription: {send_data['metas']['description']}")
-        send_data["metas"]["ego_pos"] = torch.Tensor(
-            [
-                [np.cos(ego_yaw), -np.sin(ego_yaw), 0, ego_x],
-                [np.sin(ego_yaw), np.cos(ego_yaw), 0, ego_y],
-                [0, 0, 1, 0],
-                [0, 0, 0, 1],
-            ]
-        )
-        send_data["metas"]["accel"] = accel
-        send_data["metas"]["rotation_rate"] = rotation_rate
-        send_data["metas"]["vel"] = vel
-
-        # ------------ bboxes ------------ #
+        # send_data["metas"] = data_template["metas"]
+        # send_data["metas"]["location"] = gen_location
+        # send_data["metas"]["description"] = gen_prompts
+        # # print(
+        # #     f"location: {send_data['metas']['location']}\ndescription: {send_data['metas']['description']}")
+        # send_data["metas"]["ego_pos"] = torch.Tensor(
+        #     [
+        #         [np.cos(ego_yaw), -np.sin(ego_yaw), 0, ego_x],
+        #         [np.sin(ego_yaw), np.cos(ego_yaw), 0, ego_y],
+        #         [0, 0, 1, 0],
+        #         [0, 0, 0, 1],
+        #     ]
+        # )
+        # send_data["metas"]["accel"] = accel
+        # send_data["metas"]["rotation_rate"] = rotation_rate
+        # send_data["metas"]["vel"] = vel
+        #
+        # # ------------ bboxes ------------ #
         if len(bbox_list) != 0:
             gt_bboxes_3d = torch.tensor(bbox_list)
             send_data["gt_bboxes_3d"] = gt_bboxes_3d
@@ -912,14 +911,14 @@ class GUI(Process):
         send_data["gt_lines_instance"] = gt_map_pts#list of list 2
 
         # ---------------ref pose------------------#
-        send_data["relative_pose"] = torch.matmul(
-            torch.inverse(send_data["metas"]["ego_pos"]), last_pose
-        )
-
-        # ---------------drivable mask- -----------------#
+        # send_data["relative_pose"] = torch.matmul(
+        #     torch.inverse(send_data["metas"]["ego_pos"]), last_pose
+        # )
+        #
+        # # ---------------drivable mask- -----------------#
         send_data["drivable_mask"] = drivable_mask
-
-        # ---------------Agent command-----------------#
-        send_data["agent_command"] = agent_command
+        #
+        # # ---------------Agent command-----------------#
+        # send_data["agent_command"] = agent_command
 
         return send_data

@@ -286,8 +286,6 @@ class IQ_SoftQ(LightningModule):
 
             exit_nll = -log_prob[exit_mask].mean()
 
-            action_nll=action_nll+exit_nll
-
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
         # if len(pred["light_q"]) and key=="expert":
