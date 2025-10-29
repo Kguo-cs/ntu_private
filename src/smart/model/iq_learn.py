@@ -211,12 +211,6 @@ class IQ_SoftQ(LightningModule):
                                                                                                   tokenized_agent,
                                                                                                   action, key)
 
-        if self.token_processor.pred_exit:
-            exit_mask=action==self.token_processor.n_token_agent-1
-
-            exit_nll = -log_prob[exit_mask].mean()
-
-            self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
         # current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
@@ -286,6 +280,15 @@ class IQ_SoftQ(LightningModule):
 
         if self.iq_learn and not self.use_gail:
             action_nll = 0
+
+        if self.token_processor.pred_exit:
+            exit_mask=action==self.token_processor.n_token_agent-1
+
+            exit_nll = -log_prob[exit_mask].mean()
+
+            action_nll=action_nll+exit_nll
+
+            self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
         # if len(pred["light_q"]) and key=="expert":
         #     light_idx=tokenized_agent["light_idx"][:, 2:]
