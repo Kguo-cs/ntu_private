@@ -126,7 +126,7 @@ class TokenProcessor(torch.nn.Module):
         if self.training:
             tokenized_agent["goal_mask"] =torch.rand_like(tokenized_agent["type"])<0.5
         else:
-            tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"])
+            tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
         if self.pred_exit:
             valid_mask=tokenized_agent["valid_mask"]

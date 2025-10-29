@@ -12,6 +12,8 @@ camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 
 output_json_path: "./waymo/json_output/labels_occluded.json"
 
+output_ego_json_path: "./waymo/json_output/sync_clips.json"
+
 input_json_path: #"./waymo/json_input/static_ego.json"  #edit ego (or other) agent behavior like static_ego.json
 
 gui_display: False
@@ -69,13 +71,13 @@ map_object:
 
 agent:
   add:
-    - type: 'car'  #pedestrian,bicycle,car,truck
-      id: 0
-      position: [5, -20]
-      goal: [5,200]   # 可选
-      heading:   1.57
-      speed:  #可选, 可根据type生成
-      shape: #可选, 可根据type生成
+#    - type: 'car'  #pedestrian,bicycle,car,truck
+#      id: 0
+#      position: [5,-10] #[5, -20]
+#      goal: [40,40] #[0,100] ##  # 可选
+#      heading:   1.57
+#      speed:  #可选, 可根据type生成
+#      shape: #可选, 可根据type生成
 #    - type: 'bicycle'  #pedestrian,bicycle,car,truck
 #      id: 1000
 #      position: [0,200]

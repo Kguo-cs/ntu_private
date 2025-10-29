@@ -146,6 +146,7 @@ class SimulationManager:
         self.input_json_path=self.config["input_json_path"]
         self.lidar_height=self.config["lidar_height"]
 
+        self.output_ego_json_path=self.config["output_ego_json_path"]
 
         self.camera_rendering_time=[]
         self.traffic_model_time=[]
@@ -358,7 +359,7 @@ class SimulationManager:
                             tokenized_agent['shape'][obj_mask]=box[3:6]
                             tokenized_agent["all_valid"][obj_mask]=True
 
-        if self.input_json_path is not None or len(self.route):
+        if self.input_json_path is not None :
             token_dict = self.planner.token_processor._match_agent_token(
                 tokenized_agent["all_valid"][control_mask],
                 tokenized_agent['pred_traj_10hz'][control_mask],
@@ -804,17 +805,16 @@ class SimulationManager:
             #
             # tokenized_agent["mean_speed"]=mean_speed
 
-            goal_pos=torch.zeros_like(tokenized_agent["sampled_pos"][:,:1])
-            rand_mask=torch.zeros_like(tokenized_agent["sampled_pos"][:,:1])
+            goal_pos=torch.zeros_like(tokenized_agent["sampled_pos"][:,0])
+            goal_mask=torch.zeros_like(goal_pos[:,0]).to(torch.bool)
 
-            for id,route_xyz in data["routing"].items():
+            for id,(route_xyz,speed) in self.route.items():
                 idx=tokenized_agent['id']==id
                 goal_pos[idx]=route_xyz[-1]
+                goal_mask[idx]=True
 
-            tokenized_agent["goal_pos"]=None
-            tokenized_agent["rand_mask"]=None
-
-
+            tokenized_agent["goal_pos"]=goal_pos
+            tokenized_agent["goal_mask"]=goal_mask
 
             data_preproces_time=time.time()
 
@@ -893,8 +893,6 @@ class SimulationManager:
         ego_mask=tokenized_agent["ego_mask"]
 
         no_ego[ego_mask]=False #no ego export
-
-        # all_valid[tracking_id<0]=False
 
         pos_global = tokenized_agent["pred_traj_10hz"][:,self.timestamp]
         prev_pos =  tokenized_agent["pred_traj_10hz"][:,self.timestamp-1]
@@ -987,6 +985,22 @@ class SimulationManager:
 
         with open(self.output_json_path, "w") as f:
             json.dump(result, f, indent=2)
+
+        # Read JSON from file
+        if self.timestamp>self.initial_step:
+            with open(self.output_ego_json_path, 'r') as f:
+                ego_result = json.load(f)
+
+        with open('/home/ke/code/catk/TrafficManager/waymo/json_output/sync_clips.json', 'r') as f:
+            ego_result = json.load(f)
+
+        # all_valid[tracking_id<0]=False
+        ego_result["POSE"]={}
+        ego_result["POSE"]["timestamp"]=str(self.timestamp)
+
+        with open(self.output_json_path, "w") as f:
+            json.dump(result, f, indent=2)
+
 
     def cleanup(self):
 

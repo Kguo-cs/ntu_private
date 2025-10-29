@@ -205,9 +205,7 @@ class TokenProcessor(torch.nn.Module):
 
             goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
 
-            tokenized_agent["goal_mask"]=goal_mask
-
-
+            tokenized_agent["goal_mask"]=goal_mask[:,0]
         else:
             tokenized_agent["goal_pos"]=None
             tokenized_agent["goal_mask"]=None

@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+
 from .desay_lane_graph import build_lane_graph_with_connectors,plot_lane_graph
 from .desay_edge_graph import build_edge_graph_from_lane_graph_topo,plot_edge_graph
 
@@ -109,17 +111,43 @@ def decode_map_features_from_json(annotation,remove_mapid=[],add_map_object=[]):
     # plt.show()
 
     lane_graph=build_lane_graph_with_connectors(centerlines)
-   # plot_lane_graph(lane_graph)
+    # plot_lane_graph(lane_graph)
 
     edge_graph=build_edge_graph_from_lane_graph_topo(lane_graph)
 
     #plot_edge_graph(edge_graph, show_nodes=True, show_labels=True)
 
 
+
+
     # # print(len(polylines))
     #
 
     centerline_list=[]
+
+    for u, v, data in lane_graph.edges(data=True):
+        geom = data.get('geom')
+        if geom is None:
+            continue
+        xyz = np.asarray(geom)
+        kind = data.get('kind', 'lane')
+        if kind != 'lane':
+            subtype = data.get('subtype', 'connector')
+            if subtype in ('longitudinal','turn_left','turn_right') :
+                cur_info = {"id": 2000 + len(centerline_list)}
+                cur_info["type"] = 1
+
+               # xyz_length=np.linalg.norm(xyz[:,-1]-xyz[:,0],axis=-1)
+               # if xyz_length>10:
+                centerline_list.append(xyz[:, :2])
+                cur_polyline = np.concatenate(
+                    [xyz, np.zeros([len(xyz), 1]) + cur_info["type"], np.zeros([len(xyz), 1]) + cur_info["id"]],
+                    axis=-1)
+                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+                polylines.append(cur_polyline)
+                point_cnt += len(cur_polyline)
+
+                map_infos["lane"].append(cur_info)
 
     for i,centerline in enumerate(centerlines):
         cur_info = {"id": 1000+i}
