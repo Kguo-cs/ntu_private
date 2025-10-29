@@ -517,7 +517,7 @@ class IQ_SoftQ(LightningModule):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
 
         if self.token_processor.pred_exit:
-            train_mask = valid_mask[:, 1:]
+            train_mask = valid_mask[:, :-1]
         else:
             train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
         tokenized_agent["vis_mask"] = None
