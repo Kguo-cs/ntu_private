@@ -122,7 +122,11 @@ class TokenProcessor(torch.nn.Module):
         tokenized_map={}
 
         tokenized_agent["light_idx"] = torch.zeros([0, 18])
-        tokenized_agent["rand_mask"] =None
+
+        if self.training:
+            tokenized_agent["goal_mask"] =torch.rand_like(tokenized_agent["type"])<0.5
+        else:
+            tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"])
 
         if self.pred_exit:
             valid_mask=tokenized_agent["valid_mask"]

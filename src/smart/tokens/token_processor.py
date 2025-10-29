@@ -153,9 +153,9 @@ class TokenProcessor(torch.nn.Module):
         #
         #     rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
         #
-        #     rand_mask=rand_idx[batch_idx]<1
+        #     goal_mask=rand_idx[batch_idx]<1
         #
-        #     token_mask[rand_mask[:,0],:2]=False
+        #     token_mask[goal_mask[:,0],:2]=False
         #
         #     tokenized_agent['token_mask']=token_mask
 
@@ -201,16 +201,16 @@ class TokenProcessor(torch.nn.Module):
 
             rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
 
-            rand_mask = rand_idx[batch_idx] < 1
+            goal_mask = rand_idx[batch_idx] < 1
 
-            rand_mask[np.random.random(len(rand_mask)) < 0.5] = True
+            goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
 
-            tokenized_agent["rand_mask"]=rand_mask
+            tokenized_agent["goal_mask"]=goal_mask
 
 
         else:
             tokenized_agent["goal_pos"]=None
-            tokenized_agent["rand_mask"]=None
+            tokenized_agent["goal_mask"]=None
 
         tokenized_agent['type']=tokenized_agent['type'].long()
 

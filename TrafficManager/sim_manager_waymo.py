@@ -513,7 +513,7 @@ class SimulationManager:
                             except:
                                 continue
 
-                    route_xy = np.stack([ego_start, ego_goal], axis=1)#append_segment_with_step(ego_start, ego_route_xyz[:, :2], ego_goal, step=2.0)
+                    route_xy = np.stack([ego_start, ego_goal], axis=0)#append_segment_with_step(ego_start, ego_route_xyz[:, :2], ego_goal, step=2.0)
 
                     self.route[0]=(torch.FloatTensor(route_xy).cuda(),13.9)
 
@@ -547,7 +547,7 @@ class SimulationManager:
                             #
                             # route_xy = append_segment_with_step(position, route_xyz[:, :2], goal, step=2.0)
 
-                            route_xy=np.stack([position, goal], axis=1)
+                            route_xy=np.stack([position, goal], axis=0)
 
                             self.route[id] = (torch.FloatTensor(route_xy).cuda(),speed)
 
@@ -803,6 +803,13 @@ class SimulationManager:
             # mean_speed[0]=30
             #
             # tokenized_agent["mean_speed"]=mean_speed
+
+            goal_pos=torch.zeros_like(tokenized_agent["sampled_pos"][:,:1])
+            rand_mask=torch.zeros_like(tokenized_agent["sampled_pos"][:,:1])
+
+            for id,route_xyz in data["routing"].items():
+                idx=tokenized_agent['id']==id
+                goal_pos[idx]=route_xyz[-1]
 
             tokenized_agent["goal_pos"]=None
             tokenized_agent["rand_mask"]=None

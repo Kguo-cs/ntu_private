@@ -87,7 +87,7 @@ class AgentTokenEncoder(nn.Module):
             token_mask,
             batch_idx,
             goal_pos,
-            rand_mask,
+            goal_mask,
             inference=False,
     ):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
@@ -176,8 +176,8 @@ class AgentTokenEncoder(nn.Module):
 
                 if self.use_bird:
                     feature_goal = torch.cat([feature_goal, goal_vector_a[:, :, 2:]], dim=-1)
-                else:
-                    feature_goal[rand_mask[:,0]]=0
+
+                feature_goal[~goal_mask]=0
             else:
                 feature_goal=torch.zeros_like(feature_a)
 

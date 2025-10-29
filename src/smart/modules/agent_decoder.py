@@ -213,7 +213,7 @@ class SMARTAgentDecoder(nn.Module):
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch'],
             goal_pos=tokenized_agent["goal_pos"],
-            rand_mask=tokenized_agent["rand_mask"]
+            goal_mask=tokenized_agent["goal_mask"]
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
         # if latent_z not in tokenized_agent.keys():
