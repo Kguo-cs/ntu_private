@@ -212,7 +212,7 @@ class IQ_SoftQ(LightningModule):
                                                                                                   action, key)
 
         if self.token_processor.pred_exit:
-            exit_mask=action==self.token_processor.n_token_agent
+            exit_mask=action==self.token_processor.n_token_agent-1
 
             exit_nll = -log_prob[exit_mask].mean()
 
