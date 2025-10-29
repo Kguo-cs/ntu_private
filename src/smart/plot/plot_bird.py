@@ -27,43 +27,29 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     gt_valid_raw:(A,T)    bool mask (applied to tokenized & GT)
     """
     P = _to_np(pred_traj)
-    S = _to_np(sampled_pos)     # (A,T,3)
+    #S = _to_np(sampled_pos)     # (A,T,3)
     G = _to_np(gt_pos_raw)      # (A,T,3)
     M = _to_np(gt_valid_raw)    # (A,T)
 
-    S=S[:,2:]
-    G=G[:,2:]
-    M=M[:,2:]
-    P=P[:,:,4::5]
+    #S=S[:,2:]
+    # G=G[:,2:]
+    # M=M[:,2:]
+    # P=P[:,:,:,2:]
 
-    assert S.ndim == 3 and S.shape[-1] == 3, f"sampled_pos must be (A,T,3), got {S.shape}"
-    assert G.ndim == 3 and G.shape[-1] == 3, f"gt_pos_raw must be (A,T,3), got {G.shape}"
-    assert M.shape[:2] == S.shape[:2], f"gt_valid_raw must match (A,T), got {M.shape}"
+    # assert S.ndim == 3 and S.shape[-1] == 3, f"sampled_pos must be (A,T,3), got {S.shape}"
+    # assert G.ndim == 3 and G.shape[-1] == 3, f"gt_pos_raw must be (A,T,3), got {G.shape}"
+    # assert M.shape[:2] == S.shape[:2], f"gt_valid_raw must match (A,T), got {M.shape}"
 
     # Normalize P to (A,K,T,Dp)
-    if P.ndim == 4:
-        A, K, T, Dp = P.shape
-    elif P.ndim == 3:
-        K, T, Dp = P.shape
-        A = 1
-        P = P[None, ...]
-    elif P.ndim == 2:
-        T, Dp = P.shape
-        A, K = 1, 1
-        P = P[None, None, ...]
-    else:
-        raise ValueError(f"Unsupported pred_traj shape {P.shape}")
+    A, K, T, Dp = P.shape
 
     if max_rollouts_per_agent is not None:
         K = min(K, max_rollouts_per_agent)
         P = P[:, :K]
 
-    # Ensure 3D for predictions: if 2D, lift Z=0
-    if Dp == 2:
-        P = np.concatenate([P, np.zeros((*P.shape[:3], 1), dtype=P.dtype)], axis=-1)  # (A,K,T,3)
 
     # Build masked tokenized & GT with NaNs for invalid
-    S_masked = np.stack([_apply_mask_nan(S[a], M[a]) for a in range(S.shape[0])], axis=0)  # (A,T,3)
+#    S_masked = np.stack([_apply_mask_nan(S[a], M[a]) for a in range(S.shape[0])], axis=0)  # (A,T,3)
     G_masked = np.stack([_apply_mask_nan(G[a], M[a]) for a in range(G.shape[0])], axis=0)  # (A,T,3)
 
 
@@ -128,12 +114,12 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
         # )
 
     # Tokenized reference (masked)
-    first_token_label = True
-    for a in range(S_masked.shape[0]):
-        ref = S_masked[a]
-        ax.plot(ref[:,0], ref[:,1], ref[:,2], lw=lw_ref, alpha=0.95,
-                color="tab:orange", label="tokenized" if first_token_label else None)
-        first_token_label = False
+    # first_token_label = True
+    # for a in range(S_masked.shape[0]):
+    #     ref = S_masked[a]
+    #     ax.plot(ref[:,0], ref[:,1], ref[:,2], lw=lw_ref, alpha=0.95,
+    #             color="tab:orange", label="tokenized" if first_token_label else None)
+    #     first_token_label = False
 
     # Ground truth (masked, dashed)
     first_gt_label = True
@@ -178,7 +164,7 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
     ax_pred.set_ylabel("Y");
     ax_pred.set_zlabel("Z")
 
-    fps = 29.97 / 5
+    fps = 29.97
 
     # --- compute shared axis limits from all coords (safe conversion) --- #
     all_coords = gt_pos_raw.reshape(-1, 3)
@@ -190,10 +176,6 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
 
     # --- pre-convert tensors to numpy arrays (faster in update) --- #
     P_np = P # shape (A, K, T, 3) or (A, T, 3) depending on your variable
-    # If P is (A, T, 3) (you used P[a,0] earlier), adapt: ensure shape is (A, K, T, 3)
-    if P_np.ndim == 3:
-        # assume shape (A, T, 3) and single rollout
-        P_np = P_np[:, None, :, :]  # becomes (A, 1, T, 3)
 
     G_np = G_masked  # (A, T, 3)
 

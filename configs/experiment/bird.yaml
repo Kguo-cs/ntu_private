@@ -30,7 +30,7 @@ model:
     smart: false
     bird: true
     n_batch_wosac_metric: 0
-    n_vis_batch: 0
+    n_vis_batch: 1
     n_rollout_closed_val: 16
     decoder:
       num_historical_steps: 6
@@ -45,7 +45,7 @@ model:
       head_dim: 8
 
 
-#ckpt_path : '/home/ke/code/catk/src/logs/bird_alla2a10_token1/2025-10-26_23-10-14/bird/8zfoz8dk/checkpoints/last.ckpt'
+#ckpt_path : '/home/ke/code/catk/epoch=31-step=372384.ckpt'
 
 task_name: bird_alla2a50_exit_hist6_val_metric
 
@@ -56,7 +56,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  #val_check_interval: 0.0000002
+ # val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 

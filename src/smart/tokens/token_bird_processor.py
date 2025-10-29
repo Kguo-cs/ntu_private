@@ -128,6 +128,7 @@ class TokenProcessor(torch.nn.Module):
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
+
         return tokenized_map, tokenized_agent
 
     def init_agent_token(self, agent_token_path) -> None:

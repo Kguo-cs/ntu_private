@@ -21,9 +21,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bc40_pt20_14679_map2/2025-10-22_17-19-02/bc/6y841x4m/checkpoints/epoch=7-step=97400.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird_alla2a5_hist6_val16_metric/2025-10-28_22-08-52/bird/lykncr6o/checkpoints/epoch=31-step=372384.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc56_pt30_14679_notokenmask_goal32/2025-10-27_13-18-12/bc/25c0l93r/checkpoints/epoch=31-valmeta=0.7832.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird_alla2a50_exit_hist6_val_metric/2025-10-28_23-11-01/bird/n6exmdfy/checkpoints/epoch=31-step=372384.ckpt ./
 
 
 

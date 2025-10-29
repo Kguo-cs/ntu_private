@@ -202,12 +202,21 @@ class IQ_SoftQ(LightningModule):
             action = action[train_mask]
             train_mask = train_mask[train_mask]
 
+
+
         all_valid_mask = valid_mask.all(-1)
 
         log_prob, pi, actor_loss, entropy, current_Q, V, value_loss, reward = self.get_network_QV(pred["agent_q"],
                                                                                                   tokenized_map,
                                                                                                   tokenized_agent,
                                                                                                   action, key)
+
+        if self.token_processor.pred_exit:
+            exit_mask=action==self.token_processor.n_token_agent
+
+            exit_nll = -log_prob[exit_mask].mean()
+
+            self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
         # current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
 
@@ -787,6 +796,16 @@ class IQ_SoftQ(LightningModule):
     def training_step(self, data, batch_idx):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
+
+        if self.token_processor.use_bird:
+            sampled_pos=tokenized_agent["sampled_pos"]
+            gt_pos_raw=tokenized_agent["gt_pos_raw"]
+            valid_mask=tokenized_agent["valid_mask"]
+
+            max_dist=torch.linalg.norm(sampled_pos-gt_pos_raw,dim=-1)[valid_mask]
+
+            self.log("train/mean_token_error", max_dist.mean().item(), on_step=True, batch_size=1)
+            self.log("train/max_token_error", max_dist.max().item(), on_step=True, batch_size=1)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

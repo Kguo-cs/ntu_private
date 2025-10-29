@@ -296,7 +296,7 @@ class SMART(LightningModule):
                     batch=pred["batch"]
                     save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
                     plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
-                              tokenized_agent["gt_pos_raw"][batch==0],tokenized_agent["valid_mask"][batch==0],
+                              data["agent"]["position"][:,self.num_historical_steps :][batch==0], data["agent"]["valid_mask"][:,self.num_historical_steps :][batch==0],
                                            show=False,      save_path=save_path
                               )
 
