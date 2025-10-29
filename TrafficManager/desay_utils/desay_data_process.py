@@ -122,32 +122,32 @@ def decode_map_features_from_json(annotation,remove_mapid=[],add_map_object=[]):
 
     # # print(len(polylines))
     #
-
+    #
     centerline_list=[]
-
-    for u, v, data in lane_graph.edges(data=True):
-        geom = data.get('geom')
-        if geom is None:
-            continue
-        xyz = np.asarray(geom)
-        kind = data.get('kind', 'lane')
-        if kind != 'lane':
-            subtype = data.get('subtype', 'connector')
-            if subtype in ('longitudinal','turn_left','turn_right') :
-                cur_info = {"id": 2000 + len(centerline_list)}
-                cur_info["type"] = 1
-
-               # xyz_length=np.linalg.norm(xyz[:,-1]-xyz[:,0],axis=-1)
-               # if xyz_length>10:
-                centerline_list.append(xyz[:, :2])
-                cur_polyline = np.concatenate(
-                    [xyz, np.zeros([len(xyz), 1]) + cur_info["type"], np.zeros([len(xyz), 1]) + cur_info["id"]],
-                    axis=-1)
-                cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
-                polylines.append(cur_polyline)
-                point_cnt += len(cur_polyline)
-
-                map_infos["lane"].append(cur_info)
+    # #
+    # for u, v, data in lane_graph.edges(data=True):
+    #     geom = data.get('geom')
+    #     if geom is None:
+    #         continue
+    #     xyz = np.asarray(geom)
+    #     kind = data.get('kind', 'lane')
+    #     if kind != 'lane':
+    #         subtype = data.get('subtype', 'connector')
+    #         if subtype in ('longitudinal','turn_left','turn_right') :
+    #             cur_info = {"id": 2000 + len(centerline_list)}
+    #             cur_info["type"] = 1
+    #
+    #            # xyz_length=np.linalg.norm(xyz[:,-1]-xyz[:,0],axis=-1)
+    #            # if xyz_length>10:
+    #             centerline_list.append(xyz[:, :2])
+    #             cur_polyline = np.concatenate(
+    #                 [xyz, np.zeros([len(xyz), 1]) + cur_info["type"], np.zeros([len(xyz), 1]) + cur_info["id"]],
+    #                 axis=-1)
+    #             cur_info["polyline_index"] = (point_cnt, point_cnt + len(cur_polyline))
+    #             polylines.append(cur_polyline)
+    #             point_cnt += len(cur_polyline)
+    #
+    #             map_infos["lane"].append(cur_info)
 
     for i,centerline in enumerate(centerlines):
         cur_info = {"id": 1000+i}

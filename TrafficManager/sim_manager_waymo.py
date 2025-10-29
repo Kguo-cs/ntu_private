@@ -176,7 +176,7 @@ class SimulationManager:
         self.timestamp = self.initial_step
         self.MAX_SIM_TIME = self.config["max_sim_time"]+self.initial_step
 
-        self.recording = True
+        self.recording = False
 
         if self.recording:
             self.record_path = "./results/video/record.mp4"
@@ -990,16 +990,32 @@ class SimulationManager:
         if self.timestamp>self.initial_step:
             with open(self.output_ego_json_path, 'r') as f:
                 ego_result = json.load(f)
-
-        with open('/home/ke/code/catk/TrafficManager/waymo/json_output/sync_clips.json', 'r') as f:
-            ego_result = json.load(f)
+        else:
+            ego_result=[[]]
 
         # all_valid[tracking_id<0]=False
-        ego_result["POSE"]={}
-        ego_result["POSE"]["timestamp"]=str(self.timestamp)
+        result={"POSE":{}}
+        result["POSE"]["timestamp"]=str(self.timestamp)
 
-        with open(self.output_json_path, "w") as f:
-            json.dump(result, f, indent=2)
+        z=self.lidar_height
+        x=ego_pos[0][0].cpu().numpy()
+        y=ego_pos[0][1].cpu().numpy()
+        yaw=ego_heading[0].cpu().numpy()
+        cos=np.cos(yaw)
+        sin=np.sin(yaw)
+
+        matrix=np.array([[cos,-sin,0,x],
+                         [sin,cos,0,y],
+                         [0, 0, 1, z],
+                         [0, 0, 0, 1]
+                         ])
+
+        result["POSE"]["data"]=matrix.tolist()
+
+        ego_result[0].append(result)
+
+        with open(self.output_ego_json_path, "w") as f:
+            json.dump(ego_result, f, indent=2)
 
 
     def cleanup(self):

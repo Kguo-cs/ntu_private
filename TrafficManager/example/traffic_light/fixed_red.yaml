@@ -1,5 +1,5 @@
 traffic_lights:
-  - position:  [20, 240]    # 信号灯的世界坐标
+  - position:  [20, 200]    # 信号灯的世界坐标
     heading: 0
     size: [1,1,5]
     orientation: "vertical"         # vertical | horizontal
