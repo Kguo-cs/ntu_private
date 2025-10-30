@@ -257,6 +257,7 @@ class TokenProcessor(torch.nn.Module):
                 topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
                 token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
+                min_dist = all_dist[np.arange(topk_indices.shape[0]), token_idx_gt]
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
