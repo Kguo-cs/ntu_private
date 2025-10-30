@@ -666,7 +666,9 @@ class SMARTAgentDecoder(nn.Module):
                 # else:
                 #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
                 mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
-                token_mask =torch.cat([token_mask,torch.ones_like(token_mask[:,-1:])], dim=1)
+
+                next_token_mask =mask[:,-2] &  mask[:,-1]
+                token_mask =torch.cat([token_mask,next_token_mask[:, None]], dim=1)
 
 
             if self.token_processor.use_bird:

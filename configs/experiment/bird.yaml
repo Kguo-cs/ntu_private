@@ -48,7 +48,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/epoch=31-step=372384.ckpt'
 
-task_name: bird_alla2a100_t10_exit_token2
+task_name: bird_alla2a100_t10_exit_token2mask_noise
 
 
 

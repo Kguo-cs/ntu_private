@@ -27,7 +27,7 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
-
+import numpy as np
 
 class TokenProcessor(torch.nn.Module):
 
@@ -75,7 +75,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = False
+        self.noise = True
 
         self.pred_map_token = False
 
@@ -212,8 +212,6 @@ class TokenProcessor(torch.nn.Module):
         out_dict = {
             "valid_mask": [],
             "gt_idx": [],
-            "gt_pos": [],
-            "gt_heading": [],
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
@@ -249,9 +247,17 @@ class TokenProcessor(torch.nn.Module):
 
             token_world_gt=torch.cat((token_world_xy, token_world_gt_z), dim=-1)
 
-            min_dist, token_idx_gt = torch.min(
-                torch.norm(token_world_gt[:,:,-1] - gt_contour, dim=-1), dim=-1
-            )  # [n_agent]
+            all_dist=torch.norm(token_world_gt[:,:,-1] - gt_contour, dim=-1)
+
+            min_dist, token_idx_gt = torch.min(all_dist , dim=-1)  # [n_agent]
+
+            out_dict["gt_idx"].append(token_idx_gt)
+
+            if self.training and self.noise:
+                topk_indices = torch.argsort( all_dist,dim=-1)[:, :5]
+                sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
+                token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
+
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
 
@@ -273,14 +279,11 @@ class TokenProcessor(torch.nn.Module):
             out_dict["valid_mask"].append(_valid_mask)
 
             # add to output dict
-            out_dict["gt_idx"].append(token_idx_gt)
-            out_dict["gt_pos"].append(
+            out_dict["sampled_idx"].append(token_idx_gt)
+            out_dict["sampled_pos"].append(
                 prev_pos.masked_fill(_invalid_mask.unsqueeze(1), 0)
             )
-            out_dict["gt_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
+            out_dict["sampled_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
 
-            out_dict["sampled_idx"].append(out_dict["gt_idx"][-1])
-            out_dict["sampled_pos"].append(out_dict["gt_pos"][-1])
-            out_dict["sampled_heading"].append(out_dict["gt_heading"][-1])
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
         return out_dict
