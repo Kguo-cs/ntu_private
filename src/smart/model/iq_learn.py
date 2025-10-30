@@ -32,6 +32,7 @@ from src.smart.metrics import (
     WOSACSubmission,
     minADE,
 )
+from torch.nn.functional import cross_entropy
 
 
 class IQ_SoftQ(LightningModule):
@@ -121,15 +122,13 @@ class IQ_SoftQ(LightningModule):
     #             print(f"Unused parameter: {name}")
     #
 
-    def get_network_QV(self, q_value, tokenized_map, tokenized_agent, action, key):
+    def get_network_QV(self, q, tokenized_map, tokenized_agent, action, key):
 
         action = action.unsqueeze(-1)  # .reshape(-1)
 
-        q = q_value  # [:, :-1]
-
         current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
 
-        current_V = self.alpha * torch.logsumexp(q_value / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+        current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
 
         V = torch.cat([current_V, torch.zeros_like(current_V[:, :1])], dim=-1)
 
@@ -139,6 +138,14 @@ class IQ_SoftQ(LightningModule):
         pi = torch.softmax(q / self.alpha, dim=-1)
 
         logpi = torch.log(pi + 1e-10)  # .clamp_min(min=1e-10)
+
+        # log_prob = -cross_entropy(
+        #     q.transpose(1, 2) / self.alpha,  # [n_agent, n_token, n_step], logits
+        #     action.squeeze(-1),  # [n_agent, n_token, n_step], prob
+        #     reduction="none",
+        #     label_smoothing=0.1,
+        # )  # [n_agent, n_step=16]
+
 
         log_prob = torch.gather(logpi, dim=-1, index=action).squeeze(-1)
         entropy = -torch.sum(pi * logpi, dim=-1)

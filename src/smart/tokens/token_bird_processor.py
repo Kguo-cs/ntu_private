@@ -225,7 +225,7 @@ class TokenProcessor(torch.nn.Module):
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
             _invalid_mask = ~_valid_mask
 
-            #out_dict["token_mask"].append(_valid_mask)
+            out_dict["token_mask"].append(_valid_mask)
 
             # out_dict["valid_mask"].append(_valid_mask)
 
@@ -265,7 +265,7 @@ class TokenProcessor(torch.nn.Module):
             token_valid=min_dist<2
             _valid_mask[~token_valid]=False
 
-            out_dict["token_mask"].append(_valid_mask)
+            #out_dict["token_mask"].append(_valid_mask)
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
