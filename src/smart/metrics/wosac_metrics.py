@@ -59,7 +59,7 @@ class WOSACMetrics(Metric):
             "simulated_collision_rate",
             "simulated_offroad_rate",
             "simulated_traffic_light_violation_rate",
-            "traffic_light_violation_likelihood"
+            "traffic_light_violation_likelihood",
         ]
         for k in self.field_names:
             self.add_state(k, default=tensor(0.0), dist_reduce_fx="sum")

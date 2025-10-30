@@ -169,15 +169,15 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
     gt_angular_acc_mask=gt_acc_mask[:,1:] & gt_acc_mask[:,:-1]
 
 
-    linear_speed_likelihood= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,num_bins=10,
+    linear_speed_likelihood= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
                                                       )
 
-    linear_acc_likelihood= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-4,max_val=4,
+    linear_acc_likelihood= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-30,max_val=30,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_speed_likelihood=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1.8,max_val=1.8,
+    angular_speed_likelihood=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-5,max_val=5,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
@@ -192,7 +192,6 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
     exist_likelihood=(gt_mask[:,None]==pred_mask).float().mean(-1).mean(-1)
 
     exist_likelihood=scatter_mean(exist_likelihood, batch)
-
 
     return linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood,exist_likelihood
 

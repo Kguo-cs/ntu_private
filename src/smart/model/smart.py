@@ -275,22 +275,24 @@ class SMART(LightningModule):
             # pred_head=torch.load("/home/ke/code/catk/src/waymo_data/pred_head.pt").cuda()
             #self.all_time+=time.time()-t1
           #  self.all_count+=    self.n_rollout_closed_val*16
+            self.present_likelihood=0
 
             if self.token_processor.use_bird :
                 pred_traj=pred_traj.to(torch.float16)
 
-                linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood,exist_likelihood=compute_bird_metrics(pred_traj,
-                                                                                                    data["agent"]["position"][:,self.num_historical_steps :],
+                result=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"])
 
-                for i in range(len(linear_speed_likelihood)):
+                self.present_likelihood=result[4].mean().item()
+
+                for i in range(len(result[0])):
                     self.wosac_metrics.scenario_counter += 1
-                    self.wosac_metrics.linear_speed_likelihood += linear_speed_likelihood[i]
-                    self.wosac_metrics.linear_acceleration_likelihood += linear_acc_likelihood[i]
-                    self.wosac_metrics.angular_speed_likelihood += angular_speed_likelihood[i]
-                    self.wosac_metrics.angular_acceleration_likelihood += angular_acceleration_likelihood[i]
-                    self.wosac_metrics.metametric+= exist_likelihood[i]
+                    self.wosac_metrics.linear_speed_likelihood += result[0][i]
+                    self.wosac_metrics.linear_acceleration_likelihood += result[1][i]
+                    self.wosac_metrics.angular_speed_likelihood += result[2][i]
+                    self.wosac_metrics.angular_acceleration_likelihood += result[3][i]
+                    self.wosac_metrics.metametric+= result[0][i]+result[1][i]+result[2][i]+result[3][i]
 
                 if batch_idx < self.n_vis_batch:
                     batch=pred["batch"]
@@ -376,6 +378,7 @@ class SMART(LightningModule):
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
                 epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
+                epoch_wosac_metrics['val_closed/present_likelihood']=self.present_likelihood
                 if self.global_rank == 0:
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
