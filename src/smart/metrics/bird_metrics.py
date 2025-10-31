@@ -14,23 +14,23 @@ def _wrap_angle(angle):
   return (angle + np.pi) % (2 * np.pi) - np.pi
 
 def compute_kinematic_features(traj,fps=29.97):
-    velocity = (traj[:,:, 1:] - traj[:, :, :-1]) * fps
+    velocity = (traj[:,:, 2:] - traj[:, :, :-2])/2 * fps
 
     speed = torch.linalg.norm(velocity,dim=-1)
 
-    acc = (speed[:, :, 1:] - speed[:, :, :-1]) * fps
+    acc = (speed[:, :, 2:] - speed[:, :, :-2])/2 * fps
 
     heading =torch.arctan2(velocity[:,:,:,1], velocity[:,:,:,0])
 
-    heading_diff=heading[:,:,1:] - heading[:,:,:-1]
+    heading_diff=(heading[:,:,2:] - heading[:,:,:-2])/2
 
     dh_step = _wrap_angle(heading_diff * 2) / 2
     angular_speed = dh_step  * fps
 
-    angular_speed_diff=angular_speed[:,:,1:]-angular_speed[:,:,:-1]
+    angular_speed_diff=(dh_step[:,:,2:]-dh_step[:,:,:-2])/2
 
     d2h_step = _wrap_angle(angular_speed_diff * 2) / 2
-    angular_acceleration = d2h_step  * fps
+    angular_acceleration = d2h_step  * fps*fps
 
     return speed, acc,angular_speed,angular_acceleration
 
@@ -166,6 +166,34 @@ def histogram_estimate_torch(
     return agent_likelihood,scene_likelihoods.mean()
 
 
+def plot_histgram(name,valid_gt_speed,min_val,max_val,num_bins=11):
+    import matplotlib.pyplot as plt
+
+    valid_gt_speed=valid_gt_speed.to(torch.float32)
+
+    min_val=torch.quantile(valid_gt_speed,0.01)
+    max_val=torch.quantile(valid_gt_speed,0.99)
+    print(min_val,max_val)
+
+    valid_gt_speed = torch.clamp(valid_gt_speed, min_val, max_val)
+
+
+    # Compute histogram
+    hist = torch.histc(valid_gt_speed, bins=num_bins, min=min_val, max=max_val)
+
+    # Create bin edges for plotting
+    bin_edges = torch.linspace(min_val, max_val, num_bins + 1)
+
+    width = (max_val - min_val) / num_bins
+
+    # Plot
+    plt.figure(figsize=(6, 4))
+    plt.bar(bin_edges[:-1].cpu().numpy(), hist.cpu().numpy(), width=width.cpu().numpy(), align='edge', edgecolor='black')
+    plt.title("Histogram of valid_gt_speed")
+    plt.xlabel("Speed")
+    plt.ylabel("Count")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.savefig(name+".png")
 
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
@@ -176,25 +204,35 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
 
     gt_speed,gt_acc,gt_ang_speed,gt_ang_acc=compute_kinematic_features(gt_traj[:,None],fps=fps)
 
-    pred_speed_mask=pred_mask[:,:,1:] & pred_mask[:,:,:-1]
-    gt_speed_mask=gt_mask[:,1:] & gt_mask[:,:-1]
+    pred_speed_mask=pred_mask[:,:,2:] & pred_mask[:,:,:-2]
+    gt_speed_mask=gt_mask[:,2:] & gt_mask[:,:-2]
 
-    pred_acc_mask=pred_speed_mask[:,:,1:] & pred_speed_mask[:,:,:-1]
-    gt_acc_mask=gt_speed_mask[:,1:] & gt_speed_mask[:,:-1]
+    pred_acc_mask=pred_speed_mask[:,:,2:] & pred_speed_mask[:,:,:-2]
+    gt_acc_mask=gt_speed_mask[:,2:] & gt_speed_mask[:,:-2]
 
-    pred_angular_acc_mask=pred_acc_mask[:,:,1:] & pred_acc_mask[:,:,:-1]
-    gt_angular_acc_mask=gt_acc_mask[:,1:] & gt_acc_mask[:,:-1]
+    pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
+    gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
 
+    # valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+    # valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+    # valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+    # valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+
+
+    # plot_histgram('speed',valid_gt_speed,min_val=4,max_val=10)
+    # plot_histgram('acc',valid_gt_acc,min_val=4,max_val=10)
+    # plot_histgram('angspeed',valid_gt_ang_speed,min_val=4,max_val=10)
+    # plot_histgram('angacc',valid_gt_ang_acc,min_val=4,max_val=10)
 
     linear_speed_likelihood,linear_speed_likelihood1= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
                                                       )
 
-    linear_acc_likelihood,linear_acc_likelihood1= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-30,max_val=30,
+    linear_acc_likelihood,linear_acc_likelihood1= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-8,max_val=8,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_speed_likelihood,angular_speed_likelihood1=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-5,max_val=5,
+    angular_speed_likelihood,angular_speed_likelihood1=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1.5,max_val=1.5,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
@@ -215,3 +253,20 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
 
     return result1,exist_likelihood,result2
 
+    # tensor(3.840, device='cuda:0')
+    # tensor(10.188, device='cuda:0')
+    # tensor(-29.859, device='cuda:0')
+    # tensor(29.859, device='cuda:0')
+    # tensor(-5.809, device='cuda:0')
+    # tensor(5.723, device='cuda:0')
+    # tensor(-318., device='cuda:0')
+    # tensor(319., device='cuda:0')
+
+    # tensor(3.842, device='cuda:0')
+    # tensor(10.125, device='cuda:0')
+    # tensor(-7.961, device='cuda:0')
+    # tensor(7.961, device='cuda:0')
+    # tensor(-1.683, device='cuda:0')
+    # tensor(1.683, device='cuda:0')
+    # tensor(-40.812, device='cuda:0')
+    # tensor(39.906, device='cuda:0')

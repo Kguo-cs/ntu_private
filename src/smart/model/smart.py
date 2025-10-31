@@ -296,7 +296,7 @@ class SMART(LightningModule):
                     self.wosac_metrics.linear_acceleration_likelihood += result[1][i]
                     self.wosac_metrics.angular_speed_likelihood += result[2][i]
                     self.wosac_metrics.angular_acceleration_likelihood += result[3][i]
-                    self.wosac_metrics.metametric+= result[0][i]+result[1][i]+result[2][i]+result[3][i]
+                    self.wosac_metrics.metametric+= (result[0][i]+result[1][i]+result[2][i]+result[3][i])/4
 
                 if batch_idx < self.n_vis_batch:
                     batch=pred["batch"]
@@ -387,6 +387,9 @@ class SMART(LightningModule):
                 epoch_wosac_metrics['val_closed/linear_acceleration_likelihood1']=self.linear_acceleration_likelihood
                 epoch_wosac_metrics['val_closed/angular_speed_likelihood1']=self.angular_speed_likelihood
                 epoch_wosac_metrics['val_closed/angular_acceleration_likelihood1']=self.angular_acceleration_likelihood
+                epoch_wosac_metrics['val_closed/scene_likelihood']=(self.angular_acceleration_likelihood+self.linear_speed_likelihood+
+                                                                    self.angular_speed_likelihood+self.angular_acceleration_likelihood  )/4
+
 
                 if self.global_rank == 0:
                     # epoch_wosac_metrics["epoch"] = (
