@@ -35,7 +35,7 @@ model:
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
-      num_agent_layers: 2
+      num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
       a2a_neighbor: 5
@@ -57,7 +57,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  val_check_interval: 0.0000002
+  #val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 
