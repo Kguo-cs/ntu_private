@@ -1,13 +1,73 @@
 import torch
 import numpy as np
 
-# "linear_speed_likelihood",
-# "linear_acceleration_likelihood",
-# "angular_speed_likelihood",
-# "angular_acceleration_likelihood",
-# "distance_to_nearest_object_likelihood",
-# "time_to_collision_likelihood"
-# collision_indication_likelihood
+def emd_1d(p: torch.Tensor,
+           q: torch.Tensor,
+           bin_locations: torch.Tensor = None,
+           eps: float = 1e-8,
+           reduction: str = 'none') -> torch.Tensor:
+    """
+    Compute 1D Earth Mover's Distance (Wasserstein-1) between two discrete distributions.
+    Supports batched inputs and is differentiable (works as a loss).
+
+    Args:
+        p: Tensor of shape (..., n) - non-negative counts or probabilities.
+        q: Tensor of shape (..., n) - same shape as p.
+        bin_locations: optional 1D tensor of length n giving the positions of the bins (must be sorted).
+                       If None, unit spacing is assumed and distances between adjacent bins are 1.
+        eps: small constant to avoid division by zero when normalizing counts.
+        reduction: 'none' (default) returns per-sample distances, 'mean' returns mean, 'sum' returns sum.
+
+    Returns:
+        Tensor of shape (...) with the Wasserstein-1 distances (reduced according to `reduction`).
+    """
+    if p.shape != q.shape:
+        raise ValueError("p and q must have the same shape")
+
+    # cast to float and keep device
+    device = p.device
+    p = p.to(dtype=torch.float32)
+    q = q.to(dtype=torch.float32)
+
+    # flatten leading dims into batch
+    orig_shape = p.shape[:-1]
+    n = p.shape[-1]
+    p_flat = p.reshape(-1, n)
+    q_flat = q.reshape(-1, n)
+
+    # Normalize to probabilities (safe with eps)
+    p_sum = p_flat.sum(dim=-1, keepdim=True).clamp_min(eps)
+    q_sum = q_flat.sum(dim=-1, keepdim=True).clamp_min(eps)
+    p_prob = p_flat / p_sum
+    q_prob = q_flat / q_sum
+
+    # CDFs (works on GPU)
+    cdf_p = torch.cumsum(p_prob, dim=-1)
+    cdf_q = torch.cumsum(q_prob, dim=-1)
+
+    if n == 1:
+        distances = torch.zeros(p_flat.shape[0], dtype=torch.float32, device=device)
+    else:
+        # difference of CDFs up to n-1 (last CDF is 1 if normalized)
+        cdf_diff = torch.abs(cdf_p[:, :-1] - cdf_q[:, :-1])  # shape (batch, n-1)
+
+        if bin_locations is None:
+            # unit spacing
+            deltas = torch.ones(cdf_diff.shape[-1], dtype=torch.float32, device=device)
+        else:
+            bin_locations = torch.as_tensor(bin_locations, dtype=torch.float32, device=device)
+            if bin_locations.numel() != n:
+                raise ValueError("bin_locations must have length n (number of bins)")
+            # ensure monotonic: we don't enforce sorting but assume caller provides sorted bins
+            deltas = torch.diff(bin_locations)  # length n-1
+
+        # multiply CDF differences by distances and sum
+        distances = (cdf_diff * deltas).sum(dim=-1)
+
+    distances = distances.reshape(orig_shape)
+
+    return distances.mean()
+
 
 def _wrap_angle(angle):
   """Wraps angles in the range [-pi, pi]."""
@@ -159,11 +219,14 @@ def histogram_estimate_torch(
 
     batch_log_bin = counts_flat.reshape(num_batches, num_bins)
 
+    earth_mover_dist=emd_1d(batch_sim_counts,batch_log_bin)
+
+
     batch_sum_logprob=(batch_log_sim_probs*batch_log_bin).sum(-1)/batch_log_bin.sum(-1)
 
     scene_likelihoods = torch.exp(batch_sum_logprob).to(dtype)
 
-    return agent_likelihood,scene_likelihoods.mean()
+    return agent_likelihood,scene_likelihoods.mean(),earth_mover_dist
 
 
 def plot_histgram(name,valid_gt_speed,min_val,max_val,num_bins=11):
@@ -212,31 +275,31 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
 
     pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
     gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
+    #
+    # valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+    # valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+    # valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+    # valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+    #
+    #
+    # plot_histgram('speed',valid_gt_speed,min_val=4,max_val=10)
+    # plot_histgram('acc',valid_gt_acc,min_val=4,max_val=10)
+    # plot_histgram('angspeed',valid_gt_ang_speed,min_val=4,max_val=10)
+    # plot_histgram('angacc',valid_gt_ang_acc,min_val=4,max_val=10)
 
-    valid_gt_speed=gt_speed[:,0][gt_speed_mask]
-    valid_gt_acc=gt_acc[:,0][gt_acc_mask]
-    valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
-    valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
-
-
-    plot_histgram('speed',valid_gt_speed,min_val=4,max_val=10)
-    plot_histgram('acc',valid_gt_acc,min_val=4,max_val=10)
-    plot_histgram('angspeed',valid_gt_ang_speed,min_val=4,max_val=10)
-    plot_histgram('angacc',valid_gt_ang_acc,min_val=4,max_val=10)
-
-    linear_speed_likelihood,linear_speed_likelihood1= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
+    linear_speed_likelihoods= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
                                                       )
 
-    linear_acc_likelihood,linear_acc_likelihood1= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-8,max_val=8,
+    linear_acc_likelihoods= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-8,max_val=8,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_speed_likelihood,angular_speed_likelihood1=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1.5,max_val=1.5,
+    angular_speed_likelihoods=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1.5,max_val=1.5,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_acceleration_likelihood,angular_acceleration_likelihood1=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-40,max_val=40,
+    angular_acceleration_likelihoods=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-40,max_val=40,
                                                       gt_valid_mask=gt_angular_acc_mask,sim_valid_mask=pred_angular_acc_mask.flatten(1,2),
                                                       )
 
@@ -248,10 +311,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
 
     exist_likelihood=scatter_mean(exist_likelihood, batch)
 
-    result1=(linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood)
-    result2=(linear_speed_likelihood1, linear_acc_likelihood1, angular_speed_likelihood1, angular_acceleration_likelihood1)
-
-    return result1,exist_likelihood,result2
+    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood
 
     # tensor(3.840, device='cuda:0')
     # tensor(10.188, device='cuda:0')

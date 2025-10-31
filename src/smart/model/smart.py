@@ -280,23 +280,29 @@ class SMART(LightningModule):
             if self.token_processor.use_bird :
                 pred_traj=pred_traj.to(torch.float16)
 
-                result,exist_likelihood,result1=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
+                linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"])
 
                 self.present_likelihood=exist_likelihood.mean().item()
-                self.linear_speed_likelihood = result1[0].mean().item()
-                self.linear_acceleration_likelihood = result1[1].mean().item()
-                self.angular_speed_likelihood = result1[2].mean().item()
-                self.angular_acceleration_likelihood = result1[3].mean().item()
+                self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
+                self.linear_acceleration_likelihood = linear_acc_likelihoods[1].mean().item()
+                self.angular_speed_likelihood = angular_speed_likelihoods[1].mean().item()
+                self.angular_acceleration_likelihood = angular_acceleration_likelihoods[1].mean().item()
 
-                for i in range(len(result[0])):
+                self.linear_speed_emd =linear_speed_likelihoods[2].mean().item()
+                self.linear_acceleration_emd = linear_acc_likelihoods[2].mean().item()
+                self.angular_speed_emd = angular_speed_likelihoods[2].mean().item()
+                self.angular_acceleration_emd =  angular_acceleration_likelihoods[2].mean().item()
+
+
+                for i in range(len(linear_speed_likelihoods[0])):
                     self.wosac_metrics.scenario_counter += 1
-                    self.wosac_metrics.linear_speed_likelihood += result[0][i]
-                    self.wosac_metrics.linear_acceleration_likelihood += result[1][i]
-                    self.wosac_metrics.angular_speed_likelihood += result[2][i]
-                    self.wosac_metrics.angular_acceleration_likelihood += result[3][i]
-                    self.wosac_metrics.metametric+= (result[0][i]+result[1][i]+result[2][i]+result[3][i])/4
+                    self.wosac_metrics.linear_speed_likelihood += linear_speed_likelihoods[0][i]
+                    self.wosac_metrics.linear_acceleration_likelihood += linear_acc_likelihoods[0][i]
+                    self.wosac_metrics.angular_speed_likelihood += angular_speed_likelihoods[0][i]
+                    self.wosac_metrics.angular_acceleration_likelihood += angular_acceleration_likelihoods[0][i]
+                    self.wosac_metrics.metametric+= (linear_speed_likelihoods[0][i]+linear_acc_likelihoods[0][i]+angular_speed_likelihoods[0][i]+angular_acceleration_likelihoods[0][i])/4
 
                 if batch_idx < self.n_vis_batch:
                     batch=pred["batch"]
@@ -389,6 +395,13 @@ class SMART(LightningModule):
                 epoch_wosac_metrics['val_closed/angular_acceleration_likelihood1']=self.angular_acceleration_likelihood
                 epoch_wosac_metrics['val_closed/scene_likelihood']=(self.angular_acceleration_likelihood+self.linear_speed_likelihood+
                                                                     self.angular_speed_likelihood+self.angular_acceleration_likelihood  )/4
+
+                epoch_wosac_metrics['val_closed/linear_speed_emd']=self.linear_speed_emd
+                epoch_wosac_metrics['val_closed/linear_acceleration_emd']=self.linear_acceleration_emd
+                epoch_wosac_metrics['val_closed/angular_speed_emd']=self.angular_speed_emd
+                epoch_wosac_metrics['val_closed/angular_acceleration_emd']=self.angular_acceleration_emd
+                epoch_wosac_metrics['val_closed/scene_emd']=(self.linear_speed_emd+self.linear_acceleration_emd+
+                                                                    self.angular_speed_emd+self.angular_acceleration_emd  )/4
 
 
                 if self.global_rank == 0:
