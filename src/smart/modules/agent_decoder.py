@@ -476,6 +476,8 @@ class SMARTAgentDecoder(nn.Module):
 
         n_agent = sampled_idx.shape[0]
 
+        present_mask=mask.any(-1)
+
 
         pred_traj_10hz = []
         pred_head_10hz = []
@@ -653,7 +655,7 @@ class SMARTAgentDecoder(nn.Module):
             else:
 
                 if self.token_processor.use_bird:
-                    new_agent_mask=~mask[:,-1]  & gt_valid[:,t]
+                    new_agent_mask=~present_mask  & gt_valid[:,t]
 
                     pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
                     head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
@@ -663,6 +665,8 @@ class SMARTAgentDecoder(nn.Module):
                         next_mask=(mask[:,-1] & ~exit_mask)| new_agent_mask
                     else:
                         next_mask=gt_valid[:,t]
+
+                    present_mask=present_mask | next_mask
                 else:
                     next_mask = mask[:,-1]
 

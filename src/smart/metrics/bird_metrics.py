@@ -228,35 +228,56 @@ def histogram_estimate_torch(
 
     return agent_likelihood,scene_likelihoods.mean(),earth_mover_dist
 
+    # min_val=torch.quantile(valid_gt_speed,0.01)
+    # max_val=torch.quantile(valid_gt_speed,0.99)
+    # print(min_val,max_val)
 
-def plot_histgram(name,valid_gt_speed,min_val,max_val,num_bins=11):
+def plot_histgram(name, valid_gt_speed, valid_pred_speed,
+                  min_val, max_val, num_bins=11, save_dir="/home/ke/code/catk/src/waymo_data/bird_data1/result"):
+    import torch
     import matplotlib.pyplot as plt
+    import os
 
-    valid_gt_speed=valid_gt_speed.to(torch.float32)
+    os.makedirs(save_dir, exist_ok=True)
 
-    min_val=torch.quantile(valid_gt_speed,0.01)
-    max_val=torch.quantile(valid_gt_speed,0.99)
-    print(min_val,max_val)
+    valid_gt_speed = valid_gt_speed.to(torch.float32)
+    valid_pred_speed = valid_pred_speed.to(torch.float32)
 
+    # Clamp to valid range
     valid_gt_speed = torch.clamp(valid_gt_speed, min_val, max_val)
+    valid_pred_speed = torch.clamp(valid_pred_speed, min_val, max_val)
 
+    # Compute histograms
+    hist_gt = torch.histc(valid_gt_speed, bins=num_bins, min=min_val, max=max_val)
+    hist_pred = torch.histc(valid_pred_speed, bins=num_bins, min=min_val, max=max_val)
 
-    # Compute histogram
-    hist = torch.histc(valid_gt_speed, bins=num_bins, min=min_val, max=max_val)
+    hist_gt=hist_gt/hist_gt.sum()
+    hist_pred=hist_pred/hist_pred.sum()
 
-    # Create bin edges for plotting
+    # Bin edges and width
     bin_edges = torch.linspace(min_val, max_val, num_bins + 1)
-
     width = (max_val - min_val) / num_bins
 
-    # Plot
-    plt.figure(figsize=(6, 4))
-    plt.bar(bin_edges[:-1].cpu().numpy(), hist.cpu().numpy(), width=width.cpu().numpy(), align='edge', edgecolor='black')
-    plt.title("Histogram of valid_gt_speed")
-    plt.xlabel("Speed")
+    # Plot both histograms together
+    plt.figure(figsize=(7, 5))
+    plt.bar(bin_edges[:-1].cpu().numpy(), hist_gt.cpu().numpy(),
+            width=width, align='edge',
+            color='blue', alpha=0.6, label='GT Speed', edgecolor='black')
+    plt.bar(bin_edges[:-1].cpu().numpy(), hist_pred.cpu().numpy(),
+            width=width, align='edge',
+            color='green', alpha=0.5, label='Pred Speed', edgecolor='black')
+
+    plt.title(name+" Distribution Comparison")
+    plt.xlabel(name)
     plt.ylabel("Count")
+    plt.legend()
     plt.grid(True, linestyle='--', alpha=0.5)
-    plt.savefig("/home/ke/code/catk/src/waymo_data/bird_data1/result"+name+".png")
+
+    # plt.show()
+    save_path = os.path.join(save_dir, f"{name}_hist.png")
+    plt.savefig(save_path, bbox_inches='tight')
+    plt.close()
+    print(f"Saved histogram: {save_path}")
 
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
@@ -275,17 +296,21 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
 
     pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
     gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
-    #
-    # valid_gt_speed=gt_speed[:,0][gt_speed_mask]
-    # valid_gt_acc=gt_acc[:,0][gt_acc_mask]
-    # valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
-    # valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
-    #
-    #
-    # plot_histgram('speed',valid_gt_speed,min_val=4,max_val=10)
-    # plot_histgram('acc',valid_gt_acc,min_val=4,max_val=10)
-    # plot_histgram('angspeed',valid_gt_ang_speed,min_val=4,max_val=10)
-    # plot_histgram('angacc',valid_gt_ang_acc,min_val=4,max_val=10)
+
+    valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+    valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+    valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+    valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+
+    valid_speed = speed[pred_speed_mask]
+    valid_acc = acc[pred_acc_mask]
+    valid_ang_speed = ang_speed[pred_acc_mask]
+    valid_ang_acc =ang_acc[pred_angular_acc_mask]
+
+    plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=10)
+    plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-8,max_val=8)
+    plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1.5,max_val=1.5)
+    plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-40,max_val=40)
 
     linear_speed_likelihoods= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),

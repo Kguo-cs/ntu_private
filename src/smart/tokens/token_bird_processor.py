@@ -87,7 +87,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_token=True
 
-        self.use_time=True
+        self.use_time=False
 
         if self.pred_exit:
             self.n_token_agent+=1
@@ -199,6 +199,8 @@ class TokenProcessor(torch.nn.Module):
             t_list=torch.from_numpy(np.stack(t_list)).to(torch.float32).to(batch.device)
 
             tokenized_agent["abs_time"]=t_list[batch]
+        else:
+            tokenized_agent["abs_time"]=torch.zeros_like(pos[:0,:,0])
 
         return tokenized_agent
 

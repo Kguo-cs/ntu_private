@@ -38,7 +38,7 @@ model:
       num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
-      a2a_neighbor: 5
+      a2a_neighbor: 10
       hidden_dim: 64
       num_freq_bands: 32
       num_heads: 8
@@ -46,9 +46,9 @@ model:
       time_span: 10
 
 
-#ckpt_path : '/home/ke/code/catk/epoch=31-step=372384.ckpt'
+#ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 
-task_name: bird1024_t10_token1mask_abst_nei5 #_smooth01
+task_name: bird1024_t10_token1mask_abst_nei10 #_smooth01
 
 
 
@@ -57,7 +57,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
- # val_check_interval: 0.0000002
+  #val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 
@@ -77,8 +77,8 @@ logger:
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
   dirpath: null     # or any directory you prefer
-  filename: "epoch={epoch}-valmeta={val_closed/ADE:.4f}"
-  monitor: "val_closed/ADE"   # <== key metric from validation
+  filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
+  monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
   verbose: false
   save_last: true
   save_top_k: 8

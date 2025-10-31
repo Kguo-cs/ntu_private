@@ -279,6 +279,13 @@ class SMART(LightningModule):
 
             if self.token_processor.use_bird :
                 pred_traj=pred_traj.to(torch.float16)
+                if batch_idx < self.n_vis_batch:
+                    batch=pred["batch"]
+                    save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
+                    plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
+                              data["agent"]["position"][:,self.num_historical_steps :][batch==0], data["agent"]["valid_mask"][:,self.num_historical_steps :][batch==0],
+                                           show=False,      save_path=save_path
+                              )
 
                 linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
@@ -304,13 +311,6 @@ class SMART(LightningModule):
                     self.wosac_metrics.angular_acceleration_likelihood += angular_acceleration_likelihoods[0][i]
                     self.wosac_metrics.metametric+= (linear_speed_likelihoods[0][i]+linear_acc_likelihoods[0][i]+angular_speed_likelihoods[0][i]+angular_acceleration_likelihoods[0][i])/4
 
-                if batch_idx < self.n_vis_batch:
-                    batch=pred["batch"]
-                    save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
-                    plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
-                              data["agent"]["position"][:,self.num_historical_steps :][batch==0], data["agent"]["valid_mask"][:,self.num_historical_steps :][batch==0],
-                                           show=False,      save_path=save_path
-                              )
 
 
             # ! WOSAC
