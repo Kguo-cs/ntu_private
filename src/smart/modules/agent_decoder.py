@@ -181,7 +181,7 @@ class SMARTAgentDecoder(nn.Module):
         self.discriminator=discriminator
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None):
+    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,abs_time=None):
 
         #pos_a=torch.round(pos_a*10)/10
         #head_a=torch.round(head_a*10)/10
@@ -213,7 +213,8 @@ class SMARTAgentDecoder(nn.Module):
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch'],
             goal_pos=tokenized_agent["goal_pos"],
-            goal_mask=tokenized_agent["goal_mask"]
+            goal_mask=tokenized_agent["goal_mask"],
+            abs_time=abs_time,
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
         # if latent_z not in tokenized_agent.keys():
@@ -430,7 +431,9 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 map_feature,
                                                                                 light_idx,
                                                                                 mask_lg,
-                                                                                latent_z=tokenized_agent["latent_z"])
+                                                                                latent_z=tokenized_agent["latent_z"],
+                                                                                abs_time=tokenized_agent["abs_time"]
+                                                                                                     )
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["edge_index_a2a"] = edge_index_a2a
@@ -466,6 +469,8 @@ class SMARTAgentDecoder(nn.Module):
         token_traj=tokenized_agent["token_traj"]
         token_traj_all = tokenized_agent["token_traj_all"]
         light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
+
+        abs_time=tokenized_agent["abs_time"][:, :current_step].clone()
 
         mask_lg=light_idx<self.light_type
 
@@ -526,7 +531,7 @@ class SMARTAgentDecoder(nn.Module):
                             self.light_encoder.lg_t_roformer.attn.caching=True
 
                     next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z)
+                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,abs_time)
 
                     # if 'vis_mask' in tokenized_agent.keys():
                     #     vis_mask = tokenized_agent['vis_mask']
@@ -551,7 +556,7 @@ class SMARTAgentDecoder(nn.Module):
                 next_token_logits, next_light_logits, _, _, proposal, next_goal_logits = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, - self.agent_hist:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
-                    mask_lg[:, -self.light_hist:], t - 1, latent_z)
+                    mask_lg[:, -self.light_hist:], t - 1, latent_z,abs_time[:, -1:])
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]
@@ -669,6 +674,8 @@ class SMARTAgentDecoder(nn.Module):
 
                 next_token_mask =mask[:,-2] &  mask[:,-1]
                 token_mask =torch.cat([token_mask,next_token_mask[:, None]], dim=1)
+
+                abs_time=torch.cat([abs_time, abs_time[:,-1:]+self.shift], dim=1)
 
 
             if self.token_processor.use_bird:

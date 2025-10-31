@@ -87,6 +87,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_token=True
 
+        self.use_time=True
+
         if self.pred_exit:
             self.n_token_agent+=1
 
@@ -156,14 +158,10 @@ class TokenProcessor(torch.nn.Module):
         pos=pos[:,1:]
         valid=valid[:,1:] & valid[:,:-1]
 
-        fut_valid=valid[:,self.shift:: self.shift].any(dim=-1)
 
-        pos=pos[fut_valid]
-        valid=valid[fut_valid]
-        heading=heading[fut_valid]
         token_traj_all=self.agent_token_all[None,:,:].repeat(len(pos),1,1,1)
         token_traj=token_traj_all[:,:,-2:]
-        batch=data["agent"]["batch"][fut_valid]
+        batch=data["agent"]["batch"]
 
         tokenized_agent = {
             "num_graphs": data.num_graphs,
@@ -182,8 +180,8 @@ class TokenProcessor(torch.nn.Module):
              #  "gt_valid_10hz": valid
         }
 
-        data["agent"]["position"]=pos.to(torch.float16)
-        data["agent"]["valid_mask"]=valid
+        data["agent"]["position"] = pos.to(torch.float16)
+        data["agent"]["valid_mask"] = valid
 
         token_dict = self._match_agent_token(
             valid=valid,
@@ -193,15 +191,23 @@ class TokenProcessor(torch.nn.Module):
         )
         tokenized_agent.update(token_dict)
 
+        if self.use_time:
+            t_list=[]
+            for t in data["agent"]["time"]:
+                t_list.append(t[0][self.shift :: self.shift])
+
+            t_list=torch.from_numpy(np.stack(t_list)).to(torch.float32).to(batch.device)
+
+            tokenized_agent["abs_time"]=t_list[batch]
 
         return tokenized_agent
 
     def _match_agent_token(
-        self,
-        valid: Tensor,  # [n_agent, n_step]
-        pos: Tensor,  # [n_agent, n_step, 2]
-        heading: Tensor,  # [n_agent, n_step]
-        token_traj: Tensor,  # [n_agent, n_token, 4, 2]
+            self,
+            valid: Tensor,  # [n_agent, n_step]
+            pos: Tensor,  # [n_agent, n_step, 2]
+            heading: Tensor,  # [n_agent, n_step]
+            token_traj: Tensor,  # [n_agent, n_token, 4, 2]
     ) -> Dict[str, Tensor]:
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape

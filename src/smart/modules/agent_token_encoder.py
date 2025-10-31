@@ -46,6 +46,9 @@ class AgentTokenEncoder(nn.Module):
         if self.use_goal:
             input_dim_x_a*=2
 
+        if self.token_processor.use_time:
+            input_dim_x_a+=1
+
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,
             hidden_dim=hidden_dim,
@@ -88,6 +91,7 @@ class AgentTokenEncoder(nn.Module):
             batch_idx,
             goal_pos,
             goal_mask,
+            abs_time,
             inference=False,
     ):
         n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
@@ -214,6 +218,8 @@ class AgentTokenEncoder(nn.Module):
             else:
                 categorical_embs = None
 
+        if self.token_processor.use_time:
+            feature_a=torch.cat([feature_a, abs_time[:,:,None]/50000], dim=-1)
 
 
         x_a = self.x_a_emb(
