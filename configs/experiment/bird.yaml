@@ -35,7 +35,7 @@ model:
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
-      num_agent_layers: 1
+      num_agent_layers: 2
       pl2a_radius: 100
       a2a_radius: 100
       a2a_neighbor: 5
