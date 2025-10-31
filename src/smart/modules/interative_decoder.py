@@ -243,7 +243,10 @@ class InterativeDecoder(nn.Module):
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 
-                feat_a_pt = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                if not self.token_processor.use_bird:
+                    feat_a_pt = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                else:
+                    feat_a_pt=feat_a
 
                 if self.use_iteract:
 
@@ -320,7 +323,7 @@ class InterativeDecoder(nn.Module):
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 if  train_mask is not None and self.num_layers==1:
-                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:16,train_mask]
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 

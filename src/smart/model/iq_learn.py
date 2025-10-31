@@ -328,6 +328,7 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent["detach_map_feature"],
                                                             [],
                                                             None,
+                                                            abs_time=tokenized_agent["abs_time"]
                                                             # latent_z=tokenized_agent["latent_z"]
         )  # [0]#Metrics-Guided Adversarial Training
 

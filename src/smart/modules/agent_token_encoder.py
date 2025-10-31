@@ -157,7 +157,7 @@ class AgentTokenEncoder(nn.Module):
                 ],
                 dim=-1,
             )  # [n_agent, n_step, 2]
-            feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
+        feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
         if self.token_processor.use_token:
             feature_a[~token_mask]=0

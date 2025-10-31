@@ -446,12 +446,16 @@ class ReplayBuffer:
 
 
 def rollout(encoder, tokenized_map, tokenized_agent,validation_rollout_sampling):
+    train_data_len=tokenized_agent["sampled_idx"].shape[1]
+    max_step = (train_data_len - (encoder.agent_encoder.num_historical_steps)//encoder.agent_encoder.shift)*encoder.agent_encoder.shift
+
     encoder.eval()
     with torch.no_grad():
         pred = encoder.inference(
             tokenized_map,
             tokenized_agent,
-            validation_rollout_sampling
+            validation_rollout_sampling,
+            n_step_future_10hz=max_step
         )
     encoder.train()
 

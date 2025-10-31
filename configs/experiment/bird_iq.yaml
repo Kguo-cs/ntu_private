@@ -6,8 +6,8 @@ defaults:
 
 model:
   model_config:
-    lr: 5e-4
-    lr_min_ratio: 1e-2
+    lr: 1e-4
+    lr_min_ratio: 0.05
     token_processor:
       agent_token_file: "bird1024.pkl" #my2048 #agent_vocab_555_s2
       map_token_sampling: # open-loop
@@ -26,8 +26,9 @@ model:
       temp: 1.0
     val_open_loop: False
     #val_closed_loop: False
-    #finetune: true
-    smart: false
+    finetune: true
+    smart : false
+
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
@@ -45,10 +46,11 @@ model:
       head_dim: 8
       time_span: 10
 
+      hist_drop_prob: 0 #0.1 #0.1
 
-#ckpt_path : '/home/ke/code/catk/epoch=31-step=372384.ckpt'
+ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=0-step=11625.ckpt'
 
-task_name: bird1024_t10_token2mask_abst  #_smooth01
+task_name: aril1024_t10_token2mask_abst  #_smooth01
 
 
 
@@ -57,9 +59,9 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
- # val_check_interval: 0.0000002
-  max_epochs: 64
-  #gradient_clip_val: 0.0
+  #val_check_interval: 0.0000002
+  max_epochs: 16
+  gradient_clip_val: 0.0
 
 data:
   train_batch_size: 4
@@ -71,7 +73,7 @@ data:
 
 logger:
   wandb:
-     project: bird
+     project: sim
 
 
 model_checkpoint:
@@ -90,7 +92,7 @@ model_checkpoint:
   every_n_epochs: null
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
-#action: validate
+action: finetune
 #action: finetune
 # nohup python run.py > 1.txt 2>&1 &
 

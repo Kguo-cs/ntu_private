@@ -476,6 +476,7 @@ class SMARTAgentDecoder(nn.Module):
 
         n_agent = sampled_idx.shape[0]
 
+
         pred_traj_10hz = []
         pred_head_10hz = []
 
@@ -515,7 +516,7 @@ class SMARTAgentDecoder(nn.Module):
                     #     next_goal_logits = tokenized_agent["next_goal_logits"][:, :1]
                     # else:
                     #     next_goal_logits = []
-                    next_token_logits=torch.zeros([len(type),1,2048],device=sampled_idx.device)
+                    next_token_logits=torch.zeros([len(type),1,self.token_processor.n_token_agent],device=sampled_idx.device)
 
                     next_token_logits[type<3]= tokenized_agent["next_token_logits"][:, :1]
 
@@ -745,6 +746,7 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_idx": sampled_idx,  # [n_agent, 18]
             "gt_idx": sampled_idx,
             "light_idx": light_idx,
+            "abs_time" :abs_time
         }
 
         if len(pred_traj_10hz):

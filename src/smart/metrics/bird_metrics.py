@@ -193,7 +193,7 @@ def plot_histgram(name,valid_gt_speed,min_val,max_val,num_bins=11):
     plt.xlabel("Speed")
     plt.ylabel("Count")
     plt.grid(True, linestyle='--', alpha=0.5)
-    plt.savefig(name+".png")
+    plt.savefig("/home/ke/code/catk/src/waymo_data/bird_data1/result"+name+".png")
 
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
@@ -213,16 +213,16 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
     pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
     gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
 
-    # valid_gt_speed=gt_speed[:,0][gt_speed_mask]
-    # valid_gt_acc=gt_acc[:,0][gt_acc_mask]
-    # valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
-    # valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+    valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+    valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+    valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+    valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
 
 
-    # plot_histgram('speed',valid_gt_speed,min_val=4,max_val=10)
-    # plot_histgram('acc',valid_gt_acc,min_val=4,max_val=10)
-    # plot_histgram('angspeed',valid_gt_ang_speed,min_val=4,max_val=10)
-    # plot_histgram('angacc',valid_gt_ang_acc,min_val=4,max_val=10)
+    plot_histgram('speed',valid_gt_speed,min_val=4,max_val=10)
+    plot_histgram('acc',valid_gt_acc,min_val=4,max_val=10)
+    plot_histgram('angspeed',valid_gt_ang_speed,min_val=4,max_val=10)
+    plot_histgram('angacc',valid_gt_ang_acc,min_val=4,max_val=10)
 
     linear_speed_likelihood,linear_speed_likelihood1= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
