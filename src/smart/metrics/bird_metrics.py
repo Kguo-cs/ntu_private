@@ -280,7 +280,7 @@ def plot_histgram(name, valid_gt_speed, valid_pred_speed,
     print(f"Saved histogram: {save_path}")
 
 
-def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
+def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     pred_mask=(pred_traj!=0).any(-1)
 
@@ -297,20 +297,22 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
     pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
     gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
 
-    valid_gt_speed=gt_speed[:,0][gt_speed_mask]
-    valid_gt_acc=gt_acc[:,0][gt_acc_mask]
-    valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
-    valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+    if vis:
 
-    valid_speed = speed[pred_speed_mask]
-    valid_acc = acc[pred_acc_mask]
-    valid_ang_speed = ang_speed[pred_acc_mask]
-    valid_ang_acc =ang_acc[pred_angular_acc_mask]
+        valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+        valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+        valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+        valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
 
-    plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=10)
-    plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-8,max_val=8)
-    plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1.5,max_val=1.5)
-    plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-40,max_val=40)
+        valid_speed = speed[pred_speed_mask]
+        valid_acc = acc[pred_acc_mask]
+        valid_ang_speed = ang_speed[pred_acc_mask]
+        valid_ang_acc =ang_acc[pred_angular_acc_mask]
+
+        plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=10)
+        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-8,max_val=8)
+        plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1.5,max_val=1.5)
+        plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-40,max_val=40)
 
     linear_speed_likelihoods= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),

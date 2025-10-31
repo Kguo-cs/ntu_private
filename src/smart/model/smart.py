@@ -289,7 +289,7 @@ class SMART(LightningModule):
 
                 linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
-                                        tokenized_agent["batch"])
+                                        tokenized_agent["batch"],batch_idx < self.n_vis_batch)
 
                 self.present_likelihood=exist_likelihood.mean().item()
                 self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
