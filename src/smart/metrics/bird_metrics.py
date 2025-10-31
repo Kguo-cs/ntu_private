@@ -34,7 +34,7 @@ def compute_kinematic_features(traj,fps=29.97):
 
     return speed, acc,angular_speed,angular_acceleration
 
-from torch_scatter import scatter_mean
+from torch_scatter import scatter_mean,scatter_sum
 import torch
 
 def histogram_estimate_torch(
@@ -106,15 +106,15 @@ def histogram_estimate_torch(
         dest = batch_idx* num_bins + bin_idx_flat
         # bincount: produce counts for length B * num_bins
         total_bins = B * num_bins
-        counts_flat = torch.bincount(dest, minlength=total_bins).to(dtype)
+        counts_flat = torch.bincount(dest, minlength=total_bins).to(torch.float32)
         sim_counts = counts_flat.view(B, num_bins)
     else:
-        sim_counts = torch.zeros((B, num_bins), device=device, dtype=dtype)
+        sim_counts = torch.zeros((B, num_bins), device=device, dtype=torch.float32)
 
     # ---- Add pseudocounts and convert to log-probabilities ----
     # 3) add pseudocount and normalize
-    sim_counts = sim_counts + float(additive_smoothing_pseudocount)
-    sim_probs = sim_counts / (sim_counts.sum(dim=1, keepdim=True) + eps)  # (B, num_bins)
+    sim_counts_sudo = sim_counts + float(additive_smoothing_pseudocount)
+    sim_probs = sim_counts_sudo / (sim_counts_sudo.sum(dim=1, keepdim=True) + eps)  # (B, num_bins)
     log_sim_probs = torch.log(sim_probs.clamp_min(eps))
 
     # 4) bin log_samples using the same linear mapping
@@ -126,6 +126,7 @@ def histogram_estimate_torch(
 
     # Gather log-prob per sample
     per_sample_logprob = torch.gather(log_sim_probs, 1, log_bins)   # (B, L)
+
 
     # Zero-out contributions from invalid gt samples (ignore them in sum)
     mask_float = gt_valid_mask.to(dtype)
@@ -140,13 +141,29 @@ def histogram_estimate_torch(
 
 
     # Mask out batches with zero valid gt samples:
-    masked_lihood=likelihoods[gt_valid_mask.any(-1)]
+    # masked_lihood=likelihoods[gt_valid_mask.any(-1)]
+    agent_likelihood=scatter_mean(likelihoods[gt_valid_mask.any(-1)], batch[gt_valid_mask.any(-1)])
 
-    batch=batch[gt_valid_mask.any(-1)]
+    batch_sim_counts=scatter_sum(sim_counts,batch, dim=0)
+    batch_sim_probs = batch_sim_counts / (batch_sim_counts.sum(dim=1, keepdim=True) + eps)  # (B, num_bins)
+    batch_log_sim_probs = torch.log(batch_sim_probs.clamp_min(eps))
 
-    scene_likelihood=scatter_mean(masked_lihood, batch)
+    num_batches = torch.amax(batch).item() + 1
+    num_bins = num_bins  # as before
 
-    return scene_likelihood
+    batch_idx = batch[:, None].repeat(1, gt_valid_mask.shape[1])[gt_valid_mask].to(device)  # (K,)
+    bin_idx = log_bins[gt_valid_mask].to(device)  # (K,)
+
+    linear_idx = batch_idx * num_bins + bin_idx  # shape (K,)
+    counts_flat = torch.bincount(linear_idx, minlength=(num_batches * num_bins)).to(dtype=torch.long)
+
+    batch_log_bin = counts_flat.reshape(num_batches, num_bins)
+
+    batch_sum_logprob=(batch_log_sim_probs*batch_log_bin).sum(-1)/batch_log_bin.sum(-1)
+
+    scene_likelihoods = torch.exp(batch_sum_logprob).to(dtype)
+
+    return agent_likelihood,scene_likelihoods.mean()
 
 
 
@@ -169,19 +186,19 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
     gt_angular_acc_mask=gt_acc_mask[:,1:] & gt_acc_mask[:,:-1]
 
 
-    linear_speed_likelihood= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
+    linear_speed_likelihood,linear_speed_likelihood1= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
                                                       )
 
-    linear_acc_likelihood= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-30,max_val=30,
+    linear_acc_likelihood,linear_acc_likelihood1= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-30,max_val=30,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_speed_likelihood=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-5,max_val=5,
+    angular_speed_likelihood,angular_speed_likelihood1=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-5,max_val=5,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_acceleration_likelihood=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-40,max_val=40,
+    angular_acceleration_likelihood,angular_acceleration_likelihood1=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-40,max_val=40,
                                                       gt_valid_mask=gt_angular_acc_mask,sim_valid_mask=pred_angular_acc_mask.flatten(1,2),
                                                       )
 
@@ -193,5 +210,8 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,fps=29.97):
 
     exist_likelihood=scatter_mean(exist_likelihood, batch)
 
-    return linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood,exist_likelihood
+    result1=(linear_speed_likelihood, linear_acc_likelihood, angular_speed_likelihood, angular_acceleration_likelihood)
+    result2=(linear_speed_likelihood1, linear_acc_likelihood1, angular_speed_likelihood1, angular_acceleration_likelihood1)
+
+    return result1,exist_likelihood,result2
 

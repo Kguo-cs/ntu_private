@@ -280,11 +280,15 @@ class SMART(LightningModule):
             if self.token_processor.use_bird :
                 pred_traj=pred_traj.to(torch.float16)
 
-                result=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
+                result,exist_likelihood,result1=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"])
 
-                self.present_likelihood=result[4].mean().item()
+                self.present_likelihood=exist_likelihood.mean().item()
+                self.linear_speed_likelihood = result1[0].mean().item()
+                self.linear_acceleration_likelihood = result1[1].mean().item()
+                self.angular_speed_likelihood = result1[2].mean().item()
+                self.angular_acceleration_likelihood = result1[3].mean().item()
 
                 for i in range(len(result[0])):
                     self.wosac_metrics.scenario_counter += 1
@@ -379,6 +383,11 @@ class SMART(LightningModule):
                 epoch_wosac_metrics = self.wosac_metrics.compute()
                 epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
                 epoch_wosac_metrics['val_closed/present_likelihood']=self.present_likelihood
+                epoch_wosac_metrics['val_closed/linear_speed_likelihood1']=self.linear_speed_likelihood
+                epoch_wosac_metrics['val_closed/linear_acceleration_likelihood1']=self.linear_acceleration_likelihood
+                epoch_wosac_metrics['val_closed/angular_speed_likelihood1']=self.angular_speed_likelihood
+                epoch_wosac_metrics['val_closed/angular_acceleration_likelihood1']=self.angular_acceleration_likelihood
+
                 if self.global_rank == 0:
                     # epoch_wosac_metrics["epoch"] = (
                     #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
