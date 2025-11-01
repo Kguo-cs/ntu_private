@@ -176,10 +176,10 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_entry=token_processor.pred_entry
 
-        if self.pred_entry:
-            self.entry_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                    )
+        # if self.pred_entry:
+        #     self.entry_decoder = MLPLayer(
+        #                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+        #             )
 
         self.pred_col=False
         self.use_sign_dist=False
@@ -394,10 +394,10 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
-        if self.pred_entry:
-            entry_logit=self.entry_decoder(feat_a)
-        else:
-            entry_logit=None
+        # if self.pred_entry:
+        #     entry_logit=self.entry_decoder(feat_a)
+        # else:
+        entry_logit=None
 
 
         return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,feat_a

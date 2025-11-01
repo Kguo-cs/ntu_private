@@ -293,10 +293,10 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
-        if self.token_processor.pred_entry:
+        if pred["entry_logit"] is not None:
             entry_idx=tokenized_agent["entry_idx"]
 
-            pred_entry_logit=pred["pred_entry_logit"]
+            pred_entry_logit=pred["entry_logit"]
 
             entry_neg_log_prob = cross_entropy(
                 pred_entry_logit.transpose(1, 2) ,  # [n_agent, n_token, n_step], logits

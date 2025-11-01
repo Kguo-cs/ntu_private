@@ -16,6 +16,7 @@ import pickle
 from typing import Dict, Tuple
 
 import torch
+from click.core import batch
 from omegaconf import DictConfig
 from torch import Tensor
 from torch.distributions import Categorical
@@ -76,7 +77,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = False
+        self.noise = True
 
         self.pred_map_token = False
 
@@ -88,12 +89,12 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_token=True
 
-        self.use_time=False
+        self.use_time=True
 
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -199,6 +200,8 @@ class TokenProcessor(torch.nn.Module):
             pos=pos,
             heading=heading,
             token_traj=token_traj,
+            batch=batch[:,None],
+            num_graphs=data.num_graphs
         )
         tokenized_agent.update(token_dict)
 
@@ -221,6 +224,8 @@ class TokenProcessor(torch.nn.Module):
             pos: Tensor,  # [n_agent, n_step, 2]
             heading: Tensor,  # [n_agent, n_step]
             token_traj: Tensor,  # [n_agent, n_token, 4, 2]
+            batch,
+            num_graphs
     ) -> Dict[str, Tensor]:
         num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
@@ -250,7 +255,7 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["token_mask"].append(_valid_mask.clone())
 
-            # out_dict["valid_mask"].append(_valid_mask)
+
 
             # #! gt_contour: [n_agent, 4, 2] in global coord
             # gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
@@ -282,7 +287,6 @@ class TokenProcessor(torch.nn.Module):
                 token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
                 min_dist = all_dist[np.arange(topk_indices.shape[0]), token_idx_gt]
 
-            # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
 
             token_in_valid=min_dist>1
@@ -291,67 +295,85 @@ class TokenProcessor(torch.nn.Module):
 
             _valid_mask[token_in_valid]=False
 
-            # udpate prev_pos, prev_head
-            prev_head = heading[:, i].clone()
-            dxy = token_contour_gt[:,-1] - token_contour_gt[:,-2]
-            prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
-            prev_pos = pos[:, i].clone()
-            prev_pos[_valid_mask] = token_contour_gt[:,-1][_valid_mask]
-
             entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_agent - 1
 
-            if self.pred_entry and i>self.shift:
-                entry_agent=~valid[:,i-self.shift] & valid[:,i]
 
-                if entry_agent.any():
-                    present_agent = valid[:, i-self.shift] &  valid[:,i]
+            if self.pred_entry and i > self.shift:
+                entry_agent = ~valid[:, i - self.shift] & valid[:, i]
+                present_agent = valid[:, i - self.shift] & valid[:, i]
 
-                    entry_pos = prev_pos[entry_agent]
+                entry_num = torch.bincount(batch[entry_agent, 0], minlength=num_graphs)
+                present_num = torch.bincount(batch[present_agent, 0], minlength=num_graphs)
 
-                    present_pos = prev_pos[present_agent]
+                entry_mask = entry_num <= present_num
 
-                    diff = present_pos[:, None, :] - entry_pos[None, :, :]  # (Np, Ne, D)
+                if entry_agent.any() and entry_mask.all():
+
+                    entry_pos =pos[:, i][entry_agent]
+
+                    present_pos =prev_pos[present_agent]
+
+                    diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
                     cost = torch.linalg.norm(diff, axis=-1)
 
                     row_ind, col_ind = linear_sum_assignment(cost.cpu().numpy())
 
+                    row_ind=row_ind[col_ind]
+
                     present_agent_pos = present_pos[row_ind]
 
-                    entry_agent_pos = entry_pos[col_ind]
+                    #entry_agent_pos = entry_pos#[col_ind]
 
                     present_agent_heading = prev_head[present_agent][row_ind]
-                    entry_agent_heading = prev_head[entry_agent][col_ind]
+                    entry_agent_heading = heading[:, i][entry_agent]#[col_ind]
 
                     local_pos, local_heading = transform_to_local(
-                        entry_agent_pos[:, None, :2],  # [n_agent, n_step, 2]
+                        entry_pos[:, None, :2],  # [n_agent, n_step, 2]
                         entry_agent_heading[:, None],  # [n_agent, n_step]
                         present_agent_pos[:, :2],  # [n_agent, 2]
                         present_agent_heading  # [n_agent]
                     )
-                    local_z = entry_agent_pos[:, 2:] - present_agent_pos[:, 2:]
 
-                    results_xy=cal_polygon_contour(local_pos[:,None,None,:2],local_heading[:,None,None],width_length=2*torch.ones([len(local_pos),1,1,2]))[:,0,0]
+                    local_z = entry_pos[:, 2:] - present_agent_pos[:, 2:]
 
-                    local_poses=torch.cat([results_xy,local_z[:,None].repeat(1,4,1)],dim=-1)
+                    results_xy = cal_polygon_contour(local_pos[:, None, :2], local_heading[:, None],
+                                                     width_length=2 * torch.ones([len(local_pos), 1, 1, 2],device=local_z.device))[:, 0, 0]
 
-                    pose_dist = torch.linalg.norm(local_poses[:,None]-self.entry_pos_token[None],dim=-1).mean(-1)
+                    local_poses = torch.cat([results_xy, local_z[:, None].repeat(1, 4, 1)], dim=-1)
 
-                    entry_idx_gt=torch.argmin(pose_dist,dim=-1)
+                    pose_dist = torch.linalg.norm(local_poses[:, None] - self.entry_pos_token[None], dim=-1).mean(-1)
 
+                    entry_idx_gt = torch.argmin(pose_dist, dim=-1)
 
                     present_idx = torch.nonzero(present_agent, as_tuple=False).squeeze(1)
 
                     entry_idx[present_idx[row_ind]] = entry_idx_gt
 
+                    prev_head = heading[:, i].clone()
+                    prev_pos = pos[:, i].clone()
 
-                    entry_poses=self.entry_pos_token[entry_idx_gt]
+                    local_traj=self.entry_pos_token[entry_idx_gt]
 
-                    prev_pos[entry_agent]=entry_poses.mean(-2)
+                    global_xy=transform_to_global(pos_local=local_traj[:,:,:2], head_local=None,pos_now=present_agent_pos[:, :2],head_now=present_agent_heading)[0]
 
-                    dxy = entry_poses[:, 0] - entry_poses[:, 3]
+                    global_z=local_traj[:,0,2]+present_agent_pos[:, 2]
+
+                    prev_pos[entry_agent,:2] = global_xy.mean(-2)
+                    prev_pos[entry_agent,2] = global_z
+
+                    dxy = global_xy[:, 0] - global_xy[:, 3]
                     prev_head[entry_agent] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
+            else:
+                prev_head = heading[:, i].clone()
+                prev_pos = pos[:, i].clone()
+
             out_dict["entry_idx"].append(entry_idx)
+
+            # udpate prev_pos, prev_head
+            dxy = token_contour_gt[:,-1] - token_contour_gt[:,-2]
+            prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
+            prev_pos[_valid_mask] = token_contour_gt[:,-1][_valid_mask]
 
             _valid_mask=valid[:, i]
 
