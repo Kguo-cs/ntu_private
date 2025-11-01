@@ -124,6 +124,7 @@ class SMART(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
+        print(self.local_rank,data.num_graphs)
 
         # # ! open-loop vlidation
         # if self.val_open_loop:

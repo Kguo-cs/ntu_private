@@ -75,7 +75,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = True
+        self.noise = False
 
         self.pred_map_token = False
 

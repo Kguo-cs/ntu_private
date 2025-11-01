@@ -48,9 +48,9 @@ model:
 
       hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=0-step=11625.ckpt'
+ckpt_path : './ckpts/bird1024_t10_token1mask_nei10_epoch=34-step=406875.ckpt'
 
-task_name: aril1024_t10_token2mask_abst  #_smooth01
+task_name: iq_bird1024_t10_token1mask_n10_nonoise  #_smooth01
 
 
 
@@ -59,7 +59,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  #val_check_interval: 0.0000002
+  val_check_interval: 0.0000002
   max_epochs: 16
   gradient_clip_val: 0.0
 
@@ -73,24 +73,24 @@ data:
 
 logger:
   wandb:
-     project: sim
+     project: bird
 
 
-model_checkpoint:
-  _target_: lightning.pytorch.callbacks.ModelCheckpoint
-  dirpath: null     # or any directory you prefer
-  filename: "epoch={epoch}-valmeta={val_closed/ADE:.4f}"
-  monitor: "val_closed/ADE"   # <== key metric from validation
-  verbose: false
-  save_last: true
-  save_top_k: 8
-  mode: "max"                          # "max" since your metric increases with performance
-  auto_insert_metric_name: false
-  save_weights_only: false
-  every_n_train_steps: null
-  train_time_interval: null
-  every_n_epochs: null
-  save_on_train_epoch_end: false       # <== important, disables save after training epoch
+#model_checkpoint:
+#  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+#  dirpath: null     # or any directory you prefer
+#  filename: "epoch={epoch}-valmeta={val_closed/ADE:.4f}"
+#  monitor: "val_closed/ADE"   # <== key metric from validation
+#  verbose: false
+#  save_last: true
+#  save_top_k: 8
+#  mode: "max"                          # "max" since your metric increases with performance
+#  auto_insert_metric_name: false
+#  save_weights_only: false
+#  every_n_train_steps: null
+#  train_time_interval: null
+#  every_n_epochs: null
+#  save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 action: finetune
 #action: finetune
