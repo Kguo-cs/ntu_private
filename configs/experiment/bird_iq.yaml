@@ -35,9 +35,8 @@ model:
     n_rollout_closed_val: 32
     decoder:
       num_historical_steps: 6
-      num_future_steps: 600 #805
+      num_future_steps: 600
       num_agent_layers: 1
-      pl2a_radius: 100
       a2a_radius: 100
       a2a_neighbor: 10
       hidden_dim: 64
@@ -50,7 +49,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_t10_token1mask_nei10_epoch=34-step=406875.ckpt'
 
-task_name: iq_bird1024_t10_token1mask_n10_nonoise  #_smooth01
+task_name: iq_bird1024_t10_token1mask_n10_all  #_smooth01
 
 
 
@@ -67,7 +66,7 @@ data:
   train_batch_size: 8
   val_batch_size: 10
   test_batch_size: 10
-  num_workers: 1
+  num_workers: 8
   train_raw_dir: ${paths.cache_root}/bird_train107 #rawboth #_route #_03nuplan_cross2_03_map #training_map2_03_route #training_map2_03_pred #training_map2_03_pred #training_smart_highest #_raw #clean #training_map2_clean  #training_map2_2049 #training_inter10_raw_light  #training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
   val_raw_dir: ${paths.cache_root}/bird_val607_40 #_map2 #validation_map2 #validation_light #validation_map2
 

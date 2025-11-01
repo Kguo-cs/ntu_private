@@ -708,17 +708,9 @@ class IQ_SoftQ(LightningModule):
                         index = tokenized_agent_rollout["batch"][all_valid][:, None].repeat(1, feat_a.shape[1])
                         feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
-                    # agent_rewards=per_scene_zscore_clip(agent_rewards,tokenized_agent_rollout["batch"][all_valid],torch.ones_like(agent_rewards).to(bool))
-                    # agent_rewards = torch.round(agent_rewards / 0.02).clip(-10.0,10.0)/10.0 #.floor().long()
-
-                    # agent_rewards[:,1:]= agent_rewards[:,1:]-agent_rewards[:,:-1]
-
                     v_denorm = self.encoder.value_network(feat_a)[:, :, 0]
 
                     self.log("train/agent_value", v_denorm.mean().item(), on_step=True, batch_size=1)
-
-                    # agent_rewards = (agent_rewards-torch.mean(agent_rewards,dim=1,keepdim=True))/(torch.std(agent_rewards,dim=1,keepdim=True))
-                    # agent_rewards = torch.clamp(agent_rewards, -2, 2)
 
                     train_valid_mask = train_mask[all_valid]
 
@@ -810,11 +802,12 @@ class IQ_SoftQ(LightningModule):
             sampled_pos=tokenized_agent["sampled_pos"]
             gt_pos_raw=tokenized_agent["gt_pos_raw"]
             valid_mask=tokenized_agent["valid_mask"]
+            reset_mask=tokenized_agent["reset_mask"]
 
             max_dist=torch.linalg.norm(sampled_pos-gt_pos_raw,dim=-1)[valid_mask]
 
             self.log("train/mean_token_error", max_dist.mean().item(), on_step=True, batch_size=1)
-            self.log("train/max_token_error", max_dist.max().item(), on_step=True, batch_size=1)
+            self.log("train/reset_mask", reset_mask.float().mean().item(), on_step=True, batch_size=1)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

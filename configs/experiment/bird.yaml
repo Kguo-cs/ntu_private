@@ -36,7 +36,6 @@ model:
       num_historical_steps: 6
       num_future_steps: 600
       num_agent_layers: 1
-      pl2a_radius: 100
       a2a_radius: 100
       a2a_neighbor: 10
       hidden_dim: 64
@@ -48,7 +47,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 
-task_name: bird1024_t10_token1mask_n10_noise5 #_smooth01
+task_name: bird1024_t10_token1mask_n10_nonoise #_smooth01
 
 
 
@@ -62,7 +61,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 4
+  train_batch_size: 5
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1
