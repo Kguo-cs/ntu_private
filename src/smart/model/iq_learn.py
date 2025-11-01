@@ -286,10 +286,12 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and not self.use_gail:
             action_nll = 0
 
-        if self.token_processor.pred_exit:
+        if self.token_processor.pred_exit and key=='expert':
             exit_mask=action==self.token_processor.n_token_agent-1
 
             exit_nll = -log_prob[exit_mask].mean()
+
+            action_nll=action_nll+exit_nll
 
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
