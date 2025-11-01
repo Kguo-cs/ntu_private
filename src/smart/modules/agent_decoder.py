@@ -174,6 +174,13 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)
 
+        self.pred_entry=token_processor.pred_entry
+
+        if self.pred_entry:
+            self.entry_decoder = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
+
         self.pred_col=False
         self.use_sign_dist=False
 
@@ -387,7 +394,13 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
-        return next_token_logits,edge_index_a2a,rewards,weight,proposal,feat_a
+        if self.pred_entry:
+            entry_logit=self.entry_decoder(feat_a)
+        else:
+            entry_logit=None
+
+
+        return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,feat_a
 
     def forward(
             self,
@@ -422,7 +435,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
-        next_token_logits,edge_index_a2a,rewards,agent_token_emb,proposal,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["token_mask"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -439,7 +452,9 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["edge_index_a2a"] = edge_index_a2a
         tokenized_agent["feat_a"] = feat_a.detach()
         tokenized_agent["feat_a_nodetach"] = feat_a
-        tokenized_agent["proposal"] = proposal
+        tokenized_agent["entry_logit"] = entry_logit
+
+
 
         # tokenized_agent["agent_token_emb"]=agent_token_emb
         # if 'next_map_token_logits' in map_feature.keys() :
@@ -448,6 +463,7 @@ class SMARTAgentDecoder(nn.Module):
         next_map_token_logits=None
 
         return {
+            "entry_logit":entry_logit,
             "goal_q":None,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
             'next_map_token_logits':next_map_token_logits
@@ -478,7 +494,6 @@ class SMARTAgentDecoder(nn.Module):
 
         present_mask=mask.any(-1)
 
-
         pred_traj_10hz = []
         pred_head_10hz = []
 
@@ -503,8 +518,8 @@ class SMARTAgentDecoder(nn.Module):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None and not self.use_diffusion:
 
-                    if tokenized_agent["proposal"] is not None:
-                        proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
+                    # if tokenized_agent["proposal"] is not None:
+                    #     proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
 
                     # if tokenized_agent["visibility"] is not None:
                     #     visibility=tokenized_agent["visibility"][:, :1]
@@ -523,6 +538,11 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_logits[type<3]= tokenized_agent["next_token_logits"][:, :1]
 
 
+                    if tokenized_agent["entry_logit"] is not None:
+
+                        entry_logit=tokenized_agent["entry_logit"][:,:1]
+
+
                     feat_a = tokenized_agent["feat_a"][:, :1]
 
                     # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
@@ -533,7 +553,7 @@ class SMARTAgentDecoder(nn.Module):
                         if self.pred_light and not self.light_encoder.share:
                             self.light_encoder.lg_t_roformer.attn.caching=True
 
-                    next_token_logits,next_light_logits,_,_,proposal,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
+                    next_token_logits,next_light_logits,_,_,entry_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,abs_time)
 
                     # if 'vis_mask' in tokenized_agent.keys():
@@ -556,7 +576,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.head_cache=self.head_cache[:,  :current_step]
 
             else:
-                next_token_logits, next_light_logits, _, _, proposal, next_goal_logits = self.predict_agent(
+                next_token_logits, next_light_logits, _, _, entry_logit, next_goal_logits = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, - self.agent_hist:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
                     mask_lg[:, -self.light_hist:], t - 1, latent_z,abs_time[:, -1:])

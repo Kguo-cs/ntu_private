@@ -293,19 +293,23 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
-        # if len(pred["light_q"]) and key=="expert":
-        #     light_idx=tokenized_agent["light_idx"][:, 2:]
-        #     light_action=torch.clamp_max(light_idx,max=self.token_processor.light_type-1)
-        #
-        #     log_prob_light,light_logpi=self.get_network_QV(pred["light_q"], tokenized_map, tokenized_agent,light_action,key)[:2]
-        #
-        #     light_mask=light_idx<self.token_processor.light_type
-        #     light_nll=-log_prob_light[light_mask].mean()
-        #     light_acc = (torch.argmax(light_logpi, dim=-1) == light_idx)#[train_mask[agent_num:]]
-        #     self.log("train/" + key + "_light_acc", light_acc.float().mean().item(), on_step=True, batch_size=1)
-        #     self.log("train/" + key + "_light_nll", light_nll.item(), on_step=True, batch_size=1)
-        # else:
-        #     light_nll=0
+        if self.token_processor.pred_entry:
+            entry_idx=tokenized_agent["entry_idx"]
+
+            pred_entry_logit=pred["pred_entry_logit"]
+
+            entry_neg_log_prob = cross_entropy(
+                pred_entry_logit.transpose(1, 2) ,  # [n_agent, n_token, n_step], logits
+                entry_idx,  # [n_agent, n_token, n_step], prob
+                reduction="none",
+                label_smoothing=0,
+            )  # [n_agent, n_step=16]
+
+            entry_nll= entry_neg_log_prob[train_mask].mean()
+
+            self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
+
+            action_nll=entry_nll+action_nll
 
         return reward, value_loss, pi, action_nll, current_Q, proposal_loss, log_prob + proposal_log_prob, entropy
 
