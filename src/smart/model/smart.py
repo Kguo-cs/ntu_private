@@ -124,7 +124,10 @@ class SMART(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        print(self.local_rank,data.num_graphs)
+        if self.local_rank==0:
+            for t in data["agent"]["time"]:
+                print(self.local_rank,t[0][0])
+
 
         # # ! open-loop vlidation
         # if self.val_open_loop:
@@ -188,10 +191,6 @@ class SMART(LightningModule):
 
                 # mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
                 # std=torch.ones_like(mu)
-
-            # probs = logits_p.softmax(-1)
-
-            #t1=time.time()
 
             for _ in range(self.n_rollout_closed_val):
 

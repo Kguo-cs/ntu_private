@@ -64,9 +64,9 @@ class MultiDataset(Dataset):
         self._raw_paths = [p.as_posix() for p in sorted(Path(raw_dir).glob("*"))]
         self._tfrecord_dir = Path(tfrecord_dir) if tfrecord_dir is not None else None
 
-        if self.bird and tfrecord_dir is not None:
-            # random_idx= np.random.choice(self._num_samples, size=64*5, replace=False)
-            np.random.shuffle(self._raw_paths)
+        # if self.bird and tfrecord_dir is not None:
+        #     # random_idx= np.random.choice(self._num_samples, size=64*5, replace=False)
+        #     np.random.shuffle(self._raw_paths)
             #self._num_samples=64*5
             # print(self._raw_paths)
 
