@@ -35,7 +35,7 @@ model:
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
-      num_agent_layers: 2
+      num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
       a2a_neighbor: 5
@@ -48,7 +48,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 
-task_name: bird1024_t10_token1mask_abst_l2_a5 #_smooth01
+task_name: bird1024_t10_token1mask_abst #_smooth01
 
 
 
