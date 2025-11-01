@@ -280,7 +280,6 @@ class TokenProcessor(torch.nn.Module):
             min_dist, token_idx_gt = torch.min(all_dist , dim=-1)  # [n_agent]
 
             out_dict["gt_idx"].append(token_idx_gt)
-
             if self.training and self.noise:
                 topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//400]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
@@ -288,9 +287,7 @@ class TokenProcessor(torch.nn.Module):
                 min_dist = all_dist[np.arange(topk_indices.shape[0]), token_idx_gt]
 
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
-
-            token_in_valid=min_dist>1
-
+            token_in_valid=min_dist>0.5
             out_dict["reset_mask"].append(token_in_valid)
 
             _valid_mask[token_in_valid]=False
@@ -363,6 +360,9 @@ class TokenProcessor(torch.nn.Module):
 
                     dxy = global_xy[:, 0] - global_xy[:, 3]
                     prev_head[entry_agent] = torch.arctan2(dxy[:, 1], dxy[:, 0])
+                else:
+                    prev_head = heading[:, i].clone()
+                    prev_pos = pos[:, i].clone()
 
             else:
                 prev_head = heading[:, i].clone()

@@ -47,7 +47,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 
-task_name: bird1024_abst10_token1mask_n10_entry #_smooth01
+task_name: bird1024_abst10_token05mask_n10_entry #_smooth01
 
 
 
