@@ -87,7 +87,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_token=True
 
-        self.use_time=True
+        self.use_time=False
 
         if self.pred_exit:
             self.n_token_agent+=1
@@ -262,7 +262,7 @@ class TokenProcessor(torch.nn.Module):
             out_dict["gt_idx"].append(token_idx_gt)
 
             if self.training and self.noise:
-                topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//400]
+                topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//200]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
                 token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
                 min_dist = all_dist[np.arange(topk_indices.shape[0]), token_idx_gt]
