@@ -38,7 +38,7 @@ model:
       num_agent_layers: 1
       pl2a_radius: 100
       a2a_radius: 100
-      a2a_neighbor: 5
+      a2a_neighbor: 10
       hidden_dim: 64
       num_freq_bands: 32
       num_heads: 8
@@ -48,7 +48,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 
-task_name: bird1024_t10_token1mask_abst #_smooth01
+task_name: bird1024_t10_token1mask_abst_n10 #_smooth01
 
 
 
