@@ -124,9 +124,9 @@ class SMART(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        if self.local_rank==0:
-            for t in data["agent"]["time"]:
-                print(self.local_rank,t[0][0])
+        # if self.local_rank==0:
+        #     for t in data["agent"]["time"]:
+        #         print(self.local_rank,t[0][0])
 
 
         # # ! open-loop vlidation
