@@ -388,20 +388,6 @@ class SMART(LightningModule):
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
                 epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
-                epoch_wosac_metrics['val_closed/present_likelihood']=self.present_likelihood
-                epoch_wosac_metrics['val_closed/linear_speed_likelihood1']=self.linear_speed_likelihood
-                epoch_wosac_metrics['val_closed/linear_acceleration_likelihood1']=self.linear_acceleration_likelihood
-                epoch_wosac_metrics['val_closed/angular_speed_likelihood1']=self.angular_speed_likelihood
-                epoch_wosac_metrics['val_closed/angular_acceleration_likelihood1']=self.angular_acceleration_likelihood
-                epoch_wosac_metrics['val_closed/scene_likelihood']=(self.angular_acceleration_likelihood+self.linear_speed_likelihood+
-                                                                    self.angular_speed_likelihood+self.angular_acceleration_likelihood  )/4
-
-                epoch_wosac_metrics['val_closed/linear_speed_emd']=self.linear_speed_emd
-                epoch_wosac_metrics['val_closed/linear_acceleration_emd']=self.linear_acceleration_emd
-                epoch_wosac_metrics['val_closed/angular_speed_emd']=self.angular_speed_emd
-                epoch_wosac_metrics['val_closed/angular_acceleration_emd']=self.angular_acceleration_emd
-                epoch_wosac_metrics['val_closed/scene_emd']=(self.linear_speed_emd+self.linear_acceleration_emd+
-                                                                    self.angular_speed_emd+self.angular_acceleration_emd  )/4
 
 
                 if self.global_rank == 0:
@@ -410,6 +396,24 @@ class SMART(LightningModule):
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
                     #print("Logged keys:", epoch_wosac_metrics.keys())
+                    epoch_wosac_metrics['val_closed/present_likelihood'] = self.present_likelihood
+                    epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] = self.linear_speed_likelihood
+                    epoch_wosac_metrics[
+                        'val_closed/linear_acceleration_likelihood1'] = self.linear_acceleration_likelihood
+                    epoch_wosac_metrics['val_closed/angular_speed_likelihood1'] = self.angular_speed_likelihood
+                    epoch_wosac_metrics[
+                        'val_closed/angular_acceleration_likelihood1'] = self.angular_acceleration_likelihood
+                    epoch_wosac_metrics['val_closed/scene_likelihood'] = (
+                                                                                     self.angular_acceleration_likelihood + self.linear_speed_likelihood +
+                                                                                     self.angular_speed_likelihood + self.angular_acceleration_likelihood) / 4
+
+                    epoch_wosac_metrics['val_closed/linear_speed_emd'] = self.linear_speed_emd
+                    epoch_wosac_metrics['val_closed/linear_acceleration_emd'] = self.linear_acceleration_emd
+                    epoch_wosac_metrics['val_closed/angular_speed_emd'] = self.angular_speed_emd
+                    epoch_wosac_metrics['val_closed/angular_acceleration_emd'] = self.angular_acceleration_emd
+                    epoch_wosac_metrics['val_closed/scene_emd'] = (
+                                                                              self.linear_speed_emd + self.linear_acceleration_emd +
+                                                                              self.angular_speed_emd + self.angular_acceleration_emd) / 4
 
                     for key, value in epoch_wosac_metrics.items():#minADE is the time average distance for evaluated agent
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)
