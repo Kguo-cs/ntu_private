@@ -49,7 +49,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_t10_token1mask_nei10_epoch=34-step=406875.ckpt'
 
-task_name: iq_bird1024_t10_token1mask_n10_all  #_smooth01
+task_name: iq_bird1024_t10_token1mask_n10_all_disr60  #_smooth01
 
 
 
@@ -63,7 +63,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 8
+  train_batch_size: 1
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8

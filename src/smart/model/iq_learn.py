@@ -209,8 +209,6 @@ class IQ_SoftQ(LightningModule):
             action = action[train_mask]
             train_mask = train_mask[train_mask]
 
-
-
         all_valid_mask = valid_mask.all(-1)
 
         log_prob, pi, actor_loss, entropy, current_Q, V, value_loss, reward = self.get_network_QV(pred["agent_q"],
@@ -803,11 +801,12 @@ class IQ_SoftQ(LightningModule):
             gt_pos_raw=tokenized_agent["gt_pos_raw"]
             valid_mask=tokenized_agent["valid_mask"]
             reset_mask=tokenized_agent["reset_mask"]
+            token_mask=tokenized_agent["token_mask"]
 
             max_dist=torch.linalg.norm(sampled_pos-gt_pos_raw,dim=-1)[valid_mask]
 
             self.log("train/mean_token_error", max_dist.mean().item(), on_step=True, batch_size=1)
-            self.log("train/reset_mask", reset_mask.float().mean().item(), on_step=True, batch_size=1)
+            self.log("train/reset_mask", reset_mask[token_mask].float().mean().item(), on_step=True, batch_size=1)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 

@@ -75,7 +75,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = False
+        self.noise = True
 
         self.pred_map_token = False
 
@@ -87,7 +87,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_token=True
 
-        self.use_time=False
+        self.use_time=True
 
         if self.pred_exit:
             self.n_token_agent+=1
@@ -246,7 +246,7 @@ class TokenProcessor(torch.nn.Module):
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
             _invalid_mask = ~_valid_mask
 
-            out_dict["token_mask"].append(_valid_mask)
+            out_dict["token_mask"].append(_valid_mask.clone())
 
             # out_dict["valid_mask"].append(_valid_mask)
 
@@ -275,7 +275,7 @@ class TokenProcessor(torch.nn.Module):
             out_dict["gt_idx"].append(token_idx_gt)
 
             if self.training and self.noise:
-                topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//200]
+                topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//400]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
                 token_idx_gt = topk_indices[np.arange(topk_indices.shape[0]), sample_topk]
                 min_dist = all_dist[np.arange(topk_indices.shape[0]), token_idx_gt]
@@ -283,11 +283,11 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
 
-            token_no_valid=min_dist>1
-            _valid_mask[token_no_valid]=False
+            token_in_valid=min_dist>0.3
 
-            reset_mask=_valid_mask & token_no_valid
-            out_dict["reset_mask"].append(reset_mask)
+            out_dict["reset_mask"].append(token_in_valid)
+
+            _valid_mask[token_in_valid]=False
 
 
             # udpate prev_pos, prev_head
