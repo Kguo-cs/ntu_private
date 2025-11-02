@@ -294,18 +294,15 @@ class IQ_SoftQ(LightningModule):
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
         if pred["entry_logit"] is not None:
-            entry_idx=tokenized_agent["entry_idx"]
+            entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:]
 
             pred_entry_logit=pred["entry_logit"]
 
-            entry_neg_log_prob = cross_entropy(
-                pred_entry_logit.transpose(1, 2) ,  # [n_agent, n_token, n_step], logits
-                entry_idx,  # [n_agent, n_token, n_step], prob
-                reduction="none",
-                label_smoothing=0,
-            )  # [n_agent, n_step=16]
+            entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
-            entry_nll= entry_neg_log_prob[train_mask].mean()
+            entry_log_prob = torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)
+
+            entry_nll= -entry_log_prob[train_mask].mean()
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
 

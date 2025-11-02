@@ -77,7 +77,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = False
+        self.noise = True
 
         self.pred_map_token = False
 
@@ -94,7 +94,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -152,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
 
-        entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
+        entry_pos_token = pickle.load(open('./smart/tokens/first1024.pkl', "rb"))
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 
@@ -187,9 +187,6 @@ class TokenProcessor(torch.nn.Module):
              "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
              "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-             # "gt_traj_10hz": pos,
-             # "gt_head_10hz": heading,
-             #  "gt_valid_10hz": valid
         }
 
         data["agent"]["position"] = pos.to(torch.float16)
@@ -260,12 +257,6 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["token_mask"].append(_valid_mask.clone())
 
-
-
-            # #! gt_contour: [n_agent, 4, 2] in global coord
-            # gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
-            # gt_contour = gt_contour.unsqueeze(1)  # [n_agent, 1, 4, 2]
-
             gt_contour=pos[:, i].unsqueeze(1)
 
             # ! tokenize without sampling
@@ -327,11 +318,8 @@ class TokenProcessor(torch.nn.Module):
                     # global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
                     #
                     # global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
-
-                    # dist=torch.linalg.norm(global_token_pos[None] - entry_pos[:,None,None], dim=-1)
                     #
-                    # cost=dist.amin(1)
-                    #diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
+                    # diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
 
                     diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
 
@@ -390,7 +378,7 @@ class TokenProcessor(torch.nn.Module):
                     # dxy = global_xy[:, 0] - global_xy[:, 3]
                     # prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-                    #dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
                     #print(dist.mean())
 
