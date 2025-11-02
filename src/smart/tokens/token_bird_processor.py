@@ -152,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
 
-        entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
+        entry_pos_token = pickle.load(open('./smart/tokens/first1024.pkl', "rb"))
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 
@@ -249,6 +249,11 @@ class TokenProcessor(torch.nn.Module):
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
 
+        entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1,1)
+
+        entry_token_xy=entry_pos_token[:,:,:2]
+        entry_token_z=entry_pos_token[:,:,2]
+
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
             _invalid_mask = ~_valid_mask
@@ -317,8 +322,13 @@ class TokenProcessor(torch.nn.Module):
 
                     present_pos =prev_pos[present_agent]
 
-                    diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
+                    # global_token_pos=transform_to_global(self.entry_pos_token[None],None,present_pos[:, :2],present_pos)
+                    # print(1)
 
+
+
+
+                    diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
 
                     cost = torch.linalg.norm(diff, dim=-1)
 
@@ -339,6 +349,7 @@ class TokenProcessor(torch.nn.Module):
                     )
 
                     local_z = entry_agent_pos[:, 2:] - present_agent_pos[:, 2:]
+
 
                     # results_xy = cal_polygon_contour(local_pos[:, None, :2], local_heading[:, None],
                     #                                  width_length=2 * torch.ones([len(local_pos), 1, 1, 2],device=local_z.device))[:, 0, 0]
