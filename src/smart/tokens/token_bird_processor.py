@@ -304,8 +304,8 @@ class TokenProcessor(torch.nn.Module):
 
                 entry_mask = entry_num <= present_num
 
-                if entry_agent.any() and not entry_mask.all():
-                    print(entry_num,present_num)
+                # if entry_agent.any() and not entry_mask.all():
+                #     print(entry_num,present_num)
 
                 if entry_agent.any() and entry_mask.all():
 
