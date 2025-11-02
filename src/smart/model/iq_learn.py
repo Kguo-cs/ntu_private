@@ -306,7 +306,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
 
-            action_nll=entry_nll+action_nll
+            action_nll=0.1*entry_nll+action_nll
 
         return reward, value_loss, pi, action_nll, current_Q, proposal_loss, log_prob + proposal_log_prob, entropy
 
@@ -695,8 +695,8 @@ class IQ_SoftQ(LightningModule):
 
                     train_valid_mask = train_mask[all_valid]
 
-                    # agent_rewards[~train_valid_mask]=0
-                    # v_denorm[~train_valid_mask]=0
+                    agent_rewards[~train_valid_mask]=0
+                    v_denorm[~train_valid_mask]=0
 
                     ego_advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None,
                                                                      gamma=self.gamma)  # [all_valid]
@@ -714,8 +714,8 @@ class IQ_SoftQ(LightningModule):
                         nei_value_pred = self.encoder.nei_value_network(
                             tokenized_agent_rollout["feat_a_nodetach"])[:, :, 0]
 
-                        # nei_rewards[~train_valid_mask]=0
-                        # nei_value_pred[~train_valid_mask] = 0
+                        nei_rewards[~train_valid_mask]=0
+                        nei_value_pred[~train_valid_mask] = 0
 
                         nei_advantages, nei_returns = compute_advantages(nei_rewards, nei_value_pred.detach(), None,
                                                                          gamma=self.gamma)
