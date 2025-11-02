@@ -152,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
 
-        entry_pos_token = pickle.load(open('./smart/tokens/first1024.pkl', "rb"))
+        entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 
@@ -318,6 +318,8 @@ class TokenProcessor(torch.nn.Module):
                     present_pos =prev_pos[present_agent]
 
                     diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
+
+
                     cost = torch.linalg.norm(diff, dim=-1)
 
                     row_ind, col_ind = linear_sum_assignment(cost.cpu().numpy())
@@ -338,12 +340,14 @@ class TokenProcessor(torch.nn.Module):
 
                     local_z = entry_agent_pos[:, 2:] - present_agent_pos[:, 2:]
 
-                    results_xy = cal_polygon_contour(local_pos[:, None, :2], local_heading[:, None],
-                                                     width_length=2 * torch.ones([len(local_pos), 1, 1, 2],device=local_z.device))[:, 0, 0]
+                    # results_xy = cal_polygon_contour(local_pos[:, None, :2], local_heading[:, None],
+                    #                                  width_length=2 * torch.ones([len(local_pos), 1, 1, 2],device=local_z.device))[:, 0, 0]
+                    #
+                    # local_poses = torch.cat([results_xy, local_z[:, None].repeat(1, 4, 1)], dim=-1)
 
-                    local_poses = torch.cat([results_xy, local_z[:, None].repeat(1, 4, 1)], dim=-1)
+                    local_poses=torch.cat((local_pos, local_z[:, None]), dim=-1)
 
-                    pose_dist = torch.linalg.norm(local_poses[:, None] - self.entry_pos_token[None], dim=-1).mean(-1)
+                    pose_dist = torch.linalg.norm(local_poses - self.entry_pos_token[None], dim=-1)#.mean(-1)
 
                     entry_idx_gt = torch.argmin(pose_dist, dim=-1)
 
@@ -360,22 +364,24 @@ class TokenProcessor(torch.nn.Module):
 
                     local_traj=self.entry_pos_token[entry_idx_gt]
 
-                    global_xy=transform_to_global(pos_local=local_traj[:,:,:2], head_local=None,pos_now=present_agent_pos[:, :2],head_now=present_agent_heading)[0]
+                    global_xy=transform_to_global(pos_local=local_traj[:,None,:2], head_local=None,pos_now=present_agent_pos[:, :2],head_now=present_agent_heading)[0]
 
-                    global_z=local_traj[:,0,2]+present_agent_pos[:, 2]
+                    global_z=local_traj[:,2]+present_agent_pos[:, 2]
 
                     prev_pos[entry_id,:2] = global_xy.mean(-2)
                     prev_pos[entry_id,2] = global_z
 
-                    dxy = global_xy[:, 0] - global_xy[:, 3]
-                    prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
+                    # dxy = global_xy[:, 0] - global_xy[:, 3]
+                    # prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                    real_id=entry_id[dist>2]
+                    print(dist.mean())
+
+                    real_id=entry_id[dist>1]
 
                     prev_pos[real_id]=pos[real_id,i]
-                    prev_head[real_id]=heading[real_id,i]
+                    #prev_head[real_id]=heading[real_id,i]
                     # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
                     # print(1)
 
