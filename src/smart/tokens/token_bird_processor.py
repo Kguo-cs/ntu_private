@@ -246,7 +246,7 @@ class TokenProcessor(torch.nn.Module):
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
 
-        entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)
+        entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
 
         entry_token_xy=entry_pos_token[:,:,:2]
         entry_token_z=entry_pos_token[:,:,2]
@@ -309,17 +309,17 @@ class TokenProcessor(torch.nn.Module):
 
                 if entry_agent.any() :#and entry_mask.all()
 
-                    entry_pos =pos[:, i][entry_agent]
+                    entry_pos =pos[:, i][entry_agent].to(torch.float16)
 
-                    present_pos =prev_pos[present_agent]
+                    present_pos =prev_pos[present_agent].to(torch.float16)
 
-                    present_heading=prev_head[present_agent]
+                    present_heading=prev_head[present_agent].to(torch.float16)
 
                     global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
 
                     global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
 
-                    global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
+                    global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1).to(torch.float16)
 
                     diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
 
