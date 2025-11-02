@@ -313,49 +313,52 @@ class TokenProcessor(torch.nn.Module):
 
                     present_pos =prev_pos[present_agent]
 
-                    # global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_pos[:, 2])[0]
-                    #
-                    # global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
-                    #
-                    # global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
-                    #
-                    # diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
-                    #
-                    # cost,min_idx=torch.linalg.norm(diff, dim=-1).min(-1)
+                    present_heading=prev_head[present_agent]
 
-                    diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
+                    global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
 
-                    cost = torch.linalg.norm(diff, dim=-1)#.amin(-1)
+                    global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
+
+                    global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
+
+                    diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
+
+                    cost,min_idx=torch.linalg.norm(diff, dim=-1).min(-1)
+
+                    # diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
+                    #
+                    # cost = torch.linalg.norm(diff, dim=-1)#.amin(-1)
 
                     row_ind,col_ind = linear_sum_assignment(cost.cpu().numpy())
 
-                    #entry_idx_gt1=min_idx[row_ind,col_ind]
+                    entry_idx_gt=min_idx[row_ind,col_ind]
 
                     present_agent_pos = present_pos[row_ind]  # (M, 3)
-                    entry_agent_pos = entry_pos[col_ind]  # (M, 3)
+                    present_agent_heading = present_heading[row_ind]  # (M,)
 
-                    present_agent_heading = prev_head[present_agent][row_ind]  # (M,)
-                    # IMPORTANT: index headings of entries by col_ind (was missing)
-                    #entry_agent_heading = heading[:, i][entry_agent][col_ind]  # (M,)
-
-                    # Transform entry positions to present-local frame (one per matched pair)
-                    # transform_to_local expects shapes like ([n, 1, 2], [n,1], [n,2], [n])
-                    local_pos = transform_to_local(
-                        entry_agent_pos[:, None, :2],  # (M, 1, 2)
-                        None,  # (M, 1)
-                        present_agent_pos[:, :2],  # (M, 2)
-                        present_agent_heading  # (M,)
-                    )[0]
-
-                    local_z = entry_agent_pos[:, 2] - present_agent_pos[:, 2]  # (M,)
-
-                    local_poses = torch.cat((local_pos[:, 0, :], local_z[:, None]), dim=-1)  # (M, 3)
-
-                    # compute distances between these M local_poses and the token bank (T,3)
-                    # self.entry_pos_token shape assumed (T,3)
-                    pose_dist = torch.linalg.norm(local_poses[:, None, :] - self.entry_pos_token[None, :, :],
-                                                  dim=-1)  # (M, T)
-                    entry_idx_gt = torch.argmin(pose_dist, dim=-1)  # (M,) token idx per matched pair
+                    # entry_agent_pos = entry_pos[col_ind]  # (M, 3)
+                    #
+                    # # IMPORTANT: index headings of entries by col_ind (was missing)
+                    # #entry_agent_heading = heading[:, i][entry_agent][col_ind]  # (M,)
+                    #
+                    # # Transform entry positions to present-local frame (one per matched pair)
+                    # # transform_to_local expects shapes like ([n, 1, 2], [n,1], [n,2], [n])
+                    # local_pos = transform_to_local(
+                    #     entry_agent_pos[:, None, :2],  # (M, 1, 2)
+                    #     None,  # (M, 1)
+                    #     present_agent_pos[:, :2],  # (M, 2)
+                    #     present_agent_heading  # (M,)
+                    # )[0]
+                    #
+                    # local_z = entry_agent_pos[:, 2] - present_agent_pos[:, 2]  # (M,)
+                    #
+                    # local_poses = torch.cat((local_pos[:, 0, :], local_z[:, None]), dim=-1)  # (M, 3)
+                    #
+                    # # compute distances between these M local_poses and the token bank (T,3)
+                    # # self.entry_pos_token shape assumed (T,3)
+                    # pose_dist = torch.linalg.norm(local_poses[:, None, :] - self.entry_pos_token[None, :, :],
+                    #                               dim=-1)  # (M, T)
+                    # entry_idx_gt = torch.argmin(pose_dist, dim=-1)  # (M,) token idx per matched pair
 
                     # global_token_xy=transform_to_global(entry_token_xy[:len(present_agent_pos)],None,present_agent_pos[:, :2], present_agent_heading)[0]
                     #
@@ -389,9 +392,9 @@ class TokenProcessor(torch.nn.Module):
                     # dxy = global_xy[:, 0] - global_xy[:, 3]
                     # prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-                    #dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                   # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                   # print(dist.mean()) #0.8
+                    #print(dist.mean()) #0.8
 
                     #real_id=entry_id[dist>1]
 
