@@ -299,15 +299,19 @@ class TokenProcessor(torch.nn.Module):
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
 
-                entry_num = torch.bincount(batch[entry_agent, 0], minlength=num_graphs)
-                present_num = torch.bincount(batch[present_agent, 0], minlength=num_graphs)
-
-                entry_mask = entry_num <= present_num
+                # entry_num = torch.bincount(batch[entry_agent, 0], minlength=num_graphs)
+                # present_num = torch.bincount(batch[present_agent, 0], minlength=num_graphs)
+                #
+                # entry_mask = entry_num <= present_num
 
                 # if entry_agent.any() and not entry_mask.all():
+                #     modify_batch=torch.arange(num_graphs)[~entry_mask]
+                #     batch=
+                #     entry_agent[]
+                #
                 #     print(entry_num,present_num)
 
-                if entry_agent.any() and entry_mask.all():
+                if entry_agent.any() :#and entry_mask.all()
 
                     entry_pos =pos[:, i][entry_agent]
 
@@ -365,6 +369,15 @@ class TokenProcessor(torch.nn.Module):
 
                     dxy = global_xy[:, 0] - global_xy[:, 3]
                     prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
+
+                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+
+                    real_id=entry_id[dist>2]
+
+                    prev_pos[real_id]=pos[real_id,i]
+                    prev_head[real_id]=heading[real_id,i]
+                    # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    # print(1)
 
                     # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
 
