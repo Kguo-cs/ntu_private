@@ -17,6 +17,7 @@ from typing import Dict, Tuple
 
 import torch
 from click.core import batch
+from jupyterlab.extensions import entry
 from omegaconf import DictConfig
 from torch import Tensor
 from torch.distributions import Categorical
@@ -94,7 +95,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -238,7 +239,7 @@ class TokenProcessor(torch.nn.Module):
             "sampled_heading": [],
             'token_mask': [],
             'reset_mask':[],
-            "entry_idx":[]
+            "entry_idx":[],
             #"entry_mask": [],
             #"entry_idx": [],
         }
@@ -288,7 +289,7 @@ class TokenProcessor(torch.nn.Module):
 
             _valid_mask[token_in_valid]=False
 
-            entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_agent - 1
+            entry_idx = torch.zeros_like(token_idx_gt).to(torch.float32) + self.n_token_agent - 1
 
 
             if self.pred_entry and i > self.shift:
@@ -398,20 +399,30 @@ class TokenProcessor(torch.nn.Module):
                     # pose_dist1 = torch.linalg.norm(global_token_pos-entry_agent_pos[:,None], dim=-1)#.mean(-1) #49,1024
 
 
-                    present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)
+                    present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
-                    entry_idx[present_id[row_ind]] = entry_idx_gt
+                    entry_idx[present_id] = entry_idx_gt.to(torch.float32)
 
                     entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[col_ind]
 
                     prev_head = heading[:, i].clone()
                     prev_pos = pos[:, i].clone()
 
+
                     #local_traj=self.entry_pos_token[entry_idx_gt]
 
                     global_traj=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
 
                     prev_pos[entry_id]=global_traj#.to(torch.float32)
+
+                    entry_head_idx= torch.round(wrap_angle(prev_head[entry_id])/np.pi*16)
+
+                    tokenized_heading = entry_head_idx/16*np.pi #[-16,16]
+
+                    prev_head[entry_id]=tokenized_heading
+
+                    entry_idx[present_id]=entry_idx_gt+(entry_head_idx+16)*0.01
+                    # out_dict["entry_head_idx"].append(entry_head_idx+16)
 
                     # global_xy=transform_to_global(pos_local=local_traj[:,None,:2], head_local=None,pos_now=present_agent_pos[:, :2],head_now=present_agent_heading)[0]
                     #

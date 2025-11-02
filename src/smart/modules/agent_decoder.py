@@ -28,7 +28,7 @@ from src.smart.utils.rollout import cal_polygon_contour
 from src.smart.modules.light_encoder import LightEncoder
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
-
+import numpy as np
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -183,7 +183,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_entry:
             self.entry_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent+33
                     )
 
         self.pred_col=False
@@ -714,7 +714,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.token_processor.use_bird:
                 if entry_logit is not None:
-                    entry_token_idx = Categorical(logits=entry_logit[:, -1]).sample()
+                    entry_token_idx = Categorical(logits=entry_logit[:, -1,33:]).sample()
 
                     new_agent_mask = (entry_token_idx < self.token_processor.entry_pos_token.shape[0]) & mask[:, -1]
 
@@ -725,20 +725,25 @@ class SMARTAgentDecoder(nn.Module):
                         None,
                         pos_a[:, -2, :2][new_agent_mask],
                         head_a[:, -2][new_agent_mask],
-                    )[0]
+                    )[0][:,0]
 
-                    new_z = pos_a[:, -1, 2][new_agent_mask] + entry_local_traj[:, 2]
+                    new_z = pos_a[:, -2, 2][new_agent_mask] + entry_local_traj[:, 2]
 
                     new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
 
+                    entry_head_idx = Categorical(logits=entry_logit[new_agent_mask, -1,:33]).sample()
+
+                    new_head=entry_head_idx/16*np.pi
+
                     pos_a[new_agent_mask, -1] = new_pos
+                    head_a[new_agent_mask, -1] =new_head
 
                 else:
                     new_agent_mask = ~present_mask & gt_valid[:, t]
 
                     pos_a[new_agent_mask, -1] = gt_pos[new_agent_mask, t]
 
-                head_a[new_agent_mask, -1] = gt_head[new_agent_mask, t]
+                    head_a[new_agent_mask, -1] = gt_head[new_agent_mask, t]
 
                 if self.token_processor.pred_exit:
                     next_mask = (mask[:, -1] & ~exit_mask) | new_agent_mask

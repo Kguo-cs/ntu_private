@@ -296,17 +296,28 @@ class IQ_SoftQ(LightningModule):
         if pred["entry_logit"] is not None:
             entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:]
 
-            pred_entry_logit=pred["entry_logit"]
+            entry_pos_idx=entry_idx.to(torch.long)
+
+            pred_entry_logit=pred["entry_logit"][:,:,33:]
 
             entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
-            entry_log_prob = torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)
+            entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_pos_idx.unsqueeze(-1)).squeeze(-1)[train_mask].mean()
 
-            entry_nll= -entry_log_prob[train_mask].mean()
+            head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
+
+            entry_head_idx=((entry_idx-entry_pos_idx)*100)[head_mask].to(torch.long)
+
+            pred_entry_head_logit=pred["entry_logit"][:,:,:33]
+
+            entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
+
+            entry_head_nll = torch.gather(entry_head_log_p[head_mask], dim=-1, index=entry_head_idx.unsqueeze(-1)).mean()
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
+            self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
 
-            action_nll=0.1*entry_nll+action_nll
+            action_nll=0.1*entry_nll+0.1*entry_head_nll+action_nll
 
         return reward, value_loss, pi, action_nll, current_Q, proposal_loss, log_prob + proposal_log_prob, entropy
 
