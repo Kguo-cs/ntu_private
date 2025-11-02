@@ -292,7 +292,7 @@ class TokenProcessor(torch.nn.Module):
                 min_dist = all_dist[np.arange(topk_indices.shape[0]), token_idx_gt]
 
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
-            token_in_valid=min_dist>0.5
+            token_in_valid=min_dist>1
             out_dict["reset_mask"].append(token_in_valid)
 
             _valid_mask[token_in_valid]=False
@@ -390,13 +390,13 @@ class TokenProcessor(torch.nn.Module):
                     # dxy = global_xy[:, 0] - global_xy[:, 3]
                     # prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    #dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
                     #print(dist.mean())
 
-                    real_id=entry_id[dist>1]
+                    #real_id=entry_id[dist>1]
 
-                    prev_pos[real_id]=pos[real_id,i]
+                   # prev_pos[real_id]=pos[real_id,i]
                     #prev_head[real_id]=heading[real_id,i]
                     # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
                     # print(1)
