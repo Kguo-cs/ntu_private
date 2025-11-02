@@ -94,7 +94,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -297,12 +297,15 @@ class TokenProcessor(torch.nn.Module):
 
             if self.pred_entry and i > self.shift:
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
-                present_agent = valid[:, i - self.shift] & valid[:, i]
+                present_agent = valid[:, i - self.shift]
 
                 entry_num = torch.bincount(batch[entry_agent, 0], minlength=num_graphs)
                 present_num = torch.bincount(batch[present_agent, 0], minlength=num_graphs)
 
                 entry_mask = entry_num <= present_num
+
+                if entry_agent.any() and not entry_mask.all():
+                    print(entry_num,present_num)
 
                 if entry_agent.any() and entry_mask.all():
 
@@ -311,27 +314,25 @@ class TokenProcessor(torch.nn.Module):
                     present_pos =prev_pos[present_agent]
 
                     diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
-                    cost = torch.linalg.norm(diff, axis=-1)
+                    cost = torch.linalg.norm(diff, dim=-1)
 
                     row_ind, col_ind = linear_sum_assignment(cost.cpu().numpy())
 
-                    row_ind=row_ind[col_ind]
-
                     present_agent_pos = present_pos[row_ind]
 
-                    #entry_agent_pos = entry_pos#[col_ind]
+                    entry_agent_pos = entry_pos[col_ind]
 
                     present_agent_heading = prev_head[present_agent][row_ind]
                     entry_agent_heading = heading[:, i][entry_agent]#[col_ind]
 
                     local_pos, local_heading = transform_to_local(
-                        entry_pos[:, None, :2],  # [n_agent, n_step, 2]
+                        entry_agent_pos[:, None, :2],  # [n_agent, n_step, 2]
                         entry_agent_heading[:, None],  # [n_agent, n_step]
                         present_agent_pos[:, :2],  # [n_agent, 2]
                         present_agent_heading  # [n_agent]
                     )
 
-                    local_z = entry_pos[:, 2:] - present_agent_pos[:, 2:]
+                    local_z = entry_agent_pos[:, 2:] - present_agent_pos[:, 2:]
 
                     results_xy = cal_polygon_contour(local_pos[:, None, :2], local_heading[:, None],
                                                      width_length=2 * torch.ones([len(local_pos), 1, 1, 2],device=local_z.device))[:, 0, 0]
@@ -342,9 +343,13 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_idx_gt = torch.argmin(pose_dist, dim=-1)
 
-                    present_idx = torch.nonzero(present_agent, as_tuple=False).squeeze(1)
+                    present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)
 
-                    entry_idx[present_idx[row_ind]] = entry_idx_gt
+                    entry_idx[present_id[row_ind]] = entry_idx_gt
+
+                    entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
+
+                    entry_id=entry_id[col_ind]
 
                     prev_head = heading[:, i].clone()
                     prev_pos = pos[:, i].clone()
@@ -355,11 +360,14 @@ class TokenProcessor(torch.nn.Module):
 
                     global_z=local_traj[:,0,2]+present_agent_pos[:, 2]
 
-                    prev_pos[entry_agent,:2] = global_xy.mean(-2)
-                    prev_pos[entry_agent,2] = global_z
+                    prev_pos[entry_id,:2] = global_xy.mean(-2)
+                    prev_pos[entry_id,2] = global_z
 
                     dxy = global_xy[:, 0] - global_xy[:, 3]
-                    prev_head[entry_agent] = torch.arctan2(dxy[:, 1], dxy[:, 0])
+                    prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
+
+                    # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
+
                 else:
                     prev_head = heading[:, i].clone()
                     prev_pos = pos[:, i].clone()
