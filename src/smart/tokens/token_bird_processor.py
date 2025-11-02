@@ -197,7 +197,7 @@ class TokenProcessor(torch.nn.Module):
             pos=pos,
             heading=heading,
             token_traj=token_traj,
-            batch=batch[:,None],
+            batch=batch,#[:,None],
             num_graphs=data.num_graphs
         )
         tokenized_agent.update(token_dict)
@@ -321,17 +321,47 @@ class TokenProcessor(torch.nn.Module):
 
                     global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1).to(torch.float16)
 
-                    diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
+                    present_batch=batch[present_agent]
+                    entry_batch=batch[entry_agent]
 
-                    cost,min_idx=torch.linalg.norm(diff, dim=-1).min(-1)
+                    row_ind=[]
+                    col_ind=[]
+                    entry_idx_gt=[]
+
+                    for i in range(num_graphs):
+                        global_token_pos_i=global_token_pos[present_batch==i]
+                        entry_pos_i=entry_pos[entry_batch==i]
+
+                        diff = global_token_pos_i[:, None] - entry_pos_i[None, :, None]  # (Np, Ne, D)
+
+                        cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
+
+                        row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
+
+                        entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
+
+                        row_ind.append(row_ind_i)
+                        col_ind.append(col_ind_i)
+                        entry_idx_gt.append(entry_idx_gt_i)
+
+                    row_ind=np.concatenate(row_ind)
+                    col_ind=np.concatenate(col_ind)
+                    entry_idx_gt=torch.cat(entry_idx_gt)
+
+
+
+
+                    # diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
+                    #
+                    # cost,min_idx=torch.linalg.norm(diff, dim=-1).min(-1)
 
                     # diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
                     #
                     # cost = torch.linalg.norm(diff, dim=-1)#.amin(-1)
 
-                    row_ind,col_ind = linear_sum_assignment(cost.cpu().numpy())
-
-                    entry_idx_gt=min_idx[row_ind,col_ind]
+                    # row_ind,col_ind = linear_sum_assignment(cost.cpu().numpy())
+                    #
+                    # entry_idx_gt=min_idx[row_ind,col_ind]
 
                     present_agent_pos = present_pos[row_ind]  # (M, 3)
                     present_agent_heading = present_heading[row_ind]  # (M,)
