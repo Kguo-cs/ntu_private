@@ -152,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
 
-        entry_pos_token = pickle.load(open('./smart/tokens/first1024.pkl', "rb"))
+        entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 
@@ -249,7 +249,7 @@ class TokenProcessor(torch.nn.Module):
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
 
-        entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1,1)
+        entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)
 
         entry_token_xy=entry_pos_token[:,:,:2]
         entry_token_z=entry_pos_token[:,:,2]
@@ -322,17 +322,22 @@ class TokenProcessor(torch.nn.Module):
 
                     present_pos =prev_pos[present_agent]
 
-                    # global_token_pos=transform_to_global(self.entry_pos_token[None],None,present_pos[:, :2],present_pos)
-                    # print(1)
+                    # global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_pos[:, 2])[0]
+                    #
+                    # global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
+                    #
+                    # global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
 
-
-
+                    # dist=torch.linalg.norm(global_token_pos[None] - entry_pos[:,None,None], dim=-1)
+                    #
+                    # cost=dist.amin(1)
+                    #diff = (global_token_pos+ batch[present_agent][:,None]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None,:,None] # (Np, Ne, D)
 
                     diff = (present_pos+ batch[present_agent]*1000)[:,None]- (entry_pos+batch[entry_agent]*1000 )[None] # (Np, Ne, D)
 
-                    cost = torch.linalg.norm(diff, dim=-1)
+                    cost = torch.linalg.norm(diff, dim=-1)#.amin(-1)
 
-                    row_ind, col_ind = linear_sum_assignment(cost.cpu().numpy())
+                    row_ind,col_ind = linear_sum_assignment(cost.cpu().numpy())
 
                     present_agent_pos = present_pos[row_ind]
 
@@ -387,7 +392,7 @@ class TokenProcessor(torch.nn.Module):
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                   # print(dist.mean())
+                    #print(dist.mean())
 
                     real_id=entry_id[dist>1]
 
