@@ -44,6 +44,10 @@ model:
       head_dim: 8
       time_span: 10
 
+      dist_a2a_radius: 100
+      dis_weight: 5
+      dist_decay: 3
+
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 

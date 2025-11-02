@@ -18,3 +18,6 @@ model_config:
     pt2pt_neighbor: 30
     pt2a_neighbor: 20
     a2a_neighbor: 20
+    dist_a2a_radius: 10
+    dis_weight: 5
+    dist_decay: 3

@@ -42,6 +42,9 @@ class SMARTDecoder(nn.Module):
         pt2a_neighbor: int,
         a2a_neighbor: int,
         n_token_agent: int,
+        dist_a2a_radius: int,
+        dis_weight: float,
+        dist_decay: float,
         token_processor=None,
     ) -> None:
         super(SMARTDecoder, self).__init__()
@@ -139,6 +142,8 @@ class SMARTDecoder(nn.Module):
                     output_gmm=False,
                     pred_last_res=token_processor.pred_last_res,
                     pred_all_res=token_processor.pred_all_res,
+                    dis_weight=dis_weight,
+                    dist_decay=dist_decay,
                 )
             from .agent_decoder import SMARTAgentDecoder
 
@@ -200,7 +205,7 @@ class SMARTDecoder(nn.Module):
                     num_future_steps=num_future_steps,
                     time_span=10,
                     pl2a_radius=40,
-                    a2a_radius=100,#20 bad
+                    a2a_radius=dist_a2a_radius,#20 bad
                     num_freq_bands=num_freq_bands,
                     num_layers=1,
                     num_heads=num_heads,
@@ -215,6 +220,8 @@ class SMARTDecoder(nn.Module):
                     output_gmm=False,
                     pred_last_res=False,
                     pred_all_res=False,
+                    dis_weight=dis_weight,
+                    dist_decay=dist_decay,
                     discriminator=True
                 )
 

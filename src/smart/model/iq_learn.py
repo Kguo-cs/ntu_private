@@ -561,32 +561,15 @@ class IQ_SoftQ(LightningModule):
             log_p = F.log_softmax(latent_prior, dim=-1)
             q = log_q.exp()
             error_vae = (q * (log_q - log_p)).sum(dim=-1).mean()
-
-            # kl_reduced, kl_per_item = self.l_vae_kl.kl_diag_gaussians(latent_post, latent_prior)#.mean()
-            # free_nats = 0.0
-            # error_vae =  torch.clamp(kl_per_item, min=free_nats).mean()  # or simply: beta * kl_mean
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
-
-            # post_std = torch.exp(0.5 * latent_post[1])
-            # prior_std = torch.exp(0.5 * latent_prior[1])
-            #
-            # self.log("train/post_std", post_std.mean().item(), on_step=True, batch_size=1)
-            # self.log("train/prior_std", prior_std.mean().item(), on_step=True, batch_size=1)
-
             expert_nll = expert_nll + error_vae
 
         tokenized_agent["train_mask"] = all_valid
 
-        # train_mask=train_mask[all_valid]
-
         if self.iq_learn:
+            train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
+
             if self.use_gail and not self.use_distance:
-
-                # with torch.no_grad():
-                #     expert_Value=self.encoder.value_network(tokenized_agent["feat_a_nodetach"][all_valid])[:,:,0]
-                #
-                #     self.log("train/expert_value", expert_Value.mean().item(), on_step=True, batch_size=1)
-
                 expert_dis_loss, expert_rewards, expert_returns, expert_dis_feat, expert_gp = self.get_reward(
                     tokenized_agent, None, None, "expert", train_mask)
                 if self.encoder.pred_col:
@@ -594,8 +577,6 @@ class IQ_SoftQ(LightningModule):
                                                        'expert')
 
                     expert_nll = expert_nll + col_loss
-
-            # expert_light_idx=tokenized_agent["light_idx"].clone()
 
             if self.use_distance:
                 # gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
@@ -649,8 +630,9 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,
                                               self.validation_rollout_sampling)
 
-            if self.encoder.pred_light:
-                eval_light(expert_light_idx, tokenized_agent_rollout, self.log, self.encoder.agent_encoder.light_type)
+            if self.token_processor.pred_exit:
+                valid_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:]
+                train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
 
             if self.use_kl_penalty:
                 with torch.no_grad():
@@ -780,9 +762,6 @@ class IQ_SoftQ(LightningModule):
             loss = critic_loss + expert_nll
             if self.automatic_optimization == False:
                 policy_optimizer, discriminator_optimizer = self.optimizers()
-
-                # print(agent_rewards.mean())
-
                 discriminator_optimizer.zero_grad()
                 self.manual_backward(critic_loss)
                 discriminator_optimizer.step()

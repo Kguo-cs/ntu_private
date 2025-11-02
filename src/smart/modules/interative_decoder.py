@@ -46,8 +46,9 @@ class InterativeDecoder(nn.Module):
             output_gmm,
             pred_last_res,
             pred_all_res,
+            dis_weight,
+            dist_decay,
             discriminator=False,
-            value_network=False,
             use_roformer=True
     ) -> None:
         super(InterativeDecoder, self).__init__()
@@ -59,6 +60,8 @@ class InterativeDecoder(nn.Module):
         self.shift = token_processor.shift
         self.hist_drop_prob = hist_drop_prob
         self.output_gmm = output_gmm
+        self.dis_weight=dis_weight
+        self.dis_decay=dist_decay
 
         self.head_dim = hidden_dim // num_heads
 
@@ -426,7 +429,7 @@ class InterativeDecoder(nn.Module):
                     if self.learn_weight:
                         weight =1
                     else:
-                        weight=torch.exp(-dist[:,None]/3)*5
+                        weight=torch.exp(-dist[:,None]/self.dis_decay)*self.dis_weight
                         # agent_num=scatter_sum(torch.ones_like(dist), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0] #torch.exp(-dist[:,None]/3)*3
                         #
                         # weight=agent_num[end_idx]
@@ -465,7 +468,7 @@ class InterativeDecoder(nn.Module):
                     all_rewards = torch.zeros_like(head_a)
                     all_rewards[train_mask]=rewards
 
-                weight2=torch.exp(-dist/3)*5
+                weight2=torch.exp(-dist/self.dis_decay)*self.dis_weight
 
                 flatten_reward=all_rewards.transpose(0, 1).flatten(0,1)
 

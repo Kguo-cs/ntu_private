@@ -53,6 +53,8 @@ class SMARTAgentDecoder(nn.Module):
             output_gmm,
             pred_last_res,
             pred_all_res,
+            dis_weight,
+            dist_decay,
             discriminator=False
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
@@ -113,7 +115,10 @@ class SMARTAgentDecoder(nn.Module):
                                                     num_layers,num_heads,head_dim,
                                                     dropout,hist_drop_prob,n_token_agent,
                                                     pt2a_neighbor,a2a_neighbor,
-                                                    token_processor,output_gmm,pred_last_res,pred_all_res,discriminator,
+                                                    token_processor,output_gmm,pred_last_res,pred_all_res,
+                                                    dis_weight,
+                                                    dist_decay,
+                                                    discriminator=discriminator,
                                                     use_roformer=self.use_roformer
                                                     )
 
