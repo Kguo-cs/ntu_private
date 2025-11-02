@@ -94,7 +94,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=True
+        self.pred_entry=False
 
 
     @torch.no_grad()
@@ -402,9 +402,7 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_idx[present_id[row_ind]] = entry_idx_gt
 
-                    entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
-
-                    entry_id=entry_id[col_ind]
+                    entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[col_ind]
 
                     prev_head = heading[:, i].clone()
                     prev_pos = pos[:, i].clone()
@@ -425,9 +423,9 @@ class TokenProcessor(torch.nn.Module):
                     # dxy = global_xy[:, 0] - global_xy[:, 3]
                     # prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
-                    #dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-
-                    #print(dist.mean()) #0.8
+                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    #
+                    # print(dist.mean()) #0.8
 
                     #real_id=entry_id[dist>1]
 

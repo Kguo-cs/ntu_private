@@ -665,49 +665,6 @@ class SMARTAgentDecoder(nn.Module):
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
-            if post_sampling:
-                prev_valid=gt_valid[:,t-1]
-                pos_a[:,-1][~prev_valid] = gt_pos[:, t][~prev_valid]
-                head_a[:,-1][~prev_valid] = gt_head[:, t][~prev_valid]
-
-                valid_mask=prev_valid & gt_valid[:,t]
-                _invalid_mask = ~valid_mask
-
-                pos_a[:,-1]=pos_a[:,-1].masked_fill(_invalid_mask.unsqueeze(1), 0)
-                head_a[:,-1]=head_a[:,-1].masked_fill(_invalid_mask, 0)
-
-                mask =torch.cat([mask,valid_mask[:,None]], dim=1)
-            else:
-
-                if self.token_processor.use_bird:
-                    new_agent_mask=~present_mask  & gt_valid[:,t]
-
-                    pos_a[new_agent_mask, -1]=gt_pos[new_agent_mask, t]
-                    head_a[new_agent_mask, -1]=gt_head[new_agent_mask, t]
-                    sampled_idx[new_agent_mask,-1]=gt_sampled_idx[new_agent_mask, t]
-
-                    if self.token_processor.pred_exit:
-                        next_mask=(mask[:,-1] & ~exit_mask)| new_agent_mask
-                    else:
-                        next_mask=gt_valid[:,t]
-
-                    present_mask=present_mask | next_mask
-                else:
-                    next_mask = mask[:,-1]
-
-
-                # if "gt_z_raw" in tokenized_agent.keys():
-                mask = torch.cat([mask, next_mask[:, None]], dim=1)
-                # else:
-                #     mask=torch.cat([mask,tokenized_agent["valid_mask"][:,t:t+1]], dim=1)
-                mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
-
-                next_token_mask =mask[:,-2] &  mask[:,-1]
-                token_mask =torch.cat([token_mask,next_token_mask[:, None]], dim=1)
-
-                abs_time=torch.cat([abs_time, abs_time[:,-1:]+self.shift], dim=1)
-
-
             if self.token_processor.use_bird:
                 token_traj_global_xy = transform_to_global(
                     pos_local=next_token_traj_all[:,:,:2],  # [n_agent, 6*4, 2]
@@ -731,8 +688,6 @@ class SMARTAgentDecoder(nn.Module):
 
                 pos_a_next=pos_a_next.masked_fill(_invalid_mask.unsqueeze(1), 0)
                 head_a_next=head_a_next.masked_fill(_invalid_mask, 0)
-
-
             else:
                 token_traj_global = transform_to_global(
                     pos_local=next_token_traj_all.flatten(1, 2),  # [n_agent, 6*4, 2]
@@ -756,6 +711,53 @@ class SMARTAgentDecoder(nn.Module):
 
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
+
+            if self.token_processor.use_bird:
+                if entry_logit is not None:
+                    entry_token_idx = Categorical(logits=entry_logit[:, -1]).sample()
+
+                    new_agent_mask = (entry_token_idx < self.token_processor.entry_pos_token.shape[0]) & mask[:, -1]
+
+                    entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[new_agent_mask]]
+
+                    new_xy = transform_to_global(
+                        entry_local_traj[:, None, :2],
+                        None,
+                        pos_a[:, -2, :2][new_agent_mask],
+                        head_a[:, -2][new_agent_mask],
+                    )[0]
+
+                    new_z = pos_a[:, -1, 2][new_agent_mask] + entry_local_traj[:, 2]
+
+                    new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
+
+                    pos_a[new_agent_mask, -1] = new_pos
+
+                else:
+                    new_agent_mask = ~present_mask & gt_valid[:, t]
+
+                    pos_a[new_agent_mask, -1] = gt_pos[new_agent_mask, t]
+
+                head_a[new_agent_mask, -1] = gt_head[new_agent_mask, t]
+
+                if self.token_processor.pred_exit:
+                    next_mask = (mask[:, -1] & ~exit_mask) | new_agent_mask
+                else:
+                    next_mask = gt_valid[:, t]
+
+                present_mask = present_mask | next_mask
+            else:
+                next_mask = mask[:, -1]
+
+            mask = torch.cat([mask, next_mask[:, None]], dim=1)
+
+            mask_lg = torch.cat([mask_lg, torch.ones_like(mask_lg[:, -1:]).to(torch.bool)], dim=1)
+
+            next_token_mask = mask[:, -2] & mask[:, -1]
+
+            token_mask = torch.cat([token_mask, next_token_mask[:, None]], dim=1)
+
+            abs_time = torch.cat([abs_time, abs_time[:, -1:] + self.shift], dim=1)
 
         if self.use_roformer:
 
