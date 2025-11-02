@@ -376,7 +376,7 @@ class TokenProcessor(torch.nn.Module):
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                    print(dist.mean())
+                   # print(dist.mean())
 
                     real_id=entry_id[dist>1]
 
