@@ -312,7 +312,7 @@ class IQ_SoftQ(LightningModule):
 
             entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 
-            entry_head_nll = torch.gather(entry_head_log_p[head_mask], dim=-1, index=entry_head_idx.unsqueeze(-1)).mean()
+            entry_head_nll = -torch.gather(entry_head_log_p[head_mask], dim=-1, index=entry_head_idx.unsqueeze(-1)).mean()
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
             self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
