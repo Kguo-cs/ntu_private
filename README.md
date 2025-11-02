@@ -23,11 +23,11 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird1024_t10_token1mask_abst_nei10/2025-10-31_18-53-59/bird/u7hjb8e5/checkpoints/epoch=34-step=406875.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird1024_t10_token1mask_noise2_val32/2025-10-30_23-08-22/bird/lbe47l8n/checkpoints/epoch=34-step=406875.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird1024_t10_token1mask_n10_addexit/2025-11-01_17-22-27/bird/04ri3d97/checkpoints/epoch=41-step=390600.ckpt ./
 
 
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/airl56_nolcf/2025-10-15_10-08-28/sim/k9p5rb2d/checkpoints/epoch=2-step=20000.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/keguo/sim/src/logs/bird1024_t10_token1mask_n10_addexit/2025-11-01_17-22-27/bird/04ri3d97/checkpoints/epoch=41-step=390600.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL152_predrollout_355_goalpolicy/2025-10-28_07-42-25/sim/q2z7mddo/checkpoints/epoch=13-step=44856.ckpt ./
 
