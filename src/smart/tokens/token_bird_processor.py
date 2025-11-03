@@ -28,176 +28,6 @@ from src.smart.utils import (
 )
 import numpy as np
 from scipy.optimize import linear_sum_assignment
-import torch
-
-def vectorized_round_assignment(cost: torch.Tensor, K: int = 32, max_rounds: int = None):
-    """
-    Vectorized round-based assignment (GPU friendly, pure PyTorch ops for heavy work).
-    - Keep top-K candidates per row, then resolve collisions in rounds.
-    - No Python loops over rows/columns; only an outer loop repeating rounds until convergence
-      (number of rounds is usually small).
-    Args:
-        cost: (Nr, Nc) float tensor on device
-        K: number of candidate columns to keep per row
-        max_rounds: optional cap on rounds (defaults to K)
-    Returns:
-        row_idx, col_idx  (both torch.LongTensor on same device)
-    """
-    device = cost.device
-    Nr, Nc = cost.shape
-    if Nr == 0 or Nc == 0:
-        return torch.empty(0, dtype=torch.long, device=device), torch.empty(0, dtype=torch.long, device=device)
-
-    K = min(K, Nc)
-    if max_rounds is None:
-        max_rounds = K
-
-    # --- Step 1: get top-K candidate columns per row (small matrix) ---
-    topk_vals, topk_cols = torch.topk(cost, k=K, largest=False, dim=1)  # (Nr, K), (Nr, K)
-    # We'll work with these flattened structures
-    rows_idx = torch.arange(Nr, device=device).unsqueeze(1).expand(-1, K)  # (Nr, K)
-    flat_rows = rows_idx.reshape(-1)      # (Nr*K,)
-    flat_cols = topk_cols.reshape(-1)     # (Nr*K,)
-    flat_vals = topk_vals.reshape(-1)     # (Nr*K,)
-
-    # For convenience create (Nr*K) tensors
-    # status arrays (all on device)
-    assigned_row = torch.zeros(Nr, dtype=torch.bool, device=device)
-    assigned_col = torch.zeros(Nc, dtype=torch.bool, device=device)
-    chosen_pair_mask = torch.zeros(flat_vals.shape[0], dtype=torch.bool, device=device)
-
-    # We will maintain, per row, a pointer to which candidate index in 0..K-1 is currently "active".
-    # But we avoid Python loops by marking as "inactive" candidates whose row/col is already assigned.
-    # Round steps:
-    #  - pick the currently best candidate for each unassigned row (index of smallest flat_vals among that row's remaining candidates)
-    #  - resolve column collisions by selecting, for each column, the winning row with minimal cost (vectorized using scatter/reduction)
-    #  - mark winners; mask out assigned rows/cols and repeat until nothing left or reach max_rounds.
-
-    # Prepare helper shapes
-    # row_pos: for each flattened element, which row it belongs to
-    row_pos = flat_rows       # (L,)
-    col_pos = flat_cols       # (L,)
-    val_pos = flat_vals       # (L,)
-    L = val_pos.shape[0]
-
-    # Build index-of-candidate-per-row: for each row r and candidate k, flat_index = r*K + k
-    # We can compute per-row offsets easily
-    candidate_idx = (torch.arange(Nr, device=device) * K).unsqueeze(1) + torch.arange(K, device=device).unsqueeze(0)  # (Nr, K)
-    candidate_idx_flat = candidate_idx.reshape(-1)  # (L,)   == torch.arange(L)
-
-    # To accelerate per-row min ignoring blocked candidates, we'll maintain a mask of "available" candidates:
-    available = torch.ones(L, dtype=torch.bool, device=device)
-
-    # Also build helper: for each row, indices into flat arrays (range r*K .. r*K+K-1)
-    row_starts = (torch.arange(Nr, device=device) * K)
-    # vector of candidate indices per row useful via slicing
-
-    # Outer rounds
-    round_count = 0
-    while True:
-        round_count += 1
-        # 1) For each unassigned row, select its best available candidate (min val among available candidates for that row)
-        # We'll set unavailable candidate values to +inf so they don't get picked
-        cur_vals = torch.where(available, val_pos, torch.tensor(float('inf'), device=device))
-        # reshape to (Nr, K) and do argmin over dim=1
-        cur_vals_rk = cur_vals.reshape(Nr, K)
-        best_k = torch.argmin(cur_vals_rk, dim=1)  # (Nr,) gives k index in 0..K-1 (if all inf, returns 0)
-
-        # build flat indices of chosen candidate for each row: idx = row*K + best_k
-        chosen_flat_idx = (torch.arange(Nr, device=device) * K) + best_k  # (Nr,)
-        # but for rows that are already assigned, ignore them (set chosen_flat_idx to -1)
-        chosen_flat_idx = torch.where(assigned_row, torch.full_like(chosen_flat_idx, -1), chosen_flat_idx)
-
-        # mask for rows that have at least one available candidate
-        # check if all candidates for a row are unavailable: i.e., cur_vals_rk[row].all() == inf
-        row_has_candidate = ~(torch.isinf(cur_vals_rk).all(dim=1))
-        # exclude already assigned rows
-        rows_to_consider = row_has_candidate & (~assigned_row)
-
-        if rows_to_consider.sum().item() == 0:
-            break  # no more proposals possible
-
-        # 2) For each column, multiple rows may claim it. We need to pick the row with minimal cost among claimants.
-        # Build arrays of claims:
-        # For rows not considering, their chosen_flat_idx is -1; filter those out
-        valid_choice_mask = chosen_flat_idx >= 0
-        chosen_flat_idx_pos = chosen_flat_idx[valid_choice_mask]   # (R_active,)
-        chosen_rows = torch.nonzero(valid_choice_mask, as_tuple=False).squeeze(1)  # rows that proposed, (R_active,)
-
-        # corresponding columns and values
-        chosen_cols = col_pos[chosen_flat_idx_pos]  # (R_active,)
-        chosen_vals = val_pos[chosen_flat_idx_pos]  # (R_active,)
-
-        # Now we want, per column, the proposer row with minimal chosen_val.
-        # We'll do this vectorized by:
-        #  - for all chosen proposals, compute for each column the minimal value via scatter_reduce('amin')
-        #  - then mark as winners those proposals whose val equals that column-min and the column not yet assigned
-
-        # compute column-wise min among proposals
-        # create tensor col_min initialized +inf
-        col_min = torch.full((Nc,), float('inf'), device=device)
-        # scatter minimum
-        col_min = col_min.scatter_reduce(0, chosen_cols, chosen_vals, reduce='amin', include_self=True)
-
-        # winners: a proposal is winner if its chosen_vals == col_min[chosen_cols] and column not already assigned
-        col_already = assigned_col[chosen_cols]  # (R_active,)
-        is_winner = (chosen_vals == col_min[chosen_cols]) & (~col_already)
-
-        if is_winner.sum().item() == 0:
-            # nothing won this round (e.g., all chosen columns already taken) -> mark these chosen candidates as unavailable and continue
-            # set available[chosen_flat_idx_pos] = False
-            available[chosen_flat_idx_pos] = False
-            if round_count >= max_rounds:
-                break
-            else:
-                continue
-
-        # winners rows and their columns
-        winner_rows = chosen_rows[is_winner]        # indices into rows (global row indices)
-        winner_flat_idx = chosen_flat_idx_pos[is_winner]  # indices into flat arrays
-        winner_cols = chosen_cols[is_winner]
-
-        # mark winners assigned
-        assigned_row[winner_rows] = True
-        assigned_col[winner_cols] = True
-        chosen_pair_mask[winner_flat_idx] = True
-
-        # mark all candidates for winner_rows as unavailable (they can't propose again)
-        # compute ranges per winner row: start = row*K, end = start+K
-        start_idx = winner_rows * K   # vectorized
-        # create a boolean mask to zero-out candidate slots of those rows
-        # we do it by indexing into ranges
-        # gather all indices to set False
-        rep = torch.arange(K, device=device).unsqueeze(0)  # (1,K)
-        row_candidate_indices = (start_idx.unsqueeze(1) + rep).reshape(-1)  # (num_winners * K,)
-        available[row_candidate_indices] = False
-
-        # mark candidate slots that correspond to winner_cols across other rows as unavailable:
-        # any candidate (r,k) whose col == some winner_col should be set unavailable,
-        # because that column is now taken.
-        # We can vectorize by comparing flat_cols to winner_cols set.
-        # Create boolean mask of cols taken
-        cols_taken_mask = torch.zeros(Nc, dtype=torch.bool, device=device)
-        cols_taken_mask[winner_cols] = True
-        # set available[flat positions whose col in cols_taken_mask] = False
-        mask_cols_taken = cols_taken_mask[flat_cols]
-        available[mask_cols_taken] = False
-
-        # continue rounds until no rows left or rounds exceed cap
-        if round_count >= max_rounds:
-            break
-
-    # After rounds, chosen_pair_mask marks which flat candidate slots were finally selected.
-    selected_flat_indices = torch.nonzero(chosen_pair_mask, as_tuple=False).squeeze(1)
-    if selected_flat_indices.numel() == 0:
-        return torch.empty(0, dtype=torch.long, device=device), torch.empty(0, dtype=torch.long, device=device)
-
-    selected_rows = row_pos[selected_flat_indices]
-    selected_cols = col_pos[selected_flat_indices]
-
-    # return as long tensors
-    return selected_rows.to(torch.long), selected_cols.to(torch.long)
-
 
 class TokenProcessor(torch.nn.Module):
 
@@ -504,7 +334,7 @@ class TokenProcessor(torch.nn.Module):
 
                         cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
 
-                        row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())#vectorized_round_assignment(cost)#l
+                        row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
 
                         entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
 
@@ -512,8 +342,8 @@ class TokenProcessor(torch.nn.Module):
                         col_ind.append(col_ind_i+torch.sum(entry_batch<b).item())
                         entry_idx_gt.append(entry_idx_gt_i)
 
-                    row_ind=torch.cat(row_ind)
-                    col_ind=torch.cat(col_ind)
+                    row_ind=np.concatenate(row_ind)
+                    col_ind=np.concatenate(col_ind)
                     entry_idx_gt=torch.cat(entry_idx_gt)
 
                     # entry_idx_gt2=entry_idx_gt[np.argsort(col_ind)]
