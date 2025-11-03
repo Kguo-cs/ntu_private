@@ -92,7 +92,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -289,7 +289,7 @@ class TokenProcessor(torch.nn.Module):
 
             entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_agent - 1
 
-            entry_head_idx = torch.zeros_like(token_idx_gt)+ self.n_token_agent - 1
+            entry_head_idx = torch.zeros_like(token_idx_gt)-1
 
             if self.pred_entry and i > self.shift:
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
@@ -360,11 +360,11 @@ class TokenProcessor(torch.nn.Module):
 
                     prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
 
-                    entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*16)
+                    entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*16).to(torch.long)+16
 
                     entry_head_idx[entry_head_idx==32]=0
 
-                    tokenized_heading = entry_head_idx/16*np.pi #[-16,16]
+                    tokenized_heading = (entry_head_idx-16)/16*np.pi #[-16,16]
 
                     prev_head[entry_id]=tokenized_heading[entry_id]
 

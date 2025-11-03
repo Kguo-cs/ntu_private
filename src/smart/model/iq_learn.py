@@ -293,10 +293,10 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
-        if pred["entry_logit"] is not None:
+        if pred["entry_logit"][0] is not None:
             entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:]
 
-            pred_entry_logit=pred["entry_logit"]
+            pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
 
             entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
@@ -304,13 +304,11 @@ class IQ_SoftQ(LightningModule):
 
             head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
 
-            entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:]
-
-            pred_entry_head_logit=pred["entry_head_logit"]
+            entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:][head_mask]
 
             entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 
-            entry_head_nll = -torch.gather(entry_head_log_p[head_mask], dim=-1, index=entry_head_idx.unsqueeze(-1)).mean()
+            entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1)).mean()
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
             self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)

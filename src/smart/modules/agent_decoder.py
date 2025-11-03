@@ -183,7 +183,10 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_entry:
             self.entry_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent+33
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
+            self.entry_head_decoder = MLPLayer(
+                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
                     )
 
         self.pred_col=False
@@ -401,6 +404,16 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_entry:
             entry_logit=self.entry_decoder(feat_a)
+
+            if self.training:
+                entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:]
+                entry_mask=(entry_idx<self.n_token_agent - 1 ) & mask[:,:-1]
+                entry_local=self.token_processor.entry_pos_token[entry_idx[entry_mask]]
+
+                feat_new=torch.cat([entry_local,feat_a[entry_mask]],dim=-1)
+                head_logit=self.entry_head_decoder(feat_new)
+
+                entry_logit=(entry_logit,head_logit)
         else:
             entry_logit=None
 
@@ -701,10 +714,11 @@ class SMARTAgentDecoder(nn.Module):
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
             if self.token_processor.use_bird:
-                if entry_logit is not None:
-                    entry_token_idx = Categorical(logits=entry_logit[:, -1,33:]).sample()
 
-                    new_agent_mask = (entry_token_idx < self.token_processor.entry_pos_token.shape[0]) & mask[:, -1]
+                if entry_logit is not None:
+                    entry_token_idx = Categorical(logits=entry_logit[:, -1]).sample()
+
+                    new_agent_mask = (entry_token_idx < self.token_processor.n_token_agent-1) & mask[:, -1]
 
                     entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[new_agent_mask]]
 
@@ -719,9 +733,13 @@ class SMARTAgentDecoder(nn.Module):
 
                     new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
 
-                    entry_head_idx = Categorical(logits=entry_logit[new_agent_mask, -1,:33]).sample()
 
-                    new_head=entry_head_idx/16*np.pi
+                    feat_new = torch.cat([entry_local_traj, feat_a[:,-1][new_agent_mask]], dim=-1)
+                    head_logit = self.entry_head_decoder(feat_new)
+
+                    entry_head_idx = Categorical(logits=head_logit).sample()
+
+                    new_head=(entry_head_idx-16)/16*np.pi
 
                     new_agent_batch=batch[new_agent_mask]
 
