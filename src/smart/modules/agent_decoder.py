@@ -397,7 +397,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             route_map_index = None
 
-        next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
+        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
 
         if self.pred_entry:
 
@@ -465,16 +465,8 @@ class SMARTAgentDecoder(nn.Module):
 
         tokenized_agent["next_token_logits"] = next_token_logits
         tokenized_agent["edge_index_a2a"] = edge_index_a2a
-        tokenized_agent["feat_a"] = feat_a.detach()
-        tokenized_agent["feat_a_nodetach"] = feat_a
+        tokenized_agent["feat_a"] = feat_a
         tokenized_agent["entry_logit"] = entry_logit
-
-
-
-        # tokenized_agent["agent_token_emb"]=agent_token_emb
-        # if 'next_map_token_logits' in map_feature.keys() :
-        #     next_map_token_logits=map_feature["next_map_token_logits"]
-        # else:
         next_map_token_logits=None
 
         return {
@@ -534,9 +526,14 @@ class SMARTAgentDecoder(nn.Module):
 
                     # if tokenized_agent["proposal"] is not None:
                     #     proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
-                    next_token_logits=torch.zeros([len(type),1,self.token_processor.n_token_agent],device=sampled_idx.device)
+                    # next_token_logits=torch.zeros([20,len(type),self.token_processor.n_token_agent],device=sampled_idx.device)
+                    #
+                    # next_token_logits[gt_valid[:,:-1].transpose(0, 1)]= tokenized_agent["next_token_logits"]
+                    #
+                    # next_token_logits1=next_token_logits[0][gt_valid[:,0]]
+                    a_num=torch.sum(mask[:,t-1])
 
-                    next_token_logits[type<3]= tokenized_agent["next_token_logits"]
+                    next_token_logits=tokenized_agent["next_token_logits"][:a_num]
 
 
                     if tokenized_agent["entry_logit"] is not None:
@@ -546,7 +543,7 @@ class SMARTAgentDecoder(nn.Module):
                         entry_logit=None
 
 
-                    feat_a = tokenized_agent["feat_a"][:, :1]
+                    feat_a = tokenized_agent["feat_a"][:a_num]
 
                     # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
                     # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]

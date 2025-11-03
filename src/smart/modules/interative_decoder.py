@@ -100,7 +100,7 @@ class InterativeDecoder(nn.Module):
 
         self.use_ego_loop=False
         self.use_counterfactual=False
-        self.use_edge_feature=True
+        self.use_edge_feature=False
 
         if discriminator and self.use_counterfactual:
             self.a2a_attn_layers = nn.ModuleList(
@@ -215,7 +215,7 @@ class InterativeDecoder(nn.Module):
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask
+                      train_repeat_mask,mask_a,head_a
                       ):
 
         for layer_i in range(self.num_layers):
@@ -242,9 +242,7 @@ class InterativeDecoder(nn.Module):
                 if self.use_iteract:
 
                     if not self.use_ego_loop:
-                        ego_feat = feat_a_pt.view(n_step,-1,self.hidden_dim).flatten(0,1)
-
-                        ego_logits=self.ego_head(ego_feat)[:,None]
+                        ego_logits=self.ego_head(feat_a_pt)
 
                     feat_a=torch.cat([start_edge_feature,r_a2a,end_edge_feature],dim=-1)[:,None]
                 else:
@@ -321,14 +319,10 @@ class InterativeDecoder(nn.Module):
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        if  self.use_edge_feature and self.discriminator:
-            feat_a_all = None
-        elif self.num_layers>1 and train_mask is not None:
+        if not ( self.use_edge_feature and self.discriminator) and (self.num_layers>1 and train_mask is not None):
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
 
             feat_a = feat_a_all[train_mask]
-
-        proposal=None
 
         if self.discriminator and self.centric:
             index=batch_s_repeat[train_mask]
@@ -355,6 +349,7 @@ class InterativeDecoder(nn.Module):
             done=torch.ones_like(v_s)
             done[:,-1]=0
             next_token_logits = r + (0.99*v_next - v_s)*done
+
         weight = None
 
         if self.discriminator:
@@ -366,13 +361,6 @@ class InterativeDecoder(nn.Module):
                         weight =1
                     else:
                         weight=torch.exp(-dist[:,None]/self.dis_decay)*self.dis_weight
-                        # agent_num=scatter_sum(torch.ones_like(dist), end_idx, dim=0, dim_size=len(train_repeat_mask))#[0] #torch.exp(-dist[:,None]/3)*3
-                        #
-                        # weight=agent_num[end_idx]
-                        #
-                        # weight=1/weight[:,None]
-
-                    #interact_logits=-torch.log(1-torch.sigmoid(next_token_logits[:,:,:1]))*weight[:,None]
 
                     interact_logits=next_token_logits[:,:,:1]*weight[:,None]
 
@@ -385,9 +373,8 @@ class InterativeDecoder(nn.Module):
 
                     if not self.use_ego_loop:
                         ego_rewards=ego_logits.view(n_step,  -1).transpose(0, 1)
-                        #ego_rewards=-torch.log(1-torch.sigmoid(ego_logits)).view(n_step,  -1).transpose(0, 1)
 
-                        rewards=ego_rewards+rewards#torch.minimum(rewards,ego_rewards)#rewards+ego_rewards#+torch.zeros_like(torch.minimum(ego_rewards,rewards)#)#rewards+ego_rewards#
+                        rewards=ego_rewards+rewards
 
                         if self.learn_weight:
                             next_token_logits=rewards.flatten(0,1)[:,None,None]
@@ -396,7 +383,6 @@ class InterativeDecoder(nn.Module):
                 else:
                     rewards = next_token_logits[:,:,-1]
                     next_token_logits = next_token_logits.view(-1,1,1)
-
 
                 if train_mask is None:
                     all_rewards=rewards
@@ -425,11 +411,11 @@ class InterativeDecoder(nn.Module):
 
                 rewards=(logit_original - ablated_logit).detach()
             else:
-                rewards=next_token_logits[:,:,0].detach(),torch.tensor(0.0)
+                rewards=next_token_logits[...,0].detach(),torch.tensor(0.0)
         else:
             rewards=torch.tensor(0.0),torch.tensor(0.0)
 
-        return next_token_logits,feat_a,proposal,rewards,weight
+        return next_token_logits,feat_a,rewards,weight
 
     def forward(self,all_features,map_feature,train_mask,route_map_index ):
         feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a, batch_s_repeat,batch_s,agent_token_emb,sampled_idx=all_features
@@ -470,6 +456,8 @@ class InterativeDecoder(nn.Module):
         else:
             train_repeat_mask=None
 
+        feat_a=feat_a[mask_s]
+
         edge_index_a2a, r_a2a, dist = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s[mask_s],  # [n_agent, n_step, 2]
             head_s=head_s[mask_s],  # [n_agent, n_step]
@@ -485,7 +473,6 @@ class InterativeDecoder(nn.Module):
             loop=self.use_ego_loop
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        feat_a=feat_a[mask_s]
 
         if self.use_diffusion:
             if self.training:
@@ -548,10 +535,10 @@ class InterativeDecoder(nn.Module):
                     
                     x = a_prev * x0 +  aml_prev * eps
 
-        next_token_logits, feat_a, proposal, rewards, weight=self.predict_agent(feat_a,feat_map,n_step,n_agent,
+        next_token_logits, feat_a, rewards, weight=self.predict_agent(feat_a,feat_map,n_step,n_agent,
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask)
+                      train_repeat_mask,mask_a,head_a)
 
-        return next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a
+        return next_token_logits,feat_a,rewards,weight,edge_index_a2a

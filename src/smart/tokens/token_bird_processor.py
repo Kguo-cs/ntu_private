@@ -37,6 +37,7 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
+        use_noise
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -75,7 +76,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = True
+        self.noise = use_noise
 
         self.pred_map_token = False
 
@@ -92,7 +93,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=True
+        self.pred_entry=False
 
 
     @torch.no_grad()

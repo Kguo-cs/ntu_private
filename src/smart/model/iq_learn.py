@@ -114,8 +114,6 @@ class IQ_SoftQ(LightningModule):
         if self.use_ce:
             self.training_loss = CrossEntropy(**model_config.training_loss)
 
-        # self.lcf_parameters = torch.nn.Parameter(torch.as_tensor(lcf_parameters), requires_grad=True)
-
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
     #         if param.grad is None:
@@ -226,8 +224,7 @@ class IQ_SoftQ(LightningModule):
 
         sampled_pos = tokenized_agent["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
         sampled_heading = tokenized_agent[
-            "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
-        # sampled_heading=torch.round(wrap_angle(tokenized_agent["sampled_heading"])/10)*10#tokenized_agent["sampled_heading"]#
+            "sampled_heading"]
 
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
@@ -238,13 +235,11 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent["detach_map_feature"],
                                                             [],
                                                             None,
-                                                            abs_time=tokenized_agent["abs_time"]
-                                                            # latent_z=tokenized_agent["latent_z"]
-        )  # [0]#Metrics-Guided Adversarial Training
+                                                            abs_time=tokenized_agent["abs_time"]  )
 
         logit = disc_out[0]
         if not self.encoder.discriminator.interative_decoder.diff_dicriminator:
-            disc_val = torch.sigmoid(logit[:, :, 0])
+            disc_val = torch.sigmoid(logit[..., 0])
 
         if key == "agent" and self.use_kl_penalty:
             with torch.no_grad():
@@ -275,23 +270,17 @@ class IQ_SoftQ(LightningModule):
 
         rewards = ego_rewards + nei_sum_rewards + kl_per_token
 
-        # nei_rewards=get_nei_returns(tokenized_agent,rewards,train_mask=train_mask)
-        #
-        # rewards = 0.5 * rewards + 0.5 * nei_rewards
         if key == "agent" and self.dis_loss == 'rpgan':
             rewards = -torch.log(torch.sigmoid(logit[:, :, 0] - expert_dis_logit)).detach()
 
-        returns = get_return(rewards, self.gamma)
+        if key=="agent":
+            batch_rewards=torch.zeros([train_mask.shape[1],train_mask.shape[0]],device=train_mask.device)
+            mask_s=tokenized_agent["valid_mask"][:,1+self.start_step:].transpose(0,1)
+            batch_rewards[mask_s]=rewards
+            rewards=batch_rewards.transpose(0,1)
 
-        # with torch.no_grad():
-        #     if self.encoder.discriminator.interative_decoder.use_edge_feature.:
-        #         rewards=disc_out[2]
-        #     else:
-        #         disc_val_eval=disc_val
-        #         if  self.dis_loss == "wgan":
-        #             rewards=logit[:, :, 0].detach()
-        #         else:
-        #             rewards=get_reward(disc_val_eval,kl_per_token=kl_per_token)
+            returns = get_return(rewards, self.gamma)
+            self.log("train/" + key + "_return", returns.mean().item(), on_step=True, batch_size=1)
 
         if self.use_lcf and not self.encoder.use_value:
             with torch.no_grad():
@@ -329,106 +318,41 @@ class IQ_SoftQ(LightningModule):
                 bce_loss = logit[:, :,
                            0].mean()  # self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
         else:
-            # if train_mask is not None and not self.encoder.discriminator.interative_decoder.centric:
-            #     disc_val=disc_val[train_mask]
-            agent_num = rewards.shape[0] * rewards.shape[1]
+            agent_num = tokenized_agent["valid_mask"][:,1+self.start_step:].sum()
             ego_dis_eval = disc_val[:agent_num]
             other_disc_val = disc_val[agent_num:]
 
-            ego_dis_eval = ego_dis_eval[train_mask[tokenized_agent["train_mask"]].transpose(0, 1).reshape(-1)]
-
-            edge_index_a2a = disc_out[1]
-
-            start_index = edge_index_a2a[0]
-            end_index = edge_index_a2a[1]
-
-            dis_mask = train_mask.transpose(0, 1).flatten(0, 1)
-
-            edge_mask = dis_mask[start_index] & dis_mask[end_index]
-
-            other_disc_val = other_disc_val[edge_mask]
-
-            weight = weight[edge_mask]
+            #ego_dis_eval = ego_dis_eval[train_mask[tokenized_agent["train_mask"]].transpose(0, 1).flatten(0, 1)]
 
             if key == "expert":
-
-                bce_loss = F.binary_cross_entropy(ego_dis_eval, torch.ones_like(ego_dis_eval), weight=None,
-                                                  reduction='mean')
-                if len(other_disc_val) > 0:
-                    bce_loss = bce_loss + F.binary_cross_entropy(other_disc_val, torch.ones_like(other_disc_val),
-                                                                 weight=weight, reduction='mean')
+                target=1
             else:
-                bce_loss = F.binary_cross_entropy(ego_dis_eval, torch.zeros_like(ego_dis_eval), weight=None,
-                                                  reduction='mean')
-                if len(other_disc_val) > 0:
-                    bce_loss = bce_loss + F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val),
-                                                                 weight=weight, reduction='mean')
+                target=0
+
+            bce_loss = F.binary_cross_entropy(ego_dis_eval, torch.zeros_like(ego_dis_eval)+target, weight=None,
+                                              reduction='mean')
+            if len(other_disc_val) > 0:
+                edge_index_a2a = disc_out[1]
+
+                start_index = edge_index_a2a[0]
+                end_index = edge_index_a2a[1]
+
+                dis_mask = train_mask.transpose(0, 1).flatten(0, 1)
+
+                edge_mask = dis_mask[start_index] & dis_mask[end_index]
+
+                other_disc_val = other_disc_val[edge_mask]
+
+                weight = weight[edge_mask]
+
+                bce_loss = bce_loss + F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val) + target,
+                                                             weight=weight, reduction='mean')
 
         self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_rewards_std", ego_rewards.std().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_all_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
-
-        self.log("train/" + key + "_return", returns.mean().item(), on_step=True, batch_size=1)
-
-        # if "a2a_entropy" in tokenized_agent.keys():
-        #     a2a_entropy=disc_out[2].mean()#tokenized_agent["a2a_entropy"].mean()
-        #     self.log("train/" + key + "_a2a_entropy", a2a_entropy.item(), on_step=True, batch_size=1)
-
-        # bce_loss=bce_loss+0.01*a2a_entropy
-        #
-        # if  key == "expert":
-        # expert_pos=tokenized_agent["sampled_pos"]#tokenized_agent["expert_sampled_pos"]#
-        # expert_sampled_heading=tokenized_agent["sampled_heading"]#tokenized_agent["expert_sampled_heading"]#
-        # expert_valid_mask=tokenized_agent["valid_mask"]#tokenized_agent["expert_valid_mask"]#
-        # pos=tokenized_agent["sampled_pos"]
-        # heading=tokenized_agent["sampled_heading"]
-        # valid_mask=tokenized_agent["valid_mask"]
-        #
-        # # batch_idx = tokenized_agent['batch']
-        # # alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
-        # #
-        # # alpha=alpha[batch_idx]
-        #
-        # #alpha= torch.rand((pos.size(0), pos.size(1)), device=pos.device)
-        # # interpolate_pos = pos.clone()#alpha[:,:,None] * expert_pos + (1 - alpha[:,:,None]) * pos
-        # # interpolate_heading =heading.clone() #alpha * expert_sampled_heading + (1 - alpha) * heading
-        # #
-        # # interpolates_pos=torch.cat((interpolate_pos, interpolate_heading[:,:,None]), dim=-1)
-        # #
-        # # interpolates=interpolates_pos[valid_mask]#[train_mask,2:]
-        # #
-        # # interpolates.requires_grad_(True)  # IMPORTANT
-        # #
-        # # interpolates_pos[valid_mask]=interpolates
-        # perturbed_pos=pos+0.01*torch.randn_like(pos)
-        # perturbed_heading=heading+0.01*torch.randn_like(heading)
-        #
-        # scores= self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-        #                                                 None,
-        #                                                 valid_mask,
-        #                                                 perturbed_pos,
-        #                                                 perturbed_heading ,
-        #                                                 tokenized_agent,
-        #                                                 tokenized_agent["detach_map_feature"],
-        #                                                 tokenized_agent["light_idx"],
-        #                                                 None)[0]
-        # # score_sum = scores.view(-1).sum()
-        # #
-        # # gradients = torch.autograd.grad(
-        # #     outputs=score_sum,
-        # #     inputs=interpolates,
-        # #     create_graph=True,
-        # #     retain_graph=True,
-        # #     only_inputs=True,
-        # # )[0]  # shape: [B, T, 3]
-        # gradients = (scores - logit) / 0.01
-        #
-        # gp=gradients.pow(2).mean()
-        #
-        # self.log("train/"+key+"_gp", gp, on_step=True, batch_size=1)
 
         return bce_loss, rewards, nei_sum_rewards, disc_val, 0  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
@@ -439,7 +363,6 @@ class IQ_SoftQ(LightningModule):
             train_mask = valid_mask[:, :-1]
         else:
             train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
-        tokenized_agent["vis_mask"] = None
 
         if "pred_mask" in tokenized_agent.keys():
             all_valid = tokenized_agent["pred_mask"]  # & valid_mask.all(-1)
@@ -472,7 +395,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
             expert_nll = expert_nll + error_vae
 
-        tokenized_agent["train_mask"] = all_valid
+        #tokenized_agent["train_mask"] = all_valid
 
         if self.iq_learn:
             train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
@@ -554,7 +477,7 @@ class IQ_SoftQ(LightningModule):
                 target_q = None
 
             agent_pi, agent_nll, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, None, key='agent')
+                tokenized_map, tokenized_agent_rollout, valid_mask[:, :-1], key='agent')
 
             if self.use_gail:
                 if self.buffer_len > 1:
@@ -594,31 +517,30 @@ class IQ_SoftQ(LightningModule):
                     expert_nll = expert_nll + col_loss
 
                 if self.encoder.use_value:
-                    feat_a = tokenized_agent_rollout["feat_a_nodetach"]
+                    feat_a = tokenized_agent_rollout["feat_a"]
 
                     if self.encoder.discriminator.interative_decoder.centric:
                         index = tokenized_agent_rollout["batch"][all_valid][:, None].repeat(1, feat_a.shape[1])
                         feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
 
-                    v_denorm = self.encoder.value_network(feat_a)[:, :, 0]
+                    v_denorm=torch.zeros_like(agent_rewards.transpose(0,1))
 
-                    self.log("train/agent_value", v_denorm.mean().item(), on_step=True, batch_size=1)
+                    v_denorm[tokenized_agent_rollout["valid_mask"][:,self.start_step:-1].transpose(0,1)]=self.encoder.value_network(feat_a)[..., 0]
+
+                    v_denorm=v_denorm.transpose(0,1)
 
                     train_valid_mask = train_mask[all_valid]
 
                     agent_rewards[~train_valid_mask]=0
                     v_denorm[~train_valid_mask]=0
 
-                    ego_advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None,
+                    advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None,
                                                                      gamma=self.gamma)  # [all_valid]
 
                     value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0, max=100)[
-                        train_valid_mask].mean()  #
-
-                    advantages = ego_advantages
+                        train_valid_mask].mean()
 
                     if self.use_lcf:
-
                         if nei_rewards is 0:  #
                             nei_rewards = get_nei_returns(tokenized_agent, agent_rewards, train_mask=all_valid)
 
@@ -636,7 +558,7 @@ class IQ_SoftQ(LightningModule):
 
                         value_loss = nei_value_loss + value_loss
 
-                        advantages = 1 / 2 * ego_advantages + 1 / 2 * nei_advantages
+                        advantages = 1 / 2 * advantages + 1 / 2 * nei_advantages
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
@@ -644,19 +566,23 @@ class IQ_SoftQ(LightningModule):
                     advantages = agent_returns[all_valid]
                     value_loss = 0
 
+                advantages=advantages[train_valid_mask]
+
+                agent_log_prob=agent_log_prob[train_valid_mask[valid_mask[:, :-1]]]
+
                 self.return_meanstd.update(advantages.detach().reshape(-1))
                 advantages = self.return_meanstd.normalize(advantages)
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
 
-                agent_wNLL = -(agent_log_prob * advantages)[train_valid_mask].mean()  # [all_valid]
+                agent_wNLL = -(agent_log_prob * advantages).mean()  # [all_valid]
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                agent_density = torch.cumsum(agent_log_prob, dim=1).mean()  # agent_log_prob.mean() #
-
-                self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
+                # agent_density = torch.cumsum(agent_log_prob, dim=1).mean()  # agent_log_prob.mean() #
+                #
+                # self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
 
                 gail_weight = 1  # -np.power(0.9999,self.global_step)
 
