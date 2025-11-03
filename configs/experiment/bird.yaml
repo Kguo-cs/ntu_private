@@ -31,7 +31,7 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
-    n_rollout_closed_val: 1
+    n_rollout_closed_val: 32
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
