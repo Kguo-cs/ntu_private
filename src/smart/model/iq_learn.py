@@ -293,7 +293,7 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
-        if pred["entry_logit"][0] is not None:
+        if self.token_processor.pred_entry:
             entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:]
 
             pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
