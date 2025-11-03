@@ -29,9 +29,9 @@ class minADE(Metric):
         target: Tensor,  # [n_agent, n_step, 2]
         target_valid: Tensor,  # [n_agent, n_step]
     ) -> None:
-        pred_valid_mask = (pred == 0).all(dim=1).all(dim=-1)
+        pred_valid_mask = (~torch.isnan(pred)).any(dim=1).all(dim=-1)  # any false
 
-        target_valid=target_valid & (~pred_valid_mask)
+        target_valid=target_valid & pred_valid_mask
 
         # [n_agent, n_rollout, n_step]
         dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)

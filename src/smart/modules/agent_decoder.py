@@ -667,7 +667,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 _invalid_mask=~mask[:,-1]
 
-                pred_traj[_invalid_mask]=0
+                pred_traj[_invalid_mask]=torch.inf
                 pred_traj_10hz.append(pred_traj)
 
                 pos_a_next=pred_traj[:,-1]
@@ -702,37 +702,37 @@ class SMARTAgentDecoder(nn.Module):
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
             if self.token_processor.use_bird:
-                if entry_logit is not None:
-                    entry_token_idx = Categorical(logits=entry_logit[:, -1,33:]).sample()
+                # if entry_logit is not None:
+                #     entry_token_idx = Categorical(logits=entry_logit[:, -1,33:]).sample()
+                #
+                #     new_agent_mask = (entry_token_idx < self.token_processor.entry_pos_token.shape[0]) & mask[:, -1]
+                #
+                #     entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[new_agent_mask]]
+                #
+                #     new_xy = transform_to_global(
+                #         entry_local_traj[:, None, :2],
+                #         None,
+                #         pos_a[:, -2, :2][new_agent_mask],
+                #         head_a[:, -2][new_agent_mask],
+                #     )[0][:,0]
+                #
+                #     new_z = pos_a[:, -2, 2][new_agent_mask] + entry_local_traj[:, 2]
+                #
+                #     new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
+                #
+                #     entry_head_idx = Categorical(logits=entry_logit[new_agent_mask, -1,:33]).sample()
+                #
+                #     new_head=entry_head_idx/16*np.pi
+                #
+                #     pos_a[new_agent_mask, -1] = new_pos
+                #     head_a[new_agent_mask, -1] =new_head
+                #
+                # else:
+                new_agent_mask = ~present_mask & gt_valid[:, t]
 
-                    new_agent_mask = (entry_token_idx < self.token_processor.entry_pos_token.shape[0]) & mask[:, -1]
+                pos_a[new_agent_mask, -1] = gt_pos[new_agent_mask, t]
 
-                    entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[new_agent_mask]]
-
-                    new_xy = transform_to_global(
-                        entry_local_traj[:, None, :2],
-                        None,
-                        pos_a[:, -2, :2][new_agent_mask],
-                        head_a[:, -2][new_agent_mask],
-                    )[0][:,0]
-
-                    new_z = pos_a[:, -2, 2][new_agent_mask] + entry_local_traj[:, 2]
-
-                    new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
-
-                    entry_head_idx = Categorical(logits=entry_logit[new_agent_mask, -1,:33]).sample()
-
-                    new_head=entry_head_idx/16*np.pi
-
-                    pos_a[new_agent_mask, -1] = new_pos
-                    head_a[new_agent_mask, -1] =new_head
-
-                else:
-                    new_agent_mask = ~present_mask & gt_valid[:, t]
-
-                    pos_a[new_agent_mask, -1] = gt_pos[new_agent_mask, t]
-
-                    head_a[new_agent_mask, -1] = gt_head[new_agent_mask, t]
+                head_a[new_agent_mask, -1] = gt_head[new_agent_mask, t]
 
                 if self.token_processor.pred_exit:
                     next_mask = (mask[:, -1] & ~exit_mask) | new_agent_mask

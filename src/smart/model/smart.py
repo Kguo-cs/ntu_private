@@ -302,6 +302,27 @@ class SMART(LightningModule):
                 self.angular_speed_emd = angular_speed_likelihoods[2].mean().item()
                 self.angular_acceleration_emd =  angular_acceleration_likelihoods[2].mean().item()
 
+                target = data["agent"]["position"][
+                         :, self.num_historical_steps:, : pred_traj.shape[-1]
+                         ]
+                target_valid = data["agent"]["valid_mask"][
+                               :, self.num_historical_steps:
+                               ]
+
+                current_valid=target_valid[:,0]
+
+                pred=pred_traj[current_valid]
+                target=target[current_valid]
+                target_valid=target_valid[current_valid]
+
+                pred_valid_mask = (~torch.isnan(pred)).any(dim=1).all(dim=-1) #any false
+
+                target_valid = target_valid & pred_valid_mask
+
+                dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
+                dist = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
+
+                self.minADE0 = (dist / (target_valid.sum(-1) + 1e-6)).mean()  # [n_agent]
 
                 for i in range(len(linear_speed_likelihoods[0])):
                     self.wosac_metrics.scenario_counter += 1
@@ -396,6 +417,8 @@ class SMART(LightningModule):
                     # )
                     # self.logger.log_metrics(epoch_wosac_metrics)
                     #print("Logged keys:", epoch_wosac_metrics.keys())
+                    epoch_wosac_metrics['val_closed/minADE'] = self.minADE0
+
                     epoch_wosac_metrics['val_closed/present_likelihood'] = self.present_likelihood
                     epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] = self.linear_speed_likelihood
                     epoch_wosac_metrics[
