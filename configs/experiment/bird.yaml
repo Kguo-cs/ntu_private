@@ -10,25 +10,10 @@ model:
     lr_min_ratio: 1e-2
     token_processor:
       agent_token_file: "bird1024.pkl" #my2048 #agent_vocab_555_s2
-      map_token_sampling: # open-loop
-        num_k: 1 # for k nearest neighbors
-        temp: 1.0 # uniform sampling
-      agent_token_sampling: # closed-loop
-        num_k: 1 # for k nearest neighbors
-        temp: 1.0
       use_noise: True
 
-    training_rollout_sampling:
-      criterium: topk_prob # {topk_dist_sampled_with_prob, topk_prob, topk_prob_sampled_with_dist}
-      num_k: 2048 # for k nearest neighbors, set to -1 to turn-off closed-loop training
-      temp: 1.0
-    validation_rollout_sampling:
-      criterium: topk_prob
-      num_k: 2048 # for k most likely
-      temp: 1.0
     val_open_loop: False
-    #val_closed_loop: False
-    #finetune: true
+
     smart: false
     bird: true
     n_batch_wosac_metric: 0
@@ -53,7 +38,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
 
-task_name: bird1024_entrypos1024all_no1_pred01 #new #_smooth01
+task_name: bird1024_entrypos1024all_no1_exitpred01 #new #_smooth01
 
 
 

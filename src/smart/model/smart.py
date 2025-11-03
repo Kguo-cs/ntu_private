@@ -287,8 +287,6 @@ class SMART(LightningModule):
                                            show=False,      save_path=save_path
                               )
 
-
-
                 (linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods,
                  angular_acceleration_likelihoods,exist_likelihood,num_diff_mean,num_diff_abs)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],

@@ -349,20 +349,3 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood,num_diff_mean,num_diff_abs
 
-    # tensor(3.840, device='cuda:0')
-    # tensor(10.188, device='cuda:0')
-    # tensor(-29.859, device='cuda:0')
-    # tensor(29.859, device='cuda:0')
-    # tensor(-5.809, device='cuda:0')
-    # tensor(5.723, device='cuda:0')
-    # tensor(-318., device='cuda:0')
-    # tensor(319., device='cuda:0')
-
-    # tensor(3.842, device='cuda:0')
-    # tensor(10.125, device='cuda:0')
-    # tensor(-7.961, device='cuda:0')
-    # tensor(7.961, device='cuda:0')
-    # tensor(-1.683, device='cuda:0')
-    # tensor(1.683, device='cuda:0')
-    # tensor(-40.812, device='cuda:0')
-    # tensor(39.906, device='cuda:0')
