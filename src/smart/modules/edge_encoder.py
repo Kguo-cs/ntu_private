@@ -156,14 +156,6 @@ class EdgeEncoder(nn.Module):
                 vis_mask=vis_mask.transpose(0, 1).reshape(-1)
                 edge_index_a2a =visibility_aware_knn_with_radius_batch(pos_s, vis_mask,batch_s, max_num_neighbors, max_radius)
             else:
-                # full_edge_index = radiusGraphNearest2(x=pos_s,
-                #                                       y=pos_s,
-                #                                       x_heading=head_s,
-                #                                       r=max_radius,
-                #                                       batch_x=batch_s,
-                #                                       batch_y=batch_s,
-                #                                       max_num_neighbors=max_num_neighbors)
-
                 if value:
                     pos_a=pos_s.reshape(17,-1,2)
                     batch_s1=batch_s.reshape(17,-1) [:-1].flatten()
@@ -201,8 +193,6 @@ class EdgeEncoder(nn.Module):
 
             full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=10, batch=batch_s, loop=False)
 
-            #.flatten(1, 2)
-
             global_pos,_ = transform_to_global(
                                         pos_local=pos_local,  # [n_agent, n_step, 2]
                                         head_local=None,  # [n_agent, n_step]
@@ -210,30 +200,11 @@ class EdgeEncoder(nn.Module):
                                         head_now=head_s  # [n_agent]
                         )
 
-            #global_pos=global_pos.reshape(-1,proposal_pos.shape[-3],proposal_pos.shape[-2], 2)
-
             src, dst = full_edge_index
-
-            # mask1=src<dst
-            #
-            # src=src[mask1]
-            # dst=dst[mask1]
-
             src_traj=global_pos[src]#[:,:,None]
             dst_traj=global_pos[dst]#[:,None]
 
             dist=torch.norm(src_traj - dst_traj,dim=-1)#.reshape(-1,proposal_pos.shape[-3]*proposal_pos.shape[-3]*6).amin(-1)
-
-            # # shape: (E, 32, 6, 2), unsqueezed for broadcasting
-            # src_traj = global_pos[src].transpose(1,2).flatten(0,1)  # (E, 32, 6, 2)
-            # dst_traj = global_pos[dst].transpose(1,2).flatten(0,1)  # (E, 32, 6, 2)
-            #
-            # # Compute minimum distance across all points (broadcasted)
-            # dist = torch.cdist(
-            #     src_traj.flatten(1, 2),  # (E, 192, 2)
-            #     dst_traj.flatten(1, 2),  # (E, 192, 2),
-            #     p=2
-            # ).amin(dim=1)  # (E,)
 
             # shape: (n_batch, 2)
             radius_single = torch.norm(shape[:, :2] / 2, dim=-1)  # (n_batch,)#.to(torch.float16)
@@ -265,16 +236,6 @@ class EdgeEncoder(nn.Module):
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
 
-        # if self.discriminator:
-        #
-        #     r_a2a = torch.stack(
-        #         [
-        #             torch.norm(rel_pos_a2a[:, :2], p=2, dim=-1),
-        #             rel_head_a2a,
-        #         ],
-        #         dim=-1,
-        #     )
-        # else:
         dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
 
         if self.tokenized_pos:
@@ -299,7 +260,6 @@ class EdgeEncoder(nn.Module):
         r_a2a=torch.cat([r_a2a,rel_pos_a2a[:,2:]],dim=-1)
 
         r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
-
 
         return edge_index_a2a, r_a2a,dist
 

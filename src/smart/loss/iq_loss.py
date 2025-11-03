@@ -254,3 +254,107 @@ def get_gaussian_loss(proposal,tokenized_agent):
     return proposal_loss, pos_dist, head_diff
 
 
+def get_network_QV(self, q, tokenized_map, tokenized_agent, action, key):
+
+    action = action.unsqueeze(-1)  # .reshape(-1)
+
+    current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
+
+    current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
+
+    V = torch.cat([current_V, torch.zeros_like(current_V[:, :1])], dim=-1)
+
+    current_V = V[:, :-1]
+    next_V = V[:, 1:]
+
+    pi = torch.softmax(q / self.alpha, dim=-1)
+
+    logpi = torch.log(pi + 1e-10)  # .clamp_min(min=1e-10)
+
+    log_prob = torch.gather(logpi, dim=-1, index=action).squeeze(-1)
+    entropy = -torch.sum(pi * logpi, dim=-1)
+
+    actor_loss = self.alpha * log_prob - current_Q
+
+    dones = torch.zeros_like(next_V)
+    dones[:, -1] = 1
+    y = self.gamma * (1 - dones) * next_V
+    reward = current_Q - y
+    value_loss = current_V - y
+
+    return log_prob, pi, actor_loss, entropy, current_Q, V, value_loss, reward
+
+
+def log_iq():
+    all_valid_mask = valid_mask.all(-1)
+
+    # log_prob, pi, actor_loss, entropy, current_Q, V, value_loss, reward = self.get_network_QV(pred["agent_q"],
+    #                                                                                           tokenized_map,
+    #                                                                                           tokenized_agent,
+    #                                                                                           action, key)
+
+    # current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
+
+    # if self.use_target_q and key=="expert":
+    #     with torch.no_grad():
+    #         pred = self.target_net(tokenized_map, tokenized_agent)
+    #
+    #         target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
+    #     self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
+    # else:
+    #     target_V=0
+
+    init_V = V[:, 0]
+    last_V = V[:, -1]
+
+    if train_mask is not None:
+        reward = reward[train_mask]
+
+        value_loss = value_loss[train_mask]
+
+        V = V[all_valid_mask]
+
+        current_Q = current_Q[all_valid_mask]
+
+        entropy = entropy[all_valid_mask]
+
+        init_V = init_V[all_valid_mask]
+
+        last_V = last_V[all_valid_mask]
+
+    if self.use_ce and key == "expert":
+        pred = {
+            # action that goes from [(10->15), ..., (85->90)]
+            "next_token_logits": pred["agent_q"] / 0.1,  # [n_agent, 16, n_token]
+            "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
+            # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
+            "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+            "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+            "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+            # for step {5, 10, ..., 90}
+            "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
+            "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
+            "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
+            # or use the tokenized gt
+            "gt_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
+            "gt_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
+            "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
+        }
+        action_nll = self.training_loss(
+            **pred,
+            token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
+            token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
+            train_mask=tokenized_agent["train_mask_ce"],  # [n_agent]
+            current_epoch=self.current_epoch,
+        )
+    else:
+        action_nll = -log_prob[train_mask].mean()
+
+    self.log("train/" + key + "_V", V.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_Q", current_Q.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_reward", reward.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_lastV", last_V.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_initV", init_V.mean().item(), on_step=True, batch_size=1)
+    self.log("train/" + key + "_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
+

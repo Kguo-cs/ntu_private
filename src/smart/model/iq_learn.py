@@ -120,45 +120,6 @@ class IQ_SoftQ(LightningModule):
     #     for name, param in self.named_parameters():
     #         if param.grad is None:
     #             print(f"Unused parameter: {name}")
-    #
-
-    def get_network_QV(self, q, tokenized_map, tokenized_agent, action, key):
-
-        action = action.unsqueeze(-1)  # .reshape(-1)
-
-        current_Q = torch.gather(q, dim=-1, index=action).squeeze(-1)  # [B, Tm1, T_a]
-
-        current_V = self.alpha * torch.logsumexp(q / self.alpha, dim=-1, keepdim=False)  # V=Q+alpha*H
-
-        V = torch.cat([current_V, torch.zeros_like(current_V[:, :1])], dim=-1)
-
-        current_V = V[:, :-1]
-        next_V = V[:, 1:]
-
-        pi = torch.softmax(q / self.alpha, dim=-1)
-
-        logpi = torch.log(pi + 1e-10)  # .clamp_min(min=1e-10)
-
-        # log_prob = -cross_entropy(
-        #     q.transpose(1, 2) / self.alpha,  # [n_agent, n_token, n_step], logits
-        #     action.squeeze(-1),  # [n_agent, n_token, n_step], prob
-        #     reduction="none",
-        #     label_smoothing=0.1,
-        # )  # [n_agent, n_step=16]
-
-
-        log_prob = torch.gather(logpi, dim=-1, index=action).squeeze(-1)
-        entropy = -torch.sum(pi * logpi, dim=-1)
-
-        actor_loss = self.alpha * log_prob - current_Q
-
-        dones = torch.zeros_like(next_V)
-        dones[:, -1] = 1
-        y = self.gamma * (1 - dones) * next_V
-        reward = current_Q - y
-        value_loss = current_V - y
-
-        return log_prob, pi, actor_loss, entropy, current_Q, V, value_loss, reward
 
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
@@ -206,82 +167,23 @@ class IQ_SoftQ(LightningModule):
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             train_mask = tokenized_agent["train_mask"]
             valid_mask = valid_mask[train_mask]
-            action = action[train_mask]
             train_mask = train_mask[train_mask]
 
-        all_valid_mask = valid_mask.all(-1)
+        action=action[train_mask]
 
-        log_prob, pi, actor_loss, entropy, current_Q, V, value_loss, reward = self.get_network_QV(pred["agent_q"],
-                                                                                                  tokenized_map,
-                                                                                                  tokenized_agent,
-                                                                                                  action, key)
+        next_token_logits=pred["agent_q"]
 
+        pi = torch.softmax(next_token_logits / self.alpha, dim=-1)
 
-        # current_Q_diff, V_diff = get_return_diff(reward,log_prob,current_Q,V,self.alpha,self.gamma)
+        logpi = torch.log(pi + 1e-10)  # .clamp_min(min=1e-10)
 
-        # if self.use_target_q and key=="expert":
-        #     with torch.no_grad():
-        #         pred = self.target_net(tokenized_map, tokenized_agent)
-        #
-        #         target_V = self.get_network_QV( pred["agent_q"], tokenized_map, tokenized_agent, action, key)[5]
-        #     self.log("train/" + key + "_target_V", target_V.mean().item(), on_step=True, batch_size=1)
-        # else:
-        #     target_V=0
+        log_prob = torch.gather(logpi, dim=-1, index=action.unsqueeze(-1)).squeeze(-1)
+        entropy = -torch.sum(pi * logpi, dim=-1)
 
-        init_V = V[:, 0]
-        last_V = V[:, -1]
+        action_nll=-log_prob.mean()
 
-        if train_mask is not None:
-            reward = reward[train_mask]
-
-            value_loss = value_loss[train_mask]
-
-            V = V[all_valid_mask]
-
-            current_Q = current_Q[all_valid_mask]
-
-            entropy = entropy[all_valid_mask]
-
-            init_V = init_V[all_valid_mask]
-
-            last_V = last_V[all_valid_mask]
-
-        if self.use_ce and key == "expert":
-            pred = {
-                # action that goes from [(10->15), ..., (85->90)]
-                "next_token_logits": pred["agent_q"] / 0.1,  # [n_agent, 16, n_token]
-                "next_token_valid": tokenized_agent["valid_mask"][:, 1:-1],  # [n_agent, 16]
-                # for step {5, 10, ..., 90} and act [(0->5), (5->10), ..., (85->90)]
-                "pred_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
-                "pred_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
-                "pred_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
-                # for step {5, 10, ..., 90}
-                "gt_pos_raw": tokenized_agent["gt_pos_raw"],  # [n_agent, 18, 2]
-                "gt_head_raw": tokenized_agent["gt_head_raw"],  # [n_agent, 18]
-                "gt_valid_raw": tokenized_agent["gt_valid_raw"],  # [n_agent, 18]
-                # or use the tokenized gt
-                "gt_pos": tokenized_agent["sampled_pos"],  # [n_agent, 18, 2]
-                "gt_head": tokenized_agent["sampled_heading"],  # [n_agent, 18]
-                "gt_valid": tokenized_agent["valid_mask"],  # [n_agent, 18]
-            }
-            action_nll = self.training_loss(
-                **pred,
-                token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
-                token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
-                train_mask=tokenized_agent["train_mask_ce"],  # [n_agent]
-                current_epoch=self.current_epoch,
-            )
-        else:
-            action_nll = -log_prob[train_mask].mean()
-
-        self.log("train/" + key + "_V", V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_Q", current_Q.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_reward", reward.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_lastV", last_V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_initV", init_V.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_value_loss", value_loss.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
 
         if self.iq_learn and not self.use_gail:
             action_nll = 0
@@ -300,7 +202,7 @@ class IQ_SoftQ(LightningModule):
 
             entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
-            entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)[train_mask].mean()
+            entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx[train_mask].unsqueeze(-1)).mean()
 
             head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
 
@@ -315,7 +217,7 @@ class IQ_SoftQ(LightningModule):
 
             action_nll=0.01*entry_nll+0.01*entry_head_nll+action_nll
 
-        return reward, value_loss, pi, action_nll, current_Q, proposal_loss, log_prob + proposal_log_prob, entropy
+        return pi, action_nll, proposal_loss, log_prob + proposal_log_prob, entropy
 
     def get_reward(self, tokenized_agent, agent_log_prob, agent_pi, key, train_mask=None, expert_disc_val=0,
                    target_q=None, expert_dis_logit=None):
@@ -554,7 +456,7 @@ class IQ_SoftQ(LightningModule):
                 if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
-            expert_reward, expert_value_loss, expert_pi, expert_nll, expert_Q, expert_proposal_loss, expert_log_prob, _ = self.get_QV(
+            expert_pi, expert_nll, expert_proposal_loss, expert_log_prob, _ = self.get_QV(
                 tokenized_map, tokenized_agent, train_mask)
 
         if self.encoder.use_vae:
@@ -649,7 +551,7 @@ class IQ_SoftQ(LightningModule):
             else:
                 target_q = None
 
-            agent_reward, agent_value_loss, agent_pi, agent_nll, agent_Q, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
+            agent_pi, agent_nll, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
                 tokenized_map, tokenized_agent_rollout, None, key='agent')
 
             if self.use_gail:

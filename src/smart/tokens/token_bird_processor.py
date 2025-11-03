@@ -75,7 +75,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route = False
 
-        self.noise = False
+        self.noise = True
 
         self.pred_map_token = False
 
@@ -92,7 +92,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -179,7 +179,7 @@ class TokenProcessor(torch.nn.Module):
             "shape": None,
             "token_agent_shape":None,
             "batch": batch,
-            "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
+            "token_traj_all": token_traj_all[:,:,:,None],  # [n_agent, n_token, 5, 1, 2]
             "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
              "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]

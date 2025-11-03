@@ -199,14 +199,6 @@ class InterativeDecoder(nn.Module):
                     self.token_predict_head = MLPLayer(
                         input_dim=hidden_dim * 3, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
-
-                # self.token_predict_head = nn.Sequential(
-                #     nn.Linear(hidden_dim*3, hidden_dim*2),
-                #     nn.LayerNorm(hidden_dim*2),
-                #     nn.ReLU(inplace=True),
-                #     MLPLayer(
-                #     input_dim=hidden_dim*2, hidden_dim=hidden_dim, output_dim=n_token_agent
-                # ))
             else:
                 self.token_predict_head = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -219,15 +211,11 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-
-
-
     def predict_agent(self,feat_a,feat_map,n_step,n_agent,
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask,
-                      head_a
+                      train_repeat_mask
                       ):
 
         for layer_i in range(self.num_layers):
@@ -335,68 +323,16 @@ class InterativeDecoder(nn.Module):
 
         if  self.use_edge_feature and self.discriminator:
             feat_a_all = None
-        else:
+        elif self.num_layers>1 and train_mask is not None:
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
 
-            if self.num_layers>1 and train_mask is not None:
-                feat_a=feat_a_all[train_mask]
-            else:
-                feat_a=feat_a_all
+            feat_a = feat_a_all[train_mask]
 
         proposal=None
 
         if self.discriminator and self.centric:
             index=batch_s_repeat[train_mask]
             feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
-
-        # if self.n_token_agent>1 and self.n_token_agent<2048:
-        #     feat_a=torch.amax(feat_a, dim=1,keepdim=True)
-            # index=batch_s_repeat[train_mask]
-            # #feat_a, argmax = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
-            # feat_a = scatter_mean(feat_a, index, dim=0)  # out: [B,T,C]
-
-        if self.pred_last_res:
-            if self.training:
-                proposal_feature = feat_a.detach()#[:, :-1]
-            else:
-                proposal_feature = feat_a#[:, -1:]
-
-            proposal = self.traj_head(proposal_feature)  #
-            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
-
-        if self.pred_all_res and self.training:
-            next_token_idx = sampled_idx
-
-            token_local_traj = self.token_processor.token_local_traj
-
-            if train_mask is not None:
-                token_local_traj=token_local_traj[train_mask]
-                next_token_idx=next_token_idx[train_mask]
-                agent_token_emb=agent_token_emb[train_mask]
-                n_agent=next_token_idx.shape[0]
-
-            proposal_feature = feat_a + agent_token_emb
-            proposal = self.traj_head(proposal_feature)  #
-            proposal = proposal.reshape(proposal.shape[0], proposal.shape[1], 1, -1, 3)
-
-            next_token_traj_all = token_local_traj[torch.arange(n_agent)[:, None], next_token_idx]
-
-            if self.token_processor.max_diff is not None:
-
-                proposal_max_diff = self.token_processor.token_diff[torch.arange(n_agent)[:, None], next_token_idx]
-
-                proposal = torch.tanh(proposal) * proposal_max_diff[:, :, None]
-
-            if self.output_gmm:
-                proposal=    proposal.reshape(proposal.shape[0], proposal.shape[1], 2,-1, 3)
-
-                proposal=torch.arange(0.2,1.2,0.2,device=proposal.device)[None,None,None,:,None]*proposal
-
-                proposal[:,:,0]+=next_token_traj_all
-                proposal[:,:,1]=0.001#torch.exp(proposal[:,:,1])+0.01
-
-            else:
-                proposal = proposal + next_token_traj_all[:, :, None]
 
         if self.discriminator:
             if self.state_action:
@@ -530,17 +466,16 @@ class InterativeDecoder(nn.Module):
         feat_a,feat_a_token,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features[:-2] ]
 
         if train_mask is not None:
-            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)
+            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)[mask_s]
         else:
             train_repeat_mask=None
 
-        #if not self.discriminator or  self.use_iteract:
         edge_index_a2a, r_a2a, dist = self.edge_encoder.build_interaction_edge(
-            pos_s=pos_s,  # [n_agent, n_step, 2]
-            head_s=head_s,  # [n_agent, n_step]
-            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
-            batch_s=batch_s,  # [n_agent*n_step]
-            mask=mask_s,  # [n_agent, n_step]
+            pos_s=pos_s[mask_s],  # [n_agent, n_step, 2]
+            head_s=head_s[mask_s],  # [n_agent, n_step]
+            head_vector_s=head_vector_s[mask_s],  # [n_agent, n_step, 2]
+            batch_s=batch_s[mask_s],  # [n_agent*n_step]
+            mask=mask_s[mask_s],  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
@@ -550,7 +485,7 @@ class InterativeDecoder(nn.Module):
             loop=self.use_ego_loop
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        noise = None
+        feat_a=feat_a[mask_s]
 
         if self.use_diffusion:
             if self.training:
@@ -617,6 +552,6 @@ class InterativeDecoder(nn.Module):
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask,head_a)
+                      train_repeat_mask)
 
         return next_token_logits,feat_a,proposal,rewards,weight,edge_index_a2a
