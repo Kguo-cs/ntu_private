@@ -29,7 +29,7 @@ class minADE(Metric):
         target: Tensor,  # [n_agent, n_step, 2]
         target_valid: Tensor,  # [n_agent, n_step]
     ) -> None:
-        pred_valid_mask = (~torch.isnan(pred)).any(dim=1).all(dim=-1)  # any false
+        pred_valid_mask = (pred != 10000).any(dim=-1).any(dim=1)  # any false
 
         target_valid=target_valid & pred_valid_mask
 

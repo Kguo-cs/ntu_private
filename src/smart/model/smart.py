@@ -315,14 +315,14 @@ class SMART(LightningModule):
                 target=target[current_valid]
                 target_valid=target_valid[current_valid]
 
-                pred_valid_mask = (~torch.isnan(pred)).any(dim=1).all(dim=-1) #any false
+                pred_valid_mask = (pred!=10000).any(dim=-1).any(dim=1) #any false
 
                 target_valid = target_valid & pred_valid_mask
 
                 dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
-                dist = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
+                dist2 = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
 
-                self.minADE0 = (dist / (target_valid.sum(-1) + 1e-6)).mean()  # [n_agent]
+                self.minADE0 = (dist2 / (target_valid.sum(-1) + 1e-6)).mean()  # [n_agent]
 
                 for i in range(len(linear_speed_likelihoods[0])):
                     self.wosac_metrics.scenario_counter += 1

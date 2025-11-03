@@ -667,7 +667,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 _invalid_mask=~mask[:,-1]
 
-                pred_traj[_invalid_mask]=torch.inf
+                pred_traj[_invalid_mask]=10000
                 pred_traj_10hz.append(pred_traj)
 
                 pos_a_next=pred_traj[:,-1]
