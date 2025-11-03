@@ -525,19 +525,6 @@ class SMARTAgentDecoder(nn.Module):
 
                     # if tokenized_agent["proposal"] is not None:
                     #     proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
-
-                    # if tokenized_agent["visibility"] is not None:
-                    #     visibility=tokenized_agent["visibility"][:, :1]
-
-                    # if self.pred_light:
-                    #     next_light_logits = tokenized_agent["next_light_logits"][:, :1]
-                    # else:
-                    #     next_light_logits = []
-
-                    # if self.pred_goal:
-                    #     next_goal_logits = tokenized_agent["next_goal_logits"][:, :1]
-                    # else:
-                    #     next_goal_logits = []
                     next_token_logits=torch.zeros([len(type),1,self.token_processor.n_token_agent],device=sampled_idx.device)
 
                     next_token_logits[type<3]= tokenized_agent["next_token_logits"][:, :1]
@@ -546,6 +533,8 @@ class SMARTAgentDecoder(nn.Module):
                     if tokenized_agent["entry_logit"] is not None:
 
                         entry_logit=tokenized_agent["entry_logit"][:,:1]
+                    else:
+                        entry_logit=None
 
 
                     feat_a = tokenized_agent["feat_a"][:, :1]
