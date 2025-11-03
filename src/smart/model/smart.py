@@ -288,11 +288,10 @@ class SMART(LightningModule):
                               )
 
                 (linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods,
-                 angular_acceleration_likelihoods,exist_likelihood,num_diff_mean,num_diff_abs)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
+                 angular_acceleration_likelihoods,num_diff_mean,num_diff_abs)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"],batch_idx < self.n_vis_batch)
 
-                self.present_likelihood=exist_likelihood.mean().item()
                 self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
                 self.linear_acceleration_likelihood = linear_acc_likelihoods[1].mean().item()
                 self.angular_speed_likelihood = angular_speed_likelihoods[1].mean().item()
@@ -324,7 +323,7 @@ class SMART(LightningModule):
                 target_valid = target_valid & pred_valid_mask
 
                 dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
-                dist2 = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
+                dist2 = (dist * target_valid.unsqueeze(1)).to(torch.float32).sum(-1).amin(-1)  # [n_agent]
 
                 self.minADE0 = (dist2 / (target_valid.sum(-1) + 1e-6)).mean()  # [n_agent]
 
@@ -425,8 +424,6 @@ class SMART(LightningModule):
                     epoch_wosac_metrics['val_closed/num_diff_mean'] = self.num_diff_mean
                     epoch_wosac_metrics['val_closed/num_diff_abs'] = self.num_diff_abs
 
-
-                    epoch_wosac_metrics['val_closed/present_likelihood'] = self.present_likelihood
                     epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] = self.linear_speed_likelihood
                     epoch_wosac_metrics[
                         'val_closed/linear_acceleration_likelihood1'] = self.linear_acceleration_likelihood

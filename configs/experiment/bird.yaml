@@ -36,9 +36,9 @@ model:
       dist_decay: 3
 
 
-#ckpt_path : '/home/ke/code/catk/src/waymo_data/epoch=34-step=406875.ckpt'
+#ckpt_path : '/home/ke/code/catk/src/epoch=0-step=9300.ckpt'
 
-task_name: bird1024_entrypos1024all_no1_exitpred01 #new #_smooth01
+task_name: bird1024_entrypos1024all_no1_exit001pred01 #new #_smooth01
 
 
 
@@ -47,7 +47,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  #val_check_interval: 0.0000002
+  val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 

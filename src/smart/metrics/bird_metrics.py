@@ -334,18 +334,18 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     # exist_likelihood=histogram_estimate_torch(batch,gt_mask.to(torch.float16),pred_mask.flatten(1,2).to(torch.float16),
     #                                                     min_val=-0.5,max_val=1.5,num_bins=2
     #                                                   )
-    exist_likelihood=(gt_mask[:,None]==pred_mask).float().mean(-1).mean(-1)
+    # exist_likelihood=(gt_mask[:,None]==pred_mask).float().mean(-1).mean(-1)
+    #
+    # exist_likelihood=scatter_mean(exist_likelihood, batch)
 
-    exist_likelihood=scatter_mean(exist_likelihood, batch)
+    gt_valid_num=scatter_sum(gt_mask.to(torch.int16),batch,dim=0)
 
-    gt_valid_num=scatter_sum(gt_mask.float(),batch,dim=0)
+    pred_valid_num=scatter_sum(pred_mask.to(torch.int16),batch,dim=0)
 
-    pred_valid_num=scatter_sum(pred_mask.float(),batch,dim=0)
-
-    num_diff=(pred_valid_num-gt_valid_num[:,None])
+    num_diff=(pred_valid_num-gt_valid_num[:,None]).float()
 
     num_diff_mean=num_diff.mean()
     num_diff_abs=num_diff.abs().mean()
 
-    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood,num_diff_mean,num_diff_abs
+    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,num_diff_mean,num_diff_abs
 
