@@ -338,7 +338,16 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     exist_likelihood=scatter_mean(exist_likelihood, batch)
 
-    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood
+    gt_valid_num=scatter_sum(gt_mask.float(),batch,dim=0)
+
+    pred_valid_num=scatter_sum(pred_mask.float(),batch,dim=0)
+
+    num_diff=(pred_valid_num-gt_valid_num[:,None])
+
+    num_diff_mean=num_diff.mean()
+    num_diff_abs=num_diff.abs().mean()
+
+    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood,num_diff_mean,num_diff_abs
 
     # tensor(3.840, device='cuda:0')
     # tensor(10.188, device='cuda:0')

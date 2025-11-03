@@ -287,7 +287,10 @@ class SMART(LightningModule):
                                            show=False,      save_path=save_path
                               )
 
-                linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,exist_likelihood=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
+
+
+                (linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods,
+                 angular_acceleration_likelihoods,exist_likelihood,num_diff_mean,num_diff_abs)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"],batch_idx < self.n_vis_batch)
 
@@ -301,6 +304,9 @@ class SMART(LightningModule):
                 self.linear_acceleration_emd = linear_acc_likelihoods[2].mean().item()
                 self.angular_speed_emd = angular_speed_likelihoods[2].mean().item()
                 self.angular_acceleration_emd =  angular_acceleration_likelihoods[2].mean().item()
+
+                self.num_diff_mean=num_diff_mean
+                self.num_diff_abs=num_diff_abs
 
                 target = data["agent"]["position"][
                          :, self.num_historical_steps:, : pred_traj.shape[-1]
@@ -418,6 +424,9 @@ class SMART(LightningModule):
                     # self.logger.log_metrics(epoch_wosac_metrics)
                     #print("Logged keys:", epoch_wosac_metrics.keys())
                     epoch_wosac_metrics['val_closed/minADE'] = self.minADE0
+                    epoch_wosac_metrics['val_closed/num_diff_mean'] = self.num_diff_mean
+                    epoch_wosac_metrics['val_closed/num_diff_abs'] = self.num_diff_abs
+
 
                     epoch_wosac_metrics['val_closed/present_likelihood'] = self.present_likelihood
                     epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] = self.linear_speed_likelihood

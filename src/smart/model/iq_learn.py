@@ -217,7 +217,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
             self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
 
-            action_nll=entry_nll+entry_head_nll+action_nll
+            action_nll=0.1*entry_nll+0.1*entry_head_nll+action_nll
 
         return pi, action_nll, proposal_loss, log_prob + proposal_log_prob, entropy
 
