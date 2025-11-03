@@ -282,7 +282,7 @@ def plot_histgram(name, valid_gt_speed, valid_pred_speed,
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
-    pred_mask=(pred_traj!=0).any(-1)
+    pred_mask=(pred_traj!=10000).any(-1)
 
     speed,acc,ang_speed,ang_acc=compute_kinematic_features(pred_traj,fps=fps)
 
