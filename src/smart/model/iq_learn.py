@@ -296,19 +296,17 @@ class IQ_SoftQ(LightningModule):
         if pred["entry_logit"] is not None:
             entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:]
 
-            entry_pos_idx=entry_idx.to(torch.long)
-
-            pred_entry_logit=pred["entry_logit"][:,:,33:]
+            pred_entry_logit=pred["entry_logit"]
 
             entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
-            entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_pos_idx.unsqueeze(-1)).squeeze(-1)[train_mask].mean()
+            entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)[train_mask].mean()
 
             head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
 
-            entry_head_idx=((entry_idx-entry_pos_idx)*100)[head_mask].to(torch.long)
+            entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:]
 
-            pred_entry_head_logit=pred["entry_logit"][:,:,:33]
+            pred_entry_head_logit=pred["entry_head_logit"]
 
             entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 
