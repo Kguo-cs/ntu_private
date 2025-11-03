@@ -166,10 +166,11 @@ class IQ_SoftQ(LightningModule):
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             train_mask = tokenized_agent["train_mask"]
-            valid_mask = valid_mask[train_mask]
             train_mask = train_mask[train_mask]
 
-        action=action[train_mask]
+        train_mask=train_mask.transpose(0, 1).flatten(0, 1)
+
+        action=action.transpose(0, 1).flatten(0, 1)[train_mask]
 
         next_token_logits=pred["agent_q"]
 
@@ -178,6 +179,7 @@ class IQ_SoftQ(LightningModule):
         logpi = torch.log(pi + 1e-10)  # .clamp_min(min=1e-10)
 
         log_prob = torch.gather(logpi, dim=-1, index=action.unsqueeze(-1)).squeeze(-1)
+
         entropy = -torch.sum(pi * logpi, dim=-1)
 
         action_nll=-log_prob.mean()
@@ -196,7 +198,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 
         if self.token_processor.pred_entry:
-            entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:]
+            entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
 
             pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
 
@@ -206,7 +208,7 @@ class IQ_SoftQ(LightningModule):
 
             head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
 
-            entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:][head_mask]
+            entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]
 
             entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 
