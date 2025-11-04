@@ -122,7 +122,7 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
 
     G_masked = np.stack([_apply_mask_nan(G[a], M[a]) for a in range(G.shape[0])], axis=0)  # (A,T,3)
 
-    nan_mask = (P == 0).all(axis=-1)
+    nan_mask = (P == 10000).all(axis=-1)
 
     nan_mask = nan_mask | ~M[:, None]
 

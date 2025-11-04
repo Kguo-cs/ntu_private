@@ -306,9 +306,9 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     gt_exit_num=scatter_sum(exit_mask.to(torch.int16),batch,dim=0)
     pred_exit_num=scatter_sum(pred_exit_mask.to(torch.int16),batch,dim=0)
 
-    num_entry_diff_mean=(pred_entry_num-gt_entry_num[:,None]).float().mean()
+    num_entry_diff_mean=(pred_entry_num/(pred_valid_num[:, :, :-1]+1) -(gt_entry_num/(gt_valid_num[:,1:]+1))[:,None]).float().mean()
 
-    num_exit_diff_mean=(pred_exit_num-gt_exit_num[:,None]).float().mean()
+    num_exit_diff_mean=(pred_exit_num/(pred_valid_num[:, :, :-1]+1) -(gt_exit_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
 
     speed,acc,ang_speed,ang_acc=compute_kinematic_features(pred_traj,fps=fps)
 

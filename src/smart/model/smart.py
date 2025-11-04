@@ -425,8 +425,8 @@ class SMART(LightningModule):
                     epoch_wosac_metrics['val_closed/minADE'] = self.minADE0
                     epoch_wosac_metrics['val_closed/num_diff_mean'] = self.num_diff_mean
                     epoch_wosac_metrics['val_closed/num_diff_abs'] = self.num_diff_abs
-                    epoch_wosac_metrics['val_closed/num_exit_diff_mean'] = self.num_exit_diff_mean
-                    epoch_wosac_metrics['val_closed/num_entry_diff_mean'] = self.num_entry_diff_mean
+                    epoch_wosac_metrics['val_closed/exit_diff_mean'] = self.num_exit_diff_mean
+                    epoch_wosac_metrics['val_closed/entry_diff_mean'] = self.num_entry_diff_mean
 
                     epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] = self.linear_speed_likelihood
                     epoch_wosac_metrics[
