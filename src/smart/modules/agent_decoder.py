@@ -189,6 +189,8 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
                     )
 
+
+
         self.pred_col=False
         self.use_sign_dist=False
 
