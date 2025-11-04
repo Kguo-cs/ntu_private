@@ -114,10 +114,10 @@ class IQ_SoftQ(LightningModule):
         if self.use_ce:
             self.training_loss = CrossEntropy(**model_config.training_loss)
 
-    # def on_after_backward(self):
-    #     for name, param in self.named_parameters():
-    #         if param.grad is None:
-    #             print(f"Unused parameter: {name}")
+    def on_after_backward(self):
+        for name, param in self.named_parameters():
+            if param.grad is None:
+                print(f"Unused parameter: {name}")
 
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]

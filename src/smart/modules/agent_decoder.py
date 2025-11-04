@@ -179,7 +179,7 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 self.latent_embed=MLPLayer(self.k_dim,hidden_dim,hidden_dim)
 
-        self.pred_entry=token_processor.pred_entry
+        self.pred_entry=token_processor.pred_entry & (not discriminator)
 
         if self.pred_entry:
             self.entry_decoder = MLPLayer(
@@ -189,7 +189,7 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
                     )
 
-        self.pred_exit=token_processor.pred_exit
+        self.pred_exit=token_processor.pred_exit & (not discriminator)
 
         if self.pred_exit:
             self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
