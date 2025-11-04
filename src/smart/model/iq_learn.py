@@ -195,7 +195,7 @@ class IQ_SoftQ(LightningModule):
 
             exit_log_p=torch.log_softmax(exit_logit, dim=-1)
 
-            entry_idx=action_valid.to(int)
+            entry_idx=(~action_valid).to(int)
 
             exit_nll = -torch.gather(exit_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).mean()
 

@@ -584,7 +584,7 @@ class SMARTAgentDecoder(nn.Module):
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
             if self.token_processor.use_bird:
-                #
+
                 # if entry_logit is not None:
                 #     entry_token_idx = Categorical(logits=entry_logit).sample()
                 #
