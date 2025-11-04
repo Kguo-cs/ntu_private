@@ -225,32 +225,6 @@ class SMARTDecoder(nn.Module):
                     discriminator=True
                 )
 
-
-
-               # add_spectral_norm_recursively(self.discriminator)
-
-
-
-                self.pred_dis_aux=True
-
-                if self.pred_col:
-
-                    if self.agent_encoder.use_sign_dist:
-                       # self.col_head = MLPLayer(hidden_dim, hidden_dim, 3)
-
-                        self.dis_col_head = MLPLayer(hidden_dim, hidden_dim, 3)
-
-                    else:
-                        if self.map_encoder.pred_offroad:
-                            out_dim=2
-                        else:
-                            out_dim=1
-
-                        #self.col_head =nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
-
-                        # if self.pred_dis_aux:
-                        #    self.dis_col_head=nn.Sequential(MLPLayer(hidden_dim, hidden_dim, out_dim),nn.Sigmoid())
-
                 if self.use_infogail:
                     self.RecognitionQ=SMARTAgentDecoder(
                                         hidden_dim=hidden_dim,

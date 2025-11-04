@@ -342,10 +342,29 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     pred_valid_num=scatter_sum(pred_mask.to(torch.int16),batch,dim=0)
 
+
+
     num_diff=(pred_valid_num-gt_valid_num[:,None]).float()
 
     num_diff_mean=num_diff.mean()
     num_diff_abs=num_diff.abs().mean()
 
-    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods,num_diff_mean,num_diff_abs
+    entry_mask=~gt_mask[:,:-1] & gt_mask[:,1:]
+
+    exit_mask=gt_mask[:,:-1] & ~gt_mask[:,1:]
+
+    pred_entry_mask = ~pred_mask[:, :, :-1] & pred_mask[:, :, 1:]
+
+    pred_exit_mask = pred_mask[:, :, :-1] & ~pred_mask[:, :, 1:]
+
+    gt_entry_num=scatter_sum(entry_mask.to(torch.int16),batch,dim=0)
+    pred_entry_num=scatter_sum(pred_entry_mask.to(torch.int16),batch,dim=0)
+    gt_exit_num=scatter_sum(exit_mask.to(torch.int16),batch,dim=0)
+    pred_exit_num=scatter_sum(pred_exit_mask.to(torch.int16),batch,dim=0)
+
+    num_entry_diff_mean=(pred_entry_num-gt_entry_num[:,None]).float().mean()
+
+    num_exit_diff_mean=(pred_exit_num-gt_exit_num[:,None]).float().mean()
+
+    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean, num_diff_abs,num_entry_diff_mean, num_exit_diff_mean
 
