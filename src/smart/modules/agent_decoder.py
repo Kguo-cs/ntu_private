@@ -194,8 +194,6 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_exit:
             self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
 
-
-
         self.pred_col=False
         self.use_sign_dist=False
 
@@ -481,6 +479,8 @@ class SMARTAgentDecoder(nn.Module):
                     a_num=torch.sum(mask[:,t-1])
 
                     next_token_logits=tokenized_agent["next_token_logits"][:a_num]
+
+                    exit_logit=tokenized_agent["exit_logit"][:a_num]
 
 
                     if tokenized_agent["entry_logit"] is not None:
