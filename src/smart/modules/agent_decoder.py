@@ -481,6 +481,8 @@ class SMARTAgentDecoder(nn.Module):
 
                     if tokenized_agent["entry_logit"] is not None:
                         exit_logit=tokenized_agent["exit_logit"][:a_num]
+                    else:
+                        exit_logit=None
 
 
                     if tokenized_agent["entry_logit"] is not None:
