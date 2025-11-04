@@ -93,7 +93,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=True
 
 
     @torch.no_grad()
@@ -134,14 +134,13 @@ class TokenProcessor(torch.nn.Module):
         # else:
         tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
-        if self.pred_exit:
-            valid_mask=tokenized_agent["valid_mask"]
-            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
-            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
-            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
+        # if self.pred_exit:
+        #     valid_mask=tokenized_agent["valid_mask"]
+        #     exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
+        #     exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
+        #     tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
         tokenized_agent["pred_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
-
 
         return tokenized_map, tokenized_agent
 
@@ -290,31 +289,22 @@ class TokenProcessor(torch.nn.Module):
 
             entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_agent - 1
 
-            entry_head_idx = torch.zeros_like(token_idx_gt)-1
+            entry_head_idx = torch.zeros_like(token_idx_gt)
+
+            prev_head = heading[:, i].clone()
+            prev_pos = pos[:, i].clone()
 
             if self.pred_entry and i > self.shift:
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
 
-                # entry_num = torch.bincount(batch[entry_agent, 0], minlength=num_graphs)
-                # present_num = torch.bincount(batch[present_agent, 0], minlength=num_graphs)
-                #
-                # entry_mask = entry_num <= present_num
-
-                # if entry_agent.any() and not entry_mask.all():
-                #     modify_batch=torch.arange(num_graphs)[~entry_mask]
-                #     batch=
-                #     entry_agent[]
-                #
-                #     print(entry_num,present_num)
-
-                if entry_agent.any() :#and entry_mask.all()
+                if entry_agent.any():#and entry_mask.all()
 
                     entry_pos =pos[:, i][entry_agent]#.to(torch.float16)
 
-                    present_pos =prev_pos[present_agent]#.to(torch.float16)
+                    present_pos = out_dict["sampled_pos"][-1][present_agent]#.to(torch.float16)
 
-                    present_heading=prev_head[present_agent]#.to(torch.float16)
+                    present_heading=out_dict["sampled_heading"][-1][present_agent]#.to(torch.float16)
 
                     global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
 
@@ -356,9 +346,6 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[col_ind]
 
-                    prev_head = heading[:, i].clone()
-                    prev_pos = pos[:, i].clone()
-
                     prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
 
                     entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*16).to(torch.long)+16
@@ -368,18 +355,6 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_heading = (entry_head_idx-16)/16*np.pi #[-16,16]
 
                     prev_head[entry_id]=tokenized_heading[entry_id]
-
-                    # out_dict["entry_head_idx"].append(entry_head_idx+16)
-
-                    # global_xy=transform_to_global(pos_local=local_traj[:,None,:2], head_local=None,pos_now=present_agent_pos[:, :2],head_now=present_agent_heading)[0]
-                    #
-                    # global_z=local_traj[:,2]+present_agent_pos[:, 2]
-
-                    #prev_pos[entry_id,:2] = global_xy.mean(-2)
-                    #prev_pos[entry_id,2] = global_z
-
-                    # dxy = global_xy[:, 0] - global_xy[:, 3]
-                    # prev_head[entry_id] = torch.arctan2(dxy[:, 1], dxy[:, 0])
 
                     # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
                     #
@@ -393,14 +368,6 @@ class TokenProcessor(torch.nn.Module):
                     # print(1)
 
                     # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
-
-                else:
-                    prev_head = heading[:, i].clone()
-                    prev_pos = pos[:, i].clone()
-
-            else:
-                prev_head = heading[:, i].clone()
-                prev_pos = pos[:, i].clone()
 
             out_dict["entry_idx"].append(entry_idx)
             out_dict["entry_head_idx"].append(entry_head_idx)
