@@ -190,14 +190,18 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and not self.use_gail:
             action_nll = 0
 
-        if self.token_processor.pred_exit and key=='expert':
+        if self.token_processor.pred_exit:
             exit_logit = pred["exit_logit"]
 
             exit_log_p=torch.log_softmax(exit_logit, dim=-1)
 
             entry_idx=(~action_valid).to(int)
 
-            exit_nll = -torch.gather(exit_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).mean()
+            exit_log_prob = -torch.gather(exit_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)
+
+            exit_nll=-exit_log_prob.mean()
+
+            log_prob=log_prob+exit_log_prob
 
             action_nll=action_nll+0.1*exit_nll
 
