@@ -553,6 +553,8 @@ class IQ_SoftQ(LightningModule):
 
                     train_valid_mask = agent_train_mask[all_valid]
 
+                    train_valid_mask[~(train_valid_mask.all(-1))] = False
+
                     agent_rewards[~train_valid_mask]=0
                     v_denorm[~train_valid_mask]=0
 

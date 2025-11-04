@@ -93,7 +93,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=True
+        self.pred_entry=False
 
 
     @torch.no_grad()

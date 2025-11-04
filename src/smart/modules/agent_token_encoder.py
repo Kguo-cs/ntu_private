@@ -53,7 +53,7 @@ class AgentTokenEncoder(nn.Module):
             input_dim=input_dim_x_a,
             hidden_dim=hidden_dim,
             num_freq_bands=num_freq_bands,
-            share=self.token_processor.use_bird
+            share=False #self.token_processor.use_bird
         )
 
         self.discriminator=discriminator
