@@ -180,9 +180,10 @@ class IQ_SoftQ(LightningModule):
 
         entropy = -torch.sum(pi * logpi, dim=-1)
 
-        action_valid=valid_mask[:,1:].transpose(0, 1).flatten(0, 1)[train_mask]
-
-        action_nll=-log_prob[action_valid].mean()
+        # action_valid=valid_mask[:,1:].transpose(0, 1).flatten(0, 1)[train_mask]
+        #
+        # action_nll=-log_prob[action_valid].mean()
+        action_nll=-log_prob.mean()
 
         self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
@@ -190,20 +191,26 @@ class IQ_SoftQ(LightningModule):
         if self.iq_learn and not self.use_gail:
             action_nll = 0
 
-        if self.token_processor.pred_exit:
-            exit_logit = pred["exit_logit"]
+        # if self.token_processor.pred_exit:
+        #     exit_logit = pred["exit_logit"]
+        #
+        #     exit_log_p=torch.log_softmax(exit_logit, dim=-1)
+        #
+        #     entry_idx=(~action_valid).to(int)
+        #
+        #     exit_log_prob = -torch.gather(exit_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)
+        #
+        #     exit_nll=-exit_log_prob.mean()
+        #
+        #     log_prob=log_prob+exit_log_prob
+        #
+        #     action_nll=action_nll+0.1*exit_nll
+        #
+        #     self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
+        if self.token_processor.pred_exit and key=='expert':
+            exit_mask=action==self.token_processor.n_token_agent-1
 
-            exit_log_p=torch.log_softmax(exit_logit, dim=-1)
-
-            entry_idx=(~action_valid).to(int)
-
-            exit_log_prob = -torch.gather(exit_log_p, dim=-1, index=entry_idx.unsqueeze(-1)).squeeze(-1)
-
-            exit_nll=-exit_log_prob.mean()
-
-            log_prob=log_prob+exit_log_prob
-
-            action_nll=action_nll+0.1*exit_nll
+            exit_nll = -log_prob[exit_mask].mean()
 
             self.log("train/exit_nll", exit_nll.mean().item(), on_step=True, batch_size=1)
 

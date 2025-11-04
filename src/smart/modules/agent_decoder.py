@@ -191,8 +191,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_exit=token_processor.pred_exit & (not discriminator)
 
-        if self.pred_exit:
-            self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
+        # if self.pred_exit:
+        #     self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
 
         self.pred_col=False
         self.use_sign_dist=False
@@ -353,10 +353,10 @@ class SMARTAgentDecoder(nn.Module):
         else:
             entry_logit=None
 
-        if self.pred_exit:
-            exit_logit=self.exit_decoder(feat_a)
-        else:
-            exit_logit=None
+        # if self.pred_exit:
+        #     exit_logit=self.exit_decoder(feat_a)
+        # else:
+        exit_logit=None
 
 
         return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,exit_logit,feat_a
@@ -480,7 +480,8 @@ class SMARTAgentDecoder(nn.Module):
 
                     next_token_logits=tokenized_agent["next_token_logits"][:a_num]
 
-                    exit_logit=tokenized_agent["exit_logit"][:a_num]
+                    if tokenized_agent["entry_logit"] is not None:
+                        exit_logit=tokenized_agent["exit_logit"][:a_num]
 
 
                     if tokenized_agent["entry_logit"] is not None:
@@ -533,10 +534,10 @@ class SMARTAgentDecoder(nn.Module):
                         logits=next_token_logits / self.alpha).sample()
 
             if self.token_processor.pred_exit:
-                # exit_mask=next_token_idx==token_traj_all.shape[1]
-                #next_token_idx=torch.clip(next_token_idx,0,token_traj_all.shape[1]-1)
-                exit_mask = torch.zeros_like(mask[:, -1])
-                exit_mask[mask[:, -1]]= Categorical(logits=exit_logit ).sample().to(torch.bool)
+                exit_mask=next_token_idx==token_traj_all.shape[1]
+                next_token_idx=torch.clip(next_token_idx,0,token_traj_all.shape[1]-1)
+                # exit_mask = torch.zeros_like(mask[:, -1])
+                # exit_mask[mask[:, -1]]= Categorical(logits=exit_logit ).sample().to(torch.bool)
 
             if not self.pred_all_res:
                 next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]

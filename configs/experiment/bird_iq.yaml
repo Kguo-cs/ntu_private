@@ -38,7 +38,7 @@ model:
 
       hist_drop_prob: 0 #0.1 #0.1
 
-#ckpt_path : './ckpts/bird1024_t10_token1mask_n10_abst_epoch=41-step=390600.ckpt'
+ckpt_path : './ckpts/bird1024_t10_token1mask_n10_abst_epoch=41-step=390600.ckpt'
 
 task_name: iq_token1mask_value0_disr10_w13 #_smooth01
 
