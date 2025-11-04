@@ -221,16 +221,11 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self, tokenized_agent, agent_log_prob, agent_pi, key, train_mask=None, expert_disc_val=0,
                    target_q=None, expert_dis_logit=None):
-
-        sampled_pos = tokenized_agent["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
-        sampled_heading = tokenized_agent[
-            "sampled_heading"]
-
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
                                                             tokenized_agent["valid_mask"],  # expert_
-                                                            sampled_pos,
-                                                            sampled_heading,
+                                                            tokenized_agent["sampled_pos"] ,
+                                                            tokenized_agent[ "sampled_heading"],
                                                             tokenized_agent,
                                                             tokenized_agent["detach_map_feature"],
                                                             [],
@@ -280,6 +275,7 @@ class IQ_SoftQ(LightningModule):
             rewards=batch_rewards.transpose(0,1)
 
             returns = get_return(rewards, self.gamma)
+
             self.log("train/" + key + "_return", returns.mean().item(), on_step=True, batch_size=1)
 
         if self.use_lcf and not self.encoder.use_value:
@@ -461,9 +457,9 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,
                                               self.validation_rollout_sampling)
 
-            if self.token_processor.pred_exit:
-                valid_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:]
-                train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
+            agent_valid_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:]
+            agent_train_mask = agent_valid_mask[:, 1:] & agent_valid_mask[:, :-1]
+
 
             if self.use_kl_penalty:
                 with torch.no_grad():
@@ -477,13 +473,13 @@ class IQ_SoftQ(LightningModule):
                 target_q = None
 
             agent_pi, agent_nll, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, valid_mask[:, :-1], key='agent')
+                tokenized_map, tokenized_agent_rollout, agent_valid_mask[:, :-1], key='agent')
 
             if self.use_gail:
                 if self.buffer_len > 1:
                     with torch.no_grad():
                         agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat, agent_gp = self.get_reward(
-                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", train_mask, target_q=target_q,
+                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", agent_train_mask, target_q=target_q,
                             expert_dis_logit=expert_dis_loss)
 
                     if self.global_step % 2 == 0:
@@ -501,7 +497,7 @@ class IQ_SoftQ(LightningModule):
                         old_rollout, None, None, "agent", None)
                 else:
                     agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat, agent_gp = self.get_reward(
-                        tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", train_mask, target_q=target_q,
+                        tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", agent_train_mask, target_q=target_q,
                         expert_dis_logit=expert_dis_loss)
 
                 if self.dis_loss == 'rpgan':
@@ -525,11 +521,11 @@ class IQ_SoftQ(LightningModule):
 
                     v_denorm=torch.zeros_like(agent_rewards.transpose(0,1))
 
-                    v_denorm[tokenized_agent_rollout["valid_mask"][:,self.start_step:-1].transpose(0,1)]=self.encoder.value_network(feat_a)[..., 0]
+                    v_denorm[agent_valid_mask[:,:-1].transpose(0,1)]=self.encoder.value_network(feat_a)[..., 0]
 
                     v_denorm=v_denorm.transpose(0,1)
 
-                    train_valid_mask = train_mask[all_valid]
+                    train_valid_mask = agent_train_mask[all_valid]
 
                     agent_rewards[~train_valid_mask]=0
                     v_denorm[~train_valid_mask]=0
@@ -568,25 +564,19 @@ class IQ_SoftQ(LightningModule):
 
                 advantages=advantages[train_valid_mask]
 
-                agent_log_prob=agent_log_prob[train_valid_mask[valid_mask[:, :-1]]]
+                agent_log_prob=agent_log_prob[train_valid_mask[agent_valid_mask[:, :-1]]]
 
                 self.return_meanstd.update(advantages.detach().reshape(-1))
                 advantages = self.return_meanstd.normalize(advantages)
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
 
-                agent_wNLL = -(agent_log_prob * advantages).mean()  # [all_valid]
+                agent_wNLL = -(agent_log_prob * advantages).mean()
 
                 self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
                 self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-                # agent_density = torch.cumsum(agent_log_prob, dim=1).mean()  # agent_log_prob.mean() #
-                #
-                # self.log("train/agent_density", agent_density.item(), on_step=True, batch_size=1)
-
-                gail_weight = 1  # -np.power(0.9999,self.global_step)
-
-                expert_nll = expert_nll + gail_weight * agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
+                expert_nll = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
             else:
                 critic_loss = get_iqloss(expert_reward, agent_reward, agent_value_loss, expert_value_loss, expert_Q,
                                          agent_Q)
