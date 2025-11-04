@@ -189,6 +189,11 @@ class SMARTAgentDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
                     )
 
+        self.pred_exit=token_processor.pred_exit
+
+        if self.pred_exit:
+            self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
+
 
 
         self.pred_col=False
@@ -350,7 +355,13 @@ class SMARTAgentDecoder(nn.Module):
         else:
             entry_logit=None
 
-        return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,feat_a
+        if self.pred_exit:
+            exit_logit=self.exit_decoder(feat_a)
+        else:
+            exit_logit=None
+
+
+        return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,exit_logit,feat_a
 
     def forward(
             self,
@@ -384,7 +395,7 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
-        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
+        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,exit_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
                                                                                 tokenized_agent["token_mask"],
                                                                                 tokenized_agent["valid_mask"],
                                                                                 tokenized_agent["sampled_pos"],
@@ -401,9 +412,11 @@ class SMARTAgentDecoder(nn.Module):
         tokenized_agent["edge_index_a2a"] = edge_index_a2a
         tokenized_agent["feat_a"] = feat_a
         tokenized_agent["entry_logit"] = entry_logit
+        tokenized_agent["exit_logit"] = exit_logit
         next_map_token_logits=None
 
         return {
+            "exit_logit":exit_logit,
             "entry_logit":entry_logit,
             "goal_q":None,
             "agent_q": next_token_logits,            # action that goes from [(10->15), ..., (85->90)]
@@ -487,7 +500,7 @@ class SMARTAgentDecoder(nn.Module):
                         if self.pred_light and not self.light_encoder.share:
                             self.light_encoder.lg_t_roformer.attn.caching=True
 
-                    next_token_logits,next_light_logits,_,_,entry_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
+                    next_token_logits,next_light_logits,_,_,entry_logit,exit_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,abs_time)
 
                 if self.use_roformer:
@@ -501,7 +514,7 @@ class SMARTAgentDecoder(nn.Module):
                     self.head_cache=self.head_cache[:,  :current_step]
 
             else:
-                next_token_logits, next_light_logits, _, _, entry_logit, feat_a = self.predict_agent(
+                next_token_logits, next_light_logits, _, _, entry_logit,exit_logit, feat_a = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, - self.agent_hist:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
                     mask_lg[:, -self.light_hist:], t - 1, latent_z,abs_time[:, -1:])
@@ -518,11 +531,12 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_idx = torch.zeros_like(sampled_idx[:, -1])
                     next_token_idx[mask[:, -1]] = Categorical(
                         logits=next_token_logits / self.alpha).sample()
-                    next_token_idx[type > 2] = 0
 
             if self.token_processor.pred_exit:
-                exit_mask=next_token_idx==token_traj_all.shape[1]
-                next_token_idx=torch.clip(next_token_idx,0,token_traj_all.shape[1]-1)
+                # exit_mask=next_token_idx==token_traj_all.shape[1]
+                #next_token_idx=torch.clip(next_token_idx,0,token_traj_all.shape[1]-1)
+                exit_mask = torch.zeros_like(mask[:, -1])
+                exit_mask[mask[:, -1]]= Categorical(logits=exit_logit ).sample().to(torch.bool)
 
             if not self.pred_all_res:
                 next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
@@ -570,70 +584,70 @@ class SMARTAgentDecoder(nn.Module):
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
             if self.token_processor.use_bird:
+                #
+                # if entry_logit is not None:
+                #     entry_token_idx = Categorical(logits=entry_logit).sample()
+                #
+                #     entry_mask =entry_token_idx < self.token_processor.n_token_agent-1
+                #
+                #     entry_agent_mask = torch.zeros_like(present_mask)
+                #
+                #     if entry_mask.any():
+                #
+                #         new_agent_mask= torch.zeros_like(mask[:, -1])
+                #
+                #         new_agent_mask[torch.nonzero(mask[:,-1])[entry_mask]]=True
+                #
+                #         entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[entry_mask]]
+                #
+                #         new_xy = transform_to_global(
+                #             entry_local_traj[:, None, :2],
+                #             None,
+                #             pos_a[:, -2, :2][new_agent_mask],
+                #             head_a[:, -2][new_agent_mask],
+                #         )[0][:,0]
+                #
+                #         new_z = pos_a[:, -2, 2][new_agent_mask] + entry_local_traj[:, 2]
+                #
+                #         new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
+                #
+                #         feat_new = torch.cat([entry_local_traj, feat_a[entry_mask]], dim=-1)
+                #         head_logit = self.entry_head_decoder(feat_new)
+                #
+                #         entry_head_idx = Categorical(logits=head_logit).sample()
+                #
+                #         new_head=(entry_head_idx-16)/16*np.pi
+                #
+                #         new_agent_batch=batch[new_agent_mask]
+                #
+                #         non_present_mask = ~present_mask
+                #
+                #         unique_batches = batch.unique()
+                #         for b in unique_batches:
+                #             batch_mask = new_agent_batch==b
+                #             # how many new agents in this batch
+                #             n_new = int(batch_mask.sum())
+                #             if n_new == 0:
+                #                 continue
+                #
+                #             # candidates that are non-present in this batch
+                #             non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
+                #             if len(non_present_idx) == 0:
+                #                 continue
+                #
+                #             # pick first n_new non-present agents sequentially
+                #             chosen = non_present_idx[:n_new]
+                #
+                #             pos_a[chosen, -1] = new_pos[batch_mask][:len(chosen)]
+                #             head_a[chosen, -1] = new_head[batch_mask][:len(chosen)]
+                #
+                #             entry_agent_mask[chosen]=True
+                # else:
+                entry_agent_mask = ~present_mask & gt_valid[:, t]
 
-                if entry_logit is not None:
-                    entry_token_idx = Categorical(logits=entry_logit).sample()
+                pos_a[entry_agent_mask, -1] = gt_pos[entry_agent_mask, t]
 
-                    entry_mask =entry_token_idx < self.token_processor.n_token_agent-1
-
-                    entry_agent_mask = torch.zeros_like(present_mask)
-
-                    if entry_mask.any():
-
-                        new_agent_mask= torch.zeros_like(mask[:, -1])
-
-                        new_agent_mask[torch.nonzero(mask[:,-1])[entry_mask]]=True
-
-                        entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[entry_mask]]
-
-                        new_xy = transform_to_global(
-                            entry_local_traj[:, None, :2],
-                            None,
-                            pos_a[:, -2, :2][new_agent_mask],
-                            head_a[:, -2][new_agent_mask],
-                        )[0][:,0]
-
-                        new_z = pos_a[:, -2, 2][new_agent_mask] + entry_local_traj[:, 2]
-
-                        new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
-
-                        feat_new = torch.cat([entry_local_traj, feat_a[entry_mask]], dim=-1)
-                        head_logit = self.entry_head_decoder(feat_new)
-
-                        entry_head_idx = Categorical(logits=head_logit).sample()
-
-                        new_head=(entry_head_idx-16)/16*np.pi
-
-                        new_agent_batch=batch[new_agent_mask]
-
-                        non_present_mask = ~present_mask
-
-                        unique_batches = batch.unique()
-                        for b in unique_batches:
-                            batch_mask = new_agent_batch==b
-                            # how many new agents in this batch
-                            n_new = int(batch_mask.sum())
-                            if n_new == 0:
-                                continue
-
-                            # candidates that are non-present in this batch
-                            non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
-                            if len(non_present_idx) == 0:
-                                continue
-
-                            # pick first n_new non-present agents sequentially
-                            chosen = non_present_idx[:n_new]
-
-                            pos_a[chosen, -1] = new_pos[batch_mask][:len(chosen)]
-                            head_a[chosen, -1] = new_head[batch_mask][:len(chosen)]
-
-                            entry_agent_mask[chosen]=True
-                else:
-                    entry_agent_mask = ~present_mask & gt_valid[:, t]
-
-                    pos_a[entry_agent_mask, -1] = gt_pos[entry_agent_mask, t]
-
-                    head_a[entry_agent_mask, -1] = gt_head[entry_agent_mask, t]
+                head_a[entry_agent_mask, -1] = gt_head[entry_agent_mask, t]
 
                 if self.token_processor.pred_exit:
                     next_mask = (mask[:, -1] & ~exit_mask) | entry_agent_mask

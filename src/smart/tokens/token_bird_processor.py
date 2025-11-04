@@ -90,8 +90,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_time=True
 
-        if self.pred_exit:
-            self.n_token_agent+=1
+        # if self.pred_exit:
+        #     self.n_token_agent+=1
 
         self.pred_entry=True
 
@@ -134,11 +134,11 @@ class TokenProcessor(torch.nn.Module):
         # else:
         tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
-        if self.pred_exit:
-            valid_mask=tokenized_agent["valid_mask"]
-            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
-            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
-            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
+        # if self.pred_exit:
+        #     valid_mask=tokenized_agent["valid_mask"]
+        #     exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
+        #     exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
+        #     tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
         tokenized_agent["pred_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
