@@ -325,7 +325,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             if self.use_edge_feature:
-                weight = torch.exp(-dist / self.dis_decay) * self.dis_weight
+                weight = 1/(1+dist.exp())#torch.exp(-dist / self.dis_decay) * self.dis_weight
 
                 interact_logits_sum = scatter_sum(interact_logits[:,0] * weight, end_index, dim=0,  dim_size=len(feat_a)) #a_number
 
@@ -334,7 +334,7 @@ class InterativeDecoder(nn.Module):
 
                 ego_rewards = next_token_logits[:,0] + interact_logits_sum
 
-                weight2=torch.exp(-dist/self.dis_decay)*self.dis_weight
+                weight2=weight#torch.exp(-dist/self.dis_decay)*self.dis_weight
 
                 weighted_nei_reward=ego_rewards[start_index]*weight2
 

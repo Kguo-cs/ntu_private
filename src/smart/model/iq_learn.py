@@ -284,21 +284,29 @@ class IQ_SoftQ(LightningModule):
 
         rewards = ego_rewards + nei_rewards + kl_per_token
 
+        self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_rewards_std", ego_rewards.std().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_all_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
+
+
         if key == "agent" and self.dis_loss == 'rpgan':
             rewards = -torch.log(torch.sigmoid(logit[:, :, 0] - expert_dis_logit)).detach()
 
         if key=="agent":
+            self.ego_return_meanstd.update(ego_rewards.reshape(-1))
+            ego_rewards = self.ego_return_meanstd.normalize(ego_rewards)
 
             mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
-            batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)+ego_rewards.mean()
+            batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
             batch_rewards = batch_rewards.masked_scatter(mask_s, ego_rewards)
             ego_rewards = batch_rewards.transpose(0, 1)
 
-            # returns = get_return(ego_rewards, self.gamma)
-            #
-            # self.log("train/" + key + "_return", returns.mean().item(), on_step=True, batch_size=1)
             if nei_rewards.any():
-                batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)+nei_rewards.mean()
+                self.global_return_meanstd.update(nei_rewards.reshape(-1))
+                nei_rewards = self.global_return_meanstd.normalize(nei_rewards)
+
+                batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
                 batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
                 nei_rewards = batch_nei_rewards.transpose(0, 1)
 
@@ -369,10 +377,6 @@ class IQ_SoftQ(LightningModule):
                                                              weight=weight, reduction='mean')
 
         self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_rewards_std", ego_rewards.std().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_all_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
 
         return bce_loss, ego_rewards, nei_rewards, disc_val, 0  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 

@@ -155,7 +155,6 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 
-
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
         # ! get raw trajectory data
@@ -168,7 +167,6 @@ class TokenProcessor(torch.nn.Module):
 
         pos=pos[:,1:]
         valid=valid[:,1:] & valid[:,:-1]
-
 
         token_traj_all=self.agent_token_all[None,:,:].repeat(len(pos),1,1,1)
         token_traj=token_traj_all[:,:,-2:]
