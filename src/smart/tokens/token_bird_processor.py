@@ -180,11 +180,11 @@ class TokenProcessor(torch.nn.Module):
             "token_agent_shape":None,
             "batch": batch,
             "token_traj_all": token_traj_all[:,:,:,None],  # [n_agent, n_token, 5, 1, 2]
-            "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
+            #"token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
-             "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+            # "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
             # "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
-             "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+           #  "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
         }
 
         data["agent"]["position"] = pos.to(torch.float16)
@@ -210,6 +210,14 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["abs_time"]=t_list[batch]
         else:
             tokenized_agent["abs_time"]=torch.zeros_like(pos[:0,:,0])
+
+        sampled_pos = tokenized_agent["sampled_pos"]
+        gt_pos_raw = pos[:, self.shift :: self.shift]
+        valid_mask = tokenized_agent["valid_mask"]
+
+        max_dist = torch.linalg.norm(sampled_pos - gt_pos_raw, dim=-1)[valid_mask]
+
+        tokenized_agent["max_dist"]=max_dist
 
         return tokenized_agent
 

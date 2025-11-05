@@ -432,8 +432,7 @@ class SMARTAgentDecoder(nn.Module):
         pos_a = gt_pos[:, :current_step]
         head_a = gt_head[:, :current_step]
 
-        token_agent_shape=tokenized_agent["token_agent_shape"]
-        token_traj=tokenized_agent["token_traj"]
+        #token_traj=tokenized_agent["token_traj"]
         token_traj_all = tokenized_agent["token_traj_all"]
         light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
         batch = tokenized_agent['batch']
@@ -461,7 +460,6 @@ class SMARTAgentDecoder(nn.Module):
         else:
             latent_z=None
 
-        type=tokenized_agent["type"]
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         for t in range(current_step, max_step + current_step):

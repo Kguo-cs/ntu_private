@@ -38,7 +38,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/epoch=22-step=213900.ckpt'
 
-task_name: bird1024_pred01_share_exit #_gtNew #new #_smooth01
+task_name: bird1024_pred01_share_exit_noentry #_gtNew #new #_smooth01
 
 
 

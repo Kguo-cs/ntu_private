@@ -32,8 +32,8 @@ model:
       head_dim: 8
       time_span: 10
 
-      dist_a2a_radius: 100
-      dis_weight: 1
+      dist_a2a_radius: 10
+      dis_weight: 5
       dist_decay: 3
 
       hist_drop_prob: 0 #0.1 #0.1
