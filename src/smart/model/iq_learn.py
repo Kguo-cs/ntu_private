@@ -288,17 +288,17 @@ class IQ_SoftQ(LightningModule):
             rewards = -torch.log(torch.sigmoid(logit[:, :, 0] - expert_dis_logit)).detach()
 
         if key=="agent":
+
             mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
-            batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
-            batch_rewards = batch_rewards.masked_scatter(mask_s, rewards)
-            rewards = batch_rewards.transpose(0, 1)
+            batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)#+ego_rewards.mean()
+            batch_rewards = batch_rewards.masked_scatter(mask_s, ego_rewards)
+            ego_rewards = batch_rewards.transpose(0, 1)
 
-            returns = get_return(rewards, self.gamma)
-
-            self.log("train/" + key + "_return", returns.mean().item(), on_step=True, batch_size=1)
-
+            # returns = get_return(ego_rewards, self.gamma)
+            #
+            # self.log("train/" + key + "_return", returns.mean().item(), on_step=True, batch_size=1)
             if nei_rewards.any():
-                batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
+                batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)#+nei_rewards.mean()
                 batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
                 nei_rewards = batch_nei_rewards.transpose(0, 1)
 
@@ -374,7 +374,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_all_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
 
-        return bce_loss, rewards, nei_rewards, disc_val, 0  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        return bce_loss, ego_rewards, nei_rewards, disc_val, 0  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
@@ -574,6 +574,7 @@ class IQ_SoftQ(LightningModule):
 
                         nei_value_pred = nei_value_pred.transpose(0, 1)
 
+                        #once exit get zero reward better than current?
                         nei_rewards[~train_valid_mask]=0
                         nei_value_pred[~train_valid_mask] = 0
 

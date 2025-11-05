@@ -332,15 +332,15 @@ class InterativeDecoder(nn.Module):
                 if train_repeat_mask is not None:
                     interact_logits_sum = interact_logits_sum[train_repeat_mask]
 
-                rewards = next_token_logits[:,0] + interact_logits_sum
+                ego_rewards = next_token_logits[:,0] + interact_logits_sum
 
                 weight2=torch.exp(-dist/self.dis_decay)*self.dis_weight
 
-                weighted_nei_reward=rewards[start_index]*weight2
+                weighted_nei_reward=ego_rewards[start_index]*weight2
 
                 nei_sum_rewards = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=len(feat_a))
 
-                rewards=(rewards.detach(),nei_sum_rewards.detach())
+                rewards=(ego_rewards.detach(),nei_sum_rewards.detach())
 
                 next_token_logits = torch.cat([next_token_logits,interact_logits], dim=0)
 
