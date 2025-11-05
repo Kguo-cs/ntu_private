@@ -532,6 +532,8 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_idx[mask[:, -1]] = Categorical(
                         logits=next_token_logits / self.alpha).sample()
 
+            sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
+
             if self.token_processor.pred_exit:
                 if exit_logit is None:
                     exit_mask=next_token_idx==token_traj_all.shape[1]
@@ -542,8 +544,6 @@ class SMARTAgentDecoder(nn.Module):
 
             if not self.pred_all_res:
                 next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
-
-            sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
             token_traj_global = transform_to_global(
                 pos_local=next_token_traj_all.flatten(1, 2)[...,:2],  # [n_agent, 6*4, 2]
@@ -557,15 +557,14 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_traj=torch.cat([token_traj_global[:,:,0], token_traj_global_z], dim=-1)
 
-                _invalid_mask=~(mask[:,-1] & ~exit_mask)
+                _invalid_mask=~mask[:,-1] | exit_mask
 
                 pred_traj[_invalid_mask]=10000
                 pred_traj_10hz.append(pred_traj)
 
-                pos_a_next=pred_traj[:,-1]
-
+                pos_a_next   = pred_traj[:,-1]
                 diff_xy_next = pred_traj[:, -1, :2] - pred_traj[:, -2, :2]
-                head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+                head_a_next  = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
             else:
                 if "gt_z_raw" in tokenized_agent.keys():
