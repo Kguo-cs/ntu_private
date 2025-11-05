@@ -37,8 +37,8 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
-        use_noise,
-        pred_entry
+        use_noise=False,
+        pred_entry=False
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -100,7 +100,30 @@ class TokenProcessor(torch.nn.Module):
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
-        tokenized_agent = self.tokenize_agent(data)
+        if self.training:
+
+            agent=data["tokenized_agent"]
+
+            tokenized_agent = {
+                "num_graphs": data.num_graphs,
+                "type": torch.zeros_like(agent["sampled_pos"][:, 0, 0]),
+                "shape": None,
+                "token_agent_shape": None}
+
+            for key in ["sampled_pos", "sampled_heading", "batch", "valid_mask",'token_mask']:
+                tokenized_agent[key] = agent[key]#[agent_mask]
+
+            tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
+
+            tokenized_agent["token_traj_all"] = self.agent_token_all[None, :, :].repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
+
+            fut=torch.arange(0, self.shift*agent["sampled_idx"].shape[1],self.shift,device=agent["sampled_idx"].device)
+
+            tokenized_agent["abs_time"]=agent["abs_time"][:,None]+fut[None,:]
+
+
+        else:
+            tokenized_agent = self.tokenize_agent(data)
         # batch_number=torch.amax(tokenized_agent['batch']).item()+1
         #
         # position=torch.zeros([batch_number,3],device=tokenized_agent['batch'].device)

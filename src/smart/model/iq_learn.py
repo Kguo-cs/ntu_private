@@ -637,7 +637,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        if self.token_processor.use_bird:
+        if "max_dist"  in   tokenized_agent.keys():
             max_dist=tokenized_agent["max_dist"]
             reset_mask=tokenized_agent["reset_mask"]
             token_mask=tokenized_agent["token_mask"]
