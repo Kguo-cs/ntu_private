@@ -37,7 +37,8 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
-        use_noise
+        use_noise,
+        pred_entry
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -93,7 +94,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.pred_entry=False
+        self.pred_entry=pred_entry
 
 
     @torch.no_grad()
@@ -283,6 +284,7 @@ class TokenProcessor(torch.nn.Module):
             min_dist, token_idx_gt = torch.min(all_dist , dim=-1)  # [n_agent]
 
             out_dict["gt_idx"].append(token_idx_gt)
+
             if self.training and self.noise:
                 topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//400]
                 sample_topk = np.random.choice(range(0, topk_indices.shape[1]), topk_indices.shape[0])
@@ -364,14 +366,14 @@ class TokenProcessor(torch.nn.Module):
 
                     prev_head[entry_id]=tokenized_heading[entry_id]
 
-                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
                     #
                     # print(dist.mean()) #0.8
 
-                    #real_id=entry_id[dist>1]
+                    real_id=entry_id[dist>1]
 
-                   # prev_pos[real_id]=pos[real_id,i]
-                    #prev_head[real_id]=heading[real_id,i]
+                    prev_pos[real_id]=pos[real_id,i]
+                    prev_head[real_id]=heading[real_id,i]
                     # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
                     # print(1)
 

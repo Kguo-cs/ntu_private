@@ -11,6 +11,7 @@ model:
     token_processor:
       agent_token_file: "bird1024.pkl" #my2048 #agent_vocab_555_s2
       use_noise: True
+      pred_entry: False
 
     val_open_loop: False
 
@@ -38,7 +39,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/epoch=22-step=213900.ckpt'
 
-task_name: bird1024_pred01_share_exit_noentry #_gtNew #new #_smooth01
+task_name: bird1024_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
