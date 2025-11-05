@@ -327,7 +327,7 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 weight = torch.exp(-dist / self.dis_decay) * self.dis_weight#1/(1+dist.exp())
 
-                interact_logits_sum = scatter_sum(interact_logits[:,0] * weight, end_index, dim=0,  dim_size=len(feat_a)) #a_number
+                interact_logits_sum = scatter_mean(interact_logits[:,0] * weight, end_index, dim=0,  dim_size=len(feat_a)) #a_number
 
                 if train_repeat_mask is not None:
                     interact_logits_sum = interact_logits_sum[train_repeat_mask]
@@ -338,7 +338,7 @@ class InterativeDecoder(nn.Module):
 
                 weighted_nei_reward=ego_rewards[start_index]*weight2
 
-                nei_sum_rewards = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=len(feat_a))
+                nei_sum_rewards = scatter_mean(weighted_nei_reward, end_index, dim=0, dim_size=len(feat_a))
 
                 rewards=(ego_rewards.detach(),nei_sum_rewards.detach())
 
