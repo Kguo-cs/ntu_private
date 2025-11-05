@@ -482,7 +482,9 @@ class IQ_SoftQ(LightningModule):
                                               self.validation_rollout_sampling)
 
             agent_valid_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:]
-            agent_train_mask = agent_valid_mask[:, 1:] & agent_valid_mask[:, :-1]
+            # agent_train_mask = agent_valid_mask[:, 1:] & agent_valid_mask[:, :-1]
+
+            agent_state_mask =agent_valid_mask[:,:-1]
 
 
             if self.use_kl_penalty:
@@ -497,13 +499,13 @@ class IQ_SoftQ(LightningModule):
                 target_q = None
 
             agent_pi, agent_nll, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, agent_valid_mask[:, :-1], key='agent')
+                tokenized_map, tokenized_agent_rollout, agent_state_mask, key='agent')#current valid
 
             if self.use_gail:
                 if self.buffer_len > 1:
                     with torch.no_grad():
                         agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat, agent_gp = self.get_reward(
-                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", agent_train_mask, target_q=target_q,
+                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None, target_q=target_q,
                             expert_dis_logit=expert_dis_loss)
 
                     if self.global_step % 2 == 0:
@@ -521,7 +523,7 @@ class IQ_SoftQ(LightningModule):
                         old_rollout, None, None, "agent", None)
                 else:
                     agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat, agent_gp = self.get_reward(
-                        tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", agent_train_mask, target_q=target_q,
+                        tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None, target_q=target_q,
                         expert_dis_logit=expert_dis_loss)
 
                 if self.dis_loss == 'rpgan':
@@ -547,20 +549,20 @@ class IQ_SoftQ(LightningModule):
 
                     v_denorm=torch.zeros_like(agent_rewards.transpose(0,1))
 
-                    v_denorm = v_denorm.masked_scatter(agent_valid_mask[:,:-1].transpose(0,1), value)
+                    v_denorm = v_denorm.masked_scatter(agent_state_mask.transpose(0,1), value)
 
                     v_denorm=v_denorm.transpose(0,1)
 
-                    train_valid_mask = agent_train_mask[all_valid]
-
-                    agent_rewards[~train_valid_mask]=0
-                    v_denorm[~train_valid_mask]=0
+                    # train_valid_mask = agent_train_mask[all_valid]
+                    #
+                    # agent_rewards[~train_valid_mask]=0
+                    # v_denorm[~train_valid_mask]=0
 
                     advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None,
                                                                      gamma=self.gamma)  # [all_valid]
 
                     value_loss = torch.pow(gae_returns - v_denorm, 2.0).clamp(min=0, max=100)[
-                        train_valid_mask].mean()
+                        agent_state_mask].mean()
 
                     if self.use_lcf:
                         if nei_rewards.all():
@@ -570,19 +572,19 @@ class IQ_SoftQ(LightningModule):
 
                         nei_value_pred = torch.zeros_like(agent_rewards.transpose(0, 1))
 
-                        nei_value_pred = nei_value_pred.masked_scatter(agent_valid_mask[:, :-1].transpose(0, 1), nei_value)
+                        nei_value_pred = nei_value_pred.masked_scatter(agent_state_mask.transpose(0, 1), nei_value)
 
                         nei_value_pred = nei_value_pred.transpose(0, 1)
 
                         #once exit get zero reward better than current?
-                        nei_rewards[~train_valid_mask]=0
-                        nei_value_pred[~train_valid_mask] = 0
+                        # nei_rewards[~train_valid_mask]=0
+                        # nei_value_pred[~train_valid_mask] = 0
 
                         nei_advantages, nei_returns = compute_advantages(nei_rewards, nei_value_pred.detach(), None,
                                                                          gamma=self.gamma)
 
                         nei_value_loss = torch.pow(nei_returns - nei_value_pred, 2.0).clamp(min=0, max=100)[
-                            train_valid_mask].mean()
+                            agent_state_mask].mean()
 
                         value_loss = nei_value_loss + value_loss
 
@@ -594,11 +596,11 @@ class IQ_SoftQ(LightningModule):
                     advantages = agent_returns[all_valid]
                     value_loss = 0
 
-                advantages=advantages[train_valid_mask]
+                advantages=advantages[agent_state_mask]
+                #
+                # agent_log_prob=agent_log_prob[train_valid_mask[agent_valid_mask[:, :-1]]]
 
-                agent_log_prob=agent_log_prob[train_valid_mask[agent_valid_mask[:, :-1]]]
-
-                self.return_meanstd.update(advantages.detach().reshape(-1))
+                self.return_meanstd.update(advantages.reshape(-1))
                 advantages = self.return_meanstd.normalize(advantages)
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
