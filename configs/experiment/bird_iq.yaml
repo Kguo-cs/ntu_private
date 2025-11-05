@@ -33,15 +33,15 @@ model:
       head_dim: 8
       time_span: 10
 
-      dist_a2a_radius: 10
-      dis_weight: 0.1
+      dist_a2a_radius: 100
+      dis_weight: 5
       dist_decay: 3
 
       hist_drop_prob: 0 #0.1 #0.1
 
 ckpt_path : './ckpts/bird1024_t10_token1mask_n10_abst_epoch=41-step=390600.ckpt'
 
-task_name: iq_disr10_RewardRunNormalize_w013_nolcf #_mean_ratio11 #_smooth01
+task_name: iq_disr100_RewardRunNormalize_w13 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 
@@ -55,7 +55,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 7
+  train_batch_size: 6
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8
