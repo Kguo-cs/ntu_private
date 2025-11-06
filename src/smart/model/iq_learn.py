@@ -578,17 +578,13 @@ class IQ_SoftQ(LightningModule):
 
                         nei_value_pred = nei_value_pred.transpose(0, 1)
 
-                        #once exit get zero reward better than current?
-                        # nei_rewards[~train_valid_mask]=0
-                        # nei_value_pred[~train_valid_mask] = 0
-
                         nei_advantages, nei_returns = compute_advantages(nei_rewards, nei_value_pred.detach(), None)
 
                         nei_value_loss =(nei_returns - nei_value_pred).square().clamp(min=0, max=100)[agent_state_mask].mean()
 
                         value_loss = nei_value_loss + value_loss
 
-                        advantages = 1 / 2 * advantages + 1 / 2 * nei_advantages
+                        advantages = 1 / 3 * advantages + 2 / 3 * nei_advantages
 
                     self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
