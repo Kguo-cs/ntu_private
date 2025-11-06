@@ -33,7 +33,7 @@ model:
       head_dim: 8
       time_span: 10
 
-      dist_a2a_radius: 100
+      dist_a2a_radius: 10
       dis_weight: 5
       dist_decay: 3
 
@@ -41,7 +41,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_t10_token1mask_n10_abst_epoch=41-step=390600.ckpt'
 
-task_name: iq_disr100_RewardRunNormalize_w13 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq_disr10_RewardRunNormalize_w13 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 
