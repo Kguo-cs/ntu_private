@@ -209,7 +209,7 @@ class TokenProcessor(torch.nn.Module):
            #  "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
         }
 
-        data["agent"]["position"] = pos.to(torch.float16)
+        data["agent"]["position"] = pos#.to(torch.float16)
         data["agent"]["valid_mask"] = valid
 
         token_dict = self._match_agent_token(

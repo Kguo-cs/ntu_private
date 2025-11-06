@@ -529,8 +529,8 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_idx=torch.argmin(dist,dim=1)
                 else:
                     next_token_idx = torch.zeros_like(sampled_idx[:, -1])
-                    next_token_idx[mask[:, -1]] = Categorical(
-                        logits=next_token_logits / self.alpha).sample()
+                    if len(next_token_logits):
+                        next_token_idx[mask[:, -1]] = Categorical(logits=next_token_logits / self.alpha).sample()
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 

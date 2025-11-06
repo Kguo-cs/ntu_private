@@ -124,9 +124,9 @@ class SMART(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        if self.local_rank==0:
-            for t in data["agent"]["time"]:
-                print(self.local_rank,t[0][0])
+        # if self.local_rank==0:
+        #     for t in data["agent"]["time"]:
+        #         print(self.local_rank,t[0][0])
 
 
         # # ! open-loop vlidation
@@ -278,7 +278,6 @@ class SMART(LightningModule):
             self.present_likelihood=0
 
             if self.token_processor.use_bird :
-                pred_traj=pred_traj.to(torch.float16)
                 if batch_idx < self.n_vis_batch:
                     batch=pred["batch"]
                     save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
@@ -325,7 +324,7 @@ class SMART(LightningModule):
                 target_valid = target_valid & pred_valid_mask
 
                 dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
-                dist2 = (dist * target_valid.unsqueeze(1)).to(torch.float32).sum(-1).amin(-1)  # [n_agent]
+                dist2 = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
 
                 self.minADE0 = (dist2 / (target_valid.sum(-1) + 1e-6)).mean()  # [n_agent]
 
@@ -336,8 +335,6 @@ class SMART(LightningModule):
                     self.wosac_metrics.angular_speed_likelihood += angular_speed_likelihoods[0][i]
                     self.wosac_metrics.angular_acceleration_likelihood += angular_acceleration_likelihoods[0][i]
                     self.wosac_metrics.metametric+= (linear_speed_likelihoods[0][i]+linear_acc_likelihoods[0][i]+angular_speed_likelihoods[0][i]+angular_acceleration_likelihoods[0][i])/4
-
-
 
             # ! WOSAC
             scenario_rollouts = None

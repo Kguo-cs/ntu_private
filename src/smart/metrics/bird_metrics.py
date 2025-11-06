@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+from torch_geometric.nn.conv.x_conv import knn_graph
+
 
 def emd_1d(p: torch.Tensor,
            q: torch.Tensor,
@@ -80,6 +82,11 @@ def compute_kinematic_features(traj,fps=29.97):
 
     acc = (speed[:, :, 2:] - speed[:, :, :-2])/2 * fps
 
+    return speed, acc
+
+def compute_kinematic_features1(traj,fps=29.97):
+    velocity = traj[:,:, 2:] - traj[:, :, :-2]
+
     heading =torch.arctan2(velocity[:,:,:,1], velocity[:,:,:,0])
 
     heading_diff=(heading[:,:,2:] - heading[:,:,:-2])/2
@@ -92,7 +99,8 @@ def compute_kinematic_features(traj,fps=29.97):
     d2h_step = _wrap_angle(angular_speed_diff * 2) / 2
     angular_acceleration = d2h_step  * fps*fps
 
-    return speed, acc,angular_speed,angular_acceleration
+    return angular_speed,angular_acceleration
+
 
 from torch_scatter import scatter_mean,scatter_sum
 import torch
@@ -221,7 +229,6 @@ def histogram_estimate_torch(
 
     earth_mover_dist=emd_1d(batch_sim_counts,batch_log_bin)
 
-
     batch_sum_logprob=(batch_log_sim_probs*batch_log_bin).sum(-1)/batch_log_bin.sum(-1)
 
     scene_likelihoods = torch.exp(batch_sum_logprob).to(dtype)
@@ -237,6 +244,13 @@ def plot_histgram(name, valid_gt_speed, valid_pred_speed,
     import torch
     import matplotlib.pyplot as plt
     import os
+    import matplotlib as mpl
+    valid_gt_speed=valid_gt_speed.to(torch.float32)
+
+
+    print(torch.quantile(valid_gt_speed, 0.01),torch.quantile(valid_gt_speed, 0.99))
+
+    mpl.rcParams['toolbar'] = 'None'
 
     os.makedirs(save_dir, exist_ok=True)
 
@@ -279,10 +293,45 @@ def plot_histgram(name, valid_gt_speed, valid_pred_speed,
     plt.close()
     print(f"Saved histogram: {save_path}")
 
+def compute_interactive_metric(pred_traj,batch,pred_mask):
+
+
+    for i in range(torch.amax(batch).item()+1):
+        batch_pred_traj=pred_traj[batch==i].flatten(1,2).transpose(0,1)[::10].to(torch.float32)
+
+        dist=torch.cdist(batch_pred_traj,batch_pred_traj)
+
+        dist[dist==0]=10000
+
+        min_dist=dist.amin(-1)
+
+        x=batch_pred_traj#@@.transpose(0,1).flatten(0,1)
+
+        T, N, D = batch_pred_traj.shape
+
+        batch_t = torch.arange(T, device=batch_pred_traj.device).repeat_interleave(N)#.reshape(T, N)#.tranpose(0,1).flatten(0,1)
+        #batch_t=batch_t.transpose(0,1).flatten(0,1)
+
+        edge_index = knn_graph(x, k=1, batch=batch_t, loop=False)
+
+        src, dst = edge_index
+        min_dist1 = torch.linalg.norm(x[src] - x[dst], dim=-1)#.reshape(min_dist.shape)
+
+        print(1)
+
+    return
+
+
+
+
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
+
     pred_mask=(pred_traj!=10000).any(-1)
+
+    #compute_interactive_metric(pred_traj,batch,pred_mask)
+
 
     gt_valid_num=scatter_sum(gt_mask.to(torch.int16),batch,dim=0)
 
@@ -310,9 +359,9 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     num_exit_diff_mean=(pred_exit_num/(pred_valid_num[:, :, :-1]+1) -(gt_exit_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
 
-    speed,acc,ang_speed,ang_acc=compute_kinematic_features(pred_traj,fps=fps)
+    speed,acc=compute_kinematic_features(pred_traj,fps=fps)
 
-    gt_speed,gt_acc,gt_ang_speed,gt_ang_acc=compute_kinematic_features(gt_traj[:,None],fps=fps)
+    gt_speed,gt_acc=compute_kinematic_features(gt_traj[:,None],fps=fps)
 
     pred_speed_mask=pred_mask[:,:,2:] & pred_mask[:,:,:-2]
     gt_speed_mask=gt_mask[:,2:] & gt_mask[:,:-2]
@@ -320,39 +369,42 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     pred_acc_mask=pred_speed_mask[:,:,2:] & pred_speed_mask[:,:,:-2]
     gt_acc_mask=gt_speed_mask[:,2:] & gt_speed_mask[:,:-2]
 
-    pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
-    gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
-
-    if vis:
-
-        valid_gt_speed=gt_speed[:,0][gt_speed_mask]
-        valid_gt_acc=gt_acc[:,0][gt_acc_mask]
-        valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
-        valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
-
-        valid_speed = speed[pred_speed_mask]
-        valid_acc = acc[pred_acc_mask]
-        valid_ang_speed = ang_speed[pred_acc_mask]
-        valid_ang_acc =ang_acc[pred_angular_acc_mask]
-
-        plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=10)
-        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-8,max_val=8)
-        plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1.5,max_val=1.5)
-        plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-40,max_val=40)
+   # if vis:
+    # valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+    # valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+    # valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+    # valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+    #
+    # valid_speed = speed[pred_speed_mask]
+    # valid_acc = acc[pred_acc_mask]
+    # valid_ang_speed = ang_speed[pred_acc_mask]
+    # valid_ang_acc =ang_acc[pred_angular_acc_mask]
+    #
+    # plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=10)
+    # plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3,max_val=3)
+    # plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1,max_val=1)
+    # plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-2,max_val=2)
 
     linear_speed_likelihoods= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
                                                       )
 
-    linear_acc_likelihoods= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-8,max_val=8,
+    linear_acc_likelihoods= histogram_estimate_torch(batch,gt_acc.flatten(1,2),acc.flatten(1,2),min_val=-3.5,max_val=3.5,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_speed_likelihoods=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1.5,max_val=1.5,
+    ang_speed, ang_acc=compute_kinematic_features1(pred_traj,fps=fps)
+
+    gt_ang_speed, gt_ang_acc=compute_kinematic_features1(gt_traj[:,None],fps=fps)
+
+    pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
+    gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
+
+    angular_speed_likelihoods=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1,max_val=1,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    angular_acceleration_likelihoods=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-40,max_val=40,
+    angular_acceleration_likelihoods=histogram_estimate_torch(batch,gt_ang_acc.flatten(1,2),ang_acc.flatten(1,2),min_val=-2,max_val=2,
                                                       gt_valid_mask=gt_angular_acc_mask,sim_valid_mask=pred_angular_acc_mask.flatten(1,2),
                                                       )
 
@@ -367,3 +419,11 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean, num_diff_abs,num_entry_diff_mean, num_exit_diff_mean
 
+# tensor(3.864, device='cuda:0') tensor(10.114, device='cuda:0')
+# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Speed_hist.png
+# tensor(-3.408, device='cuda:0') tensor(3.436, device='cuda:0')
+# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Acc_hist.png
+# tensor(-1.044, device='cuda:0') tensor(1.062, device='cuda:0')
+# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular speed_hist.png
+# tensor(-2.104, device='cuda:0') tensor(2.118, device='cuda:0')
+# Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular acc_hist.png

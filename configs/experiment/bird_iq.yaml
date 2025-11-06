@@ -20,7 +20,7 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
-    n_rollout_closed_val: 32
+    n_rollout_closed_val: 16
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
@@ -41,7 +41,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_t10_token1mask_n10_abst_epoch=41-step=390600.ckpt'
 
-task_name: iq15_disr10_RewardRunNormalize_w13_lcf12 #5 #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq38_disr10_RewardRunNormalize_w13_lcf12_val16 #5 #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 
@@ -55,7 +55,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 5
+  train_batch_size: 7
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1
