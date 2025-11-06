@@ -100,7 +100,7 @@ class TokenProcessor(torch.nn.Module):
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
-        if self.training:
+        if "sampled_idx" in data.keys():
 
             agent=data["tokenized_agent"]
 

@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch_geometric.nn.conv.x_conv import knn_graph
+import pickle
 
 
 def emd_1d(p: torch.Tensor,
@@ -102,7 +103,7 @@ def compute_kinematic_features1(traj,fps=29.97):
     return angular_speed,angular_acceleration
 
 
-from torch_scatter import scatter_mean,scatter_sum
+from torch_scatter import scatter_mean,scatter_sum,scatter_min
 import torch
 
 def histogram_estimate_torch(
@@ -294,45 +295,70 @@ def plot_histgram(name, valid_gt_speed, valid_pred_speed,
     print(f"Saved histogram: {save_path}")
 
 def compute_interactive_metric(pred_traj,batch,pred_mask):
+    M, T, N, D = pred_traj.shape
+    device = pred_traj.device
+
+    # Flatten valid trajectories
+    traj_valid = pred_traj[pred_mask]  # (num_valid_points, D)
+
+    # Build batch vector encoding batch + rollidx + timestep
+    batch_broadcast = batch[ None, None,:]        # (1,1,N)
+    roll_idx = torch.arange(M, device=device)[ :, None,None]  # (M,1,1)
+    timestep_idx = torch.arange(T, device=device)[ None, :,None]  # (1,T,1)
+
+    B=max(batch).item()+1
+
+    # Unique ID per batch, rollidx, timestep
+    timestep_batch = (roll_idx* T+timestep_idx)*B+batch_broadcast #(batch_broadcast * M + roll_idx) * T + timestep_idx  # (N,M,T)
+    batch_valid = timestep_batch[pred_mask]  # (num_valid_points,)
+
+    # k-NN graph
+    edge_index = knn_graph(traj_valid, k=1, batch=batch_valid, loop=False)
+    src, dst = edge_index
+
+    # Compute distances
+    edge_vec = traj_valid[src] - traj_valid[dst]
+    edge_dist = torch.linalg.norm(edge_vec, dim=-1)
+
+    min_dist=scatter_min(edge_dist,dst, dim=0,  dim_size=len(traj_valid))[0]
 
 
-    for i in range(torch.amax(batch).item()+1):
-        batch_pred_traj=pred_traj[batch==i].flatten(1,2).transpose(0,1)[::10].to(torch.float32)
+    # Reduce to minimum distance per node
+    # min_dist = torch.full((traj_valid.shape[0],), float('inf'), device=device)
+    # min_dist.scatter_reduce_(0, src, edge_dist, reduce='amin', include_self=True)
+    # min_dist[min_dist == float('inf')] = float('nan')
 
-        dist=torch.cdist(batch_pred_traj,batch_pred_traj)
-
-        dist[dist==0]=10000
-
-        min_dist=dist.amin(-1)
-
-        x=batch_pred_traj#@@.transpose(0,1).flatten(0,1)
-
-        T, N, D = batch_pred_traj.shape
-
-        batch_t = torch.arange(T, device=batch_pred_traj.device).repeat_interleave(N)#.reshape(T, N)#.tranpose(0,1).flatten(0,1)
-        #batch_t=batch_t.transpose(0,1).flatten(0,1)
-
-        edge_index = knn_graph(x, k=1, batch=batch_t, loop=False)
-
-        src, dst = edge_index
-        min_dist1 = torch.linalg.norm(x[src] - x[dst], dim=-1)#.reshape(min_dist.shape)
-
-        print(1)
-
-    return
-
-
-
-
-
-def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
-
-
-    pred_mask=(pred_traj!=10000).any(-1)
-
-    #compute_interactive_metric(pred_traj,batch,pred_mask)
+    # Scatter back to full N,M,T
+    nearest_dist = torch.full((M, T, N), float('inf'), device=device)
+    nearest_dist[pred_mask] = min_dist
+    #
+    # nearest_dist_flat1=torch.full((M, T, N), 0.0, device=device)
+    #
+    # min_dist_list=[]
+    #
+    # for i in range(torch.amax(batch).item()+1):
+    #     batch_pred_traj=pred_traj[:,:,batch==i].flatten(0,1)
+    #     batch_mask=pred_mask[:,:,batch==i].flatten(0,1)
+    #
+    #     dist=torch.norm(batch_pred_traj[:,None]-batch_pred_traj[:,:,None],dim=-1)
+    #
+    #     dist[dist==0]=1000
+    #
+    #     min_dist1=dist.amin(-1)
+    #
+    #     min_dist1[~batch_mask]=0
+    #
+    #     #min_dist_list.append(min_dist[batch_mask])
+    #
+    #     nearest_dist_flat1[:,:,batch==i]=min_dist1.reshape(M,T,-1)
+    #
+    # print(1)
 
 
+    dist=nearest_dist.permute(2,0,1)
+    return dist,dist!=float('inf')
+
+def compute_num(pred_mask,gt_mask,batch):
     gt_valid_num=scatter_sum(gt_mask.to(torch.int16),batch,dim=0)
 
     pred_valid_num=scatter_sum(pred_mask.to(torch.int16),batch,dim=0)
@@ -340,7 +366,6 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     num_diff=(pred_valid_num-gt_valid_num[:,None]).float()
 
     num_diff_mean=num_diff.mean()
-    num_diff_abs=num_diff.abs().mean()
 
     entry_mask=~gt_mask[:,:-1] & gt_mask[:,1:]
 
@@ -359,6 +384,31 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     num_exit_diff_mean=(pred_exit_num/(pred_valid_num[:, :, :-1]+1) -(gt_exit_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
 
+    return num_diff_mean,num_entry_diff_mean,num_exit_diff_mean
+
+
+
+
+def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
+    # agent_token_path = '/home/ke/code/catk/src/smart/tokens/bird1024.pkl'
+    # agent_token = pickle.load(open(agent_token_path, "rb"))
+
+    #pred_traj=agent_token[:,None]
+
+    pred_mask=(pred_traj!=10000).any(-1)
+
+    gt_n_dist,gt_dist_mask=compute_interactive_metric(gt_traj[:,None,:].permute(1,2,0,3),batch,gt_mask[:,None,:].permute(1,2,0))
+
+    #print(torch.quantile(gt_n_dist[gt_dist_mask],0.01),torch.quantile(gt_n_dist[gt_dist_mask],0.99))#tensor(0.548, device='cuda:0') tensor(10.345, device='cuda:0')
+
+    pred_n_dist,pred_dist_mask=compute_interactive_metric(pred_traj.permute(1,2,0,3),batch,pred_mask.permute(1,2,0))
+
+    distance_likelihoods=histogram_estimate_torch(batch,gt_n_dist.flatten(1,2),pred_n_dist.flatten(1,2),min_val=0.5,max_val=10,
+                                                      gt_valid_mask=gt_dist_mask.flatten(1,2),sim_valid_mask=pred_dist_mask.flatten(1,2),
+                                                      )
+
+    num_diff_mean, num_entry_diff_mean, num_exit_diff_mean=compute_num(pred_mask,gt_mask,batch)
+
     speed,acc=compute_kinematic_features(pred_traj,fps=fps)
 
     gt_speed,gt_acc=compute_kinematic_features(gt_traj[:,None],fps=fps)
@@ -369,21 +419,28 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     pred_acc_mask=pred_speed_mask[:,:,2:] & pred_speed_mask[:,:,:-2]
     gt_acc_mask=gt_speed_mask[:,2:] & gt_speed_mask[:,:-2]
 
-   # if vis:
-    # valid_gt_speed=gt_speed[:,0][gt_speed_mask]
-    # valid_gt_acc=gt_acc[:,0][gt_acc_mask]
-    # valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
-    # valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
-    #
-    # valid_speed = speed[pred_speed_mask]
-    # valid_acc = acc[pred_acc_mask]
-    # valid_ang_speed = ang_speed[pred_acc_mask]
-    # valid_ang_acc =ang_acc[pred_angular_acc_mask]
-    #
-    # plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=10)
-    # plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3,max_val=3)
-    # plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1,max_val=1)
-    # plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-2,max_val=2)
+    ang_speed, ang_acc=compute_kinematic_features1(pred_traj,fps=fps)
+
+    gt_ang_speed, gt_ang_acc=compute_kinematic_features1(gt_traj[:,None],fps=fps)
+
+    pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
+    gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
+
+    if vis:
+        valid_gt_speed=gt_speed[:,0][gt_speed_mask]
+        valid_gt_acc=gt_acc[:,0][gt_acc_mask]
+        valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
+        valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+
+        valid_speed = speed[pred_speed_mask]
+        valid_acc = acc[pred_acc_mask]
+        valid_ang_speed = ang_speed[pred_acc_mask]
+        valid_ang_acc =ang_acc[pred_angular_acc_mask]
+
+        plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=20)
+        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3,max_val=3)
+        plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1,max_val=1)
+        plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-2,max_val=2)
 
     linear_speed_likelihoods= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
@@ -393,12 +450,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
                                                       )
 
-    ang_speed, ang_acc=compute_kinematic_features1(pred_traj,fps=fps)
 
-    gt_ang_speed, gt_ang_acc=compute_kinematic_features1(gt_traj[:,None],fps=fps)
-
-    pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
-    gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
 
     angular_speed_likelihoods=histogram_estimate_torch(batch,gt_ang_speed.flatten(1,2),ang_speed.flatten(1,2),min_val=-1,max_val=1,
                                                       gt_valid_mask=gt_acc_mask,sim_valid_mask=pred_acc_mask.flatten(1,2),
@@ -417,7 +469,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     # exist_likelihood=scatter_mean(exist_likelihood, batch)
 
 
-    return linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean, num_diff_abs,num_entry_diff_mean, num_exit_diff_mean
+    return distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean,num_entry_diff_mean, num_exit_diff_mean
 
 # tensor(3.864, device='cuda:0') tensor(10.114, device='cuda:0')
 # Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Speed_hist.png
