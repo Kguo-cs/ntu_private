@@ -19,7 +19,7 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
-    n_rollout_closed_val: 16
+    n_rollout_closed_val: 1
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
@@ -48,7 +48,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-#  val_check_interval: 0.0000002
+  val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 
