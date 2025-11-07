@@ -19,7 +19,7 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
-    n_rollout_closed_val: 1
+    n_rollout_closed_val: 15
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
@@ -39,7 +39,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/epoch=22-step=213900.ckpt'
 
-task_name: bird1024_nonoise #_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird1024_nonoise_val15 #_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
@@ -48,12 +48,12 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
-  val_check_interval: 0.0000002
+  #val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 8
+  train_batch_size: 7
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1

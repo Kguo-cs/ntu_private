@@ -19,7 +19,7 @@ rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/bird_train107_token
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_val607_40 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird1024_nonoise/2025-11-06_17-39-41/bird/rblmjtlt/checkpoints/epoch=63-step=496000.ckpt ./
 
@@ -99,10 +99,10 @@ git pull
 setsid  nohup torchrun --nproc_per_node=4  -m run trainer=ddp  >  1.log 2>&1 &
 
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run trainer=ddp
-CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29502  -m run trainer=ddp >  1.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=3 --master_port=29502  -m run trainer=ddp >  1.log 2>&1 & 
 
 
-CUDA_VISIBLE_DEVICES=2  python run.py >  2.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=3  python run.py >  3.log 2>&1 & 
 
 
 
