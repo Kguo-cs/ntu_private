@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from ray.rllib.utils.spaces.space_utils import batch
 from torch_geometric.nn.conv.x_conv import knn_graph
 import pickle
 
@@ -387,6 +388,47 @@ def compute_num(pred_mask,gt_mask,batch):
     return num_diff_mean,num_entry_diff_mean,num_exit_diff_mean
 
 
+import torch
+
+def compute_polarization_over_T(pred_traj: torch.Tensor,
+                                pred_mask: torch.Tensor,
+                                eps: float = 1e-8):
+    """
+    pred_traj: (N, M, T, D)
+    pred_mask: (N, M, T)  boolean mask (True = valid)
+    returns: polar: (M, T-1) polarization per rollout and time-interval
+    """
+    device = pred_traj.device
+    N, M, T, D = pred_traj.shape
+    assert pred_mask.shape == (N, M, T)
+
+    if T <= 1:
+        return torch.full((M, 0), float('nan'), device=device, dtype=pred_traj.dtype)
+
+    # velocities along T: vel[n,m,t,d] = pos[n,m,t+1,d] - pos[n,m,t,d]
+    vel = pred_traj[:, :, 1:, :] - pred_traj[:, :, :-1, :]      # shape (N, M, G, D) where G = T-1
+    valid_vel = pred_mask[:, :, 1:] & pred_mask[:, :, :-1]      # shape (N, M, G)
+    G = T - 1
+
+    # compute norms per agent entry
+    # cast to float32 for stable norm computation if input is low-precision
+    vel_f = vel if vel.dtype.is_floating_point and vel.dtype != torch.float16 else vel.float()
+    norms = torch.linalg.norm(vel_f, dim=-1)                   # (N, M, G)
+
+    # mask of contributors: valid AND speed > eps
+    contrib_mask = valid_vel & (norms > eps)                   # (N, M, G)
+
+    # If no contributors at all, return all-nan
+    if contrib_mask.sum() == 0:
+        return torch.full((M, G), float('nan'), device=device, dtype=pred_traj.dtype)
+
+    # safe normalization: avoid divide-by-zero by adding tiny denom, but we will zero out non-contrib later
+    denom = norms.unsqueeze(-1) + 1e-12                         # (N, M, G, 1)
+    vel_unit = vel_f / denom                                    # (N, M, G, D)
+
+    scatter_mean(vel_unit,batch,dim=0)
+
+    return polar
 
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
