@@ -305,21 +305,19 @@ def compute_num(pred_mask,gt_mask,batch):
 
 def compute_polarization(pred_traj,batch,pred_mask, eps: float = 1e-8):
 
-    # velocities along T: vel[n,m,t,d] = pos[n,m,t+1,d] - pos[n,m,t,d]
     vel = pred_traj[:, :, 1:, :] - pred_traj[:, :, :-1, :]      # shape (N, M, G, D) where G = T-1
     valid_vel = pred_mask[:, :, 1:] & pred_mask[:, :, :-1]      # shape (N, M, G)
 
     norms = torch.linalg.norm(vel, dim=-1)                   # (N, M, G)
 
-    valid_vel=valid_vel
 
     # safe normalization: avoid divide-by-zero by adding tiny denom, but we will zero out non-contrib later
-    denom = norms.unsqueeze(-1) + 1e-12                         # (N, M, G, 1)
+    denom = norms.unsqueeze(-1) + eps                        # (N, M, G, 1)
     vel_unit = vel / denom                                    # (N, M, G, D)
 
     vel_unit[~valid_vel]=0
     vel_sum=scatter_sum(vel_unit, batch, dim=0)
-    valid_num=scatter_sum(valid_vel, batch, dim=0)
+    valid_num=scatter_sum(valid_vel.to(torch.float32), batch, dim=0)
 
     vel_mean=torch.norm(vel_sum,dim=-1)/valid_num
 
@@ -373,7 +371,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
         valid_heading_sim=pred_heading_similar[pred_speed_mask]
 
         plot_histgram('Nearest heading similarity',valid_gt_heading_sim,valid_heading_sim,min_val=-0.75,max_val=1)
-        plot_histgram('Polarization',valid_gt_polar,valid_polar,min_val=0.05,max_val=1)
+        plot_histgram('Polarization',valid_gt_polar,valid_polar,min_val=0,max_val=1)
         plot_histgram('Nearest Neighbor distance',valid_gt_n_dist,valid_n_dis,min_val=0.5,max_val=10)
         plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=20)
         plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3.5,max_val=3.5)
@@ -385,7 +383,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
                                                       )
 
 
-    polar_likelihoods=histogram_estimate_torch(torch.arange(max(batch)+1,device=batch.device),gt_polar.flatten(1,2),pred_polar.flatten(1,2),min_val=0.05,max_val=1,
+    polar_likelihoods=histogram_estimate_torch(torch.arange(max(batch)+1,device=batch.device),gt_polar.flatten(1,2),pred_polar.flatten(1,2),min_val=0,max_val=1,
                                                       gt_valid_mask=gt_polar_mask.flatten(1,2),sim_valid_mask=pred_polar_mask.flatten(1,2),
                                                       )
 

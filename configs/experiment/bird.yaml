@@ -39,7 +39,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/epoch=22-step=213900.ckpt'
 
-task_name: bird1024_nonoise_val15 #_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird7_nonoise_val15 #_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
