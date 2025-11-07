@@ -20,7 +20,7 @@ model:
     bird: true
     n_batch_wosac_metric: 0
     n_vis_batch: 0
-    n_rollout_closed_val: 16
+    n_rollout_closed_val: 15
     decoder:
       num_historical_steps: 6
       num_future_steps: 600
@@ -41,7 +41,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_nonoise_epoch=63-step=496000.ckpt'
 
-task_name: iq3_disr10_RewardRunNormalize_w13_lcf12_val16 #5 #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq3_disr10_RewardRunNormalize_w13_lcf12_val15 #5 #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 

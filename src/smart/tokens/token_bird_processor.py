@@ -233,13 +233,13 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_agent["abs_time"]=torch.zeros_like(pos[:0,:,0])
 
-        sampled_pos = tokenized_agent["sampled_pos"]
-        gt_pos_raw = pos[:, self.shift :: self.shift]
-        valid_mask = tokenized_agent["valid_mask"]
+        # sampled_pos = tokenized_agent["sampled_pos"]
+        # gt_pos_raw = pos[:, self.shift :: self.shift]
+        # valid_mask = tokenized_agent["valid_mask"]
 
-        max_dist = torch.linalg.norm(sampled_pos - gt_pos_raw, dim=-1)[valid_mask]
+        #max_dist = torch.linalg.norm(sampled_pos - gt_pos_raw, dim=-1)[valid_mask]
 
-        tokenized_agent["max_dist"]=max_dist
+        #tokenized_agent["max_dist"]=max_dist
 
         return tokenized_agent
 
@@ -260,14 +260,14 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {
             "valid_mask": [],
-            "gt_idx": [],
+           # "gt_idx": [],
             "sampled_idx": [],
             "sampled_pos": [],
             "sampled_heading": [],
             'token_mask': [],
-            'reset_mask':[],
-            "entry_idx":[],
-            "entry_head_idx": [],
+          #  'reset_mask':[],
+           # "entry_idx":[],
+           # "entry_head_idx": [],
 
             #"entry_mask": [],
             #"entry_idx": [],
@@ -304,7 +304,7 @@ class TokenProcessor(torch.nn.Module):
 
             min_dist, token_idx_gt = torch.min(all_dist , dim=-1)  # [n_agent]
 
-            out_dict["gt_idx"].append(token_idx_gt)
+           # out_dict["gt_idx"].append(token_idx_gt)
 
             if self.training and self.noise:
                 topk_indices = torch.argsort( all_dist,dim=-1)[:, :self.n_token_agent//400]
@@ -314,7 +314,7 @@ class TokenProcessor(torch.nn.Module):
 
             token_contour_gt = token_world_gt[range_a, token_idx_gt]#next_pos
             token_in_valid=min_dist>1
-            out_dict["reset_mask"].append(token_in_valid)
+            #out_dict["reset_mask"].append(token_in_valid)
 
             _valid_mask[token_in_valid]=False
 
@@ -400,8 +400,8 @@ class TokenProcessor(torch.nn.Module):
 
                     # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
 
-            out_dict["entry_idx"].append(entry_idx)
-            out_dict["entry_head_idx"].append(entry_head_idx)
+          #  out_dict["entry_idx"].append(entry_idx)
+           # out_dict["entry_head_idx"].append(entry_head_idx)
 
             # udpate prev_pos, prev_head
             dxy = token_contour_gt[:,-1] - token_contour_gt[:,-2]

@@ -1,36 +1,22 @@
 import torch
 import numpy as np
+from ray.rllib.utils.spaces.space_utils import batch
 from torch_geometric.nn.conv.x_conv import knn_graph
 import pickle
+from torch_scatter import scatter_mean,scatter_sum,scatter_min
+import torch
 
+from src.smart.plot.plot_histgram import plot_histgram
 
 def emd_1d(p: torch.Tensor,
            q: torch.Tensor,
            bin_locations: torch.Tensor = None,
-           eps: float = 1e-8,
-           reduction: str = 'none') -> torch.Tensor:
-    """
-    Compute 1D Earth Mover's Distance (Wasserstein-1) between two discrete distributions.
-    Supports batched inputs and is differentiable (works as a loss).
-
-    Args:
-        p: Tensor of shape (..., n) - non-negative counts or probabilities.
-        q: Tensor of shape (..., n) - same shape as p.
-        bin_locations: optional 1D tensor of length n giving the positions of the bins (must be sorted).
-                       If None, unit spacing is assumed and distances between adjacent bins are 1.
-        eps: small constant to avoid division by zero when normalizing counts.
-        reduction: 'none' (default) returns per-sample distances, 'mean' returns mean, 'sum' returns sum.
-
-    Returns:
-        Tensor of shape (...) with the Wasserstein-1 distances (reduced according to `reduction`).
-    """
+           eps: float = 1e-8) -> torch.Tensor:
     if p.shape != q.shape:
         raise ValueError("p and q must have the same shape")
 
     # cast to float and keep device
     device = p.device
-    p = p.to(dtype=torch.float32)
-    q = q.to(dtype=torch.float32)
 
     # flatten leading dims into batch
     orig_shape = p.shape[:-1]
@@ -83,11 +69,6 @@ def compute_kinematic_features(traj,fps=29.97):
 
     acc = (speed[:, :, 2:] - speed[:, :, :-2])/2 * fps
 
-    return speed, acc
-
-def compute_kinematic_features1(traj,fps=29.97):
-    velocity = traj[:,:, 2:] - traj[:, :, :-2]
-
     heading =torch.arctan2(velocity[:,:,:,1], velocity[:,:,:,0])
 
     heading_diff=(heading[:,:,2:] - heading[:,:,:-2])/2
@@ -100,11 +81,8 @@ def compute_kinematic_features1(traj,fps=29.97):
     d2h_step = _wrap_angle(angular_speed_diff * 2) / 2
     angular_acceleration = d2h_step  * fps*fps
 
-    return angular_speed,angular_acceleration
+    return speed, acc,angular_speed,angular_acceleration
 
-
-from torch_scatter import scatter_mean,scatter_sum,scatter_min
-import torch
 
 def histogram_estimate_torch(
         batch,
@@ -117,14 +95,6 @@ def histogram_estimate_torch(
         gt_valid_mask: torch.Tensor = None,   # (B, L) bool/byte/0-1
         sim_valid_mask: torch.Tensor = None   # (B, S) bool/byte/0-1
     ) -> torch.Tensor:
-    """
-    Vectorized histogram-based likelihood estimator.
-
-    Returns:
-      likelihoods: (B,) tensor where likelihoods[b] = exp(sum_{valid i} log p_bin(log_samples[b,i]))
-                   If a batch has zero valid gt samples, its likelihood is set to 0.0.
-    """
-    assert log_samples.dim() == 2 and sim_samples.dim() == 2
     B, L = log_samples.shape
     _, S = sim_samples.shape
     device = log_samples.device
@@ -149,8 +119,6 @@ def histogram_estimate_torch(
     # 2) linear binning (vectorized arithmetic, no bucketize)
     # Map value -> [0, num_bins). We treat last bin as inclusive.
     span = float(max_val) - float(min_val)
-    if span <= 0.0:
-        raise ValueError("max_val must be > min_val")
 
     # flatten sim samples and masks
     sim_flat = sim_clamped.reshape(-1)                  # (B*S,)
@@ -236,64 +204,6 @@ def histogram_estimate_torch(
 
     return agent_likelihood,scene_likelihoods.mean(),earth_mover_dist
 
-    # min_val=torch.quantile(valid_gt_speed,0.01)
-    # max_val=torch.quantile(valid_gt_speed,0.99)
-    # print(min_val,max_val)
-
-def plot_histgram(name, valid_gt_speed, valid_pred_speed,
-                  min_val, max_val, num_bins=11, save_dir="/home/ke/code/catk/src/waymo_data/bird_data1/result"):
-    import torch
-    import matplotlib.pyplot as plt
-    import os
-    import matplotlib as mpl
-    valid_gt_speed=valid_gt_speed.to(torch.float32)
-
-
-    print(torch.quantile(valid_gt_speed, 0.01),torch.quantile(valid_gt_speed, 0.99))
-
-    mpl.rcParams['toolbar'] = 'None'
-
-    os.makedirs(save_dir, exist_ok=True)
-
-    valid_gt_speed = valid_gt_speed.to(torch.float32)
-    valid_pred_speed = valid_pred_speed.to(torch.float32)
-
-    # Clamp to valid range
-    valid_gt_speed = torch.clamp(valid_gt_speed, min_val, max_val)
-    valid_pred_speed = torch.clamp(valid_pred_speed, min_val, max_val)
-
-    # Compute histograms
-    hist_gt = torch.histc(valid_gt_speed, bins=num_bins, min=min_val, max=max_val)
-    hist_pred = torch.histc(valid_pred_speed, bins=num_bins, min=min_val, max=max_val)
-
-    hist_gt=hist_gt/hist_gt.sum()
-    hist_pred=hist_pred/hist_pred.sum()
-
-    # Bin edges and width
-    bin_edges = torch.linspace(min_val, max_val, num_bins + 1)
-    width = (max_val - min_val) / num_bins
-
-    # Plot both histograms together
-    plt.figure(figsize=(7, 5))
-    plt.bar(bin_edges[:-1].cpu().numpy(), hist_gt.cpu().numpy(),
-            width=width, align='edge',
-            color='blue', alpha=0.6, label='GT Speed', edgecolor='black')
-    plt.bar(bin_edges[:-1].cpu().numpy(), hist_pred.cpu().numpy(),
-            width=width, align='edge',
-            color='green', alpha=0.5, label='Pred Speed', edgecolor='black')
-
-    plt.title(name+" Distribution Comparison")
-    plt.xlabel(name)
-    plt.ylabel("Count")
-    plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.5)
-
-    # plt.show()
-    save_path = os.path.join(save_dir, f"{name}_hist.png")
-    plt.savefig(save_path, bbox_inches='tight')
-    plt.close()
-    print(f"Saved histogram: {save_path}")
-
 def compute_interactive_metric(pred_traj,batch,pred_mask):
     M, T, N, D = pred_traj.shape
     device = pred_traj.device
@@ -322,16 +232,28 @@ def compute_interactive_metric(pred_traj,batch,pred_mask):
 
     min_dist=scatter_min(edge_dist,dst, dim=0,  dim_size=len(traj_valid))[0]
 
-
-    # Reduce to minimum distance per node
-    # min_dist = torch.full((traj_valid.shape[0],), float('inf'), device=device)
-    # min_dist.scatter_reduce_(0, src, edge_dist, reduce='amin', include_self=True)
-    # min_dist[min_dist == float('inf')] = float('nan')
-
-    # Scatter back to full N,M,T
-    nearest_dist = torch.full((M, T, N), float('inf'), device=device)
+    nearest_dist = torch.zeros((M, T, N),dtype=torch.float32, device=device)
     nearest_dist[pred_mask] = min_dist
-    #
+    dist=nearest_dist.permute(2,0,1)
+
+    velocity = pred_traj[:,2:] - pred_traj[:, :-2]
+    velocity_norm=torch.norm(velocity, dim=-1)+1e-6
+    velocity_norm=velocity/velocity_norm.unsqueeze(-1)
+
+    velocity_norm=torch.cat([torch.zeros_like(velocity_norm[:,:2]), velocity_norm], dim=1)
+
+    heading_valid=velocity_norm[pred_mask]
+
+    velocity_src=heading_valid[src]
+    velocity_dst=heading_valid[dst]
+
+    heading_similarity=torch.sum(velocity_src*velocity_dst,dim=-1)
+
+    heading_similarity_mean=scatter_mean(heading_similarity,dst, dim=0,  dim_size=len(traj_valid))
+
+    nearest_heading_similarity = torch.zeros((M, T, N),dtype=torch.float32, device=device)
+    nearest_heading_similarity[pred_mask] = heading_similarity_mean
+
     # nearest_dist_flat1=torch.full((M, T, N), 0.0, device=device)
     #
     # min_dist_list=[]
@@ -352,11 +274,7 @@ def compute_interactive_metric(pred_traj,batch,pred_mask):
     #
     #     nearest_dist_flat1[:,:,batch==i]=min_dist1.reshape(M,T,-1)
     #
-    # print(1)
-
-
-    dist=nearest_dist.permute(2,0,1)
-    return dist,dist!=float('inf')
+    return dist,dist!=0,nearest_heading_similarity[:,2:].permute(2,0,1)
 
 def compute_num(pred_mask,gt_mask,batch):
     gt_valid_num=scatter_sum(gt_mask.to(torch.int16),batch,dim=0)
@@ -387,47 +305,27 @@ def compute_num(pred_mask,gt_mask,batch):
     return num_diff_mean,num_entry_diff_mean,num_exit_diff_mean
 
 
-import torch
-
-def compute_polarization_over_T(pred_traj: torch.Tensor,
-                                pred_mask: torch.Tensor,
-                                eps: float = 1e-8):
-    """
-    pred_traj: (N, M, T, D)
-    pred_mask: (N, M, T)  boolean mask (True = valid)
-    returns: polar: (M, T-1) polarization per rollout and time-interval
-    """
-    device = pred_traj.device
-    N, M, T, D = pred_traj.shape
-    assert pred_mask.shape == (N, M, T)
-
-    if T <= 1:
-        return torch.full((M, 0), float('nan'), device=device, dtype=pred_traj.dtype)
+def compute_polarization(pred_traj,batch,pred_mask, eps: float = 1e-8):
 
     # velocities along T: vel[n,m,t,d] = pos[n,m,t+1,d] - pos[n,m,t,d]
     vel = pred_traj[:, :, 1:, :] - pred_traj[:, :, :-1, :]      # shape (N, M, G, D) where G = T-1
     valid_vel = pred_mask[:, :, 1:] & pred_mask[:, :, :-1]      # shape (N, M, G)
-    G = T - 1
 
-    # compute norms per agent entry
-    # cast to float32 for stable norm computation if input is low-precision
-    vel_f = vel if vel.dtype.is_floating_point and vel.dtype != torch.float16 else vel.float()
-    norms = torch.linalg.norm(vel_f, dim=-1)                   # (N, M, G)
+    norms = torch.linalg.norm(vel, dim=-1)                   # (N, M, G)
 
-    # mask of contributors: valid AND speed > eps
-    contrib_mask = valid_vel & (norms > eps)                   # (N, M, G)
-
-    # If no contributors at all, return all-nan
-    if contrib_mask.sum() == 0:
-        return torch.full((M, G), float('nan'), device=device, dtype=pred_traj.dtype)
+    valid_vel=valid_vel
 
     # safe normalization: avoid divide-by-zero by adding tiny denom, but we will zero out non-contrib later
     denom = norms.unsqueeze(-1) + 1e-12                         # (N, M, G, 1)
-    vel_unit = vel_f / denom                                    # (N, M, G, D)
+    vel_unit = vel / denom                                    # (N, M, G, D)
 
-    scatter_mean(vel_unit,batch,dim=0)
+    vel_unit[~valid_vel]=0
+    vel_sum=scatter_sum(vel_unit, batch, dim=0)
+    valid_num=scatter_sum(valid_vel, batch, dim=0)
 
-    return polar
+    vel_mean=torch.norm(vel_sum,dim=-1)/valid_num
+
+    return vel_mean,valid_num>0
 
 
 def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
@@ -438,21 +336,17 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 
     pred_mask=(pred_traj!=10000).any(-1)
 
-    gt_n_dist,gt_dist_mask=compute_interactive_metric(gt_traj[:,None,:].permute(1,2,0,3),batch,gt_mask[:,None,:].permute(1,2,0))
+    pred_n_dist,pred_dist_mask,pred_heading_similar=compute_interactive_metric(pred_traj.permute(1,2,0,3),batch,pred_mask.permute(1,2,0))
 
-    #print(torch.quantile(gt_n_dist[gt_dist_mask],0.01),torch.quantile(gt_n_dist[gt_dist_mask],0.99))#tensor(0.548, device='cuda:0') tensor(10.345, device='cuda:0')
+    gt_n_dist,gt_dist_mask,gt_heading_similar=compute_interactive_metric(gt_traj[:,None,:].permute(1,2,0,3),batch,gt_mask[:,None,:].permute(1,2,0))
 
-    pred_n_dist,pred_dist_mask=compute_interactive_metric(pred_traj.permute(1,2,0,3),batch,pred_mask.permute(1,2,0))
+    gt_polar,gt_polar_mask=compute_polarization(gt_traj[:,None,:],batch,gt_mask[:,None,:])
 
-    distance_likelihoods=histogram_estimate_torch(batch,gt_n_dist.flatten(1,2),pred_n_dist.flatten(1,2),min_val=0.5,max_val=10,
-                                                      gt_valid_mask=gt_dist_mask.flatten(1,2),sim_valid_mask=pred_dist_mask.flatten(1,2),
-                                                      )
+    pred_polar,pred_polar_mask=compute_polarization(pred_traj,batch,pred_mask)
 
-    num_diff_mean, num_entry_diff_mean, num_exit_diff_mean=compute_num(pred_mask,gt_mask,batch)
+    speed,acc,ang_speed, ang_acc=compute_kinematic_features(pred_traj,fps=fps)
 
-    speed,acc=compute_kinematic_features(pred_traj,fps=fps)
-
-    gt_speed,gt_acc=compute_kinematic_features(gt_traj[:,None],fps=fps)
+    gt_speed,gt_acc,gt_ang_speed, gt_ang_acc=compute_kinematic_features(gt_traj[:,None],fps=fps)
 
     pred_speed_mask=pred_mask[:,:,2:] & pred_mask[:,:,:-2]
     gt_speed_mask=gt_mask[:,2:] & gt_mask[:,:-2]
@@ -460,28 +354,46 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     pred_acc_mask=pred_speed_mask[:,:,2:] & pred_speed_mask[:,:,:-2]
     gt_acc_mask=gt_speed_mask[:,2:] & gt_speed_mask[:,:-2]
 
-    ang_speed, ang_acc=compute_kinematic_features1(pred_traj,fps=fps)
-
-    gt_ang_speed, gt_ang_acc=compute_kinematic_features1(gt_traj[:,None],fps=fps)
-
     pred_angular_acc_mask=pred_acc_mask[:,:,2:] & pred_acc_mask[:,:,:-2]
     gt_angular_acc_mask=gt_acc_mask[:,2:] & gt_acc_mask[:,:-2]
-
+#
     if vis:
         valid_gt_speed=gt_speed[:,0][gt_speed_mask]
         valid_gt_acc=gt_acc[:,0][gt_acc_mask]
         valid_gt_ang_speed=gt_ang_speed[:,0][gt_acc_mask]
         valid_gt_ang_acc=gt_ang_acc[:,0][gt_angular_acc_mask]
+        valid_gt_n_dist=gt_n_dist[gt_dist_mask]
+        valid_gt_polar=gt_polar[gt_polar_mask]
+        valid_gt_heading_sim=gt_heading_similar[:,0][gt_speed_mask]
 
         valid_speed = speed[pred_speed_mask]
         valid_acc = acc[pred_acc_mask]
         valid_ang_speed = ang_speed[pred_acc_mask]
         valid_ang_acc =ang_acc[pred_angular_acc_mask]
+        valid_n_dis =pred_n_dist[pred_dist_mask]
+        valid_polar=pred_polar[pred_polar_mask]
+        valid_heading_sim=pred_heading_similar[pred_speed_mask]
 
+        plot_histgram('Nearest heading similarity',valid_gt_heading_sim,valid_heading_sim,min_val=-0.75,max_val=1)
+        plot_histgram('Polarization',valid_gt_polar,valid_polar,min_val=0.05,max_val=1)
+        plot_histgram('Nearest Neighbor distance',valid_gt_n_dist,valid_n_dis,min_val=0.5,max_val=10)
         plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=20)
-        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3,max_val=3)
+        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3.5,max_val=3.5)
         plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1,max_val=1)
         plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-2,max_val=2)
+
+    heading_likelihoods=histogram_estimate_torch(batch,gt_heading_similar.flatten(1,2),pred_heading_similar.flatten(1,2),min_val=-0.75,max_val=1,
+                                                      gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
+                                                      )
+
+
+    polar_likelihoods=histogram_estimate_torch(torch.arange(max(batch)+1,device=batch.device),gt_polar.flatten(1,2),pred_polar.flatten(1,2),min_val=0.05,max_val=1,
+                                                      gt_valid_mask=gt_polar_mask.flatten(1,2),sim_valid_mask=pred_polar_mask.flatten(1,2),
+                                                      )
+
+    distance_likelihoods=histogram_estimate_torch(batch,gt_n_dist.flatten(1,2),pred_n_dist.flatten(1,2),min_val=0.5,max_val=10,
+                                                      gt_valid_mask=gt_dist_mask.flatten(1,2),sim_valid_mask=pred_dist_mask.flatten(1,2),
+                                                      )
 
     linear_speed_likelihoods= histogram_estimate_torch(batch,gt_speed.flatten(1,2),speed.flatten(1,2),min_val=4,max_val=10,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),
@@ -501,6 +413,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
                                                       gt_valid_mask=gt_angular_acc_mask,sim_valid_mask=pred_angular_acc_mask.flatten(1,2),
                                                       )
 
+    num_diff_mean, num_entry_diff_mean, num_exit_diff_mean=compute_num(pred_mask,gt_mask,batch)
 
     # exist_likelihood=histogram_estimate_torch(batch,gt_mask.to(torch.float16),pred_mask.flatten(1,2).to(torch.float16),
     #                                                     min_val=-0.5,max_val=1.5,num_bins=2
@@ -510,7 +423,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
     # exist_likelihood=scatter_mean(exist_likelihood, batch)
 
 
-    return distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean,num_entry_diff_mean, num_exit_diff_mean
+    return heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean,num_entry_diff_mean, num_exit_diff_mean
 
 # tensor(3.864, device='cuda:0') tensor(10.114, device='cuda:0')
 # Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Speed_hist.png
@@ -520,3 +433,5 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
 # Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular speed_hist.png
 # tensor(-2.104, device='cuda:0') tensor(2.118, device='cuda:0')
 # Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular acc_hist.png
+#tensor(0.548, device='cuda:0') tensor(10.345, device='cuda:0')
+
