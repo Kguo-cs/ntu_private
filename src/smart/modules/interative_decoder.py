@@ -182,7 +182,7 @@ class InterativeDecoder(nn.Module):
         if self.discriminator and self.diff_dicriminator:
             self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
         else:
-            if self.use_edge_feature:
+            if self.discriminator and self.use_edge_feature:
                 self.interact_head = MLPLayer(
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
