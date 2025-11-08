@@ -294,8 +294,8 @@ class IQ_SoftQ(LightningModule):
             rewards = -torch.log(torch.sigmoid(logit[:, :, 0] - expert_dis_logit)).detach()
 
         if key=="agent":
-            self.ego_return_meanstd.update(ego_rewards.reshape(-1))
-            ego_rewards=self.ego_return_meanstd.normalize(ego_rewards)#ego_rewards = (ego_rewards-ego_rewards.mean())/ego_rewards.std()#
+            #self.ego_return_meanstd.update(ego_rewards.reshape(-1))
+            #ego_rewards=self.ego_return_meanstd.normalize(ego_rewards)#ego_rewards = (ego_rewards-ego_rewards.mean())/ego_rewards.std()#
 
             mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
             batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
@@ -303,8 +303,8 @@ class IQ_SoftQ(LightningModule):
             ego_rewards = batch_rewards.transpose(0, 1)
 
             if nei_rewards.any():
-                self.global_return_meanstd.update(nei_rewards.reshape(-1))
-                nei_rewards = self.global_return_meanstd.normalize(nei_rewards)
+               # self.global_return_meanstd.update(nei_rewards.reshape(-1))
+               # nei_rewards = self.global_return_meanstd.normalize(nei_rewards)
 
                 batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
                 batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
