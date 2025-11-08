@@ -181,9 +181,11 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_entry=token_processor.pred_entry & (not discriminator)
 
+        self.n_token_entry= token_processor.n_token_entry
+
         if self.pred_entry:
             self.entry_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
                     )
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
@@ -343,7 +345,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.training:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:].transpose(0, 1).flatten(0, 1)[mask_a[:,:-1].transpose(0, 1).flatten(0, 1)]
-                entry_mask=(entry_idx<self.n_token_agent - 1 )
+                entry_mask=(entry_idx<self.n_token_entry - 1 )
                 entry_local=self.token_processor.entry_pos_token[entry_idx[entry_mask]]
 
                 feat_new=torch.cat([entry_local,feat_a[entry_mask]],dim=-1)

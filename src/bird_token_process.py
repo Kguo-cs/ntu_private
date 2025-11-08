@@ -29,13 +29,14 @@ token_processor = TokenProcessor(
     agent_token_file="bird1024.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0},
+    pred_entry=True
 ).cuda()
 token_processor.eval()
 
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_token/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_entry2048/"
 
 
 
@@ -50,7 +51,7 @@ def process_file(filename):
 
     data1= HeteroData(data).cuda()
 
-    data1["agent"]["batch"]=torch.zeros_like( data["agent"]["valid_mask"] [:,0] ).to(torch.long)
+    data1["agent"]["batch"]=torch.zeros_like( data["agent"]["valid_mask"] [:,0] ).to(torch.long).cuda()
     data1.num_graphs=1
     data1["agent"]["time"]=[data1["agent"]["time"]]
 
@@ -62,11 +63,11 @@ def process_file(filename):
     del tokenized_agent['token_agent_shape']
     del tokenized_agent['type']
 
-    del tokenized_agent['gt_idx']
-    del tokenized_agent['max_dist']
-    del tokenized_agent['entry_idx']
-    del tokenized_agent['entry_head_idx']
-    del tokenized_agent['reset_mask']
+    #del tokenized_agent['gt_idx']
+    #del tokenized_agent['max_dist']
+    #del tokenized_agent['entry_idx']
+    #del tokenized_agent['entry_head_idx']
+   # del tokenized_agent['reset_mask']
     del tokenized_agent['token_traj_all']
 
     for key in tokenized_agent.keys():
@@ -74,6 +75,8 @@ def process_file(filename):
 
     tokenized_agent["sampled_idx"]= tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_agent['abs_time']= tokenized_agent['abs_time'][:,0]
+    tokenized_agent["entry_idx"]= tokenized_agent["entry_idx"].to(torch.int16)
+    tokenized_agent["entry_head_idx"]= tokenized_agent["entry_head_idx"].to(torch.int16)
 
     tokenized_agent["num_nodes"]=len(tokenized_agent["sampled_idx"])
 

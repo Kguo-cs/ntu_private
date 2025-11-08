@@ -96,6 +96,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
+        self.n_token_entry= self.entry_pos_token.shape[0]+1
+
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -114,6 +116,10 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent[key] = agent[key]#[agent_mask]
 
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
+
+            if self.pred_entry:
+                tokenized_agent["entry_idx"] = agent["entry_idx"].long()
+                tokenized_agent["entry_head_idx"] = agent["entry_head_idx"].long()
 
             tokenized_agent["token_traj_all"] = self.agent_token_all[None, :, :].repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
 
@@ -174,7 +180,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
 
-        entry_pos_token = pickle.load(open('./smart/tokens/first1024.pkl', "rb"))
+        entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 
@@ -235,11 +241,13 @@ class TokenProcessor(torch.nn.Module):
 
         # sampled_pos = tokenized_agent["sampled_pos"]
         # gt_pos_raw = pos[:, self.shift :: self.shift]
-        # valid_mask = tokenized_agent["valid_mask"]
-
-        #max_dist = torch.linalg.norm(sampled_pos - gt_pos_raw, dim=-1)[valid_mask]
-
-        #tokenized_agent["max_dist"]=max_dist
+        # valid_mask =tokenized_agent["valid_mask"][:,1:] &  ~tokenized_agent["valid_mask"][:,:-1]
+        #
+        # max_dist = torch.linalg.norm(sampled_pos - gt_pos_raw, dim=-1)[:,1:][valid_mask]
+        #
+        # print(max_dist.mean(),max_dist.max())
+        #
+        # tokenized_agent["max_dist"]=max_dist
 
         return tokenized_agent
 
@@ -252,7 +260,6 @@ class TokenProcessor(torch.nn.Module):
             batch,
             num_graphs
     ) -> Dict[str, Tensor]:
-        num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
         range_a = torch.arange(n_agent)
 
@@ -270,8 +277,12 @@ class TokenProcessor(torch.nn.Module):
            # "entry_head_idx": [],
 
             #"entry_mask": [],
-            #"entry_idx": [],
         }
+
+        if self.pred_entry:
+            out_dict["entry_idx"]=[]
+            out_dict["entry_head_idx"]=[]
+
 
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
@@ -318,7 +329,7 @@ class TokenProcessor(torch.nn.Module):
 
             _valid_mask[token_in_valid]=False
 
-            entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_agent - 1
+            entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry - 1
 
             entry_head_idx = torch.zeros_like(token_idx_gt)
 
@@ -360,7 +371,7 @@ class TokenProcessor(torch.nn.Module):
                             cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
 
                             row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
-
+                            # print(cost[row_ind_i,col_ind_i].max())
                             entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
 
                             row_ind.append(row_ind_i+torch.sum(present_batch<b).item())
@@ -388,20 +399,30 @@ class TokenProcessor(torch.nn.Module):
                     prev_head[entry_id]=tokenized_heading[entry_id]
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #
-                    # print(dist.mean()) #0.8
+                    #print(dist.mean(),dist.max()) #0.8
 
                     real_id=entry_id[dist>1]
 
                     prev_pos[real_id]=pos[real_id,i]
-                    prev_head[real_id]=heading[real_id,i]
-                    # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    # print(1)
 
+                    # heading_diff=wrap_angle(heading[:,i][entry_id]-prev_head[entry_id])
+
+                    #print(heading_diff.max(), heading_diff.mean())
+
+
+                    #prev_head[real_id]=heading[real_id,i]
+                    #
+                    # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    #
+                    # print(dist1.mean(),dist1.max()) #0.8
+                    #
+                    # print(1)
                     # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
 
-          #  out_dict["entry_idx"].append(entry_idx)
-           # out_dict["entry_head_idx"].append(entry_head_idx)
+            if self.pred_entry:
+
+                out_dict["entry_idx"].append(entry_idx)
+                out_dict["entry_head_idx"].append(entry_head_idx)
 
             # udpate prev_pos, prev_head
             dxy = token_contour_gt[:,-1] - token_contour_gt[:,-2]
