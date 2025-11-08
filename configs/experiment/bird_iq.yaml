@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 5e-4
+    lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
       agent_token_file: "bird1024.pkl" #my2048 #agent_vocab_555_s2
@@ -41,7 +41,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_nonoise_epoch=63-step=496000.ckpt'
 
-task_name: iq3_norm1_5e4_w1_lcf12_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq3_w1_lcf12_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 

@@ -37,7 +37,7 @@ model:
       dist_decay: 3
 
 
-#ckpt_path : '/home/ke/code/catk/src/epoch=22-step=213900.ckpt'
+ckpt_path : '/home/ke/code/catk/src/logs/bird6_nonoise_val12/2025-11-07_20-06-38/bird/h6x6zfu9/checkpoints/epoch=18-step=147250.ckpt'
 
 task_name: bird6_nonoise_val12 #_pred01_exit #_noentry #_gtNew #new #_smooth01
 
