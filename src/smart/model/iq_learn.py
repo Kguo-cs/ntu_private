@@ -348,9 +348,9 @@ class IQ_SoftQ(LightningModule):
                 bce_loss = logit[:, :,
                            0].mean()  # self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
         else:
-            agent_num = tokenized_agent["valid_mask"][:,1+self.start_step:].sum()
-            ego_dis_eval = disc_val[:agent_num]
-            other_disc_val = disc_val[agent_num:]
+            ego_num = tokenized_agent["valid_mask"][:,1+self.start_step:].sum()
+            ego_dis_eval = disc_val[:ego_num]
+            other_disc_val = disc_val[ego_num:]
 
             #ego_dis_eval = ego_dis_eval[train_mask[tokenized_agent["train_mask"]].transpose(0, 1).flatten(0, 1)]
 
@@ -376,7 +376,7 @@ class IQ_SoftQ(LightningModule):
                 # weight = weight[edge_mask]
 
                 bce_loss = bce_loss + F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val) + target,
-                                                             weight=weight, reduction='mean')
+                                                             weight=weight, reduction='sum')/ego_num
 
         self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
 
