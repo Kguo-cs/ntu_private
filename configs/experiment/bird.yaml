@@ -39,7 +39,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird6_nonoise_val12/2025-11-07_20-06-38/bird/h6x6zfu9/checkpoints/epoch=18-step=147250.ckpt'
 
-task_name: bird6_entry2048_nonoise_val12 #_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird5_entry2048_nonoise_val12 #_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
@@ -53,7 +53,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 6
+  train_batch_size: 5
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8

@@ -217,3 +217,9 @@ AIRL64_value0001noclip_distr402060a5_expertvalid influence of range
 
 #only need keep all thus pred agent all valid , allow new entry agent and exit agent .
 
+#do causal intervention, remove the neighbor 
+
+
+# also allow high order ,weighted 
+
+

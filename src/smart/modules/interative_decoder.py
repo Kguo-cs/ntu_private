@@ -115,8 +115,8 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
-        elif (discriminator and self.use_edge_feature):
-            self.a2a_attn_layers = None
+        # elif (discriminator and self.use_edge_feature):
+        #     self.a2a_attn_layers = None
         else:
             self.a2a_attn_layers = nn.ModuleList(
                 [
@@ -212,6 +212,8 @@ class InterativeDecoder(nn.Module):
                     feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
+
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 if not self.token_processor.use_bird:
                     feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
