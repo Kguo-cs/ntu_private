@@ -341,7 +341,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             if self.use_edge_feature:
-                weight=torch.ones_like(dist)*0.1 #torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
+                weight=torch.ones_like(dist) #torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
 
                 interact_logits_sum = scatter_sum(interact_logits[:,0] * weight, end_index, dim=0,  dim_size=len(feat_a)) #a_number
 
