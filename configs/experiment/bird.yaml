@@ -37,7 +37,7 @@ model:
       dist_decay: 3
 
 
-ckpt_path : '/home/ke/code/catk/src/logs/bird5_entry2048_nonoise_val12/2025-11-08_16-12-53/bird/ozwpvuqa/checkpoints/epoch=5-step=55800.ckpt'
+#ckpt_path : '/home/ke/code/catk/src/logs/bird5_entry2048_nonoise_val12/2025-11-08_16-12-53/bird/ozwpvuqa/checkpoints/epoch=5-step=55800.ckpt'
 
 task_name: bird5_entry2048_nonoise_val12 #_pred01_exit #_noentry #_gtNew #new #_smooth01
 
