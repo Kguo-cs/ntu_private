@@ -172,6 +172,10 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["pred_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
+        #gt_valid= data["agent"]["valid_mask"][:,6 :][:,4::5]
+
+        #pred_valid= tokenized_agent["valid_mask"][:,1:]
+
         return tokenized_map, tokenized_agent
 
     def init_agent_token(self, agent_token_path) -> None:

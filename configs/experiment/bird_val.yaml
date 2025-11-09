@@ -19,7 +19,7 @@ model:
     smart: false
     bird: true
     n_batch_wosac_metric: 0
-    n_vis_batch: 10
+    n_vis_batch: 0
     n_rollout_closed_val: 12
     decoder:
       num_historical_steps: 6
@@ -39,7 +39,7 @@ model:
 
       hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path : '/home/ke/code/catk/src/waymo_data/iq9_w1_lcf12_val12_epoch=1-step=10334.ckpt'
+ckpt_path : '/home/ke/code/catk/src/waymo_data/iq9_w1_lcf12_val12_epoch=1-step=10334.ckpt' #'./ckpts/bird1024_nonoise_epoch=63-step=496000.ckpt' #
 
 task_name: iq9_w1_lcf12_val12_val #_pred01_exit #_noentry #_gtNew #new #_smooth01
 
@@ -56,7 +56,7 @@ trainer:
 
 data:
   train_batch_size: 5
-  val_batch_size: 1
+  val_batch_size: 10
   test_batch_size: 10
   num_workers: 8
   train_raw_dir: ${paths.cache_root}/bird_train107_token #_entry #_token #rawboth #_route #_03nuplan_cross2_03_map #training_map2_03_route #training_map2_03_pred #training_map2_03_pred #training_smart_highest #_raw #clean #training_map2_clean  #training_map2_2049 #training_inter10_raw_light  #training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_

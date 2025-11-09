@@ -296,7 +296,7 @@ def compute_num(pred_mask,gt_mask,batch):
     gt_exit_num=scatter_sum(exit_mask.to(torch.int16),batch,dim=0)
     pred_exit_num=scatter_sum(pred_exit_mask.to(torch.int16),batch,dim=0)
 
-    num_entry_diff_mean=(pred_entry_num/(pred_valid_num[:, :, :-1]+1) -(gt_entry_num/(gt_valid_num[:,1:]+1))[:,None]).float().mean()
+    num_entry_diff_mean=(pred_entry_num/(pred_valid_num[:, :, :-1]+1) -(gt_entry_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
 
     num_exit_diff_mean=(pred_exit_num/(pred_valid_num[:, :, :-1]+1) -(gt_exit_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
 
@@ -331,6 +331,8 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=Non
     #pred_traj=agent_token[:,None]
 
     pred_mask=(pred_traj!=10000).any(-1)
+
+    num_diff_mean, num_entry_diff_mean, num_exit_diff_mean=compute_num(pred_mask[:,:,4::5],gt_mask[:,4::5],batch)
 
     pred_n_dist,pred_dist_mask,pred_heading_similar=compute_interactive_metric(pred_traj.permute(1,2,0,3),batch,pred_mask.permute(1,2,0))
 
@@ -409,7 +411,6 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=Non
                                                       gt_valid_mask=gt_angular_acc_mask,sim_valid_mask=pred_angular_acc_mask.flatten(1,2),
                                                       )
 
-    num_diff_mean, num_entry_diff_mean, num_exit_diff_mean=compute_num(pred_mask,gt_mask,batch)
 
     # exist_likelihood=histogram_estimate_torch(batch,gt_mask.to(torch.float16),pred_mask.flatten(1,2).to(torch.float16),
     #                                                     min_val=-0.5,max_val=1.5,num_bins=2
