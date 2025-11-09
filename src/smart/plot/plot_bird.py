@@ -222,8 +222,11 @@ def plot_bird_from_tensors(pred_traj, sampled_pos, gt_pos_raw, gt_valid_raw,
             artists.append(lines_pred[a])
             artists.append(lines_gt[a])
 
-        ax_gt.set_title(f"Ground Truth\nFrame {frame_idx}/{T - 1}")
-        ax_pred.set_title(f"Prediction\nFrame {frame_idx}/{T - 1}")
+        gt_n=(~np.isnan(G_np[:,frame_idx])).float().sum()
+        pred_n=(~np.isnan(P_np[:,0,frame_idx])).float().sum()
+
+        ax_gt.set_title(f"Ground Truth\nFrame {frame_idx}/{T - 1}, bird number {gt_n}")
+        ax_pred.set_title(f"Prediction\nFrame {frame_idx}/{T - 1}, bird number {pred_n}")
 
         # return list of artists to animate
         return artists
