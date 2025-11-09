@@ -41,7 +41,7 @@ model:
 
 ckpt_path : './ckpts/bird1024_nonoise_epoch=63-step=496000.ckpt'
 
-task_name: iq12_w1_lcf12_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq3_w1_lcf12_value1000 #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 

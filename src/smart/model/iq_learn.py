@@ -566,7 +566,7 @@ class IQ_SoftQ(LightningModule):
 
                     advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None)
 
-                    value_loss = (gae_returns - v_denorm).square().clamp(min=0, max=100)[agent_state_mask].mean()
+                    value_loss = (gae_returns - v_denorm).square().clamp(min=0, max=1000)[agent_state_mask].mean()
 
                     if self.use_lcf:
                         if not self.encoder.agent_encoder.interative_decoder.use_edge_feature:
@@ -582,7 +582,7 @@ class IQ_SoftQ(LightningModule):
 
                         nei_advantages, nei_returns = compute_advantages(nei_rewards, nei_value_pred.detach(), None)
 
-                        nei_value_loss =(nei_returns - nei_value_pred).square().clamp(min=0, max=100)[agent_state_mask].mean()
+                        nei_value_loss =(nei_returns - nei_value_pred).square().clamp(min=0, max=1000)[agent_state_mask].mean()
 
                         value_loss = nei_value_loss + value_loss
 

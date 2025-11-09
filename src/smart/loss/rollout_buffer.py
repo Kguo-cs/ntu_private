@@ -509,7 +509,7 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
 
     dones = torch.zeros_like(rewards)
-    dones[:,-1]=1
+    #dones[:,-1]=1
 
     # returns1 = torch.zeros_like(rewards)
     # R = 0
