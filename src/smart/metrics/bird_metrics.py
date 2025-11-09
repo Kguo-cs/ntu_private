@@ -324,7 +324,7 @@ def compute_polarization(pred_traj,batch,pred_mask, eps: float = 1e-8):
     return vel_mean,valid_num>0
 
 
-def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
+def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=None,fps=29.97):
     # agent_token_path = '/home/ke/code/catk/src/smart/tokens/bird1024.pkl'
     # agent_token = pickle.load(open(agent_token_path, "rb"))
 
@@ -370,13 +370,13 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,fps=29.97):
         valid_polar=pred_polar[pred_polar_mask]
         valid_heading_sim=pred_heading_similar[pred_speed_mask]
 
-        plot_histgram('Nearest heading similarity',valid_gt_heading_sim,valid_heading_sim,min_val=-0.75,max_val=1)
-        plot_histgram('Polarization',valid_gt_polar,valid_polar,min_val=0,max_val=1)
-        plot_histgram('Nearest Neighbor distance',valid_gt_n_dist,valid_n_dis,min_val=0.5,max_val=10)
-        plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=20)
-        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3.5,max_val=3.5)
-        plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1,max_val=1)
-        plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-2,max_val=2)
+        plot_histgram('Nearest heading similarity',valid_gt_heading_sim,valid_heading_sim,min_val=-0.75,max_val=1,save_dir=save_path)
+        plot_histgram('Polarization',valid_gt_polar,valid_polar,min_val=0,max_val=1,save_dir=save_path)
+        plot_histgram('Nearest Neighbor distance',valid_gt_n_dist,valid_n_dis,min_val=0.5,max_val=10,save_dir=save_path)
+        plot_histgram('Speed',valid_gt_speed,valid_speed,min_val=4,max_val=20,save_dir=save_path)
+        plot_histgram('Acc',valid_gt_acc,valid_acc,min_val=-3.5,max_val=3.5,save_dir=save_path)
+        plot_histgram('Angular speed',valid_gt_ang_speed,valid_ang_speed,min_val=-1,max_val=1,save_dir=save_path)
+        plot_histgram('Angular acc',valid_gt_ang_acc,valid_ang_acc,min_val=-2,max_val=2,save_dir=save_path)
 
     heading_likelihoods=histogram_estimate_torch(batch,gt_heading_similar.flatten(1,2),pred_heading_similar.flatten(1,2),min_val=-0.75,max_val=1,
                                                       gt_valid_mask=gt_speed_mask,sim_valid_mask=pred_speed_mask.flatten(1,2),

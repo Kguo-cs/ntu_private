@@ -425,7 +425,7 @@ class InterativeDecoder(nn.Module):
 
         feat_a=feat_a[mask_s]
 
-        edge_index_a2a, r_a2a, dist = self.edge_encoder.build_interaction_edge(
+        edge_index_a2a, r_a2a, dist,relative_pos = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s[mask_s],  # [n_agent, n_step, 2]
             head_s=head_s[mask_s],  # [n_agent, n_step]
             head_vector_s=head_vector_s[mask_s],  # [n_agent, n_step, 2]
@@ -508,4 +508,4 @@ class InterativeDecoder(nn.Module):
                       batch_s_repeat,train_mask,dist,
                       train_repeat_mask,mask_a,head_a)
 
-        return next_token_logits,feat_a,rewards,weight,edge_index_a2a
+        return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)

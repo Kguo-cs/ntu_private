@@ -94,6 +94,8 @@ class SMART(LightningModule):
         self.all_time=0
         self.all_count=0
 
+        self.all_data=[]
+
         # self.wosac_submission.save_sub_file()
         #
         # print(1/0)
@@ -132,27 +134,55 @@ class SMART(LightningModule):
         # # ! open-loop vlidation
         if self.val_open_loop:
             pred = self.encoder(tokenized_map, tokenized_agent)
-        #     loss = self.training_loss(
-        #         **pred,
-        #         token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
-        #         token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
-        #     )
-        #
-        #     self.TokenCls.update(
-        #         # action that goes from [(10->15), ..., (85->90)]
-        #         pred=pred["next_token_logits"],  # [n_agent, 16, n_token]
-        #         pred_valid=pred["next_token_valid"],  # [n_agent, 16]
-        #         target=tokenized_agent["gt_idx"][:, 2:],
-        #         target_valid=tokenized_agent["valid_mask"][:, 2:],
-        #     )
-        #     self.log(
-        #         "val_open/acc",
-        #         self.TokenCls,
-        #         on_epoch=True,
-        #         sync_dist=True,
-        #         batch_size=1,
-        #     )
-        #     self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
+
+            attention_weight=self.encoder.agent_encoder.interative_decoder.a2a_attn_layers[0].attention_weight
+
+            edge_weight=self.encoder.agent_encoder.interative_decoder.a2a_attn_layers[0].egde_weight
+
+            edge_index_a2a,relative_pos=pred["edge_index_a2a"]
+
+            sampled_pos=tokenized_agent["sampled_pos"]
+
+            valid_mask=tokenized_agent["valid_mask"]
+
+            #index=mask_a[:,1:].sum()
+
+            #src,dst=edge_index_a2a
+
+            # unique_dst=torch.unique(dst)
+            #
+            # attention_weight1=torch.zeros([len(index),10,8],device=attention_weight.device)
+            #
+            # relative_pos1=torch.zeros([len(index),10,4],device=attention_weight.device)
+            self.all_data.append((attention_weight,edge_weight,edge_index_a2a,relative_pos,valid_mask,sampled_pos,pred["agent_q"]))
+
+            #self.all_data.append(data)
+
+
+
+
+            # loss = self.training_loss(
+            #     **pred,
+            #     token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
+            #     token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
+            # )
+            #
+            # self.TokenCls.update(
+            #     # action that goes from [(10->15), ..., (85->90)]
+            #     pred=pred["next_token_logits"],  # [n_agent, 16, n_token]
+            #     pred_valid=pred["next_token_valid"],  # [n_agent, 16]
+            #     target=tokenized_agent["gt_idx"][:, 2:],
+            #     target_valid=tokenized_agent["valid_mask"][:, 2:],
+            # )
+            # self.log(
+            #     "val_open/acc",
+            #     self.TokenCls,
+            #     on_epoch=True,
+            #     sync_dist=True,
+            #     batch_size=1,
+            # )
+            # self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
+
 
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
@@ -278,9 +308,10 @@ class SMART(LightningModule):
             self.present_likelihood=0
 
             if self.token_processor.use_bird :
+                save_path = self.video_dir / f"step_{self.global_step}_batch_{batch_idx:02d}"
+
                 if batch_idx < self.n_vis_batch:
                     batch=pred["batch"]
-                    save_path=self.video_dir/ f"step_{self.global_step}_batch_{batch_idx:02d}"
                     plot_bird_from_tensors(pred_traj[batch==0],tokenized_agent['sampled_pos'][batch==0],
                               data["agent"]["position"][:,self.num_historical_steps :][batch==0], data["agent"]["valid_mask"][:,self.num_historical_steps :][batch==0],
                                            show=False,      save_path=save_path
@@ -289,7 +320,7 @@ class SMART(LightningModule):
                 (heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods,
                  angular_acceleration_likelihoods,num_diff_mean,num_entry_diff_mean, num_exit_diff_mean)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
-                                        tokenized_agent["batch"],batch_idx < self.n_vis_batch)
+                                        tokenized_agent["batch"],batch_idx < self.n_vis_batch,save_path=save_path)
 
                 self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
                 self.linear_acceleration_likelihood = linear_acc_likelihoods[1].mean().item()
@@ -412,6 +443,11 @@ class SMART(LightningModule):
                     #print(time.time()-t1)
 
     def on_validation_epoch_end(self):
+        if self.val_open_loop:
+
+            torch.save(self.all_data,"all_data.pt")
+
+
         if self.val_closed_loop:
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()

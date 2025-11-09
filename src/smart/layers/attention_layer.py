@@ -90,7 +90,7 @@ class AttentionLayer(MessagePassing):
             v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
         sim = (q_i * k_j).sum(dim=-1) * self.scale
         attn = softmax(sim, index, ptr)
-        self.attention_weight = attn.mean(-1) #.detach()#
+        self.attention_weight = attn #.mean(-1) #.detach()#
         # plogp = attn * (attn.clamp_min(1e-12).log())
         # # Sum within each destination segment
         # seg_entropy = scatter_sum(plogp, index,dim=0)  # shape: [num_dst_nodes]
@@ -101,6 +101,7 @@ class AttentionLayer(MessagePassing):
     def update(self, inputs: torch.Tensor, x_dst: torch.Tensor) -> torch.Tensor:
         inputs = inputs.view(-1, self.num_heads * self.head_dim)
         g = torch.sigmoid(self.to_g(torch.cat([inputs, x_dst], dim=-1)))
+        self.egde_weight=g.mean(-1)
         return inputs + g * (self.to_s(x_dst) - inputs)
 
     def _attn_block(

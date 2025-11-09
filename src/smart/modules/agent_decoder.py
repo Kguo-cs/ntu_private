@@ -415,6 +415,7 @@ class SMARTAgentDecoder(nn.Module):
         next_map_token_logits=None
 
         return {
+            "edge_index_a2a":edge_index_a2a,
             "exit_logit":exit_logit,
             "entry_logit":entry_logit,
             "goal_q":None,

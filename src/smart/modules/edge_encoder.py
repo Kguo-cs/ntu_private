@@ -257,11 +257,11 @@ class EdgeEncoder(nn.Module):
             dim=-1,
         )
 
-        r_a2a=torch.cat([r_a2a,rel_pos_a2a[:,2:]],dim=-1)
+        relative_pos=torch.cat([r_a2a,rel_pos_a2a[:,2:]],dim=-1)
 
-        r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
+        r_a2a = self.r_a2a_emb(continuous_inputs=relative_pos, categorical_embs=None)
 
-        return edge_index_a2a, r_a2a,dist
+        return edge_index_a2a, r_a2a,dist,relative_pos
 
     def build_map2map_edge(self,
                            pos_pl,  # [n_pl, 2]
