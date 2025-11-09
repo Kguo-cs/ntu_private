@@ -1,0 +1,90 @@
+# @package _global_
+
+defaults:
+  # - override /trainer: ddp
+  - override /model: smart_iq
+
+model:
+  model_config:
+    lr: 5e-4
+    lr_min_ratio: 1e-2
+    token_processor:
+      agent_token_file: "bird1024.pkl" #my2048 #agent_vocab_555_s2
+      use_noise: False
+      pred_entry: False
+
+    val_open_loop: True
+    val_closed_loop: False
+
+    smart: false
+    bird: true
+    n_batch_wosac_metric: 0
+    n_vis_batch: 0
+    n_rollout_closed_val: 12
+    decoder:
+      num_historical_steps: 6
+      num_future_steps: 600
+      num_agent_layers: 1
+      a2a_radius: 100
+      a2a_neighbor: 10
+      hidden_dim: 64
+      num_freq_bands: 32
+      num_heads: 8
+      head_dim: 8
+      time_span: 10
+
+      dist_a2a_radius: 100
+      dis_weight: 5
+      dist_decay: 3
+
+
+ckpt_path : './ckpts/bird1024_nonoise_epoch=63-step=496000.ckpt'
+
+task_name: bird5_entry2048_nonoise_val12 #_pred01_exit #_noentry #_gtNew #new #_smooth01
+
+
+
+trainer:
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  check_val_every_n_epoch: 1
+  #val_check_interval: 0.5
+  #val_check_interval: 0.0000002
+  max_epochs: 64
+  #gradient_clip_val: 0.0
+
+data:
+  train_batch_size: 5
+  val_batch_size: 10
+  test_batch_size: 10
+  num_workers: 8
+  train_raw_dir: ${paths.cache_root}/bird_train107_token #_entry #_token #rawboth #_route #_03nuplan_cross2_03_map #training_map2_03_route #training_map2_03_pred #training_map2_03_pred #training_smart_highest #_raw #clean #training_map2_clean  #training_map2_2049 #training_inter10_raw_light  #training_map2_2049  #_inter10_2049high #map10_2049 #raw_light #2049high #raw_light #2049 #$high #a91 #v #_8192 #v #light_col #a91 #_a91_ligh_light_lightlight_
+  val_raw_dir: ${paths.cache_root}/bird_train107 #_map2 #validation_map2 #validation_light #validation_map2
+
+logger:
+  wandb:
+     project: bird
+
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: null     # or any directory you prefer
+  filename: "epoch={epoch}-valmeta={val_closed/wosac_likelihood/metametric:.4f}"
+  monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
+  verbose: false
+  save_last: true
+  save_top_k: 8
+  mode: "max"                          # "max" since your metric increases with performance
+  auto_insert_metric_name: false
+  save_weights_only: false
+  every_n_train_steps: null
+  train_time_interval: null
+  every_n_epochs: null
+  save_on_train_epoch_end: false       # <== important, disables save after training epoch
+
+action: validate
+#action: finetune
+# nohup python run.py > 1.txt 2>&1 &
+
+
+#avoid zone 1.4 m

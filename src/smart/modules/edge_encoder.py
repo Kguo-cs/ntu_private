@@ -38,7 +38,7 @@ class EdgeEncoder(nn.Module):
         if self.use_route:
             self.route_drop=nn.Dropout(p=0.5)
 
-        share=share
+        share=False
 
         if not use_bird:
             input_dim_r_t = 4

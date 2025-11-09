@@ -130,8 +130,8 @@ class SMART(LightningModule):
 
 
         # # ! open-loop vlidation
-        # if self.val_open_loop:
-        #     pred = self.encoder(tokenized_map, tokenized_agent)
+        if self.val_open_loop:
+            pred = self.encoder(tokenized_map, tokenized_agent)
         #     loss = self.training_loss(
         #         **pred,
         #         token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]

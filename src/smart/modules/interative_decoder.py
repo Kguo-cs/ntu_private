@@ -101,7 +101,7 @@ class InterativeDecoder(nn.Module):
         self.use_counterfactual=False
         self.use_edge_feature=True
 
-        self.use_full_feature=False
+        self.use_full_feature=True
 
 
 
@@ -353,7 +353,7 @@ class InterativeDecoder(nn.Module):
                 if self.use_full_feature:
                     next_token_logits=torch.cat([next_token_logits, all_logits, interact_logits], dim=0)
 
-                    all_weight  = torch.ones_like(ego_rewards)
+                    all_weight  = torch.ones_like(ego_rewards)*0.1
 
                     ego_rewards = all_weight*all_logits[:,0] +  ego_rewards
 
