@@ -376,7 +376,7 @@ class IQ_SoftQ(LightningModule):
                 # weight = weight[edge_mask]
 
                 bce_loss = bce_loss + F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val) + target,
-                                                             weight=weight, reduction='sum')/ego_num
+                                                             weight=weight, reduction='mean') #/ego_num
 
         self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
 
