@@ -598,10 +598,8 @@ class IQ_SoftQ(LightningModule):
                     value_loss = 0
 
                 advantages=advantages[agent_state_mask]
-                #
-                # agent_log_prob=agent_log_prob[train_valid_mask[agent_valid_mask[:, :-1]]]
 
-                self.return_meanstd.update(advantages.reshape(-1))
+                self.return_meanstd.update(advantages)
                 advantages = self.return_meanstd.normalize(advantages)
                 self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
                 self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)

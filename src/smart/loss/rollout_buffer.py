@@ -41,7 +41,6 @@ class RunningMeanStdTorch(nn.Module):
         if self._is_dist_available_and_initialized():
             self._update_distributed_from_moments(batch_mean, batch_var, batch_count)
         else:
-            print(distributed)
             self._update_from_moments(batch_mean, batch_var, batch_count)
 
     def _update_from_moments(self, batch_mean, batch_var, batch_count):
