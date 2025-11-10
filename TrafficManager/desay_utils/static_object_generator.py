@@ -209,13 +209,16 @@ def generate_static_elements_from_raw(
     # ---- capacity & allocation ----
     support_len = _polyline_capacity_len(support_lines,spacing)
 
-    total_cap= support_len*spec.density01/(spec.ratios["cone"]+spec.ratios["water_barrier"])
+    total_cap= support_len*spec.density01/(spec.ratios["cone"]+spec.ratios["water_barrier"]+spec.ratios["traffic_bollard"])
 
     alloc={}
+    cone_board_ratio=spec.ratios["cone"]+spec.ratios["traffic_bollard"]
+    traffic_bollard_ratio=spec.ratios["traffic_bollard"]
+    water_barrier_ratio=spec.ratios["water_barrier"]
 
-    alloc["cone"] = int(total_cap*spec.ratios["cone"])
-    alloc["water_barrier"] =int(total_cap*spec.ratios["water_barrier"])
-    alloc["hydrant"] = int(total_cap*spec.ratios["hydrant"])
+    alloc["cone"] = int(total_cap*cone_board_ratio)
+    alloc["water_barrier"] =int(total_cap*water_barrier_ratio)
+
 
     lane_avail_lengths = {}
     lane_avail_s = {}
@@ -233,10 +236,14 @@ def generate_static_elements_from_raw(
         object_dict= {}
         cone_number=0
         water_number=0
+        traffic_bollard_number=0
 
         while True:
-            if cone_number<water_number*(spec.ratios["cone"]/spec.ratios["water_barrier"]):
-                type="cone"
+            if cone_number*water_barrier_ratio<water_number*cone_board_ratio:
+                if traffic_bollard_number*cone_board_ratio<cone_number*traffic_bollard_ratio:
+                    type="traffic_bollard"
+                else:
+                    type="cone"
             else:
                 type="water_barrier"
 
@@ -295,20 +302,6 @@ def generate_static_elements_from_raw(
                 xyz = _interp_xyz_at_s(L, sL, u+i*spacing)
                 heading = _heading_at_s_dir(L, sL, u+i*spacing, dir_sign=+1)
 
-                # P=L
-                # Ltot=sL[-1]
-                #
-                # x = np.interp(u_try, sL, P[:, 0])
-                # y = np.interp(u_try, sL, P[:, 1])
-                # z = np.interp(u_try, sL, P[:, 2])
-                #
-                #
-                # if len(P) > 1:
-                #     idxp = int(np.clip(round(u_try / max(1e-6, Ltot) * (len(P) - 1)), 0, len(P) - 1))
-                # else:
-                #     idxp = 0
-                # hd = _tangent_heading_at(P, idxp)
-                # position/heading jitter
                 jpar = float(rng.normal(0.0, spec.jitter_xy * 0.15))
                 jlat = float(rng.normal(0.0, spec.jitter_xy))
                 dx = jpar * math.cos(heading) - jlat * math.sin(heading)
@@ -325,8 +318,10 @@ def generate_static_elements_from_raw(
                     )
                 object_dict[-1-len(object_dict)]=agent
 
-            if type=="cone":
+            if type=="cone" or type=="traffic_bollard":
                 cone_number=cone_number+object_number
+                if type=="traffic_bollard":
+                    traffic_bollard_number=traffic_bollard_number+object_number
             else:
                 water_number=water_number+object_number
 
@@ -340,7 +335,7 @@ def generate_static_elements_from_raw(
     # cones
     out,cone_number,water_number=sample_objects(support_lines,lane_s, lane_avail_lengths, lane_avail_s, spacing_m, 5, 50)
 
-    alloc["hydrant"] =int((cone_number+water_number)/(spec.ratios["cone"]+spec.ratios["water_barrier"])*spec.ratios["hydrant"])
+    alloc["hydrant"] =int((cone_number+water_number)/(cone_board_ratio+water_barrier_ratio)*(spec.ratios["hydrant"]+spec.ratios["stone_bollard"]))
 
     # hydrants (kept simple; not tied to support lines; spacing handled implicitly by random sampling region)
     hydrants: List[Tuple[np.ndarray, float]] = []
@@ -391,12 +386,17 @@ def generate_static_elements_from_raw(
                 heading_rad=float(hd),
             )
 
-    _emit(hydrants, "hydrant")
+    hydrants_number=int(len(hydrants)*spec.ratios["hydrant"]/(spec.ratios["hydrant"]+spec.ratios["stone_bollard"]))
+
+    _emit(hydrants[:hydrants_number], "hydrant")
+
+    _emit(hydrants[hydrants_number:], "stone_bollard")
+
     # id = f"{cls}_{counter:06d}",
 
     counts = Counter(a["cls"] for a in out.values())
     print("Agent class counts:", dict(counts))
-
+#
     # print("Static class counts: {'cones':", len(cones), 'water_barrier:', len(bars),"hydrant:", len(hydrants), "}")
 
     return out

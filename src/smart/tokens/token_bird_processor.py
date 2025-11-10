@@ -47,7 +47,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_dynamic = False
 
         module_dir = os.path.dirname(__file__)
-        self.init_agent_token(os.path.join(module_dir, agent_token_file))
+        self.init_agent_token(os.path.join(module_dir, agent_token_file),os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all.shape[0]
 
         self.light_type = 5
@@ -89,7 +89,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_token=True
 
-        self.use_time=True
+        self.use_time=False
 
         if self.pred_exit:
             self.n_token_agent+=1
@@ -178,7 +178,7 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map, tokenized_agent
 
-    def init_agent_token(self, agent_token_path) -> None:
+    def init_agent_token(self, agent_token_path,map_token_path) -> None:
 
         agent_token = pickle.load(open(agent_token_path, "rb"))
 
@@ -197,7 +197,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
 
-        entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
+        entry_pos_token = pickle.load(open(map_token_path, "rb"))
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
 

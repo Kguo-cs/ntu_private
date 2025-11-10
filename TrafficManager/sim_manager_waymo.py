@@ -154,6 +154,7 @@ class SimulationManager:
 
         self.random_seed=int(self.config["random_seed"])
         self.light = self.config["traffic_lights"]
+        self.traffic_signs = self.config["traffic_signs"]
 
         random.seed(self.random_seed)
         np.random.seed(self.random_seed)
@@ -169,7 +170,7 @@ class SimulationManager:
     def initialize_simulation(self,map_data,data):
         # Initialising models, planners, maps etc
 
-        self.gui = GUI(map_data,data,self.light,self.config["gui_show_static_id"])
+        self.gui = GUI(map_data,data,self.light,self.traffic_signs,self.config["gui_show_static_id"])
         if self.GUI_DISPLAY:
             self.gui.start()
 
@@ -392,7 +393,7 @@ class SimulationManager:
 
         print("time step: ",self.timestamp)
 
-        #sleep(100)
+        sleep(100)
         self.capture_viewport_frame()
         self.timestamp += 1
 
@@ -636,6 +637,16 @@ class SimulationManager:
                             heading_rad=light["heading"]
                         )
 
+                if self.traffic_signs is not None:
+                    for traffic_sign in self.traffic_signs:
+                        static_objs[-1-len(static_objs)]=dict(
+                            cls='traffic_sign',
+                            size_lwh_m=traffic_sign["size"],
+                            x=traffic_sign["position"][0], y=traffic_sign["position"][1], z=0,
+                            heading_rad=traffic_sign["heading"]
+                        )
+
+
                 # add static object
                 add_static = self.config["static_object"]["add"]
 
@@ -667,7 +678,7 @@ class SimulationManager:
                     static_list = []
                     static_pos, static_yaw, static_size, static_type, static_id = [], [], [], [], []
 
-                    for id, object in static_objs.items():  # {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
+                    for id, object in static_objs.items():
                         object_type = object["cls"]
 
                         new_state = np.zeros([91, 9])
@@ -678,8 +689,14 @@ class SimulationManager:
                             static_type.append(0)
                         elif object_type == "light":
                             static_type.append(3)
-                        else:
+                        elif object_type == "hydrant":
                             static_type.append(2)
+                        elif object_type == "traffic_bollard":
+                            static_type.append(4)
+                        elif object_type == "stone_bollard":
+                            static_type.append(5)
+                        elif object_type == "traffic_sign":
+                            static_type.append(6)
 
                         new_state[:, 0] = object["x"]
                         new_state[:, 1] = object["y"]
@@ -703,8 +720,7 @@ class SimulationManager:
                     new_state = np.stack(static_list)
 
                     new_type = np.array(static_type)
-                    new_type[static_type == 2] = 1
-                    new_type[static_type == 3] = 1
+                    new_type[static_type != 0] = 1
 
                     track_infos["states"] = np.concatenate([track_infos["states"], new_state])
                     track_infos["object_id"] = np.concatenate([track_infos["object_id"], static_id])
@@ -997,7 +1013,7 @@ class SimulationManager:
         result={"POSE":{}}
         result["POSE"]["timestamp"]=str(self.timestamp)
 
-        z=self.lidar_height
+        z=0 #self.lidar_height
         x=ego_pos[0][0].cpu().numpy()
         y=ego_pos[0][1].cpu().numpy()
         yaw=ego_heading[0].cpu().numpy()
@@ -1031,12 +1047,12 @@ class SimulationManager:
     def setup_planner(self,cfg):
         self.planner = SMART_IQ(cfg.model.model_config)
 
-        if torch.cuda.is_available():
-            state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
-        else:
-            state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
-
-        self.planner.load_state_dict(state_dict)#,strict=False
+        # if torch.cuda.is_available():
+        #     state_dict = torch.load(self.config["planner_path"],weights_only=False)["state_dict"]
+        # else:
+        #     state_dict = torch.load(self.config["planner_path"], map_location=torch.device("cpu"),weights_only=False)["state_dict"]
+        #
+        # self.planner.load_state_dict(state_dict)#,strict=False
         self.planner.cuda()
         self.planner.eval()
 

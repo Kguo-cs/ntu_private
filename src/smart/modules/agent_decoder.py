@@ -181,11 +181,9 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_entry=token_processor.pred_entry & (not discriminator)
 
-        self.n_token_entry= token_processor.n_token_entry
-
         if self.pred_entry:
             self.entry_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=token_processor.n_token_entry
                     )
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
@@ -345,7 +343,7 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.training:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:].transpose(0, 1).flatten(0, 1)[mask_a[:,:-1].transpose(0, 1).flatten(0, 1)]
-                entry_mask=(entry_idx<self.n_token_entry - 1 )
+                entry_mask=(entry_idx<self.token_processor.n_token_entry - 1 )
                 entry_local=self.token_processor.entry_pos_token[entry_idx[entry_mask]]
 
                 feat_new=torch.cat([entry_local,feat_a[entry_mask]],dim=-1)
@@ -440,7 +438,10 @@ class SMARTAgentDecoder(nn.Module):
         light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
         batch = tokenized_agent['batch']
 
-        abs_time=tokenized_agent["abs_time"][:, :current_step].clone()
+        if self.token_processor.use_time:
+            abs_time=tokenized_agent["abs_time"][:, :current_step].clone()
+        else:
+            abs_time=gt_valid[:, :current_step]
 
         mask_lg=light_idx<self.light_type
 

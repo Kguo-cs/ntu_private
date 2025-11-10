@@ -94,7 +94,7 @@ shape_symbols = {
 
 class GUI(Process):
     def __init__(
-            self, map_data,data,light,gui_show_static_id
+            self, map_data,data,light,traffic_signs,gui_show_static_id
     ) -> None:
         super().__init__()
         self.renderQueue = RenderQueue(1)
@@ -141,8 +141,6 @@ class GUI(Process):
             COLOR_GREEN,# COLOR_ALUMINIUM_1,  # LANE_STATE_UNKNOWN = 4;
         ]
 
-        # sdc=0, interest=1, predict=2
-        self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
 
         #  {0: "vehicle", 1: "pedestrian", 2: "cyclist"}
         self.agent_type_style = [COLOR_ALUMINIUM_0, COLOR_GREEN, COLOR_MAGENTA]
@@ -173,6 +171,7 @@ class GUI(Process):
         # )
         # self.tl_lane_id =self.tl_lane_id[step_current]
         self.light=light
+        self.traffic_signs=traffic_signs
 
         self.ag_size=data["agent"]["shape"]
         ag_role=data["agent"]["role"]
@@ -186,7 +185,7 @@ class GUI(Process):
 
         self.static = self._get_agent_bbox(np.ones_like(static_yaw[:,0]).astype(np.bool),static_pos, static_yaw, static_size)
 
-        self.static_style = [COLOR_CHOCOLATE, COLOR_CHAMELEON, COLOR_RED,COLOR_BUTTER]
+        self.static_style = [COLOR_SKY_BLUE_1, COLOR_CHAMELEON, COLOR_RED,COLOR_BUTTER,COLOR_SCARLET_RED, COLOR_VIOLET,COLOR_ORANGE]
 
         self.ego_idx=np.where(ag_role[:,0])[0][0]
 
@@ -610,33 +609,40 @@ class GUI(Process):
                                   )
 
 
-    #     for i_tl, _state in enumerate(light_idx):#self.tl_lane_state[step_t]
-    #         _lane_id=self.tl_lane_id[i_tl]#
-    #         # _lane_id = self.tl_lane_id[step_t][i_tl]
-    #         _lane_idx = np.argwhere(self.mp_id == _lane_id).item()
-    #       # print(step_t,_lane_idx)
-    #
-    #         polyline = self.mp_xyz[_lane_idx][:, :2]
-    #
-    #         polyline_tf = self.get_line_tf(polyline, self.centerx, self.centery)
-    #
-    #         # Draw polyline in DPG
-    #         # dpg.draw_polyline(
-    #         #     points=polyline_tf,
-    #         #     color=self.tl_style[_state],  # should be an RGBA tuple (r, g, b, a)
-    #         #     thickness=3,
-    #         #     parent=node
-    #         # )
-    #
-    #         # If traffic light state indicates active (1 to 3), draw a marker at the end
-    #         # if 1 <= _state <= 3:
-    #         #     x, y = polyline_tf[-1]
-    #         #     offset = 10
-    #         #     # Draw tilted cross manually using lines
-    #         #     dpg.draw_line((x - offset, y - offset), (x + offset, y + offset), color=self.tl_style[_state],
-    #         #                   thickness=6,parent=node)
-    #         #     dpg.draw_line((x - offset, y + offset), (x + offset, y - offset), color=self.tl_style[_state],
-    #         #                   thickness=6,parent=node )
+    def draw_traffic_signs(self,node,time_step):
+        if self.traffic_signs is not None:
+            color_map = {
+                "red": (255, 0, 0, 255),
+                "yellow": (255, 255, 0, 255),
+                "green": (0, 200, 0, 255),
+                "blue": (0, 128, 255, 255),
+                "white": (255, 255, 255, 255),
+                "black": (0, 0, 0, 255),
+            }
+
+            for traffic_sign in self.traffic_signs:
+                speed_number = traffic_sign["speed_number"]
+                color_name = traffic_sign["color"]
+                fill_color = color_map.get(color_name.lower(), (255, 255, 255, 255))
+
+                radius = 15
+
+                position=traffic_sign["position"]
+
+                polyline_tf = self.get_line_tf([position], self.centerx, self.centery)[0]
+                start_x=polyline_tf[0]
+                start_y=polyline_tf[1]
+
+                x, y = start_x, start_y + 20
+
+                dpg.draw_circle(center=[x, y], radius=radius,
+                                color=(0, 0, 0, 255), fill=fill_color, thickness=2, parent=node)
+
+                dpg.draw_text(pos=(x - 10, y - 10),
+                              text=str(speed_number),
+                              size=20,
+                              color=(255, 255, 255, 255),
+                              parent=node)
 
     def showImage(self, cameraImages: CameraImages):
         front_left_image = cameraImages.CAM_FRONT_LEFT / 255
@@ -679,6 +685,7 @@ class GUI(Process):
                 self.drawRoadgraph(canvasNode)
                 self.draw_route(canvasNode)
                 self.draw_traffic_light(canvasNode,time_step)
+                self.draw_traffic_signs(canvasNode,time_step)
                 self.draw_static(canvasNode)
                 self.drawVehicles(canvasNode, agent_pos,agent_head,agent_type,agent_valid)
         except TypeError:

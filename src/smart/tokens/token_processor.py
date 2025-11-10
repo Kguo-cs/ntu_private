@@ -42,6 +42,7 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
+        use_time
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -92,6 +93,10 @@ class TokenProcessor(torch.nn.Module):
         self.pred_exit=False
 
         self.use_token=False
+
+        self.use_time=False
+
+        self.pred_entry=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:

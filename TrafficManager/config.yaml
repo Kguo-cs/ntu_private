@@ -47,13 +47,18 @@ static_density: 0.5 #0 : no agent , 1: max number agent
 
 static_class_ratio:
   cone: 1
-  water_barrier: 2
+  water_barrier: 4
   hydrant: 1
+  traffic_bollard: 1 #防撞杆
+  stone_bollard: 1 #石墩 ， 驾驶区域外
+
 
 static_size:
   cone: [0.5, 0.5, 1]
   water_barrier: [4, 0.5, 1]
   hydrant: [0.5, 0.5, 1]
+  traffic_bollard: [0.5, 0.5, 1]
+  stone_bollard: [0.5, 0.5, 1]
 
 
 map_object:
@@ -97,6 +102,14 @@ static_object:
 #      shape : #可选, 可根据type生成
   remove:
 #    - id: -166 # give the remove agent id
+
+traffic_signs:
+  - position:  [20, 240]    # 信号灯的世界坐标
+    heading: 0
+    size: [1,1,5]
+    speed_number: 40
+    color: "red"     #choose from red, yellow, green,blue,white,black
+
 
 traffic_lights:
 
