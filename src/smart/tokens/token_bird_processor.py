@@ -182,7 +182,20 @@ class TokenProcessor(torch.nn.Module):
 
         agent_token = pickle.load(open(agent_token_path, "rb"))
 
+        agent_shape = torch.ones_like(agent_token[:, -1, :2])
+
+        last_vel=agent_token[:,-1]-agent_token[:,-2]
+
+        token_heading =torch.arctan2(last_vel[:,1], last_vel[:,0])
+
+        agent_token_box=cal_polygon_contour(agent_token[:,-1],token_heading,agent_shape)
+
+        agent_token_box=torch.cat([agent_token_box, agent_token[:,-1,None,2:].repeat(1,4,1)],dim=-1)
+
         self.register_buffer(f"agent_token_all", agent_token, persistent=False)
+
+        self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
+
 
         entry_pos_token = pickle.load(open('./smart/tokens/first2048.pkl', "rb"))
 
@@ -202,7 +215,7 @@ class TokenProcessor(torch.nn.Module):
         valid=valid[:,1:] & valid[:,:-1]
 
         token_traj_all=self.agent_token_all[None,:,:].repeat(len(pos),1,1,1)
-        token_traj=token_traj_all[:,:,-2:]
+        token_traj=self.agent_token_box[None,:,:].repeat(len(pos),1,1,1)
         batch=data["agent"]["batch"]
 
         tokenized_agent = {
@@ -287,14 +300,16 @@ class TokenProcessor(torch.nn.Module):
             out_dict["entry_idx"]=[]
             out_dict["entry_head_idx"]=[]
 
-
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
+        agent_shape = torch.ones_like(pos[:, 0, :2])
 
-        entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
+        # gt_contour=pos[:, i].unsqueeze(1)
+        if self.pred_entry:
+            entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
 
-        entry_token_xy=entry_pos_token[:,:,:2]
-        entry_token_z=entry_pos_token[:,:,2]
+            entry_token_xy=entry_pos_token[:,:,:2]
+            entry_token_z=entry_pos_token[:,:,2]
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
@@ -302,7 +317,9 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["token_mask"].append(_valid_mask.clone())
 
-            gt_contour=pos[:, i].unsqueeze(1)
+            gt_contour = cal_polygon_contour(pos[:, i,:2], heading[:, i], agent_shape)
+
+            gt_contour=torch.cat([gt_contour, pos[:, i,None,2:].repeat(1,4,1)], dim=-1).unsqueeze(1)
 
             token_world_xy = transform_to_global(
                 pos_local=token_xy.flatten(1, 2),  # [n_agent, n_token*4, 2]
@@ -315,7 +332,7 @@ class TokenProcessor(torch.nn.Module):
 
             token_world_gt=torch.cat((token_world_xy, token_world_gt_z), dim=-1)
 
-            all_dist=torch.norm(token_world_gt[:,:,-1] - gt_contour, dim=-1)
+            all_dist=torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1)
 
             min_dist, token_idx_gt = torch.min(all_dist , dim=-1)  # [n_agent]
 
@@ -429,9 +446,9 @@ class TokenProcessor(torch.nn.Module):
                 out_dict["entry_head_idx"].append(entry_head_idx)
 
             # udpate prev_pos, prev_head
-            dxy = token_contour_gt[:,-1] - token_contour_gt[:,-2]
+            dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
             prev_head[_valid_mask] = torch.arctan2(dxy[:, 1], dxy[:, 0])[_valid_mask]
-            prev_pos[_valid_mask] = token_contour_gt[:,-1][_valid_mask]
+            prev_pos[_valid_mask] = token_contour_gt.mean(1)[_valid_mask]
 
             _valid_mask=valid[:, i]
 

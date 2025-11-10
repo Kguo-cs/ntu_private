@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
@@ -30,24 +31,18 @@ class RunningMeanStdTorch(nn.Module):
         self.initialized = False
         self.alpha = 0.99
 
-    # def update(self, x):
-    #     batch_mean = torch.mean(x, dim=0)
-    #     batch_var = torch.var(x, dim=0, unbiased=False)
-    #
-    #     if not self.initialized:
-    #         self.mean = batch_mean
-    #         self.var = batch_var
-    #         self.initialized = True
-    #     else:
-    #         self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
-    #         self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
-
+    def _is_dist_available_and_initialized(self):
+        return dist.is_available() and dist.is_initialized()
 
     def update(self, x):
         batch_mean = torch.mean(x, dim=0)
         batch_var = torch.var(x, dim=0, unbiased=False)
         batch_count = x.size(0)
-        self._update_from_moments(batch_mean, batch_var, batch_count)
+        if self._is_dist_available_and_initialized():
+            self._update_distributed_from_moments(batch_mean, batch_var, batch_count)
+        else:
+            print(distributed)
+            self._update_from_moments(batch_mean, batch_var, batch_count)
 
     def _update_from_moments(self, batch_mean, batch_var, batch_count):
         delta = batch_mean - self.mean
@@ -63,9 +58,65 @@ class RunningMeanStdTorch(nn.Module):
         self.var = new_var
         self.count = tot_count
 
+    def _update_distributed_from_moments(self, batch_mean, batch_var, batch_count):
+        """
+        Distributed-safe update using all-reduce sum of sums and sum of squared-sums.
+        Works for arbitrary shape in `mean`/`var`.
+        """
+        # device for tensors — use the same device as buffers (could be cpu or gpu)
+        device = self.mean.device
+
+        # local sums: sum(x) = mean * count ; sum(x^2) = (var + mean^2) * count
+        local_sum = (batch_mean * float(batch_count)).to(device=device, dtype=torch.float64)
+        local_sq_sum = ((batch_var + batch_mean.pow(2)) * float(batch_count)).to(device=device, dtype=torch.float64)
+        local_count = torch.tensor(float(batch_count), dtype=torch.float64, device=device)
+
+        # Prepare tensors for reduction (they must be same shape as buffers)
+        # local_sum and local_sq_sum are same shape as mean/var, local_count is scalar.
+        # We'll all_reduce them across processes.
+        # Note: all_reduce operates in-place.
+        dist.all_reduce(local_sum, op=dist.ReduceOp.SUM)
+        dist.all_reduce(local_sq_sum, op=dist.ReduceOp.SUM)
+        dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
+
+        existing_sum = (self.mean * self.count).to(device=device, dtype=torch.float64)
+        existing_sq_sum = ((self.var + self.mean.pow(2)) * self.count).to(device=device, dtype=torch.float64)
+
+        # Sum existing + newly reduced local sums (local_sum already contains sums from all processes)
+        total_sum = existing_sum + local_sum
+        total_sq_sum = existing_sq_sum + local_sq_sum
+        total_count = self.count + local_count  # scalar
+
+        # Avoid division by zero
+        eps = 1e-12
+        new_mean = total_sum / (total_count + eps)
+        new_var = total_sq_sum / (total_count + eps) - new_mean.pow(2)
+
+        # ensure var is non-negative (numerical)
+        new_var = torch.clamp(new_var, min=0.0)
+
+        # write back into buffers
+        self.mean = new_mean
+        self.var = new_var
+        self.count = total_count
+
+
     def normalize(self, x):
         res=(x - self.mean.float()) / (torch.sqrt(self.var.float()) + 1e-8)
         return res
+
+    # def update(self, x):
+    #     batch_mean = torch.mean(x, dim=0)
+    #     batch_var = torch.var(x, dim=0, unbiased=False)
+    #
+    #     if not self.initialized:
+    #         self.mean = batch_mean
+    #         self.var = batch_var
+    #         self.initialized = True
+    #     else:
+    #         self.mean = self.alpha * self.mean + (1 - self.alpha) * batch_mean
+    #         self.var = self.alpha * self.var + (1 - self.alpha) * batch_var
+
 
 def get_reward(s,kl_per_token, eps=1e-20, reward_type="airl"):
     s = s.detach()
