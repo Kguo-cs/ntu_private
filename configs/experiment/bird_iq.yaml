@@ -10,6 +10,7 @@ model:
     lr_min_ratio: 0.05
     token_processor:
       agent_token_file: "bird1024.pkl" #my2048 #agent_vocab_555_s2
+      map_token_file: "first2048.pkl"
       use_noise: False
       pred_entry: False
 
