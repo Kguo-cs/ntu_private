@@ -25,7 +25,7 @@ from src.smart.tokens.token_bird_processor import TokenProcessor
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
-    map_token_file="map_traj_token5.pkl",
+    map_token_file="first2048.pkl",
     agent_token_file="bird1024.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0},
@@ -36,7 +36,7 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_heading1/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_all1/"
 
 
 

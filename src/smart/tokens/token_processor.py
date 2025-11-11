@@ -42,7 +42,6 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
-        use_time
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling

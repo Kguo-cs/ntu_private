@@ -320,6 +320,7 @@ class TokenProcessor(torch.nn.Module):
             gt_contour = cal_polygon_contour(pos[:, i,:2], heading[:, i], agent_shape)
 
             gt_contour=torch.cat([gt_contour, pos[:, i,None,2:].repeat(1,4,1)], dim=-1).unsqueeze(1)
+            #gt_contour=pos[:,i-self.shift+1:i+1].unsqueeze(1)
 
             token_world_xy = transform_to_global(
                 pos_local=token_xy.flatten(1, 2),  # [n_agent, n_token*4, 2]
@@ -332,7 +333,7 @@ class TokenProcessor(torch.nn.Module):
 
             token_world_gt=torch.cat((token_world_xy, token_world_gt_z), dim=-1)
 
-            all_dist=torch.norm(token_world_gt - gt_contour, dim=-1).sum(-1)
+            all_dist=torch.norm(token_world_gt - gt_contour, dim=-1).mean(-1)
 
             min_dist, token_idx_gt = torch.min(all_dist , dim=-1)  # [n_agent]
 
