@@ -42,7 +42,7 @@ model:
 
 ckpt_path : './ckpts/bird5_matchhead_head1_epoch=63-step=595200.ckpt'
 
-task_name: iq3_w01_lcf12_value1000_head1 #_rewardscaling #_minusmean #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq28_w01_lcf12_value1000_head1 #_rewardscaling #_minusmean #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 
@@ -56,7 +56,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 3
+  train_batch_size: 7
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1
