@@ -229,56 +229,12 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-    def temporal_embed(self,feat_a_token, pos_a, head_a,head_vector_a,n_agent, n_step, n_current, mask):
-        if self.use_roformer:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
-        else:
-            if n_current == 0:
-                self.feat_a_token_cache = feat_a_token
-                self.pos_cache = pos_a
-                self.head_cache = head_a
-                self.head_vector_cache=head_vector_a
-                self.mask_cache=mask
-                inference_mask = None
-            else:
-                # self.feat_a_token_cache = torch.cat((self.feat_a_token_cache, feat_a_token), dim=1)[:,
-                #                           -self.agent_hist:]
-                self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
-                self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
-                self.mask_cache = torch.cat((self.mask_cache, mask), dim=1)[:, -self.agent_hist:]
-                self.head_vector_cache = torch.cat((self.head_vector_cache, head_vector_a), dim=1)[:, -self.agent_hist:]
-
-                inference_mask = mask.clone()
-
-                inference_mask[:, :-1] = False
-
-            edge_index_t, r_t = self.interative_decoder.edge_encoder.build_temporal_edge(
-                pos_a=self.pos_cache,  # [n_agent, n_step, 2]
-                head_a=self.head_cache,  # [n_agent, n_step]
-                head_vector_a=self.head_vector_cache,  # [n_agent, n_step, 2]
-                mask=self.mask_cache,  # [n_agent, n_step]
-                inference_mask=inference_mask
-            )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
-
-            # feat_a = self.feat_a_token_cache.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
-            #
-            # for i in range(self.t_num_layers):
-            #     feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-            #
-            # feat_a_t = feat_a.view(n_agent, -1, self.hidden_dim)
-            #
-            # feat_a_t = feat_a_t[:, -n_step:]
-            head_vector_a = head_vector_a[:, -n_step:]
-
-        return feat_a_token, head_vector_a,edge_index_t, r_t
-
-
     def predict_agent(self,feat_a,feat_map,n_step,n_agent,
                       r_t,edge_index_t,
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
                       batch_s_repeat,train_mask,dist,
-                      train_repeat_mask,mask_a,head_a
+                      train_repeat_mask,mask_a,head_a,n_current
                       ):
         start_index = edge_index_a2a[0]
         end_index = edge_index_a2a[1]
@@ -376,15 +332,24 @@ class InterativeDecoder(nn.Module):
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        # feat_a_t=torch.zeros([n_step,n_agent, self.hidden_dim],device=feat_a.device)
-        #
-        # feat_a_t[mask_a.transpose(0,1)]=feat_a
-        #
-        # feat_a = feat_a_t.transpose(0,1).flatten(0, 1)  # [n_agent*n_step, hidden_dim]
-        #
+        feat_a_t=torch.zeros([n_step,n_agent, self.hidden_dim],device=feat_a.device)
+
+        feat_a_t[mask_a.transpose(0,1)]=feat_a
+
+        if n_current == 0:
+            self.feat_a_cache =feat_a_t
+        else:
+            self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[ -self.agent_hist:] #t,a
+
+            feat_a=self.feat_a_cache[self.mask_cache.transpose(0,1)]
+
         for i in range(self.t_num_layers):
             feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-        #
+
+        if n_current != 0:
+            feat_t=torch.zeros_like(self.feat_a_cache)
+            feat_t[self.mask_cache.transpose(0,1)] = feat_a
+            feat_a=feat_t[-1][mask_a[:,-1]]
         # feat_a = feat_a.view(n_agent, -1, self.hidden_dim)[mask_a]
 
         #feat_a_t = feat_a_t[:, -n_step:]
@@ -484,16 +449,15 @@ class InterativeDecoder(nn.Module):
             self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
             self.mask_cache = torch.cat((self.mask_cache, mask_a), dim=1)[:, -self.agent_hist:]
             self.head_vector_cache = torch.cat((self.head_vector_cache, head_vector_a), dim=1)[:, -self.agent_hist:]
-            head_vector_a = torch.stack([self.head_cache.cos(), self.head_cache.sin()], dim=-1)
 
-            inference_mask = self.mask_cache
+            inference_mask = self.mask_cache.clone()
 
             inference_mask[:, :-1] = False
 
         edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
             pos_a=self.pos_cache,  # [n_agent, n_step, 2]
             head_a=self.head_cache,  # [n_agent, n_step]
-            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            head_vector_a=self.head_vector_cache,  # [n_agent, n_step, 2]
             mask=self.mask_cache,  # [n_agent, n_step]
             inference_mask=inference_mask
         )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
@@ -615,6 +579,6 @@ class InterativeDecoder(nn.Module):
                                                                           r_pl2a, edge_index_pl2a,
                                                                           r_a2a,edge_index_a2a,
                                                                           batch_s_repeat,train_mask,dist,
-                                                                          train_repeat_mask,mask_a,head_a)
+                                                                          train_repeat_mask,mask_a,head_a,n_current)
 
         return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)

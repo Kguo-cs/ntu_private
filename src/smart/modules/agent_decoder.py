@@ -410,14 +410,6 @@ class SMARTAgentDecoder(nn.Module):
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None and not self.use_diffusion:
-
-                    # if tokenized_agent["proposal"] is not None:
-                    #     proposal=tokenized_agent["proposal"][:, :1]#[current_mask][keep_mask]
-                    # next_token_logits=torch.zeros([20,len(type),self.token_processor.n_token_agent],device=sampled_idx.device)
-                    #
-                    # next_token_logits[gt_valid[:,:-1].transpose(0, 1)]= tokenized_agent["next_token_logits"]
-                    #
-                    # next_token_logits1=next_token_logits[0][gt_valid[:,0]]
                     a_num=torch.sum(mask[:,t-1])
 
                     next_token_logits=tokenized_agent["next_token_logits"][:a_num]
@@ -443,9 +435,11 @@ class SMARTAgentDecoder(nn.Module):
                             lg_num = tokenized_agent["pad_pos_lg"].shape[1]
                             self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist, current_step * lg_num)
                     else:
-                        self.feat_a_token_cache = self.feat_a_token_cache[:, :current_step]
-                        self.pos_cache = self.pos_cache[:, :current_step]
-                        self.head_cache = self.head_cache[:, :current_step]
+                        self.interative_decoder.pos_cache = self.interative_decoder.pos_cache[:, :current_step]
+                        self.interative_decoder.head_cache = self.interative_decoder.head_cache[:, :current_step]
+                        self.interative_decoder.mask_cache = self.interative_decoder.mask_cache[:, :current_step]
+                        self.interative_decoder.head_vector_cache = self.interative_decoder.head_vector_cache[:, :current_step]
+                        self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[ :current_step]
 
                     # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
                     # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
