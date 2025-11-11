@@ -491,7 +491,7 @@ class IQ_SoftQ(LightningModule):
         #
         # self.log("train/"+key+"_gp", gp, on_step=True, batch_size=1)
 
-        return bce_loss,rewards,nei_sum_rewards, disc_val,0#gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        return bce_loss,ego_rewards,nei_sum_rewards, disc_val,0#gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask= tokenized_agent["valid_mask"][:, self.start_step:]
