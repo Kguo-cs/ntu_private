@@ -26,7 +26,7 @@ model:
       num_future_steps: 600
       num_agent_layers: 1
       a2a_radius: 100
-      a2a_neighbor: 10
+      a2a_neighbor: 20
       hidden_dim: 64
       num_freq_bands: 32
       num_heads: 1
@@ -40,7 +40,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird5_matchhead/2025-11-10_14-51-15/bird/21v4n69k/checkpoints/epoch=5-step=55800.ckpt'
 
-task_name: bird7_head1_at1_clone #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird6_head1_at1_clone_n20 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 

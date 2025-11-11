@@ -328,8 +328,8 @@ class InterativeDecoder(nn.Module):
             feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
         if n_current != 0:
-            current_len=self.mask_cache[-1].sum()
-            feat_a=self.feat_a_cache[-current_len:]
+            current_len=mask_a.sum()
+            feat_a=feat_a[-current_len:]
 
         if not ( self.use_edge_feature and self.discriminator) and (self.num_layers>1 and train_mask is not None):
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)

@@ -14,7 +14,7 @@ defaults:
 
   # experiment configs allow for version control of specific hyperparameters
   # e.g. best hyperparameters for given model and datamodule
-  - experiment:  bird #iq_finetune #_iq  #bird  #wosac_sub #smart_finetune #iq_finetune #wosac_sub #iq_finetune  #
+  - experiment:  bird_iq #iq_finetune #_iq  #bird  #wosac_sub #smart_finetune #iq_finetune #wosac_sub #iq_finetune  #
 
 action: fit # fit, finetune, validate, test
 
