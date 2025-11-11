@@ -11,9 +11,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_route shanhelo@a
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz ~/code/catk/src/waymo_data/full/bird_train107_all1  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
+rsync -avz ~/code/catk/src/waymo_data/full/bird_train107_head1mean  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz ~/code/catk/src/waymo_data/full/bird_train107_heading1 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz ~/code/catk/src/waymo_data/full/bird_train107_head1mean ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/bird_train107_heading1 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 

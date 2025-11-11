@@ -380,7 +380,6 @@ class InterativeDecoder(nn.Module):
 
         feat_a_t[mask_a.transpose(0,1)]=feat_a
 
-
         feat_a = feat_a_t.transpose(0,1).flatten(0, 1)  # [n_agent*n_step, hidden_dim]
 
         for i in range(self.t_num_layers):
