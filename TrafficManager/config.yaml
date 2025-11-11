@@ -6,7 +6,7 @@ image:
 
 data_path: "./waymo/desay_map" #"./waymo/desay_map"
 
-planner_path: "/home/ke/code/catk/src/waymo_data/epoch=13-step=44856.ckpt"
+planner_path: "./waymo/sim.ckpt"
 
 camera_parameter_path: "./waymo/sensor_json/calibrated_sensors.json"
 

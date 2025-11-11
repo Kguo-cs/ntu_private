@@ -248,7 +248,7 @@ class InterativeDecoder(nn.Module):
                 self.mask_cache = torch.cat((self.mask_cache, mask), dim=1)[:, -self.agent_hist:]
                 self.head_vector_cache = torch.cat((self.head_vector_cache, head_vector_a), dim=1)[:, -self.agent_hist:]
 
-                inference_mask = mask
+                inference_mask = mask.clone()
 
                 inference_mask[:, :-1] = False
 
@@ -376,16 +376,16 @@ class InterativeDecoder(nn.Module):
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        feat_a_t=torch.zeros([n_step,n_agent, self.hidden_dim],device=feat_a.device)
-
-        feat_a_t[mask_a.transpose(0,1)]=feat_a
-
-        feat_a = feat_a_t.transpose(0,1).flatten(0, 1)  # [n_agent*n_step, hidden_dim]
-
+        # feat_a_t=torch.zeros([n_step,n_agent, self.hidden_dim],device=feat_a.device)
+        #
+        # feat_a_t[mask_a.transpose(0,1)]=feat_a
+        #
+        # feat_a = feat_a_t.transpose(0,1).flatten(0, 1)  # [n_agent*n_step, hidden_dim]
+        #
         for i in range(self.t_num_layers):
             feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-
-        feat_a = feat_a.view(n_agent, -1, self.hidden_dim)[mask_a]
+        #
+        # feat_a = feat_a.view(n_agent, -1, self.hidden_dim)[mask_a]
 
         #feat_a_t = feat_a_t[:, -n_step:]
 
@@ -518,7 +518,7 @@ class InterativeDecoder(nn.Module):
                 max_num_neighbors=self.pt2a_neighbor,
                 train_mask=train_mask,
                 use_counterfactual=self.use_counterfactual,
-                route_map_index=route_map_index,
+                route_map_index=None,
                 layer_num=self.num_layers
             )
         else:

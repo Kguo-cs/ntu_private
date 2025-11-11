@@ -101,6 +101,9 @@ class EdgeEncoder(nn.Module):
         head_t = head_a.flatten(0, 1)
         head_vector_t = head_vector_a.flatten(0, 1)
 
+        mask_time_major = mask.transpose(0, 1)  # [n_step, n_agent]
+        flat_mask = mask_time_major.flatten(0, 1)  # shape [N_total], ordering: step0:agent0..agentN-1, step1:agent0...
+
         if self.hist_drop_prob > 0 and self.training:
             _mask_keep = torch.bernoulli(
                 torch.ones_like(mask) * (1 - self.hist_drop_prob)
@@ -134,7 +137,20 @@ class EdgeEncoder(nn.Module):
         r_t=torch.cat([r_t,rel_pos_t[:,2:]],dim=-1)
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
-        return edge_index_t, r_t
+
+        n_agent, n_step = mask.shape
+
+        N_total = n_step * n_agent  # total nodes in transposed ordering
+
+        kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
+        map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
+        map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
+
+        edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
+
+        edge_index_masked = map_to_compact[edge_index_t]
+
+        return edge_index_masked, r_t
 
     def build_interaction_edge(
             self,

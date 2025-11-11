@@ -40,7 +40,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/logs/bird5_matchhead/2025-11-10_14-51-15/bird/21v4n69k/checkpoints/epoch=5-step=55800.ckpt'
 
-task_name: bird5_head1_at1 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird6_head1_at1_clone #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
@@ -54,7 +54,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 5
+  train_batch_size: 6
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8
