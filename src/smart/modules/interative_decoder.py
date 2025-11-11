@@ -129,25 +129,6 @@ class InterativeDecoder(nn.Module):
 
         self.use_full_feature=False
 
-
-
-        # if discriminator and self.use_counterfactual:
-        #     self.a2a_attn_layers = nn.ModuleList(
-        #         [
-        #             CacheAttention(
-        #                 hidden_dim=hidden_dim,
-        #                 num_heads=num_heads,
-        #                 head_dim=head_dim,
-        #                 dropout=dropout,
-        #                 bipartite=False,
-        #                 has_pos_emb=True,
-        #             )
-        #             for _ in range(num_layers)
-        #         ]
-        #     )
-        # elif ((discriminator and self.use_edge_feature) ):
-        #     self.a2a_attn_layers = None
-        # else:
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
                 [
@@ -347,12 +328,8 @@ class InterativeDecoder(nn.Module):
             feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
         if n_current != 0:
-            feat_t=torch.zeros_like(self.feat_a_cache)
-            feat_t[self.mask_cache.transpose(0,1)] = feat_a
-            feat_a=feat_t[-1][mask_a[:,-1]]
-        # feat_a = feat_a.view(n_agent, -1, self.hidden_dim)[mask_a]
-
-        #feat_a_t = feat_a_t[:, -n_step:]
+            current_len=self.mask_cache[-1].sum()
+            feat_a=self.feat_a_cache[-current_len:]
 
         if not ( self.use_edge_feature and self.discriminator) and (self.num_layers>1 and train_mask is not None):
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
@@ -463,7 +440,6 @@ class InterativeDecoder(nn.Module):
         )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
 
         if not self.token_processor.use_bird:
-
             batch_pl = map_feature["batch"]
             pos_pl = map_feature["position"]
             orient_pl = map_feature["orientation"]
@@ -511,7 +487,6 @@ class InterativeDecoder(nn.Module):
             train_mask=train_repeat_mask,
             loop=False
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
-
 
         if self.use_diffusion:
             if self.training:
