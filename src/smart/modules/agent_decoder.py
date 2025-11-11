@@ -81,28 +81,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
-        self.use_roformer=discriminator
-
-        if self.use_roformer:
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-                                              hist_len=self.agent_hist)
-        else:
-            self.t_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=hist_drop_prob,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(self.t_num_layers)
-                ]
-            )
-            self.token_cache=None
-
-        #if not discriminator:
+        self.use_roformer=False
 
         self.n_token_agent = n_token_agent
         self.output_gmm = output_gmm
@@ -240,42 +219,8 @@ class SMARTAgentDecoder(nn.Module):
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
             feat_a_token=feat_a_token+latent_embedding
 
-        if self.use_roformer:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_token, pos_a, head_a, n_step, n_current, mask)
-        else:
-            if n_current == 0:
-                self.feat_a_token_cache = feat_a_token
-                self.pos_cache = pos_a
-                self.head_cache = head_a
-                inference_mask = None
-            else:
-                self.feat_a_token_cache = torch.cat((self.feat_a_token_cache, feat_a_token), dim=1)[:,
-                                          -self.agent_hist:]
-                self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
-                self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
-                head_vector_a = torch.stack([self.head_cache.cos(), self.head_cache.sin()], dim=-1)
-
-                inference_mask = mask.clone()
-
-                inference_mask[:, :-1] = False
-
-            edge_index_t, r_t = self.interative_decoder.edge_encoder.build_temporal_edge(
-                pos_a=self.pos_cache,  # [n_agent, n_step, 2]
-                head_a=self.head_cache,  # [n_agent, n_step]
-                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                mask=mask,  # [n_agent, n_step]
-                inference_mask=inference_mask
-            )  # edge_index_t: [2, n_edge_t], r_t: [n_edge_t, hidden_dim]
-
-            feat_a = self.feat_a_token_cache.flatten(0, 1)  # [n_agent*n_step, hidden_dim]
-
-            for i in range(self.t_num_layers):
-                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-
-            feat_a_t = feat_a.view(n_agent, -1, self.hidden_dim)
-
-            feat_a_t = feat_a_t[:, -n_step:]
-            head_vector_a = head_vector_a[:, -n_step:]
+        # feat_a_t, head_vector_a=self.temporal_embed(feat_a_token, pos_a, head_a,head_vector_a,n_agent, n_step, n_current, mask)
+        feat_a_t=feat_a_token
 
         if self.training or self.discriminator or self.target_net:
             n_step=n_step-self.start_step
@@ -330,12 +275,7 @@ class SMARTAgentDecoder(nn.Module):
 
             all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
 
-        if "route_map_index" in tokenized_agent.keys():
-            route_map_index = tokenized_agent["route_map_index"]
-        else:
-            route_map_index = None
-
-        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,route_map_index)
+        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,n_current)
 
         if self.pred_entry:
 
@@ -352,6 +292,7 @@ class SMARTAgentDecoder(nn.Module):
                 entry_logit=(entry_logit,head_logit)
         else:
             entry_logit=None
+
 
         # if self.pred_exit:
         #     exit_logit=self.exit_decoder(feat_a)
@@ -496,6 +437,16 @@ class SMARTAgentDecoder(nn.Module):
 
                     feat_a = tokenized_agent["feat_a"][:a_num]
 
+                    if self.use_roformer:
+                        self.a_t_roformer.attn.kv_caching(self.agent_hist, current_step)
+                        if self.pred_light and not self.light_encoder.share:
+                            lg_num = tokenized_agent["pad_pos_lg"].shape[1]
+                            self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist, current_step * lg_num)
+                    else:
+                        self.feat_a_token_cache = self.feat_a_token_cache[:, :current_step]
+                        self.pos_cache = self.pos_cache[:, :current_step]
+                        self.head_cache = self.head_cache[:, :current_step]
+
                     # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
                     # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
@@ -507,15 +458,6 @@ class SMARTAgentDecoder(nn.Module):
                     next_token_logits,next_light_logits,_,_,entry_logit,exit_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,abs_time)
 
-                if self.use_roformer:
-                    self.a_t_roformer.attn.kv_caching(self.agent_hist,current_step)
-                    if self.pred_light and not self.light_encoder.share:
-                        lg_num = tokenized_agent["pad_pos_lg"].shape[1]
-                        self.light_encoder.lg_t_roformer.attn.kv_caching(self.light_hist,current_step*lg_num)
-                else:
-                    self.feat_a_token_cache=self.feat_a_token_cache[:, :current_step]
-                    self.pos_cache=self.pos_cache[:,  :current_step]
-                    self.head_cache=self.head_cache[:,  :current_step]
 
             else:
                 next_token_logits, next_light_logits, _, _, entry_logit,exit_logit, feat_a = self.predict_agent(
