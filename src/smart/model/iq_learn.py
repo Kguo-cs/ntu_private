@@ -172,9 +172,13 @@ class IQ_SoftQ(LightningModule):
 
         next_token_logits=pred["agent_q"]
 
+        if not self.token_processor.pred_exit:
+            action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
+            next_token_logits=next_token_logits[action_valid]
+
         pi = torch.softmax(next_token_logits / self.alpha, dim=-1)
 
-        logpi = torch.log(pi + 1e-10)  # .clamp_min(min=1e-10)
+        logpi = torch.log(pi + 1e-10)
 
         log_prob = torch.gather(logpi, dim=-1, index=action.unsqueeze(-1)).squeeze(-1)
 
@@ -206,11 +210,12 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
 
-            exit_mask=action==self.token_processor.n_token_agent-1
+            if self.token_processor.pred_exit:
+                exit_mask=action==self.token_processor.n_token_agent-1
 
-            exit_nll = -log_prob[exit_mask].mean()
+                exit_nll = -log_prob[exit_mask].mean()
 
-        self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
+                self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
 
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
 
