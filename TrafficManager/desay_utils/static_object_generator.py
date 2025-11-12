@@ -396,8 +396,6 @@ def generate_static_elements_from_raw(
 
     counts = Counter(a["cls"] for a in out.values())
     print("Agent class counts:", dict(counts))
-#
-    # print("Static class counts: {'cones':", len(cones), 'water_barrier:', len(bars),"hydrant:", len(hydrants), "}")
 
     return out
 
