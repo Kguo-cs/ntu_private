@@ -220,7 +220,7 @@ def get_mask(rel,theta,forward=40,back=20,width=20):
 
     return mask
 
-def radiusGraphNearest2(x,y,x_heading,r, batch_x,batch_y,  max_num_neighbors):
+def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
     edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x) # for each object in x, the nearest point in y
     row, col = edge_index# row is
     distances = (x[row] - y[col]).norm(dim=1)

@@ -242,9 +242,9 @@ class IQ_SoftQ(LightningModule):
                    target_q=None, expert_dis_logit=None):
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
-                                                            tokenized_agent["valid_mask"],  # expert_
+                                                            tokenized_agent["valid_mask"],
                                                             tokenized_agent["sampled_pos"] ,
-                                                            tokenized_agent[ "sampled_heading"],
+                                                            tokenized_agent["sampled_heading"],
                                                             tokenized_agent,
                                                             tokenized_agent["detach_map_feature"],
                                                             [],
@@ -385,10 +385,10 @@ class IQ_SoftQ(LightningModule):
         else:
             train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
 
-        if "pred_mask" in tokenized_agent.keys():
-            all_valid = tokenized_agent["pred_mask"]  # & valid_mask.all(-1)
-        else:
-            all_valid = valid_mask.all(-1)
+        # if "pred_mask" in tokenized_agent.keys():
+        #     all_valid = tokenized_agent["pred_mask"]  # & valid_mask.all(-1)
+        # else:
+        #     all_valid = valid_mask.all(-1)
 
         if self.use_kl_penalty:
             expert_nll = 0
@@ -430,62 +430,10 @@ class IQ_SoftQ(LightningModule):
 
                     expert_nll = expert_nll + col_loss
 
-            if self.use_distance:
-                # gt_contour = cal_polygon_contour(tokenized_agent["sampled_pos"][all_valid][:,2:], tokenized_agent["sampled_heading"][all_valid][:,2:], tokenized_agent["token_agent_shape"][all_valid][:,None])
-
-                pos = tokenized_agent["gt_pos_raw"].clone()  # use original pos
-                heading = tokenized_agent["gt_head_raw"].clone()  # use original pos
-                token_agent_shape = tokenized_agent["token_agent_shape"][:, None][all_valid]
-
-                noised_pos = tokenized_agent["sampled_pos"]
-                noised_heading = tokenized_agent["sampled_heading"]
-
-                pos_local, heading_local = transform_to_local(pos.reshape(-1, 1, 2), heading.reshape(-1, 1),
-                                                              noised_pos.reshape(-1, 2), noised_heading.reshape(-1))
-
-                pos_noise = pos_local.reshape(pos.shape)
-                heading_noise = heading_local.reshape(heading.shape)
-
-                noise_pred = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                                      tokenized_agent["goal_idx"],
-                                                                      tokenized_agent["valid_mask"],
-                                                                      noised_pos,
-                                                                      noised_heading,
-                                                                      tokenized_agent,
-                                                                      tokenized_agent["detach_map_feature"],
-                                                                      tokenized_agent["light_idx"],
-                                                                      None)[0]
-
-                pos_global, head_global = transform_to_global(noise_pred[:, :, :2].reshape(-1, 1, 2),
-                                                              noise_pred[:, :, 2].reshape(-1, 1),
-                                                              noised_pos[all_valid][:, 2:].reshape(-1, 2),
-                                                              noised_heading[all_valid][:, 2:].reshape(-1))
-
-                pred_pos = pos_global.reshape(noise_pred.shape[0], noise_pred.shape[1], 2)
-
-                pred_heading = head_global.reshape(noise_pred.shape[0], noise_pred.shape[1])
-
-                pred_contour = cal_polygon_contour(pred_pos, pred_heading, token_agent_shape)
-
-                real_contour = cal_polygon_contour(pos[all_valid][:, 2:], heading[all_valid][:, 2:], token_agent_shape)
-
-                noise_error = torch.linalg.norm(pred_contour - real_contour, dim=-1).mean()
-
-                real_noise = torch.cat([pos_noise, heading_noise[:, :, None]], dim=-1)[all_valid][:, 2:]
-
-                pos_error = torch.linalg.norm(noise_pred[:, :, :2] - real_noise[:, :, :2], dim=-1).mean()
-                heading_error = wrap_angle(noise_pred[:, :, 2] - real_noise[:, :, 2]).abs().mean()
-
-                self.log("train/expert_pos_loss", pos_error.item(), on_step=True, batch_size=1)
-                self.log("train/expert_heading_loss", heading_error.item(), on_step=True, batch_size=1)
-
             tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,
                                               self.validation_rollout_sampling)
 
-            agent_valid_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:]
-            # agent_train_mask = agent_valid_mask[:, 1:] & agent_valid_mask[:, :-1]
-
-            agent_state_mask =agent_valid_mask[:,:-1]
+            agent_state_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:-1]
 
             if self.use_kl_penalty:
                 with torch.no_grad():

@@ -32,7 +32,6 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 from src.smart.loss.iq_loss import padding
-from src.route_process import process_route
 
 class TokenProcessor(torch.nn.Module):
 
@@ -83,15 +82,15 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_route=False
 
-        self.noise=True
+        self.noise=False
 
         self.pred_map_token=False
 
-        self.use_goal=True
+        self.use_goal=False
 
         self.pred_exit=False
 
-        self.use_token=False
+        self.use_token=True
 
         self.use_time=False
 
@@ -162,6 +161,8 @@ class TokenProcessor(torch.nn.Module):
         #     token_mask[goal_mask[:,0],:2]=False
         #
         #     tokenized_agent['token_mask']=token_mask
+
+        tokenized_agent["abs_time"]=None
 
         if self.use_route and self.training:
             batch=tokenized_agent['batch']
@@ -504,7 +505,7 @@ class TokenProcessor(torch.nn.Module):
         for i in range(shift, n_step, shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - shift] & valid[:, i]  # [n_agent]
 
-            out_dict["token_mask"].append(_valid_mask)
+            out_dict["token_mask"].append(_valid_mask.clone())
 
             #! gt_contour: [n_agent, 4, 2] in global coord
             gt_contour = cal_polygon_contour(pos[:, i], heading[:, i], agent_shape)
