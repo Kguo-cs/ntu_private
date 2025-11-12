@@ -23,7 +23,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_val607_40 shanhelo@aspire
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird5_matchhead_head1/2025-11-10_16-57-41/bird/oowptamm/checkpoints/epoch=63-step=595200.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird1024_pred01_share_exit_gtNew/2025-11-04_12-42-07/bird/jjydnnxi/checkpoints/epoch=5-step=46500.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird6_head1_at1_clone/2025-11-11_18-32-01/bird/tmgjkis6/checkpoints/epoch=63-step=496000.ckpt ./
 
 
 

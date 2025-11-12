@@ -40,7 +40,7 @@ model:
 
       hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path : './ckpts/bird5_matchhead_head1_epoch=63-step=595200.ckpt'
+ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
 task_name: iq28_w01_lcf12_value1000_head1 #_rewardscaling #_minusmean #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
