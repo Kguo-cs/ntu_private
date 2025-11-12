@@ -393,6 +393,10 @@ class SMARTAgentDecoder(nn.Module):
         pred_traj_10hz = []
         pred_head_10hz = []
 
+        pred_mask =tokenized_agent["pred_mask"]
+
+        next_mask=mask[:, -1]
+
         if self.use_infogail or self.use_vae:
             if "latent_z" in tokenized_agent.keys():
                 latent_z = tokenized_agent["latent_z"]
@@ -470,7 +474,10 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     next_token_idx = torch.zeros_like(sampled_idx[:, -1])
                     if len(next_token_logits):
-                        next_token_idx[mask[:, -1]] = Categorical(logits=next_token_logits / self.alpha).sample()
+                        next_token_idx[next_mask] = Categorical(logits=next_token_logits / self.alpha).sample()
+
+                    if self.pred_exit and pred_mask is not None:
+                        next_token_idx[pred_mask & next_mask]=Categorical(logits=next_token_logits[pred_mask[next_mask],:-1] / self.alpha).sample()
 
                     #use_gt_exit
                     # gt_exit_mask= gt_valid[:, t-1] & ~gt_valid[:, t]
@@ -486,8 +493,8 @@ class SMARTAgentDecoder(nn.Module):
                     exit_mask=next_token_idx==token_traj_all.shape[1]
                     next_token_idx=torch.clip(next_token_idx,0,token_traj_all.shape[1]-1)
                 else:
-                    exit_mask = torch.zeros_like(mask[:, -1])
-                    exit_mask[mask[:, -1]]= Categorical(logits=exit_logit ).sample().to(torch.bool)
+                    exit_mask = torch.zeros_like(next_mask)
+                    exit_mask[next_mask]= Categorical(logits=exit_logit ).sample().to(torch.bool)
 
             if not self.pred_all_res:
                 next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
@@ -504,7 +511,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_traj=torch.cat([token_traj_global[:,:,0], token_traj_global_z], dim=-1)
 
-                _invalid_mask=~mask[:,-1] | exit_mask
+                _invalid_mask=~next_mask | exit_mask
 
                 pred_traj[_invalid_mask]=10000
 
@@ -591,13 +598,16 @@ class SMARTAgentDecoder(nn.Module):
                 pred_traj_10hz.append(pred_traj)
 
                 if self.token_processor.pred_exit:
-                    next_mask = (mask[:, -1] & ~exit_mask) | entry_agent_mask
+                    next_mask = (next_mask & ~exit_mask) | entry_agent_mask
                 else:
                     next_mask = gt_valid[:, t]
 
                 present_mask = present_mask | next_mask
             else:
-                next_mask = mask[:, -1]
+                if self.token_processor.pred_exit:
+                    next_mask = next_mask & ~exit_mask
+                else:
+                    next_mask = next_mask
 
             next_token_mask = mask[:, -1] & next_mask
 
@@ -606,7 +616,6 @@ class SMARTAgentDecoder(nn.Module):
             token_mask = torch.cat([token_mask, next_token_mask[:, None]], dim=1)
 
             abs_time = torch.cat([abs_time, abs_time[:, -1:] + self.shift], dim=1)
-
 
             pos_a_next=pos_a_next.masked_fill(~next_mask.unsqueeze(1), 0)
             head_a_next=head_a_next.masked_fill(~next_mask, 0)

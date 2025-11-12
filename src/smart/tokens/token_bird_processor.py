@@ -170,7 +170,7 @@ class TokenProcessor(torch.nn.Module):
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
-        tokenized_agent["pred_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
+        tokenized_agent["pred_mask"]=None
 
         #gt_valid= data["agent"]["valid_mask"][:,6 :][:,4::5]
 

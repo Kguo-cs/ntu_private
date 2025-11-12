@@ -90,6 +90,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_exit=False
 
+        if self.pred_exit:
+            self.n_token_agent+=1
+
         self.use_token=True
 
         self.use_time=False
@@ -216,6 +219,12 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["goal_mask"]=None
 
         tokenized_agent['type']=tokenized_agent['type'].long()
+
+        if self.pred_exit:
+            valid_mask=tokenized_agent["valid_mask"]
+            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
+            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
+            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
         return tokenized_map, tokenized_agent
 
@@ -404,6 +413,10 @@ class TokenProcessor(torch.nn.Module):
                 valid, pos, heading, vel
             )
 
+        role_mask = data["agent"]["role"]
+
+        pred_mask = role_mask[:, 0] | role_mask[:, 2]
+
         # ! prepare output dict
         tokenized_agent = {
             "num_graphs": data.num_graphs,
@@ -422,6 +435,7 @@ class TokenProcessor(torch.nn.Module):
             "pred_head_10hz": heading,
             "all_valid": valid,
             "id": data["agent"]["id"],
+            "pred_mask":pred_mask,
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:

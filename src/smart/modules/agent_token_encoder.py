@@ -99,22 +99,23 @@ class AgentTokenEncoder(nn.Module):
         _device = pos_a.device
 
         if not self.discriminator:
+            agent_token_emb = torch.zeros(
+                (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
+            )
+
             if self.use_type:
-                veh_mask = agent_type == 0
-                ped_mask = agent_type == 1
-                cyc_mask = agent_type ==2
+                veh_mask = (agent_type == 0)[:,None] & token_mask
+                ped_mask = (agent_type == 1)[:,None] & token_mask
+                cyc_mask = (agent_type == 2)[:,None] & token_mask
                 #  [n_token, hidden_dim]
                 agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                 agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
                 agent_token_emb_cyc = self.token_emb_cyc(self.token_processor.trajectory_token_cyc)
-                agent_token_emb = torch.zeros(
-                    (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
-                )
                 agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
                 agent_token_emb[ped_mask] = agent_token_emb_ped[agent_token_index[ped_mask]]
                 agent_token_emb[cyc_mask] = agent_token_emb_cyc[agent_token_index[cyc_mask]]
             else:
-                agent_token_emb = self.embedding(agent_token_index)
+                agent_token_emb[token_mask] = self.embedding(agent_token_index[token_mask])
 
         else:
             agent_token_emb = None
@@ -162,8 +163,6 @@ class AgentTokenEncoder(nn.Module):
 
         if self.token_processor.use_token:
             feature_a[~token_mask]=0
-            if not self.discriminator:
-                agent_token_emb[~token_mask]=0
 
         if self.use_goal:
             if goal_pos is not None:
