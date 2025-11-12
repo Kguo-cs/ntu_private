@@ -36,7 +36,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.00002
-  max_epochs: 32
+  max_epochs: 64
   #gradient_clip_val: 0.0
 
 model_checkpoint:
@@ -46,7 +46,7 @@ model_checkpoint:
   monitor: "val_closed/wosac_likelihood/metametric"   # <== key metric from validation
   verbose: false
   save_last: true
-  save_top_k: 8
+  save_top_k: 3
   mode: "max"                          # "max" since your metric increases with performance
   auto_insert_metric_name: false
   save_weights_only: false
