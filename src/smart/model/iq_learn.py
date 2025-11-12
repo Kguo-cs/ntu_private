@@ -114,10 +114,10 @@ class IQ_SoftQ(LightningModule):
         if self.use_ce:
             self.training_loss = CrossEntropy(**model_config.training_loss)
 
-    def on_after_backward(self):
-        for name, param in self.named_parameters():
-            if param.grad is None:
-                print(f"Unused parameter: {name}")
+    # def on_after_backward(self):
+    #     for name, param in self.named_parameters():
+    #         if param.grad is None:
+    #             print(f"Unused parameter: {name}")
 
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
@@ -256,9 +256,6 @@ class IQ_SoftQ(LightningModule):
                                                             None,
                                                             abs_time=tokenized_agent["abs_time"]  )
 
-        logit = disc_out[0]
-        if not self.encoder.discriminator.interative_decoder.diff_dicriminator:
-            disc_val = torch.sigmoid(logit[..., 0])
 
         if key == "agent" and self.use_kl_penalty:
             with torch.no_grad():
@@ -283,21 +280,32 @@ class IQ_SoftQ(LightningModule):
         else:
             kl_per_token = 0
 
-        ego_rewards, nei_rewards = disc_out[2]  # .detach()
-        ego_num = len(ego_rewards)
+        ego_logits, interact_logits = disc_out[0]
+
+        ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
         weight = disc_out[3]
 
         rewards = ego_rewards + nei_rewards + kl_per_token
 
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_rewards_std", ego_rewards.std().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_all_rewards_std", rewards.std().item(), on_step=True, batch_size=1)
 
 
-        if key == "agent" and self.dis_loss == 'rpgan':
-            rewards = -torch.log(torch.sigmoid(logit[:, :, 0] - expert_dis_logit)).detach()
+        mask_s = tokenized_agent["valid_mask"]
+
+        after_any= torch.cumsum(mask_s, dim=1)[:, 1 + self.start_step:]
+
+        mask_s=mask_s[:, 1 + self.start_step:]
+
+        exit_mask = ~mask_s & (after_any >0) # True only at the last True before all False
+        present_mask = (exit_mask | mask_s).transpose(0,1).flatten(0,1)
+
+        self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.transpose(0,1).flatten(0,1)].mean().item(), on_step=True, batch_size=1)
+
+        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_mask].mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
 
         if key=="agent":
             #self.ego_return_meanstd.update(ego_rewards.reshape(-1))
@@ -306,8 +314,6 @@ class IQ_SoftQ(LightningModule):
 
             #ego_rewards=ego_rewards-ego_rewards.mean()
             #ego_rewards=ego_rewards/ego_rewards.std()
-            mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:]#.transpose(0, 1)
-
             ego_rewards=ego_rewards.reshape(mask_s.shape[1],mask_s.shape[0]).transpose(0, 1)
 
             # mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
@@ -363,24 +369,23 @@ class IQ_SoftQ(LightningModule):
                 bce_loss = logit[:, :,
                            0].mean()  # self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
         else:
-            ego_dis_eval = disc_val[:ego_num]
-            other_disc_val = disc_val[ego_num:]
-
             if key == "expert":
                 target=1
             else:
                 target=0
 
-            bce_loss = F.binary_cross_entropy(ego_dis_eval, torch.zeros_like(ego_dis_eval)+target, weight=None,
-                                              reduction='mean')
-            if len(other_disc_val) > 0:
 
-                bce_loss = bce_loss + F.binary_cross_entropy(other_disc_val, torch.zeros_like(other_disc_val) + target,
+            ego_logits=ego_logits[present_mask]
+
+            bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
+                                              reduction='mean')
+            if len(interact_logits) > 0:
+
+                bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                              weight=weight, reduction='mean') #/ego_num
 
-        self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
 
-        return bce_loss, ego_rewards, nei_rewards, disc_val, 0  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+        return bce_loss, ego_rewards, nei_rewards  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
@@ -427,8 +432,7 @@ class IQ_SoftQ(LightningModule):
             train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
 
             if self.use_gail and not self.use_distance:
-                expert_dis_loss, expert_rewards, expert_returns, expert_dis_feat, expert_gp = self.get_reward(
-                    tokenized_agent, None, None, "expert", train_mask)
+                expert_dis_loss, expert_rewards, expert_returns = self.get_reward(tokenized_agent, None, None, "expert", train_mask)
                 if self.encoder.pred_col:
                     col_loss = self.get_collision_loss(tokenized_agent, tokenized_map, expert_dis_feat, None, all_valid,
                                                        'expert')
@@ -457,7 +461,7 @@ class IQ_SoftQ(LightningModule):
             if self.use_gail:
                 if self.buffer_len > 1:
                     with torch.no_grad():
-                        agent_dis_loss, agent_rewards, agent_returns, agent_disc_feat, agent_gp = self.get_reward(
+                        agent_dis_loss, agent_rewards, agent_returns = self.get_reward(
                             tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None, target_q=target_q,
                             expert_dis_logit=expert_dis_loss)
 
@@ -475,15 +479,15 @@ class IQ_SoftQ(LightningModule):
                     agent_dis_loss, _, _, _ = self.get_reward(
                         old_rollout, None, None, "agent", None)
                 else:
-                    agent_dis_loss, agent_rewards, nei_rewards, agent_disc_feat, agent_gp = self.get_reward(
+                    agent_dis_loss, agent_rewards, nei_rewards = self.get_reward(
                         tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None, target_q=target_q,
                         expert_dis_logit=expert_dis_loss)
 
                 if self.dis_loss == 'rpgan':
                     critic_loss = -torch.log(
-                        torch.sigmoid(expert_dis_loss - agent_dis_loss)).mean() + expert_gp + agent_gp
+                        torch.sigmoid(expert_dis_loss - agent_dis_loss)).mean() #+ expert_gp + agent_gp
                 else:
-                    critic_loss = expert_dis_loss + agent_dis_loss + expert_gp + agent_gp
+                    critic_loss = expert_dis_loss + agent_dis_loss #+ expert_gp + agent_gp
 
                 if self.encoder.pred_col:
                     col_loss = self.get_collision_loss(tokenized_agent_rollout, tokenized_map, agent_disc_feat, None,

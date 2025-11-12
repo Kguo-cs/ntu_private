@@ -356,11 +356,15 @@ class InterativeDecoder(nn.Module):
             if self.use_edge_feature:
                 weight=torch.ones_like(dist)*0.1 #torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
 
-                interact_logits_sum=torch.zeros_like(next_token_logits[:,0])
+                interact_reward=torch.zeros_like(next_token_logits[:,0])
 
-                interact_logits_sum[mask_ta_flatten] = scatter_sum(interact_logits[:,0] * weight, end_index, dim=0,  dim_size=valid_number)
+                valid_interact_reward=scatter_sum(interact_logits[:,0].detach() * weight, end_index, dim=0,  dim_size=valid_number)
 
-                ego_rewards = next_token_logits[:,0] + interact_logits_sum
+                interact_reward[mask_ta_flatten] = valid_interact_reward
+
+                valid_ego_reward=next_token_logits[:,0].detach()
+
+                ego_rewards = valid_ego_reward + interact_reward
 
                 if self.use_full_feature:
                     next_token_logits=torch.cat([next_token_logits, all_logits, interact_logits], dim=0)
@@ -371,17 +375,17 @@ class InterativeDecoder(nn.Module):
 
                     weight=torch.cat([all_weight,weight], dim=0)
                 else:
-                    next_token_logits = torch.cat([next_token_logits, interact_logits], dim=0)
+                    next_token_logits = (next_token_logits[:,0], interact_logits[:,0])
 
-                weight2=torch.ones_like(dist) #torch.exp(-dist/self.dis_decay)*self.dis_weight
+                weight2=weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
 
                 weighted_nei_reward=ego_rewards[mask_ta_flatten][start_index]*weight2
 
-                nei_sum_rewards=torch.zeros_like(ego_rewards)
+                nei_rewards=torch.zeros_like(ego_rewards)
 
-                nei_sum_rewards[mask_ta_flatten] = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)   #the source
+                nei_rewards[mask_ta_flatten] = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)   #the source
 
-                rewards=(ego_rewards.detach(),nei_sum_rewards.detach())
+                rewards=(ego_rewards,nei_rewards,valid_ego_reward,valid_interact_reward)
 
             elif self.use_counterfactual:
 

@@ -506,20 +506,26 @@ class SMARTAgentDecoder(nn.Module):
                 head_now=head_a[:, -1],  # [n_agent]
             )[0].view(*next_token_traj_all.shape[:-1],2)
 
+
             if self.token_processor.use_bird:
                 token_traj_global_z=next_token_traj_all[:,:,0,2:]+pos_a[:, -1:,2:]
 
                 pred_traj=torch.cat([token_traj_global[:,:,0], token_traj_global_z], dim=-1)
 
-                _invalid_mask=~next_mask | exit_mask
+                _invalid_mask = ~next_mask | exit_mask
 
-                pred_traj[_invalid_mask]=10000
+                pred_traj[_invalid_mask] = 10000
 
                 pos_a_next   = pred_traj[:,-1]
                 diff_xy_next = pred_traj[:, -1, :2] - pred_traj[:, -2, :2]
             else:
                 if "gt_z_raw" in tokenized_agent.keys():
                     pred_traj = token_traj_global[:, :].mean(2)
+
+                    if self.pred_exit:
+                        _invalid_mask = ~next_mask | exit_mask
+                        pred_traj[_invalid_mask] = 10000
+
                     pred_traj_10hz.append(pred_traj)
                     diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
                     pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
