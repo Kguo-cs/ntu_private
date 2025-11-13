@@ -150,15 +150,14 @@ class EdgeEncoder(nn.Module):
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
 
-        N_total = n_step * n_agent  # total nodes in transposed ordering
-
-        kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
-        self.map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
-        self.map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
-
         if not self.discriminator:
+            N_total = n_step * n_agent  # total nodes in transposed ordering
 
-            edge_index_t = self.map_to_compact[edge_index_t]
+            kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
+            map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
+            map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
+
+            edge_index_t = map_to_compact[edge_index_t]
 
         return edge_index_t, r_t
 
@@ -363,7 +362,7 @@ class EdgeEncoder(nn.Module):
 
         pos_s=pos_a[mask]
         head_s=head_a[mask]
-        head_vector_s=head_a[mask]
+        head_vector_s=head_vector_a[mask]
         batch_s=batch_s[mask]
 
         edge_index_pl2a = radiusGraphNearest2(x=pos_s,
@@ -458,24 +457,26 @@ class EdgeEncoder(nn.Module):
         r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
-        N_total = n_agent * n_step
 
-        # 1) Kept global indices in both orderings
-        flat_mask_agent = mask.flatten(0, 1)  # agent-major
-        flat_mask_time = mask.transpose(0, 1).flatten(0, 1)  # time-major
+        if n_step>1:
+            N_total = n_agent * n_step
 
-        kept_agent = torch.nonzero(flat_mask_agent, as_tuple=False).squeeze(1)  # [M], global idx
-        kept_time = torch.nonzero(flat_mask_time, as_tuple=False).squeeze(1)  # [M], global idx
+            # 1) Kept global indices in both orderings
+            flat_mask_agent = mask.flatten(0, 1)  # agent-major
+            flat_mask_time = mask.transpose(0, 1).flatten(0, 1)  # time-major
 
-        map_global_to_compact_time = torch.full((N_total,), -1, dtype=torch.long, device=mask.device)
-        map_global_to_compact_time[kept_time] = torch.arange(kept_time.numel(), device=mask.device)
+            kept_agent = torch.nonzero(flat_mask_agent, as_tuple=False).squeeze(1)  # [M], global idx
+            kept_time = torch.nonzero(flat_mask_time, as_tuple=False).squeeze(1)  # [M], global idx
 
-        # 3) Convert compact agent-major indices -> global -> compact time-major indices
-        dst_compact_agent = edge_index_pl2a[1]  # indices into pos_a[mask]
-        dst_global = kept_agent[dst_compact_agent]  # global flattened indices
+            map_global_to_compact_time = torch.full((N_total,), -1, dtype=torch.long, device=mask.device)
+            map_global_to_compact_time[kept_time] = torch.arange(kept_time.numel(), device=mask.device)
 
-        dst_global=(dst_global % n_step) * n_agent + dst_global // n_step
+            # 3) Convert compact agent-major indices -> global -> compact time-major indices
+            dst_compact_agent = edge_index_pl2a[1]  # indices into pos_a[mask]
+            dst_global = kept_agent[dst_compact_agent]  # global flattened indices
 
-        edge_index_pl2a[1] = map_global_to_compact_time[dst_global]  # indices into time-major masked array
+            dst_global=(dst_global % n_step) * n_agent + dst_global // n_step
+
+            edge_index_pl2a[1] = map_global_to_compact_time[dst_global]  # indices into time-major masked array
 
         return edge_index_pl2a, r_pl2a
