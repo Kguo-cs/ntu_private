@@ -110,7 +110,7 @@ class AgentTokenEncoder(nn.Module):
                     veh_mask=veh_mask[:,None] & token_mask
                     ped_mask=ped_mask[:,None] & token_mask
                     cyc_mask=cyc_mask[:,None] & token_mask
-                #  [n_token, hidden_dim]
+
                 agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                 agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
                 agent_token_emb_cyc = self.token_emb_cyc(self.token_processor.trajectory_token_cyc)
