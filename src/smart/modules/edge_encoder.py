@@ -143,10 +143,10 @@ class EdgeEncoder(nn.Module):
         edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
 
         if self.discriminator:
-            dst_mask=flat_mask[edge_index_t[1]] #src,dst
+            dst_invalid_mask=~flat_mask[edge_index_t[1]] #src,dst
 
-            r_t[dst_mask,:3]=-1
-            r_t[dst_mask,-1]=-1
+            r_t[dst_invalid_mask,:3]=-1 #dst not exist
+            r_t[dst_invalid_mask,-1]=-1 #dst not exist
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
 

@@ -295,13 +295,13 @@ class IQ_SoftQ(LightningModule):
 
         mask_s = tokenized_agent["valid_mask"]
 
-        #after_any= torch.cumsum(mask_s, dim=1)[:, 1 + self.start_step:]
+        after_any= torch.cumsum(mask_s, dim=1)[:, 1 + self.start_step:]
 
-        exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
+        #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
 
         mask_s=mask_s[:, 1 + self.start_step:]
 
-        #exit_mask = ~mask_s & (after_any >0)
+        exit_mask = ~mask_s & (after_any >0)
         present_mask = (exit_mask | mask_s).transpose(0,1).flatten(0,1)
 
         ego_rewards[~present_mask]=0
