@@ -180,28 +180,14 @@ class SMARTAgentDecoder(nn.Module):
         self.discriminator=discriminator
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx,token_mask, mask ,pos_a,head_a,tokenized_agent, map_feature,light_idx,mask_lg, n_current=0,latent_z=None,abs_time=None):
-
-        #pos_a=torch.round(pos_a*10)/10
-        #head_a=torch.round(head_a*10)/10
+    def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0,latent_z=None,abs_time=None):
 
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-        # if self.discriminator:
-        #     feat_a_token=tokenized_agent["feat_a_token"]
-        #     agent_token_emb=tokenized_agent["agent_token_emb"]
-        # else:
-        # ! get agent token embeddings
-        if "mean_speed" in tokenized_agent.keys():
-            mean_speed = tokenized_agent["mean_speed"]
-        else:
-            mean_speed = None
-
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
-            mean_speed=mean_speed,
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             agent_type=tokenized_agent["type"],  # [n_agent]
@@ -213,24 +199,15 @@ class SMARTAgentDecoder(nn.Module):
             abs_time=abs_time,
         )  # feat_a: [n_agent, n_step, hidden_dim]
 
-        pos_a = pos_a[:, -n_step:]
+        if n_step==1:
+            pos_a = pos_a[:, -n_step:]
 
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
             feat_a_token=feat_a_token+latent_embedding
 
         # feat_a_t, head_vector_a=self.temporal_embed(feat_a_token, pos_a, head_a,head_vector_a,n_agent, n_step, n_current, mask)
-        feat_a_t=feat_a_token
 
-        if self.training or self.discriminator or self.target_net:
-            n_step=n_step-self.start_step
-            pos_a=pos_a[:,-n_step:]
-            head_a=head_a[:,-n_step:]
-            head_vector_a=head_vector_a[:,-n_step:]
-            feat_a_t=feat_a_t[:,-n_step:]
-            feat_a_token=feat_a_token[:,-n_step:]
-
-        mask_a=mask[:,-n_step:]
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
 
@@ -239,40 +216,9 @@ class SMARTAgentDecoder(nn.Module):
         else:
             train_mask=None
 
-        if n_step>1:
-            batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step - 1).reshape(-1,n_agent).transpose(
-                0, 1)
+        batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(0, 1)
 
-            all_features=[]
-            next_all_features=[]
-            for feature in [feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat]:
-                all_features.append(feature[:, :-1])
-                next_all_features.append(feature[:, 1:])  # .clone()[:,1:]
-
-            next_all_features.append(batch_s)
-            all_features.append(batch_s)
-
-            if self.discriminator:
-                if self.interative_decoder.reward_shaping:
-                    batch_s = build_batch(batch_a, tokenized_agent["num_graphs"],n_step).reshape(-1, n_agent).transpose(
-                        0, 1)
-
-                    all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,agent_token_emb[:,2:],sampled_idx[:,2:]]
-                elif self.interative_decoder.state_action:
-                    all_features.extend([agent_token_emb[:, 2:], sampled_idx[:, 2:]])
-                else:
-                    all_features=next_all_features
-                    all_features.extend([None,None])
-            else:
-                if not (self.training or self.target_net):
-                    all_features=next_all_features
-
-                all_features.extend([agent_token_emb[:,2:],sampled_idx[:,2:]])
-        else:
-            batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(
-                0, 1)
-
-            all_features=[feat_a_t,feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s,None,None]
+        all_features=[feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
 
         next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,n_current)
 
@@ -332,15 +278,13 @@ class SMARTAgentDecoder(nn.Module):
         else:
             tokenized_agent["latent_z"]=None
 
-        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,exit_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],
-                                                                                tokenized_agent["token_mask"],
-                                                                                tokenized_agent["valid_mask"],
-                                                                                tokenized_agent["sampled_pos"],
-                                                                                tokenized_agent["sampled_heading"] ,
+        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,exit_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
+                                                                                tokenized_agent["token_mask"][:,:-1],
+                                                                                tokenized_agent["valid_mask"][:,:-1],
+                                                                                tokenized_agent["sampled_pos"][:,:-1],
+                                                                                tokenized_agent["sampled_heading"][:,:-1] ,
                                                                                 tokenized_agent,
                                                                                 map_feature,
-                                                                                light_idx,
-                                                                                mask_lg,
                                                                                 latent_z=tokenized_agent["latent_z"],
                                                                                 abs_time=tokenized_agent["abs_time"]
                                                                                                      )
@@ -443,9 +387,6 @@ class SMARTAgentDecoder(nn.Module):
                         self.interative_decoder.mask_cache = self.interative_decoder.mask_cache[:, :current_step]
                         self.interative_decoder.head_vector_cache = self.interative_decoder.head_vector_cache[:, :current_step]
                         self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[ :current_step]
-
-                    # self.a_t_roformer.attn.cached_k=self.a_t_roformer.attn.cached_k[current_mask][keep_mask]
-                    # self.a_t_roformer.attn.cached_v=self.a_t_roformer.attn.cached_v[current_mask][keep_mask]
                 else:
                     if self.use_roformer:
                         self.a_t_roformer.attn.caching=True
@@ -453,14 +394,13 @@ class SMARTAgentDecoder(nn.Module):
                             self.light_encoder.lg_t_roformer.attn.caching=True
 
                     next_token_logits,next_light_logits,_,_,entry_logit,exit_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,light_idx,mask_lg,0,latent_z,abs_time)
+                                                                head_a,tokenized_agent, map_feature,0,latent_z,abs_time)
 
 
             else:
                 next_token_logits, next_light_logits, _, _, entry_logit,exit_logit, feat_a = self.predict_agent(
-                    sampled_idx[:, -1:], token_mask[:, -1:], mask[:, - self.agent_hist:],
-                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, light_idx[:, -1:],
-                    mask_lg[:, -self.light_hist:], t - 1, latent_z,abs_time[:, -1:])
+                    sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
+                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, t - 1, latent_z,abs_time[:, -1:])
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]

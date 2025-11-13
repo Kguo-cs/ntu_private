@@ -83,7 +83,6 @@ class AgentTokenEncoder(nn.Module):
             # trajectory_token_veh,  # [n_token, 8]
             # trajectory_token_ped,  # [n_token, 8]
             # trajectory_token_cyc,  # [n_token, 8]
-            mean_speed,
             pos_a,  # [n_agent, n_step, 2]
             head_vector_a,  # [n_agent, n_step, 2]
             agent_type,  # [n_agent]
