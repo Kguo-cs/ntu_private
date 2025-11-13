@@ -104,9 +104,13 @@ class AgentTokenEncoder(nn.Module):
             )
 
             if self.use_type:
-                veh_mask = (agent_type == 0)[:,None] & token_mask
-                ped_mask = (agent_type == 1)[:,None] & token_mask
-                cyc_mask = (agent_type == 2)[:,None] & token_mask
+                veh_mask =agent_type == 0
+                ped_mask = agent_type == 1
+                cyc_mask = agent_type == 2
+                if self.token_processor.use_token:
+                    veh_mask=veh_mask[:,None] & token_mask
+                    ped_mask=ped_mask[:,None] & token_mask
+                    cyc_mask=cyc_mask[:,None] & token_mask
                 #  [n_token, hidden_dim]
                 agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                 agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
