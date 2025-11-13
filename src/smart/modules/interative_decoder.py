@@ -178,6 +178,9 @@ class InterativeDecoder(nn.Module):
 
         self.start_step=self.num_historical_steps//self.shift-1
 
+        # if self.discriminator:
+        #     self.start_step=self.start_step+1
+
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
         self.pt2a_neighbor = pt2a_neighbor
@@ -321,7 +324,7 @@ class InterativeDecoder(nn.Module):
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        if  self.discriminator or self.token_processor.use_bird:
+        if self.discriminator or self.token_processor.use_bird:
             feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
             feat_a_t[mask_ta] = feat_a
@@ -433,9 +436,13 @@ class InterativeDecoder(nn.Module):
             self.head_cache = head_a
             self.mask_cache = mask_a
             self.head_vector_cache = head_vector_a
-            inference_mask = self.mask_cache.clone()
 
-            inference_mask[:, :self.start_step] = False
+            if self.discriminator:
+                inference_mask = torch.ones_like(self.mask_cache)
+            else:
+                inference_mask = self.mask_cache.clone()
+
+                inference_mask[:, :self.start_step] = False
         else:
             self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
             self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]

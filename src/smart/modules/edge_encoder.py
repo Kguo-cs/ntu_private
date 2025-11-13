@@ -109,9 +109,6 @@ class EdgeEncoder(nn.Module):
             ).bool()
             mask = mask & _mask_keep
 
-        if self.discriminator:
-            inference_mask=torch.ones_like(mask)
-
         if inference_mask is not None:
             mask_t = mask.unsqueeze(2) & inference_mask.unsqueeze(1)
         else:

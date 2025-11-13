@@ -245,6 +245,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self, tokenized_agent, agent_log_prob, agent_pi, key, train_mask=None, expert_disc_val=0,
                    target_q=None, expert_dis_logit=None):
+
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
                                                             tokenized_agent["valid_mask"],
@@ -252,8 +253,6 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent["sampled_heading"],
                                                             tokenized_agent,
                                                             tokenized_agent["detach_map_feature"],
-                                                            [],
-                                                            None,
                                                             abs_time=tokenized_agent["abs_time"]  )
 
 
@@ -295,11 +294,11 @@ class IQ_SoftQ(LightningModule):
 
         mask_s = tokenized_agent["valid_mask"]
 
-        after_any= torch.cumsum(mask_s, dim=1)[:, 1 + self.start_step:]
+        after_any= torch.cumsum(mask_s, dim=1)[:, self.start_step:]
 
         #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
 
-        mask_s=mask_s[:, 1 + self.start_step:]
+        mask_s=mask_s[:,  self.start_step:]
 
         exit_mask = ~mask_s & (after_any >0)
         present_mask = (exit_mask | mask_s).transpose(0,1).flatten(0,1)
@@ -317,7 +316,7 @@ class IQ_SoftQ(LightningModule):
 
             #ego_rewards=ego_rewards-ego_rewards.mean()
             #ego_rewards=ego_rewards/ego_rewards.std()
-            ego_rewards=ego_rewards.reshape(mask_s.shape[1],mask_s.shape[0]).transpose(0, 1)
+            ego_rewards=ego_rewards.reshape(mask_s.shape[1],mask_s.shape[0]).transpose(0, 1)[:,1:]
 
             # mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
             # batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
@@ -330,7 +329,7 @@ class IQ_SoftQ(LightningModule):
                 #nei_rewards = (nei_rewards - nei_rewards.mean()) / nei_rewards.std()  #
                 #nei_rewards=nei_rewards-nei_rewards.mean()
                 #nei_rewards=nei_rewards/nei_rewards.std()
-               nei_rewards = nei_rewards.reshape(mask_s.shape[1], mask_s.shape[0]).transpose(0, 1)
+               nei_rewards = nei_rewards.reshape(mask_s.shape[1], mask_s.shape[0]).transpose(0, 1)[:,1:]
 
                # batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)#+nei_rewards.mean()
                 # batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
@@ -385,7 +384,6 @@ class IQ_SoftQ(LightningModule):
 
                 bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                              weight=weight, reduction='mean') #/ego_num
-
 
         return bce_loss, ego_rewards, nei_rewards  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
 

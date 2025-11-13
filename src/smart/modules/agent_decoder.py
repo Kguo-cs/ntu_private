@@ -286,7 +286,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 tokenized_agent,
                                                                                 map_feature,
                                                                                 latent_z=tokenized_agent["latent_z"],
-                                                                                abs_time=tokenized_agent["abs_time"]
+                                                                                abs_time=tokenized_agent["abs_time"][:,:-1]
                                                                                                      )
 
         tokenized_agent["next_token_logits"] = next_token_logits
@@ -386,7 +386,7 @@ class SMARTAgentDecoder(nn.Module):
                         self.interative_decoder.head_cache = self.interative_decoder.head_cache[:, :current_step]
                         self.interative_decoder.mask_cache = self.interative_decoder.mask_cache[:, :current_step]
                         self.interative_decoder.head_vector_cache = self.interative_decoder.head_vector_cache[:, :current_step]
-                        self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:, :current_step]
+                        self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:current_step]
                 else:
                     if self.use_roformer:
                         self.a_t_roformer.attn.caching=True
