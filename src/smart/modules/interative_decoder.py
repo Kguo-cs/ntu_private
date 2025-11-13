@@ -223,6 +223,25 @@ class InterativeDecoder(nn.Module):
         mask_ta=mask_a.transpose(0, 1)
         mask_ta_flatten=mask_ta.flatten(0,1)
 
+        if not self.discriminator:
+            feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
+
+            feat_a_t[mask_ta] = feat_a
+
+            if n_current == 0:
+                self.feat_a_cache = feat_a_t
+            else:
+                self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
+
+                feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
+
+            for i in range(self.t_num_layers):
+                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+
+            if n_current != 0:
+                current_len = mask_a.sum()
+                feat_a = feat_a[-current_len:]
+
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
 
@@ -302,26 +321,17 @@ class InterativeDecoder(nn.Module):
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
-
-        feat_a_t[mask_ta] = feat_a
 
         if self.discriminator:
-            feat_a=feat_a_t.flatten(0,1)
-        else:
-            if n_current == 0:
-                self.feat_a_cache =feat_a_t
-            else:
-                self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[ -self.agent_hist:] #t,a
 
-                feat_a=self.feat_a_cache[self.mask_cache.transpose(0,1)]
+            feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
-        for i in range(self.t_num_layers):
-            feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+            feat_a_t[mask_ta] = feat_a
 
-        if n_current != 0:
-            current_len = mask_a.sum()
-            feat_a = feat_a[-current_len:]
+            feat_a = feat_a_t.flatten(0, 1)
+
+            for i in range(self.t_num_layers):
+                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
         if not (self.use_edge_feature and self.discriminator) and (self.num_layers>1 and train_mask is not None):
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
