@@ -30,7 +30,7 @@ model:
 
 #ckpt_path : '~/keguo/sim/src/logs/bc56_pt30_tokenmask_exit/2025-11-12_18-49-46/bc/edxixi2u/checkpoints/epoch=1-step=17394.ckpt'
 
-task_name: bc40_tap30_token #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc40_tap30_tokenexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
