@@ -386,7 +386,7 @@ class SMARTAgentDecoder(nn.Module):
                         self.interative_decoder.head_cache = self.interative_decoder.head_cache[:, :current_step]
                         self.interative_decoder.mask_cache = self.interative_decoder.mask_cache[:, :current_step]
                         self.interative_decoder.head_vector_cache = self.interative_decoder.head_vector_cache[:, :current_step]
-                        self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[ :current_step]
+                        self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:, :current_step]
                 else:
                     if self.use_roformer:
                         self.a_t_roformer.attn.caching=True
