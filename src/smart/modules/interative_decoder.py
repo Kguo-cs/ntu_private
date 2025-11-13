@@ -325,26 +325,26 @@ class InterativeDecoder(nn.Module):
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
-        if self.discriminator or self.token_processor.use_bird:
-            feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
+        #if self.discriminator or self.token_processor.use_bird:
+        feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
-            feat_a_t[mask_ta] = feat_a
+        feat_a_t[mask_ta] = feat_a
 
-            if self.discriminator:
-                feat_a=feat_a_t.flatten(0,1)
+        if self.discriminator:
+            feat_a=feat_a_t.flatten(0,1)
+        else:
+            if n_current == 0:
+                self.feat_a_cache = feat_a_t
             else:
-                if n_current == 0:
-                    self.feat_a_cache = feat_a_t
-                else:
-                    self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
+                self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
 
-                    feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
+                feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
 
-            for i in range(self.t_num_layers):
-                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+        for i in range(self.t_num_layers):
+            feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
-            current_len = inference_mask.sum()
-            feat_a = feat_a[-current_len:]
+        current_len = inference_mask.sum()
+        feat_a = feat_a[-current_len:]
 
         if not (self.use_edge_feature and self.discriminator) and (self.num_layers>1 and train_mask is not None):
             feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
@@ -461,27 +461,27 @@ class InterativeDecoder(nn.Module):
             inference_mask=inference_mask
         )
 
-        if not self.discriminator and not self.token_processor.use_bird:
-            if n_current == 0:
-                self.feat_a_cache = feat_a
-                feat_a=feat_a.flatten(0,1)
-            else:
-                self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a), dim=1)[:,-self.agent_hist:]  # t,a
-
-                feat_a = self.feat_a_cache[self.mask_cache]
-
-            for i in range(self.t_num_layers):
-                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-
-            # feat_a_t = torch.zeros_like(self.feat_a_cache)
-            #
-            # feat_a_t[self.mask_cache] = feat_a
-            feat_a_t=feat_a.reshape(n_agent,-1,self.hidden_dim)
-
-            all_features[0] = feat_a_t[:,-n_step:]
-
-            if n_step>1:
-                all_features=[feat[:,self.start_step:] for  feat in all_features]
+        # if not self.discriminator and not self.token_processor.use_bird:
+        #     if n_current == 0:
+        #         self.feat_a_cache = feat_a
+        #         feat_a=feat_a.flatten(0,1)
+        #     else:
+        #         self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a), dim=1)[:,-self.agent_hist:]  # t,a
+        #
+        #         feat_a = self.feat_a_cache[self.mask_cache]
+        #
+        #     for i in range(self.t_num_layers):
+        #         feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+        #
+        #     # feat_a_t = torch.zeros_like(self.feat_a_cache)
+        #     #
+        #     # feat_a_t[self.mask_cache] = feat_a
+        #     feat_a_t=feat_a.reshape(n_agent,-1,self.hidden_dim)
+        #
+        #     all_features[0] = feat_a_t[:,-n_step:]
+        #
+        #     if n_step>1:
+        #         all_features=[feat[:,self.start_step:] for  feat in all_features]
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
