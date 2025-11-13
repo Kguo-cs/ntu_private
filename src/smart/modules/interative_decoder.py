@@ -322,18 +322,6 @@ class InterativeDecoder(nn.Module):
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
 
 
-        if self.discriminator:
-
-            feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
-
-            feat_a_t[mask_ta] = feat_a
-
-            feat_a = feat_a_t.flatten(0, 1)
-
-            for i in range(self.t_num_layers):
-                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-
-
         if  self.discriminator or self.token_processor.use_bird:
             feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
