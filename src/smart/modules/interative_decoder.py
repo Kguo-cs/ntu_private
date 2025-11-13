@@ -181,6 +181,7 @@ class InterativeDecoder(nn.Module):
         # if self.discriminator:
         #     self.start_step=self.start_step+1
 
+
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
         self.pt2a_neighbor = pt2a_neighbor
@@ -428,8 +429,7 @@ class InterativeDecoder(nn.Module):
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
-        n_agent = mask_a.shape[0]
-        n_step = mask_a.shape[1]
+        n_agent,n_step = mask_a.shape
 
         if n_current==0:
             self.pos_cache = pos_a
@@ -464,17 +464,19 @@ class InterativeDecoder(nn.Module):
         if not self.discriminator and not self.token_processor.use_bird:
             if n_current == 0:
                 self.feat_a_cache = feat_a
+                feat_a=feat_a.flatten(0,1)
             else:
                 self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a), dim=1)[:,-self.agent_hist:]  # t,a
 
-            feat_a = self.feat_a_cache[self.mask_cache]
+                feat_a = self.feat_a_cache[self.mask_cache]
 
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
-            feat_a_t = torch.zeros_like(self.feat_a_cache)
-
-            feat_a_t[self.mask_cache] = feat_a
+            # feat_a_t = torch.zeros_like(self.feat_a_cache)
+            #
+            # feat_a_t[self.mask_cache] = feat_a
+            feat_a_t=feat_a.reshape(n_agent,-1,self.hidden_dim)
 
             all_features[0] = feat_a_t[:,-n_step:]
 

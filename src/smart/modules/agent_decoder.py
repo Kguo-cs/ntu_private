@@ -197,10 +197,9 @@ class SMARTAgentDecoder(nn.Module):
             goal_pos=tokenized_agent["goal_pos"],
             goal_mask=tokenized_agent["goal_mask"],
             abs_time=abs_time,
-        )  # feat_a: [n_agent, n_step, hidden_dim]
+        )
 
-        if n_step==1:
-            pos_a = pos_a[:, -n_step:]
+        pos_a = pos_a[:, -n_step:]
 
         if latent_z is not None:
             latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
@@ -311,48 +310,25 @@ class SMARTAgentDecoder(nn.Module):
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         gt_pos=tokenized_agent["sampled_pos"].clone()
         gt_head=tokenized_agent["sampled_heading"].clone()
+        abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
+        token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
+        token_traj_all = tokenized_agent["token_traj_all"]
+        batch = tokenized_agent['batch']
+        pred_mask =tokenized_agent["pred_mask"]
 
         sampled_idx=gt_sampled_idx[:, :current_step]
         mask = gt_valid[:, :current_step]
         pos_a = gt_pos[:, :current_step]
         head_a = gt_head[:, :current_step]
 
-        #token_traj=tokenized_agent["token_traj"]
-        token_traj_all = tokenized_agent["token_traj_all"]
-        light_idx = tokenized_agent["light_idx"][:, :current_step].clone()
-        batch = tokenized_agent['batch']
-
-        if self.token_processor.use_time:
-            abs_time=tokenized_agent["abs_time"][:, :current_step].clone()
-        else:
-            abs_time=gt_valid[:, :current_step]
-
-        mask_lg=light_idx<self.light_type
-
         n_agent = sampled_idx.shape[0]
 
         present_mask=mask.any(-1)
+        next_mask=mask[:, -1]
 
         pred_traj_10hz = []
         pred_head_10hz = []
-
-        pred_mask =tokenized_agent["pred_mask"]
-
-        next_mask=mask[:, -1]
-
-        if self.use_infogail or self.use_vae:
-            if "latent_z" in tokenized_agent.keys():
-                latent_z = tokenized_agent["latent_z"]
-            else:
-                latent_z1 = torch.randint(low=0, high=self.k1_dim, size=(max(batch) + 1, 1)).to(batch.device)
-                latent_z1 = latent_z1[batch] * self.k2_dim
-                latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch), 1), device=batch.device)
-
-                latent_z=latent_z1+latent_z
-        else:
-            latent_z=None
-
-        token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
+        latent_z=None
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -366,13 +342,10 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         exit_logit=None
 
-
                     if tokenized_agent["entry_logit"] is not None:
-
                         entry_logit=tokenized_agent["entry_logit"][:,:1]
                     else:
                         entry_logit=None
-
 
                     feat_a = tokenized_agent["feat_a"][:a_num]
 
@@ -392,17 +365,10 @@ class SMARTAgentDecoder(nn.Module):
                         else:
                             self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:, :current_step]
                 else:
-                    if self.use_roformer:
-                        self.a_t_roformer.attn.caching=True
-                        if self.pred_light and not self.light_encoder.share:
-                            self.light_encoder.lg_t_roformer.attn.caching=True
-
-                    next_token_logits,next_light_logits,_,_,entry_logit,exit_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
+                    next_token_logits,_,_,_,entry_logit,exit_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,0,latent_z,abs_time)
-
-
             else:
-                next_token_logits, next_light_logits, _, _, entry_logit,exit_logit, feat_a = self.predict_agent(
+                next_token_logits, _, _, _, entry_logit,exit_logit, feat_a = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, t - 1, latent_z,abs_time[:, -1:])
 
@@ -439,8 +405,7 @@ class SMARTAgentDecoder(nn.Module):
                     exit_mask = torch.zeros_like(next_mask)
                     exit_mask[next_mask]= Categorical(logits=exit_logit ).sample().to(torch.bool)
 
-            if not self.pred_all_res:
-                next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+            next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
 
             token_traj_global = transform_to_global(
                 pos_local=next_token_traj_all.flatten(1, 2)[...,:2],  # [n_agent, 6*4, 2]
@@ -572,13 +537,6 @@ class SMARTAgentDecoder(nn.Module):
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
-        if self.use_roformer:
-
-            self.a_t_roformer.attn.kv_caching(0)
-            if self.pred_light and not self.light_encoder.share:
-                self.light_encoder.lg_t_roformer.attn.kv_caching(0)
-
-
         out_dict = {
             "type": tokenized_agent["type"],
             "shape": tokenized_agent["shape"],
@@ -588,14 +546,10 @@ class SMARTAgentDecoder(nn.Module):
             "valid_mask": mask,  # [n_agent, 18]
             "token_mask":token_mask,
             "sampled_idx": sampled_idx,  # [n_agent, 18]
-            "gt_idx": sampled_idx,
-            "light_idx": light_idx,
-            "abs_time" :abs_time
         }
 
         if len(pred_traj_10hz):
             out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
-
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)

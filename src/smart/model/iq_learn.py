@@ -121,46 +121,9 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
-
-        pred = self.encoder(tokenized_map, tokenized_agent)  # ,post_sampling=(key=='expert')
-
-        if "proposal" in pred.keys():
-
-            proposal_loss, proposal_log_prob, pos_dist, head_diff = get_proposal_loss(pred["proposal"], tokenized_agent,
-                                                                                      self.start_step)
-            if key == "expert":
-                all_valid_mask = valid_mask.all(-1)
-
-                self.log("train/" + key + "_head_diff", head_diff[all_valid_mask].mean().item(), on_step=True,
-                         batch_size=1)
-                self.log("train/" + key + "_pos_dist", pos_dist[all_valid_mask].mean().item(), on_step=True,
-                         batch_size=1)
-                self.log("train/" + key + "_proposal_loss", proposal_loss.item(), on_step=True, batch_size=1)
-
-                if 'pos' in tokenized_agent.keys():
-                    sampled_pos = tokenized_agent['sampled_pos']
-                    sampled_heading = tokenized_agent['sampled_heading']
-
-                    gt_pos = tokenized_agent['pos']
-                    heading = tokenized_agent['heading']
-
-                    head_diff = wrap_angle(heading - sampled_heading).abs()
-                    pos_dist = torch.linalg.norm(gt_pos - sampled_pos, dim=-1)
-
-                    self.log("train/" + key + "_sample_head_diff", head_diff[all_valid_mask].mean().item(),
-                             on_step=True, batch_size=1)
-                    self.log("train/" + key + "_sample_pos_dist", pos_dist[all_valid_mask].mean().item(), on_step=True,
-                             batch_size=1)
-            else:
-                proposal_loss = 0
-        else:
-            proposal_loss = 0
-            proposal_log_prob = 0
-
         action = tokenized_agent["sampled_idx"][:, self.start_step + 1:]
 
-        if pred["agent_q"] is None:
-            return 0, 0, 0, 0, 0, proposal_loss, 0, 0
+        pred = self.encoder(tokenized_map, tokenized_agent)
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             train_mask = tokenized_agent["train_mask"]
@@ -241,7 +204,7 @@ class IQ_SoftQ(LightningModule):
 
             action_nll=0.1*entry_nll+0.1*entry_head_nll+action_nll
 
-        return pi, action_nll, proposal_loss, log_prob + proposal_log_prob, entropy
+        return pi, action_nll, 0, log_prob , entropy
 
     def get_reward(self, tokenized_agent, agent_log_prob, agent_pi, key, train_mask=None, expert_disc_val=0,
                    target_q=None, expert_dis_logit=None):

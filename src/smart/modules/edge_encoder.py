@@ -39,6 +39,7 @@ class EdgeEncoder(nn.Module):
             self.route_drop=nn.Dropout(p=0.5)
 
         share=share
+        self.use_bird=use_bird
 
         if not use_bird:
             input_dim_r_t = 4
@@ -135,19 +136,20 @@ class EdgeEncoder(nn.Module):
 
         r_t=torch.cat([r_t,rel_pos_t[:,2:]],dim=-1)
 
-        n_agent, n_step = mask.shape
+        if self.discriminator or self.use_bird:
+            n_agent, n_step = mask.shape
 
-        edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
+            edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
 
-        if self.discriminator:
-            dst_invalid_mask=~flat_mask[edge_index_t[1]] #src,dst
+            if self.discriminator:
+                dst_invalid_mask=~flat_mask[edge_index_t[1]] #src,dst
 
-            r_t[dst_invalid_mask,:3]=-1 #dst not exist
-            r_t[dst_invalid_mask,-1]=-1 #dst not exist
+                r_t[dst_invalid_mask,:3]=-1 #dst not exist
+                r_t[dst_invalid_mask,-1]=-1 #dst not exist
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
 
-        if not self.discriminator:
+        if self.use_bird and not self.discriminator:
             N_total = n_step * n_agent  # total nodes in transposed ordering
 
             kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
