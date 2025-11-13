@@ -93,7 +93,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.use_token=False
+        self.use_token=True
 
         self.use_time=False
 
