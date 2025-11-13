@@ -165,7 +165,7 @@ class TokenProcessor(torch.nn.Module):
         #
         #     tokenized_agent['token_mask']=token_mask
 
-        tokenized_agent["abs_time"]=None
+        tokenized_agent["abs_time"]=torch.zeros([0,18])
 
         if self.use_route and self.training:
             batch=tokenized_agent['batch']
