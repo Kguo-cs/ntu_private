@@ -842,10 +842,6 @@ class TokenProcessor(torch.nn.Module):
             if "light_type" in data.keys():
                 tokenized_map["light_type"] = map["light_type"]
 
-        #agent_type = agent["type"]
-
-        #agent_mask = agent_type < 3
-
         agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
             agent['type']#[agent_mask]
         )
@@ -913,14 +909,6 @@ class TokenProcessor(torch.nn.Module):
             if self.pred_last_res:
                 for key in ["target_global_traj","target_mask"]:
                     tokenized_agent[key] = agent[key]
-
-            # valid_mask = agent["valid_mask"]
-            #
-            # valid_mask[:,1:]=valid_mask[:,:-1] & valid_mask[:,1:]
-            #
-            # tokenized_agent['valid_mask']=valid_mask
-        if "route_map_index" in agent.keys():
-            tokenized_agent['route_map_index']=agent["route_map_index"]
 
         # pos = tokenized_agent["sampled_pos"]  # [N,T,2]
         # valid = tokenized_agent["valid_mask"]  # [N,T]

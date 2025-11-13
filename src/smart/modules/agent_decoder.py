@@ -227,7 +227,6 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=pos_a[:,-n_step:]
             head_a=head_a[:,-n_step:]
             head_vector_a=head_vector_a[:,-n_step:]
-            #agent_token_emb=agent_token_emb[:,-n_step:]
             feat_a_t=feat_a_t[:,-n_step:]
             feat_a_token=feat_a_token[:,-n_step:]
 
@@ -658,14 +657,6 @@ class SMARTAgentDecoder(nn.Module):
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
-        # pred_mask = (out_dict["pred_traj_10hz"]  != 10000).any(-1)
-        #
-        # pred_mask=pred_mask[:,4::5]
-        #
-        # gt_mask=tokenized_agent["valid_mask"][:, 1:]
-        #
-        # print(torch.all(pred_mask==gt_mask))
-        #
         return out_dict
 
     def inference(
@@ -688,23 +679,3 @@ class SMARTAgentDecoder(nn.Module):
         out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz,post_sampling)
 
         return out_dict
-
-# if len(next_light_logits):
-#
-#     next_light_idx = Categorical(logits=next_light_logits[:, -1] / self.alpha).sample()
-#
-#     light_idx = torch.cat([light_idx, next_light_idx[:, None]], dim=1)
-#
-# elif self.use_light:
-#     light_idx = tokenized_agent["light_idx"][:,t:t+1]
-
-
-# if self.pred_vis:
-#     vis=torch.rand_like(visibility[:,-1:,0])<torch.sigmoid(visibility[:,-1:,0])
-#     vis=vis_mask[:,-1:] & vis
-#     vis_mask=torch.cat([vis_mask,vis],dim=1)
-
-# if self.pred_goal:
-#     next_goal_idx=Categorical(logits=next_goal_logits[:, -1] / self.alpha).sample()
-#
-#     goal_idx = torch.cat([goal_idx, next_goal_idx[:, None]], dim=1)
