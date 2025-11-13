@@ -223,24 +223,24 @@ class InterativeDecoder(nn.Module):
         mask_ta=mask_a.transpose(0, 1)
         mask_ta_flatten=mask_ta.flatten(0,1)
 
-        # if not self.discriminator and not self.token_processor.use_bird:
-        #     feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
-        #
-        #     feat_a_t[mask_ta] = feat_a
-        #
-        #     if n_current == 0:
-        #         self.feat_a_cache = feat_a_t
-        #     else:
-        #         self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
-        #
-        #         feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
-        #
-        #     for i in range(self.t_num_layers):
-        #         feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-        #
-        #     if n_current != 0:
-        #         current_len = mask_a.sum()
-        #         feat_a = feat_a[-current_len:]
+        if not self.discriminator and not self.token_processor.use_bird:
+            feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
+
+            feat_a_t[mask_ta] = feat_a
+
+            if n_current == 0:
+                self.feat_a_cache = feat_a_t
+            else:
+                self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
+
+                feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
+
+            for i in range(self.t_num_layers):
+                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+
+            if n_current != 0:
+                current_len = mask_a.sum()
+                feat_a = feat_a[-current_len:]
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
