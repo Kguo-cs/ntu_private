@@ -303,7 +303,6 @@ class IQ_SoftQ(LightningModule):
         present_mask = (exit_mask | mask_s).transpose(0,1).flatten(0,1)
 
         self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.transpose(0,1).flatten(0,1)].mean().item(), on_step=True, batch_size=1)
-
         self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_mask].mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
 
@@ -373,7 +372,6 @@ class IQ_SoftQ(LightningModule):
                 target=1
             else:
                 target=0
-
 
             ego_logits=ego_logits[present_mask]
 

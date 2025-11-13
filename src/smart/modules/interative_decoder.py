@@ -364,7 +364,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             if self.use_edge_feature:
-                weight=torch.ones_like(dist)*0.1 #torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
+                weight=torch.ones_like(dist)*1 #torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
 
