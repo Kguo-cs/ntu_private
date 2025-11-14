@@ -11,7 +11,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_route shanhelo@a
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz ~/code/catk/src/waymo_data/full/training_map2_03_token  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
+rsync -avz ~/code/catk/src/waymo_data/full/epoch=9-step=121750.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
 rsync -avz ~/code/catk/src/waymo_data/full/training_map2_03_token ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
@@ -102,7 +102,7 @@ CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29501  -m run
 CUDA_VISIBLE_DEVICES=0,1,2 torchrun --nproc_per_node=3 --master_port=29502  -m run1 trainer=ddp >  1.log 2>&1 & 
 
 
-CUDA_VISIBLE_DEVICES=1  python run.py >  1.log 2>&1 & 
+CUDA_VISIBLE_DEVICES=0  python run.py >  0.log 2>&1 & 
 
 
 
