@@ -80,9 +80,6 @@ class AgentTokenEncoder(nn.Module):
     def forward(
             self,
             agent_token_index,  # [n_agent, n_step]
-            # trajectory_token_veh,  # [n_token, 8]
-            # trajectory_token_ped,  # [n_token, 8]
-            # trajectory_token_cyc,  # [n_token, 8]
             pos_a,  # [n_agent, n_step, 2]
             head_vector_a,  # [n_agent, n_step, 2]
             agent_type,  # [n_agent]
@@ -106,10 +103,10 @@ class AgentTokenEncoder(nn.Module):
                 veh_mask =agent_type == 0
                 ped_mask = agent_type == 1
                 cyc_mask = agent_type == 2
-                if self.token_processor.use_token:
-                    veh_mask=veh_mask[:,None] & token_mask
-                    ped_mask=ped_mask[:,None] & token_mask
-                    cyc_mask=cyc_mask[:,None] & token_mask
+                # if self.token_processor.use_token:
+                veh_mask=veh_mask[:,None] & token_mask
+                ped_mask=ped_mask[:,None] & token_mask
+                cyc_mask=cyc_mask[:,None] & token_mask
 
                 agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                 agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
@@ -164,8 +161,8 @@ class AgentTokenEncoder(nn.Module):
             )  # [n_agent, n_step, 2]
         feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
-        if self.token_processor.use_token:
-            feature_a[~token_mask]=0
+        # if self.token_processor.use_token:
+        feature_a[~token_mask]=0
 
         if self.use_goal:
             if goal_pos is not None:
@@ -190,36 +187,16 @@ class AgentTokenEncoder(nn.Module):
 
             feature_a = torch.cat([feature_a, feature_goal], dim=-1)
 
-
-        if self.use_mean_speed:
-            agent_speed = torch.zeros_like(agent_type)
-
-            if mean_speed is not None:
-                mean_speed = torch.clamp_max_(mean_speed, max=19).to(torch.long)//5+1
-
-                if self.training:
-                    mask=torch.rand_like(agent_type.float())>0.5
-                    agent_speed[mask] = mean_speed[mask]
-                else:
-                    agent_speed=mean_speed
-
-
+        if agent_shape is not None:
             categorical_embs = [
                 self.type_a_emb(agent_type),
                 self.shape_emb(agent_shape),
-                self.speed_embed(agent_speed),
             ]  # List of len=2, shape [n_agent, hidden_dim]
+            categorical_embs = [
+                v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
+            ]
         else:
-            if agent_shape is not None:
-                categorical_embs = [
-                    self.type_a_emb(agent_type),
-                    self.shape_emb(agent_shape),
-                ]  # List of len=2, shape [n_agent, hidden_dim]
-                categorical_embs = [
-                    v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
-                ]
-            else:
-                categorical_embs = None
+            categorical_embs = None
 
         if self.token_processor.use_time:
             feature_a=torch.cat([feature_a, abs_time[:,:,None]/50000], dim=-1)

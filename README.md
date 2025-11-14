@@ -19,7 +19,7 @@ rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/training_map2_03_to
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_val607_40 shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird5_matchhead_head1/2025-11-10_16-57-41/bird/oowptamm/checkpoints/epoch=63-step=595200.ckpt ./
 
@@ -118,7 +118,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python run.py >  1.log 2>&1 &
+nohup python start.py >  1.log 2>&1 &
 
 
 
