@@ -135,9 +135,9 @@ class IQ_SoftQ(LightningModule):
 
         next_token_logits=pred["agent_q"]
 
-        if not self.token_processor.pred_exit:
-            action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
-            next_token_logits=next_token_logits[action_valid]
+       # if not self.token_processor.pred_exit:
+        action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
+        next_token_logits=next_token_logits[action_valid]
 
         pi = torch.softmax(next_token_logits / self.alpha, dim=-1)
 
@@ -357,6 +357,11 @@ class IQ_SoftQ(LightningModule):
             train_mask = valid_mask[:, :-1]
         else:
             train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
+
+        if "pred_mask" in tokenized_agent.keys():
+            pred_mask =tokenized_agent["pred_mask"]
+
+            train_mask[pred_mask]=(valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]
 
         # if "pred_mask" in tokenized_agent.keys():
         #     all_valid = tokenized_agent["pred_mask"]  # & valid_mask.all(-1)

@@ -93,7 +93,7 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.use_token=False
+        self.use_token=True
 
         self.use_time=False
 
@@ -151,19 +151,6 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["goal_idx"]=goal_idx.to(torch.long)
             else:
                 tokenized_agent["goal_idx"]=torch.zeros([0,18])
-
-        # if self.training:
-        #     batch_idx=tokenized_agent['batch']
-        #
-        #     token_mask=tokenized_agent['token_mask']
-        #
-        #     rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
-        #
-        #     goal_mask=rand_idx[batch_idx]<1
-        #
-        #     token_mask[goal_mask[:,0],:2]=False
-        #
-        #     tokenized_agent['token_mask']=token_mask
 
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 

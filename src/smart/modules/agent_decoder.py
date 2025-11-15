@@ -386,10 +386,9 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     next_token_idx = torch.zeros_like(sampled_idx[:, -1])
                     if len(next_token_logits):
+                        if self.pred_exit and pred_mask is not None:
+                            next_token_logits[pred_mask[next_mask],-1] = -10000
                         next_token_idx[next_mask] = Categorical(logits=next_token_logits / self.alpha).sample()
-
-                    if self.pred_exit and pred_mask is not None:
-                        next_token_idx[pred_mask & next_mask]=Categorical(logits=next_token_logits[pred_mask[next_mask],:-1] / self.alpha).sample()
 
                     #use_gt_exit
                     # gt_exit_mask= gt_valid[:, t-1] & ~gt_valid[:, t]
