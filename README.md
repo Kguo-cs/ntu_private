@@ -15,7 +15,7 @@ rsync -avz ~/code/catk/src/waymo_data/full/epoch=9-step=121750.ckpt  ke@10.87.11
 
 rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_14679_tokenexitpred1/2025-11-15_17-56-26/bc/n0tjh4v2/checkpoints/epoch=1-step=24350.ckpt ke@10.87.216.98:~/code/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/training_map2_03_token guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/epoch=48-step=596575.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
@@ -23,13 +23,12 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token shanhel
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird5_matchhead_head1/2025-11-10_16-57-41/bird/oowptamm/checkpoints/epoch=63-step=595200.ckpt ./
 
-rsync -avz ~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-15_08-49-28/bc/exb31kmf/checkpoints/epoch=39-step=487000.ckpt shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
-
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-15_20-05-59/bc/mt7n5adx/checkpoints/epoch=48-step=596575.ckpt ./
 
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/keguo/sim/src/logs/bird1024_t10_token1mask_n10_addexit/2025-11-01_17-22-27/bird/04ri3d97/checkpoints/epoch=41-step=390600.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/iq3_w1_lcf12_val12/2025-11-08_05-05-03/bird/qiivsgbn/checkpoints/epoch=1-step=10334.ckpt ./
+rsync -avz C guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/iq3_w1_lcf12_val12/2025-11-08_05-05-03/bird/qiivsgbn/checkpoints/epoch=1-step=10334.ckpt ./
 
 
 

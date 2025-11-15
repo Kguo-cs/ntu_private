@@ -32,7 +32,7 @@ model:
 
 #ckpt_path : './ckpts/bc56_pt30_14679_notokenmask_goal32_epoch=31-valmeta=0.7832.ckpt'
 
-#ckpt_path : '/home/users/ntu/shanhelo/scratch/keguo_projects/sim/src/waymo_data/full/epoch=39-step=487000.ckpt'
+ckpt_path : '/home/guoke/sim/src/waymo_data/full/epoch=48-step=596575.ckpt'
 
 logger:
   wandb:
@@ -51,7 +51,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_exitmask53
+task_name: AIRL128_exitmask53
 
 trainer:
   limit_train_batches: 1.0
@@ -63,7 +63,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 80
+  train_batch_size: 32
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 16
