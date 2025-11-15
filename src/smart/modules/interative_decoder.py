@@ -329,7 +329,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             if self.use_edge_feature:
-                weight=torch.ones_like(dist)*0.1 #torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
+                weight=torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
 
@@ -353,13 +353,17 @@ class InterativeDecoder(nn.Module):
                     next_token_logits = (next_token_logits[:,0], interact_logits[:,0])
 
                 weight2=weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
-                nei_rewards=torch.tensor(0.0,device=ego_rewards.device)
 
-                # weighted_nei_reward=ego_rewards[mask_ta_flatten][start_index]*weight2
-                #
-                # nei_rewards=torch.zeros_like(ego_rewards)
-                #
-                # nei_rewards[mask_ta_flatten] = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)   #the source
+                all_rewards = torch.zeros_like(valid_interact_reward)
+                all_rewards[train_repeat_mask] = ego_rewards[mask_ta_flatten]
+
+                weighted_nei_reward=all_rewards[start_index]*weight2
+
+                nei_rewards=torch.zeros_like(ego_rewards)
+
+                nei_rewards_sum= scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)
+
+                nei_rewards[mask_ta_flatten] =nei_rewards_sum[train_repeat_mask]  #the source
 
                 rewards=(ego_rewards,nei_rewards,valid_ego_reward,valid_interact_reward)
 
