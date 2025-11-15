@@ -178,10 +178,6 @@ class InterativeDecoder(nn.Module):
 
         self.start_step=self.num_historical_steps//self.shift-1
 
-        # if self.discriminator:
-        #     self.start_step=self.start_step+1
-
-
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
         self.pt2a_neighbor = pt2a_neighbor
@@ -266,7 +262,6 @@ class InterativeDecoder(nn.Module):
 
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
-
             elif (self.discriminator and self.use_counterfactual):
                 if  train_mask is not None:
                     connected_agent=torch.unique(edge_index_a2a[0])
@@ -330,7 +325,7 @@ class InterativeDecoder(nn.Module):
 
         feat_a_t[mask_ta] = feat_a
 
-        if self.discriminator:
+        if self.discriminator or self.edge_encoder.rollout_traj:
             feat_a=feat_a_t.flatten(0,1)
         else:
             if n_current == 0:
@@ -345,11 +340,6 @@ class InterativeDecoder(nn.Module):
 
         current_len = inference_mask.sum()
         feat_a = feat_a[-current_len:]
-
-        if not (self.use_edge_feature and self.discriminator) and (self.num_layers>1 and train_mask is not None):
-            feat_a_all = feat_a.view( n_step,  -1,self.hidden_dim).transpose(0, 1)
-
-            feat_a = feat_a_all[train_mask]
 
         if self.discriminator and self.diff_dicriminator:
             state = feat_a.reshape(-1, 128)
@@ -433,11 +423,12 @@ class InterativeDecoder(nn.Module):
             self.mask_cache = mask_a
             self.head_vector_cache = head_vector_a
 
-            if self.discriminator:
+            if self.discriminator or self.edge_encoder.rollout_traj:
                 inference_mask = torch.ones_like(self.mask_cache)
             else:
                 inference_mask = self.mask_cache.clone()
 
+            if not self.discriminator:
                 inference_mask[:, :self.start_step] = False
         else:
             self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]

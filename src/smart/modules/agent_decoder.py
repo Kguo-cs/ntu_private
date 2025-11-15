@@ -180,7 +180,7 @@ class SMARTAgentDecoder(nn.Module):
         self.discriminator=discriminator
         self.apply(weight_init)
 
-    def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0,latent_z=None,abs_time=None):
+    def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0,abs_time=None):
 
         n_agent, n_step = head_a.shape
 
@@ -203,13 +203,6 @@ class SMARTAgentDecoder(nn.Module):
         )
 
         pos_a = pos_a[:, -n_step:]
-
-        if latent_z is not None:
-            latent_embedding=self.latent_embed(latent_z)#[:,n_current:n_current+n_step]
-            feat_a_token=feat_a_token+latent_embedding
-
-        # feat_a_t, head_vector_a=self.temporal_embed(feat_a_token, pos_a, head_a,head_vector_a,n_agent, n_step, n_current, mask)
-
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
 
@@ -254,31 +247,6 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) :
-        light_idx = tokenized_agent["light_idx"].clone()
-
-        if "next_token_logits" not in tokenized_agent.keys() and len(light_idx):
-            random_light = torch.randint(low=0, high=self.light_type, size=light_idx.shape, device=light_idx.device).long()
-
-            random_mask = torch.rand_like(light_idx.float()) > 0.9
-
-            random_mask[:, :2] = False
-
-            light_idx[random_mask] = random_light[random_mask]
-
-        mask_lg=light_idx<self.light_type
-
-        if self.use_infogail or self.use_vae:
-            if "latent_z" not in tokenized_agent.keys():
-                batch_idx = tokenized_agent['batch']
-                latent_z1 = torch.randint(low=0, high=self.k1_dim, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
-                latent_z1 = latent_z1[batch_idx] * self.k2_dim
-                latent_z = torch.randint(low=0, high=self.k2_dim, size=(len(batch_idx), 1), device=batch_idx.device)
-
-                latent_z = latent_z1 + latent_z
-
-                tokenized_agent["latent_z"] = latent_z
-        else:
-            tokenized_agent["latent_z"]=None
 
         next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,exit_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
                                                                                 tokenized_agent["token_mask"][:,:-1],
@@ -287,7 +255,6 @@ class SMARTAgentDecoder(nn.Module):
                                                                                 tokenized_agent["sampled_heading"][:,:-1] ,
                                                                                 tokenized_agent,
                                                                                 map_feature,
-                                                                                latent_z=tokenized_agent["latent_z"],
                                                                                 abs_time=tokenized_agent["abs_time"][:,:-1]
                                                                                                      )
 
@@ -331,7 +298,6 @@ class SMARTAgentDecoder(nn.Module):
 
         pred_traj_10hz = []
         pred_head_10hz = []
-        latent_z=None
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
@@ -369,11 +335,11 @@ class SMARTAgentDecoder(nn.Module):
                         #     self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:, :current_step]
                 else:
                     next_token_logits,_,_,_,entry_logit,exit_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,0,latent_z,abs_time)
+                                                                head_a,tokenized_agent, map_feature,0,abs_time)
             else:
                 next_token_logits, _, _, _, entry_logit,exit_logit, feat_a = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
-                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, t - 1, latent_z,abs_time[:, -1:])
+                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, t - 1,abs_time[:, -1:])
 
             if post_sampling:
                 next_token_idx=gt_sampled_idx[:,t]

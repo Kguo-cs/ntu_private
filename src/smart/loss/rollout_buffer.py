@@ -554,64 +554,37 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
     return current_Q_diff, V_diff
 
-def get_value(agent_rewards,value,mask):
-    v_denorm = torch.zeros_like(agent_rewards.transpose(0, 1))
-
-    v_denorm = v_denorm.masked_scatter(mask.transpose(0, 1), value)
-
-    v_denorm = v_denorm.transpose(0, 1)
-
-    advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None)
-
-    value_loss = (gae_returns - v_denorm).square().clamp(min=0, max=1000)[mask].mean()
-
-    return advantages, value_loss
 
 
-def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
+def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
+
+    # v_detach = torch.zeros_like(rewards) #t,a
+
+    values=values.reshape(rewards.shape)
+
+    v_detach=values.detach()#t,a
+
+    # v_detach = v_detach.masked_scatter(mask, values.detach())#predict value where agent exist
 
     dones = torch.zeros_like(rewards)
-    dones[:,-1]=1
 
-    # returns1 = torch.zeros_like(rewards)
-    # R = 0
-    # for t in reversed(range(len(rewards))):
-    #     R = rewards[t] + gamma * R * (1.0 - dones[t])
-    #     returns1[t] = R
+    dones[-1]=1
 
     advantages = torch.zeros_like(rewards)
     last_adv = 0
-    for t in reversed(range(rewards.shape[1])):
-        if t == rewards.shape[1] - 1:
+    for t in reversed(range(rewards.shape[0])):
+        if t == rewards.shape[0] - 1:
             next_value = 0
-            next_non_terminal = 1.0 - dones[:,t]
         else:
-            next_value = values[:,t + 1]
-            next_non_terminal = 1.0 - dones[:,t]
-        delta = rewards[:,t] + gamma * next_value * next_non_terminal - values[:,t]
-        advantages[:,t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
-    returns = advantages + values
+            next_value = v_detach[t + 1]
+        next_non_terminal = 1.0 - dones[t]
+        delta = rewards[t] + gamma * next_value * next_non_terminal - v_detach[t]
+        advantages[t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
 
-    #advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
-    #
-    # returns = []
-    #
-    # gae = 0
-    # for step in reversed(range(rewards.size(1))):
-    #     delta = (
-    #         rewards[:,step]
-    #         + gamma * value_preds[:,step + 1] * dones[:,step + 1]
-    #         - value_preds[:,step]
-    #     )
-    #     gae = (
-    #         delta
-    #         + gamma * gae_lambda * dones[:,step + 1] * gae
-    #     )
-    #     #self.returns[step] = gae + self.value_preds[step]
-    #     returns.insert(0, gae + value_preds[:,step])
-    #
-    # returns=torch.stack(returns,dim=1)
+    returns = advantages + v_detach
 
-    return advantages,returns
+    value_loss = (returns - values)[mask].square().clamp(min=0, max=1000).mean()
+
+    return advantages,value_loss
 
 

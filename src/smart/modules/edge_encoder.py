@@ -60,6 +60,8 @@ class EdgeEncoder(nn.Module):
 
         self.discriminator=discriminator
 
+        self.rollout_traj=False
+
         # if self.discriminator:
         #     input_dim_r_a2a = 2
 
@@ -149,7 +151,7 @@ class EdgeEncoder(nn.Module):
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
 
-        if  not self.discriminator:
+        if  not self.discriminator and not self.rollout_traj:
             N_total = n_step * n_agent  # total nodes in transposed ordering
 
             kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
