@@ -13,7 +13,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz ~/code/catk/src/waymo_data/full/epoch=9-step=121750.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz ~/code/catk/src/waymo_data/full/training_map2_03_token ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_14679_tokenexitpred1/2025-11-15_17-56-26/bc/n0tjh4v2/checkpoints/epoch=1-step=24350.ckpt ke@10.87.216.98:~/code/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" ~/code/catk/src/waymo_data/full/training_map2_03_token guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 

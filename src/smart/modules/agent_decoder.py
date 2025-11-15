@@ -215,7 +215,7 @@ class SMARTAgentDecoder(nn.Module):
 
         all_features=[feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
 
-        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,n_current)
+        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
         if self.pred_entry:
 
@@ -232,6 +232,7 @@ class SMARTAgentDecoder(nn.Module):
                 entry_logit=(entry_logit,head_logit)
         else:
             entry_logit=None
+
 
 
         # if self.pred_exit:
@@ -352,8 +353,6 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     next_token_idx = torch.zeros_like(sampled_idx[:, -1])
                     if len(next_token_logits):
-                        if self.pred_exit and pred_mask is not None:
-                            next_token_logits[pred_mask[next_mask],-1] = -10000
                         next_token_idx[next_mask] = Categorical(logits=next_token_logits / self.alpha).sample()
 
                     #use_gt_exit

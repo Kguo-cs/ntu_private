@@ -491,10 +491,6 @@ class ReplayBuffer:
         # Normalize the advantages
         self.advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
 
-
-
-
-
 def rollout(encoder, tokenized_map, tokenized_agent,validation_rollout_sampling):
     train_data_len=tokenized_agent["sampled_idx"].shape[1]
     max_step = (train_data_len - (encoder.agent_encoder.num_historical_steps)//encoder.agent_encoder.shift)*encoder.agent_encoder.shift
@@ -558,13 +554,9 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
 def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
 
-    # v_detach = torch.zeros_like(rewards) #t,a
-
     values=values.reshape(rewards.shape)
 
     v_detach=values.detach()#t,a
-
-    # v_detach = v_detach.masked_scatter(mask, values.detach())#predict value where agent exist
 
     dones = torch.zeros_like(rewards)
 

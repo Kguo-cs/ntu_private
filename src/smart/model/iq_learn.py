@@ -270,9 +270,10 @@ class IQ_SoftQ(LightningModule):
 
         exit_mask = ~mask_s & (after_any >0)
         present_mask = exit_mask | mask_s
+        present_flatten=present_mask.flatten(0,1)
 
         self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
 
         if key=="agent":
@@ -290,7 +291,7 @@ class IQ_SoftQ(LightningModule):
             # batch_rewards = batch_rewards.masked_scatter(mask_s, ego_rewards)
             # ego_rewards = batch_rewards.transpose(0, 1)
 
-            if nei_rewards.any():
+            if self.use_lcf:
                # self.global_return_meanstd.update(nei_rewards.reshape(-1))
                # nei_rewards = self.global_return_meanstd.normalize(nei_rewards)
                 #nei_rewards = (nei_rewards - nei_rewards.mean()) / nei_rewards.std()  #
@@ -331,7 +332,7 @@ class IQ_SoftQ(LightningModule):
             else:
                 target=0
 
-            ego_logits=ego_logits[present_mask.flatten(0,1)]
+            ego_logits=ego_logits[present_flatten]
 
             bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
                                               reduction='mean')

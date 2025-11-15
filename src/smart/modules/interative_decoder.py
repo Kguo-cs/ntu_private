@@ -81,6 +81,8 @@ class InterativeDecoder(nn.Module):
 
         self.use_roformer=use_roformer
 
+        self.pred_exit=token_processor.pred_exit
+
         self.t_num_layers = 1
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
@@ -411,7 +413,7 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_a,rewards,weight
 
-    def forward(self,all_features,map_feature,train_mask,n_current ):
+    def forward(self,all_features,map_feature,train_mask,n_current,pred_mask ):
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
@@ -589,5 +591,9 @@ class InterativeDecoder(nn.Module):
                                                                           r_a2a,edge_index_a2a,
                                                                           batch_s_repeat,train_mask,dist,
                                                                           train_repeat_mask,mask_a,n_current,inference_mask)
+
+
+        if not self.discriminator and self.pred_exit and pred_mask is not None:
+            next_token_logits[pred_mask[:,None].repeat(1,inference_mask.shape[1])[inference_mask], -1] = -10000
 
         return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)
