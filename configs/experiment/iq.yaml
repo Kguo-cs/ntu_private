@@ -28,7 +28,7 @@ model:
     #finetune: true
     smart: false
 
-ckpt_path : '~/keguo/sim/src/waymo_data/full/epoch=1-step=24350.ckpt'
+ckpt_path : '~/code/sim/src/waymo_data/full/epoch=1-step=24350.ckpt'
 
 task_name: bc40_apt30_14679_tokenexittrain #__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
