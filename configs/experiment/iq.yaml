@@ -28,16 +28,16 @@ model:
     #finetune: true
     smart: false
 
-#ckpt_path : '~/keguo/sim/src/waymo_data/full/epoch=9-step=121750.ckpt'
+ckpt_path : '~/keguo/sim/src/waymo_data/full/epoch=1-step=24350.ckpt'
 
-task_name: bc128_ep32_apt30_14679_tokenexit #__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc40_apt30_14679_tokenexittrain #__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.00002
-  max_epochs: 32
+  max_epochs: 64
   #gradient_clip_val: 0.0
 
 model_checkpoint:
@@ -57,7 +57,7 @@ model_checkpoint:
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 data: 
-  train_batch_size: 32
+  train_batch_size: 40
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 16
