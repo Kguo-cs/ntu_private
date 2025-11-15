@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from src.smart.loss.iq_loss import get_iqloss, soft_update, eval_light, get_proposal_loss, get_gaussian_loss
-from src.smart.loss.rollout_buffer import rollout, compute_advantages, ReplayBuffer
+from src.smart.loss.rollout_buffer import rollout, get_value, ReplayBuffer
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -135,7 +135,6 @@ class IQ_SoftQ(LightningModule):
 
         next_token_logits=pred["agent_q"]
 
-       # if not self.token_processor.pred_exit:
         action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
         next_token_logits=next_token_logits[action_valid]
 
@@ -204,10 +203,9 @@ class IQ_SoftQ(LightningModule):
 
             action_nll=0.1*entry_nll+0.1*entry_head_nll+action_nll
 
-        return pi, action_nll, 0, log_prob , entropy
+        return action_nll,log_prob
 
-    def get_reward(self, tokenized_agent, agent_log_prob, agent_pi, key, train_mask=None, expert_disc_val=0,
-                   target_q=None, expert_dis_logit=None):
+    def get_reward(self, tokenized_agent, key):
 
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
@@ -254,14 +252,11 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
-
         mask_s = tokenized_agent["valid_mask"]
 
-        after_any= torch.cumsum(mask_s, dim=1)[:, self.start_step:]
+        after_any= torch.cumsum(mask_s, dim=1)
 
         #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
-
-        mask_s=mask_s[:,  self.start_step:]
 
         exit_mask = ~mask_s & (after_any >0)
         present_mask = (exit_mask | mask_s).transpose(0,1).flatten(0,1)
@@ -279,7 +274,7 @@ class IQ_SoftQ(LightningModule):
 
             #ego_rewards=ego_rewards-ego_rewards.mean()
             #ego_rewards=ego_rewards/ego_rewards.std()
-            ego_rewards=ego_rewards.reshape(mask_s.shape[1],mask_s.shape[0]).transpose(0, 1)[:,1:]
+            ego_rewards=ego_rewards.reshape(mask_s.shape[1],mask_s.shape[0]).transpose(0, 1)[:,self.start_step+1:]
 
             # mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
             # batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
@@ -292,23 +287,12 @@ class IQ_SoftQ(LightningModule):
                 #nei_rewards = (nei_rewards - nei_rewards.mean()) / nei_rewards.std()  #
                 #nei_rewards=nei_rewards-nei_rewards.mean()
                 #nei_rewards=nei_rewards/nei_rewards.std()
-               nei_rewards = nei_rewards.reshape(mask_s.shape[1], mask_s.shape[0]).transpose(0, 1)[:,1:]
+               nei_rewards = nei_rewards.reshape(mask_s.shape[1], mask_s.shape[0]).transpose(0, 1)[:,self.start_step+1:]
 
                # batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)#+nei_rewards.mean()
                 # batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
                 # nei_rewards = batch_nei_rewards.transpose(0, 1)
 
-        if self.use_lcf and not self.encoder.use_value:
-            with torch.no_grad():
-                batch = tokenized_agent["batch"]
-                global_rewards = scatter_mean(rewards, batch, dim=0)
-                self.log("train/" + key + "_global_rewards", global_rewards.mean().item(), on_step=True, batch_size=1)
-                nei_returns = get_nei_returns(tokenized_agent, returns)
-                self.log("train/" + key + "_nei_returns", nei_returns.mean().item(), on_step=True, batch_size=1)
-                ego_returns = (returns - returns.mean()) / (returns.std() + 1e-4)
-                nei_returns = (nei_returns - nei_returns.mean()) / (nei_returns.std() + 1e-4)
-
-                returns = 0.5 * ego_returns + 0.5 * nei_returns
 
         if self.dis_loss == "pugail":
             positive_class_prior = 0.7
@@ -363,188 +347,94 @@ class IQ_SoftQ(LightningModule):
 
             train_mask[pred_mask]=(valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]
 
-        # if "pred_mask" in tokenized_agent.keys():
-        #     all_valid = tokenized_agent["pred_mask"]  # & valid_mask.all(-1)
-        # else:
-        #     all_valid = valid_mask.all(-1)
-
         if self.use_kl_penalty:
             expert_nll = 0
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-
         else:
             if self.iq_learn and self.encoder.use_roformer:
                 self.encoder.agent_encoder.a_t_roformer.attn.caching = True
                 if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
-            expert_pi, expert_nll, expert_proposal_loss, expert_log_prob, _ = self.get_QV(
-                tokenized_map, tokenized_agent, train_mask)
+            expert_nll, expert_log_prob= self.get_QV( tokenized_map, tokenized_agent, train_mask)
 
-        if self.encoder.use_vae:
-            latent_post = tokenized_agent["latent_post"]
-            latent_prior = tokenized_agent["latent_prior"]
+        if not self.iq_learn:
+            return expert_nll
 
-            log_q = F.log_softmax(latent_post, dim=-1)
-            log_p = F.log_softmax(latent_prior, dim=-1)
-            q = log_q.exp()
-            error_vae = (q * (log_q - log_p)).sum(dim=-1).mean()
-            self.log("train/error_vae", error_vae.item(), on_step=True, batch_size=1)
-            expert_nll = expert_nll + error_vae
+        expert_dis_loss = self.get_reward(tokenized_agent, "expert")[0]
 
-        #tokenized_agent["train_mask"] = all_valid
+        tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,
+                                          self.validation_rollout_sampling)
 
-        if self.iq_learn:
-            train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
+        agent_state_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:-1]
 
-            if self.use_gail and not self.use_distance:
-                expert_dis_loss, expert_rewards, expert_returns = self.get_reward(tokenized_agent, None, None, "expert", train_mask)
-                if self.encoder.pred_col:
-                    col_loss = self.get_collision_loss(tokenized_agent, tokenized_map, expert_dis_feat, None, all_valid,
-                                                       'expert')
-
-                    expert_nll = expert_nll + col_loss
-
-            tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,
-                                              self.validation_rollout_sampling)
-
-            agent_state_mask = tokenized_agent_rollout["valid_mask"][:, self.start_step:-1]
-
-            if self.use_kl_penalty:
-                with torch.no_grad():
-                    if self.bc_map_net is not None:
-                        map_feature = self.bc_map_net(tokenized_map)
-                    else:
-                        map_feature = tokenized_agent["map_feature"]
-
-                    target_q = self.bc_net(tokenized_agent_rollout, map_feature)["agent_q"]
-            else:
-                target_q = None
-
-            agent_pi, agent_nll, agent_proposal_loss, agent_log_prob, agent_entropy = self.get_QV(
-                tokenized_map, tokenized_agent_rollout, agent_state_mask, key='agent')#current valid
-
-            if self.use_gail:
-                if self.buffer_len > 1:
-                    with torch.no_grad():
-                        agent_dis_loss, agent_rewards, agent_returns = self.get_reward(
-                            tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None, target_q=target_q,
-                            expert_dis_logit=expert_dis_loss)
-
-                    if self.global_step % 2 == 0:
-                        current_rollout = {}
-
-                        for key in {"sampled_idx", "goal_idx", "valid_mask", "sampled_heading", "sampled_pos",
-                                    "detach_map_feature", "light_idx", "type", "shape", "batch", "num_graphs",
-                                    "train_mask"}:
-                            current_rollout[key] = tokenized_agent_rollout[key]
-
-                        self.replay_buffer.append(current_rollout)
-
-                    old_rollout = random.sample(self.replay_buffer, 1)[0]
-                    agent_dis_loss, _, _, _ = self.get_reward(
-                        old_rollout, None, None, "agent", None)
+        if self.use_kl_penalty:
+            with torch.no_grad():
+                if self.bc_map_net is not None:
+                    map_feature = self.bc_map_net(tokenized_map)
                 else:
-                    agent_dis_loss, agent_rewards, nei_rewards = self.get_reward(
-                        tokenized_agent_rollout, agent_log_prob, agent_pi, "agent", None, target_q=target_q,
-                        expert_dis_logit=expert_dis_loss)
+                    map_feature = tokenized_agent["map_feature"]
 
-                if self.dis_loss == 'rpgan':
-                    critic_loss = -torch.log(
-                        torch.sigmoid(expert_dis_loss - agent_dis_loss)).mean() #+ expert_gp + agent_gp
-                else:
-                    critic_loss = expert_dis_loss + agent_dis_loss #+ expert_gp + agent_gp
-
-                if self.encoder.pred_col:
-                    col_loss = self.get_collision_loss(tokenized_agent_rollout, tokenized_map, agent_disc_feat, None,
-                                                       all_valid, 'agent')
-
-                    expert_nll = expert_nll + col_loss
-
-                if self.encoder.use_value:
-                    feat_a = tokenized_agent_rollout["feat_a"]
-
-                    if self.encoder.discriminator.interative_decoder.centric:
-                        index = tokenized_agent_rollout["batch"][all_valid][:, None].repeat(1, feat_a.shape[1])
-                        feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
-
-                    value=self.encoder.value_network(feat_a)[..., 0]
-
-                    v_denorm=torch.zeros_like(agent_rewards.transpose(0,1))
-
-                    v_denorm = v_denorm.masked_scatter(agent_state_mask.transpose(0,1), value)
-
-                    v_denorm=v_denorm.transpose(0,1)
-
-                    # train_valid_mask = agent_train_mask[all_valid]
-                    #
-                    # agent_rewards[~train_valid_mask]=0
-                    # v_denorm[~train_valid_mask]=0
-
-                    advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None)
-
-                    value_loss = (gae_returns - v_denorm).square().clamp(min=0, max=1000)[agent_state_mask].mean()
-
-                    if self.use_lcf:
-                        if not self.encoder.agent_encoder.interative_decoder.use_edge_feature:
-                            nei_rewards = get_nei_returns(tokenized_agent, agent_rewards, train_mask=all_valid)
-
-                        nei_value= self.encoder.nei_value_network(feat_a)[..., 0]
-
-                        nei_value_pred = torch.zeros_like(agent_rewards.transpose(0, 1))
-
-                        nei_value_pred = nei_value_pred.masked_scatter(agent_state_mask.transpose(0, 1), nei_value)
-
-                        nei_value_pred = nei_value_pred.transpose(0, 1)
-
-                        nei_advantages, nei_returns = compute_advantages(nei_rewards, nei_value_pred.detach(), None)
-
-                        nei_value_loss =(nei_returns - nei_value_pred).square().clamp(min=0, max=1000)[agent_state_mask].mean()
-
-                        value_loss = nei_value_loss + value_loss
-
-                        advantages = 1 / 3 * advantages + 2 / 3 * nei_advantages
-
-                    self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
-                else:
-                    advantages = agent_returns[all_valid]
-                    value_loss = 0
-
-                advantages=advantages[agent_state_mask]
-
-                self.return_meanstd.update(advantages)
-                advantages = self.return_meanstd.normalize(advantages)
-                self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
-                self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
-
-                agent_wNLL = -(agent_log_prob * advantages).mean()
-
-                self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
-                self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
-
-                expert_nll = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
-            else:
-                critic_loss = get_iqloss(expert_reward, agent_reward, agent_value_loss, expert_value_loss, expert_Q,
-                                         agent_Q)
-
-            self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
-
-            loss = critic_loss + expert_nll
-            if self.automatic_optimization == False:
-                policy_optimizer, discriminator_optimizer = self.optimizers()
-                discriminator_optimizer.zero_grad()
-                self.manual_backward(critic_loss)
-                discriminator_optimizer.step()
-
-            if self.automatic_optimization == False:
-                policy_optimizer.zero_grad()
-                self.manual_backward(expert_nll)
-                policy_optimizer.step()
+                target_q = self.bc_net(tokenized_agent_rollout, map_feature)["agent_q"]
         else:
-            loss = expert_nll
+            target_q = None
+
+        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, agent_state_mask, key='agent')#current valid
+
+        agent_dis_loss, agent_rewards, nei_rewards = self.get_reward(tokenized_agent_rollout, "agent")
+
+        critic_loss = expert_dis_loss + agent_dis_loss  # + expert_gp + agent_gp
+
+        feat_a = tokenized_agent_rollout["feat_a"]
+
+        value = self.encoder.value_network(feat_a)[..., 0]
+
+        advantages, value_loss=get_value(agent_rewards, value, agent_state_mask)
+
+        if self.use_lcf:
+            if not self.encoder.agent_encoder.interative_decoder.use_edge_feature:
+                nei_rewards = get_nei_returns(tokenized_agent, agent_rewards, train_mask=all_valid)
+
+            nei_value = self.encoder.nei_value_network(feat_a)[..., 0]
+
+            nei_advantages, nei_value_loss = get_value(nei_rewards, nei_value, agent_state_mask)
+
+            value_loss = nei_value_loss + value_loss
+
+            advantages = 1 / 3 * advantages + 2 / 3 * nei_advantages
+
+        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+
+        advantages = advantages[agent_state_mask]
+
+        self.return_meanstd.update(advantages)
+        advantages = self.return_meanstd.normalize(advantages)
+        self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
+        self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
+
+        agent_wNLL = -(agent_log_prob * advantages).mean()
+
+        self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
+        self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+
+        expert_nll = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
+
+        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
+
+        loss = critic_loss + expert_nll
+
+        if self.automatic_optimization == False:
+            policy_optimizer, discriminator_optimizer = self.optimizers()
+            discriminator_optimizer.zero_grad()
+            self.manual_backward(critic_loss)
+            discriminator_optimizer.step()
+
+        if self.automatic_optimization == False:
+            policy_optimizer.zero_grad()
+            self.manual_backward(expert_nll)
+            policy_optimizer.step()
 
         return loss
 

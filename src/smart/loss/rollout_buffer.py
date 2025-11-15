@@ -554,12 +554,24 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
     return current_Q_diff, V_diff
 
+def get_value(agent_rewards,value,mask):
+    v_denorm = torch.zeros_like(agent_rewards.transpose(0, 1))
+
+    v_denorm = v_denorm.masked_scatter(mask.transpose(0, 1), value)
+
+    v_denorm = v_denorm.transpose(0, 1)
+
+    advantages, gae_returns = compute_advantages(agent_rewards, v_denorm.detach(), None)
+
+    value_loss = (gae_returns - v_denorm).square().clamp(min=0, max=1000)[mask].mean()
+
+    return advantages, value_loss
 
 
 def compute_advantages(rewards, values,train_mask,gamma=0.99,lam=0.95):#0.95
 
     dones = torch.zeros_like(rewards)
-    #dones[:,-1]=1
+    dones[:,-1]=1
 
     # returns1 = torch.zeros_like(rewards)
     # R = 0

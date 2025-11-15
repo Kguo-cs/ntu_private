@@ -32,6 +32,8 @@ model:
 
 #ckpt_path : './ckpts/bc56_pt30_14679_notokenmask_goal32_epoch=31-valmeta=0.7832.ckpt'
 
+ckpt_path : '~/scratch/keguo_projects/sim/src/waymo_data/full/epoch=39-step=487000.ckpt'
+
 logger:
   wandb:
     _target_: lightning.pytorch.loggers.wandb.WandbLogger
@@ -49,20 +51,20 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL152_predrollout_355_goalpolicy
+task_name: AIRL80_exit_0101
 
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
-  #val_check_interval: 0.5
+  val_check_interval: 0.5
   #val_check_interval: 0.000002
   max_epochs: 16
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 2
-  val_batch_size: 40
+  train_batch_size: 80
+  val_batch_size: 32
   test_batch_size: 10
   num_workers: 16
 

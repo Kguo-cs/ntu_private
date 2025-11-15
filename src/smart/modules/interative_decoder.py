@@ -351,10 +351,6 @@ class InterativeDecoder(nn.Module):
 
             feat_a = feat_a_all[train_mask]
 
-        if self.discriminator and self.centric:
-            index=batch_s_repeat[train_mask]
-            feat_a, argmax = scatter_max(feat_a, index, dim=0)  # out: [B,T,C]
-
         if self.discriminator and self.diff_dicriminator:
             state = feat_a.reshape(-1, 128)
 

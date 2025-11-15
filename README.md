@@ -23,7 +23,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token shanhel
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird5_matchhead_head1/2025-11-10_16-57-41/bird/oowptamm/checkpoints/epoch=63-step=595200.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bird6_head1_at1_clone/2025-11-11_18-32-01/bird/tmgjkis6/checkpoints/epoch=63-step=496000.ckpt ./
+rsync -avz ~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-15_08-49-28/bc/exb31kmf/checkpoints/epoch=39-step=487000.ckpt shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
 
 
