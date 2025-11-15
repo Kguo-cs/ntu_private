@@ -32,7 +32,7 @@ model:
 
 #ckpt_path : './ckpts/bc56_pt30_14679_notokenmask_goal32_epoch=31-valmeta=0.7832.ckpt'
 
-ckpt_path : '~/scratch/keguo_projects/sim/src/waymo_data/full/epoch=39-step=487000.ckpt'
+ckpt_path : '/home/users/ntu/lyuchen/scratch/keguo_projects/sim/src/waymo_data/full/epoch=39-step=487000.ckpt'
 
 logger:
   wandb:

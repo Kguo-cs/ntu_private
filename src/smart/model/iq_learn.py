@@ -332,7 +332,15 @@ class IQ_SoftQ(LightningModule):
                 bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                              weight=weight, reduction='mean') #/ego_num
 
-        return bce_loss, ego_rewards, nei_rewards  # gp*10#torch.sigmoid(logit[:,:,-1]) #-0.03*entropy
+                logit=torch.cat([ego_logits, interact_logits], dim=0)
+
+                disc_val = torch.sigmoid(logit)
+
+                self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+               # self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+
+
+        return bce_loss, ego_rewards, nei_rewards
 
     def iq_update(self, tokenized_map, tokenized_agent):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
