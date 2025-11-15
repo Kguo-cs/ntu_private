@@ -216,7 +216,7 @@ class InterativeDecoder(nn.Module):
                       r_t,edge_index_t,
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
-                      batch_s_repeat,train_mask,dist,
+                      agent_train_mask,dist,
                       train_repeat_mask,mask_a,n_current,inference_mask
                       ):
         start_index = edge_index_a2a[0]
@@ -246,14 +246,12 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
-
                 start_edge_feature=feat_a[start_index]
                 end_edge_feature=feat_a[end_index]
 
-                if  train_mask is not None and self.num_layers==1:
-                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
-                    n_agent = feat_a.shape[1]
-                    feat_a=feat_a.flatten(0,1)
+                if  agent_train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a[train_repeat_mask]
+                    n_agent=agent_train_mask.sum()
 
                 if not self.token_processor.use_bird:
                     feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
@@ -264,46 +262,8 @@ class InterativeDecoder(nn.Module):
 
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
-            elif (self.discriminator and self.use_counterfactual):
-                if  train_mask is not None:
-                    connected_agent=torch.unique(edge_index_a2a[0])
-                    in_mask=torch.isin(edge_index_pl2a[1], connected_agent)
-                    r_pl2a=r_pl2a[in_mask]
-                    edge_index_pl2a = edge_index_pl2a[:, in_mask]
-
-                feat_a_pt = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-
-                feat_a = self.a2a_attn_layers[layer_i](feat_a_pt, r_a2a, edge_index_a2a)
-
-                feat_a = feat_a.view(-1, n_agent, self.hidden_dim)[:, train_mask]
-
-                n_agent = feat_a.shape[1]
-
-                feat_list = self.a2a_attn_layers[layer_i].refer(feat_a_pt, r_a2a, edge_index_a2a, train_mask,
-                                                                batch_s_repeat, n_step)
-
-                feat_list_mean=[]
-                valid_mask=[]
-                for feat in feat_list:
-                    if feat.shape[1]>0:
-                        feat_list_mean.append(feat.mean(dim=1))
-                        valid_mask.append(torch.ones(1))
-                    else:
-                        valid_mask.append(torch.zeros(1))
-
-                feat_ablated = torch.stack(feat_list_mean, dim=1)
-
-                valid_batch=batch_s_repeat[train_mask,0]
-
-                feat_mean=scatter_mean(feat_a, valid_batch,dim=1)
-
-                feat_a=feat_mean[:,valid_batch]
-
-                feat_a = torch.cat([feat_a, feat_ablated], dim=1)
-
-                feat_a = feat_a.flatten(0, 1)
             else:
-                if self.num_layers > 1 and layer_i == self.num_layers - 1 and train_mask is not None:
+                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
                     end_mask=train_repeat_mask[edge_index_a2a[1]]
                     edge_index_a2a = edge_index_a2a[:, end_mask]
                     r_a2a=r_a2a[end_mask]
@@ -311,16 +271,20 @@ class InterativeDecoder(nn.Module):
                     end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
+                    n_agent=agent_train_mask.sum()
 
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-                if  train_mask is not None and self.num_layers==1:
-                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,train_mask]
+                if  agent_train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a.view(-1,n_agent,self.hidden_dim)[:,agent_train_mask]
                     n_agent = feat_a.shape[1]
                     feat_a=feat_a.flatten(0,1)
 
                 if not self.token_processor.use_bird:
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+
+        if  agent_train_mask is not None and self.num_layers>1:
+            feat_a = feat_a[train_repeat_mask]
 
         #if self.discriminator or self.token_processor.use_bird:
         feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
@@ -371,7 +335,7 @@ class InterativeDecoder(nn.Module):
 
                 valid_interact_reward=scatter_sum(interact_logits[:,0].detach() * weight, end_index, dim=0,  dim_size=valid_number)
 
-                interact_reward[mask_ta_flatten] = valid_interact_reward
+                interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
 
                 valid_ego_reward=next_token_logits[:,0].detach()
 
@@ -389,12 +353,13 @@ class InterativeDecoder(nn.Module):
                     next_token_logits = (next_token_logits[:,0], interact_logits[:,0])
 
                 weight2=weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
+                nei_rewards=torch.tensor(0.0,device=ego_rewards.device)
 
-                weighted_nei_reward=ego_rewards[mask_ta_flatten][start_index]*weight2
-
-                nei_rewards=torch.zeros_like(ego_rewards)
-
-                nei_rewards[mask_ta_flatten] = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)   #the source
+                # weighted_nei_reward=ego_rewards[mask_ta_flatten][start_index]*weight2
+                #
+                # nei_rewards=torch.zeros_like(ego_rewards)
+                #
+                # nei_rewards[mask_ta_flatten] = scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)   #the source
 
                 rewards=(ego_rewards,nei_rewards,valid_ego_reward,valid_interact_reward)
 
@@ -413,7 +378,7 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_a,rewards,weight
 
-    def forward(self,all_features,map_feature,train_mask,n_current,pred_mask ):
+    def forward(self,all_features,map_feature,agent_train_mask,n_current,pred_mask ):
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
@@ -442,12 +407,16 @@ class InterativeDecoder(nn.Module):
 
             inference_mask[:, :-1] = False
 
+        if agent_train_mask is not None:
+            inference_mask=inference_mask[agent_train_mask]
+
         edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
             pos_a=self.pos_cache,  # [n_agent, n_step, 2]
             head_a=self.head_cache,  # [n_agent, n_step]
             head_vector_a=self.head_vector_cache,  # [n_agent, n_step, 2]
             mask=self.mask_cache,  # [n_agent, n_step]
-            inference_mask=inference_mask
+            inference_mask=inference_mask,
+            agent_train_mask=agent_train_mask
         )
 
         # if not self.discriminator and not self.token_processor.use_bird:
@@ -472,7 +441,7 @@ class InterativeDecoder(nn.Module):
         #     if n_step>1:
         #         all_features=[feat[:,self.start_step:] for  feat in all_features]
 
-        feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
+        # feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
         if not self.token_processor.use_bird:
             batch_pl = map_feature["batch"]
@@ -491,7 +460,7 @@ class InterativeDecoder(nn.Module):
                 batch_pl=batch_pl,  # [n_pl*n_step]
                 pl2a_radius=self.pl2a_radius,
                 max_num_neighbors=self.pt2a_neighbor,
-                train_mask=train_mask,
+                agent_train_mask=agent_train_mask,
                 use_counterfactual=self.use_counterfactual,
                 route_map_index=None,
                 layer_num=self.num_layers
@@ -499,28 +468,29 @@ class InterativeDecoder(nn.Module):
         else:
             edge_index_pl2a=r_pl2a=feat_map=None
 
-
         feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features ]
 
-        if train_mask is not None:
-            train_repeat_mask=train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)[mask_s]
+        if agent_train_mask is not None:
+            train_repeat_mask=agent_train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)[mask_s]
+            mask_a=mask_a[agent_train_mask]
+            pred_mask=pred_mask[agent_train_mask]
         else:
             train_repeat_mask=None
 
         feat_a=feat_a[mask_s]
 
         edge_index_a2a, r_a2a, dist,relative_pos = self.edge_encoder.build_interaction_edge(
-            pos_s=pos_s[mask_s],  # [n_agent, n_step, 2]
-            head_s=head_s[mask_s],  # [n_agent, n_step]
-            head_vector_s=head_vector_s[mask_s],  # [n_agent, n_step, 2]
-            batch_s=batch_s[mask_s],  # [n_agent*n_step]
-            mask=mask_s[mask_s],  # [n_agent, n_step]
+            pos_s=pos_s,  # [n_agent, n_step, 2]
+            head_s=head_s,  # [n_agent, n_step]
+            head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
+            batch_s=batch_s,  # [n_agent*n_step]
+            mask=mask_s,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             proposal=None,
             vis_mask=None,
             value=False,
-            train_mask=train_repeat_mask,
+            agent_train_mask=train_repeat_mask,
             loop=False
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
@@ -575,7 +545,7 @@ class InterativeDecoder(nn.Module):
                     eps = self.predict_agent(feat_a_f_t,feat_map,n_step,n_agent,
                       r_pl2a, edge_index_pl2a,
                       r_a2a,edge_index_a2a,
-                      batch_s_repeat,train_mask,dist,
+                      batch_s_repeat,agent_train_mask,dist,
                       train_repeat_mask)[0]
 
                     x0 = (x - aml * eps) / a
@@ -589,7 +559,7 @@ class InterativeDecoder(nn.Module):
                                                                          r_t,edge_index_t,
                                                                           r_pl2a, edge_index_pl2a,
                                                                           r_a2a,edge_index_a2a,
-                                                                          batch_s_repeat,train_mask,dist,
+                                                                          agent_train_mask,dist,
                                                                           train_repeat_mask,mask_a,n_current,inference_mask)
 
 

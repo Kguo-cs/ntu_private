@@ -60,7 +60,7 @@ class SMARTDecoder(nn.Module):
 
         self.use_smart=token_processor.use_smart
 
-        self.use_lcf=True
+        self.use_lcf=False
         self.use_vae=False
         self.pred_col=False
         self.use_infogail=False

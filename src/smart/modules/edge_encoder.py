@@ -99,7 +99,14 @@ class EdgeEncoder(nn.Module):
             head_vector_a,  # [n_agent, n_step, 2],
             mask,  # [n_agent, n_step]
             inference_mask=None,  # [n_agent, n_step]
+            agent_train_mask=None
     ):
+        if agent_train_mask is not None:
+            pos_a=pos_a[agent_train_mask]
+            head_a=head_a[agent_train_mask]
+            head_vector_a=head_vector_a[agent_train_mask]
+            mask=mask[agent_train_mask]
+
         pos_t = pos_a.flatten(0, 1)
         head_t = head_a.flatten(0, 1)
         head_vector_t = head_vector_a.flatten(0, 1)
@@ -174,85 +181,25 @@ class EdgeEncoder(nn.Module):
             proposal=None,
             vis_mask=None,
             value=False,
-            train_mask=None,
+            agent_train_mask=None,
             loop=False
         ):
-        if proposal is None:
-            if vis_mask is not None:
-                vis_mask=vis_mask.transpose(0, 1).reshape(-1)
-                edge_index_a2a =visibility_aware_knn_with_radius_batch(pos_s, vis_mask,batch_s, max_num_neighbors, max_radius)
-            else:
-                if value:
-                    pos_a=pos_s.reshape(17,-1,2)
-                    batch_s1=batch_s.reshape(17,-1) [:-1].flatten()
+        pos_s = pos_s[mask]
+        head_s = head_s[mask]
+        head_vector_s = head_vector_s[mask]
+        batch_s = batch_s[mask]
 
-                    pos_a1=pos_a[:-1].flatten(0,1)
-                    pos_a2=pos_a[1:].flatten(0,1)
+        edge_index_a2a = radiusGraphNearest(x=pos_s,
+                                            r=max_radius,
+                                            batch=batch_s,
+                                            loop=loop,
+                                            max_num_neighbors=max_num_neighbors)
 
-                    edge_index_a2a = radiusGraphNearest2(x=pos_a1,
-                                                          y=pos_a2,
-                                                          r=max_radius,
-                                                          batch_x=batch_s1,
-                                                          batch_y=batch_s1,
-                                                          max_num_neighbors=max_num_neighbors)
+        if self.discriminator and agent_train_mask is not None:
+            edge_index_a2a = edge_index_a2a[:, agent_train_mask[edge_index_a2a[1]]]
 
-                    n_agent= pos_a.shape[1]
-
-                    mask_ego=edge_index_a2a[0]!=edge_index_a2a[1]
-
-                    edge_index_a2a = edge_index_a2a[:,mask_ego]
-
-                    edge_index_a2a[0]=edge_index_a2a[0]+n_agent
-
-                else:
-                    edge_index_a2a = radiusGraphNearest(x=pos_s,
-                                                     r=max_radius,
-                                                     batch=batch_s,
-                                                     loop=loop,
-                                                     max_num_neighbors=max_num_neighbors)
-        else:
-            proposal=proposal.reshape(proposal.shape[0],proposal.shape[1],6,-1)[:,:,-6:].detach().transpose(0, 1).flatten(0,1)
-
-            pos_local=proposal[...,:2]#.to(torch.float16)
-            proposal_sigma = 3*torch.norm(proposal[..., 2:].exp(),dim=-1)#.to(torch.float16)
-
-            full_edge_index = radiusGraphNearest(x=pos_s, r=max_radius,max_num_neighbors=10, batch=batch_s, loop=False)
-
-            global_pos,_ = transform_to_global(
-                                        pos_local=pos_local,  # [n_agent, n_step, 2]
-                                        head_local=None,  # [n_agent, n_step]
-                                        pos_now=pos_s,  # [n_agent, 2]
-                                        head_now=head_s  # [n_agent]
-                        )
-
-            src, dst = full_edge_index
-            src_traj=global_pos[src]#[:,:,None]
-            dst_traj=global_pos[dst]#[:,None]
-
-            dist=torch.norm(src_traj - dst_traj,dim=-1)#.reshape(-1,proposal_pos.shape[-3]*proposal_pos.shape[-3]*6).amin(-1)
-
-            # shape: (n_batch, 2)
-            radius_single = torch.norm(shape[:, :2] / 2, dim=-1)  # (n_batch,)#.to(torch.float16)
-            # pos_a: (n_batch, n_agent_per_batch, ?)
-            radius = radius_single[batch_s][:,None]  # (n_agent,)
-
-            src_radius=radius[src]
-            dst_radius=radius[dst]
-
-            src_sigma=proposal_sigma[src]
-            dst_sigma=proposal_sigma[dst]
-
-            radius_sum=src_radius+dst_radius+src_sigma+dst_sigma+5
-
-            intersecting=(dist<radius_sum).any(dim=-1)
-
-            full_edge_index=full_edge_index[:,intersecting]
-
-        if self.discriminator and train_mask is not None:
-            edge_index_a2a = edge_index_a2a[:, train_mask[edge_index_a2a[1]]]
-
-        if mask is not None:
-            edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
+        # if mask is not None:
+        #     edge_index_a2a = subgraph(subset=mask, edge_index=edge_index_a2a)[0]
 
         # if self.training:
         #     keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.1
@@ -342,18 +289,14 @@ class EdgeEncoder(nn.Module):
             pl2a_radius,
             max_num_neighbors,
             mask_pl=None,
-            train_mask=None,
+            agent_train_mask=None,
             use_counterfactual=False,
             route_map_index=None,
             layer_num=1
     ):
 
-        if train_mask is not None and layer_num==1 and not use_counterfactual:
-            mask=mask[train_mask,:16]
-            pos_a=pos_a[train_mask,:16]
-            head_a=head_a[train_mask,:16]
-            head_vector_a=head_vector_a[train_mask,:16]
-            batch_s=batch_s[train_mask,:16]
+        if agent_train_mask is not None and layer_num==1:
+            mask = mask & agent_train_mask[:,None]
 
         n_agent, n_step = mask.shape
 
