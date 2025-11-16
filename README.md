@@ -11,9 +11,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_route shanhelo@a
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz ~/code/catk/src/waymo_data/full/epoch=9-step=121750.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-15_23-16-37/bc/qro9qhs7/checkpoints/epoch=22-step=280025.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_14679_tokenexitpred1/2025-11-15_17-56-26/bc/n0tjh4v2/checkpoints/epoch=1-step=24350.ckpt ke@10.87.216.98:~/code/sim/src/waymo_data/
+rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-15_23-16-37/bc/qro9qhs7/checkpoints/epoch=22-step=280025.ckpt ke@10.87.216.98:~/code/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/epoch=48-step=596575.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
@@ -21,9 +21,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/bird5_matchhead_head1/2025-11-10_16-57-41/bird/oowptamm/checkpoints/epoch=63-step=595200.ckpt ./
+rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-15_20-05-59/bc/mt7n5adx/checkpoints/epoch=48-step=596575.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/keguo/sim/src/logs/bird1024_t10_token1mask_n10_addexit/2025-11-01_17-22-27/bird/04ri3d97/checkpoints/epoch=41-step=390600.ckpt ./
@@ -117,7 +117,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python start.py >  1.log 2>&1 &
+nohup python run.py >  1.log 2>&1 &
 
 
 
