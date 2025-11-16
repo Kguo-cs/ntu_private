@@ -86,28 +86,8 @@ class IQ_SoftQ(LightningModule):
         self.use_lcf = self.encoder.use_lcf
 
         self.dis_loss = "gail"
-
         self.learn_lcf = self.encoder.learn_lcf
-
-        if self.use_lcf and self.iq_learn:
-
-            if self.learn_lcf:
-                self.lcf_parameters = MLPLayer(128, 128, 1)  # [0.0, np.log(0.1)]
-
-                self.automatic_optimization = False
-
-        self.use_distance = False
-
         # self.automatic_optimization=False
-
-        if self.encoder.use_vae:
-            self.l_vae_kl = BalancedKL(kl_balance_scale=0.2, kl_free_nats=1.0)
-
-        self.use_ce = False
-
-        if self.use_ce:
-            self.training_loss = CrossEntropy(**model_config.training_loss)
-
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
     #         if param.grad is None:
@@ -311,50 +291,26 @@ class IQ_SoftQ(LightningModule):
                 # batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
                 # nei_rewards = batch_nei_rewards.transpose(0, 1)
 
-        if self.dis_loss == "pugail":
-            positive_class_prior = 0.7
-            pugail_beta = None
-
-            if key == "expert":
-                # positive loss: prior * -ln(D(expert)) = prior * -logsigmoid(logits)
-                bce_loss = positive_class_prior * -disc_val.log()
-            else:
-                bce_loss = -(1 - disc_val).log() - positive_class_prior * -(1 - expert_disc_val).log()
-
-                # negative loss: -ln(1 - D(policy)) - prior * -ln(1 - D(expert))
-                if pugail_beta is not None:
-                    bce_loss = torch.clamp(bce_loss, min=-1.0 * pugail_beta)
-
-            bce_loss = bce_loss.mean()
-        elif self.dis_loss == 'rpgan':
-            bce_loss = logit[:, :, 0]
-        elif self.dis_loss == "wgan":
-            if key == "expert":
-                bce_loss = -logit[:, :, 0].mean()  # self.bce_loss(disc_val, torch.ones_like(disc_val)) #-disc_val.log()
-            else:
-                bce_loss = logit[:, :,
-                           0].mean()  # self.bce_loss(disc_val, torch.zeros_like(disc_val)) # -(1 - disc_val).log()
+        if key == "expert":
+            target=1
         else:
-            if key == "expert":
-                target=1
-            else:
-                target=0
+            target=0
 
-            ego_logits=ego_logits[present_flatten]
+        ego_logits=ego_logits[mask_s.flatten(0,1)]
 
-            bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
-                                              reduction='mean')
-            if len(interact_logits) > 0:
+        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
+                                          reduction='mean')
+        if len(interact_logits) > 0:
 
-                bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                             weight=weight, reduction='mean') #/ego_num
+            bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
+                                                         weight=weight, reduction='mean') #/ego_num
 
-                logit=torch.cat([ego_logits, interact_logits], dim=0)
+            logit=torch.cat([ego_logits, interact_logits], dim=0)
 
-                disc_val = torch.sigmoid(logit)
+            disc_val = torch.sigmoid(logit)
 
-                self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-               # self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+            self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+           # self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1]
 
@@ -386,19 +342,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_train_mask= self.get_train_mask(tokenized_agent_rollout)
 
-        if self.use_kl_penalty:
-            with torch.no_grad():
-                if self.bc_map_net is not None:
-                    map_feature = self.bc_map_net(tokenized_map)
-                else:
-                    map_feature = tokenized_agent["map_feature"]
-
-                target_q = self.bc_net(tokenized_agent_rollout, map_feature)["agent_q"]
-        else:
-            target_q = None
-
         agent_train_mask=agent_train_mask[:,tokenized_agent["train_mask"]]
-
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
