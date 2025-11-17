@@ -301,7 +301,6 @@ class IQ_SoftQ(LightningModule):
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
                                           reduction='mean')
         if len(interact_logits) > 0:
-
             bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                          weight=weight, reduction='sum') /len(ego_logits)
 
@@ -370,7 +369,7 @@ class IQ_SoftQ(LightningModule):
 
             value_loss = nei_value_loss + value_loss
 
-            advantages = 1 / 3 * advantages + 2 / 3 * nei_advantages
+            advantages = 1 / 2 * advantages + 1 / 2 * nei_advantages
 
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
