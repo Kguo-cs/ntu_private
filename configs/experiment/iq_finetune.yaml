@@ -30,7 +30,7 @@ model:
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path : './ckpts/bc40_apt30_tokenexitpred1_epoch=62-step=767025_0.78659.ckpt'
+ckpt_path : './ckpts/bc40_apt30_tokenexit_14679_epoch=62-step=767025_0.78659.ckpt'
 
 #ckpt_path : '/home/guoke/sim/src/waymo_data/full/epoch=48-step=596575.ckpt'
 
