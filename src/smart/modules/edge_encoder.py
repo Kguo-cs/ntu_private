@@ -178,11 +178,8 @@ class EdgeEncoder(nn.Module):
             mask,  # [n_agent, n_step]
             max_num_neighbors,
             max_radius,
-            proposal=None,
-            vis_mask=None,
-            value=False,
             agent_train_mask=None,
-            loop=False
+            layer_num=1
         ):
         pos_s = pos_s[mask]
         head_s = head_s[mask]
@@ -192,10 +189,10 @@ class EdgeEncoder(nn.Module):
         edge_index_a2a = radiusGraphNearest(x=pos_s,
                                             r=max_radius,
                                             batch=batch_s,
-                                            loop=loop,
+                                            loop=False,
                                             max_num_neighbors=max_num_neighbors)
 
-        if self.discriminator and agent_train_mask is not None:
+        if agent_train_mask is not None and layer_num==1:
             edge_index_a2a = edge_index_a2a[:, agent_train_mask[edge_index_a2a[1]]]
 
         # if mask is not None:
