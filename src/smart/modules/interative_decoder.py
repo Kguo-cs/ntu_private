@@ -307,23 +307,7 @@ class InterativeDecoder(nn.Module):
         current_len = inference_mask.sum()
         feat_a = feat_a[-current_len:]
 
-        if self.discriminator and self.diff_dicriminator:
-            state = feat_a.reshape(-1, 128)
-
-            state = (state - state.mean(0, keepdim=True)) / (state.std(0, keepdim=True) + 1e-5)
-
-            next_token_logits=self.token_predict_head._compute_disc_val(state, None).reshape(-1,16)
-
-        else:
-            next_token_logits = self.token_predict_head(feat_a)
-
-        if self.discriminator and self.reward_shaping:
-            r=self.reward_net(feat_a[:, 1:] )#+ agent_token_emb
-            v_s=next_token_logits[:, :-1]
-            v_next=next_token_logits[:,1 :]
-            done=torch.ones_like(v_s)
-            done[:,-1]=0
-            next_token_logits = r + (0.99*v_next - v_s)*done
+        next_token_logits = self.token_predict_head(feat_a)
 
         weight = None
 
@@ -366,15 +350,6 @@ class InterativeDecoder(nn.Module):
                 nei_rewards[mask_ta_flatten] =nei_rewards_sum[train_repeat_mask]  #the source
 
                 rewards=(ego_rewards,nei_rewards,valid_ego_reward,valid_interact_reward)
-
-            elif self.use_counterfactual:
-
-                logit_original= next_token_logits[:n_agent,:,0]
-                ablated_logit = torch.zeros_like(logit_original)
-                valid_mask=torch.stack(valid_mask,dim=0).to(bool)[:,0]
-                ablated_logit[valid_mask]=next_token_logits[n_agent:,:,0]
-
-                rewards=(logit_original - ablated_logit).detach()
             else:
                 rewards=next_token_logits[...,0].detach(),torch.tensor(0.0)
         else:
@@ -409,7 +384,7 @@ class InterativeDecoder(nn.Module):
 
             inference_mask = self.mask_cache.clone()
 
-            inference_mask[:, :-1] = False
+            inference_mask[:, :-1] = False #a,t
 
         if agent_train_mask is not None:
             inference_mask=inference_mask[agent_train_mask]
@@ -498,67 +473,6 @@ class InterativeDecoder(nn.Module):
             loop=False
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        if self.use_diffusion:
-            if self.training:
-
-                token_traj_all =self.token_processor.token_traj_all
-
-                future = token_traj_all[torch.arange(len(sampled_idx))[:, None], sampled_idx]
-                batch_idx = batch_s_repeat[:,0]
-                T = self.schedule.timesteps
-
-                t_idx_batch = torch.randint(low=0, high=T, size=(max(batch_idx) + 1, future.shape[1]),
-                                            device=batch_idx.device)
-                t_idx = t_idx_batch[batch_idx]
-
-                noise = torch.randn_like(future)
-                
-                a = self.alphas_bar_sqrt[t_idx][:, :, None]
-
-                # coefficient of eps
-                aml = self.one_minus_alphas_bar_sqrt[t_idx][:, :, None]  
-
-                fut_noisy = a * future + aml * noise
-                fut_embed=self.fut_embed(fut_noisy)+self.t_embed(t_idx)
-                feat_a=feat_a+fut_embed.transpose(0, 1).flatten(0, 1)
-            else:
-                device = feat_a.device
-                steps=50
-
-                x = torch.randn(n_agent, 1, self.n_token_agent, device=device)
-                a = self.n_steps// steps
-
-                time_steps = torch.arange(0, self.n_steps, a,device=device)[:,None,None]
-                time_steps = time_steps + 1
-                # previous sequence
-                time_steps_prev = torch.cat([torch.zeros_like(time_steps[:1]), time_steps[:-1]])
-
-                for i in reversed(range(0, steps)):
-                    t_idx = time_steps[i]
-                    t_prev= time_steps_prev[i]
-                    a = self.alphas_bar_sqrt[t_idx]
-                    aml = self.one_minus_alphas_bar_sqrt[t_idx]
-                    
-                    a_prev= self.alphas_bar_sqrt[t_prev]
-                    aml_prev= self.one_minus_alphas_bar_sqrt[t_prev]
-
-                    fut_embed = self.fut_embed(x) + self.t_embed(t_idx)
-
-                    feat_a_f_t = feat_a + fut_embed.transpose(0, 1).flatten(0, 1)
-
-                    eps = self.predict_agent(feat_a_f_t,feat_map,n_step,n_agent,
-                      r_pl2a, edge_index_pl2a,
-                      r_a2a,edge_index_a2a,
-                      batch_s_repeat,agent_train_mask,dist,
-                      train_repeat_mask)[0]
-
-                    x0 = (x - aml * eps) / a
-                    if i == 0:
-                        x = x0
-                        return x, feat_a, None, None, None
-                    
-                    x = a_prev * x0 +  aml_prev * eps
-
         next_token_logits, feat_a, rewards, weight=self.predict_agent(feat_a,feat_map,n_step,n_agent,
                                                                          r_t,edge_index_t,
                                                                           r_pl2a, edge_index_pl2a,
@@ -568,6 +482,6 @@ class InterativeDecoder(nn.Module):
 
 
         if not self.discriminator and self.pred_exit and pred_mask is not None:
-            next_token_logits[pred_mask[:,None].repeat(1,inference_mask.shape[1])[inference_mask], -1] = -10000
+            next_token_logits[pred_mask[None].repeat(n_step,1)[inference_mask.transpose(0, 1)], -1] = -10000 #t,a
 
         return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)

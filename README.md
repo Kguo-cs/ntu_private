@@ -13,7 +13,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-15_23-16-37/bc/qro9qhs7/checkpoints/epoch=22-step=280025.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-16_23-31-21/bc/itkl1qzi/checkpoints/epoch=32-step=401775.ckpt ke@10.87.216.98:~/code/sim/src/logs/
+rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-16_23-31-21/bc/itkl1qzi/checkpoints/last.ckpt ke@10.87.216.98:~/code/sim/src/logs/
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/epoch=48-step=596575.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
@@ -117,7 +117,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python run.py >  1.log 2>&1 &
+nohup python start.py >  1.log 2>&1 &
 
 
 
