@@ -44,13 +44,9 @@ class InterativeDecoder(nn.Module):
             pt2a_neighbor: int,
             a2a_neighbor: int,
             token_processor,
-            output_gmm,
-            pred_last_res,
-            pred_all_res,
             dis_weight,
             dist_decay,
             discriminator=False,
-            use_roformer=True
     ) -> None:
         super(InterativeDecoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -60,7 +56,6 @@ class InterativeDecoder(nn.Module):
         self.num_layers = num_layers
         self.shift = token_processor.shift
         self.hist_drop_prob = hist_drop_prob
-        self.output_gmm = output_gmm
         self.dis_weight=dis_weight
         self.dis_decay=dist_decay
 
@@ -73,13 +68,12 @@ class InterativeDecoder(nn.Module):
                                         share=discriminator,
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
-                                        use_roformer=use_roformer,
+                                        shift=token_processor.shift,
                                         use_route=token_processor.use_route,
                                         discriminator=discriminator,
                                         use_bird=token_processor.use_bird
                                         )
 
-        self.use_roformer=use_roformer
 
         self.pred_exit=token_processor.pred_exit
 
@@ -87,24 +81,19 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
-        if self.use_roformer:
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-                                              hist_len=self.agent_hist)
-        else:
-            self.t_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=hist_drop_prob,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-                    for _ in range(self.t_num_layers)
-                ]
-            )
-            self.token_cache=None
+        self.t_attn_layers = nn.ModuleList(
+            [
+                AttentionLayer(
+                    hidden_dim=hidden_dim,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=hist_drop_prob,
+                    bipartite=False,
+                    has_pos_emb=True,
+                )
+                for _ in range(self.t_num_layers)
+            ]
+        )
 
         if not token_processor.use_bird:
             self.pt2a_attn_layers = nn.ModuleList(
@@ -146,37 +135,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
 
-        self.use_diffusion=False
-
-        if self.use_diffusion:
-            n_token_agent=5*4*2
-            
-            self.n_steps = n_steps = 1000
-
-            betas = cosine_beta_schedule(self.n_steps)
-            self.betas = betas#.to(self.args.device)
-            alphas = 1 - betas
-            alphas_prod = torch.cumprod(alphas, 0)
-            alphas_bar_sqrt = torch.sqrt(alphas_prod)#.to(self.args.device)
-            one_minus_alphas_bar_sqrt = torch.sqrt(1 - alphas_prod)#.to(self.args.device)
-            
-            self.register_buffer("alphas_bar_sqrt",alphas_bar_sqrt)
-            self.register_buffer("one_minus_alphas_bar_sqrt",one_minus_alphas_bar_sqrt)     
-
-
-            self.schedule = NoiseSchedule.cosine(timesteps=1000)
-            self.t_embed = nn.Embedding(n_steps, hidden_dim)
-            self.fut_embed = nn.Linear(n_token_agent, hidden_dim)
-
-        self.pred_last_res = pred_last_res
-        self.pred_all_res = pred_all_res
         self.n_token_agent=n_token_agent
-
-        if self.pred_last_res or self.pred_all_res:
-            if self.output_gmm:
-                self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3*2*1) #mean and std
-            else:
-               self.traj_head = MLPLayer(hidden_dim, hidden_dim, output_dim=3 * 5)
 
         self.start_step=self.num_historical_steps//self.shift-1
 
@@ -184,26 +143,21 @@ class InterativeDecoder(nn.Module):
         self.a2a_radius = a2a_radius
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
-
         self.token_processor=token_processor
 
-        self.filter_ratio=0
-        if self.discriminator and self.diff_dicriminator:
-            self.token_predict_head = Discriminator(hidden_dim, hidden_dim, False, num_units=128)
-        else:
-            if self.discriminator and self.use_edge_feature:
-                self.interact_head = MLPLayer(
-                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+        if self.discriminator and self.use_edge_feature:
+            self.interact_head = MLPLayer(
+                input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+            )
+
+            if self.use_full_feature:
+                self.all_head = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-                if self.use_full_feature:
-                    self.all_head = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                    )
-
-            self.token_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
+        self.token_predict_head = MLPLayer(
+            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+        )
 
         if self.discriminator:
             self.centric=False

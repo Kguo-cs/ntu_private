@@ -26,7 +26,7 @@ class EdgeEncoder(nn.Module):
             a2a=True,
             hist_drop_prob=0.0,
             time_span=30,
-            use_roformer=True,
+            shift=0,
             use_route=False,
             discriminator=False,
             use_bird=False
@@ -75,9 +75,6 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
-        self.use_roformer = use_roformer
-
-        if not self.use_roformer:
 
             self.r_t_emb = FourierEmbedding(
                 input_dim=input_dim_r_t,
@@ -89,7 +86,7 @@ class EdgeEncoder(nn.Module):
             self.hist_drop_prob=hist_drop_prob
             self.time_span=time_span
 
-            self.shift=5
+            self.shift=shift
 
 
     def build_temporal_edge(
