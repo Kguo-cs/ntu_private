@@ -2,9 +2,6 @@ from jax.example_libraries.stax import logsoftmax
 from lightning import LightningModule
 import numpy as np
 import torch
-
-from src.smart.loss.iq_loss import get_iqloss, soft_update, eval_light, get_proposal_loss, get_gaussian_loss
-from src.smart.loss.rollout_buffer import rollout, compute_advantages
 import torch.nn.functional as F
 import torch.nn as nn
 import time
@@ -12,22 +9,8 @@ from collections import deque
 import random
 import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
-    get_near_returns, per_scene_zscore_clip
-from torch_scatter import scatter_mean
-from torch.distributions import Categorical, Normal, Independent
-from src.smart.loss.kl_loss import BalancedKL
-from src.smart.loss.collision_check import oriented_box_collision, signed_distance_boxes_sat_fast, value_to_hist_class
-from src.smart.loss.offroad_check import corners_offroad_signed_distance_per_batch
-from torch_scatter import scatter_max
-from src.smart.metrics import (
-    CrossEntropy,
-    TokenCls,
-    WOSACMetrics,
-    WOSACSubmission,
-    minADE,
-)
+    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask
 from torch.nn.functional import cross_entropy
-
 
 class IQ_SoftQ(LightningModule):
 
@@ -49,12 +32,6 @@ class IQ_SoftQ(LightningModule):
         self.replay_buffer = deque(maxlen=self.buffer_len)
 
         self.rollout_freq = 1
-
-        if self.use_target_q:
-            self.target_net = copy.deepcopy(self.encoder.critic)
-            self.target_net.load_state_dict(self.encoder.critic.state_dict())
-            for param in self.target_net.parameters():
-                param.requires_grad = False
 
         self.use_kl_penalty = self.encoder.use_kl_penalty
 
@@ -87,6 +64,9 @@ class IQ_SoftQ(LightningModule):
 
         self.dis_loss = "gail"
         self.learn_lcf = self.encoder.learn_lcf
+
+        self.use_gradient_penalty = False
+
         # self.automatic_optimization=False
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
@@ -184,25 +164,9 @@ class IQ_SoftQ(LightningModule):
 
         return action_nll,log_prob
 
-    def get_train_mask(self,tokenized_agent):
-        valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
-
-        if self.token_processor.pred_exit:
-            train_mask = valid_mask[:, :-1]
-        else:
-            train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
-
-        if "pred_mask" in tokenized_agent.keys():
-            pred_mask =tokenized_agent["pred_mask"]
-
-            train_mask[pred_mask]=(valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]
-
-        return train_mask.transpose(0, 1)
-
-
     def get_reward(self, tokenized_agent, key,dis_mask=None):
 
-        disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+        disc_out = self.encoder.discriminator.predict_agent(None,
                                                             tokenized_agent["token_mask"],
                                                             tokenized_agent["valid_mask"],
                                                             tokenized_agent["sampled_pos"] ,
@@ -292,11 +256,77 @@ class IQ_SoftQ(LightningModule):
             self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
            # self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
-        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],mask_s.flatten(0,1)
+        if self.use_gradient_penalty:
+            if key == "expert":
+                tokenized_agent["expert_sampled_pos"]=tokenized_agent['sampled_pos'].clone()
+                tokenized_agent["expert_sampled_heading"]=tokenized_agent['sampled_heading'].clone()
+                tokenized_agent["expert_valid_mask"]=tokenized_agent['valid_mask'].clone()
+                tokenized_agent["expert_token_mask"]=tokenized_agent['token_mask'].clone()
+                gp=0
+            else:
+                expert_pos = tokenized_agent["expert_sampled_pos"]  # [B, N, 2]
+                expert_head = tokenized_agent["expert_sampled_heading"]  # [B, N, 1]
+                policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
+                policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
+
+                expert_valid_mask = tokenized_agent["expert_valid_mask"]  # [B, N] (bool)
+                expert_token_mask = tokenized_agent["expert_token_mask"]  # [B, N] (bool)
+
+                # --- 1) build interpolation coefficient alpha per token ---
+                # shape [B, N, 1] so each token gets its own alpha, broadcast over xy
+                alpha = torch.rand_like(expert_pos[..., :1])  # [B, N, 1]
+
+                # --- 2) interpolate expert vs policy trajectories ---
+                interp_pos = alpha * expert_pos + (1.0 - alpha) * policy_pos  # [B, N, 2]
+                interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
+
+                # Make them leaf tensors with grad
+                interp_pos = interp_pos.detach().requires_grad_(True)
+                interp_head = interp_head.detach().requires_grad_(True)
+
+                disc_out_interp = self.encoder.discriminator.predict_agent(None,
+                                                                    expert_token_mask,
+                                                                    expert_valid_mask,
+                                                                    interp_pos,
+                                                                    interp_head,
+                                                                    tokenized_agent,
+                                                                    tokenized_agent["detach_map_feature"],
+                                                                    abs_time=tokenized_agent["abs_time"])
+                # Flatten to [B*N, 1] for GP
+                disc_flat = disc_out_interp.reshape(-1, 1)
+                grad_outputs = torch.ones_like(disc_flat)
+
+                # Compute gradients wrt interpolated inputs
+                grads = torch.autograd.grad(
+                    outputs=disc_flat,
+                    inputs=[interp_pos, interp_head],
+                    grad_outputs=grad_outputs,
+                    create_graph=True,
+                    retain_graph=True,
+                    only_inputs=True,
+                )
+
+                grad_pos, grad_head = grads  # same shapes as interp_pos, interp_head
+
+                # Concatenate gradients and compute L2 norm per sample-token
+                grad_pos_flat = grad_pos.reshape(grad_pos.size(0), -1)  # [B, N*2] if [B,N,2]
+                grad_head_flat = grad_head.reshape(grad_head.size(0), -1)  # [B, N*1]
+                grad_all = torch.cat([grad_pos_flat, grad_head_flat], dim=-1)  # [B, N*(2+1)]
+
+                grad_norm = grad_all.norm(2, dim=1)  # [B]
+                gp_lambda = 10.0
+                gp = ((grad_norm - 1.0) ** 2).mean() * gp_lambda
+
+                self.log("train/" + key + "_gp", gp, on_step=True, batch_size=1)
+        else:
+            gp=0
+
+
+        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],mask_s.flatten(0,1),gp
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_train_mask= self.get_train_mask(tokenized_agent)
+        expert_train_mask= get_train_mask(tokenized_agent,self.start_step,self.token_processor.pred_exit)
 
         if self.use_kl_penalty:
             expert_nll = 0
@@ -316,13 +346,11 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
-        expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        expert_dis_loss,_,_,_,expert_dis_mask,expert_gp = self.get_reward(tokenized_agent, "expert")
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
-        agent_train_mask= self.get_train_mask(tokenized_agent_rollout)
-
-        agent_train_mask=agent_train_mask[:,tokenized_agent["train_mask"]]
+        agent_train_mask= get_train_mask(tokenized_agent_rollout,self.start_step,self.token_processor.pred_exit)
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
@@ -330,9 +358,9 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,_ = self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,_ ,agent_gp= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
-        critic_loss = expert_dis_loss + agent_dis_loss  # + expert_gp + agent_gp
+        critic_loss = expert_dis_loss + agent_dis_loss+ expert_gp + agent_gp
 
         feat_a = tokenized_agent_rollout["feat_a"]
 
@@ -389,8 +417,4 @@ class IQ_SoftQ(LightningModule):
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
-
-        if self.use_target_q:
-            soft_update(self.encoder.critic, self.target_net, tau=2e-4)
-
         return loss

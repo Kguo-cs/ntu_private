@@ -550,6 +550,22 @@ def get_return_diff(reward,log_prob,current_Q,V,alpha,gamma):
 
     return current_Q_diff, V_diff
 
+def get_train_mask(tokenized_agent,start_step,pred_exit):
+    valid_mask = tokenized_agent["valid_mask"][:, start_step:]
+
+    if pred_exit:
+        train_mask = valid_mask[:, :-1]
+        if "pred_mask" in tokenized_agent.keys():
+            pred_mask = tokenized_agent["pred_mask"]
+
+            train_mask[pred_mask] = (valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]
+    else:
+        train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
+
+    if "train_mask" in tokenized_agent.keys():
+        train_mask = train_mask[tokenized_agent["train_mask"]]
+
+    return train_mask.transpose(0, 1)
 
 
 def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95

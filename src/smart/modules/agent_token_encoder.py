@@ -91,7 +91,7 @@ class AgentTokenEncoder(nn.Module):
             abs_time,
             inference=False,
     ):
-        n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
+        n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
         _device = pos_a.device
 
         if not self.discriminator:
@@ -132,7 +132,7 @@ class AgentTokenEncoder(nn.Module):
         # else:
         motion_vector_a = torch.cat(
             [
-                pos_a.new_zeros(agent_token_index.shape[0], 1, pos_a.shape[-1]),
+                pos_a.new_zeros(n_agent, 1, pos_a.shape[-1]),
                 pos_a[:, 1:] - pos_a[:, :-1],
             ],
             dim=1,
