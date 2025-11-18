@@ -197,10 +197,10 @@ class IQ_SoftQ(LightningModule):
 
             train_mask[pred_mask]=(valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]
 
-        return train_mask.transpose(0, 1) #t,a
+        return train_mask.transpose(0, 1)
 
 
-    def get_reward(self, tokenized_agent, key):
+    def get_reward(self, tokenized_agent, key,dis_mask=None):
 
         disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
@@ -296,7 +296,11 @@ class IQ_SoftQ(LightningModule):
         else:
             target=0
 
-        ego_logits=ego_logits[mask_s.flatten(0,1)]
+        if dis_mask is not None:
+            ego_logits=ego_logits[dis_mask]
+        else:
+            ego_logits=ego_logits[mask_s.flatten(0,1)]
+
         #ego_logits=ego_logits[present_flatten]
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
@@ -312,7 +316,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
            # self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
-        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1]
+        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
@@ -336,7 +340,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
-        expert_dis_loss = self.get_reward(tokenized_agent, "expert")[0]
+        expert_dis_loss,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
@@ -346,11 +350,11 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
-        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, agent_train_mask, key='agent')#current valid
+        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, agent_train_mask, key='agent')
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask = self.get_reward(tokenized_agent_rollout, "agent")
+        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,_ = self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
         critic_loss = expert_dis_loss + agent_dis_loss  # + expert_gp + agent_gp
 
@@ -391,17 +395,6 @@ class IQ_SoftQ(LightningModule):
         self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
         loss = critic_loss + expert_nll
-
-        if self.automatic_optimization == False:
-            policy_optimizer, discriminator_optimizer = self.optimizers()
-            discriminator_optimizer.zero_grad()
-            self.manual_backward(critic_loss)
-            discriminator_optimizer.step()
-
-        if self.automatic_optimization == False:
-            policy_optimizer.zero_grad()
-            self.manual_backward(expert_nll)
-            policy_optimizer.step()
 
         return loss
 
