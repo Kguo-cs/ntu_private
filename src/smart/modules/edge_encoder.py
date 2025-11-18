@@ -128,29 +128,45 @@ class EdgeEncoder(nn.Module):
                        ]
         rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
         rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
-        r_t = torch.stack(
-            [
-                torch.norm(rel_pos_t, p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_t[edge_index_t[1]], nbr_vector=rel_pos_t[:, :2]
-                ),
-                rel_head_t,
-                edge_index_t[0] - edge_index_t[1],
-            ],
-            dim=-1,
-        )
 
-        r_t=torch.cat([r_t,rel_pos_t[:,2:]],dim=-1)
+        if self.discriminator:
+            u=rel_pos_t[:, :2]
+            v=head_vector_t[edge_index_t[1]]
 
-       # if self.discriminator or self.use_bird:
+            r_t = torch.stack(
+                [
+                    (u*v).sum(dim=-1) ,
+                    u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+                    rel_head_t,
+                    edge_index_t[0] - edge_index_t[1],
+                ],
+                dim=-1,
+            )
+
+        else:
+            r_t = torch.stack(
+                [
+                    torch.norm(rel_pos_t, p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=head_vector_t[edge_index_t[1]], nbr_vector=rel_pos_t[:, :2]
+                    ),
+                    rel_head_t,
+                    edge_index_t[0] - edge_index_t[1],
+                ],
+                dim=-1,
+            )
+
+        r_t = torch.cat([r_t, rel_pos_t[:, 2:]], dim=-1)
+
+        # if self.discriminator or self.use_bird:
         n_agent, n_step = mask.shape
 
         edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
 
         if self.discriminator:
-            dst_invalid_mask=~flat_mask[edge_index_t[1]] #src,dst
+            dst_invalid_mask = ~flat_mask[edge_index_t[1]]  # src,dst
 
-            r_t[dst_invalid_mask,:3]=-1 #dst not exist
+            r_t[dst_invalid_mask, :3] = -1  #dst not exist
             r_t[dst_invalid_mask,-1]=-1 #dst not exist
 
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
@@ -203,13 +219,6 @@ class EdgeEncoder(nn.Module):
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
 
         dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
-
-        if self.tokenized_pos:
-            bins = torch.tensor([0.25, 1, 4, 9, 16, 25, 36, 49, 64], device=dist.device)#torch.arange(0.5,8,0.25, device=dist.device).square()#
-
-            # Compute nearest bin for each distance
-            idx = torch.argmin((dist.unsqueeze(-1) - bins).abs(), dim=-1)
-            dist = bins[idx]
 
         r_a2a = torch.stack(
             [
@@ -311,68 +320,17 @@ class EdgeEncoder(nn.Module):
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
 
-        if self.use_route:
-            point_isin = torch.zeros_like(rel_orient_pl2a)-1
-
-            if route_map_index is not None:
-
-                #route_number=torch.sum(route_map_index>0,dim=-1)
-
-                #max_num=torch.unique(route_map_index,dim=-1)
-
-                keep_mask=route_map_index[:,0]!=-2
-
-                # drop_mask = torch.rand(n_agent).to(head_s.device) < 0.5
-                #
-                # keep_mask= drop_mask #& (route_number>2)
-
-                agent_idx = edge_index_pl2a[1] % n_agent
-
-                keep_agent_mask = keep_mask[agent_idx]
-
-                route_idx = route_map_index[agent_idx[keep_agent_mask]]
-
-                map_idx = edge_index_pl2a[0][keep_agent_mask]
-
-                point_num = torch.bincount(batch_pl)
-
-                point_num = torch.cat([torch.zeros_like(point_num[:1]), point_num[:-1]])
-
-                cum_num = torch.cumsum(point_num, dim=0)
-
-                batch_cum_num = cum_num[batch_pl]
-
-                map_batch = map_idx - batch_cum_num[map_idx]
-
-                mask=(route_idx==map_batch[:,None]).any(dim=1)
-
-                point_isin[keep_agent_mask] =mask.to(torch.float32)# -1 unknown, 0 no exist , 1 exist
-
-            r_pl2a = torch.stack(
-                [
-                    torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                        nbr_vector=rel_pos_pl2a[:, :2],
-                    ),
-                    rel_orient_pl2a,
-                    point_isin
-                ],
-                dim=-1,
-            )
-
-        else:
-            r_pl2a = torch.stack(
-                [
-                    torch.norm(rel_pos_pl2a, p=2, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                        nbr_vector=rel_pos_pl2a[:, :2],
-                    ),
-                    rel_orient_pl2a,
-                ],
-                dim=-1,
-            )
+        r_pl2a = torch.stack(
+            [
+                torch.norm(rel_pos_pl2a, p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
+                    nbr_vector=rel_pos_pl2a[:, :2],
+                ),
+                rel_orient_pl2a,
+            ],
+            dim=-1,
+        )
 
         r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
 
@@ -397,6 +355,8 @@ class EdgeEncoder(nn.Module):
 
             dst_global=(dst_global % n_step) * n_agent + dst_global // n_step
 
-            edge_index_pl2a[1] = map_global_to_compact_time[dst_global]  # indices into time-major masked array
+            new_dst = map_global_to_compact_time[dst_global]
+            edge_index_pl2a = torch.stack([edge_index_pl2a[0], new_dst], dim=0)
+
 
         return edge_index_pl2a, r_pl2a

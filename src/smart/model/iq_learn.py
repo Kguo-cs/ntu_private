@@ -65,7 +65,7 @@ class IQ_SoftQ(LightningModule):
         self.dis_loss = "gail"
         self.learn_lcf = self.encoder.learn_lcf
 
-        self.use_gradient_penalty = False
+        self.use_gradient_penalty = True
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
@@ -274,45 +274,54 @@ class IQ_SoftQ(LightningModule):
 
                 # --- 1) build interpolation coefficient alpha per token ---
                 # shape [B, N, 1] so each token gets its own alpha, broadcast over xy
-                alpha = torch.rand_like(expert_pos[..., :1])  # [B, N, 1]
+                alpha = torch.rand_like(expert_pos[..., 0])  # [B, N, 1]
 
                 # --- 2) interpolate expert vs policy trajectories ---
-                interp_pos = alpha * expert_pos + (1.0 - alpha) * policy_pos  # [B, N, 2]
+                interp_pos = alpha[...,None] * expert_pos + (1.0 - alpha[...,None]) * policy_pos  # [B, N, 2]
                 interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
 
                 # Make them leaf tensors with grad
-                interp_pos = interp_pos.detach().requires_grad_(True)
-                interp_head = interp_head.detach().requires_grad_(True)
+                #interp_pos = interp_pos.detach().requires_grad_(True)
+                #interp_head = interp_head.detach().requires_grad_(True)
+                valid_mask =tokenized_agent["valid_mask"]
+
+                interpolates_pose=torch.cat((interp_pos, interp_head[:,:,None]), dim=-1)
+
+                interpolates=interpolates_pose[valid_mask]#[train_mask,2:]
+
+                interpolates.requires_grad_(True)  # IMPORTANT
+
+                interpolates_pose[valid_mask]=interpolates
 
                 disc_out_interp = self.encoder.discriminator.predict_agent(None,
                                                                     expert_token_mask,
                                                                     expert_valid_mask,
-                                                                    interp_pos,
-                                                                    interp_head,
+                                                                    interpolates_pose[...,:2],
+                                                                    interpolates_pose[...,2],
                                                                     tokenized_agent,
                                                                     tokenized_agent["detach_map_feature"],
                                                                     abs_time=tokenized_agent["abs_time"])
+
+                ego_logits, interact_logits = disc_out_interp[0]
+                ego_logits = ego_logits[dis_mask]
+                logit =ego_logits #torch.cat([ego_logits, interact_logits], dim=0)
+
                 # Flatten to [B*N, 1] for GP
-                disc_flat = disc_out_interp.reshape(-1, 1)
+                disc_flat = logit.reshape(-1, 1)
                 grad_outputs = torch.ones_like(disc_flat)
 
+                tokenized_agent["train_mask"]=None
+
                 # Compute gradients wrt interpolated inputs
-                grads = torch.autograd.grad(
-                    outputs=disc_flat,
-                    inputs=[interp_pos, interp_head],
-                    grad_outputs=grad_outputs,
-                    create_graph=True,
-                    retain_graph=True,
-                    only_inputs=True,
-                )
-
-                grad_pos, grad_head = grads  # same shapes as interp_pos, interp_head
-
-                # Concatenate gradients and compute L2 norm per sample-token
-                grad_pos_flat = grad_pos.reshape(grad_pos.size(0), -1)  # [B, N*2] if [B,N,2]
-                grad_head_flat = grad_head.reshape(grad_head.size(0), -1)  # [B, N*1]
-                grad_all = torch.cat([grad_pos_flat, grad_head_flat], dim=-1)  # [B, N*(2+1)]
-
+                with torch.autograd.set_detect_anomaly(True):
+                    grad_all = torch.autograd.grad(
+                        outputs=disc_flat,  # whatever you use
+                        inputs=interpolates,
+                        grad_outputs=grad_outputs,
+                        create_graph=True,
+                        retain_graph=True,
+                        only_inputs=True,
+                    )[0]
                 grad_norm = grad_all.norm(2, dim=1)  # [B]
                 gp_lambda = 10.0
                 gp = ((grad_norm - 1.0) ** 2).mean() * gp_lambda
