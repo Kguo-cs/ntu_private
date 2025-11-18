@@ -26,9 +26,9 @@ rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
 
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_mask53_val40_sum/2025-11-17_12-04-04/sim/bwrjtfls/checkpoints/epoch=3-step=24352.ckpt ./
+rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf11_val40_sum33/2025-11-17_12-58-20/sim/r77oj3zu/checkpoints/epoch=4-step=30440.ckpt ./
 
-rsync -avz C guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/iq3_w1_lcf12_val12/2025-11-08_05-05-03/bird/qiivsgbn/checkpoints/epoch=1-step=10334.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL152_mask53_val40/2025-11-17_03-03-58/sim/30ilvdiy/checkpoints/epoch=15-step=51264.ckpt ./
 
 
 
