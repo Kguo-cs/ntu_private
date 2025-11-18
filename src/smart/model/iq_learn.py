@@ -264,37 +264,13 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
 
-        if key=="agent":
-            #self.ego_return_meanstd.update(ego_rewards.reshape(-1))
-            #ego_rewards=self.ego_return_meanstd.normalize(ego_rewards)#
-            #ego_rewards = (ego_rewards-ego_rewards.mean())/ego_rewards.std()#
-
-            #ego_rewards=ego_rewards-ego_rewards.mean()
-            #ego_rewards=ego_rewards/ego_rewards.std()
-            ego_rewards=ego_rewards.reshape(mask_s.shape[0],mask_s.shape[1])[self.start_step+1:] #t,a
-            #ego_rewards[~present_mask]=0
-
-            # mask_s = tokenized_agent["valid_mask"][:, 1 + self.start_step:].transpose(0, 1)
-            # batch_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)
-            # batch_rewards = batch_rewards.masked_scatter(mask_s, ego_rewards)
-            # ego_rewards = batch_rewards.transpose(0, 1)
-
-            if self.use_lcf:
-               # self.global_return_meanstd.update(nei_rewards.reshape(-1))
-               # nei_rewards = self.global_return_meanstd.normalize(nei_rewards)
-                #nei_rewards = (nei_rewards - nei_rewards.mean()) / nei_rewards.std()  #
-                #nei_rewards=nei_rewards-nei_rewards.mean()
-                #nei_rewards=nei_rewards/nei_rewards.std()
-               nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step+1:]#t,a
-
-               # batch_nei_rewards = torch.zeros_like(mask_s, dtype=rewards.dtype)#+nei_rewards.mean()
-                # batch_nei_rewards = batch_nei_rewards.masked_scatter(mask_s, nei_rewards)
-                # nei_rewards = batch_nei_rewards.transpose(0, 1)
-
         if key == "expert":
             target=1
         else:
             target=0
+            ego_rewards=ego_rewards.reshape(mask_s.shape[0],mask_s.shape[1])[self.start_step+1:] #t,a
+            if self.use_lcf:
+               nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step+1:]#t,a
 
         if dis_mask is not None:
             ego_logits=ego_logits[dis_mask]
