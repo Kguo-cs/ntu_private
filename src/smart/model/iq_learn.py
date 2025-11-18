@@ -65,7 +65,7 @@ class IQ_SoftQ(LightningModule):
         self.dis_loss = "gail"
         self.learn_lcf = self.encoder.learn_lcf
 
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
@@ -254,7 +254,7 @@ class IQ_SoftQ(LightningModule):
             disc_val = torch.sigmoid(logit)
 
             self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-           # self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+            self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         if self.use_gradient_penalty:
             if key == "expert":
@@ -269,8 +269,8 @@ class IQ_SoftQ(LightningModule):
                 policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
                 policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
 
-                expert_valid_mask = tokenized_agent["expert_valid_mask"]  # [B, N] (bool)
-                expert_token_mask = tokenized_agent["expert_token_mask"]  # [B, N] (bool)
+                valid_mask = tokenized_agent["expert_valid_mask"] &   tokenized_agent['valid_mask'] # [B, N] (bool)
+                token_mask = tokenized_agent["expert_token_mask"]  &   tokenized_agent['token_mask'] # [B, N] (bool)
 
                 # --- 1) build interpolation coefficient alpha per token ---
                 # shape [B, N, 1] so each token gets its own alpha, broadcast over xy
@@ -280,22 +280,19 @@ class IQ_SoftQ(LightningModule):
                 interp_pos = alpha[...,None] * expert_pos + (1.0 - alpha[...,None]) * policy_pos  # [B, N, 2]
                 interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
 
-                # Make them leaf tensors with grad
-                #interp_pos = interp_pos.detach().requires_grad_(True)
-                #interp_head = interp_head.detach().requires_grad_(True)
-                valid_mask =tokenized_agent["valid_mask"]
+                train_valid_mask = valid_mask & tokenized_agent["train_mask"][:,None]
 
                 interpolates_pose=torch.cat((interp_pos, interp_head[:,:,None]), dim=-1)
 
-                interpolates=interpolates_pose[valid_mask]#[train_mask,2:]
+                interpolates=interpolates_pose[train_valid_mask]#[train_mask,2:]
 
                 interpolates.requires_grad_(True)  # IMPORTANT
 
-                interpolates_pose[valid_mask]=interpolates
+                interpolates_pose[train_valid_mask]=interpolates
 
                 disc_out_interp = self.encoder.discriminator.predict_agent(None,
-                                                                    expert_token_mask,
-                                                                    expert_valid_mask,
+                                                                    token_mask,
+                                                                    valid_mask,
                                                                     interpolates_pose[...,:2],
                                                                     interpolates_pose[...,2],
                                                                     tokenized_agent,
@@ -304,24 +301,21 @@ class IQ_SoftQ(LightningModule):
 
                 ego_logits, interact_logits = disc_out_interp[0]
                 ego_logits = ego_logits[dis_mask]
-                logit =ego_logits #torch.cat([ego_logits, interact_logits], dim=0)
+                logit =torch.cat([ego_logits, interact_logits], dim=0)
 
-                # Flatten to [B*N, 1] for GP
                 disc_flat = logit.reshape(-1, 1)
                 grad_outputs = torch.ones_like(disc_flat)
 
-                tokenized_agent["train_mask"]=None
-
                 # Compute gradients wrt interpolated inputs
-                with torch.autograd.set_detect_anomaly(True):
-                    grad_all = torch.autograd.grad(
-                        outputs=disc_flat,  # whatever you use
-                        inputs=interpolates,
-                        grad_outputs=grad_outputs,
-                        create_graph=True,
-                        retain_graph=True,
-                        only_inputs=True,
-                    )[0]
+                grad_all = torch.autograd.grad(
+                    outputs=disc_flat,  # whatever you use
+                    inputs=interpolates,
+                    grad_outputs=grad_outputs,
+                    create_graph=True,
+                    retain_graph=True,
+                    only_inputs=True,
+                )[0]
+
                 grad_norm = grad_all.norm(2, dim=1)  # [B]
                 gp_lambda = 10.0
                 gp = ((grad_norm - 1.0) ** 2).mean() * gp_lambda
