@@ -28,9 +28,9 @@ model:
     finetune: true
     smart : false
     decoder:
-      hist_drop_prob: 0.1 #0.1 #0.1
+      hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path: '/home/ke/code/catk/src/ckpts/bc40_apt30_tokenexitpred1_epoch=62-step=767025_0.78659.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_mask53_val40_sum_epoch=3-step=24352_0.78418.ckpt'
 
 trainer:
   limit_train_batches: 1.0

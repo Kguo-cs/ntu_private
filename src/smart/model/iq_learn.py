@@ -296,7 +296,8 @@ class IQ_SoftQ(LightningModule):
         else:
             target=0
 
-        ego_logits=ego_logits[mask_s.flatten(0,1)]
+        #ego_logits=ego_logits[mask_s.flatten(0,1)]
+        ego_logits=ego_logits[present_flatten]
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
                                           reduction='mean')
@@ -333,7 +334,7 @@ class IQ_SoftQ(LightningModule):
         if not self.iq_learn:
             return expert_nll
 
-      #  tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
+        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
         expert_dis_loss = self.get_reward(tokenized_agent, "expert")[0]
 
@@ -341,7 +342,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_train_mask= self.get_train_mask(tokenized_agent_rollout)
 
-        #agent_train_mask=agent_train_mask[:,tokenized_agent["train_mask"]]
+        agent_train_mask=agent_train_mask[:,tokenized_agent["train_mask"]]
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
@@ -369,7 +370,7 @@ class IQ_SoftQ(LightningModule):
 
             value_loss = nei_value_loss + value_loss
 
-            advantages = 1 / 2 * advantages + 1 / 2 * nei_advantages
+            advantages = 1 / 3 * advantages + 2 / 3 * nei_advantages
 
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
