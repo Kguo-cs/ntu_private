@@ -59,7 +59,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_lcf11_sum33_batchgp1_1m_noedge
+task_name: AIRL80_lcf11_sum33_batchgp1_1m
 
 trainer:
   limit_train_batches: 1.0
@@ -74,7 +74,7 @@ data:
   train_batch_size: 80
   val_batch_size: 40
   test_batch_size: 10
-  num_workers: 16
+  num_workers: 1
 
 #action: validate
 action: finetune
