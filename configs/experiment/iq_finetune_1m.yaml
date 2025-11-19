@@ -38,7 +38,7 @@ model:
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
-      dis_weight: 1
+      dis_weight: 5
       dist_decay: 5
 
 ckpt_path : './ckpts/bc40_apt30_tokenexitpred1_14679_1m_epoch=21-step=167420_0.76834.ckpt'
@@ -60,7 +60,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_1515_dis60_1m
+task_name: AIRL80_5515_dis60_1m
 
 trainer:
   limit_train_batches: 1.0
