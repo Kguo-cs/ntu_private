@@ -54,7 +54,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_lcf11_sum1_10
+task_name: AIRL80_lcf11_sum1_10_nogp
 
 trainer:
   limit_train_batches: 1.0

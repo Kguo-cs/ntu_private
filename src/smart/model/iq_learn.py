@@ -63,7 +63,7 @@ class IQ_SoftQ(LightningModule):
         self.dis_loss = "gail"
         self.learn_lcf = self.encoder.learn_lcf
 
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
