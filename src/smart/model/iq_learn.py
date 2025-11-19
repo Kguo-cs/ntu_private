@@ -221,6 +221,7 @@ class IQ_SoftQ(LightningModule):
                                                          weight=weight, reduction='sum') /mask_s.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
+            self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
 
         disc_val = torch.sigmoid(ego_logits)
 
