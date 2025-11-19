@@ -299,7 +299,7 @@ class InterativeDecoder(nn.Module):
 
                 ego_rewards = valid_ego_reward
                 valid_interact_reward=torch.zeros_like(valid_ego_reward)
-                nei_rewards=torch.zeros_like(ego_rewards)
+                nei_rewards=ego_rewards[:0]
 
             rewards = (ego_rewards, nei_rewards, valid_ego_reward, valid_interact_reward)
         else:

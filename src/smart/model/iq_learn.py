@@ -59,10 +59,6 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-
-        self.dis_loss = "gail"
-        self.learn_lcf = self.encoder.learn_lcf
-
         self.use_gradient_penalty = True
 
         # self.automatic_optimization=False
@@ -201,13 +197,12 @@ class IQ_SoftQ(LightningModule):
 
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
-        weight = disc_out[3]
-
-        rewards = ego_rewards + nei_rewards + kl_per_token
+        if len(nei_rewards)>0:
+            rewards = ego_rewards + nei_rewards + kl_per_token
+            self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
 
         mask_s = tokenized_agent["valid_mask"].transpose(0,1)
 
@@ -231,7 +226,7 @@ class IQ_SoftQ(LightningModule):
         else:
             target=0
             ego_rewards=ego_rewards.reshape(mask_s.shape[0],mask_s.shape[1])[self.start_step+1:] #t,a
-            if self.use_lcf:
+            if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step+1:]#t,a
 
         if dis_mask is not None:
@@ -244,6 +239,8 @@ class IQ_SoftQ(LightningModule):
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
                                           reduction='mean')
         if len(interact_logits) > 0:
+            weight = disc_out[3]
+
             bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                          weight=weight, reduction='sum') /mask_s.sum()
 
@@ -384,7 +381,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages, value_loss=compute_advantages(agent_rewards, value, agent_present_mask)
 
-        if self.use_lcf:
+        if len(nei_rewards):
             nei_value = self.encoder.nei_value_network(feat_a)[..., 0]
 
             nei_advantages, nei_value_loss = compute_advantages(nei_rewards, nei_value, agent_present_mask)
