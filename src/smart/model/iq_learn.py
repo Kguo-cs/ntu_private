@@ -267,12 +267,12 @@ class IQ_SoftQ(LightningModule):
                 policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
                 policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
 
-                valid_mask =   tokenized_agent['valid_mask'] #tokenized_agent["expert_valid_mask"] & # [B, N] (bool)
-                token_mask =  tokenized_agent['token_mask'] # tokenized_agent["expert_token_mask"]  &  [B, N] (bool)
+                valid_mask =   tokenized_agent['expert_valid_mask'] #tokenized_agent["expert_valid_mask"] & # [B, N] (bool)
+                token_mask =  tokenized_agent['expert_token_mask'] # tokenized_agent["expert_token_mask"]  &  [B, N] (bool)
 
                 # --- 1) build interpolation coefficient alpha per token ---
                 # shape [B, N, 1] so each token gets its own alpha, broadcast over xy
-                alpha = torch.zeros_like(expert_pos[..., 0])  # [B, N, 1]
+                alpha = torch.ones_like(expert_pos[..., 0])  # [B, N, 1]
 
                 # --- 2) interpolate expert vs policy trajectories ---
                 interp_pos = alpha[...,None] * expert_pos + (1.0 - alpha[...,None]) * policy_pos  # [B, N, 2]
