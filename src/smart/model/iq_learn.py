@@ -247,12 +247,12 @@ class IQ_SoftQ(LightningModule):
             bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                          weight=weight, reduction='sum') /mask_s.sum()
 
-            logit=torch.cat([ego_logits, interact_logits], dim=0)
+            ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
 
-            disc_val = torch.sigmoid(logit)
+        disc_val = torch.sigmoid(ego_logits)
 
-            self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-            self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+        self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         if self.use_gradient_penalty:
             if key == "expert":
@@ -266,7 +266,6 @@ class IQ_SoftQ(LightningModule):
                 expert_head = tokenized_agent["expert_sampled_heading"]  # [B, N, 1]
                 policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
                 policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
-
 
                 dis_loss='r2'
 
@@ -283,8 +282,6 @@ class IQ_SoftQ(LightningModule):
                     token_mask = tokenized_agent['token_mask'] & tokenized_agent['expert_token_mask']
                     alpha = torch.rand_like(expert_pos[..., 0])
 
-
-                # --- 2) interpolate expert vs policy trajectories ---
                 interp_pos = alpha[...,None] * expert_pos + (1.0 - alpha[...,None]) * policy_pos  # [B, N, 2]
                 interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
 

@@ -116,7 +116,7 @@ class InterativeDecoder(nn.Module):
         self.diff_dicriminator = False
 
         self.use_counterfactual=False
-        self.use_edge_feature=True
+        self.use_edge_feature=False
 
         self.use_full_feature=False
 
@@ -266,6 +266,8 @@ class InterativeDecoder(nn.Module):
         weight = None
 
         if self.discriminator:
+            valid_ego_reward = next_token_logits[:, 0].detach()
+
             if self.use_edge_feature:
                 weight=torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
 
@@ -275,8 +277,6 @@ class InterativeDecoder(nn.Module):
 
                 interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
                 # interact_reward= self.get_reward(weight,interact_logits[:,0].detach(),end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent)
-
-                valid_ego_reward=next_token_logits[:,0].detach()
 
                 ego_rewards = valid_ego_reward + interact_reward
 
@@ -294,12 +294,16 @@ class InterativeDecoder(nn.Module):
                 nei_rewards_sum= scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)
 
                 nei_rewards[mask_ta_flatten] =nei_rewards_sum[train_repeat_mask]  #the source
-
-                rewards=(ego_rewards,nei_rewards,valid_ego_reward,valid_interact_reward)
             else:
-                rewards=next_token_logits[...,0].detach(),torch.tensor(0.0)
+                next_token_logits = (next_token_logits[:, 0], torch.zeros_like(next_token_logits[:0, 0]))
+
+                ego_rewards = valid_ego_reward
+                valid_interact_reward=torch.zeros_like(valid_ego_reward)
+                nei_rewards=torch.zeros_like(ego_rewards)
+
+            rewards = (ego_rewards, nei_rewards, valid_ego_reward, valid_interact_reward)
         else:
-            rewards=torch.tensor(0.0),torch.tensor(0.0)
+            rewards=None
 
         return next_token_logits,feat_a,rewards,weight
 
