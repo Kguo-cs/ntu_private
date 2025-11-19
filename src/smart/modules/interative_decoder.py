@@ -116,7 +116,7 @@ class InterativeDecoder(nn.Module):
         self.diff_dicriminator = False
 
         self.use_counterfactual=False
-        self.use_edge_feature=True
+        self.use_edge_feature=False
 
         self.use_full_feature=False
 
@@ -295,7 +295,7 @@ class InterativeDecoder(nn.Module):
 
                 nei_rewards[mask_ta_flatten] =nei_rewards_sum[train_repeat_mask]  #the source
             else:
-                next_token_logits = (next_token_logits[:, 0], torch.zeros_like(next_token_logits[:0, 0]))
+                next_token_logits = (next_token_logits[:, 0], next_token_logits[:0])
 
                 ego_rewards = valid_ego_reward
                 valid_interact_reward=torch.zeros_like(valid_ego_reward)
