@@ -101,10 +101,10 @@ class WOSACSubmission(Metric):
                     self._save_shard()
 
     def save_sub_file(self) -> None:
-        self._save_shard()
+        #self._save_shard()
         self.i_file = 0
 
-        #self.submission_dir= Path('/home/ke/code/catk/src/logs/catk_48_high/2025-09-20_15-52-59') / "wosac_submission"
+        self.submission_dir= Path('/home/ke/code/catk/src/logs/my/2025-11-19_18-16-14') / "wosac_submission"
         tar_file_name = self.submission_dir.as_posix() + ".tar.gz"
 
         log.info(f"Saving wosac submission files to {tar_file_name}")
@@ -133,7 +133,7 @@ class WOSACSubmission(Metric):
             uses_lidar_data=False,
             uses_camera_data=False,
             uses_public_model_pretraining=False,
-            num_model_parameters="7M",
+            num_model_parameters="0.66M",
             acknowledge_complies_with_closed_loop_requirement=True,
         )
         output_filename = self.submission_dir / f"submission.binproto-{self.i_file:05d}"

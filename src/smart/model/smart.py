@@ -96,7 +96,7 @@ class SMART(LightningModule):
 
         self.all_data=[]
 
-        # self.wosac_submission.save_sub_file()
+        self.wosac_submission.save_sub_file()
         #
         # print(1/0)
 
