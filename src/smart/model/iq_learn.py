@@ -280,7 +280,12 @@ class IQ_SoftQ(LightningModule):
                 else:
                     valid_mask = tokenized_agent['valid_mask']  & tokenized_agent['expert_valid_mask']
                     token_mask = tokenized_agent['token_mask'] & tokenized_agent['expert_token_mask']
-                    alpha = torch.rand_like(expert_pos[..., 0])
+                    # alpha = torch.rand_like(expert_pos[..., 0])
+                    batch_idx = tokenized_agent['batch']
+
+                    alpha = torch.rand(size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+
+                    alpha=alpha[batch_idx]
 
                 interp_pos = alpha[...,None] * expert_pos + (1.0 - alpha[...,None]) * policy_pos  # [B, N, 2]
                 interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
