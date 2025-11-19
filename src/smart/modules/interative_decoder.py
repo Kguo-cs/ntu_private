@@ -284,7 +284,7 @@ class InterativeDecoder(nn.Module):
 
                 next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0])
 
-                weight2=weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
+                weight2=torch.exp(-dist / 10) * 1  #torch.exp(-dist/self.dis_decay)*self.dis_weight
 
                 all_rewards = torch.zeros_like(valid_interact_reward)
                 all_rewards[train_repeat_mask] = ego_rewards[mask_ta_flatten]
