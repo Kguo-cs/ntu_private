@@ -54,8 +54,6 @@ class IQ_SoftQ(LightningModule):
                 self.bc_map_net = None
 
         if self.iq_learn and self.use_gail:
-            # self.running_meanstd=RunningMeanStdTorch(shape=(1))
-
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
             self.ego_return_meanstd = RunningMeanStdTorch(shape=(1))
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
@@ -65,7 +63,7 @@ class IQ_SoftQ(LightningModule):
         self.dis_loss = "gail"
         self.learn_lcf = self.encoder.learn_lcf
 
-        self.use_gradient_penalty = False
+        self.use_gradient_penalty = True
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
@@ -269,12 +267,12 @@ class IQ_SoftQ(LightningModule):
                 policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
                 policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
 
-                valid_mask = tokenized_agent["expert_valid_mask"] &   tokenized_agent['valid_mask'] # [B, N] (bool)
-                token_mask = tokenized_agent["expert_token_mask"]  &   tokenized_agent['token_mask'] # [B, N] (bool)
+                valid_mask =   tokenized_agent['valid_mask'] #tokenized_agent["expert_valid_mask"] & # [B, N] (bool)
+                token_mask =  tokenized_agent['token_mask'] # tokenized_agent["expert_token_mask"]  &  [B, N] (bool)
 
                 # --- 1) build interpolation coefficient alpha per token ---
                 # shape [B, N, 1] so each token gets its own alpha, broadcast over xy
-                alpha = torch.rand_like(expert_pos[..., 0])  # [B, N, 1]
+                alpha = torch.zeros_like(expert_pos[..., 0])  # [B, N, 1]
 
                 # --- 2) interpolate expert vs policy trajectories ---
                 interp_pos = alpha[...,None] * expert_pos + (1.0 - alpha[...,None]) * policy_pos  # [B, N, 2]
@@ -317,7 +315,7 @@ class IQ_SoftQ(LightningModule):
                 )[0]
 
                 grad_norm = grad_all.norm(2, dim=1)  # [B]
-                gp_lambda = 10.0
+                gp_lambda = 1.0
                 gp = ((grad_norm - 1.0) ** 2).mean() * gp_lambda
 
                 self.log("train/" + key + "_gp", gp, on_step=True, batch_size=1)
