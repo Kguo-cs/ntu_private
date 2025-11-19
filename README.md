@@ -23,7 +23,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token shanhel
 
 rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenpred1/2025-11-18_22-44-54/bc/h1r0jqg7/checkpoints/epoch=54-step=669625.ckpt ./
 
 
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_lcf11_val40_sum33/2025-11-17_12-58-20/sim/r77oj3zu/checkpoints/epoch=4-step=30440.ckpt ./
@@ -117,7 +117,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python start.py >  1.log 2>&1 &
+nohup python run.py >  1.log 2>&1 &
 
 
 
