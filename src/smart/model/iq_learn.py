@@ -315,7 +315,7 @@ class IQ_SoftQ(LightningModule):
                 )[0]
 
                 grad_norm = grad_all.norm(2, dim=1)  # [B]
-                gp_lambda = 1.0
+                gp_lambda = 0.1
                 gp = ((grad_norm - 1.0) ** 2).mean() * gp_lambda
 
                 self.log("train/" + key + "_gp", gp, on_step=True, batch_size=1)

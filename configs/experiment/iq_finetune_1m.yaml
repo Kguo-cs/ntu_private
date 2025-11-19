@@ -59,7 +59,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_lcf11_sum33_expertgp1_1m
+task_name: AIRL80_lcf11_sum33_expertgp01_1m
 
 trainer:
   limit_train_batches: 1.0
