@@ -30,7 +30,7 @@ model:
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
 
-      dist_a2a_radius: 10
+      dis_a2a_radius: 10
 
       dis_weight: 3
       dist_decay: 5

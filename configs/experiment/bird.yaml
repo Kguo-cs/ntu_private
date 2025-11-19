@@ -33,7 +33,7 @@ model:
       head_dim: 64
       time_span: 10
 
-      dist_a2a_radius: 100
+      dis_a2a_radius: 100
       dis_weight: 5
       dist_decay: 3
 
