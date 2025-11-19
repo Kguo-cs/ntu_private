@@ -59,7 +59,7 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
@@ -198,8 +198,8 @@ class IQ_SoftQ(LightningModule):
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
         if len(nei_rewards)>0:
-            rewards = ego_rewards + nei_rewards + kl_per_token
-            self.log("train/" + key + "_all_rewards", rewards.mean().item(), on_step=True, batch_size=1)
+            all_rewards = ego_rewards + nei_rewards + kl_per_token
+            self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
 
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
