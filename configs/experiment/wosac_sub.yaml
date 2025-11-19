@@ -30,7 +30,7 @@ model:
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
 
-ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_lcf11_val40_sum33_epoch=4-step=30440_0.78781.ckpt'
+ckpt_path: '/home/ke/code/catk/src/waymo_data/AIRL80_lcf11_sum33_value100_dismask_epoch=8-step=54792_0.78702.ckpt'
 
 trainer:
   limit_train_batches: 1.0
