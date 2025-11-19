@@ -268,7 +268,7 @@ class IQ_SoftQ(LightningModule):
                 policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
 
 
-                dis_loss='r1'
+                dis_loss='r2'
 
                 if dis_loss=='r1':
                     valid_mask =   tokenized_agent['expert_valid_mask']
