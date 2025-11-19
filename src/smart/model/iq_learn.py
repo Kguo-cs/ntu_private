@@ -358,7 +358,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages, value_loss=compute_advantages(agent_rewards, value, agent_present_mask)
 
-        if len(nei_rewards):
+        if len(nei_rewards) and self.use_lcf:
             nei_value = self.encoder.nei_value_network(feat_a)[..., 0]
 
             nei_advantages, nei_value_loss = compute_advantages(nei_rewards, nei_value, agent_present_mask)
