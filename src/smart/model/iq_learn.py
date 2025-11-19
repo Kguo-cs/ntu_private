@@ -333,7 +333,6 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-
         return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],mask_s.flatten(0,1),gp
 
     def iq_update(self, tokenized_map, tokenized_agent):
@@ -381,9 +380,6 @@ class IQ_SoftQ(LightningModule):
         advantages, value_loss=compute_advantages(agent_rewards, value, agent_present_mask)
 
         if self.use_lcf:
-            if not self.encoder.agent_encoder.interative_decoder.use_edge_feature:
-                nei_rewards = get_nei_returns(tokenized_agent, agent_rewards, train_mask=all_valid)
-
             nei_value = self.encoder.nei_value_network(feat_a)[..., 0]
 
             nei_advantages, nei_value_loss = compute_advantages(nei_rewards, nei_value, agent_present_mask)
@@ -394,7 +390,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
-        advantages = advantages[agent_train_mask]#t,a
+        advantages = advantages[expert_train_mask]#t,a  # only train at expert valid
 
         self.return_meanstd.update(advantages)
         advantages = self.return_meanstd.normalize(advantages)
