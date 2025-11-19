@@ -59,7 +59,7 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
@@ -169,36 +169,12 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent["detach_map_feature"],
                                                             abs_time=tokenized_agent["abs_time"]  )
 
-
-        if key == "agent" and self.use_kl_penalty:
-            with torch.no_grad():
-
-                logp_ref = (torch.softmax(target_q / self.alpha, dim=-1) + 1e-10).log()
-
-                actions = tokenized_agent["sampled_idx"][:, 2:][tokenized_agent["train_mask"]]
-
-                logp_a_ref = torch.gather(logp_ref, dim=-1, index=actions.unsqueeze(-1)).squeeze(-1)
-
-                kl_penalty = torch.sum(agent_pi * ((agent_pi + 1e-10).log() - logp_ref), dim=-1).mean()  # (B,T)
-
-                self.log("train/kl_penalty", kl_penalty.item(), on_step=True, batch_size=1)
-
-                kl_coef = 4  # np.power(0.9999,self.global_step)
-                kl_taken = logp_a_ref - agent_log_prob
-
-                # kl_taken=-logr.exp()+1+logr
-                # kl_per_token = -kl_coef * ((logr).exp() - 1 - logr)
-                kl_per_token = kl_coef * kl_taken
-
-        else:
-            kl_per_token = 0
-
         ego_logits, interact_logits = disc_out[0]
 
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
         if len(nei_rewards)>0:
-            all_rewards = ego_rewards + nei_rewards + kl_per_token
+            all_rewards = ego_rewards + nei_rewards
             self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
 
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
@@ -234,7 +210,7 @@ class IQ_SoftQ(LightningModule):
         else:
             ego_logits=ego_logits[mask_s.flatten(0,1)]
 
-        #ego_logits=ego_logits[present_flatten]
+            #ego_logits=ego_logits[present_flatten]
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
                                           reduction='mean')

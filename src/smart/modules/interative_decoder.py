@@ -205,7 +205,7 @@ class InterativeDecoder(nn.Module):
                 end_index = edge_index_a2a[1]
 
                 start_edge_feature = feat_a[start_index]
-                end_edge_feature=feat_a[end_index]
+                end_edge_feature   = feat_a[end_index]
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a = feat_a[train_repeat_mask]
@@ -273,10 +273,11 @@ class InterativeDecoder(nn.Module):
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
 
-                valid_interact_reward=scatter_sum(interact_logits[:,0].detach() * weight, end_index, dim=0,  dim_size=valid_number)
+                weight_logit= -torch.ones_like(interact_logits[:,0].detach()) * weight*0.1
+
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)
 
                 interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
-                # interact_reward= self.get_reward(weight,interact_logits[:,0].detach(),end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent)
 
                 ego_rewards = valid_ego_reward + interact_reward
 
