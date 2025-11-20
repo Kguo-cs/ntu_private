@@ -17,14 +17,13 @@ class IQ_SoftQ(LightningModule):
     def __init__(self, model_config) -> None:
         super(IQ_SoftQ, self).__init__(model_config)
         self.gamma = 0.99
-        self.iq_learn = self.encoder.iq_learn
+        self.gail = self.encoder.gail
         self.alpha = self.encoder.alpha
 
         self.use_target_q = False
 
         self.start_step = self.encoder.agent_encoder.start_step
 
-        self.use_gail = self.encoder.use_gail
         self.bce_loss = nn.BCELoss()
 
         self.buffer_len = 1
@@ -53,7 +52,7 @@ class IQ_SoftQ(LightningModule):
             else:
                 self.bc_map_net = None
 
-        if self.iq_learn and self.use_gail:
+        if self.gail:
             self.return_meanstd = RunningMeanStdTorch(shape=(1))
             self.ego_return_meanstd = RunningMeanStdTorch(shape=(1))
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
@@ -324,14 +323,14 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            if self.iq_learn and self.encoder.use_roformer:
+            if self.gail and self.encoder.use_roformer:
                 self.encoder.agent_encoder.a_t_roformer.attn.caching = True
                 if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
                     self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
 
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
-        if not self.iq_learn:
+        if not self.gail:
             return expert_nll
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]

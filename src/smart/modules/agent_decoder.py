@@ -95,8 +95,6 @@ class SMARTAgentDecoder(nn.Module):
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
                     )
-
-
         # if self.pred_exit:
         #     self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
 

@@ -52,138 +52,123 @@ class SMARTDecoder(nn.Module):
     ) -> None:
         super(SMARTDecoder, self).__init__()
 
-        self.tokenizer_training=False
         self.pl2a_radius = pl2a_radius
         self.pt2a_neighbor = pt2a_neighbor
-        self.iq_learn=hist_drop_prob==0
-        self.use_gail=True
-        self.use_value=True
-        self.use_critic=False
-        self.learn_lcf=False
 
         self.use_smart=token_processor.use_smart
 
-        self.use_lcf=True
-        self.use_vae=False
-        self.pred_col=False
-        self.use_infogail=False
+        self.use_lcf=reward_weight!=0
+        self.use_value=True
         self.use_kl_penalty=False
-        self.use_roformer=False
-        self.pred_light=False
+        self.gail=hist_drop_prob==0
 
-        if self.tokenizer_training:
-            from src.smart.loss.vq_vae import VQVAE
+        if self.use_smart:
+            self.alpha = 1
+            from .old_agent_decoder import SMARTAgentDecoder
+            from .old_map_encoder import SMARTMapDecoder
 
-            self.vq_vae=VQVAE(token_processor)
+            self.map_encoder = SMARTMapDecoder(
+                hidden_dim=hidden_dim,
+                pl2pl_radius=10,
+                num_freq_bands=num_freq_bands,
+                num_layers=3,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+            )
 
+            self.agent_encoder = SMARTAgentDecoder(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=time_span,
+                pl2a_radius=30,
+                a2a_radius=a2a_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=6,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                hist_drop_prob=hist_drop_prob,
+                n_token_agent=n_token_agent,
+            )
         else:
-            if self.use_smart:
-                self.alpha = 1
-                from .old_agent_decoder import SMARTAgentDecoder
-                from .old_map_encoder import SMARTMapDecoder
-
-                self.map_encoder = SMARTMapDecoder(
-                    hidden_dim=hidden_dim,
-                    pl2pl_radius=10,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=3,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                )
-
-                self.agent_encoder = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=time_span,
-                    pl2a_radius=30,
-                    a2a_radius=a2a_radius,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=6,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    hist_drop_prob=hist_drop_prob,
-                    n_token_agent=n_token_agent,
-                )
-            else:
-                from .agent_decoder import SMARTAgentDecoder
-                from .map_decoder import SMARTMapDecoder
-                self.alpha = 0.1
-
-                self.map_encoder = SMARTMapDecoder(
-                    hidden_dim=hidden_dim,
-                    pl2pl_radius=pl2pl_radius,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=num_map_layers,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    pt2pt_neighbor=pt2pt_neighbor,
-                    token_processor=token_processor
-                )
-
-                self.agent_encoder = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=time_span,
-                    pl2a_radius=pl2a_radius,
-                    a2a_radius=a2a_radius,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=num_agent_layers,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    hist_drop_prob=hist_drop_prob,
-                    n_token_agent=n_token_agent,
-                    pt2a_neighbor=pt2a_neighbor,
-                    a2a_neighbor=a2a_neighbor,
-                    token_processor=token_processor,
-                    alpha=self.alpha,
-                    dis_weight=dis_weight,
-                    dist_decay=dist_decay,
-                    reward_weight=reward_weight,
-                    reward_decay=reward_decay,
-                )
             from .agent_decoder import SMARTAgentDecoder
+            from .map_decoder import SMARTMapDecoder
+            self.alpha = 0.1
 
-            if self.iq_learn and self.use_gail:
-                self.discriminator = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=10,
-                    pl2a_radius=40,
-                    a2a_radius=dis_a2a_radius,#20 bad
-                    num_freq_bands=num_freq_bands,
-                    num_layers=1,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=0,
-                    hist_drop_prob=0,
-                    n_token_agent=1,
-                    pt2a_neighbor=20,
-                    a2a_neighbor=dis_a2a_neighbor,
-                    token_processor=token_processor,
-                    alpha=self.alpha,
-                    dis_weight=dis_weight,
-                    dist_decay=dist_decay,
-                    reward_weight=reward_weight,
-                    reward_decay=reward_decay,
-                    discriminator=True
-                )
+            self.map_encoder = SMARTMapDecoder(
+                hidden_dim=hidden_dim,
+                pl2pl_radius=pl2pl_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_map_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                pt2pt_neighbor=pt2pt_neighbor,
+                token_processor=token_processor
+            )
 
-                if self.use_value:
-                    self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)#nn.Sequential(MLPLayer(hidden_dim,hidden_dim*2,hidden_dim*2), nn.ReLU(inplace=True),nn.Linear(hidden_dim*2,1))#PopArtHead(hidden_dim)#
+            self.agent_encoder = SMARTAgentDecoder(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=time_span,
+                pl2a_radius=pl2a_radius,
+                a2a_radius=a2a_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_agent_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                hist_drop_prob=hist_drop_prob,
+                n_token_agent=n_token_agent,
+                pt2a_neighbor=pt2a_neighbor,
+                a2a_neighbor=a2a_neighbor,
+                token_processor=token_processor,
+                alpha=self.alpha,
+                dis_weight=dis_weight,
+                dist_decay=dist_decay,
+                reward_weight=reward_weight,
+                reward_decay=reward_decay,
+            )
+        from .agent_decoder import SMARTAgentDecoder
 
-                    if self.use_lcf:
+        if self.gail:
+            self.discriminator = SMARTAgentDecoder(
+                hidden_dim=hidden_dim,
+                num_historical_steps=num_historical_steps,
+                num_future_steps=num_future_steps,
+                time_span=10,
+                pl2a_radius=40,
+                a2a_radius=dis_a2a_radius,#20 bad
+                num_freq_bands=num_freq_bands,
+                num_layers=1,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=0,
+                hist_drop_prob=0,
+                n_token_agent=1,
+                pt2a_neighbor=20,
+                a2a_neighbor=dis_a2a_neighbor,
+                token_processor=token_processor,
+                alpha=self.alpha,
+                dis_weight=dis_weight,
+                dist_decay=dist_decay,
+                reward_weight=reward_weight,
+                reward_decay=reward_decay,
+                discriminator=True
+            )
 
-                        self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
+            if self.use_value:
+                self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)#nn.Sequential(MLPLayer(hidden_dim,hidden_dim*2,hidden_dim*2), nn.ReLU(inplace=True),nn.Linear(hidden_dim*2,1))#PopArtHead(hidden_dim)#
 
-                        if self.learn_lcf :
-                            self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
+                if self.use_lcf:
+
+                    self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
+
+                    if self.learn_lcf :
+                        self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
     def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
         encoder_was_training = agent_encoder.training

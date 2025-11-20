@@ -172,13 +172,7 @@ def plot_rollout_frames(
 
 
     # ego
-    if ego_index is None:
-        ego_mask = tokenized_agent.get("ego_mask", None)
-        if ego_mask is not None:
-            ego_index = int(np.argmax(to_np(ego_mask).astype(int)))
-        else:
-            ego_index = 0
-    ego_index = int(ego_index)
+    ego_index = torch.where(tokenized_agent["ego_mask"])[0]
 
     # clamp frames
     frames = [int(max(0, min(f, T - 1))) for f in frames]

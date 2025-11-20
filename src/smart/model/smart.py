@@ -202,11 +202,44 @@ class SMART(LightningModule):
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
 
+                # disc_out = self.encoder.discriminator.predict_agent(None,
+                #                                                     pred["token_mask"],
+                #                                                     pred["valid_mask"],
+                #                                                     pred["sampled_pos"],
+                #                                                     pred["sampled_heading"],
+                #                                                     tokenized_agent,
+                #                                                     map_feature,
+                #                                                     abs_time=tokenized_agent["abs_time"])
+                # ego_logits, interact_logits = disc_out[0]
+                #
+                # edge_index_a2a=disc_out[1] [0]       #t,a
+                #
+                # n_step=18
+                #
+                # ego_logits=ego_logits.reshape(18,-1)
+                #
+                # ego_index = torch.where(tokenized_agent["ego_mask"])[0][0]
+                #
+                # scene_realism=ego_logits[:,ego_index] #18
+                #
+                # src,dst=edge_index_a2a[0],edge_index_a2a[1]
+                #
+                # dst_step=edge_index_a2a[1] % n_step
+                # dst_agent=edge_index_a2a[1] // n_step
+                #
+                # ego_mask=dst_agent ==ego_index
+                #
+                # src=src[ego_mask]
+                # interact_logits=interact_logits[ego_mask]
+                #
+                #
                 # plot_rollout_frames( tokenized_agent,
                 #                         data["tfrecord_path"][0],
-                #                         torch.zeros_like(pred["sampled_heading"]).cpu(),
+                #                         disc_out,
                 #                         pred,
                 #                     )
+                #
+                # break
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             if not self.token_processor.use_bird:
