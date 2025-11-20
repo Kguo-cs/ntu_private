@@ -30,9 +30,10 @@ model:
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
 
-      dis_a2a_radius: 10
+      dis_a2a_radius: 60
+      dis_a2a_neighbor: 20
 
-      dis_weight: 3
+      dis_weight: 20
       dist_decay: 5
 
 ckpt_path : './ckpts/bc40_apt30_tokenexit_14679_epoch=62-step=767025_0.78659.ckpt'
@@ -54,7 +55,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_lcf11_sum5_3
+task_name: AIRL152_sum20_5
 
 trainer:
   limit_train_batches: 1.0
@@ -66,7 +67,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 80
+  train_batch_size: 38
   val_batch_size: 40
   test_batch_size: 10
   num_workers: 8
