@@ -68,8 +68,9 @@ print("\nMeta-metric (rows = alpha, cols = beta):")
 print(pivot_meta.to_string())
 
 
-# beta       1.0       2.5      5
+# beta       1.0       2.5      5  10
 # alpha
 # 5    -  -  -
 # 10.0    -  -  -
-# 20.0   0.783603  -  -
+# 20.0   -  -  -
+# 40.0   -  -  -
