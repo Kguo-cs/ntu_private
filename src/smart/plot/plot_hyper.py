@@ -1,76 +1,57 @@
-import itertools
-import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-# -------------------------------
-# Hyperparameter grid
-# -------------------------------
-alphas = [0.1, 1.0, 10.0]
-betas = [5.0, 10.0, 20.0]
+# ------------------------------------------
+# Fill the matrix according to your table
+# Use np.nan for missing entries
+# ------------------------------------------
 
-# -------------------------------
-# Placeholder: your training + eval loop
-# -------------------------------
-def run_experiment(alpha, beta):
-    """
-    Run DecompGAIL training with:
-      - interaction weighting decay scaling `alpha`
-      - interaction weighting decay rate `beta`
-    and WITHOUT social rewards.
+# α values (rows)
+alpha = [1.0, 2.5, 5.0, 10.0, 20.0]
 
-    This is a stub. Replace the body with your actual training call.
+# β values (columns)
+beta  = [1.0, 2.5, 5.0, 10.0]
 
-    Should return a dict, e.g.:
-      {
-        "meta_metric": ...,
-        "kinematic": ...,
-        "interactive": ...,
-        "map_based": ...
-      }
-    """
-    # TODO: plug in your real experiment code here
-    # Example (fake) values just for demonstration:
-    import random
-    return {
-        "meta_metric": 0.782 + random.uniform(-0.002, 0.002),
-        "kinematic": 0.49 + random.uniform(-0.003, 0.003),
-        "interactive": 0.81 + random.uniform(-0.004, 0.004),
-        "map_based": 0.91 + random.uniform(-0.003, 0.003),
-    }
+# Heatmap matrix
+values = np.array([
+    [0.77276,   np.nan,  0.77931, 0.77726],   # α = 1.0
+    [np.nan,    np.nan,  np.nan,  0.77585],   # α = 2.5
+    [np.nan,    0.78028, 0.77853, 0.77948],   # α = 5.0
+    [0.77657,   0.78150, 0.78101, 0.77691],   # α = 10.0
+    [np.nan,    0.78200, 0.78004, np.nan]     # α = 20.0
+])
 
-# -------------------------------
-# Run sweep
-# -------------------------------
-results = []
+# ------------------------------------------
+# Plot the heatmap
+# ------------------------------------------
+plt.figure(figsize=(8, 6))
 
-for alpha, beta in itertools.product(alphas, betas):
-    metrics = run_experiment(alpha, beta)
+sns.heatmap(
+    values,
+    annot=True,
+    fmt=".5f",
+    cmap="viridis",
+    linewidths=0.5,
+    xticklabels=beta,
+    yticklabels=alpha,
+    cbar_kws={'label': 'Realism Meta-Metric'}
+)
 
-    results.append({
-        "alpha": alpha,
-        "beta": beta,
-        "meta_metric": metrics["meta_metric"],
-        "kinematic": metrics["kinematic"],
-        "interactive": metrics["interactive"],
-        "map_based": metrics["map_based"],
-    })
+plt.xlabel("β")
+plt.ylabel("α")
+plt.title("α–β Sweep Performance Heatmap")
 
-# -------------------------------
-# Summarize in a table
-# -------------------------------
-df = pd.DataFrame(results)
-df = df.sort_values(by=["alpha", "beta"]).reset_index(drop=True)
-
-print(df.to_string(index=False))
-
-# Optionally: pivot for a heatmap-friendly view of meta-metric
-pivot_meta = df.pivot(index="alpha", columns="beta", values="meta_metric")
-print("\nMeta-metric (rows = alpha, cols = beta):")
-print(pivot_meta.to_string())
+plt.tight_layout()
+plt.show()
 
 
-# beta       1.0       2.5      5
+
+# beta       1.0       2.5      5          10
 # alpha
-# 5    -  -  -
-# 10.0    -  -  -
-# 20.0   -  -  -
-# 40.0   -  -  -
+# 1         0.77276     -       0.77931  0.77726
+# 2.5         -         -         -      0.77585
+# 5           -       0.78028   0.77853  0.77948
+# 10.0      0.77657  0.78150   0.78101  0.77691
+# 20.0         -      0.78200   0.78004   -
+# 40.0                   
