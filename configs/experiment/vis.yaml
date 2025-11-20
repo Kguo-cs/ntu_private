@@ -45,23 +45,6 @@ model:
 
 ckpt_path : './ckpts/bc40_apt30_tokenexitpred1_14679_1m_epoch=21-step=167420_0.76834.ckpt'
 
-logger:
-  wandb:
-    _target_: lightning.pytorch.loggers.wandb.WandbLogger
-    name: ${task_name}
-    save_dir: "${paths.output_dir}"
-    offline: False
-    id: null # pass correct id to resume experiment!
-    anonymous: null # enable anonymous logging
-    project: sim
-    log_model: False # upload lightning ckpts
-    prefix: "" # a string to put at the beginning of metric keys
-    entity: u3006612
-    group: ""
-    tags: []
-    job_type: ""
-    resume: allow
-
 task_name: AIRL80_4025_0125_00_dis60_1m
 
 trainer:

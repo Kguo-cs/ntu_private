@@ -158,6 +158,10 @@ class SMART(LightningModule):
             self.all_data.append((attention_weight,edge_weight,edge_index_a2a,relative_pos,valid_mask,sampled_pos,pred["agent_q"]))
 
             #self.all_data.append(data)
+
+
+
+
             # loss = self.training_loss(
             #     **pred,
             #     token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
@@ -213,21 +217,34 @@ class SMART(LightningModule):
                 # n_step=18
                 #
                 # ego_logits=ego_logits.reshape(18,-1)
+                # n_agent=ego_logits.shape[1]
                 #
                 # ego_index = torch.where(tokenized_agent["ego_mask"])[0][0]
                 #
-                # scene_realism=ego_logits[:,ego_index] #18
+                #
+                # mask=pred["valid_mask"]
                 #
                 # src,dst=edge_index_a2a[0],edge_index_a2a[1]
                 #
-                # dst_step=edge_index_a2a[1] % n_step
-                # dst_agent=edge_index_a2a[1] // n_step
+                # flat_mask = mask.transpose(0, 1).flatten(0, 1)
+                #
+                # kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
+                #
+                # dst_all = kept_nodes[dst]
+                #
+                # dst_agent=dst_all // n_step
                 #
                 # ego_mask=dst_agent ==ego_index
                 #
-                # src=src[ego_mask]
-                # interact_logits=interact_logits[ego_mask]
+                # src_ego=src[ego_mask]
                 #
+                # src_all=kept_nodes[src_ego]
+                #
+                # interact_realism= torch.zeros([n_step*n_agent],device=src_all.device)
+                #
+                # interact_realism[src_all] = interact_logits[ego_mask]
+                #
+                # interact_realism=interact_realism.reshape(n_step,n_agent)
                 #
                 # plot_rollout_frames( tokenized_agent,
                 #                         data["tfrecord_path"][0],
