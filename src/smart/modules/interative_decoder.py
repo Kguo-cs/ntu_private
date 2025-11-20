@@ -269,7 +269,7 @@ class InterativeDecoder(nn.Module):
             valid_ego_reward = next_token_logits[:, 0].detach()
 
             if self.use_edge_feature:
-                weight=torch.exp(-dist / self.dis_decay) * self.dis_weight#torch.ones_like(dist) #=
+                weight=torch.exp(-dist / 2.5) * 20#torch.ones_like(dist) #=
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
 
