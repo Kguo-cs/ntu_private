@@ -46,6 +46,8 @@ class InterativeDecoder(nn.Module):
             token_processor,
             dis_weight,
             dist_decay,
+            reward_weight,
+            reward_decay,
             discriminator=False,
     ) -> None:
         super(InterativeDecoder, self).__init__()
@@ -58,6 +60,8 @@ class InterativeDecoder(nn.Module):
         self.hist_drop_prob = hist_drop_prob
         self.dis_weight=dis_weight
         self.dis_decay=dist_decay
+        self.reward_weight=reward_weight
+        self.reward_decay=reward_decay
 
         self.head_dim = hidden_dim // num_heads
 
@@ -269,7 +273,7 @@ class InterativeDecoder(nn.Module):
             valid_ego_reward = next_token_logits[:, 0].detach()
 
             if self.use_edge_feature:
-                weight=torch.exp(-dist / 2.5) * 20#torch.ones_like(dist) #=
+                weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
 
@@ -284,7 +288,7 @@ class InterativeDecoder(nn.Module):
 
                 next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0])
 
-                weight2=torch.exp(-dist / self.dis_decay) * self.dis_weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
+                weight2=torch.exp(-dist / self.reward_decay) * self.reward_weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
 
                 all_rewards = torch.zeros_like(valid_interact_reward)
                 all_rewards[train_repeat_mask] = ego_rewards[mask_ta_flatten]

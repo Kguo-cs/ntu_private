@@ -46,6 +46,8 @@ class SMARTDecoder(nn.Module):
         dis_a2a_neighbor: int,
         dis_weight: float,
         dist_decay: float,
+        reward_weight: float,
+        reward_decay: float,
         token_processor=None,
     ) -> None:
         super(SMARTDecoder, self).__init__()
@@ -140,64 +142,12 @@ class SMARTDecoder(nn.Module):
                     a2a_neighbor=a2a_neighbor,
                     token_processor=token_processor,
                     alpha=self.alpha,
-                    output_gmm=False,
-                    pred_last_res=token_processor.pred_last_res,
-                    pred_all_res=token_processor.pred_all_res,
                     dis_weight=dis_weight,
                     dist_decay=dist_decay,
+                    reward_weight=reward_weight,
+                    reward_decay=reward_decay,
                 )
             from .agent_decoder import SMARTAgentDecoder
-
-            if self.use_vae:
-                self.k_dim = self.agent_encoder.k_dim
-                self.post_net = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=90,
-                    pl2a_radius=10,
-                    a2a_radius=10,  # 20 bad
-                    num_freq_bands=num_freq_bands,
-                    num_layers=1,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=0,
-                    hist_drop_prob=0,
-                    n_token_agent=self.agent_encoder.k_dim ,
-                    pt2a_neighbor=10,
-                    a2a_neighbor=10,
-                    token_processor=token_processor,
-                    alpha=self.alpha,
-                    output_gmm=False,
-                    pred_last_res=False,
-                    pred_all_res=False,
-                    discriminator=True
-                )
-                self.prior_net = SMARTAgentDecoder(
-                    hidden_dim=hidden_dim,
-                    num_historical_steps=num_historical_steps,
-                    num_future_steps=num_future_steps,
-                    time_span=90,
-                    pl2a_radius=40,
-                    a2a_radius=10,  # 20 bad
-                    num_freq_bands=num_freq_bands,
-                    num_layers=1,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=0,
-                    hist_drop_prob=0,
-                    n_token_agent=self.agent_encoder.k_dim,
-                    pt2a_neighbor=20,
-                    a2a_neighbor=10,
-                    token_processor=token_processor,
-                    alpha=self.alpha,
-                    output_gmm=False,
-                    pred_last_res=False,
-                    pred_all_res=False,
-                    discriminator=True
-                )
-
-                #self.log_std = nn.Parameter(0 * torch.ones(self.agent_encoder.k_dim), requires_grad=True)
 
             if self.iq_learn and self.use_gail:
                 self.discriminator = SMARTAgentDecoder(
@@ -218,11 +168,10 @@ class SMARTDecoder(nn.Module):
                     a2a_neighbor=dis_a2a_neighbor,
                     token_processor=token_processor,
                     alpha=self.alpha,
-                    output_gmm=False,
-                    pred_last_res=False,
-                    pred_all_res=False,
                     dis_weight=dis_weight,
                     dist_decay=dist_decay,
+                    reward_weight=reward_weight,
+                    reward_decay=reward_decay,
                     discriminator=True
                 )
 

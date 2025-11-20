@@ -27,12 +27,13 @@ from src.smart.metrics import (
     minADE,
 )
 from src.smart.modules.smart_decoder import SMARTDecoder
-# from src.smart.plot.plot_s import plot_rollout
 from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
-from src.smart.plot.plot_bird import plot_bird_from_tensors
+from src.smart.plot.plot_bird.plot_bird import plot_bird_from_tensors
 from src.smart.metrics.bird_metrics import compute_bird_metrics
+from src.smart.plot.plot_rollout import plot_rollout_frames
+
 
 class SMART(LightningModule):
 
@@ -190,122 +191,28 @@ class SMART(LightningModule):
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
-            if self.encoder.use_vae:
-                # logits = self.encoder.prior_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
-                #                                       tokenized_agent["goal_idx"],
-                #                                       tokenized_agent["valid_mask"][:, :2],
-                #                                       tokenized_agent["sampled_pos"][:, :2],
-                #                                       tokenized_agent["sampled_heading"][:, :2],
-                #                                       tokenized_agent,
-                #                                       map_feature,
-                #                                       tokenized_agent["light_idx"],
-                #                                       None)[0]  # [all_valid]
-                # logits_p = logits[:, -1:]
-                #
-                # mu=logits_p[:,:,:self.encoder.agent_encoder.k_dim]
-                # logvar=logits_p[:,:,self.encoder.agent_encoder.k_dim:]
-                # std = torch.exp(0.5 * logvar)
-                prior_dist = self.encoder.post_net.predict_agent(tokenized_agent["sampled_idx"][:, :2],
-                                                         tokenized_agent["goal_idx"],
-                                                         tokenized_agent["valid_mask"][:, :2],
-                                                         tokenized_agent["sampled_pos"][:, :2],
-                                                         tokenized_agent["sampled_heading"][:, :2],
-                                                         tokenized_agent,
-                                                         map_feature,
-                                                         tokenized_agent["light_idx"],
-                                                         None)[0]  # [all_valid]
-
-                mu = prior_dist[:, :, :self.encoder.agent_encoder.k_dim]
-                logvar = prior_dist[:, :, self.encoder.agent_encoder.k_dim:]  # self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
-                std = torch.exp(0.5 * logvar)
-
-                # mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.encoder.agent_encoder.k_dim],device=self.device)
-                # std=torch.ones_like(mu)
-
             for _ in range(self.n_rollout_closed_val):
-
-                if self.encoder.use_vae:
-                    latent_z = mu + torch.randn_like(std) * std
-
-                    tokenized_agent["latent_z"] = latent_z
-
 
                 pred = self.encoder.agent_encoder.inference(
                     tokenized_agent, map_feature,self.validation_rollout_sampling
                 )
-                # first set (top row)
-                # pred = torch.load("./waymo_data/pred.pt")
-                # scenario_path_A = data["tfrecord_path"][0]
-                # sampled_pos = pred["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
-                # sampled_heading = pred[
-                #     "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
-                #
-                # disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                #                                                     None,
-                #                                                     tokenized_agent["valid_mask"],  # expert_
-                #                                                     sampled_pos,
-                #                                                     sampled_heading,
-                #                                                     tokenized_agent,
-                #                                                     map_feature,
-                #                                                     [],
-                #                                                     None,
-                #                                                     # latent_z=tokenized_agent["latent_z"]
-                #                                                     )  # [0]#Metrics-Guided Adversarial Training
-                # ego_rewards_A, nei_sum_rewards_A = disc_out[2]  # .detach()
-                #
-                # disc_val_A = (ego_rewards_A + nei_sum_rewards_A).detach().cpu().numpy()  # shape [N, K]
-                #
-                # # second set (bottom row)
-                # tokenized_agent_B, pred_B, data_B, map_feature_B = torch.load("./waymo_data/pred2.pt")
-                # scenario_path_B = data_B["tfrecord_path"][0]
-                #
-                # sampled_pos = pred_B["sampled_pos"]  # torch.round(tokenized_agent["sampled_pos"]*10)/10##
-                # sampled_heading = pred_B[
-                #     "sampled_heading"]  # torch.round(wrap_angle(tokenized_agent["sampled_heading"])/np.pi*30)*np.pi/30#
-                #
-                # disc_out = self.encoder.discriminator.predict_agent(tokenized_agent_B["sampled_idx"],
-                #                                                     None,
-                #                                                     tokenized_agent_B["valid_mask"],  # expert_
-                #                                                     sampled_pos,
-                #                                                     sampled_heading,
-                #                                                     tokenized_agent_B,
-                #                                                     map_feature_B,
-                #                                                     [],
-                #                                                     None,
-                #                                                     # latent_z=tokenized_agent["latent_z"]
-                #                                                     )  # [0]#Metrics-Guided Adversarial Training
-                # ego_rewards_B, nei_sum_rewards_B = disc_out[2]  # .detach()
-                #
-                # disc_val_B = (ego_rewards_B + nei_sum_rewards_B).detach().cpu().numpy()
-                #
-                # torch.save((tokenized_agent, scenario_path_A, disc_val_A, pred,tokenized_agent_B, scenario_path_B, disc_val_B, pred_B),"pred2.pt")
-                #
-                # plot_rollout_frames_pair(
-                #     tokenized_agent, scenario_path_A, disc_val_A, pred,
-                #     tokenized_agent_B, scenario_path_B, disc_val_B, pred_B,
-                #     frames=(30, 50, 70, 90),
-                #     radius_m=45.0,
-                #     vmin=0.0, vmax=2.0,  # shared color scale
-                #     cmap_name="RdYlGn"
-                # )
                 pred_traj.append(pred["pred_traj_10hz"])
 
                 if not self.token_processor.use_bird:
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
 
+                # plot_rollout_frames( tokenized_agent,
+                #                         data["tfrecord_path"][0],
+                #                         torch.zeros_like(pred["sampled_heading"]).cpu(),
+                #                         pred,
+                #                     )
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             if not self.token_processor.use_bird:
                 pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
                 pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
-            #print(data.scenario_id)
-            # pred_traj=torch.load("/home/ke/code/catk/src/waymo_data/pred_traj.pt").cuda()
-            # pred_z=torch.load("/home/ke/code/catk/src/waymo_data/pred_z.pt").cuda()
-            # pred_head=torch.load("/home/ke/code/catk/src/waymo_data/pred_head.pt").cuda()
-            #self.all_time+=time.time()-t1
-          #  self.all_count+=    self.n_rollout_closed_val*16
-            self.present_likelihood=0
+
 
             if self.token_processor.use_bird :
                 save_path = self.video_dir / f"step_{self.global_step}_batch_{batch_idx:02d}"

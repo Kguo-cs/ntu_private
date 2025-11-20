@@ -4,7 +4,7 @@ import pickle
 from torch_scatter import scatter_mean,scatter_sum,scatter_min
 import torch
 
-from src.smart.plot.plot_histgram import plot_histgram
+from src.smart.plot.plot_bird.plot_histgram import plot_histgram
 
 def emd_1d(p: torch.Tensor,
            q: torch.Tensor,

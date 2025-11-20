@@ -50,11 +50,10 @@ class SMARTAgentDecoder(nn.Module):
             a2a_neighbor: int,
             token_processor,
             alpha,
-            output_gmm,
-            pred_last_res,
-            pred_all_res,
             dis_weight,
             dist_decay,
+            reward_weight,
+            reward_decay,
             discriminator=False
     ) -> None:
         super(SMARTAgentDecoder, self).__init__()
@@ -75,6 +74,8 @@ class SMARTAgentDecoder(nn.Module):
                                                     token_processor,
                                                     dis_weight,
                                                     dist_decay,
+                                                    reward_weight,
+                                                    reward_decay,
                                                     discriminator=discriminator
                                                     )
 
