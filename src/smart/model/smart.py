@@ -221,6 +221,8 @@ class SMART(LightningModule):
                 #
                 # ego_index = torch.where(tokenized_agent["ego_mask"])[0][0]
                 #
+                # scene_realism=ego_logits[:,ego_index]
+                #
                 #
                 # mask=pred["valid_mask"]
                 #
@@ -232,7 +234,7 @@ class SMART(LightningModule):
                 #
                 # dst_all = kept_nodes[dst]
                 #
-                # dst_agent=dst_all // n_step
+                # dst_agent=dst_all % n_agent
                 #
                 # ego_mask=dst_agent ==ego_index
                 #
@@ -246,9 +248,11 @@ class SMART(LightningModule):
                 #
                 # interact_realism=interact_realism.reshape(n_step,n_agent)
                 #
+                # interact_realism[:,ego_index]=scene_realism
+                #
                 # plot_rollout_frames( tokenized_agent,
                 #                         data["tfrecord_path"][0],
-                #                         disc_out,
+                #                         interact_realism.transpose(0,1).cpu(),
                 #                         pred,
                 #                     )
                 #

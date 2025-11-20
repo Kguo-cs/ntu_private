@@ -86,12 +86,14 @@ def plot_rollout_frames(
     from matplotlib.patches import Rectangle
 
     eps = 1e-6
-    scores_all = np.maximum(eps, np.asarray(disc_val, dtype=float))  # [N, K] or flat
-    vmin = max(eps, np.nanpercentile(scores_all, 5))  # robust low
-    vmax = max(vmin * 10, np.nanpercentile(scores_all, 95))  # robust high
+    scores_all=np.asarray(disc_val, dtype=float)
+    # scores_all = np.maximum(eps, np.asarray(disc_val, dtype=float))  # [N, K] or flat
+    vmin = np.nanpercentile(scores_all, 5)  # robust low
+    vmax = np.nanpercentile(scores_all, 95)  # robust high
+
 
     print(vmin, vmax)
-    norm = mpl.colors.Normalize(vmin=0, vmax=2)
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
     cmap = plt.get_cmap("RdYlGn")  # low=red, high=green
 
@@ -107,18 +109,6 @@ def plot_rollout_frames(
         return tuple(_np.array(c255, dtype=float) / 255.0)
 
     lane_rgba = [rgb01(rgb) for (rgb, _) in lane_style]
-
-    # fallback role colors
-    default_role_style = {
-        0: COLOR_ALUMINIUM_0,  # default/unknown
-        1: COLOR_BUTTER,
-        2: COLOR_CHAMELEON,
-        3: COLOR_ORANGE,
-        4: COLOR_PLUM,
-        5: COLOR_SKY_BLUE_0,
-    }
-    if agent_role_style is None:
-        agent_role_style = default_role_style
 
     # ---------- map features ----------
     mp_xyz, mp_id, mp_type = get_map_features(scenario.map_features)
@@ -172,7 +162,7 @@ def plot_rollout_frames(
 
 
     # ego
-    ego_index = torch.where(tokenized_agent["ego_mask"])[0]
+    ego_index = torch.where(tokenized_agent["ego_mask"])[0][0].cpu()
 
     # clamp frames
     frames = [int(max(0, min(f, T - 1))) for f in frames]
@@ -295,18 +285,15 @@ def plot_rollout_frames(
                     fc = rgb01(COLOR_CYAN)
                 else:
                     fc = rgb01(COLOR_RED)
+                    idx_score = (f - 10) // 5 - 1
 
-                s_faces.append((fc[0], fc[1], fc[2], 1.0))
+                    s_val = float(disc_val[i][idx_score])
+                    r, g, b, _ = cmap(norm(s_val))
+                    fc = (r, g, b)
 
-                #score=disc_val[i][(f-10)//5-1]
+                #s_faces.append((fc[0], fc[1], fc[2], 1.0))
 
-                # cmap = plt.get_cmap('RdYlGn')  # 0=red, 1=green
-                # s = float(np.clip(score, 0.0, 1.0))
-                # r, g, b, _ = cmap(s)
-                # s_faces.append((r, g, b, 1.0))
-                # val = max(eps, float(score))  # score can be 0..inf
-                # r, g, b, _ = cmap(norm(val))  # log-scaled to 0..1, colored red→green
-                # s_faces.append((r, g, b, 1.0))
+                s_faces.append((*fc[:3], 1.0))
 
                 # heading arrow (sim only, in white)
                 s_arrow_starts.append(center)
