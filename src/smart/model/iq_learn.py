@@ -323,11 +323,6 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            if self.gail and self.encoder.use_roformer:
-                self.encoder.agent_encoder.a_t_roformer.attn.caching = True
-                if self.encoder.agent_encoder.pred_light and not self.encoder.agent_encoder.light_encoder.share:
-                    self.encoder.agent_encoder.light_encoder.lg_t_roformer.attn.caching = True
-
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
         if not self.gail:

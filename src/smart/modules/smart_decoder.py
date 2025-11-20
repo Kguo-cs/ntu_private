@@ -161,14 +161,9 @@ class SMARTDecoder(nn.Module):
             )
 
             if self.use_value:
-                self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)#nn.Sequential(MLPLayer(hidden_dim,hidden_dim*2,hidden_dim*2), nn.ReLU(inplace=True),nn.Linear(hidden_dim*2,1))#PopArtHead(hidden_dim)#
-
+                self.value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
                 if self.use_lcf:
-
                     self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
-
-                    if self.learn_lcf :
-                        self.global_value_network =MLPLayer(hidden_dim,hidden_dim,1)
 
     def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
         encoder_was_training = agent_encoder.training
@@ -202,63 +197,6 @@ class SMARTDecoder(nn.Module):
 
             tokenized_agent["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
-
-        if self.use_vae:
-            if "latent_z" not  in tokenized_agent.keys():
-                #train_mask=tokenized_agent["train_mask"].clone()
-                #tokenized_agent["train_mask"]=None
-                post_dist = self.post_net.predict_agent(tokenized_agent["sampled_idx"],
-                                                     tokenized_agent["goal_idx"],
-                                                     tokenized_agent["valid_mask"],
-                                                     tokenized_agent["sampled_pos"],
-                                                     tokenized_agent["sampled_heading"],
-                                                     tokenized_agent,
-                                                     tokenized_agent["detach_map_feature"],
-                                                     tokenized_agent["light_idx"],
-                                                     None)[0] # [all_valid]
-
-                prior_dist = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
-                                                     tokenized_agent["goal_idx"],
-                                                     tokenized_agent["valid_mask"][:,:2],
-                                                     tokenized_agent["sampled_pos"][:,:2],
-                                                     tokenized_agent["sampled_heading"][:,:2],
-                                                     tokenized_agent,
-                                                     tokenized_agent["detach_map_feature"],
-                                                     tokenized_agent["light_idx"],
-                                                     None)[0] # [all_valid]
-
-
-                if self.agent_encoder.use_dicrete:
-                    latent_z_onehot = F.gumbel_softmax(post_dist, tau=1, hard=True, dim=-1)
-
-                    latent_z_index = latent_z_onehot.argmax(dim=-1)  # [*]
-
-                    tokenized_agent["latent_z"] = latent_z_index  # 或者存 index，看你下游怎么用
-                    tokenized_agent["latent_post"] = post_dist
-                    tokenized_agent["latent_prior"]=prior_dist
-
-                else:
-
-
-                    mu=post_dist[:,:,:self.k_dim]
-                    logvar=post_dist[:,:,self.k_dim:]#self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
-
-                    std = torch.exp(0.5 * logvar)
-                    latent_z= mu + torch.randn_like(mu) * std#[None,None]
-
-                    tokenized_agent["latent_z"]=latent_z
-                    tokenized_agent["latent_post"]=(mu, logvar)#DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
-
-
-                    mu=prior_dist[:,:,:self.k_dim]
-                    logvar=prior_dist[:,:,self.k_dim:]#self.log_std#torch.zeros_like(mu)#logits_p[:,:,self.k_dim:]
-
-                    tokenized_agent["latent_prior"]=(mu, logvar)#DiagGaussian(mu, logvar, valid=torch.ones_like(mu).to(bool))
-
-                    #tokenized_agent["latent_prior"]=DiagGaussian(torch.zeros_like(mu), torch.zeros_like(mu), valid=torch.ones_like(mu).to(bool))
-
-            else:
-                tokenized_agent["latent_z"]=None
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 

@@ -158,10 +158,6 @@ class SMART(LightningModule):
             self.all_data.append((attention_weight,edge_weight,edge_index_a2a,relative_pos,valid_mask,sampled_pos,pred["agent_q"]))
 
             #self.all_data.append(data)
-
-
-
-
             # loss = self.training_loss(
             #     **pred,
             #     token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
