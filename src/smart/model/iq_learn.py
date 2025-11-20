@@ -363,8 +363,6 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
-       #expert_train_mask = expert_train_mask[:,tokenized_agent["train_mask"]]
-
         advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
 
         self.return_meanstd.update(advantages)
