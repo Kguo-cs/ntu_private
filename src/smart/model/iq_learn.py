@@ -315,7 +315,7 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_train_mask= get_train_mask(tokenized_agent,self.start_step,self.token_processor.pred_exit)
+        expert_train_mask= get_train_mask(tokenized_agent,self.start_step,self.token_processor.pred_exit)#t,a
 
         if self.use_kl_penalty:
             expert_nll = 0
@@ -328,7 +328,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
+        tokenized_agent["train_mask"]=expert_train_mask.all(0)#tokenized_agent["pred_mask"]
 
         expert_dis_loss,_,_,_,expert_dis_mask,expert_gp = self.get_reward(tokenized_agent, "expert")
 
