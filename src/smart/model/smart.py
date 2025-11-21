@@ -17,6 +17,7 @@ from pathlib import Path
 import hydra
 import torch
 from lightning import LightningModule
+from setuptools.sandbox import save_path
 from torch.optim.lr_scheduler import LambdaLR
 
 from src.smart.metrics import (
@@ -223,7 +224,6 @@ class SMART(LightningModule):
                 #
                 # scene_realism=ego_logits[:,ego_index]
                 #
-                #
                 # mask=pred["valid_mask"]
                 #
                 # src,dst=edge_index_a2a[0],edge_index_a2a[1]
@@ -248,13 +248,21 @@ class SMART(LightningModule):
                 #
                 # interact_realism=interact_realism.reshape(n_step,n_agent)
                 #
+                # #print(torch.all(interact_realism[:,ego_index]==0))
+                #
                 # interact_realism[:,ego_index]=scene_realism
                 #
-                # plot_rollout_frames( tokenized_agent,
-                #                         data["tfrecord_path"][0],
-                #                         interact_realism.transpose(0,1).cpu(),
-                #                         pred,
-                #                     )
+                # interact_realism=torch.sigmoid(interact_realism)
+                # save_path=self.video_dir  / f"step_{self.global_step}_batch_{batch_idx:02d}.png"
+                #
+                # if interact_realism.min()<0.4:
+                #
+                #     plot_rollout_frames( tokenized_agent,
+                #                             data["tfrecord_path"][0],
+                #                             interact_realism.transpose(0,1).cpu(),
+                #                             pred,
+                #                              save_path=save_path
+                #                         )
                 #
                 # break
 

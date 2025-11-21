@@ -44,12 +44,13 @@ def plot_rollout_frames(
     scenario_path,
     disc_val,
     pred,
-    frames=(30, 50, 70, 90),
+    frames=(30, 60, 90),
     ego_index=None,
     ag_role=None,                 # Optional: [N, R] bool or 0/1
     agent_role_style=None,        # Optional: dict{role_idx: (R,G,B)} using your COLOR_* tuples
     arrow_len=1.5,                # meters
     radius_m=60.0,                # crop around ego
+    save_path=None
 ):
     """
     Render map + predicted agent boxes at specific frames in one horizontal figure.
@@ -88,12 +89,12 @@ def plot_rollout_frames(
     eps = 1e-6
     scores_all=np.asarray(disc_val, dtype=float)
     # scores_all = np.maximum(eps, np.asarray(disc_val, dtype=float))  # [N, K] or flat
-    vmin = np.nanpercentile(scores_all, 5)  # robust low
-    vmax = np.nanpercentile(scores_all, 95)  # robust high
+    # vmin =np.min(scores_all)# np.nanpercentile(scores_all, 5)  # robust low
+    # vmax = np.max(scores_all)#np.nanpercentile(scores_all, 95)  # robust high
+    max_gap=np.max(np.abs(scores_all-0.5))
 
-
-    print(vmin, vmax)
-    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    print(max_gap,save_path)
+    norm = mpl.colors.Normalize(vmin=0.5-max_gap, vmax=0.5+max_gap)
 
     cmap = plt.get_cmap("RdYlGn")  # low=red, high=green
 
@@ -169,7 +170,7 @@ def plot_rollout_frames(
 
     # ---------- figure ----------
     n = len(frames)
-    fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 4.8), sharex=False, sharey=False, constrained_layout=True)
+    fig, axes = plt.subplots(1, n, figsize=(4.6*2 * n, 4.8*2), sharex=False, sharey=False, constrained_layout=True)
     fig.patch.set_facecolor("white")  # white figure canvas (outside axes)
 
     if n == 1:
@@ -268,6 +269,7 @@ def plot_rollout_frames(
         if len(local_sel_idx) > 0 and f>10:
             s_patches, s_edges, s_faces = [], [], []
             s_arrow_starts, s_arrow_ends = [], []
+            s_lw = []
 
             # alpha rule for sim layer
             sim_alpha = 1.0 if f0 >= hist_T else 0.5
@@ -279,17 +281,23 @@ def plot_rollout_frames(
                 corners = oriented_box_corners(center, theta, L, W)
                 s_patches.append(Polygon(corners, closed=True))
                 # edges white on black
-                s_edges.append((1.0, 1.0, 1.0, 1.0))
                 # face color: ego cyan; others aluminum
                 if i == ego_index:
                     fc = rgb01(COLOR_CYAN)
+                    s_edges.append((0.0, 1.0, 1.0, 1.0)  )  # white edge
+                    s_lw.append(2)
+
                 else:
                     fc = rgb01(COLOR_RED)
-                    idx_score = (f - 10) // 5 - 1
+                    s_edges.append('none')  # no edge at all
+                    s_lw.append(0.0)
 
-                    s_val = float(disc_val[i][idx_score])
-                    r, g, b, _ = cmap(norm(s_val))
-                    fc = (r, g, b)
+                idx_score = (f - 10) // 5 - 1
+
+                s_val = float(disc_val[i][idx_score])
+                r, g, b, _ = cmap(norm(s_val))
+                fc = (r, g, b)
+                    # s_edges.append((1.0, 1.0, 1.0, 0.0))
 
                 #s_faces.append((fc[0], fc[1], fc[2], 1.0))
 
@@ -302,8 +310,8 @@ def plot_rollout_frames(
             spc = PatchCollection(
                 s_patches,
                 facecolors=s_faces,
-                #edgecolors=s_edges,
-                linewidths=0.9,
+                edgecolors=s_edges,
+                linewidths=s_lw,
                 alpha=sim_alpha,        # <-- 1.0 normally, 0.5 for warm-up frames
                 zorder=6,
             )
@@ -343,8 +351,10 @@ def plot_rollout_frames(
         sm, ax=axes, orientation="vertical",
         fraction=0.05, pad=0.02  # tweak to taste
     )
-    cbar.set_label("Reward", rotation=90)
-   # plt.savefig("comparison_plots_largefont.pdf", format="pdf")
-
-    plt.show()
-    return fig
+    cbar.set_label("Realism Scores", rotation=90)
+    #plt.savefig("comparison_plots_largefont.pdf", format="pdf")
+    if save_path is not None:
+        plt.savefig(save_path)
+    else:
+        plt.show()
+    #return fig
