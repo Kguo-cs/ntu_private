@@ -57,7 +57,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_noedge_allvalidpred
+task_name: AIRL152_1025_allvalidpred
 
 trainer:
   limit_train_batches: 1.0
