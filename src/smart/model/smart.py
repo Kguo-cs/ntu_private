@@ -347,9 +347,9 @@ class SMART(LightningModule):
             if self.n_rollout_closed_val ==1:
                 scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
 
-                simulated_collision_rate=scenario_metrics.simulated_collision_rate
+                simulated_collision_rate=scenario_metrics.collision_indication_likelihood
                 simulated_offroad_rate = scenario_metrics.simulated_offroad_rate
-                if simulated_collision_rate>0 :#or simulated_offroad_rate>0
+                if simulated_offroad_rate>0 : #simulated_collision_rate<0.99 :#or simulated_offroad_rate>0       #242
                     disc_out = self.encoder.discriminator.predict_agent(None,
                                                                         pred["token_mask"],
                                                                         pred["valid_mask"],

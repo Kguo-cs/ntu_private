@@ -91,7 +91,7 @@ def plot_rollout_frames(
     # scores_all = np.maximum(eps, np.asarray(disc_val, dtype=float))  # [N, K] or flat
     # vmin =np.min(scores_all)# np.nanpercentile(scores_all, 5)  # robust low
     # vmax = np.max(scores_all)#np.nanpercentile(scores_all, 95)  # robust high
-    max_gap=np.max(np.abs(scores_all-0.5))
+    max_gap=np.max(np.abs(scores_all[:,np.array([5,11,17])]-0.5))
 
     print(max_gap,save_path)
     norm = mpl.colors.Normalize(vmin=0.5-max_gap, vmax=0.5+max_gap)
@@ -327,8 +327,8 @@ def plot_rollout_frames(
 
         # ---- view & title ----
         ax.set_aspect("equal", adjustable="box")
-        ax.set_xlim(sim_pos[ego_index, f][0] - 60, sim_pos[ego_index, f][0] + 60)
-        ax.set_ylim(sim_pos[ego_index, f][1] - 60, sim_pos[ego_index, f][1] + 60)
+        ax.set_xlim(sim_pos[ego_index, f][0] - 30, sim_pos[ego_index, f][0] + 30)
+        ax.set_ylim(sim_pos[ego_index, f][1] - 30, sim_pos[ego_index, f][1] + 30)
         ax.text(
             0.02, 0.98, f"Frame {f0}",
             transform=ax.transAxes,
