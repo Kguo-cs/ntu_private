@@ -125,8 +125,8 @@ class SMART(LightningModule):
         return loss
 
     def validation_step(self, data, batch_idx):
-        if batch_idx<1500: #not in [28,109,164,242,402,729,842]:
-            return
+        # if batch_idx<1500: #not in [28,109,164,242,402,729,842]:
+        #     return
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
