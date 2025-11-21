@@ -40,8 +40,8 @@ model:
 
       dis_weight: 40
       dist_decay: 2.5
-      reward_weight: 20
-      reward_decay: 1
+      reward_weight: 1
+      reward_decay: 10
 
 ckpt_path : './ckpts/bc40_apt30_tokenexitpred1_14679_1m_epoch=21-step=167420_0.76834.ckpt'
 
@@ -62,7 +62,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_4025_201_dis60_1m #_gp #_noedge
+task_name: AIRL80_4025_110_dis60_1m #_gp #_noedge
 
 trainer:
   limit_train_batches: 1.0

@@ -30,7 +30,7 @@ beta=beta[0:4]
 # ------------------------------------------
 # 2) Neighborhood reward hyperparameters
 # ------------------------------------------
-alpha_2 = [1.0,5.0, 10.0, 20.0]
+alpha_2 = [2.5, 5.0, 10.0, 20.0]
 beta_2  = [1.0, 2.5, 5.0, 10.0]
 
 values_2 = np.array([
@@ -72,7 +72,7 @@ sns.heatmap(
 )
 ax1.set_xlabel("β")
 ax1.set_ylabel("α")
-ax1.set_title("Interaction Weight Hyperparameters")
+ax1.set_title("Interaction Realism Weight w")
 
 # ------------------------------------------
 # Right heatmap
@@ -87,7 +87,7 @@ sns.heatmap(
 )
 ax2.set_xlabel("β")
 ax2.set_ylabel("α")
-ax2.set_title("Neighborhood Reward Hyperparameters")
+ax2.set_title("Neighborhood Reward Weight λ")
 
 # ------------------------------------------
 # ONE shared colorbar
@@ -100,9 +100,9 @@ fig.colorbar(norm, cax=cax, label="Realism Meta-Metric")
 # Final layout
 # ------------------------------------------
 plt.tight_layout()
-# plt.show()
+plt.show()
 
-plt.savefig("hyper_paramter.pdf", format="pdf")
+#plt.savefig("hyper_paramter.pdf", format="pdf")
 
 # interact weight hyper-paramter
 # beta       1.0       2.5      5          10
