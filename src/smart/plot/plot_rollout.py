@@ -351,10 +351,10 @@ def plot_rollout_frames(
         sm, ax=axes, orientation="vertical",
         fraction=0.05, pad=0.02  # tweak to taste
     )
-    cbar.set_label("Realism Scores", rotation=90)
+    cbar.set_label("Scene and Interact Realism Scores", rotation=90)
     #plt.savefig("comparison_plots_largefont.pdf", format="pdf")
     if save_path is not None:
-        plt.savefig(save_path)
+        plt.savefig(save_path, format="pdf")
     else:
         plt.show()
     #return fig

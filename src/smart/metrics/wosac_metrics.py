@@ -80,9 +80,9 @@ class WOSACMetrics(Metric):
                 if i != scenario.sdc_track_index:
                     for t in range(91):
                         scenario.tracks[i].states[t].valid = False
-            while len(scenario.tracks_to_predict) > 1:
-                scenario.tracks_to_predict.pop()
-            scenario.tracks_to_predict[0].track_index = scenario.sdc_track_index
+        while len(scenario.tracks_to_predict) > 1:
+            scenario.tracks_to_predict.pop()
+        scenario.tracks_to_predict[0].track_index = scenario.sdc_track_index
 
         return wosac_metrics.compute_scenario_metrics_for_bundle(
             config, scenario, scenario_rollout
@@ -92,14 +92,14 @@ class WOSACMetrics(Metric):
         self,
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
-    ) -> None:
+    ) :
         if  ('keguo' in working_dir) or ("guoke" in working_dir) :#or "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
 
             with mp.Pool(processes=os.cpu_count()) as pool:
-                pool_scenario_metrics = pool.starmap(
+                self.pool_scenario_metrics = pool.starmap(
                     self._compute_scenario_metrics,
                     zip(
                         itertools.repeat(self.wosac_config),
@@ -111,17 +111,17 @@ class WOSACMetrics(Metric):
                 pool.close()
                 pool.join()
         else:
-            pool_scenario_metrics = []
+            self.pool_scenario_metrics = []
             for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
-                pool_scenario_metrics.append(
+                self.pool_scenario_metrics.append(
                     self._compute_scenario_metrics(
                         self.wosac_config, _scenario, _scenario_rollout, self.ego_only
                     )
                 )
 
-        print("finished computing scenario metrics")
+        # print("finished computing scenario metrics")
 
-        for scenario_metrics in pool_scenario_metrics:
+        for scenario_metrics in self.pool_scenario_metrics:
             self.scenario_counter += 1
             self.metametric += scenario_metrics.metametric
             self.average_displacement_error += (
@@ -161,6 +161,7 @@ class WOSACMetrics(Metric):
             self.traffic_light_violation_likelihood+= (
                 scenario_metrics.traffic_light_violation_likelihood
             )
+
 
     def compute(self) -> Dict[str, Tensor]:
         metrics_dict = {}
