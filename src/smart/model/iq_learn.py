@@ -328,7 +328,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & expert_train_mask.all(0)
+        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
         expert_dis_loss,_,_,_,expert_dis_mask,expert_gp = self.get_reward(tokenized_agent, "expert")
 
@@ -357,9 +357,9 @@ class IQ_SoftQ(LightningModule):
 
             nei_advantages, nei_value_loss = compute_advantages(nei_rewards, nei_value, agent_present_mask)
 
-            value_loss =0.9 * value_loss+0.1 *nei_value_loss
+            value_loss =value_loss+nei_value_loss
 
-            advantages = 0.9 * advantages + 0.1 * nei_advantages
+            advantages = 1/2 * advantages + 1/2 * nei_advantages
 
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
 
