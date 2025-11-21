@@ -17,7 +17,6 @@ from pathlib import Path
 import hydra
 import torch
 from lightning import LightningModule
-from setuptools.sandbox import save_path
 from torch.optim.lr_scheduler import LambdaLR
 
 from src.smart.metrics import (
