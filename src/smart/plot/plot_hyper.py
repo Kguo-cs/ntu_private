@@ -30,11 +30,12 @@ beta=beta[0:4]
 # ------------------------------------------
 # 2) Neighborhood reward hyperparameters
 # ------------------------------------------
-alpha_2 = [1.0, 10.0, 20.0]
+alpha_2 = [1.0,5.0, 10.0, 20.0]
 beta_2  = [1.0, 2.5, 5.0, 10.0]
 
 values_2 = np.array([
     [np.nan, 0.78037, 0.77720, np.nan],
+    [np.nan, np.nan, np.nan, np.nan],
     [0.77646, np.nan, 0.78038, 0.77893],
     [np.nan, 0.77808, 0.77961, np.nan],
 ])
@@ -51,7 +52,7 @@ vmax = max(np.nanmax(values_1),np.nanmax(values_2))#np.nanmax([values_1, values_
 # ------------------------------------------
 # Create figure with two axes + one colorbar axis
 # ------------------------------------------
-fig = plt.figure(figsize=(16, 6))
+fig = plt.figure(figsize=(14, 6))
 gs = fig.add_gridspec(1, 3, width_ratios=[1, 1, 0.05])
 
 ax1 = fig.add_subplot(gs[0, 0])
@@ -99,9 +100,9 @@ fig.colorbar(norm, cax=cax, label="Realism Meta-Metric")
 # Final layout
 # ------------------------------------------
 plt.tight_layout()
-plt.show()
+# plt.show()
 
-
+plt.savefig("hyper_paramter.pdf", format="pdf")
 
 # interact weight hyper-paramter
 # beta       1.0       2.5      5          10
