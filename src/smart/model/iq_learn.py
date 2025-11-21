@@ -58,7 +58,7 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = False
+        self.use_gradient_penalty = True
 
         # self.automatic_optimization=False
     # def on_after_backward(self):
@@ -240,7 +240,7 @@ class IQ_SoftQ(LightningModule):
                 policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
                 policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
 
-                dis_loss='gp'
+                dis_loss='r2'
 
                 if dis_loss=='r1':
                     valid_mask =   tokenized_agent['expert_valid_mask']

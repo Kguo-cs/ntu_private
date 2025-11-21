@@ -27,6 +27,7 @@ model:
     #val_closed_loop: False
     finetune: true
     smart : false
+    n_batch_wosac_metric: 0
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
       hidden_dim: 64
