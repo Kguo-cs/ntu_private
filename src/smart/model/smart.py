@@ -12,6 +12,7 @@
 # its affiliates is strictly prohibited.
 
 import math
+import random
 from pathlib import Path
 
 import hydra
@@ -124,6 +125,8 @@ class SMART(LightningModule):
         return loss
 
     def validation_step(self, data, batch_idx):
+        if batch_idx<1500: #not in [28,109,164,242,402,729,842]:
+            return
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
@@ -347,9 +350,13 @@ class SMART(LightningModule):
             if self.n_rollout_closed_val ==1:
                 scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
 
-                simulated_collision_rate=scenario_metrics.collision_indication_likelihood
-                simulated_offroad_rate = scenario_metrics.simulated_offroad_rate
-                if simulated_offroad_rate>0 : #simulated_collision_rate<0.99 :#or simulated_offroad_rate>0       #242
+                simulated_collision_rate=scenario_metrics.simulated_collision_rate
+
+                collision_indication_likelihood=scenario_metrics.collision_indication_likelihood
+                #simulated_offroad_rate = scenario_metrics.simulated_offroad_rate
+                #print(collision_indication_likelihood,simulated_collision_rate)
+
+                if collision_indication_likelihood<0.99 and simulated_collision_rate>0 : #simulated_collision_rate<0.99 :#or simulated_offroad_rate>0       #242
                     disc_out = self.encoder.discriminator.predict_agent(None,
                                                                         pred["token_mask"],
                                                                         pred["valid_mask"],
@@ -402,6 +409,7 @@ class SMART(LightningModule):
                     interact_realism=torch.sigmoid(interact_realism)
                     save_path=self.video_dir  / f"step_{self.global_step}_batch_{batch_idx:02d}.pdf"
 
+                   # if interact_realism.min()>0.45:
                     plot_rollout_frames( tokenized_agent,
                                             data["tfrecord_path"][0],
                                             interact_realism.transpose(0,1).cpu(),

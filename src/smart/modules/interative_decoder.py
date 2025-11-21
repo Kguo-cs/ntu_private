@@ -120,7 +120,7 @@ class InterativeDecoder(nn.Module):
         self.diff_dicriminator = False
 
         self.use_counterfactual=False
-        self.use_edge_feature=False
+        self.use_edge_feature=True
 
         self.use_full_feature=False
 

@@ -80,9 +80,9 @@ class WOSACMetrics(Metric):
                 if i != scenario.sdc_track_index:
                     for t in range(91):
                         scenario.tracks[i].states[t].valid = False
-            while len(scenario.tracks_to_predict) > 1:
-                scenario.tracks_to_predict.pop()
-            scenario.tracks_to_predict[0].track_index = scenario.sdc_track_index
+        while len(scenario.tracks_to_predict) > 1:
+            scenario.tracks_to_predict.pop()
+        scenario.tracks_to_predict[0].track_index = scenario.sdc_track_index
 
         return wosac_metrics.compute_scenario_metrics_for_bundle(
             config, scenario, scenario_rollout

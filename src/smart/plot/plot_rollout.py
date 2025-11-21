@@ -226,6 +226,8 @@ def plot_rollout_frames(
             if len(real_idx) > 0:
                 r_patches, r_edges, r_faces = [], [], []
                 r_arrow_starts, r_arrow_ends = [], []
+                r_edges=[]
+                r_lw=[]
 
                 for i in real_idx:
                     center = real_pos[i, f0]
@@ -234,7 +236,15 @@ def plot_rollout_frames(
                     corners = oriented_box_corners(center, theta, L, W)
                     r_patches.append(Polygon(corners, closed=True))
                     # edges light gray on black
-                    r_edges.append((0.8, 0.8, 0.8, 1.0))
+                    if i == ego_index:
+                        fc = rgb01(COLOR_CYAN)
+                        r_edges.append((0.0, 1.0, 1.0, 1.0))  # white edge
+                        r_lw.append(2)
+
+                    else:
+                        fc = rgb01(COLOR_RED)
+                        r_edges.append('none')  # no edge at all
+                        r_lw.append(0.0)
                     # face color: ego cyan; others aluminum
                     fc =rgb01(COLOR_ALUMINIUM_0) # rgb01(COLOR_CYAN) if i == ego_index else
                     r_faces.append((*fc[:3], 1.0))
@@ -245,8 +255,8 @@ def plot_rollout_frames(
                 rpc = PatchCollection(
                     r_patches,
                     facecolors=r_faces,
-                    #edgecolors=r_edges,
-                    linewidths=0.8,
+                    edgecolors=r_edges,
+                    linewidths=r_lw,
                     alpha=0.5,           # <-- GT boxes at 0.5
                     zorder=4,
                 )
