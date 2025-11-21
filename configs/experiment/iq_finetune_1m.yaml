@@ -62,7 +62,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_4025_00_dis60_1m_r1_noedge
+task_name: AIRL80_4025_00_dis60_1m_gp_noedge
 
 trainer:
   limit_train_batches: 1.0
