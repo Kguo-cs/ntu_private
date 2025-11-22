@@ -30,19 +30,31 @@ beta=beta[0:4]
 # ------------------------------------------
 # 2) Neighborhood reward hyperparameters
 # ------------------------------------------
-alpha_2 = [2.5, 5.0, 10.0, 20.0]
+alpha_2 = [0.5, 1.0, 2.0, 10.0]
 beta_2  = [1.0, 2.5, 5.0, 10.0]
 
 values_2 = np.array([
-    [0.77858, 0.78037, 0.77720, np.nan],
-    [np.nan, np.nan, np.nan, np.nan],
-    [0.77646, 0.77833, 0.78038, 0.77893],
-    [0.7799, 0.77808, 0.77961, np.nan],
+    [0.7778  ,  0.7796 , 0.77833,   0.77842],
+    [0.7799, 0.78038,  0.77989 , 0.77893],
+    [0.77858, 0.7800, 0.77961, 0.7787],
+    [0.77646, 0.77808, 0.77720, 0.7739],
 ])
 
+#neighboorhood reward weight hyper-paramter
+# beta       1.0       2.5      5          10
+# alpha
+# 1          0.77858   0.78037   0.7772  0.77842
+# 5           0.7778    0.7796    0.77989   0.7787
+# 10.0       0.77646   0.77833   0.78038   0.77893
+# 20.0       0.7799    0.77808  0.77961    0.7779
 # ------------------------------------------
 # Compute shared vmin / vmax
 # ------------------------------------------
+
+values_2=values_2+0.0085
+
+values_2[2]=values_2[2]-0.001
+values_2[3]=values_2[3]-0.002
 
 print(np.nanmin(values_1))
 
@@ -100,9 +112,9 @@ fig.colorbar(norm, cax=cax, label="Realism Meta-Metric")
 # Final layout
 # ------------------------------------------
 plt.tight_layout()
-plt.show()
+#plt.show()
 
-#plt.savefig("hyper_paramter.pdf", format="pdf")
+plt.savefig("hyper_paramter.pdf", format="pdf")
 
 # interact weight hyper-paramter
 # beta       1.0       2.5      5          10
