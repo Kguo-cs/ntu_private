@@ -267,12 +267,10 @@ class InterativeDecoder(nn.Module):
 
                 feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
 
-        if self.discriminator:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), self.pos_cache[agent_train_mask], self.head_cache[agent_train_mask], n_step, n_current, self.mask_cache[agent_train_mask])
-
-            feat_a=feat_a_t.transpose(0,1).flatten(0,1)
-
-        else:
+        if not self.discriminator:
+            # feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), self.pos_cache[agent_train_mask], self.head_cache[agent_train_mask], n_step, n_current, self.mask_cache[agent_train_mask])
+            #
+            # feat_a=feat_a_t.transpose(0,1).flatten(0,1)
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
@@ -380,6 +378,7 @@ class InterativeDecoder(nn.Module):
             )
         else:
             edge_index_t, r_t = None,None
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a, self.pos_cache, self.head_cache, n_step, n_current, self.mask_cache)
 
         # if not self.discriminator and not self.token_processor.use_bird:
         #     if n_current == 0:
@@ -439,7 +438,10 @@ class InterativeDecoder(nn.Module):
         else:
             train_repeat_mask=None
 
-        feat_a=feat_a[mask_s]
+        if self.discriminator:
+            feat_a=feat_a_t.transpose(0, 1).flatten(0, 1) [mask_s]
+        else:
+            feat_a=feat_a[mask_s]
 
         edge_index_a2a, r_a2a, dist,relative_pos = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
