@@ -325,16 +325,6 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_a,rewards,weight
 
-    def get_reward(self,weight,edge_value,end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent):
-
-        batch_reward = torch.zeros([n_step,n_agent],device=edge_value.device)
-
-        edge_sum_weight = scatter_sum(edge_value * weight, end_index, dim=0,dim_size=valid_number)
-
-        batch_reward[mask_ta_flatten] = edge_sum_weight[train_repeat_mask]
-
-        return batch_reward
-
     def forward(self,all_features,map_feature,agent_train_mask,n_current,pred_mask ):
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
@@ -469,3 +459,13 @@ class InterativeDecoder(nn.Module):
             next_token_logits[:, -1] = -torch.inf #t,a
 
         return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)
+
+    def get_reward(self,weight,edge_value,end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent):
+
+        batch_reward = torch.zeros([n_step,n_agent],device=edge_value.device)
+
+        edge_sum_weight = scatter_sum(edge_value * weight, end_index, dim=0,dim_size=valid_number)
+
+        batch_reward[mask_ta_flatten] = edge_sum_weight[train_repeat_mask]
+
+        return batch_reward
