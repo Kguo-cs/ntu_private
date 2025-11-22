@@ -86,6 +86,9 @@ ax1.set_xlabel("β")
 ax1.set_ylabel("α")
 ax1.set_title("Interaction Realism Weight w")
 
+print(values_1)
+print(values_2)
+
 # ------------------------------------------
 # Right heatmap
 # ------------------------------------------
@@ -114,7 +117,7 @@ fig.colorbar(norm, cax=cax, label="Realism Meta-Metric")
 plt.tight_layout()
 #plt.show()
 
-plt.savefig("hyper_paramter.pdf", format="pdf")
+#plt.savefig("hyper_paramter.pdf", format="pdf")
 
 # interact weight hyper-paramter
 # beta       1.0       2.5      5          10
