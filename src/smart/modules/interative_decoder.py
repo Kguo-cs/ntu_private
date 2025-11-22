@@ -465,7 +465,7 @@ class InterativeDecoder(nn.Module):
 
 
         if not self.discriminator and self.pred_exit and pred_mask is not None:
-            next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
-           # next_token_logits[:, -1] = -torch.inf #t,a
+            #next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
+            next_token_logits[:, -1] = -torch.inf #t,a
 
         return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)
