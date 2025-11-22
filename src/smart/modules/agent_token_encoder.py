@@ -162,7 +162,9 @@ class AgentTokenEncoder(nn.Module):
         feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
         # if self.token_processor.use_token:
-        feature_a[~token_mask]=0
+
+        if token_mask is not None:
+            feature_a[~token_mask]=0
 
         if self.use_goal:
             if goal_pos is not None:

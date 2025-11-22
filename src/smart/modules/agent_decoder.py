@@ -109,7 +109,7 @@ class SMARTAgentDecoder(nn.Module):
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
         if self.discriminator:#not self.token_processor.use_token:
-            token_mask=mask_a
+            token_mask=None#mask_a
 
         feat_a_token,agent_token_emb = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
