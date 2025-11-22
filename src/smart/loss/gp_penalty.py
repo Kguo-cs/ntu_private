@@ -14,7 +14,7 @@ def compute_gp(key,tokenized_agent,dis_mask,discriminator):
         policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
         policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
 
-        dis_loss = 'r2'
+        dis_loss = 'r1'
 
         if dis_loss == 'r1':
             valid_mask = tokenized_agent['expert_valid_mask']
