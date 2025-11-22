@@ -179,7 +179,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
 
-        mask_s = tokenized_agent["valid_mask"].transpose(0,1)[2:]
+        mask_s = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
 
         if "train_mask" in tokenized_agent.keys():
             mask_s=mask_s[:,tokenized_agent["train_mask"]]
@@ -200,9 +200,9 @@ class IQ_SoftQ(LightningModule):
             target=1
         else:
             target=0
-            ego_rewards=ego_rewards.reshape(mask_s.shape[0],mask_s.shape[1])#[self.start_step+1:] #t,a
+            ego_rewards=ego_rewards.reshape(mask_s.shape[0],mask_s.shape[1])[self.start_step+1:] #t,a
             if len(nei_rewards):
-               nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])#[self.start_step+1:]#t,a
+               nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step+1:]#t,a
 
         if dis_mask is not None:
             ego_logits=ego_logits[dis_mask]
@@ -233,7 +233,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss, ego_rewards, nei_rewards,present_mask,mask_s.flatten(0,1),gp #[self.start_step:-1]
+        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],mask_s.flatten(0,1),gp #
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
