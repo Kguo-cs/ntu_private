@@ -58,7 +58,7 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = False
+        self.use_gradient_penalty = True
 
         # self.automatic_optimization=False
     # def on_after_backward(self):

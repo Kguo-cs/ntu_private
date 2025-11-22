@@ -48,13 +48,13 @@ def compute_gp(key,tokenized_agent,dis_mask,discriminator):
         interpolates_pose[train_valid_mask] = interpolates
 
         disc_out_interp = discriminator.predict_agent(None,
-                                                                   token_mask,
-                                                                   valid_mask,
-                                                                   interpolates_pose[..., :2],
-                                                                   interpolates_pose[..., 2],
-                                                                   tokenized_agent,
-                                                                   tokenized_agent["detach_map_feature"],
-                                                                   abs_time=tokenized_agent["abs_time"])
+                                                       token_mask,
+                                                       valid_mask,
+                                                       interpolates_pose[..., :2],
+                                                       interpolates_pose[..., 2],
+                                                       tokenized_agent,
+                                                       tokenized_agent["detach_map_feature"],
+                                                       abs_time=tokenized_agent["abs_time"])
 
         ego_logits, interact_logits = disc_out_interp[0]
         ego_logits = ego_logits[dis_mask]
