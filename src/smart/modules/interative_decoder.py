@@ -360,15 +360,15 @@ class InterativeDecoder(nn.Module):
             if agent_train_mask is not None:
                 inference_mask = inference_mask[agent_train_mask]
 
-            all_features = [feat[:,2:] for feat in  all_features]
+            all_features = [feat[:,2:] for feat in  all_features[:-1]] + [all_features[-1][:,:-2]]
             inference_mask=inference_mask[:,2:]
 
-            batch_a=batch_s_repeat[:,0]
-            num_graphs=torch.max(batch_a).item()+1
+            #batch_a=batch_s_repeat[:,0]
+           # num_graphs=torch.max(batch_a).item()+1
 
-            batch_s = build_batch(batch_a, num_graphs, n_step - 1).reshape(-1,n_agent).transpose( 0, 1)[:, 1:]
-
-            all_features[-1]=batch_s
+            # batch_s = build_batch(batch_a, num_graphs, n_step - 1).reshape(-1,n_agent).transpose( 0, 1)[:, 1:]
+            #
+            # all_features[-1]=batch_s
 
 
             feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
