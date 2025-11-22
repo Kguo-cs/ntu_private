@@ -62,7 +62,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_noedge_1m_Prevroformer_allvalid_notokenmask_inf_sharedis_r1 #_4025_0125_09_dis60_1m #_gp #_noedge
+task_name: AIRL80_noedge_prevroformer_allvalid_notokenmask_inf_sharedis_gp #_4025_0125_09_dis60_1m #_gp #_noedge
 
 trainer:
   limit_train_batches: 1.0
