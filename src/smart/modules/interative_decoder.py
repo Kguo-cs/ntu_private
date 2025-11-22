@@ -121,14 +121,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-
-        self.state_action = False
-        self.reward_shaping = False
-        self.diff_dicriminator = False
-
-        self.use_counterfactual=False
         self.use_edge_feature=False
-
         self.use_full_feature=False
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
@@ -169,14 +162,6 @@ class InterativeDecoder(nn.Module):
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
-
-
-        if self.discriminator:
-            self.centric=False
-            if  self.reward_shaping:
-                self.reward_net = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                )
 
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,
@@ -412,8 +397,6 @@ class InterativeDecoder(nn.Module):
                 pl2a_radius=self.pl2a_radius,
                 max_num_neighbors=self.pt2a_neighbor,
                 agent_train_mask=agent_train_mask,
-                use_counterfactual=self.use_counterfactual,
-                route_map_index=None,
                 layer_num=self.num_layers
             )
         else:
