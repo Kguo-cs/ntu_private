@@ -86,26 +86,26 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
-        # if discriminator:
-        #
-        #     self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-        #                                       hist_len=self.agent_hist)
-        # else:
+        if discriminator:
+
+            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
+                                              hist_len=self.agent_hist)
+        else:
 
 
-        self.t_attn_layers = nn.ModuleList(
-            [
-                AttentionLayer(
-                    hidden_dim=hidden_dim,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=hist_drop_prob,
-                    bipartite=False,
-                    has_pos_emb=True,
-                )
-                for _ in range(self.t_num_layers)
-            ]
-        )
+            self.t_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=hist_drop_prob,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+                    for _ in range(self.t_num_layers)
+                ]
+            )
 
         if not token_processor.use_bird:
             self.pt2a_attn_layers = nn.ModuleList(
@@ -253,12 +253,14 @@ class InterativeDecoder(nn.Module):
 
                 feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
 
-        #if not self.discriminator:
-            # feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), self.pos_cache[agent_train_mask], self.head_cache[agent_train_mask], n_step, n_current, self.mask_cache[agent_train_mask])
-            #
-            # feat_a=feat_a_t.transpose(0,1).flatten(0,1)
-        for i in range(self.t_num_layers):
-            feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+        if not self.discriminator:
+            for i in range(self.t_num_layers):
+                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+        else:
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), self.pos_cache[agent_train_mask], self.head_cache[agent_train_mask], n_step, n_current, self.mask_cache[agent_train_mask])
+
+            feat_a=feat_a_t.transpose(0,1).flatten(0,1)
+
 
         current_len = inference_mask.sum()
         feat_a = feat_a[-current_len:]
@@ -317,7 +319,6 @@ class InterativeDecoder(nn.Module):
 
         n_agent,n_step = mask_a.shape
 
-        #if not self.discriminator:
         if n_current == 0:
             self.pos_cache = pos_a
             self.head_cache = head_a
@@ -344,35 +345,37 @@ class InterativeDecoder(nn.Module):
         if agent_train_mask is not None:
             inference_mask = inference_mask[agent_train_mask]
 
-        edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
-            pos_a=self.pos_cache,  # [n_agent, n_step, 2]
-            head_a=self.head_cache,  # [n_agent, n_step]
-            head_vector_a=self.head_vector_cache,  # [n_agent, n_step, 2]
-            mask=self.mask_cache,  # [n_agent, n_step]
-            inference_mask=inference_mask,
-            agent_train_mask=agent_train_mask
-        )
-        # else:
-        #     edge_index_t, r_t = None,None
-        #     feat_a_t = self.a_t_roformer.temporal_embed(feat_a, pos_a, head_a, n_step, n_current, mask_a)
-        #     all_features[0]=feat_a_t
-        #     inference_mask=torch.ones_like(mask_a)
-        #     if agent_train_mask is not None:
-        #         inference_mask = inference_mask[agent_train_mask]
-        #
-        #     all_features = [feat[:,2:] for feat in  all_features[:-1]] + [all_features[-1][:,:-2]]
-        #     inference_mask=inference_mask[:,2:]
-        #
-        #     #batch_a=batch_s_repeat[:,0]
-        #    # num_graphs=torch.max(batch_a).item()+1
-        #
-        #     # batch_s = build_batch(batch_a, num_graphs, n_step - 1).reshape(-1,n_agent).transpose( 0, 1)[:, 1:]
-        #     #
-        #     # all_features[-1]=batch_s
-        #
-        #
-        #     feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
-        #     n_step=inference_mask.shape[-1]
+        if not self.discriminator:
+
+            edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
+                pos_a=self.pos_cache,  # [n_agent, n_step, 2]
+                head_a=self.head_cache,  # [n_agent, n_step]
+                head_vector_a=self.head_vector_cache,  # [n_agent, n_step, 2]
+                mask=self.mask_cache,  # [n_agent, n_step]
+                inference_mask=inference_mask,
+                agent_train_mask=agent_train_mask
+            )
+        else:
+            edge_index_t, r_t = None,None
+            # feat_a_t = self.a_t_roformer.temporal_embed(feat_a, pos_a, head_a, n_step, n_current, mask_a)
+            # all_features[0]=feat_a_t
+            # inference_mask=torch.ones_like(mask_a)
+            # if agent_train_mask is not None:
+            #     inference_mask = inference_mask[agent_train_mask]
+
+            # all_features = [feat[:,2:] for feat in  all_features[:-1]] + [all_features[-1][:,:-2]]
+            # inference_mask=inference_mask[:,2:]
+
+            #batch_a=batch_s_repeat[:,0]
+           # num_graphs=torch.max(batch_a).item()+1
+
+            # batch_s = build_batch(batch_a, num_graphs, n_step - 1).reshape(-1,n_agent).transpose( 0, 1)[:, 1:]
+            #
+            # all_features[-1]=batch_s
+
+
+            # feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
+            # n_step=inference_mask.shape[-1]
 
 
         # if not self.discriminator and not self.token_processor.use_bird:
