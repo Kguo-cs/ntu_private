@@ -75,18 +75,18 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
-            if not discriminator:
-                self.r_t_emb = FourierEmbedding(
-                    input_dim=input_dim_r_t,
-                    hidden_dim=hidden_dim,
-                    num_freq_bands=num_freq_bands,
-                    share=share
-                )
+           # if not discriminator:
+            self.r_t_emb = FourierEmbedding(
+                input_dim=input_dim_r_t,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+                share=share
+            )
 
-                self.hist_drop_prob=hist_drop_prob
-                self.time_span=time_span
+            self.hist_drop_prob=hist_drop_prob
+            self.time_span=time_span
 
-                self.shift=shift
+            self.shift=shift
 
 
     def build_temporal_edge(
