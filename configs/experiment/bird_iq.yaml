@@ -38,7 +38,7 @@ model:
       dis_a2a_neighbor: 10
 
       dis_weight: 1
-      dist_decay: 1
+      dist_decay: 3
       reward_weight: 0
       reward_decay: 2.5
 
@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq16_w1100_roformer_present_distemp
+task_name: iq3_w1300_roformer_present_distemp
 
 
 trainer:
@@ -59,7 +59,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 4
+  train_batch_size: 3
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8
