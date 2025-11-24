@@ -67,7 +67,6 @@ class InterativeDecoder(nn.Module):
         self.head_dim = hidden_dim // num_heads
 
         self.agent_hist = self.time_span // self.shift
-        self.use_roformer=False
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
@@ -76,8 +75,8 @@ class InterativeDecoder(nn.Module):
                                         time_span=time_span,
                                         shift=token_processor.shift,
                                         use_route=token_processor.use_route,
-                                        discriminator=discriminator,
-                                        use_bird=token_processor.use_bird
+                                        discriminator=self.use_roformer,
+                                        use_bird=token_processor.use_bird,
                                         )
 
 
@@ -88,7 +87,7 @@ class InterativeDecoder(nn.Module):
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
 
-        if self.use_roformer:
+        if self.edge_encoder.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
         else:
@@ -252,7 +251,7 @@ class InterativeDecoder(nn.Module):
 
                 feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
 
-        if not self.use_roformer:
+        if not self.edge_encoder.use_roformer:
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
         else:
@@ -347,7 +346,7 @@ class InterativeDecoder(nn.Module):
         if agent_train_mask is not None:
             inference_mask = inference_mask[agent_train_mask]
 
-        if not self.use_roformer:
+        if not self.edge_encoder.use_roformer:
 
             edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
                 pos_a=self.pos_cache,  # [n_agent, n_step, 2]

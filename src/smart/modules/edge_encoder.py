@@ -64,6 +64,7 @@ class EdgeEncoder(nn.Module):
 
         # if self.discriminator:
         #     input_dim_r_a2a = 2
+        self.use_roformer=False
 
         if a2a:
             self.tokenized_pos=False
@@ -75,7 +76,7 @@ class EdgeEncoder(nn.Module):
                 share=share
             )
 
-            if not discriminator:
+            if not self.use_roformer:
                 self.r_t_emb = FourierEmbedding(
                     input_dim=input_dim_r_t,
                     hidden_dim=hidden_dim,
