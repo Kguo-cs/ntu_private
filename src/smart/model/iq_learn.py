@@ -72,7 +72,7 @@ class IQ_SoftQ(LightningModule):
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        if "train_mask" in tokenized_agent.keys():
+        if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             agent_train_mask=tokenized_agent["train_mask"]
             valid_mask=valid_mask[agent_train_mask]
             action=action[agent_train_mask]
@@ -181,7 +181,7 @@ class IQ_SoftQ(LightningModule):
 
         mask_s = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
 
-        if "train_mask" in tokenized_agent.keys():
+        if tokenized_agent["train_mask"] is not None:
             mask_s=mask_s[:,tokenized_agent["train_mask"]]
 
         after_any= torch.cumsum(mask_s, dim=0)

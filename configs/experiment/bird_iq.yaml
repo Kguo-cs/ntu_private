@@ -35,14 +35,18 @@ model:
       time_span: 10
 
       dis_a2a_radius: 10
-      dis_weight: 1
-      dist_decay: 3
+      dis_a2a_neighbor: 10
+
+      dis_weight: 20
+      dist_decay: 4
+      reward_weight: 0
+      reward_decay: 2.5
 
       hist_drop_prob: 0 #0.1 #0.1
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq28_w0101_lcf12_exitinvalidmask_at #_rewardscaling #_minusmean #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
+task_name: iq1_w0101_lcf12_exitinvalidmask_at #_rewardscaling #_minusmean #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
 
 
 
@@ -56,7 +60,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 7
+  train_batch_size: 3
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8

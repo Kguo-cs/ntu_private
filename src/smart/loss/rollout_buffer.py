@@ -555,14 +555,14 @@ def get_train_mask(tokenized_agent,start_step,pred_exit):
 
     if pred_exit:
         train_mask = valid_mask[:, :-1]
-        if "pred_mask" in tokenized_agent.keys():
+        if tokenized_agent["pred_mask"] is not None:
             pred_mask = tokenized_agent["pred_mask"]
 
             train_mask[pred_mask] = (valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]
     else:
         train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
 
-    if "train_mask" in tokenized_agent.keys():
+    if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
         train_mask = train_mask[tokenized_agent["train_mask"]]
 
     return train_mask.transpose(0, 1)

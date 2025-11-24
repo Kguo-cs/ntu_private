@@ -256,7 +256,11 @@ class InterativeDecoder(nn.Module):
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
         else:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), self.pos_cache[agent_train_mask], self.head_cache[agent_train_mask], n_step, n_current, self.mask_cache[agent_train_mask])
+            if agent_train_mask is not None:
+                self.pos_cache = self.pos_cache[agent_train_mask]
+                self.head_cache = self.head_cache[agent_train_mask]
+                self.mask_cache = self.mask_cache[agent_train_mask]
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), self.pos_cache, self.head_cache, n_step, n_current, self.mask_cache)
 
             feat_a=feat_a_t.transpose(0,1).flatten(0,1)
 
