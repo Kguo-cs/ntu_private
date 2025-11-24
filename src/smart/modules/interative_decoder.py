@@ -67,7 +67,7 @@ class InterativeDecoder(nn.Module):
         self.head_dim = hidden_dim // num_heads
 
         self.agent_hist = self.time_span // self.shift
-        self.use_roformer=discriminator
+        self.use_roformer=False
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
