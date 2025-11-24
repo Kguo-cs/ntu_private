@@ -204,12 +204,13 @@ class IQ_SoftQ(LightningModule):
             if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step+1:]#t,a
 
-        if dis_mask is not None:
-            ego_logits=ego_logits[dis_mask]
-        else:
-            ego_logits=ego_logits[mask_s.flatten(0,1)]
+        if dis_mask is None:
+            if self.token_processor.use_bird:
+                dis_mask=present_flatten
+            else:
+                dis_mask=mask_s.flatten(0, 1)
 
-            #ego_logits=ego_logits[present_flatten]
+        ego_logits=ego_logits[dis_mask]
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
                                           reduction='mean')
@@ -233,7 +234,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],mask_s.flatten(0,1),gp #
+        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
@@ -252,7 +253,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
-        expert_dis_loss,_,_,_,expert_dis_mask,expert_gp = self.get_reward(tokenized_agent, "expert")
+        expert_dis_loss,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
@@ -264,7 +265,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,_ ,agent_gp= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
         critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
 
