@@ -7,9 +7,11 @@ WIFI_INTERFACE="wlo1"
 SSID="NTUSECURE"
 
 # Check if Wi-Fi is connected
-if ! nmcli -t -f DEVICE,STATE dev | grep -q "${WIFI_INTERFACE}:connected"; then
-    echo "$(date): Wi-Fi is disconnected. Attempting to reconnect..."
+if ! curl -s --max-time 5 https://www.google.com >/dev/null 2>&1; then
+    echo "$(date): Cannot reach Google. Attempting to reconnect Wi-Fi..."
+    nmcli radio wifi on
+    sudo systemctl restart NetworkManager
     sudo nmcli dev wifi connect "$SSID" ifname "$WIFI_INTERFACE"
 else
-    echo "$(date): Wi-Fi is connected."
+    echo "$(date): Google is reachable."
 fi

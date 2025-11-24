@@ -39,7 +39,7 @@ model:
       dis_a2a_neighbor: 20
 
       dis_weight: 20
-      dist_decay: 3
+      dist_decay: 4
       reward_weight: 0
       reward_decay: 2.5
 
@@ -62,7 +62,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL80_roformershare_203 #_sharedis #_allvalid_noedge_4025_0125_09_dis60_1m #_gp #_noedge
+task_name: AIRL80_roformershare_204 #_sharedis #_allvalid_noedge_4025_0125_09_dis60_1m #_gp #_noedge
 
 trainer:
   limit_train_batches: 1.0
