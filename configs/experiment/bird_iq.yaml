@@ -46,8 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq20_w1100 #_lcf12_at #_exitinvalidmask_rewardscaling #_minusmean #_full01_sharedis #_sumbce #_exitmean_all1 #highorder #_val12 #5_RewardRunNormalize #_lcf12 #_ nolcf #_mean_ratio11 #_smooth01
-
+task_name: iq20_w1100
 
 
 trainer:
@@ -60,7 +59,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 20
+  train_batch_size: 5
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8
@@ -72,21 +71,21 @@ logger:
      project: bird
 
 
-#model_checkpoint:
-#  _target_: lightning.pytorch.callbacks.ModelCheckpoint
-#  dirpath: null     # or any directory you prefer
-#  filename: "epoch={epoch}-valmeta={val_closed/ADE:.4f}"
-#  monitor: "val_closed/ADE"   # <== key metric from validation
-#  verbose: false
-#  save_last: true
-#  save_top_k: 8
-#  mode: "max"                          # "max" since your metric increases with performance
-#  auto_insert_metric_name: false
-#  save_weights_only: false
-#  every_n_train_steps: null
-#  train_time_interval: null
-#  every_n_epochs: null
-#  save_on_train_epoch_end: false       # <== important, disables save after training epoch
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: null     # or any directory you prefer
+  filename: "epoch={epoch}-valmeta={val_closed/ADE:.4f}"
+  monitor: "val_closed/ADE"   # <== key metric from validation
+  verbose: false
+  save_last: true
+  save_top_k: 8
+  mode: "max"                          # "max" since your metric increases with performance
+  auto_insert_metric_name: false
+  save_weights_only: false
+  every_n_train_steps: null
+  train_time_interval: null
+  every_n_epochs: null
+  save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 action: finetune
 #action: finetune
