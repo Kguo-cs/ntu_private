@@ -75,7 +75,7 @@ class InterativeDecoder(nn.Module):
                                         time_span=time_span,
                                         shift=token_processor.shift,
                                         use_route=token_processor.use_route,
-                                        discriminator=self.use_roformer,
+                                        discriminator=discriminator,
                                         use_bird=token_processor.use_bird,
                                         )
 
