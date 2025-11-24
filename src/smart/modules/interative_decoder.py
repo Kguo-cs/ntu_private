@@ -19,10 +19,7 @@ from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
-from src.smart.my_model.diffusion_discriminator import Discriminator
-from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep,cosine_beta_schedule
 from src.smart.layers.relative_transformer import RoFormerBlock
-from .build_edge import build_batch
 
 
 
