@@ -42,7 +42,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/logs/bird6_head1_at1_clone_n20/2025-11-11_18-51-26/bird/gzan6d3o/checkpoints/epoch=19-step=155000.ckpt'
 
-task_name: bird5_head1_at1_clone_n20 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird4_head1_at1_clone_n20 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
@@ -56,7 +56,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 5
+  train_batch_size: 4
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1
