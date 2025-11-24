@@ -181,7 +181,7 @@ class IQ_SoftQ(LightningModule):
 
         mask_s = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
 
-        if tokenized_agent["train_mask"] is not None:
+        if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             mask_s=mask_s[:,tokenized_agent["train_mask"]]
 
         after_any= torch.cumsum(mask_s, dim=0)
@@ -250,7 +250,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
+       # tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
         expert_dis_loss,_,_,_,expert_dis_mask,expert_gp = self.get_reward(tokenized_agent, "expert")
 
