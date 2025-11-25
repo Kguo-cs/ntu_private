@@ -299,7 +299,7 @@ class InterativeDecoder(nn.Module):
 
         n_agent,n_step = mask_a.shape
 
-        if self.discriminator:
+        if self.discriminator and self.edge_encoder.use_roformer:
             inference_mask = torch.ones_like(mask_a)
         else:
             if n_current == 0:
@@ -308,7 +308,7 @@ class InterativeDecoder(nn.Module):
                 self.mask_cache = mask_a
                 self.head_vector_cache = head_vector_a
 
-                if self.edge_encoder.rollout_traj:
+                if self.discriminator or self.edge_encoder.rollout_traj:
                     inference_mask = torch.ones_like(mask_a)
                 else:
                     inference_mask = mask_a.clone()
