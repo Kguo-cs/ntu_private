@@ -222,4 +222,7 @@ AIRL64_value0001noclip_distr402060a5_expertvalid influence of range
 
 # also allow high order ,weighted 
 
+#autoregressive entry new agent. 
+
+
 

@@ -159,6 +159,8 @@ class InterativeDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
 
+        self.pred_entry=True
+
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,
                       r_pl2a, edge_index_pl2a,

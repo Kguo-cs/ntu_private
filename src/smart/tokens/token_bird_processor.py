@@ -394,7 +394,6 @@ class TokenProcessor(torch.nn.Module):
                             cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
 
                             row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
-                            # print(cost[row_ind_i,col_ind_i].max())
                             entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
 
                             row_ind.append(row_ind_i+torch.sum(present_batch<b).item())
@@ -423,9 +422,9 @@ class TokenProcessor(torch.nn.Module):
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                    entry_token_invalid_mask.append(dist>1)
+                    entry_token_invalid_mask.append(dist>2)
 
-                    real_id=entry_id[dist>1]
+                    real_id=entry_id[dist>2]
 
                     prev_pos[real_id]=pos[real_id,i]
 
@@ -468,6 +467,7 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
+        if len(entry_token_invalid_mask)>0:
+            out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
 
         return out_dict
