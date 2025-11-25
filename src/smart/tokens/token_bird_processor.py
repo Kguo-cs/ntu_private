@@ -292,9 +292,10 @@ class TokenProcessor(torch.nn.Module):
           #  'reset_mask':[],
            # "entry_idx":[],
            # "entry_head_idx": [],
-
             #"entry_mask": [],
         }
+
+        entry_token_invalid_mask=[]
 
         if self.pred_entry:
             out_dict["entry_idx"]=[]
@@ -421,7 +422,8 @@ class TokenProcessor(torch.nn.Module):
                     prev_head[entry_id]=tokenized_heading[entry_id]
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #print(dist.mean(),dist.max()) #0.8
+
+                    entry_token_invalid_mask.append(dist>1)
 
                     real_id=entry_id[dist>1]
 
@@ -465,4 +467,7 @@ class TokenProcessor(torch.nn.Module):
             out_dict["sampled_heading"].append(prev_head.masked_fill(_invalid_mask, 0))
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
+
+        out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
+
         return out_dict

@@ -143,7 +143,7 @@ class SMARTAgentDecoder(nn.Module):
             entry_logit=self.entry_decoder(feat_a)
 
             if self.training:
-                entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:].transpose(0, 1).flatten(0, 1)[mask_a[:,:-1].transpose(0, 1).flatten(0, 1)]
+                entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:].transpose(0, 1).flatten(0, 1)[mask_a.transpose(0, 1).flatten(0, 1)]
                 entry_mask=(entry_idx<self.token_processor.n_token_entry - 1 )
                 entry_local=self.token_processor.entry_pos_token[entry_idx[entry_mask]]
 

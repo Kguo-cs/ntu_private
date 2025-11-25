@@ -318,6 +318,11 @@ class IQ_SoftQ(LightningModule):
             self.log("train/mean_token_error", max_dist.mean().item(), on_step=True, batch_size=1)
             self.log("train/reset_mask", reset_mask[token_mask].float().mean().item(), on_step=True, batch_size=1)
 
+        if "entry_token_invalid_mask"  in   tokenized_agent.keys():
+            entry_token_invalid_mask=tokenized_agent["entry_token_invalid_mask"]
+
+            self.log("train/entry_token_invalid", entry_token_invalid_mask.float().mean().item(), on_step=True, batch_size=1)
+
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
