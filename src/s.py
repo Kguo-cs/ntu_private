@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 def compare_with_4090(
-    baseline_file="baseline_4090.pt",
+    baseline_file="/home/guoke/sim/src/waymo_data/full/baseline_4090.pt",
     device="cuda",
 ):
     # 同样关闭 TF32 等，尽量一致
