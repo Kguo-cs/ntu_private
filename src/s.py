@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 
-def compare_with_4090(baseline_file="~/sim/src/waymo_data/full/baseline_4090.pt"):
+def compare_with_4090(baseline_file="/home/guoke/sim/src/waymo_data/full/baseline_4090.pt"):
     baseline = torch.load(baseline_file)
     dtype = eval(baseline["dtype"])
 
