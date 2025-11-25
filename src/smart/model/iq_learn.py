@@ -153,7 +153,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/entry_nll", entry_nll.item(), on_step=True, batch_size=1)
             self.log("train/entry_head_nll", entry_head_nll.item(), on_step=True, batch_size=1)
 
-            action_nll=0.1*entry_nll+0.1*entry_head_nll+action_nll
+            action_nll=entry_nll+entry_head_nll+action_nll
 
         return action_nll,log_prob
 
