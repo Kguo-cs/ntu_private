@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq3_noedge_distemp32
+task_name: iq3_noedge_present_distemp32
 
 
 trainer:

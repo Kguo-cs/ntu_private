@@ -204,11 +204,11 @@ class IQ_SoftQ(LightningModule):
             if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(mask_s.shape)[self.start_step+1:]#t,a
 
-        #if dis_mask is None:
-            # if self.token_processor.use_bird:
-            #     dis_mask=present_flatten
-            # else:
-        dis_mask=mask_s.flatten(0, 1)
+        if dis_mask is None:
+            if self.token_processor.use_bird:
+                dis_mask=present_flatten
+            else:
+                dis_mask=mask_s.flatten(0, 1)
 
         ego_logits=ego_logits[dis_mask]
 
