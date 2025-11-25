@@ -15,7 +15,7 @@ rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-15_23-1
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/epoch=48-step=596575.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/baseline_4090.pt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
