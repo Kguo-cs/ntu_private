@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq3_noedge_w1300_roformer_present_distemp
+task_name: iq3_noedge_roformer_distemp
 
 
 trainer:
