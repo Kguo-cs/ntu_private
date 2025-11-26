@@ -175,7 +175,7 @@ class TokenProcessor(torch.nn.Module):
         batch=tokenized_agent["batch"].clone()
 
 
-        if not self.training:
+        if not self.training and self.pred_entry:
             tokenized_agent["pos"] = data["agent"]["position"]
             tokenized_agent["gt_valid_mask"]=data["agent"]["valid_mask"]
 
