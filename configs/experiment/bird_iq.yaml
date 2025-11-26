@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq28_roformer_present_distemp32_sa_inf #_determini
+task_name: iq28_roformer_present_distemp32_inf #_sa_determini
 
 
 trainer:
