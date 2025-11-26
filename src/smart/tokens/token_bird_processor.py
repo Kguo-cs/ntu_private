@@ -102,6 +102,7 @@ class TokenProcessor(torch.nn.Module):
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
+
         if "sampled_idx" in data.keys():
 
             agent=data["tokenized_agent"]
@@ -130,6 +131,7 @@ class TokenProcessor(torch.nn.Module):
 
         else:
             tokenized_agent = self.tokenize_agent(data)
+
         # batch_number=torch.amax(tokenized_agent['batch']).item()+1
         #
         # position=torch.zeros([batch_number,3],device=tokenized_agent['batch'].device)
@@ -157,8 +159,6 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_map={}
 
-        tokenized_agent["light_idx"] = torch.zeros([0, 18])
-
         # if self.training:
         #     tokenized_agent["goal_mask"] =torch.rand_like(tokenized_agent["type"])<0.5
         # else:
@@ -172,9 +172,27 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["pred_mask"]=None
 
-        #gt_valid= data["agent"]["valid_mask"][:,6 :][:,4::5]
+        batch=tokenized_agent["batch"].clone()
 
-        #pred_valid= tokenized_agent["valid_mask"][:,1:]
+
+        if not self.training:
+            tokenized_agent["pos"] = data["agent"]["position"]
+            tokenized_agent["gt_valid_mask"]=data["agent"]["valid_mask"]
+
+            for key, value in tokenized_agent.items():
+                if type(value) is torch.Tensor:
+                    new_tensor=[]
+                    for b in range(data.num_graphs):
+                        valueb=value[batch==b]
+                        if 'valid_mask' in key:
+                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(1000,dim=0)
+                        else:
+                            value_repeat=valueb[:1].repeat_interleave(1000,dim=0)
+                        new_tensor.append(torch.cat([valueb,value_repeat]))
+                    tokenized_agent[key]=torch.cat(new_tensor)
+
+            data["agent"]["position"] = tokenized_agent["pos"]
+            data["agent"]["valid_mask"] = tokenized_agent["gt_valid_mask"]
 
         return tokenized_map, tokenized_agent
 
@@ -359,7 +377,7 @@ class TokenProcessor(torch.nn.Module):
             prev_head = heading[:, i].clone()
             prev_pos = pos[:, i].clone()
 
-            if self.pred_entry and i > self.shift:
+            if self.pred_entry and i > self.shift and self.training:
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
 
