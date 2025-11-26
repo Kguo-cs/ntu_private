@@ -185,9 +185,9 @@ class TokenProcessor(torch.nn.Module):
                     for b in range(data.num_graphs):
                         valueb=value[batch==b]
                         if 'valid_mask' in key:
-                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(1000,dim=0)
+                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(500,dim=0)
                         else:
-                            value_repeat=valueb[:1].repeat_interleave(1000,dim=0)
+                            value_repeat=valueb[:1].repeat_interleave(500,dim=0)
                         new_tensor.append(torch.cat([valueb,value_repeat]))
                     tokenized_agent[key]=torch.cat(new_tensor)
 

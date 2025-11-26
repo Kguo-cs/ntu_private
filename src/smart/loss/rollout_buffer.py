@@ -576,17 +576,17 @@ def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
 
     dones = torch.zeros_like(rewards)
 
-    # dones[-1]=1
+    dones[-1]=1
 
-    mask[-1]=False
+    #mask[-1]=False
 
     advantages = torch.zeros_like(rewards)
     last_adv = 0
-    for t in reversed(range(rewards.shape[0]-1)):
-        # if t == rewards.shape[0] - 1:
-        #     next_value = 0
-        # else:
-        next_value = v_detach[t + 1]
+    for t in reversed(range(rewards.shape[0])):
+        if t == rewards.shape[0] - 1:
+            next_value = 0
+        else:
+            next_value = v_detach[t + 1]
         next_non_terminal = 1.0 - dones[t]
         delta = rewards[t] + gamma * next_value * next_non_terminal - v_detach[t]
         advantages[t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
