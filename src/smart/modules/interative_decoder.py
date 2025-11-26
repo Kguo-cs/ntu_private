@@ -23,6 +23,7 @@ from src.smart.my_model.diffusion_discriminator import Discriminator
 from src.smart.my_model.NoiseSchedule import NoiseSchedule,SinusoidalTimestep,cosine_beta_schedule
 from src.smart.layers.relative_transformer import RoFormerBlock
 from .build_edge import build_batch
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 
 
 
@@ -79,13 +80,11 @@ class InterativeDecoder(nn.Module):
                                         use_bird=token_processor.use_bird,
                                         )
 
-
         self.pred_exit=token_processor.pred_exit
 
         self.t_num_layers = 1
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
-
 
         if self.edge_encoder.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
@@ -119,6 +118,7 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
+
         self.discriminator = discriminator
         self.use_edge_feature=True
         self.use_full_feature=False
@@ -148,19 +148,28 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
 
-        if self.discriminator and self.use_edge_feature:
-            self.interact_head = MLPLayer(
-                input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
+        if self.discriminator:
+            self.use_state_action = True
 
-            if self.use_full_feature:
-                self.all_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+            if self.use_state_action:
+                self.action_embedding =  MLPEmbedding(
+                    input_dim=10, hidden_dim=hidden_dim
                 )
+
+            if self.use_edge_feature:
+                self.interact_head = MLPLayer(
+                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
+
+                if self.use_full_feature:
+                    self.all_head = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
 
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
+
 
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,
@@ -175,25 +184,6 @@ class InterativeDecoder(nn.Module):
         mask_ta_flatten=mask_ta.flatten(0,1)
         n_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
-
-        # if not self.discriminator and not self.token_processor.use_bird:
-        #     feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
-        #
-        #     feat_a_t[mask_ta] = feat_a
-        #
-        #     if n_current == 0:
-        #         self.feat_a_cache = feat_a_t
-        #     else:
-        #         self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
-        #
-        #         feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
-        #
-        #     for i in range(self.t_num_layers):
-        #         feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-        #
-        #     if n_current != 0:
-        #         current_len = mask_a.sum()
-        #         feat_a = feat_a[-current_len:]
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
@@ -263,8 +253,13 @@ class InterativeDecoder(nn.Module):
 
             feat_a=feat_a_t.transpose(0,1).flatten(0,1)
 
-        current_len = inference_mask.sum()
-        feat_a = feat_a[-current_len:]
+        if self.discriminator:
+            if self.use_state_action:
+                all_embedding=self.action_embedding(self.token_processor.agent_token_all)
+                print(1)
+        else:
+            current_len = inference_mask.sum()
+            feat_a = feat_a[-current_len:]
 
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -377,31 +372,6 @@ class InterativeDecoder(nn.Module):
 
             # feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
             # n_step=inference_mask.shape[-1]
-
-
-        # if not self.discriminator and not self.token_processor.use_bird:
-        #     if n_current == 0:
-        #         self.feat_a_cache = feat_a
-        #         feat_a=feat_a.flatten(0,1)
-        #     else:
-        #         self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a), dim=1)[:,-self.agent_hist:]  # t,a
-        #
-        #         feat_a = self.feat_a_cache[self.mask_cache]
-        #
-        #     for i in range(self.t_num_layers):
-        #         feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-        #
-        #     # feat_a_t = torch.zeros_like(self.feat_a_cache)
-        #     #
-        #     # feat_a_t[self.mask_cache] = feat_a
-        #     feat_a_t=feat_a.reshape(n_agent,-1,self.hidden_dim)
-        #
-        #     all_features[0] = feat_a_t[:,-n_step:]
-        #
-        #     if n_step>1:
-        #         all_features=[feat[:,self.start_step:] for  feat in all_features]
-
-        # feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
         if not self.token_processor.use_bird:
             batch_pl = map_feature["batch"]

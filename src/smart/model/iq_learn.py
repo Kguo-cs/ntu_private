@@ -159,7 +159,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
 
-        disc_out = self.encoder.discriminator.predict_agent(None,
+        disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
                                                             tokenized_agent["valid_mask"],
                                                             tokenized_agent["sampled_pos"] ,
