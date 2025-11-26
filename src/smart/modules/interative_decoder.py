@@ -187,7 +187,11 @@ class InterativeDecoder(nn.Module):
                 end_index = edge_index_a2a[1]
 
                 start_edge_feature = feat_a[start_index]
-                end_edge_feature   = feat_a[end_index]
+
+                if token_embeding is not None:
+                    end_edge_feature   = (feat_a+token_embeding[mask_ta_flatten])[end_index]
+                else:
+                    end_edge_feature   = feat_a[end_index]
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a = feat_a[train_repeat_mask]
@@ -252,9 +256,7 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             if token_embeding is not None:
-                feat_a=feat_a.view(n_step,n_agent,-1)
-                feat_a=feat_a+token_embeding.transpose(0, 1)
-                feat_a=feat_a.flatten(0,1)
+                feat_a=feat_a+token_embeding
         else:
             current_len = inference_mask.sum()
             feat_a = feat_a[-current_len:]

@@ -136,6 +136,8 @@ class AgentTokenEncoder(nn.Module):
                 agent_token_emb_veh = self.token_emb_veh(agent_token_all.reshape(agent_token_all.shape[0], -1))
                 agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[:,1:][veh_mask]]
 
+                agent_token_emb=agent_token_emb.transpose(0, 1).flatten(0,1)
+
             else:
                 agent_token_emb = None
 
