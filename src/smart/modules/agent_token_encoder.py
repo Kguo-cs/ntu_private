@@ -126,15 +126,15 @@ class AgentTokenEncoder(nn.Module):
         else:
             if self.use_state_action:
                 agent_token_emb = torch.zeros(
-                    (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
+                    (n_agent, n_step-1, self.hidden_dim), device=_device, dtype=pos_a.dtype
                 )
 
                 veh_mask =agent_type == 0
-                veh_mask=veh_mask[:,None] & token_mask
+                veh_mask=veh_mask[:,None] & token_mask[:,1:]
 
                 agent_token_all=self.token_processor.agent_token_all
                 agent_token_emb_veh = self.token_emb_veh(agent_token_all.reshape(agent_token_all.shape[0], -1))
-                agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
+                agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[:,1:][veh_mask]]
 
             else:
                 agent_token_emb = None

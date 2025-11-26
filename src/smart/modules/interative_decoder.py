@@ -119,7 +119,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-        self.use_edge_feature=False
+        self.use_edge_feature=True
         self.use_full_feature=False
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
@@ -253,7 +253,7 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             if token_embeding is not None:
                 feat_a=feat_a.view(n_step,n_agent,-1)
-                feat_a=feat_a[:-1]+token_embeding[:,1:].transpose(0, 1)
+                feat_a=feat_a+token_embeding.transpose(0, 1)
                 feat_a=feat_a.flatten(0,1)
         else:
             current_len = inference_mask.sum()
@@ -308,6 +308,9 @@ class InterativeDecoder(nn.Module):
         return next_token_logits,feat_a,rewards,weight
 
     def forward(self,all_features,token_embeding,map_feature,agent_train_mask,n_current,pred_mask ):
+
+        if self.discriminator and token_embeding is not None:
+            all_features=[feat[:,:-1] for feat in all_features]
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
