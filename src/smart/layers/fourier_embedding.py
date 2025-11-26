@@ -60,7 +60,7 @@ class FourierEmbedding(nn.Module):
 
             if self.share:
                 # Apply shared MLP across all dims
-                x = self.mlp(x.flatten(0,1))# [B, D, H]
+                x = self.mlp(x.flatten(1,2))# [B, D, H]
             else:
 
                 # x_split = [x[:, i] for i in range(self.input_dim)]  # list of [B, F]
