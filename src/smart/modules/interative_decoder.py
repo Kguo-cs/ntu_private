@@ -20,6 +20,8 @@ from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.layers.relative_transformer import RoFormerBlock
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
+
 
 
 
@@ -117,7 +119,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-        self.use_edge_feature=True
+        self.use_edge_feature=False
         self.use_full_feature=False
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
@@ -145,15 +147,18 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
 
-        if self.discriminator and self.use_edge_feature:
-            self.interact_head = MLPLayer(
-                input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
 
-            if self.use_full_feature:
-                self.all_head = MLPLayer(
-                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+        if self.discriminator:
+
+            if self.use_edge_feature:
+                self.interact_head = MLPLayer(
+                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
+
+                if self.use_full_feature:
+                    self.all_head = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
 
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -167,7 +172,8 @@ class InterativeDecoder(nn.Module):
                       r_a2a,edge_index_a2a,
                       agent_train_mask,dist,
                       train_repeat_mask,mask_a,
-                      n_current,inference_mask
+                      n_current,inference_mask,
+                      token_embeding
                       ):
         valid_number=len(feat_a)
         mask_ta=mask_a.transpose(0, 1)
@@ -244,8 +250,14 @@ class InterativeDecoder(nn.Module):
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
-        current_len = inference_mask.sum()
-        feat_a = feat_a[-current_len:]
+        if self.discriminator:
+            if token_embeding is not None:
+                feat_a=feat_a.view(n_step,n_agent,-1)
+                feat_a=feat_a[:-1]+token_embeding[:,1:].transpose(0, 1)
+                feat_a=feat_a.flatten(0,1)
+        else:
+            current_len = inference_mask.sum()
+            feat_a = feat_a[-current_len:]
 
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -295,7 +307,7 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_a,rewards,weight
 
-    def forward(self,all_features,map_feature,agent_train_mask,n_current,pred_mask ):
+    def forward(self,all_features,token_embeding,map_feature,agent_train_mask,n_current,pred_mask ):
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
@@ -395,7 +407,9 @@ class InterativeDecoder(nn.Module):
                                                                       r_a2a,edge_index_a2a,
                                                                       agent_train_mask,dist,
                                                                       train_repeat_mask,mask_a,
-                                                                      n_current,inference_mask)
+                                                                      n_current,inference_mask,
+                                                                      token_embeding
+                                                                      )
 
 
         if not self.discriminator and self.pred_exit and pred_mask is not None:

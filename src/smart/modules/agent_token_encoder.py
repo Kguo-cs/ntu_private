@@ -57,8 +57,14 @@ class AgentTokenEncoder(nn.Module):
         )
 
         self.discriminator=discriminator
+        self.use_state_action=True
 
-        if not self.discriminator:
+        if self.discriminator:
+            if self.use_state_action:
+                self.token_emb_veh = MLPEmbedding(
+                    input_dim=15, hidden_dim=hidden_dim
+                )
+        else:
             if self.use_type:
                 self.token_emb_veh = MLPEmbedding(
                     input_dim=input_dim_token, hidden_dim=hidden_dim
@@ -94,7 +100,7 @@ class AgentTokenEncoder(nn.Module):
         n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
         _device = pos_a.device
 
-        if not self.discriminator:
+        if  not self.discriminator:
             agent_token_emb = torch.zeros(
                 (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
             )
@@ -118,7 +124,20 @@ class AgentTokenEncoder(nn.Module):
                 agent_token_emb[token_mask] = self.embedding(agent_token_index[token_mask])
 
         else:
-            agent_token_emb = None
+            if self.use_state_action:
+                agent_token_emb = torch.zeros(
+                    (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
+                )
+
+                veh_mask =agent_type == 0
+                veh_mask=veh_mask[:,None] & token_mask
+
+                agent_token_all=self.token_processor.agent_token_all
+                agent_token_emb_veh = self.token_emb_veh(agent_token_all.reshape(agent_token_all.shape[0], -1))
+                agent_token_emb[veh_mask] = agent_token_emb_veh[agent_token_index[veh_mask]]
+
+            else:
+                agent_token_emb = None
 
         # if self.discriminator:
         #     motion_vector_a = torch.cat(

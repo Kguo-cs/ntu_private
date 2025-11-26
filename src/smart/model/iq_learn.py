@@ -159,7 +159,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
 
-        disc_out = self.encoder.discriminator.predict_agent(None,
+        disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
                                                             tokenized_agent["token_mask"],
                                                             tokenized_agent["valid_mask"],
                                                             tokenized_agent["sampled_pos"] ,
@@ -190,7 +190,14 @@ class IQ_SoftQ(LightningModule):
 
         exit_mask = ~mask_s & (after_any >0)
         present_mask = exit_mask | mask_s
-        present_flatten=present_mask.flatten(0,1)
+
+        if self.encoder.agent_encoder.agent_token_embedding.use_state_action:
+            exit_mask=exit_mask[1:]
+            present_flatten=present_mask[1:].flatten(0,1)
+            start_step=self.start_step
+        else:
+            present_flatten=present_mask.flatten(0,1)
+            start_step=self.start_step+1
 
         self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
@@ -200,9 +207,9 @@ class IQ_SoftQ(LightningModule):
             target=1
         else:
             target=0
-            ego_rewards=ego_rewards.reshape(mask_s.shape)[self.start_step+1:] #t,a
+            ego_rewards=ego_rewards.reshape(exit_mask.shape)[start_step:] #t,a
             if len(nei_rewards):
-               nei_rewards = nei_rewards.reshape(mask_s.shape)[self.start_step+1:]#t,a
+               nei_rewards = nei_rewards.reshape(exit_mask.shape)[start_step:]#t,a
 
         if dis_mask is None:
             if self.token_processor.use_bird:
