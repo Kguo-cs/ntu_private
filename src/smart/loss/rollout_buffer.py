@@ -570,21 +570,23 @@ def get_train_mask(tokenized_agent,start_step,pred_exit):
 
 def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
 
-    values=values.reshape(rewards.shape)
+    values=values.reshape(rewards.shape[0],rewards.shape[1])
 
     v_detach=values.detach()#t,a
 
     dones = torch.zeros_like(rewards)
 
-    dones[-1]=1
+    # dones[-1]=1
+
+    mask[-1]=False
 
     advantages = torch.zeros_like(rewards)
     last_adv = 0
-    for t in reversed(range(rewards.shape[0])):
-        if t == rewards.shape[0] - 1:
-            next_value = 0
-        else:
-            next_value = v_detach[t + 1]
+    for t in reversed(range(rewards.shape[0]-1)):
+        # if t == rewards.shape[0] - 1:
+        #     next_value = 0
+        # else:
+        next_value = v_detach[t + 1]
         next_non_terminal = 1.0 - dones[t]
         delta = rewards[t] + gamma * next_value * next_non_terminal - v_detach[t]
         advantages[t] = last_adv = delta + gamma * lam * next_non_terminal * last_adv
@@ -595,4 +597,38 @@ def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
 
     return advantages,value_loss
 
-
+# def compute_advantages(rewards, values, mask, gamma=0.99, lam=0.95):
+#     """
+#     Infinite-horizon / continuing-task GAE.
+#     - No artificial done at last step.
+#     - Bootstraps from the value function at the end of the rollout.
+#     """
+#     # Ensure shape [T, ...] matches rewards
+#     values = values.reshape_as(rewards)
+#
+#     v_detach = values.detach()        # [T, ...]
+#     T = rewards.shape[0]
+#
+#     advantages = torch.zeros_like(rewards)
+#     last_adv = 0
+#
+#     # GAE for a continuing MDP (no terminal at T-1)
+#     for t in reversed(range(T)):
+#         if t == T - 1:
+#             # Bootstrap from the value at the last state
+#             next_value = v_detach[t]
+#         else:
+#             next_value = v_detach[t + 1]
+#
+#         # No dones: treat everything as non-terminal (infinite horizon)
+#         delta = rewards[t] + gamma * next_value - v_detach[t]
+#         last_adv = delta + gamma * lam * last_adv
+#         advantages[t] = last_adv
+#
+#     returns = advantages + v_detach
+#
+#     # Same value loss with mask
+#     value_loss = (returns - values)[mask].square().clamp(min=0, max=100).mean()
+#
+#     return advantages, value_loss
+#
