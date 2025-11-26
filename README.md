@@ -1,6 +1,6 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
-Lyuchen2025!
+Lyuchen2026!
 
 
 export PBS_JOBID=83255.pbs111
@@ -88,8 +88,8 @@ wsl -d Ubuntu
 ssh guoke@sprl-server9.dynip.ntu.edu.sg -p 32884
 140286
 
-export PATH=/home/guoke/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/home/guoke/cuda/lib64:$LD_LIBRARY_PATH
+export PATH=/usr/local/cuda-12.8/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH
 ulimit -n 65535
 source "/home/guoke/miniconda3/bin/activate"
 cd /home/guoke/sim/src

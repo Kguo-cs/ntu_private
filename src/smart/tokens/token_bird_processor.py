@@ -408,9 +408,17 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_idx[present_id] = entry_idx_gt
 
-                    entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[col_ind]
+                    gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
 
-                    prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
+                    entry_id = gt_entry_id[col_ind]
+
+                    non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
+
+                    non_entry_id=gt_entry_id[non_entry_agent]
+
+                    valid[non_entry_id, i]=False
+
+                    prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
 
                     entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*16).to(torch.long)+16
 
