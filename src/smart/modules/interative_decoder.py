@@ -119,9 +119,8 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-        self.use_edge_feature=False
+        self.use_edge_feature=True
         self.use_full_feature=False
-        self.use_counterfactual=True
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
