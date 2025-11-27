@@ -241,12 +241,13 @@ class AgentTokenEncoder(nn.Module):
             feat_a=x_a
 
             if self.use_counterfactual:
-                counter_feat_a=torch.cat([torch.zeros_like(feature_a[...,:3]),feature_a[...,3:]],dim=-1)
-                counter_feat_a = self.x_a_emb(
-                    continuous_inputs=counter_feat_a.view(-1, feature_a.size(-1)),
-                    categorical_embs=categorical_embs,
-                )  # [n_agent*n_step, hidden_dim]
-                counter_feat_a = counter_feat_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
+                counter_feat_a=torch.ones_like(feat_a)
+                # counter_feat_a=torch.cat([torch.zeros_like(feature_a[...,:3]),feature_a[...,3:]],dim=-1)
+                # counter_feat_a = self.x_a_emb(
+                #     continuous_inputs=counter_feat_a.view(-1, feature_a.size(-1)),
+                #     categorical_embs=categorical_embs,
+                # )  # [n_agent*n_step, hidden_dim]
+                # counter_feat_a = counter_feat_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
 
         return feat_a, agent_token_emb,counter_feat_a  # [n_agent, n_step, hidden_dim]
 
