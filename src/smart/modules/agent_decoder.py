@@ -266,8 +266,8 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.token_processor.pred_exit:
                 if exit_logit is None:
-                    exit_mask=next_token_idx==token_traj_all.shape[1]
-                    next_token_idx=torch.clip(next_token_idx,0,token_traj_all.shape[1]-1)
+                    exit_mask=next_token_idx==self.token_processor.n_token_agent-1
+                    next_token_idx=torch.clip(next_token_idx,0,self.token_processor.n_token_agent-2)
                 else:
                     exit_mask = torch.zeros_like(next_mask)
                     exit_mask[next_mask]= Categorical(logits=exit_logit ).sample().to(torch.bool)
