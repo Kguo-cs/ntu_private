@@ -122,7 +122,7 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["entry_idx"] = agent["entry_idx"].long()
                 tokenized_agent["entry_head_idx"] = agent["entry_head_idx"].long()
 
-            tokenized_agent["token_traj_all"] = self.agent_token_all[None, :, :].repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
+            tokenized_agent["token_traj_all"] = self.agent_token_all[:,:,None]#[None, :, :]#.repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
 
             fut=torch.arange(0, self.shift*agent["sampled_idx"].shape[1],self.shift,device=agent["sampled_idx"].device)
 

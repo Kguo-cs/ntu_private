@@ -272,7 +272,10 @@ class SMARTAgentDecoder(nn.Module):
                     exit_mask = torch.zeros_like(next_mask)
                     exit_mask[next_mask]= Categorical(logits=exit_logit ).sample().to(torch.bool)
 
-            next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
+            if len(token_traj_all.shape)==4:
+                next_token_traj_all = token_traj_all[next_token_idx]
+            else:
+                next_token_traj_all = token_traj_all[torch.arange(n_agent), next_token_idx]
 
             token_traj_global = transform_to_global(
                 pos_local=next_token_traj_all.flatten(1, 2)[...,:2],  # [n_agent, 6*4, 2]
