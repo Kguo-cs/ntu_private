@@ -16,6 +16,7 @@ from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal
 from torch_geometric.utils import dense_to_sparse, subgraph
 from torch_cluster import radius_graph
 import time
+from torch_scatter import scatter_mean
 
 class EdgeEncoder(nn.Module):
     def __init__(
@@ -65,6 +66,8 @@ class EdgeEncoder(nn.Module):
         # if self.discriminator:
         #     input_dim_r_a2a = 2
         self.use_roformer=discriminator
+
+        self.use_counterfactual=True
 
         if a2a:
             self.tokenized_pos=False
@@ -237,7 +240,40 @@ class EdgeEncoder(nn.Module):
 
         r_a2a = self.r_a2a_emb(continuous_inputs=relative_pos, categorical_embs=None)
 
-        return edge_index_a2a, r_a2a,dist,relative_pos
+        if self.use_counterfactual and self.discriminator:
+            start_index = edge_index_a2a[0]
+            end_index = edge_index_a2a[1]
+
+            start_pos = pos_s[start_index]
+
+            start_heading = head_s[start_index]
+
+            center_nei_pos = scatter_mean(start_pos, end_index, dim=0, dim_size=len(pos_s))
+
+            center_nei_heading= scatter_mean(start_heading, end_index, dim=0, dim_size=len(head_s))
+
+            rel_pos_a2a = start_pos - center_nei_pos[end_index]
+            rel_head_a2a = wrap_angle(start_heading - center_nei_heading[end_index])
+
+            r_a2a_nei = torch.stack(
+                [
+                    torch.norm(rel_pos_a2a, p=2, dim=-1),
+                    angle_between_2d_vectors(
+                        ctr_vector=head_vector_s[edge_index_a2a[1]],
+                        nbr_vector=rel_pos_a2a[:, :2],
+                    ),
+                    rel_head_a2a
+                ],
+                dim=-1,
+            )
+
+            r_a2a_nei = torch.cat([r_a2a_nei, rel_pos_a2a[:, 2:]], dim=-1)
+
+            r_a2a_nei = self.r_a2a_emb(continuous_inputs=r_a2a_nei, categorical_embs=None)
+        else:
+            r_a2a_nei=center_nei_pos=center_nei_heading=None
+
+        return edge_index_a2a, r_a2a,dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading
 
     def build_map2map_edge(self,
                            pos_pl,  # [n_pl, 2]

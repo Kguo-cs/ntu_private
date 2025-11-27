@@ -57,7 +57,7 @@ class AgentTokenEncoder(nn.Module):
         )
 
         self.discriminator=discriminator
-        self.use_state_action=True
+        self.use_state_action=False
 
         if self.discriminator:
             if self.use_state_action:

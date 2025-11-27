@@ -119,8 +119,9 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-        self.use_edge_feature=True
+        self.use_edge_feature=False
         self.use_full_feature=False
+        self.use_counterfactual=True
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
@@ -146,7 +147,6 @@ class InterativeDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
-
 
         if self.discriminator:
 
@@ -300,7 +300,7 @@ class InterativeDecoder(nn.Module):
                 next_token_logits = (next_token_logits[:, 0], next_token_logits[:0,0])
 
                 ego_rewards = valid_ego_reward
-                valid_interact_reward=torch.zeros_like(valid_ego_reward)
+                valid_interact_reward=valid_ego_reward[:0]
                 nei_rewards=ego_rewards[:0]
 
             rewards = (ego_rewards, nei_rewards, valid_ego_reward,valid_interact_reward)
@@ -394,7 +394,7 @@ class InterativeDecoder(nn.Module):
 
         feat_a = feat_a[mask_s]
 
-        edge_index_a2a, r_a2a, dist,relative_pos = self.edge_encoder.build_interaction_edge(
+        edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
             head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
@@ -406,7 +406,7 @@ class InterativeDecoder(nn.Module):
             layer_num=self.num_layers
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-        next_token_logits, feat_a, rewards, weight=self.predict_agent(feat_a,feat_map,
+        next_token_logits, feat_a_value, rewards, weight=self.predict_agent(feat_a,feat_map,
                                                                       r_t,edge_index_t,
                                                                       r_pl2a, edge_index_pl2a,
                                                                       r_a2a,edge_index_a2a,
@@ -416,12 +416,27 @@ class InterativeDecoder(nn.Module):
                                                                       token_embeding
                                                                       )
 
+        if r_a2a_nei is not None:
+            next_token_logits_counter, _, rewards_counter, weight= self.predict_agent(torch.ones_like(feat_a), feat_map,
+                                                                            r_t, edge_index_t,
+                                                                            r_pl2a, edge_index_pl2a,
+                                                                            r_a2a_nei, edge_index_a2a,
+                                                                            agent_train_mask, dist,
+                                                                            train_repeat_mask, mask_a,
+                                                                            n_current, inference_mask,
+                                                                            token_embeding
+                                                                            )
+
+            next_token_logits=(next_token_logits[0],next_token_logits_counter[0])
+
+            rewards=(rewards[0]-rewards_counter[0],rewards[1],rewards[2],rewards[3])
+
 
         if not self.discriminator and self.pred_exit and pred_mask is not None:
             next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
            # next_token_logits[:, -1] = -torch.inf #t,a
 
-        return next_token_logits,feat_a,rewards,weight,(edge_index_a2a,relative_pos)
+        return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a,relative_pos)
 
     def get_reward(self,weight,edge_value,end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent):
 
