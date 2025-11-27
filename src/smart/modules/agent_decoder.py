@@ -111,7 +111,7 @@ class SMARTAgentDecoder(nn.Module):
         # if self.discriminator:#not self.token_processor.use_token:
         #     token_mask=None#mask_a
 
-        feat_a_token,agent_token_emb = self.agent_token_embedding(
+        feat_a_token,agent_token_emb,counter_feat_a = self.agent_token_embedding(
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
@@ -137,7 +137,7 @@ class SMARTAgentDecoder(nn.Module):
 
         all_features=[feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
 
-        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
+        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,counter_feat_a,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
         if self.pred_entry:
             entry_logit=self.entry_decoder(feat_a)

@@ -309,9 +309,9 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_a,rewards,weight
 
-    def forward(self,all_features,token_embeding,map_feature,agent_train_mask,n_current,pred_mask ):
+    def forward(self,all_features,counter_feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask ):
 
-        if self.discriminator and token_embeding is not None:
+        if self.discriminator and token_embedding is not None:
             all_features=[feat[:,:-1] for feat in all_features]
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
@@ -403,7 +403,8 @@ class InterativeDecoder(nn.Module):
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
             agent_train_mask=train_repeat_mask,
-            layer_num=self.num_layers
+            layer_num=self.num_layers,
+            counter_feat_a=counter_feat_a
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         next_token_logits, feat_a_value, rewards, weight=self.predict_agent(feat_a,feat_map,
@@ -413,18 +414,20 @@ class InterativeDecoder(nn.Module):
                                                                       agent_train_mask,dist,
                                                                       train_repeat_mask,mask_a,
                                                                       n_current,inference_mask,
-                                                                      token_embeding
+                                                                      token_embedding
                                                                       )
 
         if r_a2a_nei is not None:
-            next_token_logits_counter, _, rewards_counter, weight= self.predict_agent(torch.ones_like(feat_a), feat_map,
+            counter_feat_a=counter_feat_a.transpose(0, 1).flatten(0, 1)[mask_s]
+
+            next_token_logits_counter, _, rewards_counter, weight= self.predict_agent(counter_feat_a, feat_map,
                                                                             r_t, edge_index_t,
                                                                             r_pl2a, edge_index_pl2a,
                                                                             r_a2a_nei, edge_index_a2a,
                                                                             agent_train_mask, dist,
                                                                             train_repeat_mask, mask_a,
                                                                             n_current, inference_mask,
-                                                                            token_embeding
+                                                                            token_embedding
                                                                             )
 
             next_token_logits=(next_token_logits[0],next_token_logits_counter[0])

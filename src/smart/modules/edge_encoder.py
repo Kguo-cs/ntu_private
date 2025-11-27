@@ -67,8 +67,6 @@ class EdgeEncoder(nn.Module):
         #     input_dim_r_a2a = 2
         self.use_roformer=discriminator
 
-        self.use_counterfactual=True
-
         if a2a:
             self.tokenized_pos=False
 
@@ -196,7 +194,8 @@ class EdgeEncoder(nn.Module):
             max_num_neighbors,
             max_radius,
             agent_train_mask=None,
-            layer_num=1
+            layer_num=1,
+            counter_feat_a=None
         ):
         pos_s = pos_s[mask]
         head_s = head_s[mask]
@@ -240,7 +239,7 @@ class EdgeEncoder(nn.Module):
 
         r_a2a = self.r_a2a_emb(continuous_inputs=relative_pos, categorical_embs=None)
 
-        if self.use_counterfactual and self.discriminator:
+        if counter_feat_a is not None:
             start_index = edge_index_a2a[0]
             end_index = edge_index_a2a[1]
 

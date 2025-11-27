@@ -58,6 +58,7 @@ class AgentTokenEncoder(nn.Module):
 
         self.discriminator=discriminator
         self.use_state_action=False
+        self.use_counterfactual=True
 
         if self.discriminator:
             if self.use_state_action:
@@ -231,11 +232,21 @@ class AgentTokenEncoder(nn.Module):
         )  # [n_agent*n_step, hidden_dim]
         x_a = x_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
 
+        counter_feat_a=None
+
         if not self.discriminator:
             feat_a = torch.cat((agent_token_emb, x_a), dim=-1)
             feat_a = self.fusion_emb(feat_a)
         else:
             feat_a=x_a
 
-        return feat_a, agent_token_emb  # [n_agent, n_step, hidden_dim]
+            if self.use_counterfactual:
+                counter_feat_a=torch.cat([torch.zeros_like(feature_a[...,:3]),feature_a[...,3:]],dim=-1)
+                counter_feat_a = self.x_a_emb(
+                    continuous_inputs=counter_feat_a.view(-1, feature_a.size(-1)),
+                    categorical_embs=categorical_embs,
+                )  # [n_agent*n_step, hidden_dim]
+                counter_feat_a = counter_feat_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
+
+        return feat_a, agent_token_emb,counter_feat_a  # [n_agent, n_step, hidden_dim]
 
