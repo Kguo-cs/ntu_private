@@ -30,7 +30,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/waymo_data/epoch=1-step=24350.ckpt'
 
-task_name: bc40_apt30_tokenexitpred1_14679_layer3 #__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc40_apt30_tokenexitpred1_14679_newattn #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0

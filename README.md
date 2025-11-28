@@ -50,8 +50,9 @@ Spyder1@
 
 qsub -I -l select=1:ngpus=1 -l walltime=5:00:00 -P 12002486
 
-export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
+export CUDA_HOME=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda-12.2
+export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/bin:$PATH
+export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/lib64:$LD_LIBRARY_PATH
 
 
 

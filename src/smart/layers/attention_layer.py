@@ -34,8 +34,14 @@ class AttentionLayer(MessagePassing):
         if has_pos_emb:
             self.to_k_r = nn.Linear(hidden_dim, head_dim * num_heads, bias=False)
             self.to_v_r = nn.Linear(hidden_dim, head_dim * num_heads)
-        self.to_s = nn.Linear(hidden_dim, head_dim * num_heads)
-        self.to_g = nn.Linear(head_dim * num_heads + hidden_dim, head_dim * num_heads)
+
+        self.gated_attention = False
+
+        if self.gated_attention:
+            self.to_g = nn.Linear(hidden_dim, head_dim * num_heads)
+        else:
+            self.to_s = nn.Linear(hidden_dim, head_dim * num_heads)
+            self.to_g = nn.Linear(head_dim * num_heads + hidden_dim, head_dim * num_heads)
         self.to_out = nn.Linear(head_dim * num_heads, hidden_dim)
         self.attn_drop = nn.Dropout(dropout)
         self.ff_mlp = nn.Sequential(
@@ -96,13 +102,17 @@ class AttentionLayer(MessagePassing):
         # seg_entropy = scatter_sum(plogp, index,dim=0)  # shape: [num_dst_nodes]
 
         attn = self.attn_drop(attn)
-        return v_j * attn.unsqueeze(-1)
+        return v_j * attn.unsqueeze(-1)  #inputs
 
     def update(self, inputs: torch.Tensor, x_dst: torch.Tensor) -> torch.Tensor:
         inputs = inputs.view(-1, self.num_heads * self.head_dim)
-        g = torch.sigmoid(self.to_g(torch.cat([inputs, x_dst], dim=-1)))
-        #@self.egde_weight=g.mean(-1)
-        return inputs + g * (self.to_s(x_dst) - inputs)
+
+        if self.gated_attention:
+            g = torch.sigmoid(self.to_g(x_dst))
+            return g * inputs
+        else:
+            g = torch.sigmoid(self.to_g(torch.cat([inputs, x_dst], dim=-1)))
+            return inputs + g * (self.to_s(x_dst) - inputs)
 
     def _attn_block(
         self,
