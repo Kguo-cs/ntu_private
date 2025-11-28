@@ -28,10 +28,10 @@ model:
       a2a_radius: 50
       a2a_neighbor: 10
 
-      hidden_dim: 32
-      num_freq_bands: 16
+      hidden_dim: 64
+      num_freq_bands: 32
       num_heads: 1
-      head_dim: 32
+      head_dim: 64
       time_span: 10
 
       dis_a2a_radius: 100
@@ -42,7 +42,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/logs/bird6_head1_at1_clone_n20/2025-11-11_18-51-26/bird/gzan6d3o/checkpoints/epoch=19-step=155000.ckpt'
 
-task_name: bird6_dim32_r50 #valid_pad_val10 #entryloss1_d2 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird4_r50_ep32 #valid_pad_val10 #entryloss1_d2 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
@@ -52,11 +52,11 @@ trainer:
   check_val_every_n_epoch: 1
   #val_check_interval: 0.5
   #val_check_interval: 0.0000002
-  max_epochs: 64
+  max_epochs: 32
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 6
+  train_batch_size: 4
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1
