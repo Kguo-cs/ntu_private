@@ -37,7 +37,7 @@ wandb.require("service")  # forces the new service backend
 settings = wandb.Settings(start_method="thread")
 os.environ["WANDB__SERVICE_WAIT"] = "3000"
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 sys.path.append('/home/ke/code/catk')
