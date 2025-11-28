@@ -310,8 +310,8 @@ class IQ_SoftQ(LightningModule):
                                        dtype=torch.float32)
             print('local',self.global_rank,local_count)
             # Get global number of samples across all GPUs
-            dist.all_reduce(local_count, op=dist.ReduceOp.MEAN)
-            global_count = local_count.item()
+            dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
+            global_count = local_count.item()/4
             print('global',self.global_rank,global_count)
 
             # PPO loss (correct normalization)
