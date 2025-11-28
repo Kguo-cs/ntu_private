@@ -1,7 +1,6 @@
 
 ssh lyuchen@aspire2pntu.nscc.sg
-Lyuchen2026!
-
+automan2018!!
 
 export PBS_JOBID=83255.pbs111
 
@@ -19,7 +18,7 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/baseline_4090.pt guoke@sprl-
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_train107_head1mean lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
@@ -29,7 +28,6 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_apt30_tokenpred1/2025-11-1
 rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_4025_00_dis60_1m/2025-11-20_10-14-36/sim/9ixc77v2/checkpoints/epoch=2-step=15220.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL152_lcf11_sum33_value100_dismask/2025-11-18_09-36-38/sim/1gcn3n5i/checkpoints/epoch=14-step=48060.ckpt ./
-
 
 
 
@@ -52,9 +50,12 @@ Spyder1@
 
 qsub -I -l select=1:ngpus=1 -l walltime=5:00:00 -P 12002486
 
-export PATH=~/scratch/keguo_projects/cuda/bin:$PATH
-source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
-cd /home/users/ntu/shanhelo/scratch/keguo_projects/sim/src
+export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
+
+
+
+cd /home/users/ntu/lyuchen/scratch/keguo_projects/sim/src
 conda activate catk
 git pull
 python run.py
@@ -63,6 +64,7 @@ export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
 export NVIDIA_TF32_OVERRIDE=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export CUDA_LAUNCH_BLOCKING=1
+source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
 
 
 
