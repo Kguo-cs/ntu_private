@@ -14,7 +14,7 @@ import torch.distributed as dist
 def _is_dist_available_and_initialized():
     return dist.is_available() and dist.is_initialized()
 
-def get_reduce_loss(loss):
+def get_reduce_loss(loss,loss2=None):
     local_count = torch.tensor([loss.numel()],
                                device=loss.device,
                                dtype=torch.float32)
@@ -23,6 +23,9 @@ def get_reduce_loss(loss):
     dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
     global_count = local_count.item() / dist.get_world_size()
     #print('global', self.global_rank, global_count)
+
+    if loss2 is not None:
+        return (loss.sum()+loss2.sum())/global_count
     return loss.sum()/global_count
 
 

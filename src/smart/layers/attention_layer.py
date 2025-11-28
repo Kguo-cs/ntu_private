@@ -19,7 +19,7 @@ class AttentionLayer(MessagePassing):
         dropout: float,
         bipartite: bool,
         has_pos_emb: bool,
-        gated_attention=False,
+        gated_attention=True,
         **kwargs
     ) -> None:
         super(AttentionLayer, self).__init__(aggr="add", node_dim=0, **kwargs)

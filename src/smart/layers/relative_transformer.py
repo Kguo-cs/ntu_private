@@ -68,7 +68,7 @@ class RoFormerSelfAttention(nn.Module):
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
         self.headwise_attn_output_gate=False
-        self.elementwise_attn_output_gate=True
+        self.elementwise_attn_output_gate=False
 
         if self.headwise_attn_output_gate:
             self.query = nn.Linear(hidden_dim, self.all_head_size + self.num_attention_heads, bias=use_bias)

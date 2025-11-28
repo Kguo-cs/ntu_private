@@ -228,15 +228,15 @@ class IQ_SoftQ(LightningModule):
             weight = disc_out[3]
 
             interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='none') #/dis_mask.sum()
-
-            bce_loss =torch.cat([bce_loss,interact_bce_loss],dim=0)
+                                                         weight=weight, reduction='none')
 
             # bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
             #                                              weight=weight, reduction='sum') /dis_mask.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
+        else:
+            interact_bce_loss=None
 
         disc_val = torch.sigmoid(ego_logits)
 
@@ -249,7 +249,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
+        return bce_loss,interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
@@ -268,7 +268,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
-        expert_dis_loss,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        expert_dis_loss,expert_dis_loss1,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
@@ -280,7 +280,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+        agent_dis_loss,agent_dis_loss1, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
         feat_a = tokenized_agent_rollout["feat_a"]
 
@@ -303,36 +303,40 @@ class IQ_SoftQ(LightningModule):
 
         advantages = self.return_meanstd.normalize(advantages)
 
-        agent_wNLL = -(agent_log_prob * advantages)
+        ppo_loss = -(agent_log_prob * advantages)
 
         if dist.is_initialized():
 
-            agent_wNLL = get_reduce_loss(agent_wNLL)
+            ppo_loss = get_reduce_loss(ppo_loss)
 
             value_loss = get_reduce_loss(value_loss)
 
             expert_nll = get_reduce_loss(expert_nll)
 
-            expert_dis_loss=get_reduce_loss(expert_dis_loss)
+            expert_dis_loss=get_reduce_loss(expert_dis_loss,expert_dis_loss1)
 
-            agent_dis_loss = get_reduce_loss(agent_dis_loss)
+            agent_dis_loss = get_reduce_loss(agent_dis_loss,agent_dis_loss1)
         else:
-            agent_wNLL = agent_wNLL.mean()
+            ppo_loss = ppo_loss.mean()
             value_loss = value_loss.mean()
             expert_nll = expert_nll.mean()
-            expert_dis_loss=expert_dis_loss.mean()
-            agent_dis_loss=agent_dis_loss.mean()
+            if expert_dis_loss1 is not None:
+                expert_dis_loss=expert_dis_loss1.sum()/len(expert_dis_loss)+ expert_dis_loss.mean()
+                agent_dis_loss=agent_dis_loss1.sum()/len(agent_dis_loss)+agent_dis_loss.mean()
+            else:
+                expert_dis_loss = expert_dis_loss.mean()
+                agent_dis_loss = agent_dis_loss.mean()
 
         critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
 
         self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
-        self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
+        self.log("train/ppo_loss", ppo_loss.item(), on_step=True, batch_size=1)
         self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
         self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-        policy_loss = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
+        policy_loss = expert_nll + ppo_loss + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
         loss = critic_loss + policy_loss
 
