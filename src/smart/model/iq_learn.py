@@ -9,7 +9,7 @@ from collections import deque
 import random
 import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
-    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,_is_dist_available_and_initialized
+    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 from src.smart.loss.gp_penalty import compute_gp
 import torch.distributed as dist
 
@@ -104,9 +104,9 @@ class IQ_SoftQ(LightningModule):
         if exit_logit is not None:
             action_valid=valid_mask[:,1:].transpose(0, 1).flatten(0, 1)[train_mask]
 
-            action_nll=-log_prob[action_valid].mean()
+            action_nll=-log_prob[action_valid]
 
-            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_nll", action_nll.mean().item(), on_step=True, batch_size=1)
 
             exit_log_p = torch.log_softmax(exit_logit, dim=-1)
 
@@ -121,9 +121,9 @@ class IQ_SoftQ(LightningModule):
             action_nll = action_nll + 0.1 * exit_nll
 
         else:
-            action_nll=-log_prob.mean()
+            action_nll=-log_prob
 
-            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_nll", action_nll.mean().item(), on_step=True, batch_size=1)
 
             if self.token_processor.pred_exit:
                 exit_mask=action==self.token_processor.n_token_agent-1
@@ -223,13 +223,17 @@ class IQ_SoftQ(LightningModule):
 
         ego_logits=ego_logits[dis_mask]
 
-        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, weight=None,
-                                          reduction='mean')
+        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='none')
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
-            bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='sum') /dis_mask.sum()
+            interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
+                                                         weight=weight, reduction='none') #/dis_mask.sum()
+
+            bce_loss =torch.cat([bce_loss,interact_bce_loss],dim=0)
+
+            # bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
+            #                                              weight=weight, reduction='sum') /dis_mask.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
@@ -260,7 +264,7 @@ class IQ_SoftQ(LightningModule):
             expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
         if not self.gail:
-            return expert_nll
+            return expert_nll.mean()
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
@@ -278,8 +282,6 @@ class IQ_SoftQ(LightningModule):
 
         agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
-        critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
-
         feat_a = tokenized_agent_rollout["feat_a"]
 
         value = self.encoder.value_network(feat_a)[..., 0]
@@ -295,37 +297,42 @@ class IQ_SoftQ(LightningModule):
 
             advantages = 1/2 * advantages + 1/2 * nei_advantages
 
-        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
-
         advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
 
         self.return_meanstd.update(advantages)
+
         advantages = self.return_meanstd.normalize(advantages)
+
+        agent_wNLL = -(agent_log_prob * advantages)
+
+        if dist.is_initialized():
+
+            agent_wNLL = get_reduce_loss(agent_wNLL)
+
+            value_loss = get_reduce_loss(value_loss)
+
+            expert_nll = get_reduce_loss(expert_nll)
+
+            expert_dis_loss=get_reduce_loss(expert_dis_loss)
+
+            agent_dis_loss = get_reduce_loss(agent_dis_loss)
+        else:
+            agent_wNLL = agent_wNLL.mean()
+            value_loss = value_loss.mean()
+            expert_nll = expert_nll.mean()
+            expert_dis_loss=expert_dis_loss.mean()
+            agent_dis_loss=agent_dis_loss.mean()
+
+        critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
+
         self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
-
-        if dist.is_available():
-            local_count = torch.tensor([agent_log_prob.numel()],
-                                       device=agent_log_prob.device,
-                                       dtype=torch.float32)
-            print('local',self.global_rank,local_count)
-            # Get global number of samples across all GPUs
-            dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
-            global_count = local_count.item()/4
-            print('global',self.global_rank,global_count)
-
-            # PPO loss (correct normalization)
-            agent_wNLL = -(agent_log_prob * advantages).sum() / global_count
-
-        else:
-            agent_wNLL = -(agent_log_prob * advantages).mean()
-
         self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
         self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
+        self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
+        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
         policy_loss = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
-
-        self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
         loss = critic_loss + policy_loss
 

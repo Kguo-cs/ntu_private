@@ -14,6 +14,16 @@ import torch.distributed as dist
 def _is_dist_available_and_initialized():
     return dist.is_available() and dist.is_initialized()
 
+def get_reduce_loss(loss):
+    local_count = torch.tensor([loss.numel()],
+                               device=loss.device,
+                               dtype=torch.float32)
+   # print('local', self.global_rank, local_count)
+    # Get global number of samples across all GPUs
+    dist.all_reduce(local_count, op=dist.ReduceOp.SUM)
+    global_count = local_count.item() / dist.get_world_size()
+    #print('global', self.global_rank, global_count)
+    return loss.sum()/global_count
 
 
 class RunningMeanStdTorch(nn.Module):
@@ -593,7 +603,7 @@ def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95,infinite_horizon
 
     returns = advantages + v_detach
 
-    value_loss = (returns - values)[mask].square().clamp(min=0, max=100).mean()
+    value_loss = (returns - values)[mask].square().clamp(min=0, max=100)
 
     return advantages,value_loss
 
