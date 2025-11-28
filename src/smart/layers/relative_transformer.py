@@ -68,7 +68,7 @@ class RoFormerSelfAttention(nn.Module):
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
         self.headwise_attn_output_gate=False
-        self.elementwise_attn_output_gate=True
+        self.elementwise_attn_output_gate=False
 
         if self.headwise_attn_output_gate:
             self.query = nn.Linear(hidden_dim, self.all_head_size + self.num_attention_heads, bias=use_bias)
@@ -155,14 +155,14 @@ class RoFormerSelfAttention(nn.Module):
             query_states = query_states.view(bsz, q_len, self.num_attention_heads, -1)
             query_states, gate_score = torch.split(query_states, [self.attention_head_size, 1], dim=-1)
             gate_score = gate_score.reshape(bsz, q_len, -1, 1)
-            query_layer = query_states.reshape(bsz, q_len, -1, self.attention_head_size)
+            query_layer = query_states.reshape(bsz, q_len, -1, self.attention_head_size).transpose(1, 2)
         elif self.elementwise_attn_output_gate:
             query_states = query_states.view(bsz, q_len, self.num_attention_heads, -1)
             query_states, gate_score = torch.split(query_states, [self.attention_head_size, self.attention_head_size], dim=-1)
             gate_score = gate_score.reshape(bsz, q_len, -1, self.attention_head_size)
             query_layer = query_states.reshape(bsz, q_len, -1, self.attention_head_size).transpose(1, 2)
         else:
-            query_layer = query_states.view(bsz, q_len, -1, self.attention_head_size)
+            query_layer = query_states.view(bsz, q_len, -1, self.attention_head_size).transpose(1, 2)
 
 
 

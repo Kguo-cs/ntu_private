@@ -568,7 +568,7 @@ def get_train_mask(tokenized_agent,start_step,pred_exit):
     return train_mask.transpose(0, 1)
 
 
-def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
+def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95,infinite_horizon=True):#0.95
 
     values=values.reshape(rewards.shape[0],rewards.shape[1])
 
@@ -576,13 +576,18 @@ def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95):#0.95
 
     dones = torch.zeros_like(rewards)
 
-    dones[-1]=1
+    # dones[-1]=1
 
-    #mask[-1]=False
+    if infinite_horizon:
+        rewards_len=rewards.shape[0]-1
+        mask[-1]=False
+    else:
+        dones[-1]=1
+        rewards_len=rewards.shape[0]
 
     advantages = torch.zeros_like(rewards)
     last_adv = 0
-    for t in reversed(range(rewards.shape[0])):
+    for t in reversed(range(rewards_len)):
         if t == rewards.shape[0] - 1:
             next_value = 0
         else:
