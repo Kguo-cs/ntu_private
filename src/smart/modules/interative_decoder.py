@@ -99,7 +99,7 @@ class InterativeDecoder(nn.Module):
                         dropout=hist_drop_prob,
                         bipartite=False,
                         has_pos_emb=True,
-                        gated_attention=discriminator,
+                       # gated_attention=discriminator,
                     )
                     for _ in range(self.t_num_layers)
                 ]
@@ -115,7 +115,7 @@ class InterativeDecoder(nn.Module):
                         dropout=dropout,
                         bipartite=True,
                         has_pos_emb=True,
-                        gated_attention=discriminator,
+                      #  gated_attention=discriminator,
                     )
                     for _ in range(num_layers)
                 ]
@@ -134,7 +134,7 @@ class InterativeDecoder(nn.Module):
                         dropout=dropout,
                         bipartite=False,
                         has_pos_emb=True,
-                        gated_attention=discriminator,
+                    #    gated_attention=discriminator,
                     )
                     for _ in range(num_layers)
                 ]
