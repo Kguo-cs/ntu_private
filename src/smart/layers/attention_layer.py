@@ -19,6 +19,7 @@ class AttentionLayer(MessagePassing):
         dropout: float,
         bipartite: bool,
         has_pos_emb: bool,
+        gated_attention=False,
         **kwargs
     ) -> None:
         super(AttentionLayer, self).__init__(aggr="add", node_dim=0, **kwargs)
@@ -35,7 +36,7 @@ class AttentionLayer(MessagePassing):
             self.to_k_r = nn.Linear(hidden_dim, head_dim * num_heads, bias=False)
             self.to_v_r = nn.Linear(hidden_dim, head_dim * num_heads)
 
-        self.gated_attention = False
+        self.gated_attention = gated_attention
 
         if self.gated_attention:
             self.to_g = nn.Linear(hidden_dim, head_dim * num_heads)

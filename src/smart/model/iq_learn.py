@@ -9,8 +9,9 @@ from collections import deque
 import random
 import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
-    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask
+    get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,_is_dist_available_and_initialized
 from src.smart.loss.gp_penalty import compute_gp
+import torch.distributed as dist
 
 class IQ_SoftQ(LightningModule):
 
@@ -303,16 +304,30 @@ class IQ_SoftQ(LightningModule):
         self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
         self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
 
-        agent_wNLL = -(agent_log_prob * advantages).mean()
+        if dist.is_available():
+            local_count = torch.tensor([agent_log_prob.numel()],
+                                       device=agent_log_prob.device,
+                                       dtype=torch.float32)
+            print('local',self.global_rank,local_count)
+            # Get global number of samples across all GPUs
+            dist.all_reduce(local_count, op=dist.ReduceOp.MEAN)
+            global_count = local_count.item()
+            print('global',self.global_rank,global_count)
+
+            # PPO loss (correct normalization)
+            agent_wNLL = -(agent_log_prob * advantages).sum() / global_count
+
+        else:
+            agent_wNLL = -(agent_log_prob * advantages).mean()
 
         self.log("train/agent_wNLL", agent_wNLL.item(), on_step=True, batch_size=1)
         self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
 
-        expert_nll = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
+        policy_loss = expert_nll + agent_wNLL + 1e-3 * value_loss  # - 0.01 * agent_entropy.mean()
 
         self.log("train/critic_loss", critic_loss.item(), on_step=True, batch_size=1)
 
-        loss = critic_loss + expert_nll
+        loss = critic_loss + policy_loss
 
         return loss
 

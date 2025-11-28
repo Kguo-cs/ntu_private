@@ -10,16 +10,11 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 
-def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
-    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
-    row, col = edge_index
-    distances = (x[col] - x[row]).norm(dim=1)
-    mask = distances <= r
-    # Step 2: Get relative vectors: y - x (N_edges, 2)
 
-    final_edge_index = edge_index[:, mask]
+def _is_dist_available_and_initialized():
+    return dist.is_available() and dist.is_initialized()
 
-    return final_edge_index
+
 
 class RunningMeanStdTorch(nn.Module):
     def __init__(self, shape=(), epsilon=1e-4):
@@ -568,7 +563,7 @@ def get_train_mask(tokenized_agent,start_step,pred_exit):
     return train_mask.transpose(0, 1)
 
 
-def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95,infinite_horizon=True):#0.95
+def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95,infinite_horizon=False):#0.95
 
     values=values.reshape(rewards.shape[0],rewards.shape[1])
 
