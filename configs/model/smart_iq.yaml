@@ -24,3 +24,5 @@ model_config:
 
     dis_weight: 5
     dist_decay: 3
+    reward_weight: 0
+    reward_decay: 2.5
