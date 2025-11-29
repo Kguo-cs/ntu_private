@@ -57,7 +57,7 @@ export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/l
 
 
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/sim/src
-conda activate catk
+conda activate sim
 git pull
 python run.py
 

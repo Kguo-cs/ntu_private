@@ -396,3 +396,40 @@ class EdgeEncoder(nn.Module):
 
 
         return edge_index_pl2a, r_pl2a
+
+def topo_rank_among_edges( dst, dist_3d):
+    """
+    Compute topological neighbor rank among observed edges for each destination.
+    1 = nearest neighbor, 2 = 2nd nearest, etc.
+    """
+    device = dist_3d.device
+    E = dist_3d.shape[0]
+
+    # Combine dst and dist for sorting: first by dst, then by distance
+    # We can achieve lexicographic sort by scaling dst up and adding a normalized distance
+    # But simpler: sort by (dst, dist_3d)
+    dst_float = dst.to(torch.float32)
+    sort_key = dst_float * (dist_3d.max() + 1e-6) + dist_3d
+    order = torch.argsort(sort_key)  # (E,)
+
+    # Reorder everything
+    dst_sorted = dst[order]
+
+    # compute start index of each dst group
+    num_dst = int(dst.max().item()) + 1
+    counts = torch.bincount(dst, minlength=num_dst)
+    starts = torch.zeros_like(counts)
+    if num_dst > 0:
+        starts[1:] = counts.cumsum(0)[:-1]
+
+    # positions within group
+    idx_sorted = torch.arange(E, device=device)
+    pos_in_group = idx_sorted - starts[dst_sorted]
+
+    # map back to original edge order
+    pos_in_group_orig = torch.empty_like(pos_in_group)
+    pos_in_group_orig[order] = pos_in_group
+
+    # 1-based rank (1 = nearest)
+    topo_rank = pos_in_group_orig + 1
+    return topo_rank

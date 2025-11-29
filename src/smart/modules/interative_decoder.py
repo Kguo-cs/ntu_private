@@ -17,7 +17,7 @@ import torch.nn as nn
 
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
-from src.smart.modules.edge_encoder import EdgeEncoder
+from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.layers.relative_transformer import RoFormerBlock
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
@@ -183,6 +183,8 @@ class InterativeDecoder(nn.Module):
         n_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
 
+        rank=topo_rank_among_edges(edge_index_a2a[1],dist)
+
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
                 start_index = edge_index_a2a[0]
@@ -217,9 +219,9 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
-                #a2a_mask_i= (dist>layer_i*20) & (dist<(layer_i+1)*20)
+                a2a_mask_i= (rank>layer_i*7) & (rank<(layer_i+1)*7)
 
-                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a[a2a_mask_i], edge_index_a2a[:,a2a_mask_i])
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a=feat_a[train_repeat_mask]
