@@ -183,7 +183,7 @@ class InterativeDecoder(nn.Module):
         n_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
 
-        rank=topo_rank_among_edges(edge_index_a2a[1],dist)
+        #rank=topo_rank_among_edges(edge_index_a2a[1],dist)
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
@@ -219,9 +219,9 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
-                a2a_mask_i= (rank>layer_i*7) & (rank<(layer_i+1)*7)
+                #a2a_mask_i= (rank>layer_i*7) & (rank<(layer_i+1)*7)
 
-                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a[a2a_mask_i], edge_index_a2a[:,a2a_mask_i])
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a=feat_a[train_repeat_mask]

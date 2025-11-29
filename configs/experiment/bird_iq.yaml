@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq12_roformer_sa_h800 #_counter #_sa_determini_present_distemp32
+task_name: iq3_roformer_sa_a6000 #_counter #_sa_determini_present_distemp32
 
 
 trainer:
@@ -59,7 +59,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 12
+  train_batch_size: 3
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 1
