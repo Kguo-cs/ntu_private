@@ -282,10 +282,10 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            expert_nll, expert_log_prob,entry_nll,entry_head_nll= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
+            expert_nll, expert_log_prob,exert_entry_nll,expert_entry_head_nll= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
         if not self.gail:
-            return expert_nll.mean()+entry_nll.mean()+entry_head_nll.mean()
+            return expert_nll.mean()+exert_entry_nll.mean()+expert_entry_head_nll.mean()
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
@@ -297,7 +297,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
-        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, agent_train_mask, key='agent')
+        agent_nll, agent_log_prob,agent_entry_nll,agent_entry_head_nll = self.get_QV(tokenized_map, tokenized_agent_rollout, agent_train_mask, key='agent')
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
