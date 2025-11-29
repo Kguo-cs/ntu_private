@@ -61,9 +61,9 @@ class RunningMeanStdTorch(nn.Module):
         M2 = m_a + m_b + delta**2 * self.count * batch_count / tot_count
         new_var = M2 / tot_count
 
-        self.mean = new_mean
-        self.var = new_var
-        self.count = tot_count
+        self.mean = new_mean#1.648
+        self.var = new_var#39.758
+        self.count = tot_count#18265
 
     def _update_distributed_from_moments(self, batch_mean, batch_var, batch_count):
         """
