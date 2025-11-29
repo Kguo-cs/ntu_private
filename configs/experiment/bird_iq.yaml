@@ -38,7 +38,7 @@ model:
       dis_a2a_neighbor: 10
 
       dis_weight: 1
-      dist_decay: 3
+      dist_decay: 5
       reward_weight: 0
       reward_decay: 2.5
 
@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq3_roformer_sa_noedge #_counter #_sa_determini_present_distemp32
+task_name: iq3_roformer_sa15 #_counter #_sa_determini_present_distemp32
 
 
 trainer:

@@ -135,28 +135,49 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
 
         if self.token_processor.pred_entry:
-            entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
 
-            pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
+            if self.token_processor.autoregressive_entry:
+                entry_idx=tokenized_agent["entry_idx"]
 
-            entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
+                pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
 
-            entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx[train_mask].unsqueeze(-1)).mean()
+                entry_idx=torch.cat([entry_idx,torch.zeros_like(entry_idx[:,:1])+pred_entry_logit.shape[-1]-1],dim=-1)
 
-            head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
+                entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
-            entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]
+                entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1))
 
-            entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
+                entry_head_idx=tokenized_agent["entry_head_idx"]
 
-            entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1)).mean()
+                entry_head_idx=entry_head_idx[entry_head_idx!=32]
 
-            self.log("train/entry_nll", entry_nll.item(), on_step=True, batch_size=1)
-            self.log("train/entry_head_nll", entry_head_nll.item(), on_step=True, batch_size=1)
+                entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 
-            action_nll=entry_nll+entry_head_nll+action_nll
+                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1))
+            else:
+                entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
 
-        return action_nll,log_prob
+                pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
+
+                entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
+
+                entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx[train_mask].unsqueeze(-1))
+
+                head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
+
+                entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]
+
+                entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
+
+                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1))
+
+            self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
+            self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
+
+        else:
+            entry_head_nll=entry_nll=torch.tensor(0.0,device=action_nll.device)
+
+        return action_nll,log_prob,entry_nll,entry_head_nll
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
 
@@ -256,15 +277,15 @@ class IQ_SoftQ(LightningModule):
         expert_train_mask= get_train_mask(tokenized_agent,self.start_step,self.token_processor.pred_exit)#t,a
 
         if self.use_kl_penalty:
-            expert_nll = 0
+            expert_nll=entry_nll= entry_head_nll= 0
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
+            expert_nll, expert_log_prob,entry_nll,entry_head_nll= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
         if not self.gail:
-            return expert_nll.mean()
+            return expert_nll.mean()+entry_nll.mean()+entry_head_nll.mean()
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 

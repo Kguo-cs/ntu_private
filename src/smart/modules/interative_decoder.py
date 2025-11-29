@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-        self.use_edge_feature=False
+        self.use_edge_feature=True
         self.use_full_feature=False
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
@@ -165,8 +165,6 @@ class InterativeDecoder(nn.Module):
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
-
-        self.pred_entry=True
 
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,
@@ -259,6 +257,8 @@ class InterativeDecoder(nn.Module):
 
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+
+            #each step entry agent allow attend to current agent feature
 
         if self.discriminator:
             if token_embeding is not None:

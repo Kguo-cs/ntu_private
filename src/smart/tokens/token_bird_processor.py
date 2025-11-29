@@ -20,6 +20,7 @@ from omegaconf import DictConfig
 from torch import Tensor
 from torch_geometric.data import HeteroData
 
+from torch.nn.utils.rnn import pad_sequence
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
@@ -98,6 +99,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.n_token_entry= self.entry_pos_token.shape[0]+1
 
+        self.autoregressive_entry=True
+
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -127,6 +130,7 @@ class TokenProcessor(torch.nn.Module):
             fut=torch.arange(0, self.shift*agent["sampled_idx"].shape[1],self.shift,device=agent["sampled_idx"].device)
 
             tokenized_agent["abs_time"]=agent["abs_time"][:,None]+fut[None,:]
+
 
 
         else:
@@ -175,24 +179,24 @@ class TokenProcessor(torch.nn.Module):
         batch=tokenized_agent["batch"].clone()
 
 
-        if not self.training and self.pred_entry:
-            tokenized_agent["pos"] = data["agent"]["position"]
-            tokenized_agent["gt_valid_mask"]=data["agent"]["valid_mask"]
-
-            for key, value in tokenized_agent.items():
-                if type(value) is torch.Tensor:
-                    new_tensor=[]
-                    for b in range(data.num_graphs):
-                        valueb=value[batch==b]
-                        if 'valid_mask' in key:
-                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(500,dim=0)
-                        else:
-                            value_repeat=valueb[:1].repeat_interleave(500,dim=0)
-                        new_tensor.append(torch.cat([valueb,value_repeat]))
-                    tokenized_agent[key]=torch.cat(new_tensor)
-
-            data["agent"]["position"] = tokenized_agent["pos"]
-            data["agent"]["valid_mask"] = tokenized_agent["gt_valid_mask"]
+        # if not self.training and self.pred_entry:
+        #     tokenized_agent["pos"] = data["agent"]["position"]
+        #     tokenized_agent["gt_valid_mask"]=data["agent"]["valid_mask"]
+        #
+        #     for key, value in tokenized_agent.items():
+        #         if type(value) is torch.Tensor:
+        #             new_tensor=[]
+        #             for b in range(data.num_graphs):
+        #                 valueb=value[batch==b]
+        #                 if 'valid_mask' in key:
+        #                     value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(500,dim=0)
+        #                 else:
+        #                     value_repeat=valueb[:1].repeat_interleave(500,dim=0)
+        #                 new_tensor.append(torch.cat([valueb,value_repeat]))
+        #             tokenized_agent[key]=torch.cat(new_tensor)
+        #
+        #     data["agent"]["position"] = tokenized_agent["pos"]
+        #     data["agent"]["valid_mask"] = tokenized_agent["gt_valid_mask"]
 
         return tokenized_map, tokenized_agent
 
@@ -215,9 +219,23 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
 
-        entry_pos_token = pickle.load(open(map_token_path, "rb"))
+        #entry_pos_token = pickle.load(open(map_token_path, "rb"))
+
+        x=torch.arange(-60, 40+1,100/15)
+        y=torch.arange(-10, 80+1,90/15)
+        z=torch.arange( 0  ,40+1,40/7)
+
+        X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")  # 3 tensors with shapes [nx, ny, nz]
+
+        # Stack to get final token grid
+        entry_pos_token = torch.stack([X, Y, Z], dim=-1) .reshape(2048,3) # shape [nx, ny, nz, 3]
 
         self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+
+        entry_head_token =torch.arange(-np.pi, np.pi,np.pi/16)
+
+        self.register_buffer(f"entry_head_token", entry_head_token, persistent=False)
+
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -307,24 +325,24 @@ class TokenProcessor(torch.nn.Module):
             "sampled_pos": [],
             "sampled_heading": [],
             'token_mask': [],
-          #  'reset_mask':[],
-           # "entry_idx":[],
-           # "entry_head_idx": [],
-            #"entry_mask": [],
         }
 
         entry_token_invalid_mask=[]
+        entry_idx_list=[]
+        entry_head_idx_list=[]
+        entry_batch_list=[]
 
-        if self.pred_entry:
+        if self.pred_entry and not self.autoregressive_entry:
             out_dict["entry_idx"]=[]
             out_dict["entry_head_idx"]=[]
 
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
         agent_shape = torch.ones_like(pos[:, 0, :2])
+        batch_num=batch.max()+1
 
         # gt_contour=pos[:, i].unsqueeze(1)
-        if self.pred_entry:
+        if self.pred_entry and not self.autoregressive_entry:
             entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
 
             entry_token_xy=entry_pos_token[:,:,:2]
@@ -370,20 +388,38 @@ class TokenProcessor(torch.nn.Module):
 
             _valid_mask[token_in_valid]=False
 
-            entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry - 1
+            if self.pred_entry and not self.autoregressive_entry:
+                entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry - 1
 
-            entry_head_idx = torch.zeros_like(token_idx_gt)
+                entry_head_idx = torch.zeros_like(token_idx_gt)
 
             prev_head = heading[:, i].clone()
             prev_pos = pos[:, i].clone()
 
-            if self.pred_entry and i > self.shift and self.training:
+            if self.pred_entry and i > self.shift:
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
+                entry_pos = pos[:, i][entry_agent]  # .to(torch.float16)
 
-                if entry_agent.any():#and entry_mask.all()
+                if self.autoregressive_entry:  # 193, 3
+                    entry_heading = heading[:, i][entry_agent]
+                    entry_batch=batch[entry_agent]# .to(torch.float16)
 
-                    entry_pos =pos[:, i][entry_agent]#.to(torch.float16)
+                    sort_idx=torch.argsort(entry_pos[:, 0])
+
+                    entry_pos = entry_pos[sort_idx]
+                    entry_heading=entry_heading[sort_idx]
+                    entry_batch=entry_batch[sort_idx]
+
+                    entry_idx = torch.linalg.norm(self.entry_pos_token[:, None] - entry_pos[None], dim=-1).argmin(dim=0)
+                    entry_head_idx = wrap_angle(self.entry_head_token[:, None]-entry_heading[None]).abs().argmin(dim=0)
+
+                    entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
+
+                    entry_idx_list.extend(torch.split(entry_idx,entry_length))
+                    entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
+
+                elif entry_agent.any():#and entry_mask.all()
 
                     present_pos = out_dict["sampled_pos"][-1][present_agent]#.to(torch.float16)
 
@@ -468,7 +504,7 @@ class TokenProcessor(torch.nn.Module):
                     # print(1)
                     # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
 
-            if self.pred_entry:
+            if self.pred_entry and not self.autoregressive_entry:
 
                 out_dict["entry_idx"].append(entry_idx)
                 out_dict["entry_head_idx"].append(entry_head_idx)
@@ -495,5 +531,11 @@ class TokenProcessor(torch.nn.Module):
 
         if len(entry_token_invalid_mask)>0:
             out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
+
+        if self.autoregressive_entry:
+            # entry_length=out_dict['sampled_idx'].shape[1]-1
+            out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry-1)#.reshape(entry_length,batch_num,-1)
+            out_dict["entry_head_idx"]=pad_sequence(entry_head_idx_list, batch_first=True, padding_value=32)#.reshape(entry_length,batch_num,-1)
+            #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
 
         return out_dict

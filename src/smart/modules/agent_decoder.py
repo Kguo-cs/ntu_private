@@ -26,6 +26,8 @@ from .build_edge import build_batch
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
 import numpy as np
+from src.smart.layers.relative_transformer import RoFormerBlock, padding
+
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -86,12 +88,21 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_exit=token_processor.pred_exit & (not discriminator)
 
         if self.pred_entry:
+
+            if token_processor.autoregressive_entry:
+                self.entry_embedding =MLPLayer(4,hidden_dim,hidden_dim)
+
+                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
+                                              hist_len=self.agent_hist)
+
             self.entry_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=token_processor.n_token_entry
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=token_processor.n_token_entry
                     )
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
                     )
+
+
         # if self.pred_exit:
         #     self.exit_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=2)
 
@@ -136,18 +147,67 @@ class SMARTAgentDecoder(nn.Module):
 
         next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,counter_feat_a,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
-        if self.pred_entry:
-            entry_logit=self.entry_decoder(feat_a)
+        if self.pred_entry  and self.training:
+            if self.token_processor.autoregressive_entry:
 
-            if self.training:
-                entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:].transpose(0, 1).flatten(0, 1)[mask_a.transpose(0, 1).flatten(0, 1)]
-                entry_mask=(entry_idx<self.token_processor.n_token_entry - 1 )
-                entry_local=self.token_processor.entry_pos_token[entry_idx[entry_mask]]
+                mask_ta = mask_a.transpose(0, 1)
 
-                feat_new=torch.cat([entry_local,feat_a[entry_mask]],dim=-1)
-                head_logit=self.entry_head_decoder(feat_new)
+                feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
-                entry_logit=(entry_logit,head_logit)
+                feat_a_t[mask_ta] = feat_a
+
+                entry_idx=tokenized_agent["entry_idx"]
+                entry_head_idx= tokenized_agent["entry_head_idx"]
+
+                entry_pos_token=torch.cat([self.token_processor.entry_pos_token,torch.zeros_like(self.token_processor.entry_pos_token[:1])],dim=0)
+                entry_head_token=torch.cat([self.token_processor.entry_head_token,torch.zeros_like(self.token_processor.entry_head_token[:1])],dim=0)
+
+                entry_pos=entry_pos_token[entry_idx]
+                entry_head=entry_head_token[...,None][entry_head_idx]
+
+                batch=tokenized_agent["batch"]
+
+                lengths = torch.bincount(batch).tolist()
+
+                padding_pos=padding(pos_a, lengths, padding_value=0).permute(2,0,1,3).flatten(0,1)
+                padding_heading=padding(head_a[...,None], lengths, padding_value=0).permute(2,0,1,3).flatten(0,1)
+                padding_features=padding(feat_a_t.transpose(0,1), lengths, padding_value=0).permute(2,0,1,3).flatten(0,1)
+
+                pos=torch.cat([padding_pos,entry_pos],dim=1)
+
+                heading=torch.cat([padding_heading,entry_head],dim=1)
+
+                entry_state=torch.cat([entry_pos,entry_head],dim=-1)
+
+                entry_embedding=self.entry_embedding(entry_state)
+
+                all_features=torch.cat([padding_features,entry_embedding],dim=1)
+
+                mask=torch.any(all_features!=0,dim=-1)
+
+                entry_feature = self.entry_former.temporal_embed(all_features, pos, heading[...,0], all_features.shape[1], n_current,  mask)[:,padding_features.shape[1]-1:]
+
+                entry_logit=self.entry_decoder(entry_feature)
+
+                entry_exist= entry_idx<self.token_processor.n_token_entry-1
+
+                entry_feature_pos=torch.cat([entry_feature[:,:-1],entry_pos],dim=-1)[entry_exist]
+
+                head_logit = self.entry_head_decoder(entry_feature_pos)
+
+                entry_logit = (entry_logit, head_logit)
+
+            else:
+                entry_logit=self.entry_decoder(feat_a)
+                if self.training:
+                    entry_idx=tokenized_agent["entry_idx"][:,self.start_step+1:].transpose(0, 1).flatten(0, 1)[mask_a.transpose(0, 1).flatten(0, 1)]
+                    entry_mask=(entry_idx<self.token_processor.n_token_entry - 1 )
+                    entry_local=self.token_processor.entry_pos_token[entry_idx[entry_mask]]
+
+                    feat_new=torch.cat([entry_local,feat_a[entry_mask]],dim=-1)
+                    head_logit=self.entry_head_decoder(feat_new)
+
+                    entry_logit=(entry_logit,head_logit)
         else:
             entry_logit=None
 
