@@ -8,7 +8,6 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     angle_between_2d_vectors,
 )
-from src.smart.utils.rollout import cal_polygon_contour
 
 class AgentTokenEncoder(nn.Module):
     def __init__(

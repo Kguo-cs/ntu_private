@@ -329,8 +329,10 @@ class IQ_SoftQ(LightningModule):
 
         critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
 
-        self.log("train/running_mean", self.return_meanstd.mean.mean(), on_step=True, batch_size=1)
-        self.log("train/running_var", self.return_meanstd.var.mean(), on_step=True, batch_size=1)
+        print(self.global_rank,self.return_meanstd.mean,self.return_meanstd.var)
+
+        self.log("train/running_mean", self.return_meanstd.mean, on_step=True, batch_size=1)
+        self.log("train/running_var", self.return_meanstd.var, on_step=True, batch_size=1)
         self.log("train/ppo_loss", ppo_loss.item(), on_step=True, batch_size=1)
         self.log("train/advantages", advantages.mean().item(), on_step=True, batch_size=1)
         self.log("train/value_loss", value_loss.item(), on_step=True, batch_size=1)
