@@ -27,31 +27,25 @@ import torch
 import numpy as np
 import random
 
-#import torch.multiprocessing as mp
+from typing import Iterable, Pattern, Union
 
-# mp.set_start_method("spawn", force=True)
-# os.environ["WANDB_MODE"] = "offline"  # offline logs to ./wandb, no server
-# os.environ["WANDB_START_METHOD"] = "thread"  # safer with dataloader workers
-# os.environ.setdefault("WANDB__SERVICE_WAIT", "300")
-# # Optional: fully disable the service process (prevents socket at all)
-# os.environ["WANDB__DISABLE_SERVICE"] = "true"
-os.environ.setdefault("WANDB_WATCH", "false")  # disables any accidental wandb.watch()
+os.environ["WANDB_SILENT"] = "true"
 
-# wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
-# wandb.require("service")  # forces the new service backend
-# # Optional: use thread start (very robust in multiprocess settings)
-# settings = wandb.Settings(start_method="thread")
+wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+wandb.require("service")  # forces the new service backend
+# Optional: use thread start (very robust in multiprocess settings)
+settings = wandb.Settings(start_method="thread")
+os.environ["WANDB__SERVICE_WAIT"] = "3000"
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 sys.path.append('/home/ke/code/catk')
 sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
-sys.path.append('/home/guoke/sim')
 sys.path.append('/home/ke/keguo/sim')
-
+sys.path.append('/home/guoke/sim')
 working_dir=os.getcwd()
 
 print('keguo' in working_dir or "guoke" in working_dir)
@@ -66,7 +60,7 @@ from src.utils import (
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-torch.set_float32_matmul_precision("highest")#  #“highest” (default),
+torch.set_float32_matmul_precision("highest")# #“highest” (default),
 
 # seed = 42
 # random.seed(seed)
@@ -79,8 +73,8 @@ torch.set_float32_matmul_precision("highest")#  #“highest” (default),
 # torch.backends.cudnn.benchmark = False
 # torch.cuda.synchronize()
 # print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
-# torch.backends.cuda.matmul.allow_tf32 = True
-# torch.backends.cuda.allow_tf32 = True
+# torch.backends.cuda.matmul.allow_tf32 = False
+# torch.backends.cuda.allow_tf32 = False
 # print("torch.backends.cuda.matmul.allow_tf32",torch.backends.cuda.matmul.allow_tf32)
 
 #h800 ==4090 highest
@@ -131,9 +125,13 @@ def run(cfg: DictConfig) -> None:
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
     elif cfg.action == "finetune":
         log.info("Starting finetuning!")
-        model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
-        #model.target_net.load_state_dict(model.encoder.agent_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule)
+        if cfg.ckpt_path is not None:
+            model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
+            if model.encoder.use_kl_penalty:
+                model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
+                if model.bc_map_net is not None:
+                    model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
+        trainer.fit(model=model, datamodule=datamodule)#
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
