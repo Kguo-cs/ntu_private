@@ -221,18 +221,22 @@ class TokenProcessor(torch.nn.Module):
 
         #entry_pos_token = pickle.load(open(map_token_path, "rb"))
 
-        x=torch.arange(-60, 40+1,100/15)
-        y=torch.arange(-10, 80+1,90/15)
-        z=torch.arange( 0  ,40+1,40/7)
+        x=torch.arange(-60, 40,100/128)
+        y=torch.arange(-10, 80,90/128)
+        z=torch.arange( 0  ,40,40/128)
 
-        X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")  # 3 tensors with shapes [nx, ny, nz]
-
+        #X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")  # 3 tensors with shapes [nx, ny, nz]
+#
         # Stack to get final token grid
-        entry_pos_token = torch.stack([X, Y, Z], dim=-1) .reshape(2048,3) # shape [nx, ny, nz, 3]
+       # entry_pos_token = torch.stack([X, Y, Z], dim=-1) .reshape(2048,3) # shape [nx, ny, nz, 3]
 
-        self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+        self.register_buffer(f"entry_pos_token_x", x, persistent=False)
+        self.register_buffer(f"entry_pos_token_y", y, persistent=False)
+        self.register_buffer(f"entry_pos_token_z", z, persistent=False)
 
-        entry_head_token =torch.arange(-np.pi, np.pi,np.pi/16)
+        self.register_buffer(f"entry_pos_token", x, persistent=False)
+
+        entry_head_token =torch.arange(-np.pi, np.pi,np.pi/64)
 
         self.register_buffer(f"entry_head_token", entry_head_token, persistent=False)
 
@@ -329,8 +333,7 @@ class TokenProcessor(torch.nn.Module):
 
         entry_token_invalid_mask=[]
         entry_idx_list=[]
-        entry_head_idx_list=[]
-        entry_batch_list=[]
+        entry_state_list=[]
 
         if self.pred_entry and not self.autoregressive_entry:
             out_dict["entry_idx"]=[]
@@ -411,13 +414,32 @@ class TokenProcessor(torch.nn.Module):
                     entry_heading=entry_heading[sort_idx]
                     entry_batch=entry_batch[sort_idx]
 
-                    entry_idx = torch.linalg.norm(self.entry_pos_token[:, None] - entry_pos[None], dim=-1).argmin(dim=0)
-                    entry_head_idx = wrap_angle(self.entry_head_token[:, None]-entry_heading[None]).abs().argmin(dim=0)
+                    # entry_idx = torch.linalg.norm(self.entry_pos_token[:, None] - entry_pos[None], dim=-1).argmin(dim=0)
+                    # entry_head_idx = wrap_angle(self.entry_head_token[:, None]-entry_heading[None]).abs().argmin(dim=0)
+
+                    entry_idx_x=(self.entry_pos_token_x[:, None] - entry_pos[None,:,0]).abs().argmin(dim=0)
+                    entry_idx_y=(self.entry_pos_token_y[:, None] - entry_pos[None,:,1]).abs().argmin(dim=0)
+                    entry_idx_z=(self.entry_pos_token_z[:, None] - entry_pos[None,:,2]).abs().argmin(dim=0)
+                    entry_idx_head=wrap_angle(self.entry_head_token[:, None] - entry_heading[None]).abs().argmin(dim=0)
+
+                    entry_idx=torch.stack([entry_idx_x, entry_idx_y, entry_idx_z, entry_idx_head], dim=-1)
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
-                    entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
+
+                    entry_pos_x=self.entry_pos_token_x[entry_idx_x]
+                    entry_pos_y=self.entry_pos_token_y[entry_idx_y]
+                    entry_pos_z=self.entry_pos_token_z[entry_idx_z]
+                    entry_pos_head=self.entry_head_token[entry_idx_head]
+
+                    entry_state = torch.stack([entry_pos_x, entry_pos_y, entry_pos_z, entry_pos_head], dim=-1)
+
+                    entry_state_list.extend(torch.split(entry_state,entry_length))
+
+
+
+                    # entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
 
                 elif entry_agent.any():#and entry_mask.all()
 
@@ -535,7 +557,12 @@ class TokenProcessor(torch.nn.Module):
         if len(entry_idx_list):
             # entry_length=out_dict['sampled_idx'].shape[1]-1
             out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry-1)#.reshape(entry_length,batch_num,-1)
-            out_dict["entry_head_idx"]=pad_sequence(entry_head_idx_list, batch_first=True, padding_value=32)#.reshape(entry_length,batch_num,-1)
+            out_dict["entry_state"]=pad_sequence(entry_state_list, batch_first=True, padding_value=0)#.reshape(entry_length,batch_num,-1)
             #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
+
+            out_dict["entry_state"] = torch.cat([torch.zeros_like(out_dict["entry_state"][:, :1]), out_dict["entry_state"]], dim=1)
+
+            out_dict["entry_idx"] = torch.cat(
+                [out_dict["entry_idx"], torch.zeros_like(out_dict["entry_idx"][:, :1]) + self.n_token_entry - 1], dim=1)
 
         return out_dict

@@ -92,15 +92,18 @@ class SMARTAgentDecoder(nn.Module):
             if token_processor.autoregressive_entry:
                 self.entry_embedding =MLPLayer(4,hidden_dim,hidden_dim)
 
-                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-                                              hist_len=self.agent_hist)
+                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,hist_len=1000000)
+
+                self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,hist_len=1000000)
+
+                self.attr_embedding = nn.Embedding(token_processor.n_token_entry, hidden_dim)
 
             self.entry_decoder = MLPLayer(
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=token_processor.n_token_entry
                     )
-            self.entry_head_decoder = MLPLayer(
-                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
-                    )
+            # self.entry_head_decoder = MLPLayer(
+            #             input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=32
+            #         )
 
 
         # if self.pred_exit:
@@ -165,7 +168,7 @@ class SMARTAgentDecoder(nn.Module):
                 # entry_pos=entry_pos_token[entry_idx]
                 # entry_head=entry_head_token[...,None][entry_head_idx]
                 entry_state=tokenized_agent["entry_state"]
-
+                entry_idx=tokenized_agent["entry_idx"]
 
                 batch=tokenized_agent["batch"]
 
@@ -181,27 +184,41 @@ class SMARTAgentDecoder(nn.Module):
                 #
                 # entry_state=torch.cat([entry_pos,entry_head],dim=-1)
 
-                pos = torch.cat([padding_pos, entry_state[...,:-1]], dim=1)
-                heading = torch.cat([padding_heading, entry_state[...,-1]], dim=1)
 
+                agent_n=padding_features.shape[1]
+
+                pos = torch.cat([padding_pos, entry_state[...,:-1]], dim=1)
+
+                heading = torch.cat([padding_heading, entry_state[...,-1]], dim=1)
 
                 entry_embedding=self.entry_embedding(entry_state)
 
                 all_features=torch.cat([padding_features,entry_embedding],dim=1)
 
-                mask=torch.any(all_features!=0,dim=-1)
+                entry_mask=torch.any(all_features!=0,dim=-1)
 
-                entry_feature = self.entry_former.temporal_embed(all_features, pos, heading, all_features.shape[1], n_current,  mask)[:,padding_features.shape[1]-1:]
+                entry_feature = self.entry_former.temporal_embed(all_features, pos, heading, all_features.shape[1], n_current,  entry_mask)[:,agent_n:]
 
-                entry_logit=self.entry_decoder(entry_feature)
+                attr_feature=self.attr_embedding(entry_idx[...,:-1])
 
-                entry_exist= entry_idx<self.token_processor.n_token_entry-1
+                attr_all_feature=torch.cat([entry_feature[:,:,None],attr_feature],dim=2).flatten(1,2)    #x,y,z,heading
 
-                entry_feature_pos=torch.cat([entry_feature[:,:-1],entry_pos],dim=-1)[entry_exist]
+                attr_mask=torch.any(attr_all_feature!=0,dim=-1)
 
-                head_logit = self.entry_head_decoder(entry_feature_pos)
+                entry_pos=pos[:,agent_n:,None].repeat(1,1,4,1).flatten(1,2)
+                entry_head=heading[:,agent_n:,None].repeat(1,1,4).flatten(1,2)
 
-                entry_logit = (entry_logit, head_logit)
+                attr_feature=self.entry_former.temporal_embed(attr_all_feature, entry_pos, entry_head, attr_all_feature.shape[1], n_current,  attr_mask)
+
+                entry_logit=self.entry_decoder(attr_feature)#which patch  locate
+
+                # entry_exist= entry_idx<self.token_processor.n_token_entry-1
+                #
+                # entry_feature_pos=torch.cat([entry_feature[:,:-1],entry_pos],dim=-1)[entry_exist]
+
+                # head_logit = self.entry_head_decoder(entry_feature_pos)
+
+                #entry_logit = (entry_patch_logit)
 
             else:
                 entry_logit=self.entry_decoder(feat_a)

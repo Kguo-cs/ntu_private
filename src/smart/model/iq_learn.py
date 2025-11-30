@@ -137,23 +137,16 @@ class IQ_SoftQ(LightningModule):
         if self.token_processor.pred_entry:
 
             if self.token_processor.autoregressive_entry:
-                entry_idx=tokenized_agent["entry_idx"]
 
-                pred_entry_logit,pred_entry_head_logit=pred["entry_logit"]
+                pred_entry_logit=pred["entry_logit"]
 
-                entry_idx=torch.cat([entry_idx,torch.zeros_like(entry_idx[:,:1])+pred_entry_logit.shape[-1]-1],dim=-1)
+                entry_idx=tokenized_agent["entry_idx"].flatten(1,2)
 
                 entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
                 entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1))
 
-                entry_head_idx=tokenized_agent["entry_head_idx"]
-
-                entry_head_idx=entry_head_idx[entry_head_idx!=32]
-
-                entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
-
-                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1))
+                entry_head_nll=torch.tensor(0.0,device=action_nll.device)
             else:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
 
@@ -172,7 +165,6 @@ class IQ_SoftQ(LightningModule):
                 entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1))
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
-            self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
 
         else:
             entry_head_nll=entry_nll=torch.tensor(0.0,device=action_nll.device)

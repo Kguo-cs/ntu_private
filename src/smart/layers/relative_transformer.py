@@ -420,9 +420,9 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
 
         freqs_x,freqs_y,freqs_z,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
 
-        self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
-        self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
-        self.freqs_z = nn.Parameter(freqs_z.clone(), requires_grad=True)
+       # self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
+       # self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
+       # self.freqs_z = nn.Parameter(freqs_z.clone(), requires_grad=True)
         self.freqs_t = nn.Parameter(freqs_t.clone(), requires_grad=True)
 
         self.num_heads=num_heads
@@ -513,6 +513,7 @@ class RoFormerBlock(nn.Module):
         self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb,hist_len=hist_len)
         self.norm2 = nn.LayerNorm(hidden_dim)
         self.attention_head_size=hidden_dim // num_heads
+
         self.mlp = nn.Sequential(
             nn.Linear(hidden_dim, int(hidden_dim * mlp_ratio)),
             nn.GELU(),
