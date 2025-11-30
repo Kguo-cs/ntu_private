@@ -532,7 +532,7 @@ class TokenProcessor(torch.nn.Module):
         if len(entry_token_invalid_mask)>0:
             out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
 
-        if self.autoregressive_entry:
+        if len(entry_idx_list):
             # entry_length=out_dict['sampled_idx'].shape[1]-1
             out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry-1)#.reshape(entry_length,batch_num,-1)
             out_dict["entry_head_idx"]=pad_sequence(entry_head_idx_list, batch_first=True, padding_value=32)#.reshape(entry_length,batch_num,-1)
