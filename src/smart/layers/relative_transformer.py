@@ -418,26 +418,18 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
     def __init__(self, hidden_dim,num_heads ):
         super().__init__()
 
-        freqs_x,freqs_y,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
+        freqs_x,freqs_y,freqs_z,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
 
         self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
         self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
         self.freqs_t = nn.Parameter(freqs_t.clone(), requires_grad=True)
-        # self.d_k = (hidden_dim//num_heads) // 2
-        #
-        # div_term = torch.exp(
-        #     torch.arange(self.d_k, dtype=torch.float32) * (-math.log(10000.0) / self.d_k)
-        # )[None]
-        #
-        # self.freqs_xy=nn.Parameter(div_term.repeat(6,1), requires_grad=True)
-        #
-        # self.freqs_t=nn.Parameter(div_term.repeat(1,1), requires_grad=True)
-
+        self.freqs_z=nn.Parameter(freqs_z.clone(), requires_grad=True)
         self.num_heads=num_heads
 
     def init_random_2d_freqs(self,dim: int, num_heads: int, theta: float = 10.0, rotate: bool = True):
         freqs_x = []
         freqs_y = []
+        freqs_z = []
         freqs_t = []
         mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
         for i in range(num_heads):
@@ -449,41 +441,35 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
             ft = torch.cat([mag , mag ], dim=-1)
 
             freqs_t.append(ft)
+
+            angle_z  = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
+
+            fz = torch.cat([mag * torch.cos(angle_z), mag * torch.cos(torch.pi / 2 + angle_z)], dim=-1)
+
+            freqs_z.append(fz)
+
+
         freqs_x = torch.stack(freqs_x, dim=0)
         freqs_y = torch.stack(freqs_y, dim=0)
+        freqs_z= torch.stack(freqs_z, dim=0)
         freqs_t=torch.stack(freqs_t, dim=0)
 
-        return freqs_x,freqs_y,freqs_t
+        return freqs_x,freqs_y,freqs_z,freqs_t
 
     def forward(self,positions=None,heading=None,time=None):
-
-        # repeat_position=positions.repeat_interleave(3,dim=-1)
-        #
-        # theta_pos=repeat_position[..., None] * self.freqs_xy
-        #
-        #
-        # if time is not None:
-        #
-        #     theta_time=time[..., None] * self.freqs_t
-        #
-        #     theta_pos=torch.cat([theta_pos,theta_time.repeat_interleave(positions.shape[0],dim=0)],dim=-2)
-        #
-        # theta_heading=heading[...,None, None].repeat_interleave(self.num_heads-theta_pos.shape[-2],dim=-2).repeat_interleave(self.d_k,dim=-1)
-        #
-        # theta=torch.cat([theta_pos,theta_heading],dim=-2)
-
         if time is not None:
             freqs_t = time[..., None] * self.freqs_t
         else:
             freqs_t= 0
 
         if positions is not None:
-            t_x, t_y = positions[...,0], positions[...,1]
+            t_x, t_y,t_z = positions[...,0], positions[...,1],positions[...,2]
 
             freqs_x = t_x[...,None,None] * self.freqs_x
             freqs_y = t_y[...,None,None] * self.freqs_y
+            freqs_z = t_z[...,None,None] * self.freqs_z
 
-            freqs_xyh=freqs_x + freqs_y+heading[...,None,None]
+            freqs_xyh=freqs_x + freqs_y+freqs_z+heading[...,None,None]
         else:
             freqs_xyh=0
 
