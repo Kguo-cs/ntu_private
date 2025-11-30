@@ -240,7 +240,7 @@ class InterativeDecoder(nn.Module):
             #     self.pos_cache = self.pos_cache[agent_train_mask]
             #     self.head_cache = self.head_cache[agent_train_mask]
             #     self.mask_cache = inference_mask[agent_train_mask]
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), None, None, n_step, n_current, inference_mask)
+            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), pos_a, head_a, n_step, n_current, inference_mask)
 
             feat_a=feat_a_t.transpose(0,1).flatten(0,1)
         else:
