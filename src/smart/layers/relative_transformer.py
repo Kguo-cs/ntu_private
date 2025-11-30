@@ -420,10 +420,12 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
 
         freqs_x,freqs_y,freqs_z,freqs_t = self.init_random_2d_freqs(dim=hidden_dim // num_heads, num_heads=num_heads, theta=1000)
 
+        self.freqs=torch.stack([freqs_x,freqs_y,freqs_z,freqs_t],dim=-1)
+
        # self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
        # self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
       #  self.freqs_z = nn.Parameter(freqs_z.clone(), requires_grad=True)
-        self.freqs_t = nn.Parameter(freqs_t.clone(), requires_grad=True)
+        #self.freqs_t = nn.Parameter(freqs_t.clone(), requires_grad=True)
 
         self.num_heads=num_heads
 
@@ -473,16 +475,16 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
 
     def forward(self,positions=None,heading=None,time=None):
         if time is not None:
-            freqs_t = time[..., None] * self.freqs_t
+            freqs_t = time[..., None] * self.freqs[-1]
         else:
             freqs_t= 0
 
         if positions is not None:
             t_x, t_y,t_z = positions[...,0], positions[...,1],positions[...,2]
 
-            freqs_x = t_x[...,None,None] * self.freqs_x
-            freqs_y = t_y[...,None,None] * self.freqs_y
-            freqs_z = t_z[...,None,None] * self.freqs_z
+            freqs_x = t_x[...,None,None] * self.freqs[0]
+            freqs_y = t_y[...,None,None] * self.freqs[1]
+            freqs_z = t_z[...,None,None] * self.freqs[2]
 
             freqs_xyh=freqs_x + freqs_y+freqs_z+heading[...,None,None]
         else:
