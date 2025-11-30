@@ -422,7 +422,7 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
 
         self.freqs_x = nn.Parameter(freqs_x.clone(), requires_grad=True)
         self.freqs_y = nn.Parameter(freqs_y.clone(), requires_grad=True)
-        self.freqs_z=nn.Parameter(freqs_z.clone(), requires_grad=True)
+        self.freqs_z = nn.Parameter(freqs_z.clone(), requires_grad=True)
         self.freqs_t = nn.Parameter(freqs_t.clone(), requires_grad=True)
 
         self.num_heads=num_heads
@@ -432,23 +432,37 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         freqs_y = []
         freqs_z = []
         freqs_t = []
-        mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
+        #mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
+
+        mag= 1 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
         for i in range(num_heads):
-            angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
-            fx = torch.cat([mag * torch.cos(angles), mag * torch.cos(torch.pi / 2 + angles)], dim=-1)
-            fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi / 2 + angles)], dim=-1)
+        #     angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
+        #     fx = torch.cat([mag * torch.cos(angles), mag * torch.cos(torch.pi / 2 + angles)], dim=-1)
+        #     fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi / 2 + angles)], dim=-1)
+        #     freqs_x.append(fx)
+        #     freqs_y.append(fy)
+        #     ft = torch.cat([mag , mag ], dim=-1)
+        #
+        #     freqs_t.append(ft)
+        #
+        #     angle_z  = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
+        #
+        #     fz = torch.cat([mag * torch.cos(angle_z), mag * torch.cos(torch.pi / 2 + angle_z)], dim=-1)
+        #
+        #     freqs_z.append(fz)
+            # x channel frequencies
+            fx = mag.clone()  # [dim]
+            # y channel frequencies
+            fy = mag.clone()
+            # z channel frequencies
+            fz = mag.clone()
+            # time frequencies
+            ft = mag.clone()
+
             freqs_x.append(fx)
             freqs_y.append(fy)
-            ft = torch.cat([mag , mag ], dim=-1)
-
-            freqs_t.append(ft)
-
-            angle_z  = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
-
-            fz = torch.cat([mag * torch.cos(angle_z), mag * torch.cos(torch.pi / 2 + angle_z)], dim=-1)
-
             freqs_z.append(fz)
-
+            freqs_t.append(ft)
 
         freqs_x = torch.stack(freqs_x, dim=0)
         freqs_y = torch.stack(freqs_y, dim=0)

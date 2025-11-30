@@ -156,28 +156,34 @@ class SMARTAgentDecoder(nn.Module):
 
                 feat_a_t[mask_ta] = feat_a
 
-                entry_idx=tokenized_agent["entry_idx"]
-                entry_head_idx= tokenized_agent["entry_head_idx"]
+                # entry_idx=tokenized_agent["entry_idx"]
+                # entry_head_idx= tokenized_agent["entry_head_idx"]
 
-                entry_pos_token=torch.cat([self.token_processor.entry_pos_token,torch.zeros_like(self.token_processor.entry_pos_token[:1])],dim=0)
-                entry_head_token=torch.cat([self.token_processor.entry_head_token,torch.zeros_like(self.token_processor.entry_head_token[:1])],dim=0)
+                # entry_pos_token=torch.cat([self.token_processor.entry_pos_token,torch.zeros_like(self.token_processor.entry_pos_token[:1])],dim=0)
+                # entry_head_token=torch.cat([self.token_processor.entry_head_token,torch.zeros_like(self.token_processor.entry_head_token[:1])],dim=0)
 
-                entry_pos=entry_pos_token[entry_idx]
-                entry_head=entry_head_token[...,None][entry_head_idx]
+                # entry_pos=entry_pos_token[entry_idx]
+                # entry_head=entry_head_token[...,None][entry_head_idx]
+                entry_state=tokenized_agent["entry_state"]
+
 
                 batch=tokenized_agent["batch"]
 
                 lengths = torch.bincount(batch).tolist()
 
                 padding_pos=padding(pos_a, lengths, padding_value=0).permute(2,0,1,3).flatten(0,1)
-                padding_heading=padding(head_a[...,None], lengths, padding_value=0).permute(2,0,1,3).flatten(0,1)
+                padding_heading=padding(head_a, lengths, padding_value=0).permute(2,0,1).flatten(0,1)
                 padding_features=padding(feat_a_t.transpose(0,1), lengths, padding_value=0).permute(2,0,1,3).flatten(0,1)
 
-                pos=torch.cat([padding_pos,entry_pos],dim=1)
+                # pos=torch.cat([padding_pos,entry_pos],dim=1)
+                #
+                # heading=torch.cat([padding_heading,entry_head],dim=1)
+                #
+                # entry_state=torch.cat([entry_pos,entry_head],dim=-1)
 
-                heading=torch.cat([padding_heading,entry_head],dim=1)
+                pos = torch.cat([padding_pos, entry_state[...,:-1]], dim=1)
+                heading = torch.cat([padding_heading, entry_state[...,-1]], dim=1)
 
-                entry_state=torch.cat([entry_pos,entry_head],dim=-1)
 
                 entry_embedding=self.entry_embedding(entry_state)
 
@@ -185,7 +191,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 mask=torch.any(all_features!=0,dim=-1)
 
-                entry_feature = self.entry_former.temporal_embed(all_features, pos, heading[...,0], all_features.shape[1], n_current,  mask)[:,padding_features.shape[1]-1:]
+                entry_feature = self.entry_former.temporal_embed(all_features, pos, heading, all_features.shape[1], n_current,  mask)[:,padding_features.shape[1]-1:]
 
                 entry_logit=self.entry_decoder(entry_feature)
 
