@@ -191,22 +191,23 @@ class SMARTAgentDecoder(nn.Module):
 
                 heading = torch.cat([padding_heading, entry_state[...,-1]], dim=1)
 
-                entry_embedding=self.entry_embedding(entry_state)
+                entry_embedding=self.entry_embedding(entry_state[:,:1])
 
                 all_features=torch.cat([padding_features,entry_embedding],dim=1)
 
                 entry_mask=torch.any(all_features!=0,dim=-1)
 
-                entry_feature = self.entry_former.temporal_embed(all_features, pos, heading, all_features.shape[1], n_current,  entry_mask)[:,agent_n:]
+                entry_feature = self.entry_former.temporal_embed(all_features, pos[:,:agent_n+1], heading[:,:agent_n+1], all_features.shape[1], n_current,  entry_mask)[:,agent_n:]
 
-                attr_feature=self.attr_embedding(entry_idx[...,:-1])
+                attr_feature=self.attr_embedding(entry_idx)
 
-                attr_all_feature=torch.cat([entry_feature[:,:,None],attr_feature],dim=2).flatten(1,2)    #x,y,z,heading
+                # attr_all_feature=torch.cat([entry_feature[:,:,None],attr_feature],dim=2).flatten(1,2)    #x,y,z,heading
+                attr_all_feature=torch.cat([entry_feature,attr_feature.flatten(1,2)],dim=1)
 
                 attr_mask=torch.any(attr_all_feature!=0,dim=-1)
 
-                entry_pos=pos[:,agent_n:,None].repeat(1,1,4,1).flatten(1,2)
-                entry_head=heading[:,agent_n:,None].repeat(1,1,4).flatten(1,2)
+                entry_pos=pos[:,agent_n:,None].repeat(1,1,4,1).flatten(1,2)  [:,:-3] #4* entry_agent+1
+                entry_head=heading[:,agent_n:,None].repeat(1,1,4).flatten(1,2)[:,:-3]
 
                 attr_feature=self.entry_former.temporal_embed(attr_all_feature, entry_pos, entry_head, attr_all_feature.shape[1], n_current,  attr_mask)
 

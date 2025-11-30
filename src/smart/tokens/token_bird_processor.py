@@ -562,7 +562,7 @@ class TokenProcessor(torch.nn.Module):
 
             out_dict["entry_state"] = torch.cat([torch.zeros_like(out_dict["entry_state"][:, :1]), out_dict["entry_state"]], dim=1)
 
-            out_dict["entry_idx"] = torch.cat(
-                [out_dict["entry_idx"], torch.zeros_like(out_dict["entry_idx"][:, :1]) + self.n_token_entry - 1], dim=1)
+            # out_dict["entry_idx"] = torch.cat(
+            #     [out_dict["entry_idx"], torch.zeros_like(out_dict["entry_idx"][:, :1]) + self.n_token_entry - 1], dim=1)
 
         return out_dict

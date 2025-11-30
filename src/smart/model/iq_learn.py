@@ -142,6 +142,8 @@ class IQ_SoftQ(LightningModule):
 
                 entry_idx=tokenized_agent["entry_idx"].flatten(1,2)
 
+                entry_idx=torch.cat([entry_idx, torch.zeros_like(entry_idx[:,:1])+pred_entry_logit.shape[-1]-1], dim=1)
+
                 entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
 
                 entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1))
