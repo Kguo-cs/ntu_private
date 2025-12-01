@@ -121,7 +121,7 @@ class InterativeDecoder(nn.Module):
                 ]
             )
         self.discriminator = discriminator
-        self.use_edge_feature=True
+        self.use_edge_feature=False
         self.use_full_feature=False
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
@@ -150,6 +150,8 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
 
+        self.use_airl=True
+
         if self.discriminator:
 
             if self.use_edge_feature:
@@ -161,6 +163,12 @@ class InterativeDecoder(nn.Module):
                     self.all_head = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
+
+                if self.use_airl:
+                    self.token_predict_head1 = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                    )
+
 
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
@@ -207,6 +215,10 @@ class InterativeDecoder(nn.Module):
 
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
+
+
+
+
             else:
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
                     end_mask=train_repeat_mask[edge_index_a2a[1]]
@@ -260,13 +272,20 @@ class InterativeDecoder(nn.Module):
             #each step entry agent allow attend to current agent feature
 
         if self.discriminator:
-            if token_embeding is not None:
-                feat_a=feat_a+token_embeding
+            if token_embeding is not None :
+                if self.use_airl:
+                    feat_sa=feat_a[:-n_agent]+token_embeding
+                else:
+                    feat_a=feat_a+token_embeding
         else:
             current_len = inference_mask.sum()
             feat_a = feat_a[-current_len:]
 
         next_token_logits = self.token_predict_head(feat_a)
+
+        if self.discriminator and self.use_airl:
+            next_token_logits1 = self.token_predict_head(feat_sa)
+            next_token_logits=next_token_logits1+0.99*next_token_logits[n_agent:]-next_token_logits[:-n_agent]
 
         weight = None
 
@@ -316,7 +335,7 @@ class InterativeDecoder(nn.Module):
 
     def forward(self,all_features,counter_feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask ):
 
-        if self.discriminator and token_embedding is not None:
+        if self.discriminator and token_embedding is not None and not self.use_airl:
             all_features=[feat[:,:-1] for feat in all_features]
 
         feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
