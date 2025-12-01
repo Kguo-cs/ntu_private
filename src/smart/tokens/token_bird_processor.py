@@ -126,7 +126,7 @@ class TokenProcessor(torch.nn.Module):
                 entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
 
 
-                tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+                tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True,padding_value=self.n_token_entry-1).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
                 tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
 
             tokenized_agent["token_traj_all"] = self.agent_token_all[:,:,None]#[None, :, :]#.repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
