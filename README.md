@@ -10,7 +10,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_route shanhelo@a
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-15_23-16-37/bc/qro9qhs7/checkpoints/epoch=22-step=280025.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_train107_entry128  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_train107_entry128 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
