@@ -435,16 +435,16 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         freqs_y = []
         freqs_z = []
         freqs_t = []
-        #mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
+        mag = 1 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
 
-        mag= 1 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+        #mag= 1 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
         for i in range(num_heads):
         #     angles = torch.rand(1) * 2 * torch.pi if rotate else torch.zeros(1)
         #     fx = torch.cat([mag * torch.cos(angles), mag * torch.cos(torch.pi / 2 + angles)], dim=-1)
         #     fy = torch.cat([mag * torch.sin(angles), mag * torch.sin(torch.pi / 2 + angles)], dim=-1)
         #     freqs_x.append(fx)
         #     freqs_y.append(fy)
-        #     ft = torch.cat([mag , mag ], dim=-1)
+            ft = torch.cat([mag , mag ], dim=-1)
         #
         #     freqs_t.append(ft)
         #
@@ -454,13 +454,13 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
         #
         #     freqs_z.append(fz)
             # x channel frequencies
-            fx = mag.clone()  # [dim]
+            fx = ft.clone()  # [dim]
             # y channel frequencies
-            fy = mag.clone()
+            fy = ft.clone()
             # z channel frequencies
-            fz = mag.clone()
+            fz = ft.clone()
             # time frequencies
-            ft = mag.clone()
+            ft = ft.clone()
 
             freqs_x.append(fx)
             freqs_y.append(fy)
