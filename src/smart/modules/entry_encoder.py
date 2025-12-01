@@ -17,12 +17,18 @@ class EntryDecoder(nn.Module):
         self.autoregressive_entry= token_processor.autoregressive_entry
         self.n_token_entry=token_processor.n_token_entry
 
+        self.token_processor=token_processor
+
+        self.hidden_dim=hidden_dim
+
         if self.autoregressive_entry:
+            self.entry_his_len=1000000
+
             self.entry_embedding = MLPLayer(4, hidden_dim, hidden_dim)
 
-            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=1000000)
+            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=1000000)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
 
@@ -30,25 +36,28 @@ class EntryDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
         )
 
-    def autoregressive_entry(self,entry_idx,entry_feature,pos,heading,n_current=0):
+    def pred_entry(self,attr_all_feature,entry_pos, entry_head,n_current=0):
 
-        attr_feature = self.attr_embedding(entry_idx)
-        # attr_all_feature=torch.cat([entry_feature[:,:,None],attr_feature],dim=2).flatten(1,2)    #x,y,z,heading
-        attr_all_feature = torch.cat([entry_feature, attr_feature.flatten(1, 2)], dim=1)
+        n_step=attr_all_feature.shape[1]
 
         attr_mask = torch.any(attr_all_feature != 0, dim=-1)
 
-        entry_pos = pos[:, :, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
-        entry_head = heading[:,:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
-
-        attr_feature = self.entry_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
-                                                        attr_all_feature.shape[1], n_current, attr_mask)
+        attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
+                                                        n_step, n_current, attr_mask)
 
         entry_logit = self.entry_decoder(attr_feature)  # which patch  locate
+
+        time=torch.arange(n_step)+n_current
+
+        mask= (time%4!=0)
+
+        entry_logit[:,mask,-1]=-torch.inf
 
         return entry_logit
 
     def forward(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,n_current=0):
+
+
         if self.autoregressive_entry:
             n_agent, n_step=mask_a.shape
 
@@ -57,12 +66,15 @@ class EntryDecoder(nn.Module):
             feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
             feat_a_t[mask_ta] = feat_a
-
-            entry_state = tokenized_agent["entry_state"]
-            entry_idx = tokenized_agent["entry_idx"]
             batch = tokenized_agent["batch"]
+            batch_num = batch.max() + 1
+            lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
-            lengths = torch.bincount(batch).tolist()
+            if self.training:
+                entry_state = tokenized_agent["entry_state"]
+            else:
+                entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
+
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1)
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
@@ -86,23 +98,67 @@ class EntryDecoder(nn.Module):
                                                              entry_mask)[:, agent_n:]
 
             if self.training:
-                entry_logit=self.autoregressive_entry(entry_idx,entry_feature,pos[:,agent_n:],heading[:,agent_n:])
+                entry_idx = tokenized_agent["entry_idx"]
+
+                attr_feature = self.attr_embedding(entry_idx)
+                attr_all_feature = torch.cat([entry_feature, attr_feature.flatten(1, 2)], dim=1)
+                entry_pos = pos[:, agent_n:, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
+                entry_head = heading[:, agent_n:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
+
+                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head)
             else:
                 self.attr_former.attn.caching = True
-                entry_logit=self.autoregressive_entry(entry_idx[:1],entry_feature[:1],pos[:,agent_n:agent_n+1],heading[:,agent_n:agent_n+1])
 
-                entry_idx= Categorical(logits=entry_logit).sample()
+                current_pos= pos[:, agent_n:]
 
-                while (entry_idx!=self.n_token_entry-1).any():
+                current_heading = heading[:, agent_n:]
 
-                    entry_logit = self.autoregressive_entry(entry_idx[:1], entry_feature[:1],
-                                                            pos[:, agent_n:agent_n + 1],
-                                                            heading[:, agent_n:agent_n + 1])
+                entry_list=[]
+                entry_state_list = []
 
-            self.attr_former.attn.kv_caching(0)
+                finish=torch.zeros_like(current_heading[:,0]).to(torch.bool)
 
+                while True:
+                    if n_current==0:
+                        attr_feature = entry_feature
+                    else:
+                        attr_feature = self.attr_embedding(entry_idx)
 
+                    entry_logit = self.pred_entry(attr_feature, current_pos,  current_heading,n_current)
 
+                    if n_current==0:
+                        self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
+
+                    entry_idx = Categorical(logits=entry_logit).sample()
+
+                    entry_list.append(entry_idx)
+
+                    n_current+=1
+
+                    if n_current%4==0:
+                        entry_idx_x=entry_list[-4]
+                        entry_idx_y=entry_list[-3]
+                        entry_idx_z=entry_list[-2]
+                        entry_idx_head=entry_list[-1]
+
+                        entry_pos_token_x=torch.cat([self.token_processor.entry_pos_token_x,torch.zeros_like(self.token_processor.entry_pos_token_x[:1])])
+
+                        entry_pos_x=entry_pos_token_x[entry_idx_x]
+                        entry_pos_y=self.token_processor.entry_pos_token_y[entry_idx_y]
+                        entry_pos_z=self.token_processor.entry_pos_token_z[entry_idx_z]
+                        current_heading=self.token_processor.entry_head_token[entry_idx_head]
+
+                        finish= finish | (entry_idx_x==self.n_token_entry - 1)
+
+                        current_pos=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z], dim=-1)
+
+                        entry_state_list.append(torch.cat([current_pos[:,0], current_heading],dim=-1))
+
+                        if finish.all() or n_current==500:
+                            entry_logit=torch.stack(entry_state_list,dim=1)
+                            break
+
+                self.attr_former.attn.kv_caching(0)
 
         else:
             entry_logit = self.entry_decoder(feat_a)
