@@ -564,7 +564,7 @@ class TokenProcessor(torch.nn.Module):
             #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
 
 
-            print(out_dict["entry_idx"].shape[1])
+            # print(out_dict["entry_idx"].shape[1])
 
             out_dict["entry_state"] = torch.cat([torch.zeros_like(out_dict["entry_state"][:, :1]), out_dict["entry_state"]], dim=1)
 
