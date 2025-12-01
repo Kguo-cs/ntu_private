@@ -164,10 +164,10 @@ class InterativeDecoder(nn.Module):
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                     )
 
-                if self.use_airl:
-                    self.token_predict_head1 = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-                    )
+            if self.use_airl:
+                self.token_predict_head1 = MLPLayer(
+                    input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+                )
 
 
         self.token_predict_head = MLPLayer(
