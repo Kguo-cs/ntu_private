@@ -122,8 +122,12 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
 
             if self.pred_entry:
-                tokenized_agent["entry_idx"] = agent["entry_idx"].long()
-                tokenized_agent["entry_head_idx"] = agent["entry_head_idx"].long()
+                entry_idx=[torch.from_numpy(entry_idx).long().permute(1, 0, 2) for entry_idx in agent["entry_idx"]]
+                entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
+
+
+                tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+                tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
 
             tokenized_agent["token_traj_all"] = self.agent_token_all[:,:,None]#[None, :, :]#.repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
 
@@ -161,9 +165,6 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_map={}
 
-        # if self.training:
-        #     tokenized_agent["goal_mask"] =torch.rand_like(tokenized_agent["type"])<0.5
-        # else:
         tokenized_agent["goal_mask"]=torch.ones_like(tokenized_agent["type"]).to(torch.bool)
 
         if self.pred_exit:
@@ -219,7 +220,7 @@ class TokenProcessor(torch.nn.Module):
 
         #entry_pos_token = pickle.load(open(map_token_path, "rb"))
 
-        x=torch.arange(-70, 45,115/128)
+        x=torch.arange(-75, 45,120/128)
         y=torch.arange(-20 ,90,110/128)
         z=torch.arange( 0  ,60,60/128)
 
@@ -333,7 +334,7 @@ class TokenProcessor(torch.nn.Module):
         entry_idx_list=[]
         entry_state_list=[]
 
-        if self.pred_entry and not self.autoregressive_entry and self.training:
+        if self.pred_entry and not self.autoregressive_entry :
             out_dict["entry_idx"]=[]
             out_dict["entry_head_idx"]=[]
 
@@ -389,7 +390,7 @@ class TokenProcessor(torch.nn.Module):
 
             _valid_mask[token_in_valid]=False
 
-            if self.pred_entry and not self.autoregressive_entry and self.training:
+            if self.pred_entry and not self.autoregressive_entry :
                 entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry - 1
 
                 entry_head_idx = torch.zeros_like(token_idx_gt)
@@ -397,7 +398,7 @@ class TokenProcessor(torch.nn.Module):
             prev_head = heading[:, i].clone()
             prev_pos = pos[:, i].clone()
 
-            if self.pred_entry and i > self.shift and self.training:
+            if self.pred_entry and i > self.shift :
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
                 entry_pos = pos[:, i][entry_agent]  # .to(torch.float16)
@@ -438,7 +439,7 @@ class TokenProcessor(torch.nn.Module):
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                    entry_token_invalid_mask.append(dist>1)
+                    #entry_token_invalid_mask.append(dist>1)
 
                     real_id=entry_id[dist>1]
 
@@ -529,7 +530,7 @@ class TokenProcessor(torch.nn.Module):
                     # print(1)
                     # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
 
-            if self.pred_entry and not self.autoregressive_entry and self.training:
+            if self.pred_entry and not self.autoregressive_entry :
 
                 out_dict["entry_idx"].append(entry_idx)
                 out_dict["entry_head_idx"].append(entry_head_idx)

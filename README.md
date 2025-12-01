@@ -12,9 +12,9 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz /home/ke/code/catk/src/logs/bc40_apt30_tokenexitpred1/2025-11-15_23-16-37/bc/qro9qhs7/checkpoints/epoch=22-step=280025.ckpt  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/baseline_4090.pt ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/bird_train107_entry128 ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/baseline_4090.pt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/bird_train107_entry128 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
