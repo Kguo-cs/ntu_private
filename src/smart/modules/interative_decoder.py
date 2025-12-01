@@ -215,10 +215,6 @@ class InterativeDecoder(nn.Module):
 
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
-
-
-
-
             else:
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
                     end_mask=train_repeat_mask[edge_index_a2a[1]]
@@ -284,7 +280,7 @@ class InterativeDecoder(nn.Module):
         next_token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.use_airl:
-            next_token_logits1 = self.token_predict_head(feat_sa)
+            next_token_logits1 = self.token_predict_head1(feat_sa)
             next_token_logits=next_token_logits1+0.99*next_token_logits[n_agent:]-next_token_logits[:-n_agent]
 
         weight = None
