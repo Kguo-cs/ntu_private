@@ -105,7 +105,7 @@ class EntryDecoder(nn.Module):
                 entry_mask = torch.any(entry_feature != 0, dim=-1)
 
                 entry_feature = self.entry_former.temporal_embed(entry_feature, current_pos[:, :agent_n + 1],
-                                                                 current_heading[:, :agent_n + 1], entry_feature.shape[1], n_current,
+                                                                 current_heading[:, :agent_n + 1], 0, n_current,
                                                                  entry_mask)[:,agent_n:]
 
             if self.training:
