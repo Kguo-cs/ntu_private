@@ -82,7 +82,7 @@ class EntryDecoder(nn.Module):
                 entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
 
 
-            padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1)
+            padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
             padding_features = padding(feat_a_t.transpose(0, 1), lengths, padding_value=0).permute(2, 0, 1, 3).flatten(
                 0, 1)
@@ -155,11 +155,15 @@ class EntryDecoder(nn.Module):
                         entry_pos_z=self.token_processor.entry_pos_token_z[entry_idx_z]
                         current_heading=self.token_processor.entry_head_token[entry_idx_head]
 
-                        finish= finish | (entry_idx_x==self.n_token_entry - 1)
+                        finish= finish | (entry_idx_x[:,0]==self.n_token_entry - 1)
 
                         current_pos=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z], dim=-1)
 
-                        entry_state_list.append(torch.cat([current_pos[:,0], current_heading],dim=-1))
+                        new_state=torch.cat([current_pos[:,0], current_heading],dim=-1)
+
+                        new_state[finish]=0
+
+                        entry_state_list.append(new_state)
 
                         if finish.all() or n_current==500:
                             entry_logit=torch.stack(entry_state_list,dim=1)
