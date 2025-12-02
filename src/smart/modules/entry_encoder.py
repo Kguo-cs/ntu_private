@@ -28,7 +28,7 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            self.use_cross_attention= False
+            self.use_cross_attention= True
 
             if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
@@ -71,7 +71,7 @@ class EntryDecoder(nn.Module):
 
             entry_feature = attr_all_feature[:, -entry_num:]
             agent_feature = attr_all_feature[:, :-entry_num]
-            entry_mask=attr_mask[:, -entry_num:]
+            entry_mask    = attr_mask[:, -entry_num:]
 
             entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos[:, -entry_num:],
                                                              entry_head[:, -entry_num:], entry_mask,
