@@ -24,7 +24,7 @@ class EntryDecoder(nn.Module):
         if self.autoregressive_entry:
             self.entry_his_len=1000000
 
-            self.entry_embedding = MLPLayer(4, hidden_dim, hidden_dim)
+            self.entry_embedding = nn.Linear(4, hidden_dim)
 
             self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
@@ -32,9 +32,7 @@ class EntryDecoder(nn.Module):
 
             self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
 
-        self.entry_decoder = MLPLayer(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
-        )
+        self.entry_decoder = nn.Linear(hidden_dim,self.n_token_entry)
 
     def pred_entry(self,attr_all_feature,entry_pos, entry_head,n_current=0):
 
