@@ -39,7 +39,7 @@ class EntryDecoder(nn.Module):
 
             self.task_embedding = nn.Embedding(5, hidden_dim)
 
-            self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
+            #self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
@@ -57,15 +57,15 @@ class EntryDecoder(nn.Module):
 
         task=(step-agent_n)%4
 
-        number=(step-agent_n)//4
+        #number=step-agent_n#(step-agent_n)//4
 
         task[step<agent_n]=4
 
-        number_embedding=self.number_embedding(number.float()[:,None])
+        #number_embedding=self.number_embedding(number.float()[:,None])
 
         attr_all_feature=attr_all_feature+self.task_embedding(task)[None]#+number_embedding[None]
 
-        attr_all_feature[:,-entry_num:]=attr_all_feature[:,-entry_num:]+number_embedding[None,-entry_num:]
+        #attr_all_feature[:,-entry_num:]=attr_all_feature[:,-entry_num:]+number_embedding[None,-entry_num:]
 
         if self.use_cross_attention:
 
@@ -78,7 +78,10 @@ class EntryDecoder(nn.Module):
                                                              agent_feature,entry_pos[:, :-entry_num],
                                                              entry_head[:, :-entry_num],  tgt_mask)
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, None, None, 0, n_current, entry_mask)
+            if n_current!=0:
+                n_current=n_current-agent_n
+
+            attr_feature = self.attr_former.temporal_embed(entry_feature, None, None, entry_feature.shape[1], n_current, entry_mask)
 
         else:
 
