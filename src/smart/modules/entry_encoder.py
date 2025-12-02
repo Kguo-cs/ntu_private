@@ -24,7 +24,7 @@ class EntryDecoder(nn.Module):
         if self.autoregressive_entry:
             self.entry_his_len=1000000
 
-            self.entry_embedding = MLPLayer(4, hidden_dim, hidden_dim)
+            self.start_embedding =nn.Embedding(1, hidden_dim)
 
             self.use_one_feature= True
 
@@ -96,7 +96,7 @@ class EntryDecoder(nn.Module):
 
             current_heading = torch.cat([padding_heading, entry_state[..., -1]], dim=1)
 
-            entry_embedding = self.entry_embedding(entry_state[:, :1])
+            entry_embedding = self.start_embedding.weight[None].repeat(len(padding_features),1,1)
 
             entry_feature = torch.cat([padding_features, entry_embedding], dim=1)
 
