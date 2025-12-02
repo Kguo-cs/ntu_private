@@ -164,88 +164,25 @@ class RoFormerSelfAttention(nn.Module):
         else:
             query_layer = query_states.view(bsz, q_len, -1, self.attention_head_size).transpose(1, 2)
 
-
-
-        # query_layer = self.transpose_for_scores(query_states)
-        # rotary query
         if not self.pos_emb:
            query_layer = self.apply_rotary(query_layer, sinusoidal_pos)
-        # If this is instantiated as a cross-attention module, the keys
-        # and values come from an encoder; the attention mask needs to be
-        # such that the encoder's padding tokens are not attended to.
+
         is_cross_attention = encoder_hidden_states is not None
-        
-        # query_layer1 = self.transpose_for_scores(self.query_pos(hidden_states))
-        #
-        # query_layer1 = self.apply_rotary(query_layer1, sinusoidal_pos)
 
         if is_cross_attention:
             key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
             value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
             if not self.pos_emb:
                 key_layer = self.apply_rotary(key_layer, encoder_sinusoidal_pos)
-
-            # key_layer1 = self.transpose_for_scores(self.key_pos(encoder_hidden_states))
-            #
-            # key_layer1 = self.apply_rotary(key_layer1, encoder_sinusoidal_pos)
-
-            #value_layer=self.apply_rotary(value_layer,encoder_sinusoidal_pos)
         else:
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
             if not self.pos_emb:
                key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
 
-            #value_layer=self.apply_rotary(value_layer,sinusoidal_pos)
-
-            # key_layer1 = self.transpose_for_scores(self.key_pos(hidden_states))
-            #
-            # key_layer1 = self.apply_rotary(key_layer1, sinusoidal_pos)
-
-            # value_layer=self.apply(value_layer,sinusoidal_pos)
-        # if self.is_decoder:
-        #     # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
-        #     # Further calls to cross_attention layer can then reuse all cross-attention
-        #     # key/value_states (first "if" case)
-        #     # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
-        #     # all previous decoder key/value_states. Further calls to uni-directional self-attention
-        #     # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
-        #     # if encoder bi-directional self-attention `past_key_value` is always `None`
-        #     past_key_value = (key_layer, value_layer)
-        # # Take the dot product between "query" and "key" to get the raw attention scores.
-        # attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
-        #
-        # attention_scores = attention_scores / math.sqrt(self.attention_head_size)
-        # if attention_mask is not None:
-        #     # Apply the attention mask is (precomputed for all layers in RoFormerModel forward() function)
-        #     attention_scores = attention_scores + attention_mask
-        #
-        # # Normalize the attention scores to probabilities.
-        # attention_probs = nn.functional.softmax(attention_scores, dim=-1)
-        #
-        # # This is actually dropping out entire tokens to attend to, which might
-        # # seem a bit unusual, but is taken from the original Transformer paper.
-        # attention_probs = self.dropout(attention_probs)
-
-        # # Mask heads if we want to
-        # if head_mask is not None:
-        #     attention_probs = attention_probs * head_mask
-        #
-        # context_layer = torch.matmul(attention_probs, value_layer)
-        # context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
-        # new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
-        # context_layer = context_layer.view(*new_context_layer_shape)
-        #
-        # outputs = (
-        #     (context_layer, attention_probs) if output_attentions else context_layer
-        # )
-        # if self.is_decoder:
-        #     outputs = outputs + (past_key_value,)
-
         if self.caching_len:
             key_layer = self.cached_k = torch.cat((self.cached_k, key_layer), dim=2)[:,:,-self.caching_len*n_agent:]
             value_layer = self.cached_v = torch.cat( (self.cached_v, value_layer), dim=2)[:,:,-self.caching_len*n_agent:]
-            #attention_mask=None
         elif self.caching:
             self.cached_k = key_layer
             self.cached_v = value_layer
@@ -334,45 +271,6 @@ def scene_centric(pos,heading,centering_pos,centering_heading,batch):
     pos = torch.stack([x_rot, y_rot], dim=-1)
 
     return  pos,heading
-
-
-
-
-# def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None):
-#
-#     if batch is not None:
-#         positions,heading=scene_centric(positions,heading,centering_pos,centering_heading,batch)
-#
-#     device = positions.device
-#
-#     dim=dim//2
-#
-#     theta_dim=dim%positions.shape[-1]
-#
-#     if theta_dim==0 and heading is not None:
-#         theta_dim=positions.shape[-1]
-#
-#     d_k=(dim-theta_dim)//positions.shape[-1]
-#
-#     div_term = torch.exp(
-#         torch.arange(d_k, dtype=torch.float32, device=device) * (-math.log(10000.0) / d_k)
-#     )
-#
-#     sin = torch.sin(positions[...,None] * div_term).flatten(-2,-1)
-#     cos = torch.cos(positions[...,None] * div_term).flatten(-2,-1)
-#
-#     if heading is not None:
-#         theta=heading[...,None].repeat_interleave(theta_dim,dim=-1)
-#
-#         sin_theta=torch.sin(theta)
-#         cos_theta=torch.cos(theta)
-#
-#         sin=torch.cat([sin, sin_theta],dim=-1)
-#         cos=torch.cat([cos, cos_theta],dim=-1)
-#
-#     sinusoidal_pos=torch.cat([sin,cos],dim=-1)
-#
-#     return sinusoidal_pos
 
 
 def general_rope(positions, dim,heading=None,centering_pos=None,centering_heading=None,batch=None,head_dim=8):
@@ -509,6 +407,7 @@ def padding(tensor,lengths,padding_value=0 ):
 
     return padded_tensor
 
+
 class RoFormerBlock(nn.Module):
     def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
         super().__init__()
@@ -534,6 +433,20 @@ class RoFormerBlock(nn.Module):
         x = x + self.mlp(self.norm2(x))
         return x
 
+    def cross_attention(self,src, src_pos, src_heading,src_mask,tgt, tgt_pos, tgt_heading,tgt_mask ):
+
+        causal_mask = ~src_mask[:, None, :, None] | ~tgt_mask[:, None, None,: ]
+
+
+        src_sinusoidal_pos = self.rotary_embedding(src_pos, src_heading, None)
+        tgt_sinusoidal_pos = self.rotary_embedding(tgt_pos, tgt_heading, None)
+
+
+        feature = self.forward(src, causal_mask, src_sinusoidal_pos,tgt,tgt_sinusoidal_pos)
+
+
+        return feature
+
     def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask,n_agent=1):
 
         if n_step==0:
@@ -545,10 +458,6 @@ class RoFormerBlock(nn.Module):
                 time=time[:,None].repeat(1,n_agent).flatten(0,1)[None, :mask.shape[1], None][:,-pos.shape[1]:]
             else:
                 time=time[None,:,None]
-
-        # pos_time =torch.concat([pos,time.repeat_interleave(len(pos),dim=0)],dim=-1)#time.repeat_interleave(len(pos),dim=0)#
-        #
-        # sinusoidal_pos = general_rope(pos_time, self.head_dim,heading)
 
         sinusoidal_pos = self.rotary_embedding(pos, heading, time)
 

@@ -28,7 +28,9 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            if self.use_one_feature:
+            self.use_cross_attention= True
+
+            if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
@@ -41,7 +43,7 @@ class EntryDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
         )
 
-    def pred_entry(self,attr_all_feature,entry_pos, entry_head,agent_n,n_current=0):
+    def pred_entry(self,attr_all_feature,entry_pos, entry_head,agent_n,n_current=0,tgt_mask=None):
 
         n_step=attr_all_feature.shape[1]
 
@@ -57,10 +59,26 @@ class EntryDecoder(nn.Module):
 
         attr_all_feature=attr_all_feature+self.task_embedding(task)
 
-        attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
-                                                        0, n_current, attr_mask)
+        if self.use_cross_attention:
 
-        attr_feature=attr_feature[:,-entry_num:]
+            entry_feature = attr_all_feature[:, -entry_num:]
+            agent_feature = attr_all_feature[:, :-entry_num]
+            entry_mask=attr_mask[:, -entry_num:]
+
+            entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos[:, -entry_num:],
+                                                             entry_head[:, -entry_num:], entry_mask,
+                                                             agent_feature,entry_pos[:, :-entry_num],
+                                                             entry_head[:, :-entry_num],  tgt_mask)
+
+            attr_feature = self.attr_former.temporal_embed(entry_feature, None, None, entry_feature.shape[1], n_current, entry_mask)
+
+        else:
+
+            attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
+                                                            0, n_current, attr_mask)
+
+            attr_feature=attr_feature[:,-entry_num:]
+
         task=task[-entry_num:]
 
         entry_logit = self.entry_decoder(attr_feature)  # which patch  locate
@@ -106,6 +124,8 @@ class EntryDecoder(nn.Module):
 
             entry_feature = torch.cat([padding_features, entry_embedding], dim=1)
 
+            tgt_mask = torch.any(entry_feature[:, :agent_n] != 0, dim=-1)
+
             if self.use_one_feature:
 
                 entry_mask = torch.any(entry_feature != 0, dim=-1)
@@ -131,9 +151,12 @@ class EntryDecoder(nn.Module):
                     entry_pos=torch.cat([current_pos, entry_pos], dim=1)
                     entry_head=torch.cat([current_heading, entry_head], dim=1)
 
-                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n)
+                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n,tgt_mask=tgt_mask)
             else:
                 self.attr_former.attn.caching = True
+
+                if self.use_cross_attention:
+                    self.entry_former.attn.caching = True
 
                 entry_list=[]
                 entry_state_list = []
@@ -146,13 +169,16 @@ class EntryDecoder(nn.Module):
                     current_heading=current_heading[:, -1:]
 
                 while True:
-                    entry_logit = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current)
+
+                    entry_logit = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current,tgt_mask)
 
                     if n_current==0:
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
                         current_pos = current_pos[:, -1:]
                         current_heading = current_heading[:, -1:]
                         n_current=n_current+agent_n
+                        if self.use_cross_attention:
+                            self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
 
                     entry_idx = Categorical(logits=entry_logit).sample()
 
@@ -188,6 +214,8 @@ class EntryDecoder(nn.Module):
                     entry_feature = self.attr_embedding(entry_idx)
 
                 self.attr_former.attn.kv_caching(0)
+                if self.use_cross_attention:
+                    self.entry_former.attn.kv_caching(0)
 
         else:
             entry_logit = self.entry_decoder(feat_a)
