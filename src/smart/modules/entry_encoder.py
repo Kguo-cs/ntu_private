@@ -35,6 +35,8 @@ class EntryDecoder(nn.Module):
 
             self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
 
+            self.task_embedding = nn.Embedding(5, hidden_dim)
+
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
         )
@@ -43,22 +45,27 @@ class EntryDecoder(nn.Module):
 
         n_step=attr_all_feature.shape[1]
 
+        entry_num=n_current+n_step-agent_n
+
         attr_mask = torch.any(attr_all_feature != 0, dim=-1)
+
+        step = torch.arange(n_step,device=entry_pos.device)+n_current
+
+        task=(step-agent_n)%4
+
+        task[step<agent_n]=4
+
+        attr_all_feature=attr_all_feature+self.task_embedding(task)
 
         attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
                                                         0, n_current, attr_mask)
 
-        if n_current==0:
-            attr_feature=attr_feature[:,agent_n:]
-            n_step=n_step-agent_n
-        # else:
-        #     n_current=n_current-agent_n
+        attr_feature=attr_feature[:,-entry_num:]
+        task=task[-entry_num:]
 
         entry_logit = self.entry_decoder(attr_feature)  # which patch  locate
 
-        time=torch.arange(n_step)+n_current
-
-        mask= (time%4!=0)
+        mask= (task!=0)
 
         entry_logit[:,mask,-1]=-torch.inf
 
@@ -83,7 +90,6 @@ class EntryDecoder(nn.Module):
                 entry_state = tokenized_agent["entry_state"]
             else:
                 entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
-
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
@@ -146,6 +152,7 @@ class EntryDecoder(nn.Module):
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
                         current_pos = current_pos[:, -1:]
                         current_heading = current_heading[:, -1:]
+                        n_current=n_current+agent_n
 
                     entry_idx = Categorical(logits=entry_logit).sample()
 
@@ -153,7 +160,7 @@ class EntryDecoder(nn.Module):
 
                     n_current+=1
 
-                    if n_current%4==0:
+                    if len(entry_list)%4==0:
                         entry_idx_x=entry_list[-4]
                         entry_idx_y=entry_list[-3]
                         entry_idx_z=entry_list[-2]
