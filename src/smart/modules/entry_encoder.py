@@ -26,9 +26,9 @@ class EntryDecoder(nn.Module):
 
             self.entry_embedding = MLPLayer(4, hidden_dim, hidden_dim)
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+            #self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
-           # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
 
