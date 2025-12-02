@@ -24,17 +24,19 @@ class EntryDecoder(nn.Module):
         if self.autoregressive_entry:
             self.entry_his_len=1000000
 
-            self.entry_embedding = nn.Linear(4, hidden_dim)
-
-            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+            self.entry_embedding = MLPLayer(4, hidden_dim, hidden_dim)
 
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
+           # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+
             self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
 
-        self.entry_decoder = nn.Linear(hidden_dim,self.n_token_entry)
+        self.entry_decoder = MLPLayer(
+            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
+        )
 
-    def pred_entry(self,attr_all_feature,entry_pos, entry_head,n_current=0):
+    def pred_entry(self,attr_all_feature,entry_pos, entry_head,agent_n,n_current=0):
 
         n_step=attr_all_feature.shape[1]
 
@@ -42,6 +44,12 @@ class EntryDecoder(nn.Module):
 
         attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
                                                         n_step, n_current, attr_mask)
+
+        if n_current==0:
+            attr_feature=attr_feature[:,agent_n:]
+            n_step=n_step-agent_n
+        else:
+            n_current=n_current-agent_n
 
         entry_logit = self.entry_decoder(attr_feature)  # which patch  locate
 
@@ -87,13 +95,13 @@ class EntryDecoder(nn.Module):
 
             entry_embedding = self.entry_embedding(entry_state[:, :1])
 
-            all_features = torch.cat([padding_features, entry_embedding], dim=1)
+            entry_feature = torch.cat([padding_features, entry_embedding], dim=1)
 
-            entry_mask = torch.any(all_features != 0, dim=-1)
-
-            entry_feature = self.entry_former.temporal_embed(all_features, pos[:, :agent_n + 1],
-                                                             heading[:, :agent_n + 1], all_features.shape[1], n_current,
-                                                             entry_mask)[:, agent_n:]
+            # entry_mask = torch.any(all_features != 0, dim=-1)
+            #
+            # entry_feature = self.entry_former.temporal_embed(all_features, pos[:, :agent_n + 1],
+            #                                                  heading[:, :agent_n + 1], all_features.shape[1], n_current,
+            #                                                  entry_mask)
 
             if self.training:
                 entry_idx = tokenized_agent["entry_idx"]
@@ -103,13 +111,16 @@ class EntryDecoder(nn.Module):
                 entry_pos = pos[:, agent_n:, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
                 entry_head = heading[:, agent_n:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
 
-                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head)
+                entry_pos=torch.cat([pos[:, :agent_n], entry_pos], dim=1)
+                entry_head=torch.cat([heading[:, :agent_n], entry_head], dim=1)
+
+                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n)
             else:
                 self.attr_former.attn.caching = True
 
-                current_pos= pos[:, agent_n:]
+                current_pos= pos#[:, agent_n:]
 
-                current_heading = heading[:, agent_n:]
+                current_heading = heading#[:, agent_n:]
 
                 entry_list=[]
                 entry_state_list = []
@@ -119,13 +130,11 @@ class EntryDecoder(nn.Module):
                 while True:
                     if n_current==0:
                         attr_feature = entry_feature
+                        entry_logit = self.pred_entry(attr_feature, current_pos, current_heading,agent_n)
+                        self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
                     else:
                         attr_feature = self.attr_embedding(entry_idx)
-
-                    entry_logit = self.pred_entry(attr_feature, current_pos,  current_heading,n_current)
-
-                    if n_current==0:
-                        self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
+                        entry_logit = self.pred_entry(attr_feature, current_pos[:,-1:], current_heading[:,-1:],agent_n, agent_n+n_current)
 
                     entry_idx = Categorical(logits=entry_logit).sample()
 
