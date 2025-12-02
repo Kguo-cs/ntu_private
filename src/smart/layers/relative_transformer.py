@@ -164,7 +164,7 @@ class RoFormerSelfAttention(nn.Module):
         else:
             query_layer = query_states.view(bsz, q_len, -1, self.attention_head_size).transpose(1, 2)
 
-        if not self.pos_emb:
+        if not self.pos_emb and sinusoidal_pos is not None:
            query_layer = self.apply_rotary(query_layer, sinusoidal_pos)
 
         is_cross_attention = encoder_hidden_states is not None
@@ -172,12 +172,12 @@ class RoFormerSelfAttention(nn.Module):
         if is_cross_attention:
             key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
             value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
-            if not self.pos_emb:
+            if not self.pos_emb and sinusoidal_pos is not None:
                 key_layer = self.apply_rotary(key_layer, encoder_sinusoidal_pos)
         else:
             key_layer = self.transpose_for_scores(self.key(hidden_states))
             value_layer = self.transpose_for_scores(self.value(hidden_states))
-            if not self.pos_emb:
+            if not self.pos_emb and sinusoidal_pos is not None:
                key_layer = self.apply_rotary(key_layer, sinusoidal_pos)
 
         if self.caching_len:
@@ -459,7 +459,10 @@ class RoFormerBlock(nn.Module):
             else:
                 time=time[None,:,None]
 
-        sinusoidal_pos = self.rotary_embedding(pos, heading, time)
+        if pos is not None or heading is not None or time is not None:
+            sinusoidal_pos = self.rotary_embedding(pos, heading, time)
+        else:
+            sinusoidal_pos = None
 
         if n_step>1:
             causal_mask = generate_limited_causal_mask(n_step, self.hist_len,n_agent, device=feature.device)
