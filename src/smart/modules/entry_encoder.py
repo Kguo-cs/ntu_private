@@ -28,7 +28,7 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            self.use_cross_attention= True
+            self.use_cross_attention= False
 
             if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
@@ -86,7 +86,7 @@ class EntryDecoder(nn.Module):
         else:
 
             attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
-                                                            0, n_current, attr_mask)
+                                                            n_step, n_current, attr_mask)
 
             attr_feature=attr_feature[:,-entry_num:]
 
