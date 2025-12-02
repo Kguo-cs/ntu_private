@@ -86,10 +86,10 @@ class EntryDecoder(nn.Module):
             batch_num = batch.max() + 1
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
-            if self.training:
-                entry_state = tokenized_agent["entry_state"]
-            else:
-                entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
+            # if self.training:
+            #     entry_state = tokenized_agent["entry_state"]
+            # else:
+            entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
@@ -122,14 +122,14 @@ class EntryDecoder(nn.Module):
                 #entry_pos = current_pos[:, agent_n:, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
                 #entry_head = current_heading[:, agent_n:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
 
-                entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]+1,current_pos.shape[-1]],device=entry_idx.device)
-                entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]+1],device=entry_idx.device)
+                entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1],current_pos.shape[-1]],device=entry_idx.device)
+                entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]],device=entry_idx.device)
 
                 if self.use_one_feature:
                     agent_n=0
                 else:
-                    entry_pos=torch.cat([current_pos[:, :agent_n], entry_pos], dim=1)
-                    entry_head=torch.cat([current_heading[:, :agent_n], entry_head], dim=1)
+                    entry_pos=torch.cat([current_pos, entry_pos], dim=1)
+                    entry_head=torch.cat([current_heading, entry_head], dim=1)
 
                 entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n)
             else:
@@ -177,13 +177,11 @@ class EntryDecoder(nn.Module):
 
                         new_state=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z,entry_pos_head], dim=-1)
 
-                        #new_state=torch.cat([current_pos[:,0], current_heading],dim=-1)
-
                         new_state[finish]=0
 
                         entry_state_list.append(new_state[:,0])
 
-                        if finish.all() or n_current==500:
+                        if finish.all() or len(entry_list)==500:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
 
