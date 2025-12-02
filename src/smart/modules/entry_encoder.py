@@ -37,7 +37,7 @@ class EntryDecoder(nn.Module):
 
             self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
 
-            self.task_embedding = nn.Embedding(5, hidden_dim)
+            #self.task_embedding = nn.Embedding(5, hidden_dim)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
@@ -70,7 +70,7 @@ class EntryDecoder(nn.Module):
                                                              agent_feature,entry_pos[:, :-entry_num],
                                                              entry_head[:, :-entry_num],  tgt_mask)
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, None, None, entry_feature.shape[1], n_current, entry_mask)
+            attr_feature = self.attr_former.temporal_embed(entry_feature, None, None, 0, n_current, entry_mask)
 
         else:
 
