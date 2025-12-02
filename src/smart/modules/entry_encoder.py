@@ -63,7 +63,9 @@ class EntryDecoder(nn.Module):
 
         number_embedding=self.number_embedding(number.float()[:,None])
 
-        attr_all_feature=attr_all_feature+self.task_embedding(task)[None]+number_embedding[None]
+        attr_all_feature=attr_all_feature+self.task_embedding(task)[None]#+number_embedding[None]
+
+        attr_all_feature[:,-entry_num:]=attr_all_feature[:,-entry_num:]+number_embedding[None,-entry_num:]
 
         if self.use_cross_attention:
 
@@ -213,7 +215,7 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state[:,0])
 
-                        if finish.all() or len(entry_list)==500:
+                        if finish.all() or len(entry_list)==700:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
 
