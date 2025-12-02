@@ -75,13 +75,14 @@ class EntryDecoder(nn.Module):
 
             entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos[:, -entry_num:],
                                                              entry_head[:, -entry_num:], entry_mask,
-                                                             agent_feature,entry_pos[:, :-entry_num],
+                                                             agent_feature, entry_pos[:, :-entry_num],
                                                              entry_head[:, :-entry_num],  tgt_mask)
 
             if n_current!=0:
                 n_current=n_current-agent_n
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, None, None, entry_feature.shape[1], n_current, entry_mask)
+            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos[:, -entry_num:], entry_head[:, -entry_num:],
+                                                           entry_feature.shape[1], n_current, entry_mask)
 
         else:
 
@@ -218,7 +219,7 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state[:,0])
 
-                        if finish.all() or len(entry_list)==700:
+                        if finish.all() or len(entry_list)==500:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
 

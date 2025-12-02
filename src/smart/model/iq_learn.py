@@ -283,7 +283,7 @@ class IQ_SoftQ(LightningModule):
             expert_nll, expert_log_prob,exert_entry_nll,expert_entry_head_nll= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
         if not self.gail:
-            return expert_nll.mean()+exert_entry_nll.mean()*0.1
+            return expert_nll.mean()+exert_entry_nll.mean()
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
