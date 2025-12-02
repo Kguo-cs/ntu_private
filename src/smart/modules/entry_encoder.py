@@ -26,7 +26,7 @@ class EntryDecoder(nn.Module):
 
             self.start_embedding =nn.Embedding(1, hidden_dim)
 
-            self.use_one_feature= True
+            self.use_one_feature= False
 
             if self.use_one_feature:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
@@ -46,13 +46,13 @@ class EntryDecoder(nn.Module):
         attr_mask = torch.any(attr_all_feature != 0, dim=-1)
 
         attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
-                                                        n_step, n_current, attr_mask)
+                                                        0, n_current, attr_mask)
 
         if n_current==0:
             attr_feature=attr_feature[:,agent_n:]
             n_step=n_step-agent_n
-        else:
-            n_current=n_current-agent_n
+        # else:
+        #     n_current=n_current-agent_n
 
         entry_logit = self.entry_decoder(attr_feature)  # which patch  locate
 
@@ -109,12 +109,15 @@ class EntryDecoder(nn.Module):
                                                                  entry_mask)[:,agent_n:]
 
             if self.training:
-                entry_idx = tokenized_agent["entry_idx"]
+                entry_idx = tokenized_agent["entry_idx"].flatten(1, 2)
 
                 attr_feature = self.attr_embedding(entry_idx)
-                attr_all_feature = torch.cat([entry_feature, attr_feature.flatten(1, 2)], dim=1)
-                entry_pos = current_pos[:, agent_n:, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
-                entry_head = current_heading[:, agent_n:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
+                attr_all_feature = torch.cat([entry_feature, attr_feature], dim=1)
+                #entry_pos = current_pos[:, agent_n:, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
+                #entry_head = current_heading[:, agent_n:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
+
+                entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]+1,current_pos.shape[-1]],device=entry_idx.device)
+                entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]+1],device=entry_idx.device)
 
                 if self.use_one_feature:
                     agent_n=0
@@ -133,13 +136,16 @@ class EntryDecoder(nn.Module):
 
                 if self.use_one_feature:
                     agent_n=0
+                    current_pos=current_pos[:, -1:]
+                    current_heading=current_heading[:, -1:]
 
                 while True:
-                    entry_logit = self.pred_entry(entry_feature, current_pos[:, -1:], current_heading[:, -1:], agent_n,
-                                                  agent_n + n_current)
+                    entry_logit = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current)
 
                     if n_current==0:
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
+                        current_pos = current_pos[:, -1:]
+                        current_heading = current_heading[:, -1:]
 
                     entry_idx = Categorical(logits=entry_logit).sample()
 
@@ -158,17 +164,17 @@ class EntryDecoder(nn.Module):
                         entry_pos_x=entry_pos_token_x[entry_idx_x]
                         entry_pos_y=self.token_processor.entry_pos_token_y[entry_idx_y]
                         entry_pos_z=self.token_processor.entry_pos_token_z[entry_idx_z]
-                        current_heading=self.token_processor.entry_head_token[entry_idx_head]
+                        entry_pos_head=self.token_processor.entry_head_token[entry_idx_head]
 
                         finish= finish | (entry_idx_x[:,0]==self.n_token_entry - 1)
 
-                        current_pos=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z], dim=-1)
+                        new_state=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z,entry_pos_head], dim=-1)
 
-                        new_state=torch.cat([current_pos[:,0], current_heading],dim=-1)
+                        #new_state=torch.cat([current_pos[:,0], current_heading],dim=-1)
 
                         new_state[finish]=0
 
-                        entry_state_list.append(new_state)
+                        entry_state_list.append(new_state[:,0])
 
                         if finish.all() or n_current==500:
                             entry_logit=torch.stack(entry_state_list,dim=1)
