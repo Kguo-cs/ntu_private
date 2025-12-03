@@ -98,7 +98,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
-        self.n_token_entry= 81+1
+        self.n_token_entry= 256+1
 
         self.autoregressive_entry=True
 
