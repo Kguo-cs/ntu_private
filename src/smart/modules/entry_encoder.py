@@ -82,7 +82,7 @@ class EntryDecoder(nn.Module):
                 n_current=n_current-agent_n
 
             attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos[:, -entry_num:], entry_head[:, -entry_num:],
-                                                           entry_feature.shape[1], n_current, entry_mask)
+                                                           entry_feature.shape[1], n_current, entry_mask,use_time=False)
 
         else:
 
@@ -219,7 +219,7 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state[:,0])
 
-                        if finish.all() or len(entry_list)==500:
+                        if finish.all() or len(entry_list)==700:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
 
