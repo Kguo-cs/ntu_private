@@ -57,7 +57,7 @@ class EntryDecoder(nn.Module):
 
         task=(step-agent_n)%4
 
-        number=step-agent_n#(step-agent_n)//4
+        number=(step-agent_n)//4 #step-agent_n#
 
         task[step<agent_n]=4
 
@@ -186,11 +186,11 @@ class EntryDecoder(nn.Module):
 
                     if n_current==0:
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
+                        if self.use_cross_attention:
+                            self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
                         current_pos = current_pos[:, -1:]
                         current_heading = current_heading[:, -1:]
                         n_current=n_current+agent_n
-                        if self.use_cross_attention:
-                            self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
 
                     entry_idx = Categorical(logits=entry_logit).sample()
 

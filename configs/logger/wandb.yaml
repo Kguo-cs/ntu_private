@@ -1,5 +1,5 @@
-## https://wandb.ai
-##
+# https://wandb.ai
+#
 wandb:
  _target_: lightning.pytorch.loggers.wandb.WandbLogger
  name: ${task_name}
