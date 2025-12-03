@@ -29,6 +29,7 @@ from src.smart.utils import (
 )
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+from .HierarchicalStateTokenizer import HierarchicalStateTokenizer
 
 class TokenProcessor(torch.nn.Module):
 
@@ -97,7 +98,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
-        self.n_token_entry= self.entry_pos_token.shape[0]+1
+        self.n_token_entry= 81+1
 
         self.autoregressive_entry=True
 
@@ -220,31 +221,40 @@ class TokenProcessor(torch.nn.Module):
 
         #entry_pos_token = pickle.load(open(map_token_path, "rb"))
 
-        x=torch.arange(-75, 45,120/128)
-        y=torch.arange(-20 ,90,110/128)
-        z=torch.arange( 0  ,60,60/128)
+        self.tokenizer=HierarchicalStateTokenizer()
 
+        # pos = torch.tensor([[0.0, 0.0, 10.0],
+        #                     [-50.0, 80.0, 30.0]])
+        # heading = torch.tensor([0.1, -2.0])
+        #
+        # tokens = self.entry_pos_token(pos, heading)
+        #
+        # print(1)
+
+        # x=torch.arange(-78, 50,1)
+        # y=torch.arange(-28 ,100,1)
+        # z=torch.arange( 0  ,64,1)
+        # entry_head_token =torch.arange(-np.pi, np.pi,np.pi/64)
+        # x=torch.arange(-75, 45,120/128)
+        # y=torch.arange(-20 ,90,110/128)
+        # z=torch.arange( 0  ,60,60/128)
+        #
+        # self.register_buffer(f"entry_pos_token_x", x, persistent=False)
+        # self.register_buffer(f"entry_pos_token_y", y, persistent=False)
+        # self.register_buffer(f"entry_pos_token_z", z, persistent=False)
+        # self.register_buffer(f"entry_head_token", entry_head_token, persistent=False)
+        #
+        # self.register_buffer(f"entry_pos_token", x, persistent=False)
         #X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")  # 3 tensors with shapes [nx, ny, nz]
-#
+        #
         # Stack to get final token grid
-       # entry_pos_token = torch.stack([X, Y, Z], dim=-1) .reshape(2048,3) # shape [nx, ny, nz, 3]
-
-        self.register_buffer(f"entry_pos_token_x", x, persistent=False)
-        self.register_buffer(f"entry_pos_token_y", y, persistent=False)
-        self.register_buffer(f"entry_pos_token_z", z, persistent=False)
-
-        self.register_buffer(f"entry_pos_token", x, persistent=False)
-
-        entry_head_token =torch.arange(-np.pi, np.pi,np.pi/64)
-
-        self.register_buffer(f"entry_head_token", entry_head_token, persistent=False)
-
+        # entry_pos_token = torch.stack([X, Y, Z], dim=-1) .reshape(2048,3) # shape [nx, ny, nz, 3]
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
         # ! get raw trajectory data
         valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
-        pos = data["agent"]["position"] # [n_agent, n_step, 2]
+        pos = data["agent"]["position"]  # [n_agent, n_step, 2]
 
         vel=pos[:,1:]-pos[:,:-1]
 
@@ -414,28 +424,34 @@ class TokenProcessor(torch.nn.Module):
                     entry_batch=entry_batch[sort_idx]
                     entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[sort_idx]
 
-                    entry_idx_x=(self.entry_pos_token_x[:, None] - entry_pos[None,:,0]).abs().argmin(dim=0)
-                    entry_idx_y=(self.entry_pos_token_y[:, None] - entry_pos[None,:,1]).abs().argmin(dim=0)
-                    entry_idx_z=(self.entry_pos_token_z[:, None] - entry_pos[None,:,2]).abs().argmin(dim=0)
-                    entry_idx_head=wrap_angle(self.entry_head_token[:, None] - entry_heading[None]).abs().argmin(dim=0)
+                    # entry_idx_x=(self.entry_pos_token_x[:, None] - entry_pos[None,:,0]).abs().argmin(dim=0)
+                    # entry_idx_y=(self.entry_pos_token_y[:, None] - entry_pos[None,:,1]).abs().argmin(dim=0)
+                    # entry_idx_z=(self.entry_pos_token_z[:, None] - entry_pos[None,:,2]).abs().argmin(dim=0)
+                    # entry_idx_head=wrap_angle(self.entry_head_token[:, None] - entry_heading[None]).abs().argmin(dim=0)
+                    #
+                    # entry_idx=torch.stack([entry_idx_x, entry_idx_y, entry_idx_z, entry_idx_head], dim=-1)
 
-                    entry_idx=torch.stack([entry_idx_x, entry_idx_y, entry_idx_z, entry_idx_head], dim=-1)
+                    entry_idx= self.tokenizer(entry_pos,entry_heading)
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
+                    pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
+
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
+                    #
+                    # entry_pos_x=self.entry_pos_token_x[entry_idx_x]
+                    # entry_pos_y=self.entry_pos_token_y[entry_idx_y]
+                    # entry_pos_z=self.entry_pos_token_z[entry_idx_z]
+                    # entry_pos_head=self.entry_head_token[entry_idx_head]
+                    #
+                    # entry_state = torch.stack([entry_pos_x, entry_pos_y, entry_pos_z, entry_pos_head], dim=-1)
 
-                    entry_pos_x=self.entry_pos_token_x[entry_idx_x]
-                    entry_pos_y=self.entry_pos_token_y[entry_idx_y]
-                    entry_pos_z=self.entry_pos_token_z[entry_idx_z]
-                    entry_pos_head=self.entry_head_token[entry_idx_head]
-
-                    entry_state = torch.stack([entry_pos_x, entry_pos_y, entry_pos_z, entry_pos_head], dim=-1)
+                    entry_state=torch.cat([pos_rec, heading_rec[:,None]], dim=-1)
 
                     entry_state_list.extend(torch.split(entry_state,entry_length))
 
-                    prev_head[entry_id]=entry_pos_head
-                    prev_pos[entry_id]=entry_state[:,:3]
+                    prev_pos[entry_id]=pos_rec
+                    prev_head[entry_id]=heading_rec
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
