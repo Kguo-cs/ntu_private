@@ -98,7 +98,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
-        self.n_token_entry= 256+1
+        self.n_token_entry= 81+1
 
         self.autoregressive_entry=True
 
@@ -124,11 +124,11 @@ class TokenProcessor(torch.nn.Module):
 
             if self.pred_entry:
                 entry_idx=[torch.from_numpy(entry_idx).long().permute(1, 0, 2) for entry_idx in agent["entry_idx"]]
-                entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
+              #  entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
 
 
                 tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True,padding_value=self.n_token_entry-1).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
-                tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+               # tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
 
             tokenized_agent["token_traj_all"] = self.agent_token_all[:,:,None]#[None, :, :]#.repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
 
@@ -446,9 +446,9 @@ class TokenProcessor(torch.nn.Module):
                     #
                     # entry_state = torch.stack([entry_pos_x, entry_pos_y, entry_pos_z, entry_pos_head], dim=-1)
 
-                    entry_state=torch.cat([pos_rec, heading_rec[:,None]], dim=-1)
+                   # entry_state=torch.cat([pos_rec, heading_rec[:,None]], dim=-1)
 
-                    entry_state_list.extend(torch.split(entry_state,entry_length))
+                    #entry_state_list.extend(torch.split(entry_state,entry_length))
 
                     prev_pos[entry_id]=pos_rec
                     prev_head[entry_id]=heading_rec
@@ -577,13 +577,13 @@ class TokenProcessor(torch.nn.Module):
         if len(entry_idx_list) and self.training:
             # entry_length=out_dict['sampled_idx'].shape[1]-1
             out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry-1)#.reshape(entry_length,batch_num,-1)
-            out_dict["entry_state"]=pad_sequence(entry_state_list, batch_first=True, padding_value=0)#.reshape(entry_length,batch_num,-1)
+            #out_dict["entry_state"]=pad_sequence(entry_state_list, batch_first=True, padding_value=0)#.reshape(entry_length,batch_num,-1)
             #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
 
 
             # print(out_dict["entry_idx"].shape[1])
 
-            out_dict["entry_state"] = torch.cat([torch.zeros_like(out_dict["entry_state"][:, :1]), out_dict["entry_state"]], dim=1)
+            #out_dict["entry_state"] = torch.cat([torch.zeros_like(out_dict["entry_state"][:, :1]), out_dict["entry_state"]], dim=1)
 
             # out_dict["entry_idx"] = torch.cat(
             #     [out_dict["entry_idx"], torch.zeros_like(out_dict["entry_idx"][:, :1]) + self.n_token_entry - 1], dim=1)

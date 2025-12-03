@@ -120,6 +120,9 @@ class EntryDecoder(nn.Module):
             #     entry_state = tokenized_agent["entry_state"]
             # else:
             entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
+            #entry_state[:,:,0]=(-75.0+50.0)/2
+            #entry_state[:,:,1]=(-20.0+90.0)/2
+            #entry_state[:,:,2]=(0.0+60.0)/2
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
@@ -151,11 +154,13 @@ class EntryDecoder(nn.Module):
 
                 attr_feature = self.attr_embedding(entry_idx)
                 attr_all_feature = torch.cat([entry_feature, attr_feature], dim=1)
-                #entry_pos = current_pos[:, agent_n:, None].repeat(1, 1, 4, 1).flatten(1, 2)[:, :-3]  # 4* entry_agent+1
-                #entry_head = current_heading[:, agent_n:, None].repeat(1, 1, 4).flatten(1, 2)[:, :-3]
+
 
                 entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1],current_pos.shape[-1]],device=entry_idx.device)
                 entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]],device=entry_idx.device)
+                #entry_idx =entry_idx.reshape(entry_idx.shape[0],-1,4)
+
+               # pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all)
 
                 if self.use_one_feature:
                     agent_n=0

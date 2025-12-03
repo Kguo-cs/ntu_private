@@ -36,7 +36,7 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_entry128/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_entry81/"
 
 
 
@@ -76,7 +76,7 @@ def process_file(filename):
     tokenized_agent["sampled_idx"]= tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_agent['abs_time']= tokenized_agent['abs_time'][:,0]
     tokenized_agent["entry_idx"]= tokenized_agent["entry_idx"].to(torch.uint8).numpy()
-    tokenized_agent["entry_state"]= tokenized_agent["entry_state"].numpy()
+    #tokenized_agent["entry_state"]= tokenized_agent["entry_state"].numpy()
 
     tokenized_agent["num_nodes"]=len(tokenized_agent["sampled_idx"])
 
