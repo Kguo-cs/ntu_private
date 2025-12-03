@@ -204,20 +204,25 @@ class EntryDecoder(nn.Module):
                         entry_idx_z=entry_list[-2]
                         entry_idx_head=entry_list[-1]
 
-                        entry_pos_token_x=torch.cat([self.token_processor.entry_pos_token_x,torch.zeros_like(self.token_processor.entry_pos_token_x[:1])])
-
-                        entry_pos_x=entry_pos_token_x[entry_idx_x]
-                        entry_pos_y=self.token_processor.entry_pos_token_y[entry_idx_y]
-                        entry_pos_z=self.token_processor.entry_pos_token_z[entry_idx_z]
-                        entry_pos_head=self.token_processor.entry_head_token[entry_idx_head]
+                        # entry_pos_token_x=torch.cat([self.token_processor.entry_pos_token_x,torch.zeros_like(self.token_processor.entry_pos_token_x[:1])])
+                        #
+                        # entry_pos_x=entry_pos_token_x[entry_idx_x]
+                        # entry_pos_y=self.token_processor.entry_pos_token_y[entry_idx_y]
+                        # entry_pos_z=self.token_processor.entry_pos_token_z[entry_idx_z]
+                        # entry_pos_head=self.token_processor.entry_head_token[entry_idx_head]
 
                         finish= finish | (entry_idx_x[:,0]==self.n_token_entry - 1)
 
-                        new_state=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z,entry_pos_head], dim=-1)
+                        entry_idx_all=torch.cat([entry_idx_x, entry_idx_y, entry_idx_z,entry_idx_head], dim=1)
+
+                        # new_state=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z,entry_pos_head], dim=-1)
+                        pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all)
+
+                        new_state=torch.cat([pos_rec, heading_rec[:,None]], dim=-1)
 
                         new_state[finish]=0
 
-                        entry_state_list.append(new_state[:,0])
+                        entry_state_list.append(new_state)
 
                         if finish.all() or len(entry_list)==700:
                             entry_logit=torch.stack(entry_state_list,dim=1)
