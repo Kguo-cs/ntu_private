@@ -220,9 +220,9 @@ class TokenProcessor(torch.nn.Module):
 
         #entry_pos_token = pickle.load(open(map_token_path, "rb"))
 
-        x=torch.arange(-75, 45,120/256)
-        y=torch.arange(-20 ,90,110/256)
-        z=torch.arange( 0  ,60,60/256)
+        x=torch.arange(-75, 45,120/128)
+        y=torch.arange(-20 ,90,110/128)
+        z=torch.arange( 0  ,60,60/128)
 
         #X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")  # 3 tensors with shapes [nx, ny, nz]
 #
@@ -235,7 +235,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"entry_pos_token", x, persistent=False)
 
-        entry_head_token =torch.arange(-np.pi, np.pi,np.pi/128)
+        entry_head_token =torch.arange(-np.pi, np.pi,np.pi/64)
 
         self.register_buffer(f"entry_head_token", entry_head_token, persistent=False)
 
