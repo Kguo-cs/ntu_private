@@ -450,12 +450,12 @@ class TokenProcessor(torch.nn.Module):
 
                     #entry_state_list.extend(torch.split(entry_state,entry_length))
 
-                    prev_pos[entry_id]=pos_rec
-                    prev_head[entry_id]=heading_rec
-
-                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-
-                    entry_token_invalid_mask.append(dist)
+                    # prev_pos[entry_id]=pos_rec
+                    # prev_head[entry_id]=heading_rec
+                    #
+                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    #
+                    # entry_token_invalid_mask.append(dist)
 
                     # real_id=entry_id[dist>1]
                     #
