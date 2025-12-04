@@ -411,11 +411,11 @@ class TokenProcessor(torch.nn.Module):
             if self.pred_entry and i > self.shift :
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
-                entry_pos = pos[:, i][entry_agent]  # .to(torch.float16)
+                entry_pos = pos[:, i][entry_agent].clone()  # .to(torch.float16)
 
                 if self.autoregressive_entry:  # 193, 3
-                    entry_heading = heading[:, i][entry_agent]
-                    entry_batch=batch[entry_agent]# .to(torch.float16)
+                    entry_heading = heading[:, i][entry_agent].clone()
+                    entry_batch=batch[entry_agent].clone()
 
                     sort_idx=torch.argsort(entry_pos[:, 0])
 
@@ -450,16 +450,16 @@ class TokenProcessor(torch.nn.Module):
 
                     #entry_state_list.extend(torch.split(entry_state,entry_length))
 
-                    # prev_pos[entry_id]=pos_rec
-                    # prev_head[entry_id]=heading_rec
-                    #
-                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #
-                    # entry_token_invalid_mask.append(dist)
+                    prev_pos[entry_id]=pos_rec
+                    prev_head[entry_id]=heading_rec
 
-                    # real_id=entry_id[dist>1]
-                    #
-                    # prev_pos[real_id]=pos[real_id,i]
+                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+
+                    entry_token_invalid_mask.append(dist)
+
+                    real_id=entry_id[dist>1]
+
+                    prev_pos[real_id]=pos[real_id,i]
 
                 elif entry_agent.any():#and entry_mask.all()
 
