@@ -353,7 +353,6 @@ class TokenProcessor(torch.nn.Module):
         agent_shape = torch.ones_like(pos[:, 0, :2])
         batch_num=batch.max()+1
 
-        # gt_contour=pos[:, i].unsqueeze(1)
         if self.pred_entry and not self.autoregressive_entry:
             entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
 
@@ -369,7 +368,6 @@ class TokenProcessor(torch.nn.Module):
             gt_contour = cal_polygon_contour(pos[:, i,:2], heading[:, i], agent_shape)
 
             gt_contour=torch.cat([gt_contour, pos[:, i,None,2:].repeat(1,4,1)], dim=-1).unsqueeze(1)
-            #gt_contour=pos[:,i-self.shift+1:i+1].unsqueeze(1)
 
             token_world_xy = transform_to_global(
                 pos_local=token_xy.flatten(1, 2),  # [n_agent, n_token*4, 2]
@@ -411,11 +409,11 @@ class TokenProcessor(torch.nn.Module):
             if self.pred_entry and i > self.shift :
                 entry_agent = ~valid[:, i - self.shift] & valid[:, i]
                 present_agent = valid[:, i - self.shift]
-                entry_pos = pos[:, i][entry_agent].clone()  # .to(torch.float16)
+                entry_pos = pos[:, i][entry_agent]
 
-                if self.autoregressive_entry:  # 193, 3
-                    entry_heading = heading[:, i][entry_agent].clone()
-                    entry_batch=batch[entry_agent].clone()
+                if self.autoregressive_entry:
+                    entry_heading = heading[:, i][entry_agent]
+                    entry_batch=batch[entry_agent]
 
                     sort_idx=torch.argsort(entry_pos[:, 0])
 
