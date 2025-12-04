@@ -36,7 +36,7 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_entry44max_noreplace/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_entry53max_noreplace/"
 
 
 
