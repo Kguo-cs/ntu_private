@@ -12,7 +12,7 @@ model:
       agent_token_file: "bird1024.pkl"
       map_token_file: "first2048.pkl"
       use_noise: True
-      pred_entry: True
+      pred_entry: False
 
     val_open_loop: False
 
