@@ -26,7 +26,7 @@ class HierarchicalStateTokenizer(nn.Module):
         y_range=(-28.0, 102.0),
         z_range=(-4.0, 66.0),
         h_range=(-math.pi, math.pi),
-        num_levels=4,
+        num_levels=3,
         base=5,
     ):
         super().__init__()
@@ -38,7 +38,7 @@ class HierarchicalStateTokenizer(nn.Module):
 
         self.num_levels = num_levels
         self.base = base
-        self.n_total = base ** num_levels     # = 81 bins per dim at finest level
+        self.n_total = base ** 4     # = 81 bins per dim at finest level
 
     # ---------------- Util functions ---------------- #
 

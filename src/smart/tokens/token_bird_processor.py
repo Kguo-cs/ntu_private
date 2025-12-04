@@ -98,7 +98,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
-        self.n_token_entry= self.tokenizer.n_total+1
+        self.n_token_entry= self.tokenizer.n_total
 
         self.autoregressive_entry=True
 
@@ -127,7 +127,7 @@ class TokenProcessor(torch.nn.Module):
               #  entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
 
 
-                tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True,padding_value=self.n_token_entry-1).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+                tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True,padding_value=self.n_token_entry).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
                # tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
 
             tokenized_agent["token_traj_all"] = self.agent_token_all[:,:,None]#[None, :, :]#.repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
@@ -401,7 +401,7 @@ class TokenProcessor(torch.nn.Module):
             _valid_mask[token_in_valid]=False
 
             if self.pred_entry and not self.autoregressive_entry :
-                entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry - 1
+                entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry
 
                 entry_head_idx = torch.zeros_like(token_idx_gt)
 
@@ -576,7 +576,7 @@ class TokenProcessor(torch.nn.Module):
 
         if len(entry_idx_list) and self.training:
             # entry_length=out_dict['sampled_idx'].shape[1]-1
-            out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry-1)#.reshape(entry_length,batch_num,-1)
+            out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
             #out_dict["entry_state"]=pad_sequence(entry_state_list, batch_first=True, padding_value=0)#.reshape(entry_length,batch_num,-1)
             #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
 

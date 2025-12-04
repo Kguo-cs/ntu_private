@@ -30,19 +30,22 @@ class EntryDecoder(nn.Module):
 
             self.use_cross_attention= True
 
+            self.num_levels=self.token_processor.tokenizer.num_levels
+
             if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
-            self.attr_embedding = nn.Embedding(self.n_token_entry, hidden_dim)
+            self.attr_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
 
-            self.task_embedding = nn.Embedding(5, hidden_dim)
+            self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
 
+
         self.entry_decoder = MLPLayer(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry
+            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
         )
 
     def pred_entry(self,attr_all_feature,entry_pos, entry_head,agent_n,n_current=0,tgt_mask=None):
@@ -55,11 +58,11 @@ class EntryDecoder(nn.Module):
 
         step = torch.arange(n_step,device=entry_pos.device)+n_current
 
-        task=(step-agent_n)%4
+        task=(step-agent_n)%self.num_levels
 
-        number=(step-agent_n)//4 #step-agent_n#
+        number=(step-agent_n)//self.num_levels #step-agent_n#
 
-        task[step<agent_n]=4
+        task[step<agent_n]=self.num_levels
 
         number_embedding=self.number_embedding(number.float()[:,None])
 
@@ -155,11 +158,11 @@ class EntryDecoder(nn.Module):
 
                 #entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1],current_pos.shape[-1]],device=entry_idx.device)
                 #entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]],device=entry_idx.device)
-                entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,4)
+                entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
                 entry_pos=[]
                 entry_head=[]
 
-                for l in range(1,5):
+                for l in range(1,self.num_levels+1):
                     pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
 
                     entry_pos.append(pos_rec)
@@ -209,14 +212,19 @@ class EntryDecoder(nn.Module):
 
                     n_current+=1
 
-                    num = len(entry_list) % 4
+                    num = len(entry_list) % self.num_levels
 
 
                     if num==0:
-                        entry_idx_x=entry_list[-4]
-                        entry_idx_y=entry_list[-3]
-                        entry_idx_z=entry_list[-2]
-                        entry_idx_head=entry_list[-1]
+                        num=self.num_levels
+
+                        # entry_idx_x=entry_list[-4]
+                        # entry_idx_y=entry_list[-3]
+                        # entry_idx_z=entry_list[-2]
+                        # entry_idx_head=entry_list[-1]
+                        # entry_idx_all=torch.cat([entry_idx_x, entry_idx_y, entry_idx_z,entry_idx_head], dim=1)
+
+                        entry_idx_all = torch.cat(entry_list, dim=1)[:, -num:]
 
                         # entry_pos_token_x=torch.cat([self.token_processor.entry_pos_token_x,torch.zeros_like(self.token_processor.entry_pos_token_x[:1])])
                         #
@@ -225,9 +233,8 @@ class EntryDecoder(nn.Module):
                         # entry_pos_z=self.token_processor.entry_pos_token_z[entry_idx_z]
                         # entry_pos_head=self.token_processor.entry_head_token[entry_idx_head]
 
-                        finish= finish | (entry_idx_x[:,0]==self.n_token_entry - 1)
+                        finish= finish | (entry_idx_all[:,0]==self.n_token_entry )
 
-                        entry_idx_all=torch.cat([entry_idx_x, entry_idx_y, entry_idx_z,entry_idx_head], dim=1)
 
                         # new_state=torch.stack([entry_pos_x, entry_pos_y, entry_pos_z,entry_pos_head], dim=-1)
                         pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all)
@@ -238,11 +245,9 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state)
 
-                        if finish.all() or len(entry_list)==700:
+                        if finish.all() or len(entry_list)==140*self.num_levels:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
-
-                        num=4
 
                     entry_token = torch.cat(entry_list, dim=1)[:, -num:]
 
