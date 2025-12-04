@@ -433,7 +433,7 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
-                    pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
+                   # pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
 
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
                     #

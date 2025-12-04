@@ -26,8 +26,8 @@ class HierarchicalStateTokenizer(nn.Module):
         y_range=(-20 ,90),
         z_range=(0  ,60),
         h_range=(-math.pi, math.pi),
-        num_levels=3,
-        base=6,
+        num_levels=4,
+        base=4,
     ):
         super().__init__()
 
