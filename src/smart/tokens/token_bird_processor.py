@@ -455,7 +455,7 @@ class TokenProcessor(torch.nn.Module):
 
                     dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
 
-                    #entry_token_invalid_mask.append(dist>1)
+                    entry_token_invalid_mask.append(dist>1)
 
                     real_id=entry_id[dist>1]
 
