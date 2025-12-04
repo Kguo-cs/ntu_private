@@ -571,7 +571,7 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        if len(entry_token_invalid_mask)>0:
+        if len(entry_token_invalid_mask)>0 and self.training:
             out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
 
         if len(entry_idx_list) and self.training:

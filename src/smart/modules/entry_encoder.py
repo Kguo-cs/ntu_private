@@ -116,9 +116,6 @@ class EntryDecoder(nn.Module):
             batch_num = batch.max() + 1
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
-            # if self.training:
-            #     entry_state = tokenized_agent["entry_state"]
-            # else:
             entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
             entry_state[:,:,0]=(self.token_processor.tokenizer.x_min+self.token_processor.tokenizer.x_max)/2
             entry_state[:,:,1]=(self.token_processor.tokenizer.y_min+self.token_processor.tokenizer.y_max)/2
@@ -168,8 +165,8 @@ class EntryDecoder(nn.Module):
                     entry_pos.append(pos_rec)
                     entry_head.append(heading_rec)
 
-                entry_pos=torch.cat(entry_pos,dim=1)
-                entry_head=torch.cat(entry_head,dim=1)
+                entry_pos=torch.stack(entry_pos,dim=2).flatten(1,2)
+                entry_head=torch.stack(entry_head,dim=2).flatten(1,2)
 
                 if self.use_one_feature:
                     agent_n=0
