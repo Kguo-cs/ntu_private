@@ -75,7 +75,7 @@ def process_file(filename):
 
     tokenized_agent["sampled_idx"]= tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_agent['abs_time']= tokenized_agent['abs_time'][:,0]
-    tokenized_agent["entry_idx"]= tokenized_agent["entry_idx"].to(torch.uint8).numpy()
+    tokenized_agent["entry_idx"]= tokenized_agent["entry_idx"].to(torch.int16).numpy()
     #tokenized_agent["entry_state"]= tokenized_agent["entry_state"].numpy()
 
     tokenized_agent["num_nodes"]=len(tokenized_agent["sampled_idx"])
@@ -102,7 +102,7 @@ def process_file(filename):
 
 
 if __name__ == "__main__":
-    files = os.listdir(agent_data_directory)[20100:]
+    files = os.listdir(agent_data_directory)
 
     for file in tqdm(files):
         process_file(file)
