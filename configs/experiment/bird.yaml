@@ -42,7 +42,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/logs/bird6_head1_at1_clone_n20/2025-11-11_18-51-26/bird/gzan6d3o/checkpoints/epoch=19-step=155000.ckpt'
 
-task_name: bird6_entry44_minrange #_number4_notimepos_rightpos625max_val8 #entry001_crossnumberpos #_task_all #_val8 #valid_pad_val10 #entryloss1_d2 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird6_entry53_minrange #_number4_notimepos_rightpos625max_val8 #entry001_crossnumberpos #_task_all #_val8 #valid_pad_val10 #entryloss1_d2 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 

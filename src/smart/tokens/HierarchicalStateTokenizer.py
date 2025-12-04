@@ -26,8 +26,8 @@ class HierarchicalStateTokenizer(nn.Module):
         y_range=(-20 ,90),
         z_range=(0  ,60),
         h_range=(-math.pi, math.pi),
-        num_levels=4,
-        base=4,
+        num_levels=3,
+        base=5,
     ):
         super().__init__()
 
@@ -39,6 +39,8 @@ class HierarchicalStateTokenizer(nn.Module):
         self.num_levels = num_levels
         self.base = base
         self.n_total = base ** 4     # = 81 bins per dim at finest level
+
+        self.digit_total=base ** num_levels
 
     # ---------------- Util functions ---------------- #
 
@@ -100,10 +102,10 @@ class HierarchicalStateTokenizer(nn.Module):
         # wrap heading into [h_min, h_max]
         heading_flat = ((heading_flat - self.h_min) % (self.h_max - self.h_min)) + self.h_min
 
-        ix = self._continuous_to_bins(pos_flat[:, 0], self.x_min, self.x_max, self.n_total)
-        iy = self._continuous_to_bins(pos_flat[:, 1], self.y_min, self.y_max, self.n_total)
-        iz = self._continuous_to_bins(pos_flat[:, 2], self.z_min, self.z_max, self.n_total)
-        ih = self._continuous_to_bins(heading_flat, self.h_min, self.h_max, self.n_total)
+        ix = self._continuous_to_bins(pos_flat[:, 0], self.x_min, self.x_max, self.digit_total)
+        iy = self._continuous_to_bins(pos_flat[:, 1], self.y_min, self.y_max, self.digit_total)
+        iz = self._continuous_to_bins(pos_flat[:, 2], self.z_min, self.z_max, self.digit_total)
+        ih = self._continuous_to_bins(heading_flat, self.h_min, self.h_max, self.digit_total)
 
         ix_d = self._to_digits(ix, self.base, self.num_levels)
         iy_d = self._to_digits(iy, self.base, self.num_levels)
@@ -173,7 +175,7 @@ class HierarchicalStateTokenizer(nn.Module):
             [self.base ** (l - 1 - j) for j in range(l)],
             device=device,
             dtype=torch.long,
-        )  # [l]
+        )  # [l]125
 
         ix_idx = (ix_d * powers).sum(dim=-1)
         iy_idx = (iy_d * powers).sum(dim=-1)
