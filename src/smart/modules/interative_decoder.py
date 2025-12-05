@@ -85,7 +85,6 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
 
-
         if self.edge_encoder.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
                                               hist_len=self.agent_hist)
@@ -120,9 +119,11 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
+
         self.discriminator = discriminator
-        self.use_edge_feature=False
+        self.use_edge_feature=True
         self.use_full_feature=False
+        self.use_airl=False
 
         if not (discriminator and self.use_edge_feature and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
@@ -150,7 +151,6 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
 
-        self.use_airl=True
 
         if self.discriminator:
 
@@ -193,8 +193,8 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
-                start_index = edge_index_a2a[0]
-                end_index = edge_index_a2a[1]
+                start_index = edge_index_a2a[0]       #dst indices = query point
+                end_index = edge_index_a2a[1]        #src indices = its k nearest neighbors        from src to tgt
 
                 start_edge_feature = feat_a[start_index]
 

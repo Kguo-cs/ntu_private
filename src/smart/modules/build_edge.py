@@ -193,9 +193,9 @@ def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
     return a2a_mask
 
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
-    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)
-    row, col = edge_index
-    distances = (x[col] - x[row]).norm(dim=1)
+    edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)        #source_to_target  edge_index[0] = dst edge_index[1] = src
+    src, dst = edge_index
+    distances = (x[src] - x[dst]).norm(dim=1)
     mask = distances <= r
     # Step 2: Get relative vectors: y - x (N_edges, 2)
 
