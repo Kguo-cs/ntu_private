@@ -194,14 +194,14 @@ def nearest_mask2(padd_pos, padd_pos1, nearest_k, max_dist, mask):
 
 def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
     edge_index = knn_graph(x, k=max_num_neighbors, batch=batch, loop=loop)        #source_to_target  edge_index[0] = dst edge_index[1] = src
-    src, dst = edge_index
+    dst, src = edge_index
     distances = (x[src] - x[dst]).norm(dim=1)
     mask = distances <= r
     # Step 2: Get relative vectors: y - x (N_edges, 2)
 
     final_edge_index = edge_index[:, mask]
 
-    return final_edge_index
+    return final_edge_index.flip(0)
 
 
 def get_mask(rel,theta,forward=40,back=20,width=20):
@@ -222,8 +222,8 @@ def get_mask(rel,theta,forward=40,back=20,width=20):
 
 def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
     edge_index = knn(y, x, max_num_neighbors, batch_x=batch_y, batch_y=batch_x) # for each object in x, the nearest point in y
-    row, col = edge_index# row is
-    distances = (x[row] - y[col]).norm(dim=1)
+    dst, src = edge_index
+    distances = (x[dst] - y[src]).norm(dim=1)      # x is agent , y is map , src is map , dst is agent
 
     mask = (distances < r) & (distances>0)
 
@@ -235,14 +235,6 @@ def radiusGraphNearest2(x,y,r, batch_x,batch_y,  max_num_neighbors):
 
     return final_edge_index.flip(0)
 
-def radiusGraphNearest_inv(x,y,r, batch_x,batch_y,  max_num_neighbors):
-    edge_index = knn(x, y, max_num_neighbors, batch_x=batch_x, batch_y=batch_y)
-    row, col = edge_index
-    distances = (x[col] - y[row]).norm(dim=1)
-    mask = (distances <= r)
-    final_edge_index = edge_index[:, mask]
-
-    return final_edge_index
 
 def positionalencoding1d(d_model, length):
     """

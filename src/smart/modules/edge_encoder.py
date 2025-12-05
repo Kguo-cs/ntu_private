@@ -12,7 +12,7 @@ from src.smart.utils import (
     wrap_angle,
 )
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest,radiusGraphNearest_inv,visibility_aware_knn_with_radius_batch
+    radiusGraphNearest
 from torch_geometric.utils import dense_to_sparse, subgraph
 from torch_cluster import radius_graph
 import time
@@ -292,9 +292,16 @@ class EdgeEncoder(nn.Module):
                                               batch_x=batch_s,
                                               batch_y=batch_pl,
                                               max_num_neighbors=max_num_neighbors)
-
-
-        rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]
+        # edge_index_pl2a = radius(
+        #     x=pos_s[:, :2],
+        #     y=pos_pl[:, :2],
+        #     r=self.pl2a_radius,
+        #     batch_x=batch_s,
+        #     batch_y=batch_pl,
+        #     max_num_neighbors=300,
+        # )
+        # #edge_index[0] → indices in y (query points)            edge_index[1] → indices in x (neighbor points)
+        rel_pos_pl2a = pos_pl[edge_index_pl2a[0]] - pos_s[edge_index_pl2a[1]]   #src, dst
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )

@@ -193,8 +193,9 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
-                start_index = edge_index_a2a[0]       #dst indices = query point
-                end_index = edge_index_a2a[1]        #src indices = its k nearest neighbors        from src to tgt
+                start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
+                end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
+
 
                 start_edge_feature = feat_a[start_index]
 
@@ -233,7 +234,7 @@ class InterativeDecoder(nn.Module):
                     feat_a=feat_a[train_repeat_mask]
 
                 if not self.token_processor.use_bird:
-                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
