@@ -46,7 +46,7 @@ model:
 
 ckpt_path : './ckpts/bird6_head1_at1_clone_epoch=63-step=496000.ckpt'
 
-task_name: iq3_roformer1sa_flip #_Pos4 #_counter #_sa_determini_present_distemp32_srcdst
+task_name: iq3_roformer1sa #_flip #_Pos4 #_counter #_sa_determini_present_distemp32_srcdst
 
 
 trainer:

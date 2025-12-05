@@ -201,7 +201,7 @@ def radiusGraphNearest(x, batch, r, loop, max_num_neighbors):
 
     final_edge_index = edge_index[:, mask]
 
-    return final_edge_index.flip(0)
+    return final_edge_index#.flip(0)
 
 
 def get_mask(rel,theta,forward=40,back=20,width=20):
