@@ -193,8 +193,8 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
             if (self.use_edge_feature and self.discriminator):
-                start_index = edge_index_a2a[0]       #dst indices = query point
-                end_index = edge_index_a2a[1]        #src indices = its k nearest neighbors        from src to tgt
+                start_index = edge_index_a2a[1]       #dst indices = query point
+                end_index = edge_index_a2a[0]        #src indices = its k nearest neighbors        from src to tgt
 
                 start_edge_feature = feat_a[start_index]
 
