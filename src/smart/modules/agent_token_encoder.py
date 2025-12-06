@@ -90,11 +90,11 @@ class AgentTokenEncoder(nn.Module):
             head_vector_a,  # [n_agent, n_step, 2]
             agent_type,  # [n_agent]
             agent_shape,  # [n_agent, 3]
-            token_mask,
             batch_idx,
             goal_pos,
             goal_mask,
             abs_time,
+            token_mask=None,
             inference=False,
     ):
         n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
@@ -109,10 +109,10 @@ class AgentTokenEncoder(nn.Module):
                 veh_mask =agent_type == 0
                 ped_mask = agent_type == 1
                 cyc_mask = agent_type == 2
-                # if self.token_processor.use_token:
-                veh_mask=veh_mask[:,None] & token_mask
-                ped_mask=ped_mask[:,None] & token_mask
-                cyc_mask=cyc_mask[:,None] & token_mask
+                if token_mask is not None:
+                    veh_mask=veh_mask[:,None] & token_mask
+                    ped_mask=ped_mask[:,None] & token_mask
+                    cyc_mask=cyc_mask[:,None] & token_mask
 
                 agent_token_emb_veh = self.token_emb_veh(self.token_processor.trajectory_token_veh)
                 agent_token_emb_ped = self.token_emb_ped(self.token_processor.trajectory_token_ped)
@@ -184,8 +184,8 @@ class AgentTokenEncoder(nn.Module):
 
         # if self.token_processor.use_token:
 
-        if token_mask is not None:
-            feature_a[~token_mask]=0
+        # if token_mask is not None:
+        #     feature_a[~token_mask]=0
 
         if self.use_goal:
             if goal_pos is not None:
