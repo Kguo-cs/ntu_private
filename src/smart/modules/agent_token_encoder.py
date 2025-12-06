@@ -184,8 +184,8 @@ class AgentTokenEncoder(nn.Module):
 
         # if self.token_processor.use_token:
 
-        # if token_mask is not None:
-        #     feature_a[~token_mask]=0
+        if token_mask is not None:
+            feature_a[~token_mask]=0
 
         if self.use_goal:
             if goal_pos is not None:
