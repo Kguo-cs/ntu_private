@@ -230,3 +230,5 @@ AIRL64_value0001noclip_distr402060a5_expertvalid influence of range
 
 
 #diffusion initailization 
+
+To alleviate the imbalance of these two control tokens, we set the label weights:w(<KEEP AGENT>) = 0.1 and w(<REMOVE AGENT>) = 0.9when calculating the CrossEntropy Loss

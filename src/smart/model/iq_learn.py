@@ -121,6 +121,7 @@ class IQ_SoftQ(LightningModule):
             action_nll = action_nll + 0.1 * exit_nll
 
         else:
+
             action_nll=-log_prob
 
             self.log("train/" + key + "_nll", action_nll.mean().item(), on_step=True, batch_size=1)
@@ -131,6 +132,10 @@ class IQ_SoftQ(LightningModule):
                 exit_nll = -log_prob[exit_mask].mean()
 
                 self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
+
+                weight=exit_mask+1
+
+                action_nll =weight*action_nll
 
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
 
