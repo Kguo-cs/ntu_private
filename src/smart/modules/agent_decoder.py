@@ -350,11 +350,11 @@ class SMARTAgentDecoder(nn.Module):
 
                             entry_feature=feat_a[entry_mask]
 
-                            feat_pos = torch.cat([entry_local_traj, entry_feature], dim=-1)
-
-                            pred_offset = self.entry_decoder.pos_offset_predict_head(feat_pos)
-
-                            entry_local_traj=entry_local_traj+pred_offset
+                            # feat_pos = torch.cat([entry_local_traj, entry_feature], dim=-1)
+                            #
+                            # pred_offset = self.entry_decoder.pos_offset_predict_head(feat_pos)
+                            #
+                            # entry_local_traj=entry_local_traj+pred_offset
 
                             feat_pos_offset = torch.cat([entry_local_traj, entry_feature], dim=-1)
 
@@ -364,13 +364,14 @@ class SMARTAgentDecoder(nn.Module):
 
                             new_head=(entry_head_idx-self.token_processor.n_token_entry_head_half)/(self.token_processor.n_token_entry_head_half)*np.pi
 
-                            # feat_token = torch.cat([entry_local_traj, new_head[:, None], entry_feature], dim=-1)
-                            #
-                            # pred_offset = self.entry_decoder.pos_offset_predict_head(feat_token)
-                            #
-                            # new_pos=new_pos+pred_offset[:,:3]
-                            #
-                            # new_head=wrap_angle(new_head+present_head+pred_offset[:,-1])
+                            feat_token = torch.cat([entry_local_traj, new_head[:, None], entry_feature], dim=-1)
+
+                            pred_offset = self.entry_decoder.pos_offset_predict_head(feat_token)
+
+                            new_head=wrap_angle(new_head+present_head+pred_offset[:,-1])
+                            #new_head = wrap_angle(new_head + present_head )
+
+                            entry_local_traj = entry_local_traj + pred_offset[:,:3]
 
                             new_xy = transform_to_global(
                                 entry_local_traj[:, None, :2],
@@ -383,7 +384,6 @@ class SMARTAgentDecoder(nn.Module):
 
                             new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
 
-                            new_head = wrap_angle(new_head + present_head )
 
                             new_agent_batch=batch[new_agent_mask]
 
