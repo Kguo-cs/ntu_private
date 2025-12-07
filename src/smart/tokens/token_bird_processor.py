@@ -224,6 +224,7 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
 
             self.n_token_entry_head=64
+            self.n_token_entry_head_half=self.n_token_entry_head//2
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -470,40 +471,40 @@ class TokenProcessor(torch.nn.Module):
                             entry_idx_gt.append(entry_idx_gt_i)
 
                     row_ind=np.concatenate(row_ind)
-                    #col_ind=np.concatenate(col_ind)
+                    col_ind=np.concatenate(col_ind)
                     entry_idx_gt=torch.cat(entry_idx_gt)
 
                     present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
                     entry_idx[present_id] = entry_idx_gt
 
-                    # gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
-                    #
-                    # entry_id = gt_entry_id[col_ind]
+                    gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
 
-                    # non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
-                    #
-                    # non_entry_id=gt_entry_id[non_entry_agent]
-                    #
-                    # valid[non_entry_id, i]=False
-                    #
-                    # prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
+                    entry_id = gt_entry_id[col_ind]
 
-                    entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*self.n_token_entry_head//2).to(torch.long)+self.n_token_entry_head//2
+                    non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
+
+                    non_entry_id=gt_entry_id[non_entry_agent]
+
+                    valid[non_entry_id, i]=False
+
+                    prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
+
+                    entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*self.n_token_entry_head_half).to(torch.long)+self.n_token_entry_head_half
 
                     entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
 
-                    # tokenized_heading = (entry_head_idx-16)/16*np.pi #[-16,16]
-                    #
-                    # prev_head[entry_id]=tokenized_heading[entry_id]
-                    #
-                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #
-                    # entry_token_invalid_mask.append(dist>2)
-                    #
-                    # real_id=entry_id[dist>2]
-                    #
-                    # prev_pos[real_id]=pos[real_id,i]
+                    tokenized_heading = (entry_head_idx-self.n_token_entry_head_half)/self.n_token_entry_head_half*np.pi #[-16,16]
+
+                    prev_head[entry_id]=tokenized_heading[entry_id]
+
+                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+
+                    entry_token_invalid_mask.append(dist>2)
+
+                    real_id=entry_id[dist>2]
+
+                    prev_pos[real_id]=pos[real_id,i]
 
                     # heading_diff=wrap_angle(heading[:,i][entry_id]-prev_head[entry_id])
 

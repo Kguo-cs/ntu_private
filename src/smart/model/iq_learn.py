@@ -280,7 +280,7 @@ class IQ_SoftQ(LightningModule):
         expert_train_mask= get_train_mask(tokenized_agent,self.start_step,self.token_processor.pred_exit)#t,a
 
         if self.use_kl_penalty:
-            expert_nll=entry_nll= entry_head_nll= 0
+            expert_nll=exert_entry_nll= expert_entry_head_nll= 0
             map_feature = self.encoder.map_encoder(tokenized_map)
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}

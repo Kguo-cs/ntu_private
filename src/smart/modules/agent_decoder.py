@@ -357,7 +357,7 @@ class SMARTAgentDecoder(nn.Module):
 
                             entry_head_idx = Categorical(logits=head_logit).sample()
 
-                            new_head=(entry_head_idx-self.token_processor.n_token_entry_head//2)/(self.token_processor.n_token_entry_head//2)*np.pi
+                            new_head=(entry_head_idx-self.token_processor.n_token_entry_head_half)/(self.token_processor.n_token_entry_head_half)*np.pi
 
                             new_agent_batch=batch[new_agent_mask]
 
