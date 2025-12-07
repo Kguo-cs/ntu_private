@@ -11,6 +11,7 @@ class EntryDecoder(nn.Module):
             hidden_dim: int,
             num_heads: int,
             token_processor,
+            start_step
     ) -> None:
 
         super(EntryDecoder, self).__init__()
@@ -20,6 +21,8 @@ class EntryDecoder(nn.Module):
         self.token_processor=token_processor
 
         self.hidden_dim=hidden_dim
+
+        self.start_step=start_step
 
         if self.autoregressive_entry:
             self.entry_his_len=1000000
@@ -42,6 +45,11 @@ class EntryDecoder(nn.Module):
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
+        else:
+            self.entry_head_decoder = MLPLayer(
+                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
+                    )
+
 
 
         self.entry_decoder = MLPLayer(
@@ -264,9 +272,8 @@ class EntryDecoder(nn.Module):
         else:
             entry_logit = self.entry_decoder(feat_a)
             if self.training:
-                entry_idx = tokenized_agent["entry_idx"][:, self.start_step + 1:].transpose(0, 1).flatten(0, 1)[
-                    mask_a.transpose(0, 1).flatten(0, 1)]
-                entry_mask = (entry_idx < self.token_processor.n_token_entry - 1)
+                entry_idx = tokenized_agent["entry_idx"][:, self.start_step + 1:].transpose(0, 1).flatten(0, 1)[ mask_a.transpose(0, 1).flatten(0, 1)]
+                entry_mask = (entry_idx < self.token_processor.n_token_entry)
                 entry_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
 
                 feat_new = torch.cat([entry_local, feat_a[entry_mask]], dim=-1)

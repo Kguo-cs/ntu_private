@@ -88,7 +88,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_exit=token_processor.pred_exit & (not discriminator)
 
         if self.pred_entry:
-            self.entry_decoder=EntryDecoder(hidden_dim,num_heads,token_processor)
+            self.entry_decoder=EntryDecoder(hidden_dim,num_heads,token_processor,self.start_step)
 
         self.token_processor= token_processor
         self.discriminator=discriminator
@@ -329,7 +329,7 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         entry_token_idx = Categorical(logits=entry_logit).sample()
 
-                        entry_mask =entry_token_idx < self.token_processor.n_token_agent-1
+                        entry_mask =entry_token_idx < self.token_processor.n_token_entry
 
                         entry_agent_mask = torch.zeros_like(present_mask)
 
@@ -353,11 +353,11 @@ class SMARTAgentDecoder(nn.Module):
                             new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
 
                             feat_new = torch.cat([entry_local_traj, feat_a[entry_mask]], dim=-1)
-                            head_logit = self.entry_head_decoder(feat_new)
+                            head_logit = self.entry_decoder.entry_head_decoder(feat_new)
 
                             entry_head_idx = Categorical(logits=head_logit).sample()
 
-                            new_head=(entry_head_idx-16)/16*np.pi
+                            new_head=(entry_head_idx-self.token_processor.n_token_entry_head//2)/(self.token_processor.n_token_entry_head//2)*np.pi
 
                             new_agent_batch=batch[new_agent_mask]
 

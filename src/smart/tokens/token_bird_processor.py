@@ -47,6 +47,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.use_dynamic = False
+        self.autoregressive_entry=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file),os.path.join(module_dir, map_token_file))
@@ -97,11 +98,6 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_agent+=1
 
         self.pred_entry=pred_entry
-
-        self.n_token_entry= self.tokenizer.n_total
-
-        self.autoregressive_entry=True
-
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -218,37 +214,16 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
+        if self.autoregressive_entry:
+            self.tokenizer=HierarchicalStateTokenizer()
+            self.n_token_entry= self.tokenizer.n_total
 
-        #entry_pos_token = pickle.load(open(map_token_path, "rb"))
+        else:
+            entry_pos_token = pickle.load(open(map_token_path, "rb"))
+            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+            self.n_token_entry = self.entry_pos_token.shape[0]
 
-        self.tokenizer=HierarchicalStateTokenizer()
-
-        # pos = torch.tensor([[0.0, 0.0, 10.0],
-        #                     [-50.0, 80.0, 30.0]])
-        # heading = torch.tensor([0.1, -2.0])
-        #
-        # tokens = self.entry_pos_token(pos, heading)
-        #
-        # print(1)
-
-        # x=torch.arange(-78, 50,1)
-        # y=torch.arange(-28 ,100,1)
-        # z=torch.arange( 0  ,64,1)
-        # entry_head_token =torch.arange(-np.pi, np.pi,np.pi/64)
-        # x=torch.arange(-75, 45,120/128)
-        # y=torch.arange(-20 ,90,110/128)
-        # z=torch.arange( 0  ,60,60/128)
-        #
-        # self.register_buffer(f"entry_pos_token_x", x, persistent=False)
-        # self.register_buffer(f"entry_pos_token_y", y, persistent=False)
-        # self.register_buffer(f"entry_pos_token_z", z, persistent=False)
-        # self.register_buffer(f"entry_head_token", entry_head_token, persistent=False)
-        #
-        # self.register_buffer(f"entry_pos_token", x, persistent=False)
-        #X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")  # 3 tensors with shapes [nx, ny, nz]
-        #
-        # Stack to get final token grid
-        # entry_pos_token = torch.stack([X, Y, Z], dim=-1) .reshape(2048,3) # shape [nx, ny, nz, 3]
+            self.n_token_entry_head=64
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -420,7 +395,7 @@ class TokenProcessor(torch.nn.Module):
                     entry_pos = entry_pos[sort_idx]
                     entry_heading=entry_heading[sort_idx]
                     entry_batch=entry_batch[sort_idx]
-                    entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[sort_idx]
+                    #entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[sort_idx]
 
                     # entry_idx_x=(self.entry_pos_token_x[:, None] - entry_pos[None,:,0]).abs().argmin(dim=0)
                     # entry_idx_y=(self.entry_pos_token_y[:, None] - entry_pos[None,:,1]).abs().argmin(dim=0)
@@ -495,40 +470,40 @@ class TokenProcessor(torch.nn.Module):
                             entry_idx_gt.append(entry_idx_gt_i)
 
                     row_ind=np.concatenate(row_ind)
-                    col_ind=np.concatenate(col_ind)
+                    #col_ind=np.concatenate(col_ind)
                     entry_idx_gt=torch.cat(entry_idx_gt)
 
                     present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
                     entry_idx[present_id] = entry_idx_gt
 
-                    gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
+                    # gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
+                    #
+                    # entry_id = gt_entry_id[col_ind]
 
-                    entry_id = gt_entry_id[col_ind]
+                    # non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
+                    #
+                    # non_entry_id=gt_entry_id[non_entry_agent]
+                    #
+                    # valid[non_entry_id, i]=False
+                    #
+                    # prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
 
-                    non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
+                    entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*self.n_token_entry_head//2).to(torch.long)+self.n_token_entry_head//2
 
-                    non_entry_id=gt_entry_id[non_entry_agent]
+                    entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
 
-                    valid[non_entry_id, i]=False
-
-                    prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
-
-                    entry_head_idx= torch.round(wrap_angle(prev_head)/np.pi*16).to(torch.long)+16
-
-                    entry_head_idx[entry_head_idx==32]=0
-
-                    tokenized_heading = (entry_head_idx-16)/16*np.pi #[-16,16]
-
-                    prev_head[entry_id]=tokenized_heading[entry_id]
-
-                    dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-
-                    entry_token_invalid_mask.append(dist>2)
-
-                    real_id=entry_id[dist>2]
-
-                    prev_pos[real_id]=pos[real_id,i]
+                    # tokenized_heading = (entry_head_idx-16)/16*np.pi #[-16,16]
+                    #
+                    # prev_head[entry_id]=tokenized_heading[entry_id]
+                    #
+                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
+                    #
+                    # entry_token_invalid_mask.append(dist>2)
+                    #
+                    # real_id=entry_id[dist>2]
+                    #
+                    # prev_pos[real_id]=pos[real_id,i]
 
                     # heading_diff=wrap_angle(heading[:,i][entry_id]-prev_head[entry_id])
 
