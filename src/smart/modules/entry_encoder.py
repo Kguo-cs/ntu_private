@@ -275,8 +275,11 @@ class EntryDecoder(nn.Module):
                 entry_mask = (entry_idx < self.token_processor.n_token_entry)
                 entry_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
 
+                #offset=self.pos_offset_predict_head(feat_a[entry_mask])
+
+
                 feat_new = torch.cat([entry_local, feat_a[entry_mask]], dim=-1)
-                head_logit = self.entry_head_decoder(feat_new)
+                head_logit = self.entry_head_decoder(feat_new)               #heading should also be local
 
                 entry_logit = (entry_logit, head_logit)
 

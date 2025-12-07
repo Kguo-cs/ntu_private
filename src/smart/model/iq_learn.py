@@ -169,9 +169,9 @@ class IQ_SoftQ(LightningModule):
 
                 entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx[train_mask].unsqueeze(-1))
 
-                head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
+                #head_mask=(entry_idx!=(pred_entry_logit.shape[-1]-1)) & train_mask
 
-                entry_head_idx=tokenized_agent["entry_head_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]
+                entry_head_idx=tokenized_agent["entry_head_idx"]#[:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]#t,a
 
                 entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 

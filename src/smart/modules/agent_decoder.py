@@ -15,8 +15,12 @@ from typing import Dict, Optional
 import torch
 import torch.nn as nn
 
-from src.smart.layers import MLPLayer
-from src.smart.layers.attention_layer import AttentionLayer
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+)
 from src.smart.utils import (
     transform_to_global,
     weight_init,
@@ -341,6 +345,8 @@ class SMARTAgentDecoder(nn.Module):
 
                             entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[entry_mask]]
 
+                            present_head=head_a[:, -1][new_agent_mask]
+
                             new_xy = transform_to_global(
                                 entry_local_traj[:, None, :2],
                                 None,
@@ -358,6 +364,8 @@ class SMARTAgentDecoder(nn.Module):
                             entry_head_idx = Categorical(logits=head_logit).sample()
 
                             new_head=(entry_head_idx-self.token_processor.n_token_entry_head_half)/(self.token_processor.n_token_entry_head_half)*np.pi
+
+                            new_head=wrap_angle(new_head+present_head)
 
                             new_agent_batch=batch[new_agent_mask]
 
