@@ -358,7 +358,10 @@ class SMARTAgentDecoder(nn.Module):
 
                             new_pos = torch.cat([new_xy, new_z[:, None]], dim=1)
 
-                            feat_new = torch.cat([entry_local_traj, feat_a[entry_mask]], dim=-1)
+                            pred_offset = self.entry_decoder.pos_offset_predict_head(feat_a[entry_mask])
+
+                            feat_new = torch.cat([entry_local_traj+pred_offset, feat_a[entry_mask]], dim=-1)
+
                             head_logit = self.entry_decoder.entry_head_decoder(feat_new)
 
                             entry_head_idx = Categorical(logits=head_logit).sample()

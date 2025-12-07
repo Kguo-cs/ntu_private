@@ -274,13 +274,15 @@ class EntryDecoder(nn.Module):
                 entry_idx = tokenized_agent["entry_idx"][:, self.start_step + 1:].transpose(0, 1).flatten(0, 1)[ mask_a.transpose(0, 1).flatten(0, 1)]
                 entry_mask = (entry_idx < self.token_processor.n_token_entry)
                 entry_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
+                entry_feature=feat_a[entry_mask]
 
-                #offset=self.pos_offset_predict_head(feat_a[entry_mask])
+                pred_offset=self.pos_offset_predict_head(entry_feature)
 
+                entry_pos_offset=tokenized_agent["entry_pos_offset"]
 
-                feat_new = torch.cat([entry_local, feat_a[entry_mask]], dim=-1)
+                feat_new = torch.cat([entry_local+entry_pos_offset, entry_feature], dim=-1)
                 head_logit = self.entry_head_decoder(feat_new)               #heading should also be local
 
-                entry_logit = (entry_logit, head_logit)
+                entry_logit = (entry_logit, head_logit,pred_offset)
 
         return entry_logit

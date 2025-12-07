@@ -503,6 +503,32 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_head_idx_list.append(entry_head_idx)
 
+                    select_pos = present_pos[row_ind]
+
+                    tokenized_entry_pos=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
+
+                    entry_pos1=prev_pos[entry_id]
+
+                    local_xy=transform_to_local(
+                        entry_pos1[:,None,:2], # [n_agent, n_step, 2]
+                        None,                  # [n_agent, n_step]
+                        select_pos[:,:2],          # [n_agent, 2]
+                        select_heading            # [n_agent]
+                    ) [0][:,0]-transform_to_local(
+                        tokenized_entry_pos[:,None,:2], # [n_agent, n_step, 2]
+                        None,                  # [n_agent, n_step]
+                        select_pos[:,:2],          # [n_agent, 2]
+                        select_heading            # [n_agent]
+                    ) [0][:,0]
+
+                    local_z=entry_pos1[:,2]-tokenized_entry_pos[:,2]
+
+                    offset_local=torch.cat((local_xy, local_z[:,None]), dim=-1)
+
+                    entry_pos_offset_list.append(offset_local)
+
+
+
                     # tokenized_heading = (entry_head_idx-self.n_token_entry_head_half)/self.n_token_entry_head_half*np.pi #[-16,16]
                     #
                     # prev_head[entry_id]=tokenized_heading[entry_id]
