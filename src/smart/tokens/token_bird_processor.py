@@ -214,7 +214,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
         if self.autoregressive_entry:
-            self.position_only=False
+            self.position_only=True
             self.tokenizer=HierarchicalStateTokenizer(position_only=self.position_only)
             if self.position_only:
                 self.n_token_entry = self.tokenizer.base ** 3
@@ -225,8 +225,8 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
-            self.n_token_entry_head=64
-            self.n_token_entry_head_half=self.n_token_entry_head//2
+        self.n_token_entry_head=64
+        self.n_token_entry_head_half=self.n_token_entry_head//2
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -320,7 +320,7 @@ class TokenProcessor(torch.nn.Module):
 
         entry_token_invalid_mask=[]
         entry_idx_list=[]
-        entry_state_list=[]
+        entry_head_idx_list=[]
 
         if self.pred_entry and not self.autoregressive_entry :
             out_dict["entry_idx"]=[]
@@ -414,6 +414,13 @@ class TokenProcessor(torch.nn.Module):
                    # pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
 
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
+
+                    if self.position_only:
+                        entry_head_idx = torch.round(wrap_angle(entry_heading) / np.pi * self.n_token_entry_head_half).to(
+                            torch.long) + self.n_token_entry_head_half
+
+                        entry_head_idx[entry_head_idx == self.n_token_entry_head] = 0
+                        entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
 
                     # entry_pos_x=self.entry_pos_token_x[entry_idx_x]
                     # entry_pos_y=self.entry_pos_token_y[entry_idx_y]
@@ -553,6 +560,10 @@ class TokenProcessor(torch.nn.Module):
         if len(entry_idx_list) and self.training:
             # entry_length=out_dict['sampled_idx'].shape[1]-1
             out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
+
+
+            out_dict["entry_head_idx"]=pad_sequence(entry_head_idx_list, batch_first=True, padding_value=self.n_token_entry_head)#.reshape(entry_length,batch_num,-1)
+
             #out_dict["entry_state"]=pad_sequence(entry_state_list, batch_first=True, padding_value=0)#.reshape(entry_length,batch_num,-1)
             #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
 

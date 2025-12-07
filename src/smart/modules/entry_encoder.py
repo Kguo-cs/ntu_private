@@ -50,7 +50,7 @@ class EntryDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
-
+        self.offset_xyz_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
@@ -186,6 +186,8 @@ class EntryDecoder(nn.Module):
                     entry_head=torch.cat([current_heading, entry_head], dim=1)
 
                 entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n,tgt_mask=tgt_mask)
+
+
             else:
                 self.attr_former.attn.caching = True
 
