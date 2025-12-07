@@ -193,9 +193,9 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/offset_l1", offset_l1.mean().item(), on_step=True, batch_size=1)
 
-                offset_head=wrap_angle(entry_pos_offset[...,-1]-pred_offset[...,-1]).abs().mean(-1)
-
-                entry_head_nll=offset_l1+entry_head_nll+offset_head
+                # offset_head=wrap_angle(entry_pos_offset[...,-1]-pred_offset[...,-1]).abs().mean(-1)
+                #
+                # entry_head_nll=offset_l1+entry_head_nll+offset_head
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
 
