@@ -46,8 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.use_dynamic = False
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file),os.path.join(module_dir, map_token_file))
@@ -215,9 +214,12 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
         if self.autoregressive_entry:
-            self.tokenizer=HierarchicalStateTokenizer()
-            self.n_token_entry= self.tokenizer.n_total
-
+            self.position_only=False
+            self.tokenizer=HierarchicalStateTokenizer(position_only=self.position_only)
+            if self.position_only:
+                self.n_token_entry = self.tokenizer.base ** 3
+            else:
+                self.n_token_entry = self.tokenizer.base ** 4
         else:
             entry_pos_token = pickle.load(open(map_token_path, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
@@ -412,7 +414,7 @@ class TokenProcessor(torch.nn.Module):
                    # pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
 
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
-                    #
+
                     # entry_pos_x=self.entry_pos_token_x[entry_idx_x]
                     # entry_pos_y=self.entry_pos_token_y[entry_idx_y]
                     # entry_pos_z=self.entry_pos_token_z[entry_idx_z]
