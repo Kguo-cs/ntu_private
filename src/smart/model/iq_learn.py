@@ -143,7 +143,7 @@ class IQ_SoftQ(LightningModule):
 
             if self.token_processor.autoregressive_entry:
 
-                pred_entry_logit=pred["entry_logit"]
+                pred_entry_logit,pred_offset=pred["entry_logit"]
 
                 entry_idx=tokenized_agent["entry_idx"].flatten(1,2)
 
@@ -157,7 +157,9 @@ class IQ_SoftQ(LightningModule):
 
                 entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1))
 
-                entry_head_nll=torch.tensor(0.0,device=action_nll.device)
+                entry_pos_offset=tokenized_agent["entry_pos_offset"]
+
+                entry_head_nll=(entry_pos_offset-pred_offset).abs()#torch.tensor(0.0,device=action_nll.device)
             else:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
 

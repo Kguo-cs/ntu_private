@@ -49,7 +49,11 @@ class HierarchicalStateTokenizer(nn.Module):
         # total number of "digits" bins along each axis at finest level
         self.digit_total = base ** num_levels
 
-    # ---------------- Util functions ---------------- #
+
+        resolution=torch.tensor([self.x_max-self.x_min, self.y_max-self.y_min, self.z_max-self.z_min])/(2*self.digit_total)
+
+        self.register_buffer(f"resolution", resolution, persistent=False)
+
 
     @staticmethod
     def _continuous_to_bins(x, xmin, xmax, nbins):

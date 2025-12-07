@@ -214,7 +214,7 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
         if self.autoregressive_entry:
-            self.position_only=True
+            self.position_only=False
             self.tokenizer=HierarchicalStateTokenizer(position_only=self.position_only)
             if self.position_only:
                 self.n_token_entry = self.tokenizer.base ** 3
@@ -321,6 +321,7 @@ class TokenProcessor(torch.nn.Module):
         entry_token_invalid_mask=[]
         entry_idx_list=[]
         entry_head_idx_list=[]
+        entry_pos_offset_list=[]
 
         if self.pred_entry and not self.autoregressive_entry :
             out_dict["entry_idx"]=[]
@@ -411,8 +412,6 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
-                   # pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
-
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
 
                     if self.position_only:
@@ -422,16 +421,11 @@ class TokenProcessor(torch.nn.Module):
                         entry_head_idx[entry_head_idx == self.n_token_entry_head] = 0
                         entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
 
-                    # entry_pos_x=self.entry_pos_token_x[entry_idx_x]
-                    # entry_pos_y=self.entry_pos_token_y[entry_idx_y]
-                    # entry_pos_z=self.entry_pos_token_z[entry_idx_z]
-                    # entry_pos_head=self.entry_head_token[entry_idx_head]
-                    #
-                    # entry_state = torch.stack([entry_pos_x, entry_pos_y, entry_pos_z, entry_pos_head], dim=-1)
+                    pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
 
-                   # entry_state=torch.cat([pos_rec, heading_rec[:,None]], dim=-1)
+                    res_pos=entry_pos-pos_rec
 
-                    #entry_state_list.extend(torch.split(entry_state,entry_length))
+                    entry_pos_offset_list.append(res_pos)
 
                     # prev_pos[entry_id]=pos_rec
                     # prev_head[entry_id]=heading_rec
@@ -561,8 +555,10 @@ class TokenProcessor(torch.nn.Module):
             # entry_length=out_dict['sampled_idx'].shape[1]-1
             out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
 
+            out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
 
-            out_dict["entry_head_idx"]=pad_sequence(entry_head_idx_list, batch_first=True, padding_value=self.n_token_entry_head)#.reshape(entry_length,batch_num,-1)
+            if len(entry_head_idx_list):
+                out_dict["entry_head_idx"]=pad_sequence(entry_head_idx_list, batch_first=True, padding_value=self.n_token_entry_head)#.reshape(entry_length,batch_num,-1)
 
             #out_dict["entry_state"]=pad_sequence(entry_state_list, batch_first=True, padding_value=0)#.reshape(entry_length,batch_num,-1)
             #out_dict["entry_batch"]=pad_sequence(entry_batch_list, batch_first=True, padding_value=-1)
