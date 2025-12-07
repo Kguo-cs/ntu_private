@@ -45,12 +45,14 @@ class EntryDecoder(nn.Module):
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
+            self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
+
         else:
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
-        self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
+            self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=3)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
@@ -276,11 +278,14 @@ class EntryDecoder(nn.Module):
                 entry_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
                 entry_feature=feat_a[entry_mask]
 
-                pred_offset=self.pos_offset_predict_head(entry_feature)
+                feat_token = torch.cat([entry_local, entry_feature], dim=-1)
+
+                pred_offset=self.pos_offset_predict_head(feat_token)
 
                 entry_pos_offset=tokenized_agent["entry_pos_offset"]
 
                 feat_new = torch.cat([entry_local+entry_pos_offset, entry_feature], dim=-1)
+
                 head_logit = self.entry_head_decoder(feat_new)               #heading should also be local
 
                 entry_logit = (entry_logit, head_logit,pred_offset)
