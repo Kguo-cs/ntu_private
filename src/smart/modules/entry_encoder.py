@@ -52,7 +52,7 @@ class EntryDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
-            self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=3)
+            self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
@@ -275,18 +275,22 @@ class EntryDecoder(nn.Module):
             if self.training:
                 entry_idx = tokenized_agent["entry_idx"][:, self.start_step + 1:].transpose(0, 1).flatten(0, 1)[ mask_a.transpose(0, 1).flatten(0, 1)]
                 entry_mask = (entry_idx < self.token_processor.n_token_entry)
-                entry_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
+                pos_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
                 entry_feature=feat_a[entry_mask]
 
-                feat_token = torch.cat([entry_local, entry_feature], dim=-1)
+                feat_token = torch.cat([pos_local, entry_feature], dim=-1)
+
+                head_logit = self.entry_head_decoder(feat_token)               #heading should also be local
+
+                entry_head_idx=tokenized_agent["entry_head_idx"]#[:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]#t,a
+
+                head_local = (entry_head_idx - self.token_processor.n_token_entry_head_half) / (
+                    self.token_processor.n_token_entry_head_half) * torch.pi
+
+                feat_token = torch.cat([pos_local,head_local[:,None], entry_feature], dim=-1)
 
                 pred_offset=self.pos_offset_predict_head(feat_token)
 
-                entry_pos_offset=tokenized_agent["entry_pos_offset"]
-
-                feat_new = torch.cat([entry_local+entry_pos_offset, entry_feature], dim=-1)
-
-                head_logit = self.entry_head_decoder(feat_new)               #heading should also be local
 
                 entry_logit = (entry_logit, head_logit,pred_offset)
 

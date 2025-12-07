@@ -501,6 +501,10 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
 
+                    tokenized_heading = (entry_head_idx - self.n_token_entry_head_half) / self.n_token_entry_head_half * np.pi
+
+                    head_offset=wrap_angle(entry_heading-tokenized_heading-select_heading)
+
                     entry_head_idx_list.append(entry_head_idx)
 
                     select_pos = present_pos[row_ind]
@@ -523,7 +527,8 @@ class TokenProcessor(torch.nn.Module):
 
                     local_z=entry_pos1[:,2]-tokenized_entry_pos[:,2]
 
-                    offset_local=torch.cat((local_xy, local_z[:,None]), dim=-1)
+
+                    offset_local=torch.cat((local_xy, local_z[:,None],head_offset[:,None]), dim=-1)
 
                     entry_pos_offset_list.append(offset_local)
 
