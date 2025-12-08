@@ -358,6 +358,16 @@ class SMARTAgentDecoder(nn.Module):
 
                             new_head=wrap_angle(global_head[:,0])
 
+                            # entry_agent_mask = ~present_mask & gt_valid[:, t]
+                            #
+                            # new_pos=gt_pos[entry_agent_mask, t]
+                            #
+                            # new_head=gt_head[entry_agent_mask, t]
+
+                            # dist=torch.linalg.norm(new_pos[None]-new_pos1[:,None],dim=-1)
+                            #
+                            # dist2=torch.abs(new_head[None]-new_head1[:,None])
+
                             new_agent_batch=batch[new_agent_mask]
 
                             non_present_mask = ~present_mask

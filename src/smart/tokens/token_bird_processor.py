@@ -228,6 +228,9 @@ class TokenProcessor(torch.nn.Module):
         self.n_token_entry_head=128
         self.n_token_entry_head_half=self.n_token_entry_head//2
 
+    def decode_head(self,entry_head_idx):
+        return (entry_head_idx - self.n_token_entry_head_half) / (self.n_token_entry_head_half) * torch.pi
+
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
         # ! get raw trajectory data
@@ -502,7 +505,7 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
 
-                    tokenized_heading = (entry_head_idx - self.n_token_entry_head_half) / self.n_token_entry_head_half * np.pi
+                    tokenized_heading =self.decode_head(entry_head_idx)
 
                     head_offset=wrap_angle(entry_heading-tokenized_heading-select_heading)         #for selecting heading, not for
 
@@ -616,18 +619,19 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        if len(entry_token_invalid_mask)>0 and self.training:
-            out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
+        if self.training:
+            if len(entry_token_invalid_mask)>0:
+                out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
 
-        if len(entry_pos_offset_list) and self.training:
-            out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
+            if len(entry_pos_offset_list) :
+                out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
 
-        if len(entry_head_idx_list) and self.training:
-            out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
+            if len(entry_head_idx_list) :
+                out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
 
-        if len(entry_idx_list) and self.training:
-            # entry_length=out_dict['sampled_idx'].shape[1]-1
-            out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
+            if len(entry_idx_list) :
+                # entry_length=out_dict['sampled_idx'].shape[1]-1
+                out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
 
 
             # if len(entry_head_idx_list):
