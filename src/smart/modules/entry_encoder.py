@@ -53,7 +53,7 @@ class EntryDecoder(nn.Module):
                     )
 
 
-            self.use_pos_head_offset=False
+            self.use_pos_head_offset=True
 
             if self.use_pos_head_offset:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
