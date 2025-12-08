@@ -52,7 +52,13 @@ class EntryDecoder(nn.Module):
                         input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
-            self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
+
+            self.use_pos_head_offset=False
+
+            if self.use_pos_head_offset:
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
+            else:
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=3)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
@@ -278,28 +284,72 @@ class EntryDecoder(nn.Module):
                 pos_local = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
                 entry_feature=feat_a[entry_mask]
 
-                feat_token = torch.cat([pos_local, entry_feature], dim=-1)
+                if self.use_pos_head_offset:
+                    feat_head = torch.cat([pos_local, entry_feature], dim=-1)
 
-                head_logit = self.entry_head_decoder(feat_token)               #heading should also be local
+                    entry_head_idx=tokenized_agent["entry_head_idx"]#[:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]#t,a
 
-                entry_head_idx=tokenized_agent["entry_head_idx"]#[:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]#t,a
+                    token_head_local = (entry_head_idx - self.token_processor.n_token_entry_head_half) / (
+                        self.token_processor.n_token_entry_head_half) * torch.pi
 
-                head_local = (entry_head_idx - self.token_processor.n_token_entry_head_half) / (
-                    self.token_processor.n_token_entry_head_half) * torch.pi
+                    feat_offset = torch.cat([pos_local,token_head_local[:,None], entry_feature], dim=-1)
+                else:
+                    feat_offset = torch.cat([pos_local, entry_feature], dim=-1)
 
-                feat_token = torch.cat([pos_local,head_local[:,None], entry_feature], dim=-1)
+                    entry_pos_offset=tokenized_agent["entry_pos_offset"]
 
-                pred_offset=self.pos_offset_predict_head(feat_token)
-                # feat_token = torch.cat([pos_local, entry_feature], dim=-1)
-                #
-                # pred_offset=self.pos_offset_predict_head(feat_token)
-                #
-                # entry_pos_offset=tokenized_agent["entry_pos_offset"]
-                #
-                # feat_new = torch.cat([pos_local+entry_pos_offset[...,:3], entry_feature], dim=-1)
-                #
-                # head_logit = self.entry_head_decoder(feat_new)               #heading should also be local
+                    feat_head = torch.cat([pos_local+entry_pos_offset[...,:3], entry_feature], dim=-1)
+
+                pred_offset=self.pos_offset_predict_head(feat_offset)
+
+                head_logit = self.entry_head_decoder(feat_head)               #heading should also be local
 
                 entry_logit = (entry_logit, head_logit,pred_offset)
+            else:
+
+                entry_token_idx = Categorical(logits=entry_logit).sample()
+
+                entry_mask = entry_token_idx < self.token_processor.n_token_entry
+
+                entry_local_traj = self.token_processor.entry_pos_token[entry_token_idx[entry_mask]]
+
+                entry_feature = feat_a[entry_mask]
+
+                feat_pos = torch.cat([entry_local_traj, entry_feature], dim=-1)
+
+                if self.use_pos_head_offset:
+                    head_logit = self.entry_head_decoder(feat_pos)
+
+                    entry_head_idx = Categorical(logits=head_logit).sample()
+
+                    local_head = (entry_head_idx - self.token_processor.n_token_entry_head_half) / (
+                        self.token_processor.n_token_entry_head_half) * torch.pi
+
+                    entry_local_traj=torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
+
+                    feat_token = torch.cat([entry_local_traj, entry_feature], dim=-1)
+
+                    pred_offset = self.pos_offset_predict_head(feat_token)
+
+                    entry_local_traj=entry_local_traj+pred_offset
+
+                else:
+
+                    pred_offset = self.pos_offset_predict_head(feat_pos)
+
+                    entry_local_traj = entry_local_traj + pred_offset
+
+                    feat_pos_offset = torch.cat([entry_local_traj, entry_feature], dim=-1)
+
+                    head_logit = self.entry_head_decoder(feat_pos_offset)
+
+                    entry_head_idx = Categorical(logits=head_logit).sample()
+
+                    local_head = (entry_head_idx - self.token_processor.n_token_entry_head_half) / (
+                        self.token_processor.n_token_entry_head_half) * torch.pi
+
+                    entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
+
+                entry_logit=(entry_mask,entry_local_traj)
 
         return entry_logit

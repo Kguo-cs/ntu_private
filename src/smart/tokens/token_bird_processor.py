@@ -46,7 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.autoregressive_entry=True
+        self.autoregressive_entry=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file),os.path.join(module_dir, map_token_file))
@@ -531,6 +531,18 @@ class TokenProcessor(torch.nn.Module):
                     offset_local=torch.cat((local_xy, local_z[:,None],head_offset[:,None]), dim=-1)
 
                     entry_pos_offset_list.append(offset_local)
+                    #
+                    #
+                    # global_pos=transform_to_global(
+                    #     tokenized_entry_pos[:,None,:2]+local_xy[:,None,:2],
+                    #     None,  # [n_agent, n_step]
+                    #     select_pos[:, :2],  # [n_agent, 2]
+                    #     select_heading  # [n_agent]
+                    # )[0][:,0]
+                    #
+                    # print(global_pos-entry_pos1[:,:2])
+                    #
+                    # print(1)
 
 
 
