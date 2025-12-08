@@ -53,7 +53,7 @@ class EntryDecoder(nn.Module):
                     )
 
 
-            self.use_pos_head_offset=True
+            self.use_pos_head_offset=False
 
             if self.use_pos_head_offset:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
@@ -315,9 +315,9 @@ class EntryDecoder(nn.Module):
 
             else:
                 if self.training:
-                    pred_offset = self.pos_offset_predict_head(feat_pos)
-                else:
                     pred_offset = tokenized_agent["entry_pos_offset"][:,:3]
+                else:
+                    pred_offset = self.pos_offset_predict_head(feat_pos)
 
                 entry_local_traj = entry_local_traj + pred_offset
 

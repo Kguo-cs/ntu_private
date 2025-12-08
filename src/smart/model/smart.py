@@ -32,7 +32,7 @@ from src.smart.utils.finetune import set_model_for_finetuning
 from src.utils.vis_waymo import VisWaymo,get_map_features
 from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollouts
 from src.smart.plot.plot_bird.plot_bird import plot_bird_from_tensors
-from src.smart.metrics.bird_metrics import compute_bird_metrics
+from src.smart.metrics.bird_metrics import compute_bird_metrics,MetricDict
 from src.smart.plot.plot_rollout import plot_rollout_frames
 
 
@@ -95,12 +95,14 @@ class SMART(LightningModule):
 
         self.all_time=0
         self.all_count=0
+        self.minADE0=0
+        self.minADE0_num=0
 
         self.all_data=[]
 
+        self.metric_logger=MetricDict()
+
         #self.wosac_submission.save_sub_file()
-        #
-        # print(1/0)
 
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
@@ -224,29 +226,9 @@ class SMART(LightningModule):
                               )
 
                 (heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods,
-                 angular_acceleration_likelihoods,num_diff_mean,num_entry_diff_mean, num_exit_diff_mean)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
+                 angular_acceleration_likelihoods,num_diff,num_entry_diff, num_exit_diff)=compute_bird_metrics(pred_traj, data["agent"]["position"][:,self.num_historical_steps :],
                                      data["agent"]["valid_mask"][:,self.num_historical_steps :],
                                         tokenized_agent["batch"],batch_idx < self.n_vis_batch,save_path=save_path)
-
-                self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
-                self.linear_acceleration_likelihood = linear_acc_likelihoods[1].mean().item()
-                self.angular_speed_likelihood = angular_speed_likelihoods[1].mean().item()
-                self.angular_acceleration_likelihood = angular_acceleration_likelihoods[1].mean().item()
-                self.heading_likelihoods = heading_likelihoods[1].mean().item()
-                self.polar_likelihoods = polar_likelihoods[1].mean().item()
-                self.distance_likelihood = distance_likelihoods[1].mean().item()
-
-                self.linear_speed_emd =linear_speed_likelihoods[2].mean().item()
-                self.linear_acceleration_emd = linear_acc_likelihoods[2].mean().item()
-                self.angular_speed_emd = angular_speed_likelihoods[2].mean().item()
-                self.angular_acceleration_emd =  angular_acceleration_likelihoods[2].mean().item()
-                self.heading_emd = heading_likelihoods[2].mean().item()
-                self.polar_emd = polar_likelihoods[2].mean().item()
-                self.distance_emd = distance_likelihoods[2].mean().item()
-
-                self.num_diff_mean=num_diff_mean
-                self.num_entry_diff_mean=num_entry_diff_mean
-                self.num_exit_diff_mean=num_exit_diff_mean
 
                 target = data["agent"]["position"][
                          :, self.num_historical_steps:, : pred_traj.shape[-1]
@@ -268,7 +250,54 @@ class SMART(LightningModule):
                 dist = torch.norm(pred - target.unsqueeze(1), p=2, dim=-1)
                 dist2 = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
 
-                self.minADE0 = (dist2 / (target_valid.sum(-1) + 1e-6)).mean()  # [n_agent]
+                self.minADE0 += (dist2 / (target_valid.sum(-1) + 1e-6)).sum() # [n_agent]
+                self.agent_num=len(dist2)
+
+                metric_dict = {
+                    "linear_speed_likelihood1": linear_speed_likelihoods[1].mean().item(),
+                    "linear_acceleration_likelihood1": linear_acc_likelihoods[1].mean().item(),
+                    "angular_speed_likelihood1": angular_speed_likelihoods[1].mean().item(),
+                    "angular_acceleration_likelihood1": angular_acceleration_likelihoods[1].mean().item(),
+                    "heading_likelihood1": heading_likelihoods[1].mean().item(),
+                    "polar_likelihood1": polar_likelihoods[1].mean().item(),
+                    "distance_likelihood1": distance_likelihoods[1].mean().item(),
+
+                    "linear_speed_emd": linear_speed_likelihoods[2].mean().item(),
+                    "linear_acceleration_emd": linear_acc_likelihoods[2].mean().item(),
+                    "angular_speed_emd": angular_speed_likelihoods[2].mean().item(),
+                    "angular_acceleration_emd": angular_acceleration_likelihoods[2].mean().item(),
+                    "heading_emd": heading_likelihoods[2].mean().item(),
+                    "polar_emd": polar_likelihoods[2].mean().item(),
+                    "distance_emd": distance_likelihoods[2].mean().item(),
+
+                    "num_diff_mean": num_diff.mean().item(),
+                    "num_entry_diff_mean": num_entry_diff.mean().item(),
+                    "num_exit_diff_mean": num_exit_diff.mean().item(),
+                }
+
+                self.metric_logger.update(metric_dict)
+
+
+                # self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
+                # self.linear_acceleration_likelihood = linear_acc_likelihoods[1].mean().item()
+                # self.angular_speed_likelihood = angular_speed_likelihoods[1].mean().item()
+                # self.angular_acceleration_likelihood = angular_acceleration_likelihoods[1].mean().item()
+                # self.heading_likelihoods = heading_likelihoods[1].mean().item()
+                # self.polar_likelihoods = polar_likelihoods[1].mean().item()
+                # self.distance_likelihood = distance_likelihoods[1].mean().item()
+                #
+                # self.linear_speed_emd =linear_speed_likelihoods[2].mean().item()
+                # self.linear_acceleration_emd = linear_acc_likelihoods[2].mean().item()
+                # self.angular_speed_emd = angular_speed_likelihoods[2].mean().item()
+                # self.angular_acceleration_emd =  angular_acceleration_likelihoods[2].mean().item()
+                # self.heading_emd = heading_likelihoods[2].mean().item()
+                # self.polar_emd = polar_likelihoods[2].mean().item()
+                # self.distance_emd = distance_likelihoods[2].mean().item()
+                #
+                # self.num_diff_mean=num_diff_mean
+                # self.num_entry_diff_mean=num_entry_diff_mean
+                # self.num_exit_diff_mean=num_exit_diff_mean
+
 
                 # for i in range(len(linear_speed_likelihoods[0])):
                 #     self.wosac_metrics.scenario_counter += 1
@@ -439,42 +468,43 @@ class SMART(LightningModule):
                     #print("Logged keys:", epoch_wosac_metrics.keys())
                     if self.token_processor.use_bird:
 
-                        epoch_wosac_metrics['val_closed/minADE'] = self.minADE0
-                        epoch_wosac_metrics['val_closed/num_diff_mean'] = self.num_diff_mean
-                        epoch_wosac_metrics['val_closed/exit_diff_mean'] = self.num_exit_diff_mean
-                        epoch_wosac_metrics['val_closed/entry_diff_mean'] = self.num_entry_diff_mean
+                        epoch_wosac_metrics['val_closed/minADE'] = self.minADE0/self.minADE0_num
 
-                        epoch_wosac_metrics['val_closed/distance_likelihood1'] = self.distance_likelihood
-                        epoch_wosac_metrics['val_closed/polar_likelihoods1'] = self.polar_likelihoods
-                        epoch_wosac_metrics['val_closed/heading_likelihoods1'] = self.heading_likelihoods
+                        final_metrics = self.metric_logger.compute()
 
 
-                        epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] = self.linear_speed_likelihood
-                        epoch_wosac_metrics[
-                            'val_closed/linear_acceleration_likelihood1'] = self.linear_acceleration_likelihood
-                        epoch_wosac_metrics['val_closed/angular_speed_likelihood1'] = self.angular_speed_likelihood
-                        epoch_wosac_metrics[
-                            'val_closed/angular_acceleration_likelihood1'] = self.angular_acceleration_likelihood
+                        for key,value in final_metrics.items():
+                            epoch_wosac_metrics['val_closed/'+key] = value
+
                         epoch_wosac_metrics['val_closed/scene_likelihood'] = (
-                                                                                         self.angular_acceleration_likelihood + self.linear_speed_likelihood +
-                                                                                         self.angular_speed_likelihood + self.angular_acceleration_likelihood
-                                                                             +self.distance_likelihood+self.polar_likelihoods+self.heading_likelihoods
+                                                                                     epoch_wosac_metrics[
+                                                                                         'val_closed/angular_acceleration_likelihood1'] +
+                                                                                     epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] +
+                                                                                     epoch_wosac_metrics[
+                                                                                         'val_closed/angular_speed_likelihood1'] +
+                                                                                     epoch_wosac_metrics[
+                                                                                         'val_closed/linear_acceleration_likelihood1'] +
+                                                                                     epoch_wosac_metrics['val_closed/distance_likelihood1']+
+                                                                                     epoch_wosac_metrics['val_closed/polar_likelihood1']+
+                                                                                     epoch_wosac_metrics['val_closed/heading_likelihood1']
                                                                              ) / 7
 
-
-                        epoch_wosac_metrics['val_closed/distance_emd'] = self.distance_emd
-                        epoch_wosac_metrics['val_closed/polar_emd'] = self.polar_emd
-                        epoch_wosac_metrics['val_closed/heading_emd'] = self.heading_emd
-
-                        epoch_wosac_metrics['val_closed/linear_speed_emd'] = self.linear_speed_emd
-                        epoch_wosac_metrics['val_closed/linear_acceleration_emd'] = self.linear_acceleration_emd
-                        epoch_wosac_metrics['val_closed/angular_speed_emd'] = self.angular_speed_emd
-                        epoch_wosac_metrics['val_closed/angular_acceleration_emd'] = self.angular_acceleration_emd
                         epoch_wosac_metrics['val_closed/scene_emd'] = (
-                                                                                  self.linear_speed_emd + self.linear_acceleration_emd +
-                                                                                  self.angular_speed_emd + self.angular_acceleration_emd+
-                                                                                  self.distance_emd+self.polar_emd+self.heading_emd
-                                                                      ) / 7
+                                                                              epoch_wosac_metrics[
+                                                                                  'val_closed/angular_acceleration_emd'] +
+                                                                              epoch_wosac_metrics[
+                                                                                  'val_closed/linear_speed_emd'] +
+                                                                              epoch_wosac_metrics[
+                                                                                  'val_closed/angular_speed_emd'] +
+                                                                              epoch_wosac_metrics[
+                                                                                  'val_closed/linear_acceleration_emd'] +
+                                                                              epoch_wosac_metrics[
+                                                                                  'val_closed/distance_emd'] +
+                                                                              epoch_wosac_metrics['val_closed/polar_emd'] +
+                                                                              epoch_wosac_metrics['val_closed/heading_emd']
+                                                                      ) / 7.0
+
+                        self.metric_logger.reset()
 
                     for key, value in epoch_wosac_metrics.items():#minADE is the time average distance for evaluated agent
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True, rank_zero_only=True)

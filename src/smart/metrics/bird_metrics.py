@@ -53,7 +53,7 @@ def emd_1d(p: torch.Tensor,
 
     distances = distances.reshape(orig_shape)
 
-    return distances.mean()
+    return distances
 
 
 def _wrap_angle(angle):
@@ -200,7 +200,7 @@ def histogram_estimate_torch(
 
     scene_likelihoods = torch.exp(batch_sum_logprob).to(dtype)
 
-    return agent_likelihood,scene_likelihoods.mean(),earth_mover_dist
+    return agent_likelihood,scene_likelihoods,earth_mover_dist
 
 def compute_interactive_metric(pred_traj,batch,pred_mask):
     M, T, N, D = pred_traj.shape
@@ -281,8 +281,6 @@ def compute_num(pred_mask,gt_mask,batch):
 
     num_diff=(pred_valid_num-gt_valid_num[:,None]).float()
 
-    num_diff_mean=num_diff.mean()
-
     entry_mask=~gt_mask[:,:-1] & gt_mask[:,1:]
 
     exit_mask=gt_mask[:,:-1] & ~gt_mask[:,1:]
@@ -296,11 +294,11 @@ def compute_num(pred_mask,gt_mask,batch):
     gt_exit_num=scatter_sum(exit_mask.to(torch.int16),batch,dim=0)
     pred_exit_num=scatter_sum(pred_exit_mask.to(torch.int16),batch,dim=0)
 
-    num_entry_diff_mean=(pred_entry_num/(pred_valid_num[:, :, :-1]+1) -(gt_entry_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
+    num_entry_diff=(pred_entry_num/(pred_valid_num[:, :, :-1]+1) -(gt_entry_num/(gt_valid_num[:,:-1]+1))[:,None]).float()
 
-    num_exit_diff_mean=(pred_exit_num/(pred_valid_num[:, :, :-1]+1) -(gt_exit_num/(gt_valid_num[:,:-1]+1))[:,None]).float().mean()
+    num_exit_diff=(pred_exit_num/(pred_valid_num[:, :, :-1]+1) -(gt_exit_num/(gt_valid_num[:,:-1]+1))[:,None]).float()
 
-    return num_diff_mean,num_entry_diff_mean,num_exit_diff_mean
+    return num_diff,num_entry_diff,num_exit_diff
 
 
 def compute_polarization(pred_traj,batch,pred_mask, eps: float = 1e-8):
@@ -332,7 +330,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=Non
 
     pred_mask=(pred_traj!=10000).any(-1)
 
-    num_diff_mean, num_entry_diff_mean, num_exit_diff_mean=compute_num(pred_mask[:,:,4::5],gt_mask[:,4::5],batch)
+    num_diff,num_entry_diff,num_exit_diff=compute_num(pred_mask[:,:,4::5],gt_mask[:,4::5],batch)
 
     pred_n_dist,pred_dist_mask,pred_heading_similar=compute_interactive_metric(pred_traj.permute(1,2,0,3),batch,pred_mask.permute(1,2,0))
 
@@ -420,7 +418,7 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=Non
     # exist_likelihood=scatter_mean(exist_likelihood, batch)
 
 
-    return heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff_mean,num_entry_diff_mean, num_exit_diff_mean
+    return heading_likelihoods,polar_likelihoods,distance_likelihoods,linear_speed_likelihoods, linear_acc_likelihoods, angular_speed_likelihoods, angular_acceleration_likelihoods, num_diff,num_entry_diff,num_exit_diff
 
 # tensor(3.864, device='cuda:0') tensor(10.114, device='cuda:0')
 # Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Speed_hist.png
@@ -432,3 +430,33 @@ def compute_bird_metrics(pred_traj,gt_traj,gt_mask,batch,vis=False,save_path=Non
 # Saved histogram: /home/ke/code/catk/src/waymo_data/bird_data1/result/Angular acc_hist.png
 #tensor(0.548, device='cuda:0') tensor(10.345, device='cuda:0')
 
+class MetricDict:
+    """
+    A simple cumulative metric container.
+    - Supports update(dict_of_metrics) where values are scalars.
+    - Supports compute() to return averaged metrics.
+    """
+    def __init__(self):
+        self.sum_dict = {}
+        self.count = 0
+
+    def update(self, metric_dict: dict):
+        """Accumulate metrics from one batch.
+        metric_dict: {name: scalar_value}
+        """
+        for k, v in metric_dict.items():
+            if k not in self.sum_dict:
+                self.sum_dict[k] = 0.0
+            self.sum_dict[k] += float(v)
+        self.count += 1
+
+    def compute(self):
+        """Return the averaged metrics."""
+        if self.count == 0:
+            return {k: 0.0 for k in self.sum_dict}
+
+        return {k: v / self.count for k, v in self.sum_dict.items()}
+
+    def reset(self):
+        self.sum_dict = {}
+        self.count = 0
