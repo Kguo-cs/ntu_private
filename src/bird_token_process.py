@@ -25,7 +25,7 @@ from src.smart.tokens.token_bird_processor import TokenProcessor
 
 # Initialize the token processor once globally
 token_processor = TokenProcessor(
-    map_token_file="first2048.pkl",
+    map_token_file="first1024.pkl",
     agent_token_file="bird1024.pkl",
     map_token_sampling={"num_k": 1, "temp": 1.0},
     agent_token_sampling={"num_k": 1, "temp": 1.0},
@@ -36,7 +36,7 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_entry53max_noreplace/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/bird_train107_para1024_128/"
 
 
 
@@ -75,8 +75,12 @@ def process_file(filename):
 
     tokenized_agent["sampled_idx"]= tokenized_agent["sampled_idx"].to(torch.int16)
     tokenized_agent['abs_time']= tokenized_agent['abs_time'][:,0]
-    tokenized_agent["entry_idx"]= tokenized_agent["entry_idx"].to(torch.int16).numpy()
-    #tokenized_agent["entry_state"]= tokenized_agent["entry_state"].numpy()
+    tokenized_agent["entry_idx"]= tokenized_agent["entry_idx"].to(torch.int16)#.numpy()
+
+
+    tokenized_agent["entry_pos_offset"]= tokenized_agent["entry_pos_offset"]
+    tokenized_agent["entry_head_idx"]= tokenized_agent["entry_head_idx"].to(torch.int8)#.numpy()
+    tokenized_agent["entry_head_idx_num"]= tokenized_agent["entry_head_idx_num"].to(torch.int16)#.numpy()
 
     tokenized_agent["num_nodes"]=len(tokenized_agent["sampled_idx"])
 

@@ -251,7 +251,7 @@ class SMART(LightningModule):
                 dist2 = (dist * target_valid.unsqueeze(1)).sum(-1).amin(-1)  # [n_agent]
 
                 self.minADE0 += (dist2 / (target_valid.sum(-1) + 1e-6)).sum() # [n_agent]
-                self.agent_num=len(dist2)
+                self.minADE0_num+=len(dist2)
 
                 metric_dict = {
                     "linear_speed_likelihood1": linear_speed_likelihoods[1].mean().item(),
@@ -276,27 +276,6 @@ class SMART(LightningModule):
                 }
 
                 self.metric_logger.update(metric_dict)
-
-
-                # self.linear_speed_likelihood = linear_speed_likelihoods[1].mean().item()
-                # self.linear_acceleration_likelihood = linear_acc_likelihoods[1].mean().item()
-                # self.angular_speed_likelihood = angular_speed_likelihoods[1].mean().item()
-                # self.angular_acceleration_likelihood = angular_acceleration_likelihoods[1].mean().item()
-                # self.heading_likelihoods = heading_likelihoods[1].mean().item()
-                # self.polar_likelihoods = polar_likelihoods[1].mean().item()
-                # self.distance_likelihood = distance_likelihoods[1].mean().item()
-                #
-                # self.linear_speed_emd =linear_speed_likelihoods[2].mean().item()
-                # self.linear_acceleration_emd = linear_acc_likelihoods[2].mean().item()
-                # self.angular_speed_emd = angular_speed_likelihoods[2].mean().item()
-                # self.angular_acceleration_emd =  angular_acceleration_likelihoods[2].mean().item()
-                # self.heading_emd = heading_likelihoods[2].mean().item()
-                # self.polar_emd = polar_likelihoods[2].mean().item()
-                # self.distance_emd = distance_likelihoods[2].mean().item()
-                #
-                # self.num_diff_mean=num_diff_mean
-                # self.num_entry_diff_mean=num_entry_diff_mean
-                # self.num_exit_diff_mean=num_exit_diff_mean
 
 
                 # for i in range(len(linear_speed_likelihoods[0])):

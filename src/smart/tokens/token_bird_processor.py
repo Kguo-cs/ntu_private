@@ -118,12 +118,44 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()
 
             if self.pred_entry:
-                entry_idx=[torch.from_numpy(entry_idx).long().permute(1, 0, 2) for entry_idx in agent["entry_idx"]]
-              #  entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
+                if self.autoregressive_entry:
+                    entry_idx=[torch.from_numpy(entry_idx).long().permute(1, 0, 2) for entry_idx in agent["entry_idx"]]
+                  #  entry_state=[torch.from_numpy(entry_state).permute(1, 0, 2) for entry_state in agent["entry_state"]]
+                    tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True,padding_value=self.n_token_entry).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+                   # tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+                else:
+                    tokenized_agent["entry_idx"] = agent["entry_idx"].long()
 
+                    tokenized_agent["entry_head_idx_num"] = agent["entry_head_idx_num"].long()
 
-                tokenized_agent["entry_idx"] =  pad_sequence(entry_idx,batch_first=True,padding_value=self.n_token_entry).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
-               # tokenized_agent["entry_state"] =pad_sequence(entry_state,batch_first=True).permute(2 ,0, 1, 3).flatten(0,1).to(self.agent_token_all.device)
+                    #tokenized_agent["entry_pos_offset"] = agent["entry_pos_offset"]
+
+                    # tokenized_agent["entry_head_idx"]=agent["entry_head_idx"].long()
+
+                    s=torch.split(agent["entry_head_idx"], tokenized_agent["entry_head_idx_num"].tolist())
+
+                    all_t=tokenized_agent["entry_idx"].shape[1]-1
+                    b_num=len(s)//all_t
+                    new_s=[]
+
+                    for t in range(all_t):
+                        for b in range(b_num):
+                            new_s.append(s[b*all_t+t])       #t=0 ,b= k
+
+                    tokenized_agent["entry_head_idx"] =torch.cat(new_s).long()
+
+                    s=torch.split(agent["entry_pos_offset"], tokenized_agent["entry_head_idx_num"].tolist())
+
+                    all_t=tokenized_agent["entry_idx"].shape[1]-1
+                    b_num=len(s)//all_t
+                    new_s=[]
+
+                    for t in range(all_t):
+                        for b in range(b_num):
+                            new_s.append(s[b*all_t+t])       #t=0 ,b= k
+
+                    tokenized_agent["entry_pos_offset"] =torch.cat(new_s)
+
 
             tokenized_agent["token_traj_all"] = self.agent_token_all[:,:,None]#[None, :, :]#.repeat(len(agent["sampled_idx"]), 1, 1, 1)[:,:,:,None]
 
@@ -638,9 +670,15 @@ class TokenProcessor(torch.nn.Module):
 
             if len(entry_pos_offset_list) :
                 out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
+            else:
+                out_dict["entry_pos_offset"] =torch.zeros([0,4])
 
             if len(entry_head_idx_list) :
                 out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
+                out_dict["entry_head_idx_num"]=torch.tensor([len(entry_head_idx) for entry_head_idx in entry_head_idx_list])
+            else:
+                out_dict["entry_head_idx"] =torch.zeros([0])
+                out_dict["entry_head_idx_num"]=torch.zeros([out_dict["entry_idx"].shape[1]])
 
             if len(entry_idx_list) :
                 # entry_length=out_dict['sampled_idx'].shape[1]-1
