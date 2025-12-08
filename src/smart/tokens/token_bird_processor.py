@@ -225,11 +225,11 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
-        self.n_token_entry_head=64
-        self.n_token_entry_head_half=self.n_token_entry_head//2
+        self.n_token_entry_head=128
+        self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
-        return (entry_head_idx - self.n_token_entry_head_half) / (self.n_token_entry_head_half) * torch.pi
+        return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi
 
     def tokenize_agent(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -335,11 +335,11 @@ class TokenProcessor(torch.nn.Module):
         agent_shape = torch.ones_like(pos[:, 0, :2])
         batch_num=batch.max()+1
 
-        if self.pred_entry and not self.autoregressive_entry:
-            entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
+        # if self.pred_entry and not self.autoregressive_entry:
+        #     entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
 
-            entry_token_xy=entry_pos_token[:,:,:2]
-            entry_token_z=entry_pos_token[:,:,2]
+            # entry_token_xy=entry_pos_token[:,:,:2]
+            # entry_token_z=entry_pos_token[:,:,2]
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
@@ -418,8 +418,8 @@ class TokenProcessor(torch.nn.Module):
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
 
                     if self.position_only:
-                        entry_head_idx = torch.round(wrap_angle(entry_heading) / np.pi * self.n_token_entry_head_half).to(
-                            torch.long) + self.n_token_entry_head_half
+                        entry_head_idx = torch.round(wrap_angle(entry_heading) / np.pi * self.n_token_entry_head2).to(
+                            torch.long) + self.n_token_entry_head2
 
                         entry_head_idx[entry_head_idx == self.n_token_entry_head] = 0
                         entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
@@ -447,46 +447,49 @@ class TokenProcessor(torch.nn.Module):
 
                     present_heading=out_dict["sampled_heading"][-1][present_agent]
 
-                    global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
-
-                    global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
-
-                    global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
+                    # global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
+                    #
+                    # global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
+                    #
+                    # global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
 
                     present_batch=batch[present_agent]
                     entry_batch=batch[entry_agent]
 
                     row_ind=[]
                     col_ind=[]
-                    entry_idx_gt=[]
+                    #entry_idx_gt=[]
 
                     for b in range(num_graphs):
                         entry_pos_i=entry_pos[entry_batch==b]
                         if len(entry_pos_i):
-                            global_token_pos_i=global_token_pos[present_batch==b]
+                            # global_token_pos_i=global_token_pos[present_batch==b]
+                            # diff = global_token_pos_i[:, None] - entry_pos_i[None, :, None]  # (Np, Ne,token, D)
+                            # cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
 
-                            diff = global_token_pos_i[:, None] - entry_pos_i[None, :, None]  # (Np, Ne, D)
-
-                            cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
+                            global_token_pos_i=present_pos[present_batch==b]
+                            diff = global_token_pos_i[:, None] - entry_pos_i[None]  # (Np, Ne,token, D)
+                            cost= torch.linalg.norm(diff, dim=-1)
 
                             row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
-                            entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
 
                             row_ind.append(row_ind_i+torch.sum(present_batch<b).item())
                             col_ind.append(col_ind_i+torch.sum(entry_batch<b).item())
-                            entry_idx_gt.append(entry_idx_gt_i)
+
+                            # entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
+                            # entry_idx_gt.append(entry_idx_gt_i)
 
                     row_ind=np.concatenate(row_ind)
                     col_ind=np.concatenate(col_ind)
-                    entry_idx_gt=torch.cat(entry_idx_gt)
+                    #entry_idx_gt=torch.cat(entry_idx_gt)
 
-                    present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
-                    entry_idx[present_id] = entry_idx_gt
+
 
                     gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
 
                     entry_id = gt_entry_id[col_ind]
+                    entry_pos1=prev_pos[entry_id]
 
                     # non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
                     #
@@ -501,7 +504,14 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_heading=prev_head[entry_id]
 
-                    entry_head_idx= torch.round(wrap_angle(entry_heading-select_heading)/np.pi*self.n_token_entry_head_half).to(torch.long)+self.n_token_entry_head_half
+                    local_xy,local_heading = transform_to_local(
+                        entry_pos1[:, None, :2],
+                        entry_heading[:, None],
+                        select_pos[:, :2],
+                        select_heading
+                    )
+
+                    entry_head_idx= (wrap_angle(local_heading[:,0])/np.pi*self.n_token_entry_head2).round().long()+self.n_token_entry_head2
 
                     entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
 
@@ -515,37 +525,40 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_head_idx_list.append(entry_head_idx)
 
-                    tokenized_entry_pos=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
-
-                    entry_pos1=prev_pos[entry_id]
-
-                    local_entry = transform_to_local(
-                        entry_pos1[:, None, :2],
-                        None,
-                        select_pos[:, :2],
-                        select_heading
-                    )[0][:, 0]  # [n_agent, 2]
-
-                    local_tok = transform_to_local(
-                        tokenized_entry_pos[:, None, :2],
-                        None,
-                        select_pos[:, :2],
-                        select_heading
-                    )[0][:, 0]  # [n_agent, 2]
+                    #tokenized_entry_pos=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
 
 
-                    # local_tok1=self.entry_pos_token[entry_idx[entry_idx < self.n_token_entry]]
+                    local_z=entry_pos1[:,2:]-select_pos[:,2:]
+
+                    local_pos=torch.cat([local_xy[:, 0] , local_z], dim=-1)
+
+                    dist,entry_idx_gt=torch.linalg.norm(local_pos[:,None]-self.entry_pos_token[None], dim=-1).min(-1)#.mean(-1)
+
+                    #print(1)
+
+                    # local_tok = transform_to_local(
+                    #     tokenized_entry_pos[:, None, :2],
+                    #     None,
+                    #     select_pos[:, :2],
+                    #     select_heading
+                    # )[0][:, 0]  # [n_agent, 2]
+
+                    present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
+
+                    entry_idx[present_id] = entry_idx_gt
+
+                    local_tok=self.entry_pos_token[entry_idx_gt]
                     # if torch.max(local_tok1[:,:2]-local_tok)>0.1:
                     #     print("dsa")
 
                     #print(torch.max(local_tok1[:,:2]-local_tok))
 
                     # 2) Local offset
-                    local_xy = local_entry - local_tok  # [n_agent, 2]
+                    # local_xy = local_entry - local_tok  # [n_agent, 2]
 
-                    local_z=entry_pos1[:,2]-tokenized_entry_pos[:,2]
+                    # local_z=entry_pos1[:,2]-tokenized_entry_pos[:,2]
 
-                    offset_local=torch.cat((local_xy, local_z[:,None],head_offset[:,None]), dim=-1)
+                    offset_local=torch.cat((local_pos-local_tok,head_offset[:,None]), dim=-1)
                     #
                     # #offset_local = offset_local[row_ind.argsort()]
                     #
@@ -564,7 +577,7 @@ class TokenProcessor(torch.nn.Module):
 
 
 
-                    # tokenized_heading = (entry_head_idx-self.n_token_entry_head_half)/self.n_token_entry_head_half*np.pi #[-16,16]
+                    # tokenized_heading = (entry_head_idx-self.n_token_entry_head2)/self.n_token_entry_head2*np.pi #[-16,16]
                     #
                     # prev_head[entry_id]=tokenized_heading[entry_id]
                     #
