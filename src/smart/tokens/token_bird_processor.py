@@ -507,8 +507,8 @@ class TokenProcessor(torch.nn.Module):
                     head_offset=wrap_angle(entry_heading-tokenized_heading-select_heading)         #for selecting heading, not for
 
                     #entry_head_idx = entry_head_idx[row_ind.argsort()]
-                    if not np.all((row_ind[1:]-row_ind[:-1])>0):
-                        print(np.all((row_ind[1:]-row_ind[:-1])>0))
+                    # if not np.all((row_ind[1:]-row_ind[:-1])>0):
+                    #     print(np.all((row_ind[1:]-row_ind[:-1])>0))
 
                     entry_head_idx_list.append(entry_head_idx)
 
@@ -531,9 +531,9 @@ class TokenProcessor(torch.nn.Module):
                     )[0][:, 0]  # [n_agent, 2]
 
 
-                    local_tok1=self.entry_pos_token[entry_idx[entry_idx < self.n_token_entry]]
-                    if torch.max(local_tok1[:,:2]-local_tok)>0.1:
-                        print("dsa")
+                    # local_tok1=self.entry_pos_token[entry_idx[entry_idx < self.n_token_entry]]
+                    # if torch.max(local_tok1[:,:2]-local_tok)>0.1:
+                    #     print("dsa")
 
                     #print(torch.max(local_tok1[:,:2]-local_tok))
 
