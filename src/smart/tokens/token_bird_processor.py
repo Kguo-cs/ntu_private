@@ -515,7 +515,7 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_entry_pos=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
 
                     entry_pos1=prev_pos[entry_id]
-                    #
+
                     local_entry = transform_to_local(
                         entry_pos1[:, None, :2],
                         None,

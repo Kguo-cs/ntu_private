@@ -53,7 +53,7 @@ class EntryDecoder(nn.Module):
                     )
 
 
-            self.use_pos_head_offset=False
+            self.use_pos_head_offset=True
 
             if self.use_pos_head_offset:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
@@ -327,11 +327,11 @@ class EntryDecoder(nn.Module):
 
                     entry_local_traj=torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
-                    feat_token = torch.cat([entry_local_traj, entry_feature], dim=-1)
+                    #feat_token = torch.cat([entry_local_traj, entry_feature], dim=-1)
 
-                    pred_offset = self.pos_offset_predict_head(feat_token)
+                    #pred_offset = self.pos_offset_predict_head(feat_token)
 
-                    entry_local_traj=entry_local_traj+pred_offset
+                    # entry_local_traj=entry_local_traj+pred_offset
 
                 else:
 
