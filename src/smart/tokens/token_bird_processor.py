@@ -206,24 +206,24 @@ class TokenProcessor(torch.nn.Module):
         batch=tokenized_agent["batch"].clone()
 
 
-        if not self.training and self.pred_entry:
-            tokenized_agent["pos"] = data["agent"]["position"]
-            tokenized_agent["gt_valid_mask"]=data["agent"]["valid_mask"]
-
-            for key, value in tokenized_agent.items():
-                if type(value) is torch.Tensor:
-                    new_tensor=[]
-                    for b in range(data.num_graphs):
-                        valueb=value[batch==b]
-                        if 'valid_mask' in key:
-                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(1000,dim=0)
-                        else:
-                            value_repeat=valueb[:1].repeat_interleave(1000,dim=0)
-                        new_tensor.append(torch.cat([valueb,value_repeat]))
-                    tokenized_agent[key]=torch.cat(new_tensor)
-
-            data["agent"]["position"] = tokenized_agent["pos"]
-            data["agent"]["valid_mask"] = tokenized_agent["gt_valid_mask"]
+        # if not self.training and self.pred_entry:
+        #     tokenized_agent["pos"] = data["agent"]["position"]
+        #     tokenized_agent["gt_valid_mask"]=data["agent"]["valid_mask"]
+        #
+        #     for key, value in tokenized_agent.items():
+        #         if type(value) is torch.Tensor:
+        #             new_tensor=[]
+        #             for b in range(data.num_graphs):
+        #                 valueb=value[batch==b]
+        #                 if 'valid_mask' in key:
+        #                     value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(1000,dim=0)
+        #                 else:
+        #                     value_repeat=valueb[:1].repeat_interleave(1000,dim=0)
+        #                 new_tensor.append(torch.cat([valueb,value_repeat]))
+        #             tokenized_agent[key]=torch.cat(new_tensor)
+        #
+        #     data["agent"]["position"] = tokenized_agent["pos"]
+        #     data["agent"]["valid_mask"] = tokenized_agent["gt_valid_mask"]
 
         return tokenized_map, tokenized_agent
 
