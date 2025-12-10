@@ -303,98 +303,98 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.token_processor.use_bird:
 
-                # if entry_logit is not None:
-                #
-                #     if len(entry_logit)!=2:
-                #         non_present_mask = ~present_mask
-                #         entry_agent_mask = torch.zeros_like(present_mask)
-                #
-                #         unique_batches = batch.unique()
-                #         for b in unique_batches:
-                #             entry_agent =entry_logit[b]
-                #
-                #             entry_agent=entry_agent[entry_agent[:,0]!=0]
-                #             n_new = len(entry_agent)
-                #             if n_new == 0:
-                #                 continue
-                #
-                #             non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
-                #             if len(non_present_idx) == 0:
-                #                 print('full entry',t,b)
-                #                 continue
-                #
-                #             chosen = non_present_idx[:n_new]
-                #
-                #             pos_a_next[chosen] = entry_agent[:len(chosen),:3]
-                #             head_a_next[chosen] = entry_agent[:len(chosen),-1]
-                #
-                #             entry_agent_mask[chosen] = True
-                #
-                #     else:
-                #         entry_mask, entry_local_traj=entry_logit
-                #
-                #         entry_agent_mask = torch.zeros_like(present_mask)
-                #
-                #         if entry_mask.any():
-                #
-                #             new_agent_mask= torch.zeros_like(next_mask)
-                #
-                #             new_agent_mask[torch.nonzero(next_mask)[entry_mask]]=True
-                #
-                #             present_head=head_a[:, -1][new_agent_mask]
-                #
-                #             present_pos=pos_a[:, -1][new_agent_mask]
-                #
-                #             global_xy,global_head = transform_to_global(
-                #                 entry_local_traj[:, None, :2],
-                #                 entry_local_traj[:, None, -1],
-                #                 present_pos[:, :2],
-                #                 present_head,
-                #             )
-                #
-                #             new_z = present_pos[:, 2] + entry_local_traj[:, 2]
-                #
-                #             new_pos = torch.cat([global_xy[:,0], new_z[:, None]], dim=1)
-                #
-                #             new_head=wrap_angle(global_head[:,0])
-                #
-                #             # entry_agent_mask = ~present_mask & gt_valid[:, t]
-                #             #
-                #             # new_pos=gt_pos[entry_agent_mask, t]
-                #             #
-                #             # new_head=gt_head[entry_agent_mask, t]
-                #
-                #             # dist=torch.linalg.norm(new_pos[None]-new_pos1[:,None],dim=-1)
-                #             #
-                #             # dist2=torch.abs(new_head[None]-new_head1[:,None])
-                #
-                #             new_agent_batch=batch[new_agent_mask]
-                #
-                #             non_present_mask = ~present_mask
-                #
-                #             unique_batches = batch.unique()
-                #             for b in unique_batches:
-                #                 batch_mask = new_agent_batch==b
-                #                 n_new = int(batch_mask.sum())
-                #                 if n_new == 0:
-                #                     continue
-                #
-                #                 non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
-                #                 if len(non_present_idx) == 0:
-                #                     continue
-                #
-                #                 chosen = non_present_idx[:n_new]
-                #
-                #                 pos_a_next[chosen] = new_pos[batch_mask][:len(chosen)]
-                #                 head_a_next[chosen] = new_head[batch_mask][:len(chosen)]
-                #
-                #                 entry_agent_mask[chosen]=True
-                # else:
-                entry_agent_mask = ~present_mask & gt_valid[:, t]
+                if entry_logit is not None:
 
-                pos_a_next[entry_agent_mask] = gt_pos[entry_agent_mask, t]
+                    if len(entry_logit)!=2:
+                        non_present_mask = ~present_mask
+                        entry_agent_mask = torch.zeros_like(present_mask)
 
-                head_a_next[entry_agent_mask] = gt_head[entry_agent_mask, t]
+                        unique_batches = batch.unique()
+                        for b in unique_batches:
+                            entry_agent =entry_logit[b]
+
+                            entry_agent=entry_agent[entry_agent[:,0]!=0]
+                            n_new = len(entry_agent)
+                            if n_new == 0:
+                                continue
+
+                            non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
+                            if len(non_present_idx) == 0:
+                                print('full entry',t,b)
+                                continue
+
+                            chosen = non_present_idx[:n_new]
+
+                            pos_a_next[chosen] = entry_agent[:len(chosen),:3]
+                            head_a_next[chosen] = entry_agent[:len(chosen),-1]
+
+                            entry_agent_mask[chosen] = True
+
+                    else:
+                        entry_mask, entry_local_traj=entry_logit
+
+                        entry_agent_mask = torch.zeros_like(present_mask)
+
+                        if entry_mask.any():
+
+                            new_agent_mask= torch.zeros_like(next_mask)
+
+                            new_agent_mask[torch.nonzero(next_mask)[entry_mask]]=True
+
+                            present_head=head_a[:, -1][new_agent_mask]
+
+                            present_pos=pos_a[:, -1][new_agent_mask]
+
+                            global_xy,global_head = transform_to_global(
+                                entry_local_traj[:, None, :2],
+                                entry_local_traj[:, None, -1],
+                                present_pos[:, :2],
+                                present_head,
+                            )
+
+                            new_z = present_pos[:, 2] + entry_local_traj[:, 2]
+
+                            new_pos = torch.cat([global_xy[:,0], new_z[:, None]], dim=1)
+
+                            new_head=wrap_angle(global_head[:,0])
+
+                            # entry_agent_mask = ~present_mask & gt_valid[:, t]
+                            #
+                            # new_pos=gt_pos[entry_agent_mask, t]
+                            #
+                            # new_head=gt_head[entry_agent_mask, t]
+
+                            # dist=torch.linalg.norm(new_pos[None]-new_pos1[:,None],dim=-1)
+                            #
+                            # dist2=torch.abs(new_head[None]-new_head1[:,None])
+
+                            new_agent_batch=batch[new_agent_mask]
+
+                            non_present_mask = ~present_mask
+
+                            unique_batches = batch.unique()
+                            for b in unique_batches:
+                                batch_mask = new_agent_batch==b
+                                n_new = int(batch_mask.sum())
+                                if n_new == 0:
+                                    continue
+
+                                non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
+                                if len(non_present_idx) == 0:
+                                    continue
+
+                                chosen = non_present_idx[:n_new]
+
+                                pos_a_next[chosen] = new_pos[batch_mask][:len(chosen)]
+                                head_a_next[chosen] = new_head[batch_mask][:len(chosen)]
+
+                                entry_agent_mask[chosen]=True
+                else:
+                    entry_agent_mask = ~present_mask & gt_valid[:, t]
+
+                    pos_a_next[entry_agent_mask] = gt_pos[entry_agent_mask, t]
+
+                    head_a_next[entry_agent_mask] = gt_head[entry_agent_mask, t]
 
                 pred_traj[entry_agent_mask,-1]=pos_a_next[entry_agent_mask]
 
