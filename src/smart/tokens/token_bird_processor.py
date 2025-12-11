@@ -98,6 +98,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
+        self.match_all=True
+
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
@@ -367,11 +369,11 @@ class TokenProcessor(torch.nn.Module):
         agent_shape = torch.ones_like(pos[:, 0, :2])
         batch_num=batch.max()+1
 
-        # if self.pred_entry and not self.autoregressive_entry:
-        #     entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
+        if self.pred_entry and not self.autoregressive_entry and self.match_all:
+            entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
 
-            # entry_token_xy=entry_pos_token[:,:,:2]
-            # entry_token_z=entry_pos_token[:,:,2]
+            entry_token_xy=entry_pos_token[:,:,:2]
+            entry_token_z=entry_pos_token[:,:,2]
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
@@ -479,57 +481,51 @@ class TokenProcessor(torch.nn.Module):
 
                     present_heading=out_dict["sampled_heading"][-1][present_agent]
 
-                    # global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
-                    #
-                    # global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
-                    #
-                    # global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
+                    if self.match_all:
+
+                        global_token_xy=transform_to_global(entry_token_xy[:len(present_pos)],None,present_pos[:, :2],present_heading)[0]
+
+                        global_token_z=entry_token_z[:len(present_pos)]+present_pos[:,None,2]
+
+                        global_token_pos=torch.cat((global_token_xy, global_token_z[:,:,None]), dim=-1)
 
                     present_batch=batch[present_agent]
                     entry_batch=batch[entry_agent]
 
                     row_ind=[]
                     col_ind=[]
-                    #entry_idx_gt=[]
+                    entry_idx_gt=[]
 
                     for b in range(num_graphs):
                         entry_pos_i=entry_pos[entry_batch==b]
                         if len(entry_pos_i):
-                            # global_token_pos_i=global_token_pos[present_batch==b]
-                            # diff = global_token_pos_i[:, None] - entry_pos_i[None, :, None]  # (Np, Ne,token, D)
-                            # cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
 
-                            global_token_pos_i=present_pos[present_batch==b]
-                            diff = global_token_pos_i[:, None] - entry_pos_i[None]  # (Np, Ne,token, D)
-                            cost= torch.linalg.norm(diff, dim=-1)
+                            if self.match_all:
+                                global_token_pos_i=global_token_pos[present_batch==b]
+                                diff = global_token_pos_i[:, None] - entry_pos_i[None, :, None]  # (Np, Ne,token, D)
+                                cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
+                            else:
+                                global_token_pos_i=present_pos[present_batch==b]
+                                diff = global_token_pos_i[:, None] - entry_pos_i[None]  # (Np, Ne,token, D)
+                                cost= torch.linalg.norm(diff, dim=-1)
 
                             row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
 
                             row_ind.append(row_ind_i+torch.sum(present_batch<b).item())
                             col_ind.append(col_ind_i+torch.sum(entry_batch<b).item())
 
-                            # entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
-                            # entry_idx_gt.append(entry_idx_gt_i)
+                            if self.match_all:
+
+                                entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
+                                entry_idx_gt.append(entry_idx_gt_i)
 
                     row_ind=np.concatenate(row_ind)
                     col_ind=np.concatenate(col_ind)
-                    #entry_idx_gt=torch.cat(entry_idx_gt)
-
-
-
 
                     gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
 
                     entry_id = gt_entry_id[col_ind]
                     entry_pos1=prev_pos[entry_id]
-
-                    # non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
-                    #
-                    # non_entry_id=gt_entry_id[non_entry_agent]
-                    #
-                    # valid[non_entry_id, i]=False
-
-                    #prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
 
                     select_heading=present_heading[row_ind]
                     select_pos = present_pos[row_ind]
@@ -557,62 +553,33 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_head_idx_list.append(entry_head_idx)
 
-                    #tokenized_entry_pos=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt]
-
-
                     local_z=entry_pos1[:,2:]-select_pos[:,2:]
 
                     local_pos=torch.cat([local_xy[:, 0] , local_z], dim=-1)
 
-                    dist,entry_idx_gt=torch.linalg.norm(local_pos[:,None]-self.entry_pos_token[None], dim=-1).min(-1)#.mean(-1)
+                    if self.match_all:
+                        entry_idx_gt=torch.cat(entry_idx_gt)
+                    else:
+                        dist,entry_idx_gt=torch.linalg.norm(local_pos[:,None]-self.entry_pos_token[None], dim=-1).min(-1)#.mean(-1)
 
-                    #print(1)
-
-                    # local_tok = transform_to_local(
-                    #     tokenized_entry_pos[:, None, :2],
-                    #     None,
-                    #     select_pos[:, :2],
-                    #     select_heading
-                    # )[0][:, 0]  # [n_agent, 2]
+                    # non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
+                    #
+                    # non_entry_id=gt_entry_id[non_entry_agent]
+                    #
+                    # valid[non_entry_id, i]=False
+                    #
+                    # prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
 
                     present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
                     entry_idx[present_id] = entry_idx_gt
 
                     local_tok=self.entry_pos_token[entry_idx_gt]
-                    # if torch.max(local_tok1[:,:2]-local_tok)>0.1:
-                    #     print("dsa")
-
-                    #print(torch.max(local_tok1[:,:2]-local_tok))
-
-                    # 2) Local offset
-                    # local_xy = local_entry - local_tok  # [n_agent, 2]
-
-                    # local_z=entry_pos1[:,2]-tokenized_entry_pos[:,2]
 
                     offset_local=torch.cat((local_pos-local_tok,head_offset[:,None]), dim=-1)
-                    #
-                    # #offset_local = offset_local[row_ind.argsort()]
-                    #
                     entry_pos_offset_list.append(offset_local)
 
-                    # global_pos=transform_to_global(
-                    #     local_tok[:,None,:2]+local_xy[:,None,:2],
-                    #     None,  # [n_agent, n_step]
-                    #     select_pos[:, :2],  # [n_agent, 2]
-                    #     select_heading  # [n_agent]
-                    # )[0][:,0]
 
-                    # print(global_pos-entry_pos1[:,:2])
-                    #
-                    # print(1)
-
-
-
-                    # tokenized_heading = (entry_head_idx-self.n_token_entry_head2)/self.n_token_entry_head2*np.pi #[-16,16]
-                    #
-                    # prev_head[entry_id]=tokenized_heading[entry_id]
-                    #
                     # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
                     #
                     # entry_token_invalid_mask.append(dist>2)

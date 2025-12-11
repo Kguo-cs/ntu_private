@@ -311,7 +311,7 @@ class EntryDecoder(nn.Module):
 
                 # pred_offset=tokenized_agent["entry_pos_offset"][:len(feat_pos)]
 
-                #entry_local_traj = entry_local_traj + pred_offset
+                entry_local_traj = entry_local_traj + pred_offset
 
             else:
                 pred_offset = self.pos_offset_predict_head(feat_pos)
