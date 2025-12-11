@@ -305,13 +305,13 @@ class EntryDecoder(nn.Module):
 
                 entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
-                feat_token = torch.cat([entry_local_traj, entry_feature], dim=-1)
+                #feat_token = torch.cat([entry_local_traj, entry_feature], dim=-1)
 
-                pred_offset = self.pos_offset_predict_head(feat_token)
+                #pred_offset = self.pos_offset_predict_head(feat_token)
 
                 # pred_offset=tokenized_agent["entry_pos_offset"][:len(feat_pos)]
 
-                entry_local_traj = entry_local_traj + pred_offset
+                #entry_local_traj = entry_local_traj + pred_offset
 
             else:
                 pred_offset = self.pos_offset_predict_head(feat_pos)
