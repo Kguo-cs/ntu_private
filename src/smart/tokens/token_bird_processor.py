@@ -98,7 +98,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_entry=pred_entry
 
-        self.match_all=True
+        self.match_all=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:

@@ -476,7 +476,7 @@ class InterativeDecoder(nn.Module):
             next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
            # next_token_logits[:, -1] = -torch.inf #t,a
 
-        return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a,relative_pos)
+        return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a, r_a2a,relative_pos)
 
     def get_reward(self,weight,edge_value,end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent):
 
