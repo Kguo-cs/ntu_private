@@ -62,15 +62,24 @@ class EntryDecoder(nn.Module):
                         dropout=0,
                         bipartite=False,
                         has_pos_emb=True,
-                    #    gated_attention=discriminator,
                     )
 
+            self.entry_head_2 = nn.Linear(hidden_dim+1, hidden_dim)
+
+            self.entry_head_encoder2 = AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=hidden_dim//num_heads,
+                        dropout=0,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
 
 
             self.use_pos_head_offset=True
 
             if self.use_pos_head_offset:
-                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+1, hidden_dim=hidden_dim, output_dim=4)
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)
             else:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
 
@@ -346,6 +355,11 @@ class EntryDecoder(nn.Module):
                 entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
                 feat_token = torch.cat([feat_pos, local_head[:, None]], dim=-1)
+
+                feat_token=self.entry_head_2(feat_token)
+
+                feat_token=self.entry_head_encoder2(feat_token, r_a2a_pos, edge_index_a2a_pos)
+
 
                 pred_offset = self.pos_offset_predict_head(feat_token)
 
