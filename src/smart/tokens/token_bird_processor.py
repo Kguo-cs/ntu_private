@@ -46,7 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file),os.path.join(module_dir, map_token_file))
@@ -645,7 +645,7 @@ class TokenProcessor(torch.nn.Module):
                 out_dict["entry_head_idx_num"]=torch.tensor([len(entry_head_idx) for entry_head_idx in entry_head_idx_list])
             else:
                 out_dict["entry_head_idx"] =torch.zeros([0])
-                out_dict["entry_head_idx_num"]=torch.zeros([out_dict["entry_idx"].shape[1]])
+                out_dict["entry_head_idx_num"]=torch.zeros([out_dict["valid_mask"].shape[1]-1])
 
             if len(entry_idx_list) :
                 # entry_length=out_dict['sampled_idx'].shape[1]-1
