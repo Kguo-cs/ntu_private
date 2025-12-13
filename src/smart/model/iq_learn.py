@@ -152,20 +152,19 @@ class IQ_SoftQ(LightningModule):
 
                 pos_idx=entry_idx[:,:,0].long()
 
-                entry_head_idx=torch.clamp_max_(entry_idx[:,:,1],max=self.token_processor.n_token_entry_head-1).long()
+                entry_head_idx=torch.clamp(entry_idx[:,:,1],max=self.token_processor.n_token_entry_head-1).long()
 
                 entry_pos_offset=entry_idx[:,:,2:]
-
 
                 entry_mask =pos_idx!=pred_entry_logit.shape[-1]-1
 
                 pos_mask=torch.cat([torch.ones_like(entry_mask[:,:1]),entry_mask],dim=1)
 
-                entry_idx=torch.cat([pos_idx, torch.zeros_like(pos_idx[:,:1])+pred_entry_logit.shape[-1]-1], dim=1)[pos_mask]
+                pos_idx=torch.cat([pos_idx, torch.zeros_like(pos_idx[:,:1])+pred_entry_logit.shape[-1]-1], dim=1)[pos_mask]
 
                 entry_log_p=torch.log_softmax(pred_entry_logit[pos_mask], dim=-1)
 
-                entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1))
+                entry_nll = -torch.gather(entry_log_p, dim=-1, index=pos_idx.unsqueeze(-1))
 
 
                 entry_head_log_p=torch.log_softmax(pred_entry_head_logit[entry_mask], dim=-1)
@@ -334,7 +333,7 @@ class IQ_SoftQ(LightningModule):
             expert_nll, expert_log_prob,exert_entry_nll,expert_entry_head_nll= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
 
         if not self.gail:
-            return expert_nll.mean()+0.1*exert_entry_nll.mean()+0.1*expert_entry_head_nll.mean()
+            return expert_nll.mean()+exert_entry_nll.mean()+expert_entry_head_nll.mean()
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
 
