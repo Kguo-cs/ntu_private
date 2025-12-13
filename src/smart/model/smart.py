@@ -356,7 +356,7 @@ class SMART(LightningModule):
                         #     )
                     #print(time.time()-t1)
 
-            if self.n_rollout_closed_val ==1:
+            if self.n_rollout_closed_val ==1 and not self.use_bird:
                 scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
 
                 simulated_collision_rate=scenario_metrics.simulated_collision_rate

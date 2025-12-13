@@ -174,7 +174,7 @@ class EntryDecoder(nn.Module):
 
             feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
-            feat_a_t[mask_ta] = feat_a
+            feat_a_t[mask_ta] = feat_a.detach()
             batch = tokenized_agent["batch"]
             batch_num = batch.max() + 1
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -293,7 +293,7 @@ class EntryDecoder(nn.Module):
 
                         finish = finish | (pos_idx[:, 0] == self.n_token_entry)
 
-                        if finish.all() or len(entry_list)>140*self.num_levels:
+                        if finish.all() or len(entry_state_list)>140:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
 
