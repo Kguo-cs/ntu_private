@@ -134,7 +134,7 @@ class EntryDecoder(nn.Module):
                 n_current=n_current-agent_n
 
             attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos[:, -entry_num:], entry_head[:, -entry_num:],
-                                                           entry_feature.shape[1], n_current, entry_mask,use_time=False)
+                                                           entry_feature.shape[1], n_current, entry_mask,use_time=True)
 
         else:
 

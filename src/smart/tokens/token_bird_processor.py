@@ -432,8 +432,6 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
 
-
-
                     tokenized_pos = self.entry_pos_token[pos_entry_idx]
 
                     tokenized_heading =self.decode_head(entry_head_idx)
