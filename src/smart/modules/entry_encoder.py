@@ -49,7 +49,7 @@ class EntryDecoder(nn.Module):
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
-            #self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
+            self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
 
             self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)
 
@@ -108,15 +108,15 @@ class EntryDecoder(nn.Module):
 
         task=(step-agent_n)%self.num_levels
 
-        #number=(step-agent_n)//self.num_levels #step-agent_n#
+        number=(step-agent_n)//self.num_levels #step-agent_n#
 
         task[step<agent_n]=self.num_levels
 
-        #number_embedding=self.number_embedding(number.float()[:,None])
+        number_embedding=self.number_embedding(number.float()[:,None])
 
         attr_all_feature=attr_all_feature+self.task_embedding(task)[None]#+number_embedding[None]
 
-        # attr_all_feature[:,-entry_num:]=attr_all_feature[:,-entry_num:]+number_embedding[None,-entry_num:]
+        attr_all_feature[:,-entry_num:]=attr_all_feature[:,-entry_num:]+number_embedding[None,-entry_num:]
 
         entry_mask = attr_mask[:, -entry_num:]
 
