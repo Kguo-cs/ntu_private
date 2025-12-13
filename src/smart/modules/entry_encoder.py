@@ -300,6 +300,8 @@ class EntryDecoder(nn.Module):
                     self.entry_former.attn.kv_caching(0)
 
         else:
+            feat_a=feat_a.detach()
+
             entry_logit = self.entry_decoder(feat_a)
             if self.training:
                 entry_idx = tokenized_agent["entry_idx"][:, self.start_step + 1:].transpose(0, 1).flatten(0, 1)[ mask_a.transpose(0, 1).flatten(0, 1)]
