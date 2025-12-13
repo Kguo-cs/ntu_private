@@ -204,20 +204,20 @@ class EntryDecoder(nn.Module):
                 attr_all_feature = torch.cat([entry_feature, attr_feature], dim=1)
 
 
-                entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1],current_pos.shape[-1]],device=entry_idx.device)
-                entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]],device=entry_idx.device)
-                # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
-                # entry_pos=[]
-                # entry_head=[]
-                #
-                # for l in range(1,self.num_levels+1):
-                #     pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
-                #
-                #     entry_pos.append(pos_rec)
-                #     entry_head.append(heading_rec)
-                #
-                # entry_pos=torch.stack(entry_pos,dim=2).flatten(1,2)
-                # entry_head=torch.stack(entry_head,dim=2).flatten(1,2)
+                # entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1],current_pos.shape[-1]],device=entry_idx.device)
+                # entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]],device=entry_idx.device)
+                entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
+                entry_pos=[]
+                entry_head=[]
+
+                for l in range(1,self.num_levels+1):
+                    pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
+
+                    entry_pos.append(pos_rec)
+                    entry_head.append(heading_rec)
+
+                entry_pos=torch.stack(entry_pos,dim=2).flatten(1,2)
+                entry_head=torch.stack(entry_head,dim=2).flatten(1,2)
 
                 if self.use_one_feature:
                     agent_n=0

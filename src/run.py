@@ -80,6 +80,7 @@ torch.set_float32_matmul_precision("highest")# #“highest” (default),
 #h800 ==4090 highest
 
 
+
 def run(cfg: DictConfig) -> None:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)

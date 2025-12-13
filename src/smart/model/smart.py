@@ -457,12 +457,13 @@ class SMART(LightningModule):
 
                         epoch_wosac_metrics['val_closed/scene_likelihood'] = (
                                                                                      epoch_wosac_metrics[
-                                                                                         'val_closed/angular_acceleration_likelihood1'] +
-                                                                                     epoch_wosac_metrics['val_closed/linear_speed_likelihood1'] +
+                                                                                         'val_closed/linear_speed_likelihood1'] +
                                                                                      epoch_wosac_metrics[
                                                                                          'val_closed/angular_speed_likelihood1'] +
                                                                                      epoch_wosac_metrics[
                                                                                          'val_closed/linear_acceleration_likelihood1'] +
+                                                                                     epoch_wosac_metrics[
+                                                                                         'val_closed/angular_acceleration_likelihood1'] +
                                                                                      epoch_wosac_metrics['val_closed/distance_likelihood1']+
                                                                                      epoch_wosac_metrics['val_closed/polar_likelihood1']+
                                                                                      epoch_wosac_metrics['val_closed/heading_likelihood1']
