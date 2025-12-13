@@ -45,7 +45,7 @@ class EntryDecoder(nn.Module):
 
             self.head_embedding  = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
 
-            self.offset_embedding =  nn.Linear(4,hidden_dim)
+            self.offset_embedding =  MLPLayer(4,hidden_dim,hidden_dim)
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
@@ -156,9 +156,6 @@ class EntryDecoder(nn.Module):
         entry_head_logit = self.entry_head_decoder(attr_feature[:,head_mask])
 
         entry_offset = self.offset_head_decoder(attr_feature[:,offset_mask])
-
-        entry_logit[:,:,-1]=-torch.inf
-
 
         return entry_logit,entry_head_logit,entry_offset
         # last_mask= (task==0 ) &  entry_mask & (number[None,-entry_num: ] !=0)
