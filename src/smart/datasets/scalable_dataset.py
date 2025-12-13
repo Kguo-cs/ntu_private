@@ -189,7 +189,6 @@ class MultiDataset(Dataset):
         #     with open('./waymo_data/full/validation_map2/'+self.selected_files[idx//device_number], "rb") as handle:
         #         data = pickle.load(handle)
         # else:
-        print(self.raw_paths[idx])
 
         idx = idx // num_gpus
 
