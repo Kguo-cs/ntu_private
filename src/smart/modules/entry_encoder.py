@@ -50,36 +50,36 @@ class EntryDecoder(nn.Module):
 
         else:
             self.entry_head_decoder = MLPLayer(
-                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
+                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
-            self.entry_head_1 = nn.Linear(hidden_dim+3, hidden_dim)
+            # self.entry_head_1 = nn.Linear(hidden_dim+3, hidden_dim)
 
-            self.entry_head_encoder = AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=hidden_dim//num_heads,
-                        dropout=0,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-
-            self.entry_head_2 = nn.Linear(hidden_dim+1, hidden_dim)
-
-            self.entry_head_encoder2 = AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=hidden_dim//num_heads,
-                        dropout=0,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
+            # self.entry_head_encoder = AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=hidden_dim//num_heads,
+            #             dropout=0,
+            #             bipartite=False,
+            #             has_pos_emb=True,
+            #         )
+            #
+            # self.entry_head_2 = nn.Linear(hidden_dim+1, hidden_dim)
+            #
+            # self.entry_head_encoder2 = AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=hidden_dim//num_heads,
+            #             dropout=0,
+            #             bipartite=False,
+            #             has_pos_emb=True,
+            #         )
 
 
             self.use_pos_head_offset=True
 
             if self.use_pos_head_offset:
-                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
             else:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
 
@@ -317,30 +317,30 @@ class EntryDecoder(nn.Module):
 
             if self.use_pos_head_offset:
                 # Build the mapping from old index -> new compact index
-                old_idx = torch.arange(feat_a.size(0), device=feat_a.device)
-                pos_idx = old_idx[entry_mask]  # e.g., [3, 7, 10, ...]    (indices inside feat_a)
-
-                # Create the mapping array
-                mapping = pos_idx.new_full((feat_a.size(0),), -1)  # size N_a, fill -1
-                mapping[pos_idx] = torch.arange(pos_idx.size(0), device=feat_a.device)
-
-                # Now filter edges whose both endpoints survive entry_mask
-                src, dst = edge_index_a2a  # both are indices w.r.t feat_a
-
-                valid_edges = (mapping[src] != -1) & (mapping[dst] != -1)
-
-                src_new = mapping[src[valid_edges]]
-                dst_new = mapping[dst[valid_edges]]
-
-                edge_index_a2a_pos = torch.stack([src_new, dst_new], dim=0)
-
-                edge_mask = entry_mask[edge_index_a2a[0]] & entry_mask[edge_index_a2a[1]]
-
-                r_a2a_pos=r_a2a[edge_mask]
-
-                feat_pos=self.entry_head_1(feat_pos)
-
-                feat_pos=self.entry_head_encoder(feat_pos, r_a2a_pos, edge_index_a2a_pos)
+                # old_idx = torch.arange(feat_a.size(0), device=feat_a.device)
+                # pos_idx = old_idx[entry_mask]  # e.g., [3, 7, 10, ...]    (indices inside feat_a)
+                #
+                # # Create the mapping array
+                # mapping = pos_idx.new_full((feat_a.size(0),), -1)  # size N_a, fill -1
+                # mapping[pos_idx] = torch.arange(pos_idx.size(0), device=feat_a.device)
+                #
+                # # Now filter edges whose both endpoints survive entry_mask
+                # src, dst = edge_index_a2a  # both are indices w.r.t feat_a
+                #
+                # valid_edges = (mapping[src] != -1) & (mapping[dst] != -1)
+                #
+                # src_new = mapping[src[valid_edges]]
+                # dst_new = mapping[dst[valid_edges]]
+                #
+                # edge_index_a2a_pos = torch.stack([src_new, dst_new], dim=0)
+                #
+                # edge_mask = entry_mask[edge_index_a2a[0]] & entry_mask[edge_index_a2a[1]]
+                #
+                # r_a2a_pos=r_a2a[edge_mask]
+                #
+                # feat_pos=self.entry_head_1(feat_pos)
+                #
+                # feat_pos=self.entry_head_encoder(feat_pos, r_a2a_pos, edge_index_a2a_pos)
 
                 head_logit = self.entry_head_decoder(feat_pos)
 
@@ -356,9 +356,9 @@ class EntryDecoder(nn.Module):
 
                 feat_token = torch.cat([feat_pos, local_head[:, None]], dim=-1)
 
-                feat_token=self.entry_head_2(feat_token)
-
-                feat_token=self.entry_head_encoder2(feat_token, r_a2a_pos, edge_index_a2a_pos)
+                # feat_token=self.entry_head_2(feat_token)
+                #
+                # feat_token=self.entry_head_encoder2(feat_token, r_a2a_pos, edge_index_a2a_pos)
 
 
                 pred_offset = self.pos_offset_predict_head(feat_token)

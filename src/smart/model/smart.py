@@ -451,7 +451,6 @@ class SMART(LightningModule):
 
                         final_metrics = self.metric_logger.compute()
 
-
                         for key,value in final_metrics.items():
                             epoch_wosac_metrics['val_closed/'+key] = value
 
