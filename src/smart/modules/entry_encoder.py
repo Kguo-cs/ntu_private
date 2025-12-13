@@ -34,19 +34,28 @@ class EntryDecoder(nn.Module):
 
             self.use_cross_attention= True
 
-            self.num_levels=self.token_processor.tokenizer.num_levels
+            self.num_levels=3#self.token_processor.tokenizer.num_levels
 
             if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
-            self.attr_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
+            self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
+
+            self.head_embedding  = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
+
+            self.offset_embedding =  nn.Linear(4,hidden_dim)
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
-            self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
+
+            self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)
+
+            self.entry_head_decoder = MLPLayer(
+                        input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
+                    )
 
         else:
             self.entry_head_decoder = MLPLayer(
@@ -136,19 +145,27 @@ class EntryDecoder(nn.Module):
 
         task=task[-entry_num:]
 
-        entry_logit = self.entry_decoder(attr_feature)  # which patch  locate
+        pos_mask= (task==0)
 
-        mask= (task!=0)
+        head_mask=(task==1)
 
-        entry_logit[:,mask,-1]=-torch.inf
+        offset_mask=(task==2)
 
-        last_mask= (task==0 ) &  entry_mask & (number[None,-entry_num: ] !=0)
+        entry_logit = self.entry_decoder(attr_feature[:,pos_mask])
 
-        entry_pos_offset = self.pos_offset_predict_head(attr_feature[last_mask])  # which patch  locate   #t,b, n
+        entry_head_logit = self.entry_head_decoder(attr_feature[:,head_mask])
 
-        entry_pos_offset = torch.tanh(entry_pos_offset) * self.token_processor.tokenizer.resolution[None]
+        entry_offset = self.offset_head_decoder(attr_feature[:,offset_mask])
 
-        return entry_logit,entry_pos_offset
+        entry_logit[:,:,-1]=-torch.inf
+
+        # last_mask= (task==0 ) &  entry_mask & (number[None,-entry_num: ] !=0)
+        #
+        # entry_pos_offset = self.pos_offset_predict_head(attr_feature[last_mask])  # which patch  locate   #t,b, n
+        #
+        # entry_pos_offset = torch.tanh(entry_pos_offset) * self.token_processor.tokenizer.resolution[None]
+
+        return entry_logit,entry_head_logit,entry_offset
 
     def forward(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,edge_index_a2a,n_current=0):
         edge_index_a2a, r_a2a, relative_pos=edge_index_a2a
@@ -166,9 +183,9 @@ class EntryDecoder(nn.Module):
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
             entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
-            entry_state[:,:,0]=(self.token_processor.tokenizer.x_min+self.token_processor.tokenizer.x_max)/2
-            entry_state[:,:,1]=(self.token_processor.tokenizer.y_min+self.token_processor.tokenizer.y_max)/2
-            entry_state[:,:,2]=(self.token_processor.tokenizer.z_min+self.token_processor.tokenizer.z_max)/2
+            # entry_state[:,:,0]=(self.token_processor.tokenizer.x_min+self.token_processor.tokenizer.x_max)/2
+            # entry_state[:,:,1]=(self.token_processor.tokenizer.y_min+self.token_processor.tokenizer.y_max)/2
+            # entry_state[:,:,2]=(self.token_processor.tokenizer.z_min+self.token_processor.tokenizer.z_max)/2
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
@@ -196,28 +213,43 @@ class EntryDecoder(nn.Module):
                                                                  entry_mask)[:,agent_n:]
 
             if self.training:
-                entry_idx = tokenized_agent["entry_idx"].flatten(1, 2)
+                entry_idx = tokenized_agent["entry_idx"]#.flatten(1, 2)
 
-                attr_feature = self.attr_embedding(entry_idx)
-                attr_feature[entry_idx==self.token_processor.n_token_entry]=0
+                #attr_feature = self.attr_embedding(entry_idx)
+
+                pos_idx=entry_idx[:,:,:1].long()
+
+                head_idx=torch.clamp_max_(entry_idx[:,:,1:2],max=self.token_processor.n_token_entry_head-1).long()
+
+                offset=entry_idx[:,:,2:]
+
+                pos_feature=self.pos_embedding(pos_idx)
+                heading_feature=self.head_embedding(head_idx)
+                offset_feature=self.offset_embedding(offset)[:,:,None]
+
+                attr_feature=torch.cat([pos_feature,heading_feature, offset_feature], dim=2)
+
+                #attr_feature[:,pos_idx==self.token_processor.n_token_entry]=0
+
+                attr_feature=attr_feature.flatten(1,2)
 
                 attr_all_feature = torch.cat([entry_feature, attr_feature], dim=1)
 
 
-                # entry_pos=torch.zeros([entry_idx.shape[0],entry_idx.shape[1],current_pos.shape[-1]],device=entry_idx.device)
-                # entry_head=torch.zeros([entry_idx.shape[0],entry_idx.shape[1]],device=entry_idx.device)
-                entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
-                entry_pos=[]
-                entry_head=[]
-
-                for l in range(1,self.num_levels+1):
-                    pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
-
-                    entry_pos.append(pos_rec)
-                    entry_head.append(heading_rec)
-
-                entry_pos=torch.stack(entry_pos,dim=2).flatten(1,2)
-                entry_head=torch.stack(entry_head,dim=2).flatten(1,2)
+                entry_pos=torch.zeros([entry_idx.shape[0],attr_feature.shape[1],current_pos.shape[-1]],device=entry_idx.device)
+                entry_head=torch.zeros([entry_idx.shape[0],attr_feature.shape[1]],device=entry_idx.device)
+                # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
+                # entry_pos=[]
+                # entry_head=[]
+                #
+                # for l in range(1,self.num_levels+1):
+                #     pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
+                #
+                #     entry_pos.append(pos_rec)
+                #     entry_head.append(heading_rec)
+                #
+                # entry_pos=torch.stack(entry_pos,dim=2).flatten(1,2)
+                # entry_head=torch.stack(entry_head,dim=2).flatten(1,2)
 
                 if self.use_one_feature:
                     agent_n=0

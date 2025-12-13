@@ -168,23 +168,6 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_agent = self.tokenize_agent(data)
 
-        # batch_number=torch.amax(tokenized_agent['batch']).item()+1
-        #
-        # position=torch.zeros([batch_number,3],device=tokenized_agent['batch'].device)
-        #
-        # position[:,0]=0.6
-        # position[:,1]= 14.5
-        # position[:,2]=2.6
-        #
-        # orientation=torch.zeros_like(position[:,0])
-        # batch=torch.arange(batch_number,device=tokenized_agent['batch'].device)
-        #
-        # tokenized_map = {
-        #     #"pt_token": pt_token,
-        #     "position": position,
-        #     "orientation": orientation,
-        #     "batch": batch,
-        # }
         goal_pos=torch.zeros_like(tokenized_agent["sampled_pos"][:,0])
 
         goal_pos[:,0]=0.6
@@ -248,12 +231,16 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
         if self.autoregressive_entry:
-            self.position_only=False
-            self.tokenizer=HierarchicalStateTokenizer(position_only=self.position_only)
-            if self.position_only:
-                self.n_token_entry = self.tokenizer.base ** 3
-            else:
-                self.n_token_entry = self.tokenizer.base ** 4
+            # self.position_only=False
+            # self.tokenizer=HierarchicalStateTokenizer(position_only=self.position_only)
+            # if self.position_only:
+            #     self.n_token_entry = self.tokenizer.base ** 3
+            # else:
+            #     self.n_token_entry = self.tokenizer.base ** 4
+            entry_pos_token = pickle.load(open(map_token_path, "rb"))
+            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+            self.n_token_entry = self.entry_pos_token.shape[0]
+
         else:
             entry_pos_token = pickle.load(open(map_token_path, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
@@ -436,34 +423,36 @@ class TokenProcessor(torch.nn.Module):
                     entry_pos = entry_pos[sort_idx]
                     entry_heading=entry_heading[sort_idx]
                     entry_batch=entry_batch[sort_idx]
-                    #entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)[sort_idx]
 
-                    # entry_idx_x=(self.entry_pos_token_x[:, None] - entry_pos[None,:,0]).abs().argmin(dim=0)
-                    # entry_idx_y=(self.entry_pos_token_y[:, None] - entry_pos[None,:,1]).abs().argmin(dim=0)
-                    # entry_idx_z=(self.entry_pos_token_z[:, None] - entry_pos[None,:,2]).abs().argmin(dim=0)
-                    # entry_idx_head=wrap_angle(self.entry_head_token[:, None] - entry_heading[None]).abs().argmin(dim=0)
-                    #
-                    # entry_idx=torch.stack([entry_idx_x, entry_idx_y, entry_idx_z, entry_idx_head], dim=-1)
+                    # entry_idx= self.tokenizer(entry_pos,entry_heading)
 
-                    entry_idx= self.tokenizer(entry_pos,entry_heading)
+                    pos_entry_idx=torch.linalg.norm(entry_pos[:,None] - self.entry_pos_token[None], dim=-1).argmin(1)
+
+                    entry_head_idx= (wrap_angle(entry_heading)/np.pi*self.n_token_entry_head2).round().long()+self.n_token_entry_head2
+
+                    entry_head_idx[entry_head_idx==self.n_token_entry_head]=0
+
+
+
+                    tokenized_pos = self.entry_pos_token[pos_entry_idx]
+
+                    tokenized_heading =self.decode_head(entry_head_idx)
+
+                    offset_local=torch.cat((entry_pos-tokenized_pos,wrap_angle(tokenized_heading-entry_heading)[:,None]), dim=-1)
+
+                    entry_idx=torch.cat([pos_entry_idx[:,None], entry_head_idx[:,None],offset_local], dim=-1)
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
 
-                    if self.position_only:
-                        entry_head_idx = torch.round(wrap_angle(entry_heading) / np.pi * self.n_token_entry_head2).to(
-                            torch.long) + self.n_token_entry_head2
 
-                        entry_head_idx[entry_head_idx == self.n_token_entry_head] = 0
-                        entry_head_idx_list.extend(torch.split(entry_head_idx,entry_length))
-
-                    pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
-
-                    res_pos=entry_pos-pos_rec
-
-                    entry_pos_offset_list.append(res_pos)
-
+                    # pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
+                    #
+                    # res_pos=entry_pos-pos_rec
+                    #
+                    # entry_pos_offset_list.append(res_pos)
+                    #
                     # prev_pos[entry_id]=pos_rec
                     # prev_head[entry_id]=heading_rec
                     #

@@ -146,27 +146,46 @@ class IQ_SoftQ(LightningModule):
 
             if self.token_processor.autoregressive_entry:
 
-                pred_entry_logit,pred_offset=pred["entry_logit"]
+                pred_entry_logit,pred_entry_head_logit,pred_offset=pred["entry_logit"]
 
-                entry_idx=tokenized_agent["entry_idx"].flatten(1,2)
+                entry_idx=tokenized_agent["entry_idx"]#.flatten(1,2)
 
-                entry_mask =entry_idx!=pred_entry_logit.shape[-1]-1
+                pos_idx=entry_idx[:,:,0].long()
 
-                entry_mask=torch.cat([torch.ones_like(entry_mask[:,:1]),entry_mask],dim=1)
+                entry_head_idx=torch.clamp_max_(entry_idx[:,:,1],max=self.token_processor.n_token_entry_head-1).long()
 
-                entry_idx=torch.cat([entry_idx, torch.zeros_like(entry_idx[:,:1])+pred_entry_logit.shape[-1]-1], dim=1)[entry_mask]
+                entry_pos_offset=entry_idx[:,:,2:]
 
-                entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)[entry_mask]
+
+                entry_mask =pos_idx!=pred_entry_logit.shape[-1]-1
+
+                pos_mask=torch.cat([torch.ones_like(entry_mask[:,:1]),entry_mask],dim=1)
+
+                entry_idx=torch.cat([pos_idx, torch.zeros_like(pos_idx[:,:1])+pred_entry_logit.shape[-1]-1], dim=1)[pos_mask]
+
+                entry_log_p=torch.log_softmax(pred_entry_logit[pos_mask], dim=-1)
 
                 entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx.unsqueeze(-1))
 
-                entry_pos_offset=tokenized_agent["entry_pos_offset"]
 
-                offset_l1=(entry_pos_offset-pred_offset).abs()#torch.tensor(0.0,device=action_nll.device)
+                entry_head_log_p=torch.log_softmax(pred_entry_head_logit[entry_mask], dim=-1)
+
+                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx[entry_mask].unsqueeze(-1))
+
+                self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
+
+                entry_pos_offset=entry_pos_offset[entry_mask]
+                pred_offset=pred_offset[entry_mask]
+
+                offset_l1=(entry_pos_offset[...,:3]-pred_offset[...,:3]).abs().mean(-1)
 
                 self.log("train/offset_l1", offset_l1.mean().item(), on_step=True, batch_size=1)
 
-                entry_head_nll=offset_l1
+                offset_head = wrap_angle(entry_pos_offset[..., -1] - pred_offset[..., -1]).abs()
+
+                self.log("train/offset_head", offset_head.mean().item(), on_step=True, batch_size=1)
+
+                entry_head_nll=entry_head_nll+offset_l1+offset_head
 
             else:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
@@ -183,7 +202,7 @@ class IQ_SoftQ(LightningModule):
 
                 entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
 
-                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1))
+                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1)).squeeze(-1)
 
                 self.log("train/entry_head_nll", entry_head_nll.mean().item(), on_step=True, batch_size=1)
 
@@ -197,9 +216,10 @@ class IQ_SoftQ(LightningModule):
 
                 if self.encoder.agent_encoder.entry_decoder.use_pos_head_offset:
 
-                    offset_head=wrap_angle(entry_pos_offset[...,-1]-pred_offset[...,-1]).abs().mean(-1)
+                    offset_head=wrap_angle(entry_pos_offset[...,-1]-pred_offset[...,-1]).abs()
 
                     entry_head_nll=offset_head+entry_head_nll
+                    self.log("train/offset_head", offset_head.mean().item(), on_step=True, batch_size=1)
 
             self.log("train/entry_nll", entry_nll.mean().item(), on_step=True, batch_size=1)
 
