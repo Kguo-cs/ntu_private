@@ -242,7 +242,7 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
 
             module_dir = os.path.dirname(__file__)
-            offset_token=os.path.join(module_dir, 'offset1024.pkl')
+            offset_token=os.path.join(module_dir, 'offset512.pkl')
 
             offset_token = pickle.load(open(offset_token, "rb"))
             self.register_buffer(f"offset_token", offset_token, persistent=False)
@@ -253,7 +253,7 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
-        self.n_token_entry_head=256
+        self.n_token_entry_head=128
         self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
