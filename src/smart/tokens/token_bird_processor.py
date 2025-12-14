@@ -436,7 +436,7 @@ class TokenProcessor(torch.nn.Module):
 
                     tokenized_heading =self.decode_head(entry_head_idx)
 
-                    offset_local=torch.cat((entry_pos-tokenized_pos,wrap_angle(tokenized_heading-entry_heading)[:,None]), dim=-1)
+                    offset_local=torch.cat((entry_pos-tokenized_pos,wrap_angle(entry_heading-tokenized_heading)[:,None]), dim=-1)
 
                     entry_idx=torch.cat([pos_entry_idx[:,None], entry_head_idx[:,None],offset_local], dim=-1)
 
