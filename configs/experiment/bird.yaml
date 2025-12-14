@@ -10,7 +10,7 @@ model:
     lr_min_ratio: 1e-2
     token_processor:
       agent_token_file: "bird1024.pkl"
-      map_token_file: "global512.pkl"
+      map_token_file: "global1024.pkl"
       use_noise: False
       pred_entry: True
 
@@ -42,7 +42,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/logs/bird6_head1_at1_clone_n20/2025-11-11_18-51-26/bird/gzan6d3o/checkpoints/epoch=19-step=155000.ckpt'
 
-task_name: bird5_auto512_time_head #_dist_para512_head128_squeeze_Loss01  #noreplace_offset4_head128_a2a2 #_val52 #_val8 #_head128 _realeval #_zeropos_val8 #_para_localheadnoentryreplace_53_offset  #nonentry001_crossnumberpos #_task_all #_val8 #valid_pad_val10 #entryloss1_d2 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
+task_name: bird5_auto1024_time_head #_dist_para512_head128_squeeze_Loss01  #noreplace_offset4_head128_a2a2 #_val52 #_val8 #_head128 _realeval #_zeropos_val8 #_para_localheadnoentryreplace_53_offset  #nonentry001_crossnumberpos #_task_all #_val8 #valid_pad_val10 #entryloss1_d2 #_head1 #_nei10_head1_pred01_exit #_noentry #_gtNew #new #_smooth01
 
 
 
