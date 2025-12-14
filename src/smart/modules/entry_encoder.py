@@ -37,9 +37,9 @@ class EntryDecoder(nn.Module):
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
             if self.use_one_feature or self.use_cross_attention:
-                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)#replace with gnn
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)
 
             self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
 
@@ -51,7 +51,7 @@ class EntryDecoder(nn.Module):
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
 
-            self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)
+            self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)#offset to offset
 
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head

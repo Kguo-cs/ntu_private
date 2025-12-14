@@ -241,12 +241,19 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
+            module_dir = os.path.dirname(__file__)
+            offset_token=os.path.join(module_dir, 'offset512.pkl')
+
+            offset_token = pickle.load(open(offset_token, "rb"))
+            self.register_buffer(f"offset_token", offset_token, persistent=False)
+            self.n_token_offset = self.offset_token.shape[0]
+
         else:
             entry_pos_token = pickle.load(open(map_token_path, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
-        self.n_token_entry_head=64
+        self.n_token_entry_head=128
         self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
@@ -422,7 +429,7 @@ class TokenProcessor(torch.nn.Module):
                     # large constant to separate batches
                     C = 10000
 
-                    sort_key = entry_batch.float() * C + torch.linalg.norm(entry_pos,dim=-1)#[:, 0]
+                    sort_key = entry_batch.float() * C + entry_pos[:, 0]
                     sort_idx = torch.argsort(sort_key)
 
                     entry_pos = entry_pos[sort_idx]
@@ -440,7 +447,9 @@ class TokenProcessor(torch.nn.Module):
 
                     tokenized_heading =self.decode_head(entry_head_idx)
 
-                    offset_local=torch.cat((entry_pos-tokenized_pos,wrap_angle(entry_heading-tokenized_heading)[:,None]), dim=-1)
+                    offset_pos=entry_pos-tokenized_pos
+
+                    offset_local=torch.cat((offset_pos,wrap_angle(entry_heading-tokenized_heading)[:,None]), dim=-1)
 
                     entry_idx=torch.cat([pos_entry_idx[:,None], entry_head_idx[:,None],offset_local], dim=-1)
 
