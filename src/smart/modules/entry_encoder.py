@@ -149,9 +149,9 @@ class EntryDecoder(nn.Module):
 
         pos_mask= (task==0)
 
-        head_mask=(task==1)
+        head_mask=(task==2)
 
-        offset_mask=(task==2)
+        offset_mask=(task==1)
 
         entry_logit = self.entry_decoder(attr_feature[:,pos_mask])
 
@@ -224,7 +224,7 @@ class EntryDecoder(nn.Module):
                 heading_feature=self.head_embedding(head_idx)
                 offset_feature=self.offset_embedding(offset)#[:,:,None]
 
-                attr_feature=torch.stack([pos_feature,heading_feature, offset_feature], dim=2)
+                attr_feature=torch.stack([pos_feature, offset_feature,heading_feature], dim=2)
 
                 #attr_feature[:,pos_idx==self.token_processor.n_token_entry]=0
 
@@ -307,6 +307,14 @@ class EntryDecoder(nn.Module):
 
                         entry_feature = self.head_embedding(entry_head_idx)
 
+                        heading_rec=tokenized_heading#+entry_offset[:,0,3:]
+
+                        new_state=torch.cat([pos_rec, heading_rec], dim=-1)
+
+                        new_state[finish] = 0
+
+                        entry_state_list.append(new_state)
+
                     else:
                         offset_idx = Categorical(logits=entry_offset).sample()
 
@@ -315,13 +323,6 @@ class EntryDecoder(nn.Module):
 
                         pos_rec=token_pos[:,0]+entry_offset[:,0,:3]
 
-                        heading_rec=tokenized_heading#+entry_offset[:,0,3:]
-
-                        new_state=torch.cat([pos_rec, heading_rec], dim=-1)
-
-                        new_state[finish] = 0
-
-                        entry_state_list.append(new_state)
 
                         entry_feature = self.offset_embedding(offset_idx)
 
