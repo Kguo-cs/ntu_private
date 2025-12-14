@@ -637,7 +637,21 @@ class TokenProcessor(torch.nn.Module):
 
             if len(entry_idx_list) :
                 # entry_length=out_dict['sampled_idx'].shape[1]-1
-                out_dict["entry_idx"]=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
+                entry_idx=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
+
+                out_dict["pos_idx"]=entry_idx[:,:,0].long()
+
+                out_dict["head_idx"] = torch.clamp(
+                    entry_idx[:, :, 1],
+                    max=self.n_token_entry_head - 1
+                ).long()
+
+                offset=entry_idx[:,:,2:]
+
+                offset[offset==self.n_token_entry]=0
+
+                out_dict["offset"]=offset
+
 
 
             # if len(entry_head_idx_list):

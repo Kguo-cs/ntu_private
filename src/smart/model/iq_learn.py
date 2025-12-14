@@ -148,13 +148,13 @@ class IQ_SoftQ(LightningModule):
 
                 pred_entry_logit,pred_entry_head_logit,pred_offset=pred["entry_logit"]
 
-                entry_idx=tokenized_agent["entry_idx"]#.flatten(1,2)
+                #entry_idx=tokenized_agent["entry_idx"]#.flatten(1,2)
 
-                pos_idx=entry_idx[:,:,0].long()
+                pos_idx=tokenized_agent["pos_idx"]
 
-                entry_head_idx=torch.clamp(entry_idx[:,:,1],max=self.token_processor.n_token_entry_head-1).long()
+                entry_head_idx=tokenized_agent["head_idx"]
 
-                entry_pos_offset=entry_idx[:,:,2:]
+                entry_pos_offset=tokenized_agent["offset"]
 
                 entry_mask =pos_idx!=pred_entry_logit.shape[-1]-1
 
