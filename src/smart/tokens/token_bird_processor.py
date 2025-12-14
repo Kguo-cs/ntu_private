@@ -422,7 +422,7 @@ class TokenProcessor(torch.nn.Module):
                     # large constant to separate batches
                     C = 10000
 
-                    sort_key = entry_batch.float() * C + entry_pos[:, 0]
+                    sort_key = entry_batch.float() * C + torch.linalg.norm(entry_pos,dim=-1)#[:, 0]
                     sort_idx = torch.argsort(sort_key)
 
                     entry_pos = entry_pos[sort_idx]
