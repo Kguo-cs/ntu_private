@@ -96,7 +96,7 @@ class EntryDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
         )
 
-    def pred_entry(self,attr_all_feature,entry_pos, entry_head,agent_n,n_current=0,tgt_mask=None):
+    def pred_entry(self,attr_all_feature,all_pos, all_head,agent_n,n_current=0,tgt_mask=None):
 
         n_step=attr_all_feature.shape[1]
 
@@ -104,7 +104,7 @@ class EntryDecoder(nn.Module):
 
         attr_mask = torch.any(attr_all_feature != 0, dim=-1)
 
-        step = torch.arange(n_step,device=entry_pos.device)+n_current
+        step = torch.arange(n_step,device=all_pos.device)+n_current
 
         task=(step-agent_n)%self.num_levels
 
@@ -123,22 +123,24 @@ class EntryDecoder(nn.Module):
         if self.use_cross_attention:
 
             entry_feature = attr_all_feature[:, -entry_num:]
-            agent_feature = attr_all_feature[:, :-entry_num]
+            entry_pos = all_pos[:, -entry_num:]
+            entry_head = all_head[:, -entry_num:]
 
-            entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos[:, -entry_num:],
-                                                             entry_head[:, -entry_num:], entry_mask,
-                                                             agent_feature, entry_pos[:, :-entry_num],
-                                                             entry_head[:, :-entry_num],  tgt_mask)
+            entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
+                                                             entry_head, entry_mask,
+                                                             attr_all_feature[:, :-entry_num],
+                                                              all_pos[:, :-entry_num],
+                                                             all_head[:, :-entry_num],  tgt_mask)
 
             if n_current!=0:
                 n_current=n_current-agent_n
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos[:, -entry_num:], entry_head[:, -entry_num:],
+            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos, entry_head,
                                                            entry_feature.shape[1], n_current, entry_mask,use_time=True)
 
         else:
 
-            attr_feature = self.attr_former.temporal_embed(attr_all_feature, entry_pos, entry_head,
+            attr_feature = self.attr_former.temporal_embed(attr_all_feature, all_pos, all_head,
                                                             n_step, n_current, attr_mask)
 
             attr_feature=attr_feature[:,-entry_num:]
