@@ -37,21 +37,21 @@ class EntryDecoder(nn.Module):
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
             if self.use_one_feature or self.use_cross_attention:
-                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)#replace with gnn
+                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
 
             self.head_embedding  = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
 
-            self.offset_embedding =  MLPLayer(4,hidden_dim,hidden_dim)
+            self.offset_embedding =nn.Embedding(self.token_processor.n_token_offset, hidden_dim)  #MLPLayer(4,hidden_dim,hidden_dim)
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
 
-            self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=4)#offset to offset
+            self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_offset)#offset to offset
 
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
@@ -308,9 +308,14 @@ class EntryDecoder(nn.Module):
                         entry_feature = self.head_embedding(entry_head_idx)
 
                     else:
+                        offset_idx = Categorical(logits=entry_offset).sample()
+
+                        entry_offset=self.token_processor.offset_token[offset_idx]
+
+
                         pos_rec=token_pos[:,0]+entry_offset[:,0,:3]
 
-                        heading_rec=tokenized_heading+entry_offset[:,0,3:]
+                        heading_rec=tokenized_heading#+entry_offset[:,0,3:]
 
                         new_state=torch.cat([pos_rec, heading_rec], dim=-1)
 
@@ -318,7 +323,7 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state)
 
-                        entry_feature = self.offset_embedding(entry_offset)
+                        entry_feature = self.offset_embedding(offset_idx)
 
 
                     # entry_idx = Categorical(logits=entry_logit).sample()

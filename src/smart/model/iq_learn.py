@@ -176,15 +176,23 @@ class IQ_SoftQ(LightningModule):
                 entry_pos_offset=entry_pos_offset[entry_mask]
                 pred_offset=pred_offset[entry_mask]
 
-                offset_l1=(entry_pos_offset[...,:3]-pred_offset[...,:3]).abs().mean(-1)
+                pred_offset=torch.log_softmax(pred_offset, dim=-1)
 
-                self.log("train/offset_l1", offset_l1.mean().item(), on_step=True, batch_size=1)
+                entry_offset_nll = -torch.gather(pred_offset, dim=-1, index=entry_pos_offset.unsqueeze(-1))
 
-                offset_head = wrap_angle(entry_pos_offset[..., -1] - pred_offset[..., -1]).abs()
+                self.log("train/entry_offset_nll", entry_offset_nll.mean().item(), on_step=True, batch_size=1)
 
-                self.log("train/offset_head", offset_head.mean().item(), on_step=True, batch_size=1)
+                entry_head_nll = entry_head_nll+entry_offset_nll
 
-                entry_head_nll=entry_head_nll+offset_l1+offset_head
+                # offset_l1=(entry_pos_offset[...,:3]-pred_offset[...,:3]).abs().mean(-1)
+                #
+                # self.log("train/offset_l1", offset_l1.mean().item(), on_step=True, batch_size=1)
+                #
+                # offset_head = wrap_angle(entry_pos_offset[..., -1] - pred_offset[..., -1]).abs()
+                #
+                # self.log("train/offset_head", offset_head.mean().item(), on_step=True, batch_size=1)
+                #
+                # entry_head_nll=entry_head_nll+offset_l1+offset_head
 
             else:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)

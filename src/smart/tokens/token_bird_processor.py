@@ -242,7 +242,7 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
 
             module_dir = os.path.dirname(__file__)
-            offset_token=os.path.join(module_dir, 'offset512.pkl')
+            offset_token=os.path.join(module_dir, 'offset1024.pkl')
 
             offset_token = pickle.load(open(offset_token, "rb"))
             self.register_buffer(f"offset_token", offset_token, persistent=False)
@@ -449,7 +449,9 @@ class TokenProcessor(torch.nn.Module):
 
                     offset_pos=entry_pos-tokenized_pos
 
-                    offset_local=torch.cat((offset_pos,wrap_angle(entry_heading-tokenized_heading)[:,None]), dim=-1)
+                    offset_local=torch.linalg.norm(offset_pos[:,None]-self.offset_token[None],dim=-1).argmin(1)[:,None]
+
+                    #offset_local=torch.cat((offset_pos,wrap_angle(entry_heading-tokenized_heading)[:,None]), dim=-1)
 
                     entry_idx=torch.cat([pos_entry_idx[:,None], entry_head_idx[:,None],offset_local], dim=-1)
 
@@ -658,7 +660,7 @@ class TokenProcessor(torch.nn.Module):
                     max=self.n_token_entry_head - 1
                 ).long()
 
-                offset=entry_idx[:,:,2:]
+                offset=entry_idx[:,:,2]
 
                 offset[offset==self.n_token_entry]=0
 
