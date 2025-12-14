@@ -418,7 +418,8 @@ class TokenProcessor(torch.nn.Module):
                     entry_heading = heading[:, i][entry_agent]
                     entry_batch=batch[entry_agent]
 
-                    sort_idx=torch.argsort(torch.linalg.norm(entry_pos,dim=-1))
+                    # sort_idx=torch.argsort(torch.linalg.norm(entry_pos,dim=-1))
+                    sort_idx=torch.argsort(entry_pos[...,0])
 
                     entry_pos = entry_pos[sort_idx]
                     entry_heading=entry_heading[sort_idx]
