@@ -39,7 +39,7 @@ class EntryDecoder(nn.Module):
             if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
 
             self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
 
@@ -218,11 +218,11 @@ class EntryDecoder(nn.Module):
 
                 pos_idx=tokenized_agent["pos_idx"]
                 head_idx = tokenized_agent["head_idx"]
-                offset=tokenized_agent["offset"]
+                offset_idx=tokenized_agent["offset"]
 
                 pos_feature=self.pos_embedding(pos_idx)
                 heading_feature=self.head_embedding(head_idx)
-                offset_feature=self.offset_embedding(offset)#[:,:,None]
+                offset_feature=self.offset_embedding(offset_idx)#[:,:,None]
 
                 attr_feature=torch.stack([pos_feature, offset_feature,heading_feature], dim=2)
 
@@ -235,13 +235,26 @@ class EntryDecoder(nn.Module):
 
                 entry_pos=torch.zeros([pos_idx.shape[0],attr_feature.shape[1],current_pos.shape[-1]],device=pos_idx.device)
                 entry_head=torch.zeros([pos_idx.shape[0],attr_feature.shape[1]],device=pos_idx.device)
-                # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
+
+
+                offset_idx1=torch.clamp(offset_idx,max=self.token_processor.n_token_entry-1)
+
+                entry_offset = self.token_processor.offset_token[offset_idx1]
+                pos_idx1=torch.clamp(pos_idx,max=self.token_processor.n_token_entry-1)
+                token_pos = self.token_processor.entry_pos_token[pos_idx1]
+
+                total_pos=entry_offset+token_pos
+
+                entry_pos[:,::self.num_levels]=token_pos
+                entry_pos[:,1::self.num_levels]=total_pos
+
+                # # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
                 # entry_pos=[]
                 # entry_head=[]
-                #
+
                 # for l in range(1,self.num_levels+1):
-                #     pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
-                #
+                    # pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all[:,:,:l])
+
                 #     entry_pos.append(pos_rec)
                 #     entry_head.append(heading_rec)
                 #
@@ -281,7 +294,7 @@ class EntryDecoder(nn.Module):
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
                         if self.use_cross_attention:
                             self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
-                        current_pos = current_pos[:, -1:]
+                        #current_pos = current_pos[:, -1:]
                         current_heading = current_heading[:, -1:]
                         n_current=n_current+agent_n
 
@@ -300,6 +313,9 @@ class EntryDecoder(nn.Module):
 
                         entry_feature = self.pos_embedding(pos_idx)
 
+                        current_pos=token_pos
+
+
                     elif entry_head_logit.shape[1]!=0:
                         entry_head_idx = Categorical(logits=entry_head_logit).sample()
 
@@ -315,6 +331,9 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state)
 
+                        current_pos=torch.zeros_like(current_pos)
+
+
                     else:
                         offset_idx = Categorical(logits=entry_offset).sample()
 
@@ -325,6 +344,9 @@ class EntryDecoder(nn.Module):
 
 
                         entry_feature = self.offset_embedding(offset_idx)
+
+                        current_pos=pos_rec[:,None]
+
 
 
                     # entry_idx = Categorical(logits=entry_logit).sample()
