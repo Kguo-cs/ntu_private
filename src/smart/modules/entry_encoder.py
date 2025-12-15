@@ -132,7 +132,7 @@ class EntryDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
         )
 
-    def pred_entry(self,attr_all_feature,all_pos, all_head,agent_n,n_current=0,tgt_mask=None,entry_mask=None):
+    def pred_entry(self,attr_all_feature,all_pos, all_head,agent_n,n_current=0,tgt_mask=None):
 
         n_step=attr_all_feature.shape[1]
 
@@ -172,13 +172,18 @@ class EntryDecoder(nn.Module):
                 agent_features=attr_all_feature[:, :-entry_num]
                 agent_positions=all_pos[:, :-entry_num]
                 agent_heads=all_head[:, :-entry_num]
-                batch=torch.arange(len(agent_features))[:,None].repeat(1,agent_features.shape[1])
+                batch=torch.arange(len(agent_features),device=agent_features.device)[:,None].repeat(1,agent_features.shape[1])
 
                 batch_pl = batch[tgt_mask]
                 pos_pl = agent_positions[tgt_mask]
                 orient_pl = agent_heads[tgt_mask]
-                feat_pl = agent_features[tgt_mask]
 
+                pos_a=entry_pos[entry_mask][:,None]
+                head_a=entry_head[entry_mask][:,None]
+                batch_s=torch.arange(len(entry_feature),device=entry_feature.device)[:,None].repeat(1,entry_feature.shape[1])
+
+                head_vector_a=torch.zeros_like(entry_feature)
+                mask_a=torch.ones_like(head_a).to(bool)
 
                 edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
                     pos_pl=pos_pl,  # [n_pl, 2]
@@ -187,13 +192,15 @@ class EntryDecoder(nn.Module):
                     head_a=head_a,  # [n_agent, n_step]
                     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
                     mask=mask_a,  # [n_agent, n_step]
-                    batch_s=batch_s_repeat,  # [n_agent,n_step]
+                    batch_s=batch_s,  # [n_agent,n_step]
                     batch_pl=batch_pl,  # [n_pl*n_step]
                     pl2a_radius=100,
                     max_num_neighbors=10,
                     agent_train_mask=None,
                     layer_num=1
                 )
+
+                feat_pl = agent_features[tgt_mask]
 
 
             if n_current!=0:
@@ -291,6 +298,10 @@ class EntryDecoder(nn.Module):
                 heading_feature=self.head_embedding(head_idx)
                 offset_feature=self.offset_embedding(offset_idx)#[:,:,None]
 
+                pos_feature[entry_mask]=0
+                heading_feature[entry_mask]=0
+                offset_feature[entry_mask]=0
+
                 attr_feature=torch.stack([pos_feature, offset_feature,heading_feature], dim=2)
 
                 #attr_feature[:,pos_idx==self.token_processor.n_token_entry]=0
@@ -335,7 +346,7 @@ class EntryDecoder(nn.Module):
                     entry_pos=torch.cat([current_pos, entry_pos], dim=1)
                     entry_head=torch.cat([current_heading, entry_head], dim=1)
 
-                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n,tgt_mask=tgt_mask,entry_mask=entry_mask)
+                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n,tgt_mask=tgt_mask)
 
 
             else:
