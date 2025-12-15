@@ -267,6 +267,7 @@ class EntryDecoder(nn.Module):
 
             tgt_mask = torch.any(padding_features != 0, dim=-1)
 
+
             if self.use_one_feature:
 
                 entry_mask = torch.any(entry_feature != 0, dim=-1)
@@ -343,7 +344,6 @@ class EntryDecoder(nn.Module):
                 if self.use_cross_attention:
                     self.entry_former.attn.caching = True
 
-                entry_list=[]
                 entry_state_list = []
 
                 finish=torch.zeros_like(current_heading[:,0]).to(torch.bool)
@@ -355,7 +355,7 @@ class EntryDecoder(nn.Module):
 
                 while True:
 
-                    entry_logit,entry_head_logit,entry_offset = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current,tgt_mask,entry_mask)
+                    entry_logit,entry_head_logit,entry_offset = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current,tgt_mask)
 
                     if n_current==0:
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
