@@ -247,6 +247,7 @@ class EntryDecoder(nn.Module):
 
                 entry_pos[:,::self.num_levels]=token_pos
                 entry_pos[:,1::self.num_levels]=total_pos
+                entry_pos[:,2::self.num_levels]=total_pos
 
                 # # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
                 # entry_pos=[]
@@ -331,7 +332,7 @@ class EntryDecoder(nn.Module):
 
                         entry_state_list.append(new_state)
 
-                        current_pos=torch.zeros_like(current_pos)
+                        #current_pos=torch.zeros_like(current_pos)
 
 
                     else:
