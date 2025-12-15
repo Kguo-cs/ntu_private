@@ -32,7 +32,7 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            self.use_cross_attention= True
+            self.use_cross_attention= False
 
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
@@ -136,12 +136,12 @@ class EntryDecoder(nn.Module):
                 n_current=n_current-agent_n
 
             attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos, entry_head,
-                                                           entry_feature.shape[1], n_current, entry_mask,use_time=True)
+                                                           entry_feature.shape[1], n_current, entry_mask)
 
         else:
 
             attr_feature = self.attr_former.temporal_embed(attr_all_feature, all_pos, all_head,
-                                                            n_step, n_current, attr_mask)
+                                                            n_step, n_current, attr_mask,use_time=False)
 
             attr_feature=attr_feature[:,-entry_num:]
 
