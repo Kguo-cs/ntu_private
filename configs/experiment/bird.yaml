@@ -44,8 +44,6 @@ model:
 
 task_name: bird6_auto512_offsethead_allpos_detach #_allpos_para512_head128_squeeze_Loss01  #noreplace_offset4_head128_a2a2 #_val52 #_val8 #_head128 _realeval
 
-
-
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
