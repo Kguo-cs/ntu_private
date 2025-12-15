@@ -39,7 +39,7 @@ class EntryDecoder(nn.Module):
             if self.use_one_feature or self.use_cross_attention:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)
 
             self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
 
@@ -135,7 +135,7 @@ class EntryDecoder(nn.Module):
             if n_current!=0:
                 n_current=n_current-agent_n
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos, None,
+            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos, entry_head,
                                                            entry_feature.shape[1], n_current, entry_mask,use_time=True)
 
         else:
