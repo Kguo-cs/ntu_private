@@ -44,7 +44,7 @@ class EntryDecoder(nn.Module):
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
             if self.use_one_feature or self.use_cross_attention:
-                #self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
+                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
 
                 num_layers=1
                 head_dim=hidden_dim//num_heads
@@ -163,15 +163,13 @@ class EntryDecoder(nn.Module):
             entry_pos = all_pos[:, -entry_num:]
             entry_head = all_head[:, -entry_num:]
 
-            # entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
-            #                                                  entry_head, entry_mask,
-            #                                                  attr_all_feature[:, :-entry_num],
-            #                                                   all_pos[:, :-entry_num],
-            #                                                  all_head[:, :-entry_num],  tgt_mask)
-
-            #if self.training:
-
             feat_map,pos_pl,orient_pl,batch_pl,tgt_mask=tgt_mask
+
+            entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
+                                                             entry_head, entry_mask,
+                                                             attr_all_feature[:, :-entry_num],
+                                                              all_pos[:, :-entry_num],
+                                                             all_head[:, :-entry_num],  tgt_mask)
 
             pos_a=entry_pos[entry_mask][:,None]
             head_a=entry_head[entry_mask][:,None]
@@ -360,8 +358,8 @@ class EntryDecoder(nn.Module):
             else:
                 self.attr_former.attn.caching = True
 
-                # if self.use_cross_attention:
-                #     self.entry_former.attn.caching = True
+                if self.use_cross_attention:
+                    self.entry_former.attn.caching = True
 
                 entry_state_list = []
 
@@ -378,8 +376,8 @@ class EntryDecoder(nn.Module):
 
                     if n_current==0:
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
-                        # if self.use_cross_attention:
-                        #     self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
+                        if self.use_cross_attention:
+                            self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
                         current_pos = current_pos[:, -1:]
                         current_heading = current_heading[:, -1:]
                         n_current=n_current+agent_n
@@ -475,8 +473,8 @@ class EntryDecoder(nn.Module):
                     # entry_feature = self.attr_embedding(entry_idx)
 
                 self.attr_former.attn.kv_caching(0)
-                # if self.use_cross_attention:
-                #     self.entry_former.attn.kv_caching(0)
+                if self.use_cross_attention:
+                    self.entry_former.attn.kv_caching(0)
 
         else:
             #feat_a=feat_a.detach()
