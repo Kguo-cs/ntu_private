@@ -4,13 +4,20 @@ import torch.nn as nn
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.distributions import Categorical
+
+from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
+from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
+from torch_scatter import scatter_max,scatter_mean,scatter_sum
+from src.smart.layers.relative_transformer import RoFormerBlock
+from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 
 class EntryDecoder(nn.Module):
     def __init__(
             self,
             hidden_dim: int,
             num_heads: int,
+            num_freq_bands,
             token_processor,
             start_step
     ) -> None:
@@ -37,9 +44,38 @@ class EntryDecoder(nn.Module):
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
             if self.use_one_feature or self.use_cross_attention:
-                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
+                #self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)#replace with gnn
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)
+                num_layers=1
+                head_dim=hidden_dim//num_heads
+                self.edge_encoder = EdgeEncoder(hidden_dim,
+                                                num_freq_bands,
+                                                share=False,
+                                                hist_drop_prob=0.1,
+                                                time_span=0,
+                                                a2a=False,
+                                                shift=token_processor.shift,
+                                                use_route=token_processor.use_route,
+                                                discriminator=False,
+                                                use_bird=token_processor.use_bird,
+                                                )
+                self.a2entry_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=0,
+                            bipartite=True,
+                            has_pos_emb=True,
+                            #  gated_attention=discriminator,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
+
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+
 
             self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
 
@@ -96,7 +132,7 @@ class EntryDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
         )
 
-    def pred_entry(self,attr_all_feature,all_pos, all_head,agent_n,n_current=0,tgt_mask=None):
+    def pred_entry(self,attr_all_feature,all_pos, all_head,agent_n,n_current=0,tgt_mask=None,entry_mask=None):
 
         n_step=attr_all_feature.shape[1]
 
@@ -126,11 +162,39 @@ class EntryDecoder(nn.Module):
             entry_pos = all_pos[:, -entry_num:]
             entry_head = all_head[:, -entry_num:]
 
-            entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
-                                                             entry_head, entry_mask,
-                                                             attr_all_feature[:, :-entry_num],
-                                                              all_pos[:, :-entry_num],
-                                                             all_head[:, :-entry_num],  tgt_mask)
+            # entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
+            #                                                  entry_head, entry_mask,
+            #                                                  attr_all_feature[:, :-entry_num],
+            #                                                   all_pos[:, :-entry_num],
+            #                                                  all_head[:, :-entry_num],  tgt_mask)
+
+            if self.training:
+                agent_features=attr_all_feature[:, :-entry_num]
+                agent_positions=all_pos[:, :-entry_num]
+                agent_heads=all_head[:, :-entry_num]
+                batch=torch.arange(len(agent_features))[:,None].repeat(1,agent_features.shape[1])
+
+                batch_pl = batch[tgt_mask]
+                pos_pl = agent_positions[tgt_mask]
+                orient_pl = agent_heads[tgt_mask]
+                feat_pl = agent_features[tgt_mask]
+
+
+                edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                    pos_pl=pos_pl,  # [n_pl, 2]
+                    orient_pl=orient_pl,  # [n_pl]
+                    pos_a=pos_a,  # [n_agent, n_step, 2]
+                    head_a=head_a,  # [n_agent, n_step]
+                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                    mask=mask_a,  # [n_agent, n_step]
+                    batch_s=batch_s_repeat,  # [n_agent,n_step]
+                    batch_pl=batch_pl,  # [n_pl*n_step]
+                    pl2a_radius=100,
+                    max_num_neighbors=10,
+                    agent_train_mask=None,
+                    layer_num=1
+                )
+
 
             if n_current!=0:
                 n_current=n_current-agent_n
@@ -201,7 +265,7 @@ class EntryDecoder(nn.Module):
 
             entry_feature = torch.cat([padding_features, entry_embedding], dim=1)
 
-            tgt_mask = torch.any(entry_feature[:, :agent_n] != 0, dim=-1)
+            tgt_mask = torch.any(padding_features != 0, dim=-1)
 
             if self.use_one_feature:
 
@@ -219,6 +283,8 @@ class EntryDecoder(nn.Module):
                 pos_idx=tokenized_agent["pos_idx"]
                 head_idx = tokenized_agent["head_idx"]
                 offset_idx=tokenized_agent["offset"]
+
+                entry_mask =pos_idx!=self.token_processor.n_token_entry
 
                 pos_feature=self.pos_embedding(pos_idx)
                 heading_feature=self.head_embedding(head_idx)
@@ -268,7 +334,7 @@ class EntryDecoder(nn.Module):
                     entry_pos=torch.cat([current_pos, entry_pos], dim=1)
                     entry_head=torch.cat([current_heading, entry_head], dim=1)
 
-                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n,tgt_mask=tgt_mask)
+                entry_logit = self.pred_entry(attr_all_feature, entry_pos, entry_head,agent_n,tgt_mask=tgt_mask,entry_mask=entry_mask)
 
 
             else:
@@ -289,7 +355,7 @@ class EntryDecoder(nn.Module):
 
                 while True:
 
-                    entry_logit,entry_head_logit,entry_offset = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current,tgt_mask)
+                    entry_logit,entry_head_logit,entry_offset = self.pred_entry(entry_feature, current_pos, current_heading, agent_n, n_current,tgt_mask,entry_mask)
 
                     if n_current==0:
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)

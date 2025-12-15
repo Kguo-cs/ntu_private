@@ -92,7 +92,7 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_exit=token_processor.pred_exit & (not discriminator)
 
         if self.pred_entry:
-            self.entry_decoder=EntryDecoder(hidden_dim,num_heads,token_processor,self.start_step)
+            self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
         self.token_processor= token_processor
         self.discriminator=discriminator
@@ -218,7 +218,7 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         entry_logit=None
 
-                    feat_a = tokenized_agent["feat_a"][:a_num]
+                    #feat_a = tokenized_agent["feat_a"][:a_num]
 
                     self.interative_decoder.pos_cache = self.interative_decoder.pos_cache[:, :current_step]
                     self.interative_decoder.head_cache = self.interative_decoder.head_cache[:, :current_step]
