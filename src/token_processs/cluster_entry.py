@@ -34,36 +34,29 @@ def Kdisk_cluster(
 
     return torch.stack(ret_traj_list, dim=0)  # [N, 6, 3]
 
-results=torch.load("/home/ke/code/catk/src/waymo_data/token/first_pose.pt")[:,None,:2]
-
-
-trajs=torch.zeros([1,1, 2], dtype=torch.float32)
-for i in range(len(results)):
-    to_add=results[i][None]
-    if not ( (  (trajs[:,:,:2] - to_add[:,:,:2]).abs().sum(-1).sum(-1) < 0.07 ).any()):
-        trajs = torch.cat( [trajs, to_add], dim=0  )
-
-        print(i,len(trajs),len(trajs)/(i+1),i/len(results))
-        if len(trajs) > 2048 * 100:
-            break
-
-torch.save(trajs,"/home/ke/code/catk/src/waymo_data/token/first_pose1.pt")
-#481454 204801 0.42537931893946473 0.36237666537959856
-
-# trajs=torch.load("/home/ke/code/catk/src/waymo_data/token/first_pose1.pt")[1:]
+# results=torch.load("/home/ke/code/catk/src/waymo_data/token/first_pose.pt")[:,None,:2]
 #
-# tokenize_center = Kdisk_cluster(X=trajs, N=128, tol=3)
 #
-# tokenize_center=tokenize_center[:,0]
+# trajs=torch.zeros([1,1, 2], dtype=torch.float32)
+# for i in range(len(results)):
+#     to_add=results[i][None]
+#     if not ( (  (trajs[:,:,:2] - to_add[:,:,:2]).abs().sum(-1).sum(-1) < 0.07 ).any()):
+#         trajs = torch.cat( [trajs, to_add], dim=0  )
 #
-# with open("first128.pkl", "wb") as f:
-#     pickle.dump(tokenize_center, f)
+#         print(i,len(trajs),len(trajs)/(i+1),i/len(results))
+#         if len(trajs) > 2048 * 100:
+#             break
+#
+# torch.save(trajs,"/home/ke/code/catk/src/waymo_data/token/first_pose1.pt")
+# 678649 204801 0.3017770573933545 0.5107997058560094
 
-# pos=results[::10,:3].cuda().to(torch.float16)
-# tokenize_center=torch.tensor(tokenize_center).cuda().to(torch.float16) #2048,5,3
-#
-# error=torch.linalg.norm(pos[:,None] - tokenize_center[None], dim=-1)
-#
-# error_min=error.amin(-1).mean()
-#
-# print(error_min)
+trajs=torch.load("/home/ke/code/catk/src/waymo_data/token/first_pose1.pt")[1:]
+
+tokenize_center = Kdisk_cluster(X=trajs, N=512, tol=3)
+
+tokenize_center=tokenize_center[:,0]
+
+with open("first512.pkl", "wb") as f:
+    pickle.dump(tokenize_center, f)
+
+# i=511, remain=5.46%, n_inside=48
