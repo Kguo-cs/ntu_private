@@ -385,9 +385,12 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
             freqs_y = t_y[...,None,None] * self.freqs[1]
             freqs_z = t_z[...,None,None] * self.freqs[2]
 
-            freqs_xyh=freqs_x + freqs_y+freqs_z+heading[...,None,None]
+            freqs_xyh=freqs_x + freqs_y+freqs_z
         else:
             freqs_xyh=0
+
+        if heading is not None:
+            freqs_xyh=freqs_xyh+heading[...,None,None]
 
         freqs_t = freqs_xyh +freqs_t
 
