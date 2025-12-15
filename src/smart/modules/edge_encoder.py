@@ -30,7 +30,8 @@ class EdgeEncoder(nn.Module):
             shift=0,
             use_route=False,
             discriminator=False,
-            use_bird=False
+            use_bird=False,
+            use_cross=False
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
@@ -47,17 +48,25 @@ class EdgeEncoder(nn.Module):
             input_dim_r_a2a = 3
             input_dim_r_pt2a=3
 
+            # self.r_pt2a_emb = FourierEmbedding(
+            #     input_dim=input_dim_r_pt2a,
+            #     hidden_dim=hidden_dim,
+            #     num_freq_bands=num_freq_bands,
+            #     share=share
+            # )
+
+        else:
+            input_dim_r_t = 5
+            input_dim_r_a2a = 4
+            input_dim_r_pt2a = 4
+
+        if use_cross:
             self.r_pt2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_pt2a,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
                 share=share
             )
-
-        else:
-            input_dim_r_t = 5
-            input_dim_r_a2a = 4
-
 
         self.discriminator=discriminator
 
@@ -160,7 +169,6 @@ class EdgeEncoder(nn.Module):
 
         r_t = torch.cat([r_t, rel_pos_t[:, 2:]], dim=-1)
 
-        # if self.discriminator or self.use_bird:
         n_agent, n_step = mask.shape
 
         edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
