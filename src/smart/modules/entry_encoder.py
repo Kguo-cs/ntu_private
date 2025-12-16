@@ -37,6 +37,11 @@ class EntryDecoder(nn.Module):
 
         self.start_step=start_step
 
+        if self.token_processor.use_bird:
+            self.pos_dim=3
+        else:
+            self.pos_dim=2
+
         if self.autoregressive_entry:
             self.entry_his_len=1000000
 
@@ -92,10 +97,9 @@ class EntryDecoder(nn.Module):
             self.head_embedding  = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
 
             if self.token_processor.token_offset:
-
                 self.offset_embedding =nn.Embedding(self.token_processor.n_token_offset, hidden_dim)
             else:
-                self.offset_embedding=MLPLayer(4,hidden_dim,hidden_dim)
+                self.offset_embedding=MLPLayer(self.pos_dim+1,hidden_dim,hidden_dim)
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
@@ -109,7 +113,7 @@ class EntryDecoder(nn.Module):
 
         else:
             self.entry_head_decoder = MLPLayer(
-                        input_dim=hidden_dim+3, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
+                        input_dim=hidden_dim+self.pos_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
             # self.entry_head_1 = nn.Linear(hidden_dim+3, hidden_dim)
@@ -138,9 +142,9 @@ class EntryDecoder(nn.Module):
             self.use_pos_head_offset=True
 
             if self.use_pos_head_offset:
-                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=4)
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=self.pos_dim+1)
             else:
-                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.pos_dim)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
@@ -344,7 +348,7 @@ class EntryDecoder(nn.Module):
 
                     entry_offset = self.token_processor.offset_token[offset_idx1]
                 else:
-                    entry_offset=offset_idx[:,:,:3]
+                    entry_offset=offset_idx[:,:,:self.pos_dim]
 
                 pos_idx1=torch.clamp(pos_idx,max=self.token_processor.n_token_entry-1)
                 token_pos = self.token_processor.entry_pos_token[pos_idx1]
@@ -358,7 +362,7 @@ class EntryDecoder(nn.Module):
                     entry_pos[:,1::self.num_levels]=token_pos
                     tokenized_heading = self.token_processor.decode_head(head_idx)
                     entry_head[:,1::self.num_levels]=tokenized_heading
-                    entry_head[:,2::self.num_levels]=wrap_angle(tokenized_heading+offset_idx[:,:,3])
+                    entry_head[:,2::self.num_levels]=wrap_angle(tokenized_heading+offset_idx[:,:,self.pos_dim])
 
                 entry_pos[:,2::self.num_levels]=total_pos
 
@@ -455,14 +459,14 @@ class EntryDecoder(nn.Module):
 
                             entry_offset=self.token_processor.offset_token[offset_idx]
 
-                        pos_rec=token_pos[:,0]+entry_offset[:,0,:3]
+                        pos_rec=token_pos[:,0]+entry_offset[:,0,:self.pos_dim]
 
                         current_pos=pos_rec[:,None]
 
                         if self.token_processor.token_offset:
                             entry_feature = self.offset_embedding(offset_idx)
                         else:
-                            heading_rec=wrap_angle(tokenized_heading+entry_offset[:,0,3:])
+                            heading_rec=wrap_angle(tokenized_heading+entry_offset[:,0,self.pos_dim:])
 
                             new_state=torch.cat([pos_rec, heading_rec], dim=-1)
 
@@ -519,7 +523,7 @@ class EntryDecoder(nn.Module):
 
             entry_logit = self.entry_decoder(feat_a)
             if self.training:
-                entry_idx = tokenized_agent["entry_idx"][:, self.start_step + 1:].transpose(0, 1).flatten(0, 1)[ mask_a.transpose(0, 1).flatten(0, 1)]
+                entry_idx = tokenized_agent["entry_idx"][:, 1+self.start_step:].transpose(0, 1).flatten(0, 1)[ mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
             else:
                 entry_idx = Categorical(logits=entry_logit).sample()
                 # entry_idx = tokenized_agent["entry_idx"][:,1]

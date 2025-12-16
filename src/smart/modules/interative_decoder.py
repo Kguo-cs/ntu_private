@@ -73,7 +73,6 @@ class InterativeDecoder(nn.Module):
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
                                         shift=token_processor.shift,
-                                        use_route=token_processor.use_route,
                                         discriminator=discriminator,
                                         use_bird=token_processor.use_bird,
                                         use_cross=not token_processor.use_bird

@@ -260,8 +260,6 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
 
         self.n_token_entry_head=128
-
-
         self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
@@ -362,20 +360,19 @@ class TokenProcessor(torch.nn.Module):
         entry_head_idx_list=[]
         entry_pos_offset_list=[]
 
-        if self.pred_entry and not self.autoregressive_entry :
-            out_dict["entry_idx"]=[]
-           # out_dict["entry_head_idx"]=[]
-
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
         agent_shape = torch.ones_like(pos[:, 0, :2])
         batch_num=batch.max()+1
 
-        if self.pred_entry and not self.autoregressive_entry and self.match_all:
-            entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
+        if self.pred_entry and not self.autoregressive_entry :
+            out_dict["entry_idx"]=[]
 
-            entry_token_xy=entry_pos_token[:,:,:2]
-            entry_token_z=entry_pos_token[:,:,2]
+            if self.match_all:
+                entry_pos_token=self.entry_pos_token[None].repeat(len(pos),1,1)#.to(torch.float16)
+
+                entry_token_xy=entry_pos_token[:,:,:2]
+                entry_token_z=entry_pos_token[:,:,2]
 
         for i in range(self.shift, n_step, self.shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - self.shift] & valid[:, i]  # [n_agent]
@@ -419,8 +416,6 @@ class TokenProcessor(torch.nn.Module):
             if self.pred_entry and not self.autoregressive_entry :
                 entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry
 
-                #entry_head_idx = torch.zeros_like(token_idx_gt)
-
             prev_head = heading[:, i].clone()
             prev_pos = pos[:, i].clone()
 
@@ -432,11 +427,7 @@ class TokenProcessor(torch.nn.Module):
                 if self.autoregressive_entry:
                     entry_heading = heading[:, i][entry_agent]
                     entry_batch=batch[entry_agent]
-
-                    # sort_idx=torch.argsort(torch.linalg.norm(entry_pos,dim=-1))
-                    # large constant to separate batches
                     C = 10000
-
                     sort_key = entry_batch.float() * C + entry_pos[:, 0]
                     sort_idx = torch.argsort(sort_key)
 
@@ -468,25 +459,7 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_idx_list.extend(torch.split(entry_idx,entry_length))
 
-
-                    # pos_rec, heading_rec = self.tokenizer.decode_tokens_to_state(entry_idx)
-                    #
-                    # res_pos=entry_pos-pos_rec
-                    #
-                    # entry_pos_offset_list.append(res_pos)
-                    #
-                    # prev_pos[entry_id]=pos_rec
-                    # prev_head[entry_id]=heading_rec
-                    #
-                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #
-                    # entry_token_invalid_mask.append(dist)
-                    #
-                    # real_id=entry_id[dist>1]
-                    #
-                    # prev_pos[real_id]=pos[real_id,i]
-
-                elif entry_agent.any():#and entry_mask.all()
+                elif entry_agent.any():
 
                     present_pos = out_dict["sampled_pos"][-1][present_agent]
 
@@ -573,14 +546,6 @@ class TokenProcessor(torch.nn.Module):
                     else:
                         dist,entry_idx_gt=torch.linalg.norm(local_pos[:,None]-self.entry_pos_token[None], dim=-1).min(-1)#.mean(-1)
 
-                    # non_entry_agent= ~torch.isin( gt_entry_id,entry_id)
-                    #
-                    # non_entry_id=gt_entry_id[non_entry_agent]
-                    #
-                    # valid[non_entry_id, i]=False
-                    #
-                    # prev_pos[entry_id]=global_token_pos[row_ind][torch.arange(len(entry_idx_gt)),entry_idx_gt] #set to new entry position
-
                     present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
                     entry_idx[present_id] = entry_idx_gt
@@ -590,37 +555,8 @@ class TokenProcessor(torch.nn.Module):
                     offset_local=torch.cat((local_pos-local_tok,head_offset[:,None]), dim=-1)
                     entry_pos_offset_list.append(offset_local)
 
-
-                    # dist=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #
-                    # entry_token_invalid_mask.append(dist>2)
-                    #
-                    # real_id=entry_id[dist>2]
-                    #
-                    # prev_pos[real_id]=pos[real_id,i]
-
-                    # offset_pos=pos[:,i][entry_id]-prev_pos[entry_id]
-                    #
-                    # entry_pos_offset_list.append(offset_pos)
-
-                    # heading_diff=wrap_angle(heading[:,i][entry_id]-prev_head[entry_id])
-
-                    #print(heading_diff.max(), heading_diff.mean())
-
-
-                    #prev_head[real_id]=heading[real_id,i]
-                    #
-                    # dist1=torch.linalg.norm(pos[:,i][entry_id]-prev_pos[entry_id], dim=-1)
-                    #
-                    # print(dist1.mean(),dist1.max()) #0.8
-                    #
-                    # print(1)
-                    # print(torch.linalg.norm(pos[:,i][entry_agent]-prev_pos[entry_agent], dim=-1).mean())
-
             if self.pred_entry and not self.autoregressive_entry :
-
                 out_dict["entry_idx"].append(entry_idx)
-                #out_dict["entry_head_idx"].append(entry_head_idx)
 
             # udpate prev_pos, prev_head
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]

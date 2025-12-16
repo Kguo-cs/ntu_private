@@ -562,7 +562,7 @@ def get_train_mask(tokenized_agent,start_step,pred_exit):
     valid_mask = tokenized_agent["valid_mask"][:, start_step:]
 
     if pred_exit:
-        train_mask = valid_mask[:, :-1]
+        train_mask = valid_mask[:, :-1].clone()
         if tokenized_agent["pred_mask"] is not None:
             pred_mask = tokenized_agent["pred_mask"]
 

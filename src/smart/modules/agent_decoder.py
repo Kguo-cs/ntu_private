@@ -137,7 +137,6 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_entry:
             entry_logit= self.entry_decoder(feat_a,mask_a,pos_a,head_a,tokenized_agent ,edge_index_a2a)
-
         else:
             entry_logit=None
 
