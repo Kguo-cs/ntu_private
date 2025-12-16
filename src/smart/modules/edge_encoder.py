@@ -386,22 +386,22 @@ class EdgeEncoder(nn.Module):
 
         r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
 
-        head_vector_pl = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)
-
-        r_a2pl = torch.stack(
-            [
-                torch.norm(rel_pos_pl2a, p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_pl[edge_index_pl2a[0]],
-                    nbr_vector=-rel_pos_pl2a[:, :2],
-                ),
-                -rel_orient_pl2a,
-            ],
-            dim=-1,
-        )
-        r_a2pl=torch.cat([r_a2pl,-rel_pos_pl2a[:,2:]],dim=-1)
-
-        r_pl2a=torch.cat([r_pl2a,r_a2pl],dim=0)
+        # head_vector_pl = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)
+        #
+        # r_a2pl = torch.stack(
+        #     [
+        #         torch.norm(rel_pos_pl2a, p=2, dim=-1),
+        #         angle_between_2d_vectors(
+        #             ctr_vector=head_vector_pl[edge_index_pl2a[0]],
+        #             nbr_vector=-rel_pos_pl2a[:, :2],
+        #         ),
+        #         -rel_orient_pl2a,
+        #     ],
+        #     dim=-1,
+        # )
+        # r_a2pl=torch.cat([r_a2pl,-rel_pos_pl2a[:,2:]],dim=-1)
+        #
+        # r_pl2a=torch.cat([r_pl2a,r_a2pl],dim=0)
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 
