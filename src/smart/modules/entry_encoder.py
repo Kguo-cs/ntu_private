@@ -49,7 +49,7 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            self.use_cross_attention= False
+            self.use_cross_attention= True
 
             self.use_entry_former=False
 
@@ -260,10 +260,12 @@ class EntryDecoder(nn.Module):
         #
         # entry_pos_offset = torch.tanh(entry_pos_offset) * self.token_processor.tokenizer.resolution[None]
 
-    def forward(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,edge_index_a2a,n_current=0):
-        edge_index_a2a, r_a2a, relative_pos=edge_index_a2a
+    def forward(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,edge_index_a2a=None,n_current=0):
+        # edge_index_a2a, r_a2a, relative_pos=edge_index_a2a
 
         if self.autoregressive_entry:
+            mask_a=mask_a[:,self.start_step:]
+
             n_agent, n_step=mask_a.shape
 
             mask_ta = mask_a.transpose(0, 1)
@@ -275,10 +277,11 @@ class EntryDecoder(nn.Module):
             batch_num = batch.max() + 1
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
-            entry_state=torch.zeros([n_step*batch_num, 1, 4], device=feat_a.device)
+            entry_state=torch.zeros([n_step*batch_num, 1, self.pos_dim+1], device=feat_a.device)
             entry_state[:,:,0]=-78#(self.token_processor.tokenizer.x_min+self.token_processor.tokenizer.x_max)/2
-            entry_state[:,:,1]=36#(self.token_processor.tokenizer.y_min+self.token_processor.tokenizer.y_max)/2
-            entry_state[:,:,2]=32#(self.token_processor.tokenizer.z_min+self.token_processor.tokenizer.z_max)/2
+            if self.token_processor.use_bird:
+                entry_state[:,:,1]=36#(self.token_processor.tokenizer.y_min+self.token_processor.tokenizer.y_max)/2
+                entry_state[:,:,2]=32#(self.token_processor.tokenizer.z_min+self.token_processor.tokenizer.z_max)/2
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)

@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
         self.use_smart=False
         self.use_bird=False
         self.noise=False
@@ -60,6 +60,7 @@ class TokenProcessor(torch.nn.Module):
         self.pred_exit=True
         self.pred_map_token = False
         self.match_all=False
+        self.token_offset=False
 
 
         module_dir = os.path.dirname(__file__)
@@ -199,7 +200,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
 
         if self.autoregressive_entry:
-            entry_token = os.path.join(module_dir, 'entry512.pkl')
+            entry_token = os.path.join(module_dir, 'entry_global512.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
@@ -399,6 +400,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
         batch=data["agent"]["batch"]
+        av_mask =data["agent"]["role"][:, 0]
 
         token_dict = self._match_agent_token(
             valid=valid,
@@ -407,7 +409,8 @@ class TokenProcessor(torch.nn.Module):
             agent_shape=agent_shape,
             token_traj=token_traj,
             batch=batch,#[:,None],
-            num_graphs=data.num_graphs
+            num_graphs=data.num_graphs,
+            av_mask=av_mask
         )
         if "route_map_index" in data["agent"].keys():
             tokenized_agent['route_map_index']=data["agent"]["route_map_index"]
@@ -427,6 +430,7 @@ class TokenProcessor(torch.nn.Module):
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         batch,
         num_graphs,
+        av_mask,
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:
@@ -525,13 +529,37 @@ class TokenProcessor(torch.nn.Module):
 
                 if self.autoregressive_entry:
                     entry_heading = heading[:, i][entry_agent]
-                    entry_batch=batch[entry_agent]
-                    C = 10000
-                    sort_key = entry_batch.float() * C + entry_pos[:, 0]
-                    sort_idx = torch.argsort(sort_key)
 
-                    entry_pos = entry_pos[sort_idx]
-                    entry_heading=entry_heading[sort_idx]
+                    entry_pos_list=[]
+                    entry_heading_list=[]
+                    entry_batch = batch[entry_agent]
+                    for b in range(num_graphs):
+                        ego_pos= prev_pos[av_mask][b]
+                        ego_heading = prev_head[av_mask][b]
+
+                        entry_pos_b,entry_heading_b = transform_to_local(
+                            entry_pos[entry_batch==b][None,],  # [n_agent, n_step, 2]
+                            entry_heading[entry_batch==b][None],  # [n_agent, n_step]
+                            ego_pos[None],  # [n_agent, 2]
+                            ego_heading[None]  # [n_agent]
+                        )
+
+                        entry_pos_b=entry_pos_b[0]
+                        entry_heading_b=entry_heading_b[0]
+
+                        #
+                        # C = 10000
+                        # sort_key = entry_batch.float() * C + entry_pos[:, 0]
+                        sort_idx = torch.argsort(entry_pos_b[:, 0])
+
+                        entry_pos_b = entry_pos_b[sort_idx]
+                        entry_heading_b=entry_heading_b[sort_idx]
+
+                        entry_pos_list.append(entry_pos_b)
+                        entry_heading_list.append(entry_heading_b)
+
+                    entry_pos=torch.cat(entry_pos_list)
+                    entry_heading=torch.cat(entry_heading_list)
 
                     # entry_idx= self.tokenizer(entry_pos,entry_heading)
 

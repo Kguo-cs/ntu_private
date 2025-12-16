@@ -82,27 +82,14 @@ class AgentTokenEncoder(nn.Module):
                 input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
             )
 
+    def get_embedding(self,agent_token_index,agent_type,token_mask):
 
-    def forward(
-            self,
-            agent_token_index,  # [n_agent, n_step]
-            pos_a,  # [n_agent, n_step, 2]
-            head_vector_a,  # [n_agent, n_step, 2]
-            agent_type,  # [n_agent]
-            agent_shape,  # [n_agent, 3]
-            batch_idx,
-            goal_pos,
-            goal_mask,
-            abs_time,
-            token_mask=None,
-            inference=False,
-    ):
-        n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
-        _device = pos_a.device
+        n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
+        _device = agent_token_index.device
 
         if  not self.discriminator:
             agent_token_emb = torch.zeros(
-                (n_agent, n_step, self.hidden_dim), device=_device, dtype=pos_a.dtype
+                (n_agent, n_step, self.hidden_dim), device=_device
             )
 
             if self.use_type:
@@ -140,6 +127,30 @@ class AgentTokenEncoder(nn.Module):
 
             else:
                 agent_token_emb = None
+
+
+        return agent_token_emb
+
+
+
+    def forward(
+            self,
+            agent_token_index,  # [n_agent, n_step]
+            pos_a,  # [n_agent, n_step, 2]
+            head_vector_a,  # [n_agent, n_step, 2]
+            agent_type,  # [n_agent]
+            agent_shape,  # [n_agent, 3]
+            batch_idx,
+            goal_pos,
+            goal_mask,
+            abs_time,
+            token_mask=None,
+            inference=False,
+    ):
+        n_agent, n_step = head_vector_a.shape[0], head_vector_a.shape[1]
+        _device = pos_a.device
+
+        agent_token_emb=self.get_embedding(agent_token_index,agent_type,token_mask)
 
         # if self.discriminator:
         #     motion_vector_a = torch.cat(

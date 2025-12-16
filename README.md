@@ -14,7 +14,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_all  ke@10.87.11
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_all ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/bird_train107_para1024_128 guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_all guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
