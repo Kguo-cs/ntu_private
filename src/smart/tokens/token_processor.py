@@ -77,16 +77,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data,extrapolate)
-
-            if self.use_light:
-                light=data["light"]
-                light_idx=light["light_idx"].long()
-                tokenized_agent["light_idx"]=light_idx
-                tokenized_agent["batch_lg"]=light["batch"]
-                tokenized_agent["pos_lg"] = light["light_pos"]
-                tokenized_agent["orient_lg"] = light["light_orient"]
-            else:
-                tokenized_agent["light_idx"]=torch.zeros([0,18])
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
@@ -143,6 +133,21 @@ class TokenProcessor(torch.nn.Module):
             exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
+
+        if not self.training and self.pred_entry:
+            batch = tokenized_agent["batch"].clone()
+
+            for key, value in tokenized_agent.items():
+                if type(value) is torch.Tensor and len(value)==len(batch):
+                    new_tensor=[]
+                    for b in range(data.num_graphs):
+                        valueb=value[batch==b]
+                        if 'valid_mask' in key:
+                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(100,dim=0)
+                        else:
+                            value_repeat=valueb[:1].repeat_interleave(100,dim=0)
+                        new_tensor.append(torch.cat([valueb,value_repeat]))
+                    tokenized_agent[key]=torch.cat(new_tensor)
 
         return tokenized_map, tokenized_agent
 
@@ -220,6 +225,8 @@ class TokenProcessor(torch.nn.Module):
 
         self.n_token_entry_head=128
         self.n_token_entry_head2=self.n_token_entry_head//2
+
+
 
     def decode_head(self,entry_head_idx):
         return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi

@@ -91,12 +91,15 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_entry=token_processor.pred_entry & (not discriminator)
         self.pred_exit=token_processor.pred_exit & (not discriminator)
 
+        self.new_agent=True
+
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)
+
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0,abs_time=None):
 
@@ -290,7 +293,6 @@ class SMARTAgentDecoder(nn.Module):
                         _invalid_mask = ~next_mask | exit_mask
                         pred_traj[_invalid_mask] = 10000
 
-                    pred_traj_10hz.append(pred_traj)
                     diff_xy = token_traj_global[:, :, 0] - token_traj_global[:, :, 3]
                     pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
                     pred_head_10hz.append(pred_head)
@@ -300,7 +302,7 @@ class SMARTAgentDecoder(nn.Module):
 
             head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
-            if self.token_processor.use_bird:
+            if self.new_agent:
 
                 if entry_logit is not None:
 
@@ -351,21 +353,11 @@ class SMARTAgentDecoder(nn.Module):
                                 present_head,
                             )
 
-                            new_z = present_pos[:, 2] + entry_local_traj[:, 2]
+                            new_z = present_pos[:, 2:] + entry_local_traj[:, 2:]
 
-                            new_pos = torch.cat([global_xy[:,0], new_z[:, None]], dim=1)
+                            new_pos = torch.cat([global_xy[:,0], new_z], dim=1)
 
                             new_head=wrap_angle(global_head[:,0])
-
-                            # entry_agent_mask = ~present_mask & gt_valid[:, t]
-                            #
-                            # new_pos=gt_pos[entry_agent_mask, t]
-                            #
-                            # new_head=gt_head[entry_agent_mask, t]
-
-                            # dist=torch.linalg.norm(new_pos[None]-new_pos1[:,None],dim=-1)
-                            #
-                            # dist2=torch.abs(new_head[None]-new_head1[:,None])
 
                             new_agent_batch=batch[new_agent_mask]
 
@@ -397,8 +389,6 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_traj[entry_agent_mask,-1]=pos_a_next[entry_agent_mask]
 
-                pred_traj_10hz.append(pred_traj)
-
                 if self.token_processor.pred_exit:
                     next_mask = (next_mask & ~exit_mask) | entry_agent_mask
                 else:
@@ -408,8 +398,8 @@ class SMARTAgentDecoder(nn.Module):
             else:
                 if self.token_processor.pred_exit:
                     next_mask = next_mask & ~exit_mask
-                else:
-                    next_mask = next_mask
+
+            pred_traj_10hz.append(pred_traj)
 
             next_token_mask = mask[:, -1] & next_mask
 
@@ -441,7 +431,14 @@ class SMARTAgentDecoder(nn.Module):
 
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
+
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
+
+            if self.token_processor.pred_entry :
+                current_valid=gt_valid[:, current_step-1]
+                out_dict["pred_traj_10hz"]=out_dict["pred_traj_10hz"][current_valid]
+                out_dict["pred_head_10hz"]=out_dict["pred_head_10hz"][current_valid]
+                out_dict["pred_z_10hz"]=out_dict["pred_z_10hz"][current_valid]
 
         return out_dict
 
