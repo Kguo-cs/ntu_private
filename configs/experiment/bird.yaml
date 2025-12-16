@@ -10,7 +10,7 @@ model:
     lr_min_ratio: 1e-2
     token_processor:
       agent_token_file: "bird1024.pkl"
-      map_token_file: "global512.pkl"
+      map_token_file: "first512.pkl"
       use_noise: False
       pred_entry: True
 
