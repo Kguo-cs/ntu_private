@@ -7,6 +7,7 @@
 #PBS -P 12002486
 #PBS -j oe
 #PBS -M ke.guo@staff.main.ntu.edu.sg
+#PBS -l container_image=~/images/nvidia+pytorch+23.10-py3.sqsh
 #PBS -l container_name=nvidia+pytorch+23.10-py3
 
 export CUDA_HOME=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda-12.2
