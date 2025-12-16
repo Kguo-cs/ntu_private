@@ -407,7 +407,7 @@ class EntryDecoder(nn.Module):
                         self.attr_former.attn.kv_caching(self.entry_his_len,n_current)
                         if self.use_entry_former:
                             self.entry_former.attn.kv_caching(self.entry_his_len, n_current)
-                        current_pos = current_pos[:, -1:]
+                        #current_pos = current_pos[:, -1:]
                         current_heading = current_heading[:, -1:]
                         n_current=n_current+agent_n
 
