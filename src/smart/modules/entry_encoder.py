@@ -11,7 +11,12 @@ from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.layers.relative_transformer import RoFormerBlock
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+)
 class EntryDecoder(nn.Module):
     def __init__(
             self,
@@ -351,6 +356,9 @@ class EntryDecoder(nn.Module):
                     entry_pos[:,1::self.num_levels]=total_pos
                 else:
                     entry_pos[:,1::self.num_levels]=token_pos
+                    tokenized_heading = self.token_processor.decode_head(head_idx)
+                    entry_head[:,1::self.num_levels]=tokenized_heading
+                    entry_head[:,2::self.num_levels]=wrap_angle(tokenized_heading+offset_idx[:,:,3])
 
                 entry_pos[:,2::self.num_levels]=total_pos
 
@@ -420,6 +428,8 @@ class EntryDecoder(nn.Module):
 
                         current_pos=token_pos
 
+                        current_heading=torch.zeros_like(current_heading)
+
                     elif entry_head_logit.shape[1]!=0:
                         entry_head_idx = Categorical(logits=entry_head_logit).sample()
 
@@ -436,6 +446,8 @@ class EntryDecoder(nn.Module):
                             new_state[finish] = 0
 
                             entry_state_list.append(new_state)
+                        else:
+                            current_heading=tokenized_heading
 
                     else:
                         if self.token_processor.token_offset:
@@ -450,16 +462,14 @@ class EntryDecoder(nn.Module):
                         if self.token_processor.token_offset:
                             entry_feature = self.offset_embedding(offset_idx)
                         else:
-                            heading_rec=tokenized_heading+entry_offset[:,0,3:]
+                            heading_rec=wrap_angle(tokenized_heading+entry_offset[:,0,3:])
 
                             new_state=torch.cat([pos_rec, heading_rec], dim=-1)
 
                             new_state[finish] = 0
 
                             entry_state_list.append(new_state)
-
-
-
+                            current_heading = heading_rec
 
                     # entry_idx = Categorical(logits=entry_logit).sample()
                     #
