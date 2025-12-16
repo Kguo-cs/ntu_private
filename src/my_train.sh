@@ -1,6 +1,7 @@
 #!/bin/bash
 #PBS -N std
 
+#PBS -l container_name=<name>
 #PBS -l select=1:ncpus=112:ngpus=1:mem=320gb:container_engine=enroot
 #PBS -l walltime=24:00:00
 #PBS -q normal
