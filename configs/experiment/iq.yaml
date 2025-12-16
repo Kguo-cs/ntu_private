@@ -15,7 +15,7 @@ model:
       agent_token_sampling: # closed-loop
         num_k: 1 # for k nearest neighbors
         temp: 1.0
-      pred_entry: True
+      #pred_entry: True
 
 
     training_rollout_sampling:
