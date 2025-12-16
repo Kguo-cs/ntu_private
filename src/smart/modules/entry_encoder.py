@@ -79,7 +79,7 @@ class EntryDecoder(nn.Module):
                 #     ]
                 # )
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0, hist_len=self.entry_his_len)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1, hist_len=self.entry_his_len)
 
 
             self.pos_embedding = nn.Embedding(self.n_token_entry+1, hidden_dim)
