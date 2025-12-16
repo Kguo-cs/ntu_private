@@ -86,7 +86,11 @@ class EntryDecoder(nn.Module):
 
             self.head_embedding  = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
 
-            self.offset_embedding =nn.Embedding(self.token_processor.n_token_offset, hidden_dim)  #MLPLayer(4,hidden_dim,hidden_dim)
+            if self.token_processor.token_offset:
+
+                self.offset_embedding =nn.Embedding(self.token_processor.n_token_offset, hidden_dim)
+            else:
+                self.offset_embedding=MLPLayer(4,hidden_dim,hidden_dim)
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
@@ -224,10 +228,15 @@ class EntryDecoder(nn.Module):
         task=task[-entry_num:]
 
         pos_mask= (task==0)
+        if self.token_processor.token_offset:
 
-        head_mask=(task==2)
+            head_mask=(task==2)
 
-        offset_mask=(task==1)
+            offset_mask=(task==1)
+        else:
+            head_mask = (task == 1)
+
+            offset_mask = (task == 2)
 
         entry_logit = self.entry_decoder(attr_feature[:,pos_mask])
 
@@ -325,17 +334,24 @@ class EntryDecoder(nn.Module):
                 entry_pos=torch.zeros([pos_idx.shape[0],attr_feature.shape[1],current_pos.shape[-1]],device=pos_idx.device)
                 entry_head=torch.zeros([pos_idx.shape[0],attr_feature.shape[1]],device=pos_idx.device)
 
+                if self.token_processor.token_offset:
+                    offset_idx1=torch.clamp(offset_idx,max=self.token_processor.n_token_entry-1)
 
-                offset_idx1=torch.clamp(offset_idx,max=self.token_processor.n_token_entry-1)
+                    entry_offset = self.token_processor.offset_token[offset_idx1]
+                else:
+                    entry_offset=offset_idx[:,:,:3]
 
-                entry_offset = self.token_processor.offset_token[offset_idx1]
                 pos_idx1=torch.clamp(pos_idx,max=self.token_processor.n_token_entry-1)
                 token_pos = self.token_processor.entry_pos_token[pos_idx1]
 
                 total_pos=entry_offset+token_pos
 
                 entry_pos[:,::self.num_levels]=token_pos
-                entry_pos[:,1::self.num_levels]=total_pos
+                if self.token_processor.token_offset:
+                    entry_pos[:,1::self.num_levels]=total_pos
+                else:
+                    entry_pos[:,1::self.num_levels]=token_pos
+
                 entry_pos[:,2::self.num_levels]=total_pos
 
                 # # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
@@ -404,7 +420,6 @@ class EntryDecoder(nn.Module):
 
                         current_pos=token_pos
 
-
                     elif entry_head_logit.shape[1]!=0:
                         entry_head_idx = Categorical(logits=entry_head_logit).sample()
 
@@ -412,29 +427,37 @@ class EntryDecoder(nn.Module):
 
                         entry_feature = self.head_embedding(entry_head_idx)
 
-                        heading_rec=tokenized_heading#+entry_offset[:,0,3:]
+                        if self.token_processor.token_offset:
 
-                        new_state=torch.cat([pos_rec, heading_rec], dim=-1)
+                            heading_rec=tokenized_heading#+entry_offset[:,0,3:]
 
-                        new_state[finish] = 0
+                            new_state=torch.cat([pos_rec, heading_rec], dim=-1)
 
-                        entry_state_list.append(new_state)
+                            new_state[finish] = 0
 
-                        current_pos=torch.zeros_like(current_pos)
-
+                            entry_state_list.append(new_state)
 
                     else:
-                        offset_idx = Categorical(logits=entry_offset).sample()
+                        if self.token_processor.token_offset:
+                            offset_idx = Categorical(logits=entry_offset).sample()
 
-                        entry_offset=self.token_processor.offset_token[offset_idx]
-
+                            entry_offset=self.token_processor.offset_token[offset_idx]
 
                         pos_rec=token_pos[:,0]+entry_offset[:,0,:3]
 
-
-                        entry_feature = self.offset_embedding(offset_idx)
-
                         current_pos=pos_rec[:,None]
+
+                        if self.token_processor.token_offset:
+                            entry_feature = self.offset_embedding(offset_idx)
+                        else:
+                            heading_rec=tokenized_heading+entry_offset[:,0,3:]
+
+                            new_state=torch.cat([pos_rec, heading_rec], dim=-1)
+
+                            new_state[finish] = 0
+
+                            entry_state_list.append(new_state)
+
 
 
 

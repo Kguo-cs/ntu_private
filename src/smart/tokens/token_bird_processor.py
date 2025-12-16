@@ -47,6 +47,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.autoregressive_entry=True
+        self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file),os.path.join(module_dir, map_token_file))
@@ -99,6 +100,7 @@ class TokenProcessor(torch.nn.Module):
         self.pred_entry=pred_entry
 
         self.match_all=False
+
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -241,12 +243,16 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
-            module_dir = os.path.dirname(__file__)
-            offset_token=os.path.join(module_dir, 'offset512.pkl')
+            if self.token_offset:
+                module_dir = os.path.dirname(__file__)
+                offset_token=os.path.join(module_dir, 'offset512.pkl')
 
-            offset_token = pickle.load(open(offset_token, "rb"))
-            self.register_buffer(f"offset_token", offset_token, persistent=False)
-            self.n_token_offset = self.offset_token.shape[0]
+                offset_token = pickle.load(open(offset_token, "rb"))
+                self.register_buffer(f"offset_token", offset_token, persistent=False)
+                self.n_token_offset = self.offset_token.shape[0]
+            else:
+
+                self.n_token_offset=4
 
         else:
             entry_pos_token = pickle.load(open(map_token_path, "rb"))
@@ -451,11 +457,12 @@ class TokenProcessor(torch.nn.Module):
 
                     offset_pos=entry_pos-tokenized_pos
 
-                    offset_local=torch.linalg.norm(offset_pos[:,None]-self.offset_token[None],dim=-1).argmin(1)[:,None]
+                    if self.token_offset:
+                        offset_local=torch.linalg.norm(offset_pos[:,None]-self.offset_token[None],dim=-1).argmin(1)[:,None]
+                    else:
+                        offset_local = torch.cat((offset_pos, wrap_angle(entry_heading - tokenized_heading)[:,None]), dim=-1)
 
-                    #offset_local=torch.cat((offset_pos,wrap_angle(entry_heading-tokenized_heading)[:,None]), dim=-1)
-
-                    entry_idx=torch.cat([pos_entry_idx[:,None], entry_head_idx[:,None],offset_local], dim=-1)
+                    entry_idx = torch.cat([pos_entry_idx[:, None], entry_head_idx[:, None], offset_local], dim=-1)
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
@@ -662,7 +669,10 @@ class TokenProcessor(torch.nn.Module):
                     max=self.n_token_entry_head - 1
                 ).long()
 
-                offset=entry_idx[:,:,2]
+                if self.token_offset:
+                    offset=entry_idx[:,:,2]
+                else:
+                    offset=entry_idx[:,:,2:]
 
                 offset[offset==self.n_token_entry]=0
 
