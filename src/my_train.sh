@@ -1,13 +1,13 @@
 #!/bin/bash
 #PBS -N std
 
-#PBS -l container_name=<name>
 #PBS -l select=1:ncpus=112:ngpus=1:mem=320gb:container_engine=enroot
 #PBS -l walltime=24:00:00
 #PBS -q normal
 #PBS -P 12002486
 #PBS -j oe
 #PBS -M ke.guo@staff.main.ntu.edu.sg
+#PBS -l container_name=nvidia+pytorch+23.10-py3
 
 export CUDA_HOME=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda-12.2
 export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/bin:$PATH
