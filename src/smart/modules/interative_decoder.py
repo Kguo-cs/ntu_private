@@ -76,6 +76,7 @@ class InterativeDecoder(nn.Module):
                                         use_route=token_processor.use_route,
                                         discriminator=discriminator,
                                         use_bird=token_processor.use_bird,
+                                        use_cross=not token_processor.use_bird
                                         )
 
 
@@ -249,8 +250,8 @@ class InterativeDecoder(nn.Module):
                     feat_a=feat_a[train_repeat_mask]
 
                 if not self.token_processor.use_bird:
-                    feat_map  = self.a2pt_attn_layers[layer_i]((feat_a,feat_map), r_pl2a, edge_index_pl2a.flip(0))  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                    feat_map  = self.a2pt_attn_layers[layer_i]((feat_a,feat_map), r_pl2a[len(r_pl2a)//2:], edge_index_pl2a.flip(0))  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a[:len(r_pl2a)//2], edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]

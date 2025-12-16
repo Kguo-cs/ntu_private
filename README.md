@@ -53,20 +53,10 @@ qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 export CUDA_HOME=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda-12.2
 export PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/bin:$PATH
 export LD_LIBRARY_PATH=/home/users/ntu/lyuchen/scratch/keguo_projects/cuda12.2/lib64:$LD_LIBRARY_PATH
-
-
-
 cd /home/users/ntu/lyuchen/scratch/keguo_projects/sim/src
 conda activate sim
 git pull
 python run.py
-
-export LD_LIBRARY_PATH=~/scratch/keguo_projects/cuda/lib64:$LD_LIBRARY_PATH
-export NVIDIA_TF32_OVERRIDE=0
-export CUBLAS_WORKSPACE_CONFIG=:4096:8
-export CUDA_LAUNCH_BLOCKING=1
-source "/home/users/ntu/shanhelo/miniconda3/bin/activate"
-
 
 
 conda create -y -n catk python=3.11.9
@@ -105,7 +95,7 @@ CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=29503  -m run
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=0 setsid nohup python run.py > 0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=3 setsid nohup python run3.py > 3.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2

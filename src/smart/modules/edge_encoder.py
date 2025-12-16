@@ -31,7 +31,7 @@ class EdgeEncoder(nn.Module):
             use_route=False,
             discriminator=False,
             use_bird=False,
-            use_cross=False
+            use_cross=True
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
@@ -359,6 +359,7 @@ class EdgeEncoder(nn.Module):
         head_vector_s=head_vector_a[mask]
         batch_s=batch_s[mask]
 
+
         edge_index_pl2a = radiusGraphNearest2(x=pos_s,
                                               y=pos_pl,
                                               r=pl2a_radius,
@@ -384,6 +385,23 @@ class EdgeEncoder(nn.Module):
         )
 
         r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
+
+        head_vector_pl = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)
+
+        r_a2pl = torch.stack(
+            [
+                torch.norm(rel_pos_pl2a, p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_pl[edge_index_pl2a[0]],
+                    nbr_vector=-rel_pos_pl2a[:, :2],
+                ),
+                -rel_orient_pl2a,
+            ],
+            dim=-1,
+        )
+        r_a2pl=torch.cat([r_a2pl,-rel_pos_pl2a[:,2:]],dim=-1)
+
+        r_pl2a=torch.cat([r_pl2a,r_a2pl],dim=0)
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 
@@ -448,3 +466,5 @@ def topo_rank_among_edges( dst, dist_3d):
     # 1-based rank (1 = nearest)
     topo_rank = pos_in_group_orig + 1
     return topo_rank
+
+
