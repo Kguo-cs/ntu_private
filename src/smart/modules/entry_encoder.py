@@ -44,9 +44,9 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            self.use_cross_attention= True
+            self.use_cross_attention= False
 
-            self.use_entry_former=True
+            self.use_entry_former=False
 
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
