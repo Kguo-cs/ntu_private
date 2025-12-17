@@ -567,6 +567,10 @@ def get_train_mask(tokenized_agent,start_step,pred_exit):
             pred_mask = tokenized_agent["pred_mask"]
 
             train_mask[pred_mask] = (valid_mask[:, 1:] & valid_mask[:, :-1])[pred_mask]  #for pred agent, if its next step is invalid, we change its state to invalid
+
+            current_invalid=~valid_mask[:, 0]
+
+            train_mask[current_invalid]=False
     else:
         train_mask = valid_mask[:, 1:] & valid_mask[:, :-1]
 
