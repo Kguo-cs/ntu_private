@@ -123,6 +123,9 @@ def get_agent_features(
             out_dict["velocity"][i, t] = torch.from_numpy(velocity[t])
             out_dict["heading"][i, t] = torch.tensor(heading[t])
 
+    if torch.where(out_dict["role"][:, 0])[0].item()!=num_agents-1:
+        print(torch.where(out_dict["role"][:, 0])[0].item(),num_agents-1)
+
     return out_dict
 
 def get_map_features(map_infos, tf_current_light, dim=2):
@@ -492,9 +495,9 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             num_steps=91,
         )
 
-        data["scenario_id"] = scenario_id
-        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-            pickle.dump(data, f)
+        # data["scenario_id"] = scenario_id
+        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+        #     pickle.dump(data, f)
 
         # if output_dir_tfrecords_splitted is not None:
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"

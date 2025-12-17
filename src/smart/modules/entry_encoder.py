@@ -528,7 +528,10 @@ class EntryDecoder(nn.Module):
             if self.training:
                 entry_idx = tokenized_agent["entry_idx"][:, 1+self.start_step:].transpose(0, 1).flatten(0, 1)[ mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
             else:
-                entry_idx = Categorical(logits=entry_logit).sample()
+                if len(entry_logit):
+                    entry_idx = Categorical(logits=entry_logit).sample()
+                else:
+                    entry_idx=torch.zeros((entry_logit.shape[0],1),device=entry_logit.device)
                 # entry_idx = tokenized_agent["entry_idx"][:,1]
                 # mask=tokenized_agent["valid_mask"][:,0]
                 # entry_idx=entry_idx[mask]

@@ -176,8 +176,8 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         # data["light"]=process_light(map_infos,tf_lights,tf_current_light)
 
         #data["scenario_id"] = scenario_id
-        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-            pickle.dump(data, f)
+        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+        #     pickle.dump(data, f)
 
         # if output_dir_tfrecords_splitted is not None:
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"

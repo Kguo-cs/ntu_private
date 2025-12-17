@@ -46,7 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.autoregressive_entry=True
+        self.autoregressive_entry=False
         self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
@@ -232,17 +232,11 @@ class TokenProcessor(torch.nn.Module):
 
         self.register_buffer(f"agent_token_box", agent_token_box, persistent=False)
 
-        if self.autoregressive_entry:
-            # self.position_only=False
-            # self.tokenizer=HierarchicalStateTokenizer(position_only=self.position_only)
-            # if self.position_only:
-            #     self.n_token_entry = self.tokenizer.base ** 3
-            # else:
-            #     self.n_token_entry = self.tokenizer.base ** 4
-            entry_pos_token = pickle.load(open(map_token_path, "rb"))
-            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
-            self.n_token_entry = self.entry_pos_token.shape[0]
+        entry_pos_token = pickle.load(open(map_token_path, "rb"))
+        self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+        self.n_token_entry = self.entry_pos_token.shape[0]
 
+        if self.autoregressive_entry:
             if self.token_offset:
                 module_dir = os.path.dirname(__file__)
                 offset_token=os.path.join(module_dir, 'offset512.pkl')
@@ -251,13 +245,7 @@ class TokenProcessor(torch.nn.Module):
                 self.register_buffer(f"offset_token", offset_token, persistent=False)
                 self.n_token_offset = self.offset_token.shape[0]
             else:
-
                 self.n_token_offset=4
-
-        else:
-            entry_pos_token = pickle.load(open(map_token_path, "rb"))
-            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
-            self.n_token_entry = self.entry_pos_token.shape[0]
 
         self.n_token_entry_head=128
         self.n_token_entry_head2=self.n_token_entry_head//2
