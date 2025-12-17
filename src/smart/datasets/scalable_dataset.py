@@ -203,7 +203,7 @@ class MultiDataset(Dataset):
         #     data={"agent":{"valid_mask":valid_mask,"position":pos,"num_nodes":len(valid_mask)}}
         #
         # else:
-        print(self.raw_paths[idx])
+        #print(self.raw_paths[idx])
 
         with open(self.raw_paths[idx], "rb") as handle:
             data = pickle.load(handle)

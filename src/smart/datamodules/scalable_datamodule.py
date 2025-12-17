@@ -91,10 +91,10 @@ class MultiDataModule(LightningDataModule):
                 self.train_dataset,
                 batch_size=self.train_batch_size,
                 shuffle=self.shuffle,
-                # num_workers=self.num_workers,
-                # pin_memory=self.pin_memory,
-                # persistent_workers=self.persistent_workers,
-                # drop_last=False
+                num_workers=self.num_workers,
+                pin_memory=self.pin_memory,
+                persistent_workers=self.persistent_workers,
+                drop_last=False
             )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:

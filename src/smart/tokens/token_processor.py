@@ -149,15 +149,13 @@ class TokenProcessor(torch.nn.Module):
                             value_repeat=valueb[:1].repeat_interleave(100,dim=0)
                         new_tensor.append(torch.cat([valueb,value_repeat]))
                     tokenized_agent[key]=torch.cat(new_tensor)
+        if self.training:
+            current_valid = data['agent']["current_valid"]
 
-        valid_mask = tokenized_agent["valid_mask"][:, 1:]
+            for key, value in tokenized_agent.items():
+                if type(value) is torch.Tensor and len(value) == len(current_valid):
 
-        current_valid = valid_mask[:, 0]
-
-        for key, value in tokenized_agent.items():
-            if type(value) is torch.Tensor and len(value) == len(current_valid):
-
-                tokenized_agent[key]=value[current_valid]#54
+                    tokenized_agent[key]=value[current_valid]#54
 
         return tokenized_map, tokenized_agent
 
