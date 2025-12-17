@@ -149,7 +149,7 @@ class SMARTAgentDecoder(nn.Module):
         entry_logit = exit_logit=None
 
         if self.training:
-            feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
+            # feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
 
             if self.pred_entry:
                 entry_logit= self.entry_decoder(feat_a,mask_a,pos_a,head_a,tokenized_agent ,edge_index_a2a)
@@ -310,9 +310,9 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.new_agent:
 
-                agent_token_emb=self.agent_token_embedding.get_embedding(next_token_idx[next_mask][:,None],tokenized_agent["type"][next_mask],~exit_mask[next_mask][:,None])
-
-                feat_a = feat_a + agent_token_emb[:,0]
+                # agent_token_emb=self.agent_token_embedding.get_embedding(next_token_idx[next_mask][:,None],tokenized_agent["type"][next_mask],~exit_mask[next_mask][:,None])
+                #
+                # feat_a = feat_a + agent_token_emb[:,0]
 
                 entry_logit= self.entry_decoder(feat_a,next_mask[:,None],pos_a[:, -1:], head_a[:, -1:],tokenized_agent)
 
