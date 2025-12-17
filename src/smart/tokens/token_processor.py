@@ -62,7 +62,6 @@ class TokenProcessor(torch.nn.Module):
         self.match_all=False
         self.token_offset=False
 
-
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
@@ -74,6 +73,7 @@ class TokenProcessor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
@@ -149,6 +149,12 @@ class TokenProcessor(torch.nn.Module):
                             value_repeat=valueb[:1].repeat_interleave(100,dim=0)
                         new_tensor.append(torch.cat([valueb,value_repeat]))
                     tokenized_agent[key]=torch.cat(new_tensor)
+
+        # valid_mask = tokenized_agent["valid_mask"][:, 1:]
+        #
+        # current_invalid = ~valid_mask[:, 0]
+        #
+        # tokenized_agent["valid_mask"][current_invalid] = False
 
         return tokenized_map, tokenized_agent
 
@@ -634,14 +640,16 @@ class TokenProcessor(torch.nn.Module):
                     col_ind=np.concatenate(col_ind)
 
                     gt_entry_id=torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
+                    gt_present_id=torch.nonzero(present_agent, as_tuple=False).squeeze(1)
 
                     entry_id = gt_entry_id[col_ind]
+
                     entry_pos1=prev_pos[entry_id]
-
-                    select_heading=present_heading[row_ind]
-                    select_pos = present_pos[row_ind]
-
                     entry_heading=prev_head[entry_id]
+
+                    select_pos = present_pos[row_ind]
+                    select_heading=present_heading[row_ind]
+                    present_id = gt_present_id[row_ind]
 
                     local_xy,local_heading = transform_to_local(
                         entry_pos1[:, None, :2],
@@ -668,8 +676,6 @@ class TokenProcessor(torch.nn.Module):
                         entry_idx_gt=torch.cat(entry_idx_gt)
                     else:
                         dist,entry_idx_gt=torch.linalg.norm(local_pos[:,None]-self.entry_pos_token[None], dim=-1).min(-1)#.mean(-1)
-
-                    present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)[row_ind]
 
                     entry_idx[present_id] = entry_idx_gt
 
