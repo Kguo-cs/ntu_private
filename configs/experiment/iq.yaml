@@ -15,7 +15,7 @@ model:
       agent_token_sampling: # closed-loop
         num_k: 1 # for k nearest neighbors
         temp: 1.0
-      pred_entry: True
+      pred_entry: False
 
 
     training_rollout_sampling:
@@ -61,7 +61,7 @@ model_checkpoint:
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 data: 
-  train_batch_size: 2
+  train_batch_size: 1
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 8

@@ -202,11 +202,11 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
         output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
     )
 
-    with multiprocessing.Pool(num_workers) as p:
-        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    # with multiprocessing.Pool(num_workers) as p:
+    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
     # print(len(packages))
-    # for file_path in tqdm(packages):
-    #     wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
+    for file_path in tqdm(packages):
+        wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -152,9 +152,12 @@ class TokenProcessor(torch.nn.Module):
 
         valid_mask = tokenized_agent["valid_mask"][:, 1:]
 
-        current_invalid = ~valid_mask[:, 0]
+        current_valid = valid_mask[:, 0]
 
-        tokenized_agent["valid_mask"][current_invalid] = False
+        for key, value in tokenized_agent.items():
+            if type(value) is torch.Tensor and len(value) == len(current_valid):
+
+                tokenized_agent[key]=value[current_valid]#54
 
         return tokenized_map, tokenized_agent
 
