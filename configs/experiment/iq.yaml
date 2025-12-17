@@ -60,7 +60,7 @@ model_checkpoint:
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 data: 
-  train_batch_size: 2
+  train_batch_size: 40
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 8
