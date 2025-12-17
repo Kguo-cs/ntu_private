@@ -155,15 +155,17 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent["av_mask"]=av_mask
 
-        # if self.training:
-        #     current_valid = data['agent']["current_valid"]
-        #
-        #     for key, value in tokenized_agent.items():
-        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
-        #
-        #             tokenized_agent[key]=value[current_valid]#54
-        #
+        if self.training:
+            current_valid = data['agent']["current_valid"]
 
+            for key, value in tokenized_agent.items():
+                if type(value) is torch.Tensor and len(value) == len(current_valid):
+                    # print(key,current_valid.device,value.device)
+
+                    tokenized_agent[key]=value[current_valid]
+
+        # print(len(tokenized_agent['batch']))
+        #54,21,20,1538,16319
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
@@ -713,7 +715,7 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        if self.training:
+        if self.training and self.pred_entry:
             if len(entry_token_invalid_mask)>0:
                 out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
 
@@ -724,10 +726,10 @@ class TokenProcessor(torch.nn.Module):
 
             if len(entry_head_idx_list) :
                 out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
-                out_dict["entry_head_idx_num"]=torch.tensor([len(entry_head_idx) for entry_head_idx in entry_head_idx_list])
+                #out_dict["entry_head_idx_num"]=torch.tensor([len(entry_head_idx) for entry_head_idx in entry_head_idx_list])
             else:
                 out_dict["entry_head_idx"] =torch.zeros([0])
-                out_dict["entry_head_idx_num"]=torch.zeros([out_dict["valid_mask"].shape[1]-1])
+                # out_dict["entry_head_idx_num"]=torch.zeros([out_dict["valid_mask"].shape[1]-1],device=out_dict["sampled_idx"].device)
 
             if len(entry_idx_list) :
                 # entry_length=out_dict['sampled_idx'].shape[1]-1

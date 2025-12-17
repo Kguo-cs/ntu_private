@@ -46,7 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.autoregressive_entry=True
+        self.autoregressive_entry=False
         self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
@@ -515,7 +515,7 @@ class TokenProcessor(torch.nn.Module):
 
                     tokenized_heading =self.decode_head(entry_head_idx)
 
-                    head_offset=wrap_angle(local_heading-tokenized_heading)         #for selecting heading, not for
+                    head_offset=wrap_angle(local_heading[:,0]-tokenized_heading)         #for selecting heading, not for
 
                     #entry_head_idx = entry_head_idx[row_ind.argsort()]
                     # if not np.all((row_ind[1:]-row_ind[:-1])>0):
