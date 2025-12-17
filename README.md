@@ -1,7 +1,3 @@
-
-ssh lyuchen@aspire2pntu.nscc.sg
-automan2018!!
-
 export PBS_JOBID=83255.pbs111
 
 
@@ -47,6 +43,9 @@ Gk@140286
 
 ssh shanhelo@aspire2pntu.nscc.sg
 Spyder1@
+ssh lyuchen@aspire2pntu.nscc.sg
+automan2018!!
+
 
 qsub -I -l select=1:ngpus=1 -l walltime=12:00:00 -P 12002486
 
