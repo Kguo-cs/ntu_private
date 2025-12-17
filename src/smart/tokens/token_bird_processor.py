@@ -46,7 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
         self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
