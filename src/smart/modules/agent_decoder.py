@@ -91,8 +91,6 @@ class SMARTAgentDecoder(nn.Module):
         self.pred_entry=token_processor.pred_entry & (not discriminator)
         self.pred_exit=token_processor.pred_exit & (not discriminator)
 
-        self.new_agent=True
-
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
@@ -308,7 +306,7 @@ class SMARTAgentDecoder(nn.Module):
 
             head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
-            if self.new_agent:
+            if self.pred_entry or self.token_processor.use_bird:
 
                 # agent_token_emb=self.agent_token_embedding.get_embedding(next_token_idx[next_mask][:,None],tokenized_agent["type"][next_mask],~exit_mask[next_mask][:,None])
                 #
