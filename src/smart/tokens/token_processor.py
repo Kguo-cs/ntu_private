@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
         self.use_smart=False
         self.use_bird=False
         self.noise=False
@@ -155,14 +155,14 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent["av_mask"]=av_mask
 
-        if self.training:
-            current_valid = data['agent']["current_valid"]
-
-            for key, value in tokenized_agent.items():
-                if type(value) is torch.Tensor and len(value) == len(current_valid):
-                    # print(key,current_valid.device,value.device)
-
-                    tokenized_agent[key]=value[current_valid]
+        # if self.training:
+        #     current_valid = data['agent']["current_valid"]
+        #
+        #     for key, value in tokenized_agent.items():
+        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
+        #             # print(key,current_valid.device,value.device)
+        #
+        #             tokenized_agent[key]=value[current_valid]
 
         # print(len(tokenized_agent['batch']))
         #54,21,20,1538,16319

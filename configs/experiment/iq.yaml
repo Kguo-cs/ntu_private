@@ -15,7 +15,7 @@ model:
       agent_token_sampling: # closed-loop
         num_k: 1 # for k nearest neighbors
         temp: 1.0
-      pred_entry: False
+      pred_entry: True
 
 
     training_rollout_sampling:
@@ -33,7 +33,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/waymo_data/epoch=1-step=24350.ckpt'
 
-task_name: bc40_apt30_14679_clone_ego10_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc40_clone_ego10_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
@@ -61,7 +61,7 @@ model_checkpoint:
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 data: 
-  train_batch_size: 1
+  train_batch_size: 40
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 8
