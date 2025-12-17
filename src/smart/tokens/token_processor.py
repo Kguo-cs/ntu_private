@@ -155,14 +155,14 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent["av_mask"]=av_mask
 
-        # if self.training:
-        #     current_valid = data['agent']["current_valid"]
-        #
-        #     for key, value in tokenized_agent.items():
-        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
-        #             # print(key,current_valid.device,value.device)
-        #
-        #             tokenized_agent[key]=value[current_valid]
+        if self.training:
+            current_valid = data['agent']["current_valid"]
+
+            for key, value in tokenized_agent.items():
+                if type(value) is torch.Tensor and len(value) == len(current_valid):
+                    # print(key,current_valid.device,value.device)
+
+                    tokenized_agent[key]=value[current_valid]
 
         # print(len(tokenized_agent['batch']))
         #54,21,20,1538,16319
