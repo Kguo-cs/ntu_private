@@ -150,11 +150,11 @@ class TokenProcessor(torch.nn.Module):
                         new_tensor.append(torch.cat([valueb,value_repeat]))
                     tokenized_agent[key]=torch.cat(new_tensor)
 
-        # valid_mask = tokenized_agent["valid_mask"][:, 1:]
-        #
-        # current_invalid = ~valid_mask[:, 0]
-        #
-        # tokenized_agent["valid_mask"][current_invalid] = False
+        valid_mask = tokenized_agent["valid_mask"][:, 1:]
+
+        current_invalid = ~valid_mask[:, 0]
+
+        tokenized_agent["valid_mask"][current_invalid] = False
 
         return tokenized_map, tokenized_agent
 
@@ -232,8 +232,6 @@ class TokenProcessor(torch.nn.Module):
 
         self.n_token_entry_head=128
         self.n_token_entry_head2=self.n_token_entry_head//2
-
-
 
     def decode_head(self,entry_head_idx):
         return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi
