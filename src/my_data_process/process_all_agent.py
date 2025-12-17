@@ -8,10 +8,10 @@ from torch_geometric.data import HeteroData
 import numpy as np
 
 
-data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_all/"
-raw_data= "/home/ke/code/catk/src/waymo_data/all_agent/training/"
+data_directory = "./waymo_data/full/training_map2_all/"
+raw_data= "./waymo_data/full/training/"
 
-output_path = "/home/ke/code/catk/src/waymo_data/full/training_map2_all/"
+output_path = "./waymo_data/full/training_map2_all/"
 
 
 # data_directory = "/home/ke/code/catk/src/waymo_data/full/validation_light/"
@@ -33,16 +33,15 @@ for filename in tqdm(files):
     # del data['tokenized_map']['light_type']
     # del data['tokenized_map']['pl_type']
 
-    # input_path1 = os.path.join(raw_data, filename)
-    #
-    # with open(input_path1, "rb") as f:
-    #     data1 = pickle.load(f)
+    input_path1 = os.path.join(raw_data, filename)
+
+    with open(input_path1, "rb") as f:
+        data1 = pickle.load(f)
 
     # data['tokenized_agent']["col_mask"]=data1['tokenized_agent']["col_mask"]
-    data['agent']=data['tokenized_agent']
+    data['agent']['current_valid']=data1['agent']
     # data["map_save"]=data1["map_save"]
     # data["pt_token"]=data1["pt_token"]
-    del data['tokenized_agent']
 
     output_file = output_path + filename
 

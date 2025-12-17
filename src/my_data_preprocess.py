@@ -168,16 +168,16 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
             num_steps=91,
         )
 
-        del agent["id"]
+        #del agent["id"]
 
-        data={"agent":agent}#"shape":agent["shape"]
+        data={"agent":agent["real_valid_mask"][:,10]}#"shape":agent["shape"]
 
         #
         # data["light"]=process_light(map_infos,tf_lights,tf_current_light)
 
         #data["scenario_id"] = scenario_id
-        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-        #     pickle.dump(data, f)
+        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+            pickle.dump(data, f)
 
         # if output_dir_tfrecords_splitted is not None:
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
@@ -202,11 +202,11 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
         output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
     )
 
-    # with multiprocessing.Pool(num_workers) as p:
-    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    with multiprocessing.Pool(num_workers) as p:
+        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
     # print(len(packages))
-    for file_path in tqdm(packages):
-        wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
+    # for file_path in tqdm(packages):
+    #     wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         default="/media/ke/Windows/waymo_data",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/all_agent"
+        "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/valid"
     )
     parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)

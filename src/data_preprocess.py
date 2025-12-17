@@ -71,7 +71,7 @@ def get_agent_features(
 
     idx_agents_to_add = []
     for i in range(len(track_infos["object_id"])):
-        add_agent = track_infos["valid"][i, num_historical_steps - 1]
+        add_agent = True#track_infos["valid"][i, num_historical_steps - 1]
 
         if add_agent:
             idx_agents_to_add.append(i)
@@ -87,6 +87,8 @@ def get_agent_features(
         "heading": torch.zeros([num_agents, num_steps], dtype=torch.float32),
         "velocity": torch.zeros([num_agents, num_steps, 2], dtype=torch.float32),
         "shape": torch.zeros([num_agents, 3], dtype=torch.float32),
+
+        'real_valid_mask': torch.zeros([num_agents, num_steps], dtype=torch.bool),
     }
 
     for i, idx in enumerate(idx_agents_to_add):
@@ -106,6 +108,8 @@ def get_agent_features(
         position = states[:, :3]  # [n_step, dim], x, y, z
         velocity = states[:, 7:9]  # [n_step, 2], vx, vy
         heading = states[:, 6]  # [n_step], heading
+
+        out_dict["real_valid_mask"][i]=torch.from_numpy(valid)
         if valid.sum() > 1:
             t_start, t_end = valid_steps[0], valid_steps[-1]
             f_pos = interp1d(valid_steps, position[valid], axis=0)
