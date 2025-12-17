@@ -51,9 +51,14 @@ class EntryDecoder(nn.Module):
 
             self.use_cross_attention= False
 
-            self.use_entry_former=True
+            self.use_entry_former=False
 
             self.num_levels=3#self.token_processor.tokenizer.num_levels
+
+            if self.token_processor.use_bird:
+                self.max_entry=140
+            else:
+                self.max_entry=18
 
             if self.use_one_feature or self.use_cross_attention:
 
@@ -430,7 +435,7 @@ class EntryDecoder(nn.Module):
 
                         finish = finish | (pos_idx[:, 0] == self.n_token_entry)
 
-                        if finish.all() or len(entry_state_list)>140:
+                        if finish.all() or len(entry_state_list)==self.max_entry:
                             entry_logit=torch.stack(entry_state_list,dim=1)
                             break
 

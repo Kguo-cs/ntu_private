@@ -147,15 +147,22 @@ class TokenProcessor(torch.nn.Module):
                             value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(100,dim=0)
                         else:
                             value_repeat=valueb[:1].repeat_interleave(100,dim=0)
-                        new_tensor.append(torch.cat([valueb,value_repeat]))
+                        new_tensor.append(torch.cat([value_repeat,valueb]))
                     tokenized_agent[key]=torch.cat(new_tensor)
-        if self.training:
-            current_valid = data['agent']["current_valid"]
+            batch = tokenized_agent["batch"]
+            av_mask = torch.ones_like(batch)
+            av_mask[:-1] = batch[:-1] != batch[1:]
 
-            for key, value in tokenized_agent.items():
-                if type(value) is torch.Tensor and len(value) == len(current_valid):
+            tokenized_agent["av_mask"]=av_mask
 
-                    tokenized_agent[key]=value[current_valid]#54
+        # if self.training:
+        #     current_valid = data['agent']["current_valid"]
+        #
+        #     for key, value in tokenized_agent.items():
+        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
+        #
+        #             tokenized_agent[key]=value[current_valid]#54
+        #
 
         return tokenized_map, tokenized_agent
 
@@ -370,6 +377,8 @@ class TokenProcessor(torch.nn.Module):
             )
 
         role_mask = data["agent"]["role"]
+        av_mask =data["agent"]["role"][:, 0]
+
 
         pred_mask = role_mask[:, 0] | role_mask[:, 2]
 
@@ -405,7 +414,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
         batch=data["agent"]["batch"]
-        av_mask =data["agent"]["role"][:, 0]
+
 
         token_dict = self._match_agent_token(
             valid=valid,

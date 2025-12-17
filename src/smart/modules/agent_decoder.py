@@ -147,7 +147,7 @@ class SMARTAgentDecoder(nn.Module):
         entry_logit = exit_logit=None
 
         if self.training:
-            # feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
+            feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
 
             if self.pred_entry:
                 entry_logit= self.entry_decoder(feat_a,mask_a,pos_a,head_a,tokenized_agent ,edge_index_a2a)
@@ -308,9 +308,9 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.pred_entry or self.token_processor.use_bird:
 
-                # agent_token_emb=self.agent_token_embedding.get_embedding(next_token_idx[next_mask][:,None],tokenized_agent["type"][next_mask],~exit_mask[next_mask][:,None])
-                #
-                # feat_a = feat_a + agent_token_emb[:,0]
+                agent_token_emb=self.agent_token_embedding.get_embedding(next_token_idx[next_mask][:,None],tokenized_agent["type"][next_mask],~exit_mask[next_mask][:,None])
+
+                feat_a = feat_a + agent_token_emb[:,0]
 
                 entry_logit= self.entry_decoder(feat_a,next_mask[:,None],pos_a[:, -1:], head_a[:, -1:],tokenized_agent)
 
@@ -335,9 +335,26 @@ class SMARTAgentDecoder(nn.Module):
                                 continue
 
                             chosen = non_present_idx[:n_new]
+                            entry_pos_b=entry_agent[:len(chosen),:pos_a_next.shape[-1]]
+                            entry_heading_b= entry_agent[:len(chosen),-1]
 
-                            pos_a_next[chosen] = entry_agent[:len(chosen),:pos_a_next.shape[-1]]
-                            head_a_next[chosen] = entry_agent[:len(chosen),-1]
+                            if not self.token_processor.use_bird:
+                                av_mask = tokenized_agent["av_mask"]
+
+                                ego_pos = pos_a_next[av_mask][b]
+                                ego_heading = head_a_next[av_mask][b]
+
+                                entry_pos_b,entry_heading_b = transform_to_global(
+                                    entry_pos_b[None],
+                                    entry_heading_b[None],
+                                    ego_pos[None],
+                                    ego_heading[None]
+                                )
+                                entry_pos_b = entry_pos_b[0]
+                                entry_heading_b = entry_heading_b[0]
+
+                            pos_a_next[chosen] = entry_pos_b
+                            head_a_next[chosen] = entry_heading_b
 
                             entry_agent_mask[chosen] = True
 
