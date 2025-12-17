@@ -10,7 +10,7 @@ model:
     lr_min_ratio: 1e-2
     token_processor:
       agent_token_file: "bird1024.pkl"
-      map_token_file: "first512.pkl"
+      map_token_file: "global512.pkl"
       use_noise: False
       pred_entry: True
 
@@ -42,7 +42,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/logs/bird6_head1_at1_clone_n20/2025-11-11_18-51-26/bird/gzan6d3o/checkpoints/epoch=19-step=155000.ckpt'
 
-task_name: bird6_para512_detach #_sa         #auto512_detach01 #_sa #_allpos_detach_sa #no_token_offsethead_allpos_para512_head128_squeeze_Loss01  #noreplace_offset4_head128_a2a2 #_val52 #_val8 #_head128 _realeval
+task_name: bird5_auto512_detach_feat #_sa         #auto512_detach01 #_sa #_allpos_detach_sa #no_token_offsethead_allpos_para512_head128_squeeze_Loss01  #noreplace_offset4_head128_a2a2 #_val52 #_val8 #_head128 _realeval
 
 trainer:
   limit_train_batches: 1.0
@@ -54,7 +54,7 @@ trainer:
   #gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 6
+  train_batch_size: 5
   val_batch_size: 10
   test_batch_size: 10
   num_workers: 8

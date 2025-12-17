@@ -379,13 +379,18 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Module):
             freqs_t= 0
 
         if positions is not None:
-            t_x, t_y,t_z = positions[...,0], positions[...,1],positions[...,2]
+            t_x, t_y = positions[...,0], positions[...,1]
 
             freqs_x = t_x[...,None,None] * self.freqs[0]
             freqs_y = t_y[...,None,None] * self.freqs[1]
-            freqs_z = t_z[...,None,None] * self.freqs[2]
+            freqs_xyh = freqs_x + freqs_y
 
-            freqs_xyh=freqs_x + freqs_y+freqs_z
+            if positions.shape[-1]==3:
+                t_z=positions[...,2]
+
+                freqs_z = t_z[...,None,None] * self.freqs[2]
+
+                freqs_xyh=freqs_xyh+freqs_z
         else:
             freqs_xyh=0
 

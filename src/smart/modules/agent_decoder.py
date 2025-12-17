@@ -336,7 +336,7 @@ class SMARTAgentDecoder(nn.Module):
 
                             chosen = non_present_idx[:n_new]
 
-                            pos_a_next[chosen] = entry_agent[:len(chosen),:3]
+                            pos_a_next[chosen] = entry_agent[:len(chosen),:pos_a_next.shape[-1]]
                             head_a_next[chosen] = entry_agent[:len(chosen),-1]
 
                             entry_agent_mask[chosen] = True

@@ -46,7 +46,7 @@ class TokenProcessor(torch.nn.Module):
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
         self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
@@ -244,8 +244,6 @@ class TokenProcessor(torch.nn.Module):
                 offset_token = pickle.load(open(offset_token, "rb"))
                 self.register_buffer(f"offset_token", offset_token, persistent=False)
                 self.n_token_offset = self.offset_token.shape[0]
-            else:
-                self.n_token_offset=4
 
         self.n_token_entry_head=128
         self.n_token_entry_head2=self.n_token_entry_head//2
@@ -517,7 +515,7 @@ class TokenProcessor(torch.nn.Module):
 
                     tokenized_heading =self.decode_head(entry_head_idx)
 
-                    head_offset=wrap_angle(entry_heading-tokenized_heading-select_heading)         #for selecting heading, not for
+                    head_offset=wrap_angle(local_heading-tokenized_heading)         #for selecting heading, not for
 
                     #entry_head_idx = entry_head_idx[row_ind.argsort()]
                     # if not np.all((row_ind[1:]-row_ind[:-1])>0):

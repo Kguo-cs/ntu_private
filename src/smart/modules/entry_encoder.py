@@ -98,14 +98,18 @@ class EntryDecoder(nn.Module):
 
             if self.token_processor.token_offset:
                 self.offset_embedding =nn.Embedding(self.token_processor.n_token_offset, hidden_dim)
+                self.offset_head_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
+                                                    output_dim=self.token_processor.n_token_offset)  # offset to offset
+
             else:
                 self.offset_embedding=MLPLayer(self.pos_dim+1,hidden_dim,hidden_dim)
+                self.offset_head_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
+                                                    output_dim=self.pos_dim+1)  # offset to offset
 
             self.task_embedding = nn.Embedding(self.num_levels+1, hidden_dim)
 
             self.number_embedding = MLPLayer(1,hidden_dim, hidden_dim)
 
-            self.offset_head_decoder  =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_offset)#offset to offset
 
             self.entry_head_decoder = MLPLayer(
                         input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
@@ -264,7 +268,10 @@ class EntryDecoder(nn.Module):
         # edge_index_a2a, r_a2a, relative_pos=edge_index_a2a
 
         if self.autoregressive_entry:
-            mask_a=mask_a[:,self.start_step:]
+            if self.training:
+                mask_a=mask_a[:,self.start_step:]
+                pos_a=pos_a[:,self.start_step:]
+                head_a=head_a[:,self.start_step:]
 
             n_agent, n_step=mask_a.shape
 
@@ -469,6 +476,8 @@ class EntryDecoder(nn.Module):
                         if self.token_processor.token_offset:
                             entry_feature = self.offset_embedding(offset_idx)
                         else:
+                            entry_feature = self.offset_embedding(entry_offset)
+
                             heading_rec=wrap_angle(tokenized_heading+entry_offset[:,0,self.pos_dim:])
 
                             new_state=torch.cat([pos_rec, heading_rec], dim=-1)
@@ -478,44 +487,7 @@ class EntryDecoder(nn.Module):
                             entry_state_list.append(new_state)
                             current_heading = heading_rec
 
-                    # entry_idx = Categorical(logits=entry_logit).sample()
-                    #
-                    # entry_list.append(entry_idx)
-                    #
                     n_current+=1
-                    #
-                    # num = len(entry_list) % self.num_levels
-                    #
-                    # if num==1:
-                    #     finish= finish | (entry_idx[:,0]==self.n_token_entry )
-                    #
-                    #     if len(entry_list) >1:
-                    #         entry_idx_all = torch.cat(entry_list, dim=1)[:, -self.num_levels-1:-1]
-                    #
-                    #         pos_rec, heading_rec = self.token_processor.tokenizer.decode_tokens_to_state(entry_idx_all)
-                    #
-                    #         pos_rec=pos_rec+entry_offset
-                    #
-                    #         new_state=torch.cat([pos_rec, heading_rec[:,None]], dim=-1)
-                    #
-                    #         new_state[finish]=0
-                    #
-                    #         entry_state_list.append(new_state)
-                    #
-                    #     if finish.all() or len(entry_list)>140*self.num_levels:
-                    #         entry_logit=torch.stack(entry_state_list,dim=1)
-                    #         break
-                    #
-                    # if num==0:
-                    #     num=self.num_levels
-                    #
-                    # entry_token = torch.cat(entry_list, dim=1)[:, -num:]
-                    #
-                    # current_pos1,current_heading1=self.token_processor.tokenizer.decode_tokens_to_state(entry_token)
-                    # current_pos=current_pos1[:,None]
-                    # current_heading=current_heading1[:,None]
-                    #
-                    # entry_feature = self.attr_embedding(entry_idx)
 
                 self.attr_former.attn.kv_caching(0)
                 if self.use_entry_former:
