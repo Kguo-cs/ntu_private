@@ -672,7 +672,7 @@ class TokenProcessor(torch.nn.Module):
 
                     tokenized_heading =self.decode_head(entry_head_idx)
 
-                    head_offset=wrap_angle(local_heading-tokenized_heading)         #for selecting heading, not for
+                    head_offset=wrap_angle(local_heading[:,0]-tokenized_heading)         #for selecting heading, not for
 
                     entry_head_idx_list.append(entry_head_idx)
 
