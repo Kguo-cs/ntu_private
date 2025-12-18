@@ -701,8 +701,11 @@ class TokenProcessor(torch.nn.Module):
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
             prev_head[_valid_mask] = next_head[_valid_mask]
+
+
             next_pos = token_contour_gt.mean(1)
             prev_pos[_valid_mask] = next_pos[_valid_mask]
+
             _valid_mask=valid[:, i]
             _invalid_mask = ~valid[:, i]
 
