@@ -445,8 +445,8 @@ class TokenProcessor(torch.nn.Module):
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         batch,
-        num_graphs,
-        av_mask,
+        num_graphs=None,
+        av_mask=None,
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:

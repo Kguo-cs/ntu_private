@@ -35,8 +35,8 @@ token_processor.eval()
 # Set paths
 
 agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pred/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
+map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_token/"
 
 
 
@@ -45,6 +45,7 @@ os.makedirs(ouput_data_directory, exist_ok=True)
 # Worker function
 def process_file(filename):
     input_path = os.path.join(agent_data_directory, filename)
+
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
@@ -103,10 +104,13 @@ def process_file(filename):
     valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
         valid, pos, heading, vel
     )
+    batch= torch.zeros(len(pos))
 
     tokenized_agent = token_processor._match_agent_token(valid, pos,
                                         heading,
-                                        agent_shape, token_traj  )
+                                        agent_shape, token_traj,batch
+
+                                                         )
 
     role_mask = data1["agent"]["role"]
 
@@ -179,11 +183,11 @@ def process_file(filename):
         pickle.dump(data2, f)
 
 
-if __name__ == "__main__":
-    files = os.listdir(agent_data_directory)[180000:]
+# if __name__ == "__main__":
+files = os.listdir(agent_data_directory)[34110:]
 
-    for file in tqdm(files):
-        process_file(file)
+for file in tqdm(files):
+    process_file(file)
 
     # # Use tqdm inside multiprocessing with a wrapper
     # with multiprocessing.Pool(processes=os.cpu_count()) as pool:
