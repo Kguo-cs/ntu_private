@@ -159,6 +159,12 @@ class TokenProcessor(torch.nn.Module):
         #
         #             tokenized_agent[key]=value[current_valid]
 
+        if self.pred_exit:
+            valid_mask=tokenized_agent["valid_mask"]
+            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
+            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
+            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
+
         # print(len(tokenized_agent['batch']))
         #54,21,20,1538,16319
         return tokenized_map, tokenized_agent
@@ -429,12 +435,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent['id']=data["agent"]["id"]
 
         tokenized_agent.update(token_dict)
-
-        if self.pred_exit:
-            valid_mask=tokenized_agent["valid_mask"]
-            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
-            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
-            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
         return tokenized_agent
 
