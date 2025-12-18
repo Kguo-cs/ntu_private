@@ -129,11 +129,6 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent['type']=tokenized_agent['type'].long()
 
-        if self.pred_exit:
-            valid_mask=tokenized_agent["valid_mask"]
-            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
-            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
-            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
         if not self.training and self.pred_entry:
             batch = tokenized_agent["batch"].clone()
@@ -434,6 +429,12 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent['id']=data["agent"]["id"]
 
         tokenized_agent.update(token_dict)
+
+        if self.pred_exit:
+            valid_mask=tokenized_agent["valid_mask"]
+            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
+            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
+            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
         return tokenized_agent
 
