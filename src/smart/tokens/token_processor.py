@@ -421,7 +421,7 @@ class TokenProcessor(torch.nn.Module):
             "pred_traj_10hz": pos,
             "pred_head_10hz": heading,
             "all_valid": valid,
-            "id": data["agent"]["id"],
+           # "id": data["agent"]["id"],
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
@@ -832,73 +832,75 @@ class TokenProcessor(torch.nn.Module):
 
         #agent_mask = agent_type < 3
 
-        agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
-            agent['type']#[agent_mask]
-        )
+        tokenized_agent = self.tokenize_agent(data)
 
-        tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
-        tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
-        tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
-
-        if "col_mask" in agent.keys():
-            tokenized_agent["col_mask"] = agent["col_mask"]
-
-        if "pred_mask" in agent.keys():
-            tokenized_agent["pred_mask"] = agent["pred_mask"]
-
-        if "gt_valid_raw" in data.keys():
-            for key in ["type", "batch", "shape"]:
-                tokenized_agent[key] = agent[key]
-
-            if "gt_speed_raw" in agent.keys():
-                speed=agent["gt_speed_raw"]
-            else:
-                speed=None
-
-            token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                        agent["gt_head_raw"],
-                                                        agent_shape, token_traj,
-                                                         speed,
-                                                            )
-            tokenized_agent.update(token_dict)
-
-            # token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-            #                                     agent["gt_head_raw"],
-            #                                     agent_shape, token_traj,
-            #                                     speed,
-            #                                     error_dist=0.3
-            #                                         )
-            #
-            # tokenized_agent["expert_sampled_pos"]=token_dict["sampled_pos"]
-            # tokenized_agent["expert_sampled_heading"]=token_dict["sampled_heading"]
-
-            tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
-            tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
-            tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
-
-        else:
-
-            for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
-                tokenized_agent[key] = agent[key]#[agent_mask]
-
-            tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
-
-            if 'token_mask' in agent.keys():
-                tokenized_agent['token_mask'] = agent['token_mask']#[agent_mask]
-            else:
-                tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
-
-
-            if "gt_pos_raw" in agent.keys():
-
-                for key in ["gt_pos_raw", "gt_head_raw"]:
-                    tokenized_agent[key] = agent[key]
-                tokenized_agent['gt_valid_raw'] = agent["valid_mask"]
-                tokenized_agent['train_mask_ce'] = agent["train_mask"]
-
-            if self.pred_last_res:
-                for key in ["target_global_traj","target_mask"]:
-                    tokenized_agent[key] = agent[key]
+        # agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
+        #     agent['type']#[agent_mask]
+        # )
+        #
+        # tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
+        # tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
+        # tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
+        #
+        # if "col_mask" in agent.keys():
+        #     tokenized_agent["col_mask"] = agent["col_mask"]
+        #
+        # if "pred_mask" in agent.keys():
+        #     tokenized_agent["pred_mask"] = agent["pred_mask"]
+        #
+        # if "gt_valid_raw" in data.keys():
+        #     for key in ["type", "batch", "shape"]:
+        #         tokenized_agent[key] = agent[key]
+        #
+        #     if "gt_speed_raw" in agent.keys():
+        #         speed=agent["gt_speed_raw"]
+        #     else:
+        #         speed=None
+        #
+        #     token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+        #                                                 agent["gt_head_raw"],
+        #                                                 agent_shape, token_traj,
+        #                                                  speed,
+        #                                                     )
+        #     tokenized_agent.update(token_dict)
+        #
+        #     # token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+        #     #                                     agent["gt_head_raw"],
+        #     #                                     agent_shape, token_traj,
+        #     #                                     speed,
+        #     #                                     error_dist=0.3
+        #     #                                         )
+        #     #
+        #     # tokenized_agent["expert_sampled_pos"]=token_dict["sampled_pos"]
+        #     # tokenized_agent["expert_sampled_heading"]=token_dict["sampled_heading"]
+        #
+        #     tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
+        #     tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
+        #     tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
+        #
+        # else:
+        #
+        #     for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
+        #         tokenized_agent[key] = agent[key]#[agent_mask]
+        #
+        #     tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
+        #
+        #     if 'token_mask' in agent.keys():
+        #         tokenized_agent['token_mask'] = agent['token_mask']#[agent_mask]
+        #     else:
+        #         tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
+        #
+        #
+        #     if "gt_pos_raw" in agent.keys():
+        #
+        #         for key in ["gt_pos_raw", "gt_head_raw"]:
+        #             tokenized_agent[key] = agent[key]
+        #         tokenized_agent['gt_valid_raw'] = agent["valid_mask"]
+        #         tokenized_agent['train_mask_ce'] = agent["train_mask"]
+        #
+        #     if self.pred_last_res:
+        #         for key in ["target_global_traj","target_mask"]:
+        #             tokenized_agent[key] = agent[key]
 
             # valid_mask = agent["valid_mask"]
             #
