@@ -446,9 +446,9 @@ class TokenProcessor(torch.nn.Module):
         heading: Tensor,  # [n_agent, n_step]
         agent_shape: Tensor,  # [n_agent, 2]
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
-        batch,
-        num_graphs=None,
-        av_mask=None,
+       # batch,
+       # num_graphs=None,
+      #  av_mask=None,
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:
@@ -490,7 +490,7 @@ class TokenProcessor(torch.nn.Module):
         entry_pos_offset_list = []
 
         agent_shape = torch.ones_like(pos[:, 0, :2])
-        batch_num = batch.max() + 1
+      #  batch_num = batch.max() + 1
 
 
         for i in range(shift, n_step, shift):  # [5, 10, 15, ..., 90]
