@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz /home/ke/code/catk/src/waymo_data/valid/training  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/valid/training ke@10.87.216.98:~/code/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_a ke@10.87.216.98:~/code/sim/src/waymo_data/full/
 
 rsync -avz -e "ssh -p 32884"  guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/training_a/71661601203b21.pkl /home/ke/code/catk/src/waymo_data/full/training_a/
 
