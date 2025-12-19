@@ -38,19 +38,29 @@ from torch.nn.utils.rnn import pad_sequence
 class TokenProcessor(torch.nn.Module):
 
     def __init__(
-            self,
-            map_token_file: str,
-            agent_token_file: str,
-            map_token_sampling: DictConfig,
-            agent_token_sampling: DictConfig,
-            pred_entry
+        self,
+        map_token_file: str,
+        agent_token_file: str,
+        map_token_sampling: DictConfig,
+        agent_token_sampling: DictConfig,
+        pred_entry=False
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.use_dynamic = False
+        self.pred_entry=pred_entry
         self.autoregressive_entry=False
+        self.use_smart=False
+        self.use_bird=False
+        self.noise=False
+        self.use_token=True
+        self.use_time=False
+        self.use_goal=False
+        self.pred_exit=False
+        self.pred_map_token = False
+        self.match_all=False
+        self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -58,127 +68,26 @@ class TokenProcessor(torch.nn.Module):
         self.n_token_agent = self.agent_token_all_veh.shape[0]
         self.n_token_map = self.map_token_traj_src.shape[0]
 
-        self.light_type = 5
-
-        self.use_light = False
-
-        self.pred_proposal = False
-
-        if self.pred_proposal:
-            self.n_token_agent = 16
-
-        self.interval_t = self.shift / 10
-
-        self.pred_last_res = False
-        if self.pred_last_res:
-            self.n_token_agent += 1
-
-        self.pred_all_res = False
-
-        if self.pred_all_res:
-            self.n_token_agent = self.agent_token_all_veh.shape[0]
-            self.pred_last_res = False
-
-        self.pred_goal = False
-
-        self.use_smart = False
-        self.use_bird = False
-
-        self.use_route = False
-
-        self.noise = False
-
-        self.pred_map_token = False
-
-        self.use_goal = False
-
-        self.pred_exit = False
-
-        self.use_token = True
-
-        self.use_time = False
-
-        self.pred_entry = False
+        if self.pred_exit:
+            self.n_token_agent+=1
 
     @torch.no_grad()
-    def forward(self, data: HeteroData, extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
-            tokenized_agent = self.tokenize_agent(data, extrapolate)
-
-            if self.use_light:
-                light = data["light"]
-                light_idx = light["light_idx"].long()
-                tokenized_agent["light_idx"] = light_idx
-                tokenized_agent["batch_lg"] = light["batch"]
-                tokenized_agent["pos_lg"] = light["light_pos"]
-                tokenized_agent["orient_lg"] = light["light_orient"]
-            else:
-                tokenized_agent["light_idx"] = torch.zeros([0, 18])
+            tokenized_agent = self.tokenize_agent(data,extrapolate)
         else:
-            tokenized_map, tokenized_agent = self.process_data(data)
+            tokenized_map, tokenized_agent=self.process_data(data)
 
-            if self.use_light:
-                lengths_lg = torch.bincount(tokenized_agent["batch_lg"],
-                                            minlength=tokenized_agent["num_graphs"]).tolist()
-
-                tokenized_agent["lengths_lg"] = lengths_lg
-                tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
-                tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
-
-            if self.pred_goal:
-                sampled_pos = tokenized_agent["sampled_pos"]
-                valid_mask = tokenized_agent["valid_mask"]
-
-                goal_pos = sampled_pos[:, -1]
-                goal_valid = valid_mask[:, -1:] & valid_mask
-
-                goal_valid[:, :2] = False
-
-                goal_vector = goal_pos[:, None] - sampled_pos
-                head_a = tokenized_agent["sampled_heading"]
-
-                head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
-
-                goal_heading = angle_between_2d_vectors(
-                    ctr_vector=head_vector_a, nbr_vector=goal_vector
-                )
-
-                goal_idx = (goal_heading + np.pi) // (np.pi / 5)  # 10 directory
-
-                goal_idx[~goal_valid] = 10
-
-                tokenized_agent["goal_idx"] = goal_idx.to(torch.long)
-            else:
-                tokenized_agent["goal_idx"] = torch.zeros([0, 18])
-
-        # if self.training:
-        #     batch_idx=tokenized_agent['batch']
-        #
-        #     token_mask=tokenized_agent['token_mask']
-        #
-        #     rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
-        #
-        #     goal_mask=rand_idx[batch_idx]<1
-        #
-        #     token_mask[goal_mask[:,0],:2]=False
-        #
-        #     tokenized_agent['token_mask']=token_mask
         tokenized_agent["abs_time"]=torch.zeros([0,18])
-
-
-        if self.use_route and self.training:
-            batch = tokenized_agent['batch']
-            keep_mask = torch.rand(len(batch), device=batch.device) < 0.5
-
-            tokenized_agent['route_map_index'][keep_mask] = -2
 
         if self.use_goal and self.training:
 
-            sampled_pos = tokenized_agent["sampled_pos"]
-            sampled_heading = tokenized_agent["sampled_heading"]
-            valid_mask = tokenized_agent["valid_mask"]
+            sampled_pos=tokenized_agent["sampled_pos"]
+            sampled_heading=tokenized_agent["sampled_heading"]
+            valid_mask=tokenized_agent["valid_mask"]
 
             A, T, _ = sampled_pos.shape
 
@@ -198,14 +107,14 @@ class TokenProcessor(torch.nn.Module):
             # Sample random extrapolation distances [0, max_extend)
             goal_dist = torch.rand((A,), device=sampled_pos.device) * 50
 
-            goal_dist[np.random.random(A) < 0.5] = 0
+            goal_dist[np.random.random(A)<0.5]=0
 
             # Compute goal position = last_pos + dist * direction
             goal_pos = last_pos + goal_dist[:, None] * last_dir
 
-            tokenized_agent["goal_pos"] = goal_pos
+            tokenized_agent["goal_pos"]=goal_pos
 
-            batch_idx = tokenized_agent["batch"]
+            batch_idx=tokenized_agent["batch"]
 
             rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
 
@@ -213,13 +122,51 @@ class TokenProcessor(torch.nn.Module):
 
             goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
 
-            tokenized_agent["goal_mask"] = goal_mask[:, 0]
+            tokenized_agent["goal_mask"]=goal_mask[:,0]
         else:
-            tokenized_agent["goal_pos"] = None
-            tokenized_agent["goal_mask"] = None
+            tokenized_agent["goal_pos"]=None
+            tokenized_agent["goal_mask"]=None
 
-        tokenized_agent['type'] = tokenized_agent['type'].long()
+        tokenized_agent['type']=tokenized_agent['type'].long()
 
+
+        if not self.training and self.pred_entry:
+            batch = tokenized_agent["batch"].clone()
+
+            for key, value in tokenized_agent.items():
+                if type(value) is torch.Tensor and len(value)==len(batch):
+                    new_tensor=[]
+                    for b in range(data.num_graphs):
+                        valueb=value[batch==b]
+                        if 'valid_mask' in key:
+                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(100,dim=0)
+                        else:
+                            value_repeat=valueb[:1].repeat_interleave(100,dim=0)
+                        new_tensor.append(torch.cat([value_repeat,valueb]))
+                    tokenized_agent[key]=torch.cat(new_tensor)
+            batch = tokenized_agent["batch"]
+            av_mask = torch.ones_like(batch)
+            av_mask[:-1] = batch[:-1] != batch[1:]
+
+            tokenized_agent["av_mask"]=av_mask
+
+        # if self.training:
+        #     current_valid = data['agent']["current_valid"]
+        #
+        #     for key, value in tokenized_agent.items():
+        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
+        #             # print(key,current_valid.device,value.device)
+        #
+        #             tokenized_agent[key]=value[current_valid]
+
+        if self.pred_exit:
+            valid_mask=tokenized_agent["valid_mask"]
+            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
+            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
+            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
+
+        # print(len(tokenized_agent['batch']))
+        #54,21,20,1538,16319
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
@@ -243,48 +190,70 @@ class TokenProcessor(torch.nn.Module):
     def init_agent_token(self, agent_token_path) -> None:
         agent_token_data = pickle.load(open(agent_token_path, "rb"))
 
-        all_token_local_traj = []
+        all_token_local_traj=[]
         for k, v in agent_token_data["token_all"].items():
-            v = torch.tensor(v, dtype=torch.float32)[:, 1:self.shift + 1]
+            v = torch.tensor(v, dtype=torch.float32)[:,1:self.shift+1]
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
             pred_pos = v.mean(2)
-            diff_xy = v[:, :, 0] - v[:, :, 3]
-            pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
-            token_local_traj = torch.cat([pred_pos, pred_head[:, :, None]], dim=-1)
+            diff_xy = v[:, :, 0] - v[:, :,  3]
+            pred_head = torch.arctan2(diff_xy[:, :,1], diff_xy[:, :,0])
+            token_local_traj = torch.cat([pred_pos, pred_head[:, :,  None]], dim=-1)
             all_token_local_traj.append(token_local_traj)
 
-        all_token_local_traj = torch.stack(all_token_local_traj)
+        all_token_local_traj=torch.stack(all_token_local_traj)
         self.register_buffer(f"all_token_local_traj", all_token_local_traj, persistent=False)
 
         if "max_diff" in agent_token_data.keys():
-            self.register_buffer(f"max_diff", 0.01 * agent_token_data["max_diff"], persistent=False)
+            self.register_buffer(f"max_diff", 0.01*agent_token_data["max_diff"], persistent=False)
         else:
-            self.max_diff = None
-
-        if self.use_dynamic:
-            module_dir = os.path.dirname(__file__)
-            codebook = torch.load(os.path.join(module_dir, "codebook.pt"))
-
-            self.register_buffer(f"agent_token_all_veh", codebook[0, :, None, None], persistent=False)
-            self.register_buffer(f"agent_token_all_ped", codebook[1, :, None, None], persistent=False)
-            self.register_buffer(f"agent_token_all_cyc", codebook[2, :, None, None], persistent=False)
+            self.max_diff=None
 
         self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
+
+        module_dir = os.path.dirname(__file__)
+
+        if self.autoregressive_entry:
+            entry_token = os.path.join(module_dir, 'entry_global512.pkl')
+
+            entry_pos_token = pickle.load(open(entry_token, "rb"))
+            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+            self.n_token_entry = self.entry_pos_token.shape[0]
+
+            if self.token_offset:
+                module_dir = os.path.dirname(__file__)
+                offset_token=os.path.join(module_dir, 'offset512.pkl')
+
+                offset_token = pickle.load(open(offset_token, "rb"))
+                self.register_buffer(f"offset_token", offset_token, persistent=False)
+                self.n_token_offset = self.offset_token.shape[0]
+            else:
+
+                self.n_token_offset=4
+
+        else:
+            entry_token = os.path.join(module_dir, 'entry512.pkl')
+
+            entry_pos_token = pickle.load(open(entry_token, "rb"))
+            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
+            self.n_token_entry = self.entry_pos_token.shape[0]
+
+        self.n_token_entry_head=128
+        self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
         return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
-        traj_pos = data["map_save"]["traj_pos"]  # [n_pl, 3, 2]
-        traj_theta = data["map_save"]["traj_theta"]  # [n_pl]
+        traj_pos = data["map_save"]["traj_pos"] # [n_pl, 3, 2]
+        traj_theta = data["map_save"]["traj_theta"] # [n_pl]
         type = data["pt_token"]["type"]  # [n_pl]
-        # pl_type = data["pt_token"]["pl_type"]  # [n_pl]
-        # light_type= data["pt_token"]["light_type"]   # [n_pl]
+        #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
+        #light_type= data["pt_token"]["light_type"]   # [n_pl]
 
         # if self.training:
         #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
@@ -315,27 +284,27 @@ class TokenProcessor(torch.nn.Module):
         # else:
         token_idx = gt_idx
 
-        position = traj_pos[:, 0].contiguous()
+        position=traj_pos[:, 0].contiguous()
 
         tokenized_map = {
             "position": position,  # [n_pl, 2]
             "orientation": traj_theta,  # [n_pl]
             "token_idx": token_idx,  # [n_pl]
-            "traj_pos_local": traj_pos_local[:, 1:],
-            # "token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
+           "traj_pos_local":traj_pos_local[:,1:],
+            #"token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
             "type": type,  # [n_pl]
-            # "pl_type": pl_type.long(),  # [n_pl]
-            # "light_type": light_type.long(),  # [n_pl]
-            # "batch": batch,  # [n_pl]
+            #"pl_type": pl_type.long(),  # [n_pl]
+            #"light_type": light_type.long(),  # [n_pl]
+           # "batch": batch,  # [n_pl]
         }
         if "batch" in data["pt_token"].keys():
             tokenized_map["batch"] = data["pt_token"]["batch"]
         if "light_type" in data["pt_token"].keys():
             tokenized_map["light_type"] = data["pt_token"]["light_type"].long()
 
-        # if self.training and self.pred_map_token:
-        # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
-        # if self.training:
+        #if self.training and self.pred_map_token:
+            # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
+        #if self.training:
         if 'pl_idx_list' in data.keys():
             pl_idx = data['map_save']['pl_idx_list']  # shape [T]
 
@@ -355,7 +324,7 @@ class TokenProcessor(torch.nn.Module):
             local_idx = idx - lane_start_idx  # 0,1,2,... within each lane
 
             # --- keep every 2nd point per lane (even local index) ---
-            keep_mask = (local_idx % 2 == 0)  # True => keep, False => drop
+            keep_mask =(local_idx % 2 == 0)  # True => keep, False => drop
 
             # keep_mask= torch.rand_like(traj_theta)<0.5
             #
@@ -365,6 +334,7 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_map[key] = tokenized_map[key][keep_mask]
 
         if self.pred_map_token:
+
             kept_idx = torch.nonzero(keep_mask, as_tuple=False).squeeze(-1)  # [K]
             next_idx = kept_idx + 1  # [K] 安全：上面已保证最后一个不保留
 
@@ -375,7 +345,7 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map
 
-    def tokenize_agent(self, data: HeteroData, extrapolate=True) -> Dict[str, Tensor]:
+    def tokenize_agent(self, data: HeteroData,extrapolate=True) -> Dict[str, Tensor]:
         """
         Args: data["agent"]: Dict
             "valid_mask": [n_agent, n_step], bool
@@ -404,10 +374,11 @@ class TokenProcessor(torch.nn.Module):
         heading = self._clean_heading(valid, heading)
 
         if extrapolate:
-            # ! extrapolate to previous 5th step.
+        # ! extrapolate to previous 5th step.
             valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
                 valid, pos, heading, vel
             )
+
         role_mask = data["agent"]["role"]
         av_mask =data["agent"]["role"][:, 0]
 
@@ -420,24 +391,22 @@ class TokenProcessor(torch.nn.Module):
             "type": data["agent"]["type"],
             "shape": data["agent"]["shape"],
             "ego_mask": data["agent"]["role"][:, 0],  # [n_agent]
-            "token_agent_shape": agent_shape,  # [n_agent, 2]
+            "token_agent_shape":  agent_shape,  # [n_agent, 2]
             "batch": data["agent"]["batch"],
             "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
             "token_traj": token_traj,  # [n_agent, n_token, 4, 2]
             # for step {5, 10, ..., 90}
-            "gt_pos_raw": pos[:, self.shift:: self.shift],  # [n_agent, n_step=18, 2]
-            "gt_head_raw": heading[:, self.shift:: self.shift],  # [n_agent, n_step=18]
-            "gt_valid_raw": valid[:, self.shift:: self.shift],  # [n_agent, n_step=18]
+            "gt_pos_raw": pos[:, self.shift :: self.shift],  # [n_agent, n_step=18, 2]
+            "gt_head_raw": heading[:, self.shift :: self.shift],  # [n_agent, n_step=18]
+            "gt_valid_raw": valid[:, self.shift :: self.shift],  # [n_agent, n_step=18]
             "pred_traj_10hz": pos,
             "pred_head_10hz": heading,
             "all_valid": valid,
-            #"id": data["agent"]["id"],
-            "pred_mask": pred_mask,
-
+            "pred_mask":pred_mask,
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
-            tokenized_agent[f"trajectory_token_{k}"] = getattr(self, f"trajectory_token_{k}")
+            tokenized_agent[f"trajectory_token_{k}"] =getattr(self,f"trajectory_token_{k}")
             #     getattr(
             #     self, f"agent_token_all_{k}"
             # )[:, -1].flatten(1, 2)
@@ -447,7 +416,8 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent]
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
-        speed = torch.norm(vel, dim=-1)
+        batch=data["agent"]["batch"]
+
 
         token_dict = self._match_agent_token(
             valid=valid,
@@ -455,14 +425,19 @@ class TokenProcessor(torch.nn.Module):
             heading=heading,
             agent_shape=agent_shape,
             token_traj=token_traj,
-            speed=speed
+          #  batch=batch,#[:,None],
+           # num_graphs=data.num_graphs,
+           # av_mask=av_mask
         )
         if "route_map_index" in data["agent"].keys():
-            tokenized_agent['route_map_index'] = data["agent"]["route_map_index"]
+            tokenized_agent['route_map_index']=data["agent"]["route_map_index"]
+        if "id" in data["agent"].keys():
+            tokenized_agent['id']=data["agent"]["id"]
 
         tokenized_agent.update(token_dict)
 
         return tokenized_agent
+
 
     def _match_agent_token(
             self,
@@ -490,12 +465,6 @@ class TokenProcessor(torch.nn.Module):
             "sampled_pos": [n_agent, n_step_token, 2]
             "sampled_heading": [n_agent, n_step_token]
         """
-
-        if self.pred_proposal:
-            return self.my_match_agent_token(valid, pos, heading, agent_shape, token_traj)
-
-        if self.use_dynamic:
-            return self.dynamic_match(valid, pos, speed, heading, agent_shape, token_traj)
 
         # num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
@@ -548,37 +517,6 @@ class TokenProcessor(torch.nn.Module):
             # token_idx_gt[~token_valid]=self.agent_token_all_veh.shape[0]
             # _valid_mask=token_valid & _valid_mask
             _valid_mask[~token_valid] = False
-
-            if self.pred_all_res and self.max_diff is not None:
-                token_local_traj = self.token_local_traj[torch.arange(n_agent), token_idx_gt][:, -1:]  # [n_agent, 5,3]
-
-                diff = self.token_diff[torch.arange(n_agent), token_idx_gt][:, -1:]  # [n_agent, 5, 3]
-
-                local_pos, local_heading = transform_to_local(
-                    pos_global=pos[:, i:i + 1],  # [n_agent, 5, 2],
-                    head_global=heading[:, i:i + 1],  # [n_agent, 5]
-                    pos_now=prev_pos,  # [n_agent, 2]
-                    head_now=prev_head,  # [n_agent]
-                )
-
-                local_traj = torch.cat([local_pos, local_heading[:, :, None]], dim=-1)  # [n_agent, 5, 3]
-
-                real_diff = local_traj - token_local_traj  # [n_agent, 5, 3]
-
-                token_diff = torch.minimum(real_diff, diff)
-                token_diff = torch.maximum(token_diff, -diff)
-
-                local_token_traj = token_local_traj + token_diff
-
-                global_pos, global_heading = transform_to_global(
-                    local_token_traj[:, :, :2],
-                    local_token_traj[:, :, 2],
-                    prev_pos,  # [n_agent, 2]
-                    prev_head,  # [n_agent]
-                )
-
-                token_contour_gt = cal_polygon_contour(global_pos[:, 0], global_heading[:, 0],
-                                                       agent_shape)  # [n_agent, 4, 2]
 
             # udpate prev_pos, prev_head
             prev_head = heading[:, i].clone()
@@ -666,41 +604,6 @@ class TokenProcessor(torch.nn.Module):
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
 
-        def get_future_30_every_5th_step_with_padding(tensor, pad_value=0.0):
-            B, T, D = tensor.shape
-            max_future = 30
-
-            # Pad extra steps to the right to safely index up to t+30
-            padded_tensor = F.pad(tensor, (0, 0, 0, max_future), value=pad_value)  # shape: (B, T+30, D)
-
-            # Start indices every 5 steps
-            starts = torch.arange(0, T, 5, device=tensor.device)  # (T//5,)
-
-            # For each start t, get future steps t+1 to t+30 (exclude t)
-            offsets = torch.tensor([1, 2, 3, 4, 5],
-                                   device=tensor.device)  # ,10,15,20,25,30torch.arange(1, max_future + 1, device=tensor.device)  # (30,)
-            indices = starts.unsqueeze(1) + offsets.unsqueeze(0)  # (T//5, 30)
-            gathered = padded_tensor[:, indices]  # (B, T//5, 30, D)
-
-            return gathered
-
-        if self.pred_last_res or self.pred_all_res:
-
-            gt_traj = torch.cat([pos, heading[:, :, None]], dim=-1)
-
-            gt_traj[~valid] = 0
-
-            valid_mask = out_dict["valid_mask"]  # valid[:,::5]# current position, heading valid
-
-            target_global_traj = get_future_30_every_5th_step_with_padding(gt_traj)  # shape: (B, T//5, 30, 2)
-            out_dict["target_global_traj"] = target_global_traj[:, 1:]
-            target_mask = target_global_traj.any(-1) != 0
-            out_dict["target_mask"] = target_mask[:, 1:] & valid_mask[:, :,
-                                                           None]  # .all(-2,keepdim=True)  # [n_agent, n_step=18, 30]
-
-            if self.pred_last_res:
-                token_mask = out_dict["sampled_idx"] == self.agent_token_all_veh.shape[0]
-                out_dict["target_mask"] = out_dict["target_mask"] & token_mask[:, :, None]
 
         return out_dict
 
