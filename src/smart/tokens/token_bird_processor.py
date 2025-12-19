@@ -284,11 +284,13 @@ class TokenProcessor(torch.nn.Module):
 
         data["agent"]["position"] = pos#.to(torch.float16)
         data["agent"]["valid_mask"] = valid
+        agent_shape = torch.ones_like(pos[:, 0, :2])
 
         token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
             heading=heading,
+            agent_shape=agent_shape,
             token_traj=token_traj,
             batch=batch,#[:,None],
             num_graphs=data.num_graphs
@@ -323,6 +325,7 @@ class TokenProcessor(torch.nn.Module):
             valid: Tensor,  # [n_agent, n_step]
             pos: Tensor,  # [n_agent, n_step, 2]
             heading: Tensor,  # [n_agent, n_step]
+            agent_shape,
             token_traj: Tensor,  # [n_agent, n_token, 4, 2]
             batch,
             num_graphs
@@ -348,7 +351,6 @@ class TokenProcessor(torch.nn.Module):
 
         token_xy=token_traj[:,:,:,:2]
         token_z=token_traj[:,:,:,2:]
-        agent_shape = torch.ones_like(pos[:, 0, :2])
         batch_num=batch.max()+1
 
         if self.pred_entry and not self.autoregressive_entry :
