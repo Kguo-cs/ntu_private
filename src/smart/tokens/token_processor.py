@@ -38,29 +38,19 @@ from torch.nn.utils.rnn import pad_sequence
 class TokenProcessor(torch.nn.Module):
 
     def __init__(
-        self,
-        map_token_file: str,
-        agent_token_file: str,
-        map_token_sampling: DictConfig,
-        agent_token_sampling: DictConfig,
-        pred_entry=False
+            self,
+            map_token_file: str,
+            agent_token_file: str,
+            map_token_sampling: DictConfig,
+            agent_token_sampling: DictConfig,
+            pred_entry
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
-        self.pred_entry=False
+        self.use_dynamic = False
         self.autoregressive_entry=False
-        self.use_smart=False
-        self.use_bird=False
-        self.noise=False
-        self.use_token=True
-        self.use_time=False
-        self.use_goal=False
-        self.pred_exit=False
-        self.pred_map_token = False
-        self.match_all=False
-        self.token_offset=False
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -68,26 +58,127 @@ class TokenProcessor(torch.nn.Module):
         self.n_token_agent = self.agent_token_all_veh.shape[0]
         self.n_token_map = self.map_token_traj_src.shape[0]
 
-        if self.pred_exit:
-            self.n_token_agent+=1
+        self.light_type = 5
+
+        self.use_light = False
+
+        self.pred_proposal = False
+
+        if self.pred_proposal:
+            self.n_token_agent = 16
+
+        self.interval_t = self.shift / 10
+
+        self.pred_last_res = False
+        if self.pred_last_res:
+            self.n_token_agent += 1
+
+        self.pred_all_res = False
+
+        if self.pred_all_res:
+            self.n_token_agent = self.agent_token_all_veh.shape[0]
+            self.pred_last_res = False
+
+        self.pred_goal = False
+
+        self.use_smart = False
+        self.use_bird = False
+
+        self.use_route = False
+
+        self.noise = False
+
+        self.pred_map_token = False
+
+        self.use_goal = False
+
+        self.pred_exit = False
+
+        self.use_token = True
+
+        self.use_time = False
+
+        self.pred_entry = False
 
     @torch.no_grad()
-    def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
-
+    def forward(self, data: HeteroData, extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
-            tokenized_agent = self.tokenize_agent(data,extrapolate)
-        else:
-            tokenized_map, tokenized_agent=self.process_data(data)
+            tokenized_agent = self.tokenize_agent(data, extrapolate)
 
+            if self.use_light:
+                light = data["light"]
+                light_idx = light["light_idx"].long()
+                tokenized_agent["light_idx"] = light_idx
+                tokenized_agent["batch_lg"] = light["batch"]
+                tokenized_agent["pos_lg"] = light["light_pos"]
+                tokenized_agent["orient_lg"] = light["light_orient"]
+            else:
+                tokenized_agent["light_idx"] = torch.zeros([0, 18])
+        else:
+            tokenized_map, tokenized_agent = self.process_data(data)
+
+            if self.use_light:
+                lengths_lg = torch.bincount(tokenized_agent["batch_lg"],
+                                            minlength=tokenized_agent["num_graphs"]).tolist()
+
+                tokenized_agent["lengths_lg"] = lengths_lg
+                tokenized_agent["pad_pos_lg"] = padding(tokenized_agent["pos_lg"], lengths_lg)
+                tokenized_agent["pad_orient_lg"] = padding(tokenized_agent["orient_lg"], lengths_lg)
+
+            if self.pred_goal:
+                sampled_pos = tokenized_agent["sampled_pos"]
+                valid_mask = tokenized_agent["valid_mask"]
+
+                goal_pos = sampled_pos[:, -1]
+                goal_valid = valid_mask[:, -1:] & valid_mask
+
+                goal_valid[:, :2] = False
+
+                goal_vector = goal_pos[:, None] - sampled_pos
+                head_a = tokenized_agent["sampled_heading"]
+
+                head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+                goal_heading = angle_between_2d_vectors(
+                    ctr_vector=head_vector_a, nbr_vector=goal_vector
+                )
+
+                goal_idx = (goal_heading + np.pi) // (np.pi / 5)  # 10 directory
+
+                goal_idx[~goal_valid] = 10
+
+                tokenized_agent["goal_idx"] = goal_idx.to(torch.long)
+            else:
+                tokenized_agent["goal_idx"] = torch.zeros([0, 18])
+
+        # if self.training:
+        #     batch_idx=tokenized_agent['batch']
+        #
+        #     token_mask=tokenized_agent['token_mask']
+        #
+        #     rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1,1), device=batch_idx.device)
+        #
+        #     goal_mask=rand_idx[batch_idx]<1
+        #
+        #     token_mask[goal_mask[:,0],:2]=False
+        #
+        #     tokenized_agent['token_mask']=token_mask
         tokenized_agent["abs_time"]=torch.zeros([0,18])
+
+
+        if self.use_route and self.training:
+            batch = tokenized_agent['batch']
+            keep_mask = torch.rand(len(batch), device=batch.device) < 0.5
+
+            tokenized_agent['route_map_index'][keep_mask] = -2
 
         if self.use_goal and self.training:
 
-            sampled_pos=tokenized_agent["sampled_pos"]
-            sampled_heading=tokenized_agent["sampled_heading"]
-            valid_mask=tokenized_agent["valid_mask"]
+            sampled_pos = tokenized_agent["sampled_pos"]
+            sampled_heading = tokenized_agent["sampled_heading"]
+            valid_mask = tokenized_agent["valid_mask"]
 
             A, T, _ = sampled_pos.shape
 
@@ -107,14 +198,14 @@ class TokenProcessor(torch.nn.Module):
             # Sample random extrapolation distances [0, max_extend)
             goal_dist = torch.rand((A,), device=sampled_pos.device) * 50
 
-            goal_dist[np.random.random(A)<0.5]=0
+            goal_dist[np.random.random(A) < 0.5] = 0
 
             # Compute goal position = last_pos + dist * direction
             goal_pos = last_pos + goal_dist[:, None] * last_dir
 
-            tokenized_agent["goal_pos"]=goal_pos
+            tokenized_agent["goal_pos"] = goal_pos
 
-            batch_idx=tokenized_agent["batch"]
+            batch_idx = tokenized_agent["batch"]
 
             rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
 
@@ -122,51 +213,13 @@ class TokenProcessor(torch.nn.Module):
 
             goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
 
-            tokenized_agent["goal_mask"]=goal_mask[:,0]
+            tokenized_agent["goal_mask"] = goal_mask[:, 0]
         else:
-            tokenized_agent["goal_pos"]=None
-            tokenized_agent["goal_mask"]=None
+            tokenized_agent["goal_pos"] = None
+            tokenized_agent["goal_mask"] = None
 
-        tokenized_agent['type']=tokenized_agent['type'].long()
+        tokenized_agent['type'] = tokenized_agent['type'].long()
 
-
-        if not self.training and self.pred_entry:
-            batch = tokenized_agent["batch"].clone()
-
-            for key, value in tokenized_agent.items():
-                if type(value) is torch.Tensor and len(value)==len(batch):
-                    new_tensor=[]
-                    for b in range(data.num_graphs):
-                        valueb=value[batch==b]
-                        if 'valid_mask' in key:
-                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(100,dim=0)
-                        else:
-                            value_repeat=valueb[:1].repeat_interleave(100,dim=0)
-                        new_tensor.append(torch.cat([value_repeat,valueb]))
-                    tokenized_agent[key]=torch.cat(new_tensor)
-            batch = tokenized_agent["batch"]
-            av_mask = torch.ones_like(batch)
-            av_mask[:-1] = batch[:-1] != batch[1:]
-
-            tokenized_agent["av_mask"]=av_mask
-
-        # if self.training:
-        #     current_valid = data['agent']["current_valid"]
-        #
-        #     for key, value in tokenized_agent.items():
-        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
-        #             # print(key,current_valid.device,value.device)
-        #
-        #             tokenized_agent[key]=value[current_valid]
-
-        if self.pred_exit:
-            valid_mask=tokenized_agent["valid_mask"]
-            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
-            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
-            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
-
-        # print(len(tokenized_agent['batch']))
-        #54,21,20,1538,16319
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
