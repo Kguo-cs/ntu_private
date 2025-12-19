@@ -243,59 +243,37 @@ class TokenProcessor(torch.nn.Module):
     def init_agent_token(self, agent_token_path) -> None:
         agent_token_data = pickle.load(open(agent_token_path, "rb"))
 
-        all_token_local_traj=[]
+        all_token_local_traj = []
         for k, v in agent_token_data["token_all"].items():
-            v = torch.tensor(v, dtype=torch.float32)[:,1:self.shift+1]
+            v = torch.tensor(v, dtype=torch.float32)[:, 1:self.shift + 1]
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
             pred_pos = v.mean(2)
-            diff_xy = v[:, :, 0] - v[:, :,  3]
-            pred_head = torch.arctan2(diff_xy[:, :,1], diff_xy[:, :,0])
-            token_local_traj = torch.cat([pred_pos, pred_head[:, :,  None]], dim=-1)
+            diff_xy = v[:, :, 0] - v[:, :, 3]
+            pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+            token_local_traj = torch.cat([pred_pos, pred_head[:, :, None]], dim=-1)
             all_token_local_traj.append(token_local_traj)
 
-        all_token_local_traj=torch.stack(all_token_local_traj)
+        all_token_local_traj = torch.stack(all_token_local_traj)
         self.register_buffer(f"all_token_local_traj", all_token_local_traj, persistent=False)
 
         if "max_diff" in agent_token_data.keys():
-            self.register_buffer(f"max_diff", 0.01*agent_token_data["max_diff"], persistent=False)
+            self.register_buffer(f"max_diff", 0.01 * agent_token_data["max_diff"], persistent=False)
         else:
-            self.max_diff=None
+            self.max_diff = None
+
+        if self.use_dynamic:
+            module_dir = os.path.dirname(__file__)
+            codebook = torch.load(os.path.join(module_dir, "codebook.pt"))
+
+            self.register_buffer(f"agent_token_all_veh", codebook[0, :, None, None], persistent=False)
+            self.register_buffer(f"agent_token_all_ped", codebook[1, :, None, None], persistent=False)
+            self.register_buffer(f"agent_token_all_cyc", codebook[2, :, None, None], persistent=False)
 
         self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
-
-        module_dir = os.path.dirname(__file__)
-
-        if self.autoregressive_entry:
-            entry_token = os.path.join(module_dir, 'entry_global512.pkl')
-
-            entry_pos_token = pickle.load(open(entry_token, "rb"))
-            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
-            self.n_token_entry = self.entry_pos_token.shape[0]
-
-            if self.token_offset:
-                module_dir = os.path.dirname(__file__)
-                offset_token=os.path.join(module_dir, 'offset512.pkl')
-
-                offset_token = pickle.load(open(offset_token, "rb"))
-                self.register_buffer(f"offset_token", offset_token, persistent=False)
-                self.n_token_offset = self.offset_token.shape[0]
-            else:
-
-                self.n_token_offset=4
-
-        else:
-            entry_token = os.path.join(module_dir, 'entry512.pkl')
-
-            entry_pos_token = pickle.load(open(entry_token, "rb"))
-            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
-            self.n_token_entry = self.entry_pos_token.shape[0]
-
-        self.n_token_entry_head=128
-        self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
         return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi
