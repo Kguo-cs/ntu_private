@@ -33,7 +33,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/waymo_data/epoch=1-step=24350.ckpt'
 
-task_name: bc40_clone_ego10_all_entry64 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc40_clone_ego10_all_entry256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
