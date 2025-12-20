@@ -235,7 +235,7 @@ class TokenProcessor(torch.nn.Module):
                 self.n_token_offset=4
 
         else:
-            entry_token = os.path.join(module_dir, 'entry1024.pkl')
+            entry_token = os.path.join(module_dir, 'entry256.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
