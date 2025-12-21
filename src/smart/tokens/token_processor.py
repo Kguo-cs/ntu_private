@@ -217,7 +217,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
 
         if self.autoregressive_entry:
-            entry_token = os.path.join(module_dir, 'entry_prev_global512.pkl')
+            entry_token = os.path.join(module_dir, 'entry_prev_global1024.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)

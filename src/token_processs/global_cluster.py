@@ -54,11 +54,11 @@ def Kdisk_cluster(
 
 trajs=torch.load("/home/ke/code/catk/src/waymo_data/token/global_prev_pose1.pt")[1:]
 
-tokenize_center = Kdisk_cluster(X=trajs, N=512, tol=4.5)
+tokenize_center = Kdisk_cluster(X=trajs, N=1024, tol=3)
 
 tokenize_center=tokenize_center[:,0]
 
-with open("entry_prev_global512.pkl", "wb") as f:
+with open("entry_prev_global1024.pkl", "wb") as f:
     pickle.dump(tokenize_center, f)
 
 # i=1023, remain=1.09%, n_inside=4  6

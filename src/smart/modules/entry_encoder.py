@@ -192,8 +192,8 @@ class EntryDecoder(nn.Module):
             feat_map,pos_pl,orient_pl,batch_pl,tgt_mask=tgt_mask
 
             if self.use_entry_former:
-                entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
-                                                             entry_head, entry_mask,
+                entry_feature = self.entry_former.cross_attention(entry_feature, torch.zeros_like(entry_pos),
+                                                             torch.zeros_like(entry_head), entry_mask,
                                                              attr_all_feature[:, :-entry_num],
                                                               all_pos[:, :-entry_num],
                                                              all_head[:, :-entry_num],  tgt_mask)
