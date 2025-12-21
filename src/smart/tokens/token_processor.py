@@ -217,7 +217,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
 
         if self.autoregressive_entry:
-            entry_token = os.path.join(module_dir, 'entry_prev_global1024.pkl')
+            entry_token = os.path.join(module_dir, 'entry_prev_global512.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
@@ -241,7 +241,7 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
-        self.n_token_entry_head=128
+        self.n_token_entry_head=64
         self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
