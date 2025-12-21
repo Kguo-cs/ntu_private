@@ -49,9 +49,9 @@ class EntryDecoder(nn.Module):
 
             self.use_one_feature= False
 
-            self.use_cross_attention= False
+            self.use_cross_attention= True
 
-            self.use_entry_former=False
+            self.use_entry_former=True
 
             self.num_levels=3#self.token_processor.tokenizer.num_levels
 
@@ -192,8 +192,8 @@ class EntryDecoder(nn.Module):
             feat_map,pos_pl,orient_pl,batch_pl,tgt_mask=tgt_mask
 
             if self.use_entry_former:
-                entry_feature = self.entry_former.cross_attention(entry_feature, torch.zeros_like(entry_pos),
-                                                             torch.zeros_like(entry_head), entry_mask,
+                entry_feature = self.entry_former.cross_attention(entry_feature, entry_pos,
+                                                             entry_head, entry_mask,
                                                              attr_all_feature[:, :-entry_num],
                                                               all_pos[:, :-entry_num],
                                                              all_head[:, :-entry_num],  tgt_mask)
@@ -233,7 +233,7 @@ class EntryDecoder(nn.Module):
             if n_current!=0:
                 n_current=n_current-agent_n
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos, entry_head,
+            attr_feature = self.attr_former.temporal_embed(entry_feature, torch.zeros_like(entry_pos), torch.zeros_like(entry_head),
                                                            entry_feature.shape[1], n_current, entry_mask)
 
         else:
