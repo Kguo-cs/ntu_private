@@ -33,7 +33,7 @@ model:
 
 #ckpt_path : '~/code/sim/src/waymo_data/epoch=1-step=24350.ckpt'
 
-task_name: bc32_clone_ego10_all_cross_sa #_pos256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc24_clone_ego10_all_auto #cross_sa #_pos256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
@@ -61,7 +61,7 @@ model_checkpoint:
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 data: 
-  train_batch_size: 32
+  train_batch_size: 24
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 1
