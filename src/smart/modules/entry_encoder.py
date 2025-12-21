@@ -516,7 +516,7 @@ class EntryDecoder(nn.Module):
                     self.entry_former.attn.kv_caching(0)
 
         else:
-            feat_a=feat_a.detach()
+            #feat_a=feat_a.detach()
 
             entry_logit = self.entry_decoder(feat_a)
             if self.training:
