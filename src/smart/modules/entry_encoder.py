@@ -289,7 +289,7 @@ class EntryDecoder(nn.Module):
 
             feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
-            feat_a_t[mask_ta] = feat_a.detach()
+            feat_a_t[mask_ta] = feat_a#.detach()
             batch = tokenized_agent["batch"]
             batch_num = batch.max() + 1
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
