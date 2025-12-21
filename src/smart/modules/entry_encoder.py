@@ -302,8 +302,19 @@ class EntryDecoder(nn.Module):
 
             padding_pos = padding(pos_a, lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1) #T,b, n, d
             padding_heading = padding(head_a, lengths, padding_value=0).permute(2, 0, 1).flatten(0, 1)
-            padding_features = padding(feat_a_t.transpose(0, 1), lengths, padding_value=0).permute(2, 0, 1, 3).flatten(
-                0, 1)
+            padding_features = padding(feat_a_t.transpose(0, 1), lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1)
+
+            if not self.token_processor.use_bird:
+                av_mask=tokenized_agent["av_mask"]
+                ego_pos=pos_a[av_mask].transpose(0, 1).flatten(0, 1)
+                ego_heading=head_a[av_mask].transpose(0, 1).flatten(0, 1)
+
+                padding_pos,padding_heading=transform_to_local(
+                    padding_pos,  # [n_agent, n_step, 2]
+                    padding_heading,  # [n_agent, n_step]
+                    ego_pos,  # [n_agent, 2]
+                    ego_heading,  # [n_agent]
+                )
 
             agent_n = padding_features.shape[1]
 

@@ -144,11 +144,11 @@ class TokenProcessor(torch.nn.Module):
                             value_repeat=valueb[:1].repeat_interleave(100,dim=0)
                         new_tensor.append(torch.cat([value_repeat,valueb]))
                     tokenized_agent[key]=torch.cat(new_tensor)
-            batch = tokenized_agent["batch"]
-            av_mask = torch.ones_like(batch)
-            av_mask[:-1] = batch[:-1] != batch[1:]
-
-            tokenized_agent["av_mask"]=av_mask
+            # batch = tokenized_agent["batch"]
+            # av_mask = torch.ones_like(batch)
+            # av_mask[:-1] = batch[:-1] != batch[1:]
+            #
+            # tokenized_agent["av_mask"]=av_mask
 
         # if self.training:
         #     current_valid = data['agent']["current_valid"]
@@ -403,6 +403,7 @@ class TokenProcessor(torch.nn.Module):
             "pred_head_10hz": heading,
             "all_valid": valid,
             "pred_mask":pred_mask,
+            "av_mask": av_mask
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
