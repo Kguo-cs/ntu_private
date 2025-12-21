@@ -277,6 +277,11 @@ class EntryDecoder(nn.Module):
                 mask_a=mask_a[:,self.start_step:]
                 pos_a=pos_a[:,self.start_step:]
                 head_a=head_a[:,self.start_step:]
+            else:
+                mask_a=mask_a[:,-1:]
+                pos_a=pos_a[:,-1:]
+                head_a=head_a[:,-1:]
+
 
             n_agent, n_step=mask_a.shape
 
