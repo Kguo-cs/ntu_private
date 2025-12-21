@@ -217,7 +217,7 @@ class TokenProcessor(torch.nn.Module):
         module_dir = os.path.dirname(__file__)
 
         if self.autoregressive_entry:
-            entry_token = os.path.join(module_dir, 'entry_global512.pkl')
+            entry_token = os.path.join(module_dir, 'entry_prev_global512.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
@@ -550,8 +550,8 @@ class TokenProcessor(torch.nn.Module):
                     entry_heading_list=[]
                     entry_batch = batch[entry_agent]
                     for b in range(num_graphs):
-                        ego_pos= prev_pos[av_mask][b]
-                        ego_heading = prev_head[av_mask][b]
+                        ego_pos= out_dict["sampled_pos"][-1][av_mask][b]
+                        ego_heading = out_dict["sampled_heading"][-1][av_mask][b]
 
                         entry_pos_b,entry_heading_b = transform_to_local(
                             entry_pos[entry_batch==b][None,],  # [n_agent, n_step, 2]

@@ -34,7 +34,7 @@ def Kdisk_cluster(
 
     return torch.stack(ret_traj_list, dim=0)  # [N, 6, 3]
 #
-# results=torch.load("/home/ke/code/catk/src/waymo_data/token/global_pose.pt")[:,None]
+# results=torch.load("/home/ke/code/catk/src/waymo_data/token/global_prev_pose.pt")[:,None]
 #
 #
 # trajs=torch.zeros([1,1, 2], dtype=torch.float32)
@@ -48,17 +48,17 @@ def Kdisk_cluster(
 #             break
 #
 #
-# torch.save(trajs,"/home/ke/code/catk/src/waymo_data/token/global_pose1.pt")
+# torch.save(trajs,"/home/ke/code/catk/src/waymo_data/token/global_prev_pose1.pt")
 #505587 204801 0.4050748831064028 0.3804990716818175
 
 
-trajs=torch.load("/home/ke/code/catk/src/waymo_data/token/global_pose1.pt")[1:]
+trajs=torch.load("/home/ke/code/catk/src/waymo_data/token/global_prev_pose1.pt")[1:]
 
 tokenize_center = Kdisk_cluster(X=trajs, N=512, tol=4.5)
 
 tokenize_center=tokenize_center[:,0]
 
-with open("entry_global512.pkl", "wb") as f:
+with open("entry_prev_global512.pkl", "wb") as f:
     pickle.dump(tokenize_center, f)
 
 # i=1023, remain=1.09%, n_inside=4  6

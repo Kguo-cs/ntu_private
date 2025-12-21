@@ -41,8 +41,8 @@ def load_one_partial(file):
     relative_pos=transform_to_local(
         pos_1[:, 1:].transpose(0,1),# [n_agent, n_step, 2]
         None, # [n_agent, n_step]
-        ego_pos[ 1:],# [n_agent, 2]
-        ego_head[1:]# [n_agent]
+        ego_pos[ :-1],# [n_agent, 2]
+        ego_head[:-1]# [n_agent]
     )[0].transpose(0,1)
 
     #print(torch.linalg.norm(relative_pos[valid_1[:, 1:]],dim=-1).max())
@@ -66,4 +66,4 @@ with Pool(cpu_count()) as pool:
 
 valid_pos=torch.cat(valid_list)
 
-torch.save(valid_pos,"/home/ke/code/catk/src/waymo_data/token/global_pose.pt")
+torch.save(valid_pos,"/home/ke/code/catk/src/waymo_data/token/global_prev_pose.pt")
