@@ -233,7 +233,7 @@ class EntryDecoder(nn.Module):
             if n_current!=0:
                 n_current=n_current-agent_n
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, torch.zeros_like(entry_pos), torch.zeros_like(entry_head),
+            attr_feature = self.attr_former.temporal_embed(entry_feature, entry_pos, entry_head,
                                                            entry_feature.shape[1], n_current, entry_mask)
 
         else:
@@ -289,7 +289,7 @@ class EntryDecoder(nn.Module):
 
             feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
-            feat_a_t[mask_ta] = feat_a#.detach()
+            feat_a_t[mask_ta] = feat_a.detach()
             batch = tokenized_agent["batch"]
             batch_num = batch.max() + 1
             lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -516,7 +516,7 @@ class EntryDecoder(nn.Module):
                     self.entry_former.attn.kv_caching(0)
 
         else:
-            #feat_a=feat_a.detach()
+            feat_a=feat_a.detach()
 
             entry_logit = self.entry_decoder(feat_a)
             if self.training:
