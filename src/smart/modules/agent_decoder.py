@@ -468,12 +468,12 @@ class SMARTAgentDecoder(nn.Module):
 
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
-            # if self.token_processor.pred_entry :
-            #     current_valid=gt_valid[:, current_step-1]
-            #     out_dict["pred_traj_10hz"]=out_dict["pred_traj_10hz"][current_valid]
-            #     out_dict["pred_head_10hz"]=out_dict["pred_head_10hz"][current_valid]
-            #     out_dict["pred_z_10hz"]=out_dict["pred_z_10hz"][current_valid]
-            #
+            if self.token_processor.pred_entry :
+                current_valid=gt_valid[:, current_step-1]
+                out_dict["pred_traj_10hz"]=out_dict["pred_traj_10hz"][current_valid]
+                out_dict["pred_head_10hz"]=out_dict["pred_head_10hz"][current_valid]
+                out_dict["pred_z_10hz"]=out_dict["pred_z_10hz"][current_valid]
+
         return out_dict
 
     def inference(
