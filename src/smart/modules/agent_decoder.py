@@ -316,7 +316,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 if entry_logit is not None:
 
-                    if len(entry_logit)!=2:
+                    if self.token_processor.autoregressive_entry:
                         non_present_mask = ~present_mask
                         entry_agent_mask = torch.zeros_like(present_mask)
 
@@ -339,10 +339,10 @@ class SMARTAgentDecoder(nn.Module):
                             entry_heading_b= entry_agent[:len(chosen),-1]
 
                             if not self.token_processor.use_bird:
-                                av_mask = tokenized_agent["av_mask"]
+                                ego_mask = tokenized_agent["ego_mask"]
 
-                                ego_pos = pos_a[:, -1][av_mask][b]
-                                ego_heading = head_a[:, -1][av_mask][b]
+                                ego_pos = pos_a[:, -1][ego_mask][b]
+                                ego_heading = head_a[:, -1][ego_mask][b]
 
                                 entry_pos_b,entry_heading_b = transform_to_global(
                                     entry_pos_b[None],
@@ -359,7 +359,7 @@ class SMARTAgentDecoder(nn.Module):
                             entry_agent_mask[chosen] = True
 
                     else:
-                        entry_mask, entry_local_traj=entry_logit
+                        entry_mask, entry_local_traj,entry_type,pred_shape=entry_logit
 
                         entry_agent_mask = torch.zeros_like(present_mask)
 
@@ -405,6 +405,8 @@ class SMARTAgentDecoder(nn.Module):
 
                                 pos_a_next[chosen] = new_pos[batch_mask][:len(chosen)]
                                 head_a_next[chosen] = new_head[batch_mask][:len(chosen)]
+                                tokenized_agent["type"][chosen]=entry_type[batch_mask][:len(chosen)]
+                                tokenized_agent["shape"][chosen]=pred_shape[batch_mask][:len(chosen)]
 
                                 entry_agent_mask[chosen]=True
                 else:

@@ -155,6 +155,10 @@ class EntryDecoder(nn.Module):
             else:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.pos_dim)
 
+            if not self.token_processor.use_bird:
+                self.type_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=3)
+                self.shape_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+2, hidden_dim=hidden_dim, output_dim=3)
+
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
         )
@@ -182,6 +186,7 @@ class EntryDecoder(nn.Module):
         attr_all_feature[:,-entry_num:]=attr_all_feature[:,-entry_num:]+number_embedding[None,-entry_num:]
 
         entry_mask = attr_mask[:, -entry_num:]
+
 
         if self.use_cross_attention:
 
@@ -271,6 +276,7 @@ class EntryDecoder(nn.Module):
 
     def forward(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,edge_index_a2a=None,n_current=0):
         # edge_index_a2a, r_a2a, relative_pos=edge_index_a2a
+        entry_type=type_logit= pred_shape=0
 
         if self.autoregressive_entry:
             if self.training:
@@ -305,9 +311,9 @@ class EntryDecoder(nn.Module):
             padding_features = padding(feat_a_t.transpose(0, 1), lengths, padding_value=0).permute(2, 0, 1, 3).flatten(0, 1)
 
             if not self.token_processor.use_bird:
-                av_mask=tokenized_agent["av_mask"]
-                ego_pos=pos_a[av_mask].transpose(0, 1).flatten(0, 1)
-                ego_heading=head_a[av_mask].transpose(0, 1).flatten(0, 1)
+                ego_mask=tokenized_agent["ego_mask"]
+                ego_pos=pos_a[ego_mask].transpose(0, 1).flatten(0, 1)
+                ego_heading=head_a[ego_mask].transpose(0, 1).flatten(0, 1)
 
                 padding_pos,padding_heading=transform_to_local(
                     padding_pos,  # [n_agent, n_step, 2]
@@ -586,7 +592,24 @@ class EntryDecoder(nn.Module):
 
                 # pred_offset=tokenized_agent["entry_pos_offset"][:len(feat_pos)]
 
-                entry_local_traj = entry_local_traj + pred_offset
+                entry_local_all = entry_local_traj + pred_offset
+
+                if not self.token_processor.use_bird:
+                    if self.training:
+                        entry_local_all=entry_local_traj+tokenized_agent["entry_pos_offset"]
+
+                    feat_offset = torch.cat([entry_feature,entry_local_all], dim=-1)
+
+                    type_logit=self.type_head(feat_offset)
+
+                    if self.training:
+                        entry_type=tokenized_agent["entry_type"]
+                    else:
+                        entry_type = Categorical(logits=type_logit).sample()
+
+                    feat_type = torch.cat([feat_offset,entry_type[:, None]], dim=-1)
+
+                    pred_shape=torch.relu(self.shape_head(feat_type))+0.5
 
             else:
                 pred_offset = self.pos_offset_predict_head(feat_pos)
@@ -610,8 +633,8 @@ class EntryDecoder(nn.Module):
                     entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
             if self.training:
-                entry_logit = (entry_logit, head_logit,pred_offset)
+                entry_logit = (entry_logit, head_logit,pred_offset,type_logit,pred_shape)
             else:
-                entry_logit=(entry_mask,entry_local_traj)
+                entry_logit=(entry_mask,entry_local_all,entry_type,pred_shape)
 
         return entry_logit

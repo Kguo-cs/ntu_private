@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=True
+        self.autoregressive_entry=False
         self.use_smart=False
         self.use_bird=False
         self.noise=False
@@ -144,11 +144,6 @@ class TokenProcessor(torch.nn.Module):
                             value_repeat=valueb[:1].repeat_interleave(100,dim=0)
                         new_tensor.append(torch.cat([value_repeat,valueb]))
                     tokenized_agent[key]=torch.cat(new_tensor)
-            # batch = tokenized_agent["batch"]
-            # av_mask = torch.ones_like(batch)
-            # av_mask[:-1] = batch[:-1] != batch[1:]
-            #
-            # tokenized_agent["av_mask"]=av_mask
 
         # if self.training:
         #     current_valid = data['agent']["current_valid"]
@@ -380,17 +375,17 @@ class TokenProcessor(torch.nn.Module):
             )
 
         role_mask = data["agent"]["role"]
-        av_mask =data["agent"]["role"][:, 0]
-
 
         pred_mask = role_mask[:, 0] | role_mask[:, 2]
+
+        ego_mask=data["agent"]["role"][:, 0]
 
         # ! prepare output dict
         tokenized_agent = {
             "num_graphs": data.num_graphs,
             "type": data["agent"]["type"],
             "shape": data["agent"]["shape"],
-            "ego_mask": data["agent"]["role"][:, 0],  # [n_agent]
+            "ego_mask": ego_mask,  # [n_agent]
             "token_agent_shape":  agent_shape,  # [n_agent, 2]
             "batch": data["agent"]["batch"],
             "token_traj_all": token_traj_all,  # [n_agent, n_token, 6, 4, 2]
@@ -403,7 +398,6 @@ class TokenProcessor(torch.nn.Module):
             "pred_head_10hz": heading,
             "all_valid": valid,
             "pred_mask":pred_mask,
-            "av_mask": av_mask
         }
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
@@ -428,7 +422,9 @@ class TokenProcessor(torch.nn.Module):
             token_traj=token_traj,
             batch=batch,#[:,None],
             num_graphs=data.num_graphs,
-            av_mask=av_mask
+            ego_mask=ego_mask,
+            shape=data["agent"]["shape"],
+            type=data["agent"]["type"].long(),
         )
         if "route_map_index" in data["agent"].keys():
             tokenized_agent['route_map_index']=data["agent"]["route_map_index"]
@@ -448,7 +444,9 @@ class TokenProcessor(torch.nn.Module):
         token_traj: Tensor,  # [n_agent, n_token, 4, 2]
         batch,
         num_graphs=None,
-        av_mask=None,
+        ego_mask=None,
+        shape=None,
+        type=None,
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:
@@ -488,6 +486,9 @@ class TokenProcessor(torch.nn.Module):
         entry_idx_list = []
         entry_head_idx_list = []
         entry_pos_offset_list = []
+        entry_type_list=[]
+        entry_shape_list=[]
+
         batch_num = batch.max() + 1
 
         if self.pred_entry and not self.autoregressive_entry:
@@ -550,8 +551,8 @@ class TokenProcessor(torch.nn.Module):
                     entry_heading_list=[]
                     entry_batch = batch[entry_agent]
                     for b in range(num_graphs):
-                        ego_pos= out_dict["sampled_pos"][-1][av_mask][b]
-                        ego_heading = out_dict["sampled_heading"][-1][av_mask][b]
+                        ego_pos= out_dict["sampled_pos"][-1][ego_mask][b]
+                        ego_heading = out_dict["sampled_heading"][-1][ego_mask][b]
 
                         entry_pos_b,entry_heading_b = transform_to_local(
                             entry_pos[entry_batch==b][None,],  # [n_agent, n_step, 2]
@@ -694,6 +695,12 @@ class TokenProcessor(torch.nn.Module):
                     offset_local=torch.cat((local_pos-local_tok,head_offset[:,None]), dim=-1)
                     entry_pos_offset_list.append(offset_local)
 
+                    entry_type=type[entry_id]
+                    entry_shape=shape[entry_id]
+
+                    entry_type_list.append(entry_type)
+                    entry_shape_list.append(entry_shape)
+
             if self.pred_entry and not self.autoregressive_entry :
                 out_dict["entry_idx"].append(entry_idx)
 
@@ -726,6 +733,12 @@ class TokenProcessor(torch.nn.Module):
                 out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
             else:
                 out_dict["entry_pos_offset"] =torch.zeros([0,4])
+
+            if len(entry_shape_list) :
+                out_dict["entry_shape"]=torch.cat(entry_shape_list)
+
+            if len(entry_type_list) :
+                out_dict["entry_type"]=torch.cat(entry_type_list)
 
             if len(entry_head_idx_list) :
                 out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
