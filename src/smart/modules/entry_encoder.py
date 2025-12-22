@@ -181,8 +181,8 @@ class EntryDecoder(nn.Module):
         if self.use_cross_attention:
 
             entry_feature = attr_all_feature[:, -entry_num:]
-            entry_pos = 0*all_pos[:, -entry_num:]
-            entry_head = 0*all_head[:, -entry_num:]
+            entry_pos = all_pos[:, -entry_num:]
+            entry_head = all_head[:, -entry_num:]
 
             feat_map,pos_pl,orient_pl,batch_pl,tgt_mask=tgt_mask
 
@@ -384,8 +384,8 @@ class EntryDecoder(nn.Module):
                 else:
                     entry_offset=offset[:,:,:self.pos_dim]
 
-                pos_idx1=torch.clamp(pos_idx,max=self.token_processor.n_token_entry-1)
-                token_pos = self.token_processor.entry_pos_token[pos_idx1]
+                pos_idx_clip=torch.clamp(pos_idx,max=self.token_processor.n_token_entry-1)
+                token_pos = self.token_processor.entry_pos_token[pos_idx_clip]
 
                 total_pos=entry_offset+token_pos
 
@@ -396,9 +396,15 @@ class EntryDecoder(nn.Module):
                     entry_pos[:,1::self.num_levels]=token_pos
                     tokenized_heading = self.token_processor.decode_head(head_idx)
                     entry_head[:,1::self.num_levels]=tokenized_heading
-                    entry_head[:,2::self.num_levels]=wrap_angle(tokenized_heading+offset[:,:,self.pos_dim])
+                    if not self.token_processor.use_bird:
+                        entry_pos[:, 2::self.num_levels] = token_pos
+                        entry_head[:,2::self.num_levels]=tokenized_heading
+                        entry_pos[:, 3::self.num_levels] = token_pos
+                        entry_head[:,3::self.num_levels]=tokenized_heading
 
-                entry_pos[:,2::self.num_levels]=total_pos
+                    entry_head[:,self.num_levels-1::self.num_levels]=wrap_angle(tokenized_heading+offset[:,:,self.pos_dim])
+
+                entry_pos[:,self.num_levels-1::self.num_levels]=total_pos
 
                 # # entry_idx_all =entry_idx.reshape(entry_idx.shape[0],-1,self.num_levels)
                 # entry_pos=[]
