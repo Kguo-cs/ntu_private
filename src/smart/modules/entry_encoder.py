@@ -351,7 +351,7 @@ class EntryDecoder(nn.Module):
 
                 pos_feature=self.pos_embedding(pos_idx)
                 heading_feature=self.head_embedding(head_idx)
-                offset_feature=self.offset_embedding(offset)#[:,:,None]
+                offset_feature=self.offset_embedding(offset)
 
                 pos_feature[entry_mask]=0
                 heading_feature[entry_mask]=0
@@ -366,9 +366,9 @@ class EntryDecoder(nn.Module):
                     type_feature[entry_mask] = 0
                     shape_feature[entry_mask] = 0
 
-                    attr_feature = torch.stack([pos_feature, offset_feature, heading_feature,type_feature,shape_feature], dim=2)
+                    attr_feature = torch.stack([pos_feature, heading_feature, offset_feature,type_feature,shape_feature], dim=2)
                 else:
-                    attr_feature=torch.stack([pos_feature, offset_feature,heading_feature], dim=2)
+                    attr_feature=torch.stack([pos_feature,heading_feature, offset_feature], dim=2)
 
                 attr_feature = attr_feature.flatten(1, 2)
 
