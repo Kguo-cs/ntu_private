@@ -135,7 +135,7 @@ class EntryDecoder(nn.Module):
 
         else:
             self.entry_head_decoder = MLPLayer(
-                        input_dim=hidden_dim+self.pos_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
+                        input_dim=hidden_dim+self.pos_dim+4, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
             self.use_pos_head_offset=True
@@ -144,8 +144,9 @@ class EntryDecoder(nn.Module):
                                                     output_dim=self.pos_dim + 1)
 
             if not self.token_processor.use_bird:
-                self.type_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=3)
-                self.shape_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+2, hidden_dim=hidden_dim, output_dim=3)
+                # self.type_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=3)
+                self.shape_head=MLPLayer(input_dim=hidden_dim+1, hidden_dim=hidden_dim, output_dim=3)
+                self.pos_head=MLPLayer(input_dim=hidden_dim+4, hidden_dim=hidden_dim, output_dim=512)
 
         self.entry_decoder = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry+1
@@ -549,13 +550,34 @@ class EntryDecoder(nn.Module):
             # mask=tokenized_agent["valid_mask"][:,0]
             # entry_idx=entry_idx[mask]
 
-        entry_mask = (entry_idx < self.token_processor.n_token_entry)
-        entry_local_traj = self.token_processor.entry_pos_token[entry_idx[entry_mask]]
+        entry_mask = (entry_idx < self.n_token_entry)
+
+        entry_type=entry_idx[entry_mask]
         entry_feature = feat_a[entry_mask]
 
-        feat_pos = torch.cat([entry_local_traj, entry_feature], dim=-1)
+        feat_type = torch.cat([entry_feature, entry_type[:, None]], dim=-1)
 
-        head_logit = self.entry_head_decoder(feat_pos)
+        pred_shape = torch.relu(self.shape_head(feat_type))
+
+        if self.training:
+            entry_shape = tokenized_agent["entry_shape"]
+        else:
+            entry_shape = pred_shape
+
+        feat_type_shape = torch.cat([feat_type, entry_shape], dim=-1)
+
+        type_logit=self.pos_head(feat_type_shape)
+
+        if self.training:
+            entry_pos=tokenized_agent["entry_pos"]
+        else:
+            entry_pos= Categorical(logits=type_logit).sample()
+
+        entry_local_traj = self.token_processor.entry_pos_token[entry_pos]
+
+        feat_type_shape_pos = torch.cat([feat_type_shape,entry_local_traj], dim=-1)
+
+        head_logit = self.entry_head_decoder(feat_type_shape_pos)
 
         if self.training:
             entry_head_idx = tokenized_agent["entry_head_idx"]
@@ -567,33 +589,33 @@ class EntryDecoder(nn.Module):
 
         entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
-        feat_pos_head = torch.cat([feat_pos, local_head[:, None]], dim=-1)
+        feat_type_shape_pos_head = torch.cat([feat_type_shape_pos, local_head[:, None]], dim=-1)
 
-        if not self.token_processor.use_bird:
-            # if self.training:
-            #     entry_local_all=entry_local_traj+tokenized_agent["entry_pos_offset"]
+        # if not self.token_processor.use_bird:
+        #     # if self.training:
+        #     #     entry_local_all=entry_local_traj+tokenized_agent["entry_pos_offset"]
+        #
+        #     # feat_offset = torch.cat([entry_feature,entry_local_all], dim=-1)
+        #
+        #     type_logit = self.type_head(feat_pos_head)
+        #
+        #     if self.training:
+        #         entry_type = tokenized_agent["entry_type"]
+        #     else:
+        #         entry_type = Categorical(logits=type_logit).sample()
+        #
+        #     feat_pos_head_type = torch.cat([feat_pos_head, entry_type[:, None]], dim=-1)
+        #
+        #     pred_shape = torch.relu(self.shape_head(feat_pos_head_type))+0.5
+        #
+        #     if self.training:
+        #         entry_shape = tokenized_agent["entry_shape"]
+        #     else:
+        #         entry_shape = pred_shape
+        #
+        #     feat_pos_head = torch.cat([feat_pos_head_type, entry_shape], dim=-1)
 
-            # feat_offset = torch.cat([entry_feature,entry_local_all], dim=-1)
-
-            type_logit = self.type_head(feat_pos_head)
-
-            if self.training:
-                entry_type = tokenized_agent["entry_type"]
-            else:
-                entry_type = Categorical(logits=type_logit).sample()
-
-            feat_pos_head_type = torch.cat([feat_pos_head, entry_type[:, None]], dim=-1)
-
-            pred_shape = torch.relu(self.shape_head(feat_pos_head_type))+0.5
-
-            if self.training:
-                entry_shape = tokenized_agent["entry_shape"]
-            else:
-                entry_shape = pred_shape
-
-            feat_pos_head = torch.cat([feat_pos_head_type, entry_shape], dim=-1)
-
-        pred_offset = self.pos_offset_predict_head(feat_pos_head)
+        pred_offset = self.pos_offset_predict_head(feat_type_shape_pos_head)
 
         entry_local_all = entry_local_traj + pred_offset
 

@@ -223,7 +223,7 @@ class IQ_SoftQ(LightningModule):
 
                 entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx[train_mask].unsqueeze(-1)).mean()
 
-                self.log("train/entry_nll", entry_nll.item(), on_step=True, batch_size=1)
+                self.log("train/entry_type_nll", entry_nll.item(), on_step=True, batch_size=1)
 
                 entry_head_idx=tokenized_agent["entry_head_idx"]#[:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]#t,a
 
@@ -245,17 +245,17 @@ class IQ_SoftQ(LightningModule):
 
                     offset_head=wrap_angle(entry_pos_offset[...,-1]-pred_offset[...,-1]).abs().mean()
 
-                    action_nll=offset_head+action_nll
+                    action_nll=action_nll+offset_head
 
                     self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
 
                 if not self.token_processor.use_bird:
-                    entry_type = tokenized_agent["entry_type"]
+                    entry_type = tokenized_agent["entry_pos"]
                     type_log_p = torch.log_softmax(type_logit, dim=-1)
                     entry_type_nll = -torch.gather(type_log_p, dim=-1,
                                                    index=entry_type.unsqueeze(-1)).mean()
 
-                    self.log("train/entry_type_nll", entry_type_nll.item(), on_step=True, batch_size=1)
+                    self.log("train/entry_nll", entry_type_nll.item(), on_step=True, batch_size=1)
 
                     entry_shape = tokenized_agent["entry_shape"]
 

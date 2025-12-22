@@ -218,6 +218,7 @@ class TokenProcessor(torch.nn.Module):
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
 
+
             if self.token_offset:
                 module_dir = os.path.dirname(__file__)
                 offset_token=os.path.join(module_dir, 'offset512.pkl')
@@ -235,6 +236,7 @@ class TokenProcessor(torch.nn.Module):
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
+            self.n_token_entry=3
 
         self.n_token_entry_head=64
         self.n_token_entry_head2=self.n_token_entry_head//2
@@ -484,10 +486,13 @@ class TokenProcessor(torch.nn.Module):
         }
         entry_token_invalid_mask = []
         entry_idx_list = []
+        entry_pos_list=[]
+
         entry_head_idx_list = []
         entry_pos_offset_list = []
         entry_type_list=[]
         entry_shape_list=[]
+
 
         batch_num = batch.max() + 1
 
@@ -699,18 +704,21 @@ class TokenProcessor(torch.nn.Module):
                     else:
                         dist,entry_idx_gt=torch.linalg.norm(local_pos[:,None]-self.entry_pos_token[None], dim=-1).min(-1)#.mean(-1)
 
-                    entry_idx[present_id] = entry_idx_gt
+                    entry_pos_list.append(entry_idx_gt)
+
+                    entry_type=type[entry_id]
+                    entry_shape=shape[entry_id]
+
+                    #entry_type_list.append(entry_type)
+                    entry_shape_list.append(entry_shape)
+
+                    entry_idx[present_id] = entry_type
 
                     local_tok=self.entry_pos_token[entry_idx_gt]
 
                     offset_local=torch.cat((local_pos-local_tok,head_offset[:,None]), dim=-1)
                     entry_pos_offset_list.append(offset_local)
 
-                    entry_type=type[entry_id]
-                    entry_shape=shape[entry_id]
-
-                    entry_type_list.append(entry_type)
-                    entry_shape_list.append(entry_shape)
 
             if self.pred_entry and not self.autoregressive_entry :
                 out_dict["entry_idx"].append(entry_idx)
@@ -740,16 +748,9 @@ class TokenProcessor(torch.nn.Module):
             if len(entry_token_invalid_mask)>0:
                 out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
 
-            if len(entry_pos_offset_list) :
-                out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
-            else:
-                out_dict["entry_pos_offset"] =torch.zeros([0,4])
 
-            if len(entry_shape_list) :
-                out_dict["entry_shape"]=torch.cat(entry_shape_list)
-
-            if len(entry_type_list) :
-                out_dict["entry_type"]=torch.cat(entry_type_list)
+            if len(entry_pos_list) :
+                out_dict["entry_pos"]=torch.cat(entry_pos_list)
 
             if len(entry_head_idx_list) :
                 out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
@@ -757,6 +758,19 @@ class TokenProcessor(torch.nn.Module):
             else:
                 out_dict["entry_head_idx"] =torch.zeros([0])
                 # out_dict["entry_head_idx_num"]=torch.zeros([out_dict["valid_mask"].shape[1]-1],device=out_dict["sampled_idx"].device)
+
+            if len(entry_pos_offset_list) :
+                out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
+            else:
+                out_dict["entry_pos_offset"] =torch.zeros([0,4])
+
+
+            if len(entry_shape_list) :
+                out_dict["entry_shape"]=torch.cat(entry_shape_list)
+
+            if len(entry_type_list) :
+                out_dict["entry_type"]=torch.cat(entry_type_list)
+
 
             if len(entry_idx_list) :
                 # entry_length=out_dict['sampled_idx'].shape[1]-1
