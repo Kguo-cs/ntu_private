@@ -557,7 +557,7 @@ class EntryDecoder(nn.Module):
 
         feat_type = torch.cat([entry_feature, entry_type[:, None]], dim=-1)
 
-        pred_shape = torch.relu(self.shape_head(feat_type))
+        pred_shape = torch.relu(self.shape_head(feat_type))+0.5
 
         if self.training:
             entry_shape = tokenized_agent["entry_shape"]
