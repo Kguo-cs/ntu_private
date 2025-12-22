@@ -249,7 +249,7 @@ class EntryDecoder(nn.Module):
         else:
             head_mask = (task == 1)
 
-            offset_mask = (task == 2)
+            offset_mask = (task == 4)
 
         entry_logit = self.entry_decoder(attr_feature[:,pos_mask])
 
@@ -258,9 +258,9 @@ class EntryDecoder(nn.Module):
         entry_offset = self.offset_head_decoder(attr_feature[:,offset_mask])
 
         if not self.token_processor.use_bird:
-            type_mask = (task == 3)
+            type_mask = (task == 2)
 
-            shape_mask = (task == 4)
+            shape_mask = (task == 3)
 
             type_logit = self.type_head_decoder(attr_feature[:,type_mask])
             pred_shape = self.shape_head_decoder(attr_feature[:,shape_mask])
@@ -366,7 +366,7 @@ class EntryDecoder(nn.Module):
                     type_feature[entry_mask] = 0
                     shape_feature[entry_mask] = 0
 
-                    attr_feature = torch.stack([pos_feature, heading_feature, offset_feature,type_feature,shape_feature], dim=2)
+                    attr_feature = torch.stack([pos_feature, heading_feature,type_feature,shape_feature, offset_feature], dim=2)
                 else:
                     attr_feature=torch.stack([pos_feature,heading_feature, offset_feature], dim=2)
 
