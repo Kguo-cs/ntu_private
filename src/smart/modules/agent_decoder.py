@@ -317,15 +317,18 @@ class SMARTAgentDecoder(nn.Module):
                 if entry_logit is not None:
 
                     if self.token_processor.autoregressive_entry:
+                        entry_agent, entry_type, entry_shape=entry_logit
                         non_present_mask = ~present_mask
                         entry_agent_mask = torch.zeros_like(present_mask)
 
                         unique_batches = batch.unique()
                         for b in unique_batches:
-                            entry_agent =entry_logit[b]
+                            entry_agent_b =entry_agent[b]
+                            entry_type_b=entry_type[b][entry_agent_b[:,0]!=0]
+                            entry_shape_b=entry_shape[b][entry_agent_b[:,0]!=0]
+                            entry_agent_b=entry_agent_b[entry_agent_b[:,0]!=0]
 
-                            entry_agent=entry_agent[entry_agent[:,0]!=0]
-                            n_new = len(entry_agent)
+                            n_new = len(entry_agent_b)
                             if n_new == 0:
                                 continue
 
@@ -335,8 +338,8 @@ class SMARTAgentDecoder(nn.Module):
                                 continue
 
                             chosen = non_present_idx[:n_new]
-                            entry_pos_b=entry_agent[:len(chosen),:pos_a_next.shape[-1]]
-                            entry_heading_b= entry_agent[:len(chosen),-1]
+                            entry_pos_b=entry_agent_b[:len(chosen),:pos_a_next.shape[-1]]
+                            entry_heading_b= entry_agent_b[:len(chosen),-1]
 
                             if not self.token_processor.use_bird:
                                 ego_mask = tokenized_agent["ego_mask"]
@@ -355,6 +358,8 @@ class SMARTAgentDecoder(nn.Module):
 
                             pos_a_next[chosen] = entry_pos_b
                             head_a_next[chosen] = entry_heading_b
+                            tokenized_agent["type"][chosen] =entry_type_b[:len(chosen)]
+                            tokenized_agent["shape"][chosen] =entry_shape_b[:len(chosen)]
 
                             entry_agent_mask[chosen] = True
 

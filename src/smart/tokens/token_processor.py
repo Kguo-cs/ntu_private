@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=False
+        self.autoregressive_entry=True
         self.use_smart=False
         self.use_bird=False
         self.noise=False
@@ -549,6 +549,9 @@ class TokenProcessor(torch.nn.Module):
 
                     entry_pos_list=[]
                     entry_heading_list=[]
+                    entry_type_list=[]
+                    entry_shape_list=[]
+
                     entry_batch = batch[entry_agent]
                     for b in range(num_graphs):
                         ego_pos= out_dict["sampled_pos"][-1][ego_mask][b]
@@ -575,8 +578,16 @@ class TokenProcessor(torch.nn.Module):
                         entry_pos_list.append(entry_pos_b)
                         entry_heading_list.append(entry_heading_b)
 
-                    entry_pos=torch.cat(entry_pos_list)
-                    entry_heading=torch.cat(entry_heading_list)
+                        entry_type= type[entry_agent][entry_batch == b][sort_idx]
+                        entry_shape= shape[entry_agent][entry_batch == b][sort_idx]
+
+                        entry_type_list.append(entry_type)
+                        entry_shape_list.append(entry_shape)
+
+                    entry_pos=torch.cat(entry_pos_list)#1
+                    entry_heading=torch.cat(entry_heading_list)#1
+                    entry_type=torch.cat(entry_type_list)#1
+                    entry_shape=torch.cat(entry_shape_list)#3
 
                     # entry_idx= self.tokenizer(entry_pos,entry_heading)
 
@@ -597,7 +608,7 @@ class TokenProcessor(torch.nn.Module):
                     else:
                         offset_local = torch.cat((offset_pos, wrap_angle(entry_heading - tokenized_heading)[:,None]), dim=-1)
 
-                    entry_idx = torch.cat([pos_entry_idx[:, None], entry_head_idx[:, None], offset_local], dim=-1)
+                    entry_idx = torch.cat([pos_entry_idx[:, None], entry_head_idx[:, None], offset_local,entry_type[:, None],entry_shape], dim=-1)
 
                     entry_length = torch.bincount(entry_batch,minlength=batch_num).tolist()
 
@@ -761,11 +772,17 @@ class TokenProcessor(torch.nn.Module):
                 if self.token_offset:
                     offset=entry_idx[:,:,2]
                 else:
-                    offset=entry_idx[:,:,2:]
+                    offset=entry_idx[:,:,2:5]
 
                 offset[offset==self.n_token_entry]=0
 
                 out_dict["offset"]=offset
+
+                out_dict["entry_type"]= torch.clamp(
+                    entry_idx[:, :, 5],
+                    max=2
+                ).long()
+                out_dict["entry_shape"]=entry_idx[:,:,6:]
 
         return out_dict
 
