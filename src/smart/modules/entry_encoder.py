@@ -151,7 +151,7 @@ class EntryDecoder(nn.Module):
             self.use_pos_head_offset=True
 
             if self.use_pos_head_offset:
-                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=self.pos_dim+1)
+                self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim+self.pos_dim+4, hidden_dim=hidden_dim, output_dim=self.pos_dim+1)
             else:
                 self.pos_offset_predict_head =MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.pos_dim)
 
@@ -586,7 +586,29 @@ class EntryDecoder(nn.Module):
                 # feat_token=self.entry_head_2(feat_token)
                 #
                 # feat_token=self.entry_head_encoder2(feat_token, r_a2a_pos, edge_index_a2a_pos)
+                if not self.token_processor.use_bird:
+                    # if self.training:
+                    #     entry_local_all=entry_local_traj+tokenized_agent["entry_pos_offset"]
 
+                    # feat_offset = torch.cat([entry_feature,entry_local_all], dim=-1)
+
+                    type_logit=self.type_head(feat_token)
+
+                    if self.training:
+                        entry_type=tokenized_agent["entry_type"]
+                    else:
+                        entry_type = Categorical(logits=type_logit).sample()
+
+                    feat_type = torch.cat([feat_token,entry_type[:, None]], dim=-1)
+
+                    pred_shape=torch.relu(self.shape_head(feat_type))+0.5
+
+                    if self.training:
+                        entry_shape=tokenized_agent["entry_shape"]
+                    else:
+                        entry_shape = pred_shape
+
+                    feat_token = torch.cat([feat_token,entry_shape], dim=-1)
 
                 pred_offset = self.pos_offset_predict_head(feat_token)
 
@@ -594,22 +616,7 @@ class EntryDecoder(nn.Module):
 
                 entry_local_all = entry_local_traj + pred_offset
 
-                if not self.token_processor.use_bird:
-                    if self.training:
-                        entry_local_all=entry_local_traj+tokenized_agent["entry_pos_offset"]
 
-                    feat_offset = torch.cat([entry_feature,entry_local_all], dim=-1)
-
-                    type_logit=self.type_head(feat_offset)
-
-                    if self.training:
-                        entry_type=tokenized_agent["entry_type"]
-                    else:
-                        entry_type = Categorical(logits=type_logit).sample()
-
-                    feat_type = torch.cat([feat_offset,entry_type[:, None]], dim=-1)
-
-                    pred_shape=torch.relu(self.shape_head(feat_type))+0.5
 
             else:
                 pred_offset = self.pos_offset_predict_head(feat_pos)
