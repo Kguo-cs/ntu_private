@@ -240,7 +240,7 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
             self.n_token_entry=3
 
-        self.n_token_entry_head=128
+        self.n_token_entry_head=64
         self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
