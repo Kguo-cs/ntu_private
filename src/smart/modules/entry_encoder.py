@@ -613,7 +613,7 @@ class EntryDecoder(nn.Module):
         #     else:
         #         entry_shape = pred_shape
         #
-        #     feat_pos_head = torch.cat([feat_pos_head_type, entry_shape], dim=-1)
+        #     feat_type_shape_pos_head = torch.cat([feat_pos_head_type, entry_shape], dim=-1)
 
         pred_offset = self.pos_offset_predict_head(feat_type_shape_pos_head)
 
