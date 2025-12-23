@@ -532,7 +532,7 @@ class EntryDecoder(nn.Module):
         return entry_logit
 
     def para_pred(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,edge_index_a2a=None,n_current=0):
-        feat_a = feat_a.detach()
+        #feat_a = feat_a.detach()
 
         entry_logit = self.entry_decoder(feat_a)
         if self.training:
