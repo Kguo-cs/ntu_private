@@ -37,7 +37,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/bc40_para_typeshapepos05_head128_epoch=3-step=46261.ckpt'
 
-task_name: bc40_para_typeshapepos05_loss0001_head001 #_0pospara_typeshapeoffset #cross_prev_query0_head64 #_nodetach #all_para #cross_prev_0pos  #cross_sa #_pos256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc32_auto_typeshapepos05_loss0001 #_head001 #_0pospara_typeshapeoffset #cross_prev_query0_head64 #_nodetach #all_para #cross_prev_0pos  #cross_sa #_pos256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
@@ -65,7 +65,7 @@ model_checkpoint:
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
 data: 
-  train_batch_size: 40
+  train_batch_size: 32
   val_batch_size: 32
   test_batch_size: 10
   num_workers: 1

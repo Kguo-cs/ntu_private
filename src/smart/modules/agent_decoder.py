@@ -414,12 +414,14 @@ class SMARTAgentDecoder(nn.Module):
                                 tokenized_agent["shape"][chosen]=pred_shape[batch_mask][:len(chosen)]
 
                                 entry_agent_mask[chosen]=True
-                else:
+                elif self.token_processor.use_bird:
                     entry_agent_mask = ~present_mask & gt_valid[:, t]
 
                     pos_a_next[entry_agent_mask] = gt_pos[entry_agent_mask, t]
 
                     head_a_next[entry_agent_mask] = gt_head[entry_agent_mask, t]
+                else:
+                    entry_agent_mask=torch.zeros_like(present_mask)
 
                 pred_traj[entry_agent_mask,-1]=pos_a_next[entry_agent_mask]
 
