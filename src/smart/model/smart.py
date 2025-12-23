@@ -193,7 +193,7 @@ class SMART(LightningModule):
 
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
-            pred_traj, pred_z, pred_head = [], [], []
+            pred_traj, pred_z, pred_head,new_agent = [], [], [],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
@@ -204,15 +204,18 @@ class SMART(LightningModule):
                 )
                 pred_traj.append(pred["pred_traj_10hz"])
 
+
                 if not self.token_processor.use_bird:
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
+                    new_agent.append(pred["new_agent"])
 
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             if not self.token_processor.use_bird:
                 pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
                 pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
+                new_agent=torch.stack(new_agent, dim=1)
 
 
             if self.token_processor.use_bird :
@@ -277,15 +280,6 @@ class SMART(LightningModule):
 
                 self.metric_logger.update(metric_dict)
 
-
-                # for i in range(len(linear_speed_likelihoods[0])):
-                #     self.wosac_metrics.scenario_counter += 1
-                #     self.wosac_metrics.linear_speed_likelihood += linear_speed_likelihoods[0][i]
-                #     self.wosac_metrics.linear_acceleration_likelihood += linear_acc_likelihoods[0][i]
-                #     self.wosac_metrics.angular_speed_likelihood += angular_speed_likelihoods[0][i]
-                #     self.wosac_metrics.angular_acceleration_likelihood += angular_acceleration_likelihoods[0][i]
-                #     self.wosac_metrics.metametric+= (linear_speed_likelihoods[0][i]+linear_acc_likelihoods[0][i]+angular_speed_likelihoods[0][i]+angular_acceleration_likelihoods[0][i])/4
-
             # ! WOSAC
             scenario_rollouts = None
             if self.wosac_submission.is_active:  # ! save WOSAC submission
@@ -348,83 +342,83 @@ class SMART(LightningModule):
                             / f"step_{self.global_step}_batch_{batch_idx:02d}-scenario_{_i_sc:02d}",
                         )
                         _vis.save_video_scenario_rollout(
-                            scenario_rollouts[_i_sc], self.n_vis_rollout
+                            scenario_rollouts[_i_sc], self.n_vis_rollout,new_agent[_i_sc*100:(_i_sc+1)*100].cpu().numpy()
                         )
                         # for _path in _vis.video_paths:
                         #     self.logger.log_video(
                         #         "/".join(_path.split("/")[-3:]), [_path]
                         #     )
                     #print(time.time()-t1)
-
-            if self.n_rollout_closed_val ==1 and not self.use_bird:
-                scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
-
-                simulated_collision_rate=scenario_metrics.simulated_collision_rate
-
-                collision_indication_likelihood=scenario_metrics.collision_indication_likelihood
-                #simulated_offroad_rate = scenario_metrics.simulated_offroad_rate
-                #print(collision_indication_likelihood,simulated_collision_rate)
-
-                if collision_indication_likelihood<0.99 and simulated_collision_rate>0 : #simulated_collision_rate<0.99 :#or simulated_offroad_rate>0       #242
-                    disc_out = self.encoder.discriminator.predict_agent(None,
-                                                                        pred["token_mask"],
-                                                                        pred["valid_mask"],
-                                                                        pred["sampled_pos"],
-                                                                        pred["sampled_heading"],
-                                                                        tokenized_agent,
-                                                                        map_feature,
-                                                                        abs_time=tokenized_agent["abs_time"])
-                    ego_logits, interact_logits = disc_out[0]
-
-                    edge_index_a2a=disc_out[1] [0]       #t,a
-
-                    n_step=18
-
-                    ego_logits=ego_logits.reshape(18,-1)
-                    n_agent=ego_logits.shape[1]
-
-                    ego_index = torch.where(tokenized_agent["ego_mask"])[0][0]
-
-                    scene_realism=ego_logits[:,ego_index]
-
-                    mask=pred["valid_mask"]
-
-                    src,dst=edge_index_a2a[0],edge_index_a2a[1]
-
-                    flat_mask = mask.transpose(0, 1).flatten(0, 1)
-
-                    kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
-
-                    dst_all = kept_nodes[dst]
-
-                    dst_agent=dst_all % n_agent
-
-                    ego_mask=dst_agent ==ego_index
-
-                    src_ego=src[ego_mask]
-
-                    src_all=kept_nodes[src_ego]
-
-                    interact_realism= torch.zeros([n_step*n_agent],device=src_all.device)
-
-                    interact_realism[src_all] = interact_logits[ego_mask]
-
-                    interact_realism=interact_realism.reshape(n_step,n_agent)
-
-                    #print(torch.all(interact_realism[:,ego_index]==0))
-
-                    interact_realism[:,ego_index]=scene_realism
-
-                    interact_realism=torch.sigmoid(interact_realism)
-                    save_path=self.video_dir  / f"step_{self.global_step}_batch_{batch_idx:02d}.pdf"
-
-                   # if interact_realism.min()>0.45:
-                    plot_rollout_frames( tokenized_agent,
-                                            data["tfrecord_path"][0],
-                                            interact_realism.transpose(0,1).cpu(),
-                                            pred,
-                                             save_path=save_path
-                                        )
+            #
+            # if self.n_rollout_closed_val ==1 and not self.use_bird:
+            #     scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
+            #
+            #     simulated_collision_rate=scenario_metrics.simulated_collision_rate
+            #
+            #     collision_indication_likelihood=scenario_metrics.collision_indication_likelihood
+            #     #simulated_offroad_rate = scenario_metrics.simulated_offroad_rate
+            #     #print(collision_indication_likelihood,simulated_collision_rate)
+            #
+            #     if collision_indication_likelihood<0.99 and simulated_collision_rate>0 : #simulated_collision_rate<0.99 :#or simulated_offroad_rate>0       #242
+            #         disc_out = self.encoder.discriminator.predict_agent(None,
+            #                                                             pred["token_mask"],
+            #                                                             pred["valid_mask"],
+            #                                                             pred["sampled_pos"],
+            #                                                             pred["sampled_heading"],
+            #                                                             tokenized_agent,
+            #                                                             map_feature,
+            #                                                             abs_time=tokenized_agent["abs_time"])
+            #         ego_logits, interact_logits = disc_out[0]
+            #
+            #         edge_index_a2a=disc_out[1] [0]       #t,a
+            #
+            #         n_step=18
+            #
+            #         ego_logits=ego_logits.reshape(18,-1)
+            #         n_agent=ego_logits.shape[1]
+            #
+            #         ego_index = torch.where(tokenized_agent["ego_mask"])[0][0]
+            #
+            #         scene_realism=ego_logits[:,ego_index]
+            #
+            #         mask=pred["valid_mask"]
+            #
+            #         src,dst=edge_index_a2a[0],edge_index_a2a[1]
+            #
+            #         flat_mask = mask.transpose(0, 1).flatten(0, 1)
+            #
+            #         kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
+            #
+            #         dst_all = kept_nodes[dst]
+            #
+            #         dst_agent=dst_all % n_agent
+            #
+            #         ego_mask=dst_agent ==ego_index
+            #
+            #         src_ego=src[ego_mask]
+            #
+            #         src_all=kept_nodes[src_ego]
+            #
+            #         interact_realism= torch.zeros([n_step*n_agent],device=src_all.device)
+            #
+            #         interact_realism[src_all] = interact_logits[ego_mask]
+            #
+            #         interact_realism=interact_realism.reshape(n_step,n_agent)
+            #
+            #         #print(torch.all(interact_realism[:,ego_index]==0))
+            #
+            #         interact_realism[:,ego_index]=scene_realism
+            #
+            #         interact_realism=torch.sigmoid(interact_realism)
+            #         save_path=self.video_dir  / f"step_{self.global_step}_batch_{batch_idx:02d}.pdf"
+            #
+            #        # if interact_realism.min()>0.45:
+            #         plot_rollout_frames( tokenized_agent,
+            #                                 data["tfrecord_path"][0],
+            #                                 interact_realism.transpose(0,1).cpu(),
+            #                                 pred,
+            #                                  save_path=save_path
+            #                             )
 
 
     def on_validation_epoch_end(self):

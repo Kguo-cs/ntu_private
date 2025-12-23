@@ -140,9 +140,9 @@ class EntryDecoder(nn.Module):
 
             self.use_pos_head_offset=True
 
-            self.pos_offset_predict_head = MLPLayer(input_dim=hidden_dim + self.pos_dim + 5, hidden_dim=hidden_dim,
-                                                    output_dim=self.pos_dim + 1)
-
+            # self.pos_offset_predict_head = MLPLayer(input_dim=hidden_dim + self.pos_dim + 5, hidden_dim=hidden_dim,
+            #                                         output_dim=self.pos_dim + 1)
+            #
             if not self.token_processor.use_bird:
                 # self.type_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=3)
                 self.shape_head=MLPLayer(input_dim=hidden_dim+1, hidden_dim=hidden_dim, output_dim=3)
@@ -535,17 +535,13 @@ class EntryDecoder(nn.Module):
 
     def para_pred(self,feat_a,mask_a,pos_a,head_a,tokenized_agent,edge_index_a2a=None,n_current=0):
         feat_a = feat_a.detach()
-        entry_type=type_logit= pred_shape=0
 
         entry_logit = self.entry_decoder(feat_a)
         if self.training:
             entry_idx = tokenized_agent["entry_idx"][:, 1 + self.start_step:].transpose(0, 1).flatten(0, 1)[
                 mask_a[:, self.start_step:].transpose(0, 1).flatten(0, 1)]
         else:
-            if len(entry_logit):
-                entry_idx = Categorical(logits=entry_logit).sample()
-            else:
-                entry_idx = torch.zeros((entry_logit.shape[0], 1), device=entry_logit.device)
+            entry_idx = Categorical(logits=entry_logit).sample()
             # entry_idx = tokenized_agent["entry_idx"][:,1]
             # mask=tokenized_agent["valid_mask"][:,0]
             # entry_idx=entry_idx[mask]
@@ -571,7 +567,10 @@ class EntryDecoder(nn.Module):
         if self.training:
             entry_pos=tokenized_agent["entry_pos"]
         else:
-            entry_pos= Categorical(logits=type_logit).sample()
+            if len(type_logit):
+                entry_pos= Categorical(logits=type_logit).sample()
+            else:
+                return None
 
         entry_local_traj = self.token_processor.entry_pos_token[entry_pos]
 
@@ -589,7 +588,7 @@ class EntryDecoder(nn.Module):
 
         entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
-        feat_type_shape_pos_head = torch.cat([feat_type_shape_pos, local_head[:, None]], dim=-1)
+        #feat_type_shape_pos_head = torch.cat([feat_type_shape_pos, local_head[:, None]], dim=-1)
 
         # if not self.token_processor.use_bird:
         #     # if self.training:
@@ -615,14 +614,14 @@ class EntryDecoder(nn.Module):
         #
         #     feat_pos_head = torch.cat([feat_pos_head_type, entry_shape], dim=-1)
 
-        pred_offset = self.pos_offset_predict_head(feat_type_shape_pos_head)
-
-        entry_local_all = entry_local_traj + pred_offset
+        # pred_offset = self.pos_offset_predict_head(feat_type_shape_pos_head)
+        #
+        # entry_local_traj = entry_local_traj + pred_offset
 
         if self.training:
-            entry_logit = (entry_logit, head_logit, pred_offset, type_logit, pred_shape)
+            entry_logit = (entry_logit, head_logit, None, type_logit, pred_shape)
         else:
-            entry_logit = (entry_mask, entry_local_all, entry_type, pred_shape)
+            entry_logit = (entry_mask, entry_local_traj, entry_type, pred_shape)
 
         return entry_logit
 

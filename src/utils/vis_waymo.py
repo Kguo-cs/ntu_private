@@ -249,6 +249,8 @@ class VisWaymo:
         for step_t, step_image in enumerate(input_images):
             if step_t < ag_valid.shape[1]:
                 _valid = ag_valid[:, step_t]  # [n_ag]
+                if not _valid.any():
+                    continue
                 _pos = ag_xy[:, step_t]  # [n_ag, 2]
                 _yaw = ag_yaw[:, step_t]  # [n_ag, 1]
 
@@ -281,12 +283,14 @@ class VisWaymo:
         self,
         scenario_rollout: sim_agents_submission_pb2.ScenarioRollouts,
         n_vis_rollout: int,
+        new_agent
     ):
         for i_rollout in range(n_vis_rollout):
             images = deepcopy(self.im_gt_blended)
             ag_valid, ag_xy, ag_yaw, ag_size, ag_role = self._get_features_from_trajs(
                 scenario_rollout.joint_scenes[i_rollout].simulated_trajectories
             )
+
             self._draw_agents(
                 images[self.step_current//self.interval + 1 :],
                 ag_valid[:,::self.interval],
@@ -295,6 +299,27 @@ class VisWaymo:
                 ag_size,
                 ag_role,
             )
+
+            # new_agent_i=new_agent[:,i_rollout]
+            #
+            # new_xy=new_agent_i[:,:,:2]
+            # new_yaw=new_agent_i[:,:,2:3]
+            # new_size=new_agent_i[:,0,3:]
+            #
+            # new_role=np.zeros_like(new_size)
+            # new_role[:,1]=True
+            #
+            # new_valid=np.any(new_xy!=10000,axis=-1)
+            #
+            # self._draw_agents(
+            #     images[self.step_current // self.interval + 1:],
+            #     new_valid[:, ::self.interval],
+            #     new_xy[:, ::self.interval],
+            #     new_yaw[:, ::self.interval],
+            #     new_size,
+            #     new_role,
+            # )
+
             _video_path = (self.save_dir / f"rollout_{i_rollout:02d}.mp4").as_posix()
             self.video_paths.append(_video_path)
             save_images_to_mp4(images, _video_path,fps=10//self.interval)
@@ -383,8 +408,8 @@ def get_agent_features(
     """
     tracks = scenario.tracks
     sdc_track_index = scenario.sdc_track_index
-    track_index_predict = ([i.track_index for i in scenario.tracks_to_predict],)
-    object_id_interest = ([i for i in scenario.objects_of_interest],)
+    track_index_predict = [i.track_index for i in scenario.tracks_to_predict]
+    object_id_interest = [i for i in scenario.objects_of_interest]
 
     ag_valid, ag_xy, ag_yaw, ag_size, ag_role, ag_id = [], [], [], [], [], []
     for i, _track in enumerate(tracks):

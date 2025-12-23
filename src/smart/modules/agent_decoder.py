@@ -470,9 +470,20 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.token_processor.pred_entry :
                 current_valid=gt_valid[:, current_step-1]
+
+                new_xy=out_dict["pred_traj_10hz"][~current_valid]
+                new_head=out_dict["pred_head_10hz"][~current_valid][:,:,None]
+
+               # new_type=tokenized_agent["type"][~current_valid][:,None,None].repeat(1,new_xy.shape[1],1)
+                new_shape=tokenized_agent["shape"][~current_valid][:,None].repeat(1,new_xy.shape[1],1)
+
+                out_dict["new_agent"]=torch.cat([new_xy, new_head, new_shape], dim=-1)
+
+
                 out_dict["pred_traj_10hz"]=out_dict["pred_traj_10hz"][current_valid]
                 out_dict["pred_head_10hz"]=out_dict["pred_head_10hz"][current_valid]
                 out_dict["pred_z_10hz"]=out_dict["pred_z_10hz"][current_valid]
+
 
         return out_dict
 
