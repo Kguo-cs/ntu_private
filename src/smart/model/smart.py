@@ -208,14 +208,18 @@ class SMART(LightningModule):
                 if not self.token_processor.use_bird:
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
-                    new_agent.append(pred["new_agent"])
+
+                    if "new_agent" in pred.keys():
+                        new_agent.append(pred["new_agent"])
 
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             if not self.token_processor.use_bird:
                 pred_z = torch.stack(pred_z, dim=1)  # [n_ag, n_rollout, n_step]
                 pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
-                new_agent=torch.stack(new_agent, dim=1)
+
+                if len(new_agent):
+                    new_agent=torch.stack(new_agent, dim=1)
 
 
             if self.token_processor.use_bird :

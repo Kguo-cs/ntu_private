@@ -175,7 +175,7 @@ class IQ_SoftQ(LightningModule):
                 entry_pos_offset=entry_pos_offset[entry_mask]
                 pred_offset=pred_offset[entry_mask]
 
-                action_nll=action_nll+0.001*entry_nll+0.01*entry_head_nll
+                action_nll=action_nll+0.01*entry_nll+0.01*entry_head_nll
 
                 if self.token_processor.token_offset:
                     pred_offset=torch.log_softmax(pred_offset, dim=-1)
@@ -194,7 +194,7 @@ class IQ_SoftQ(LightningModule):
 
                     self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
 
-                    action_nll=action_nll+0.001*offset_l1+0.01*offset_head
+                    action_nll=action_nll+0.01*offset_l1+0.01*offset_head
 
                 if not self.token_processor.use_bird:
                     entry_type = tokenized_agent["entry_type"]
@@ -212,7 +212,7 @@ class IQ_SoftQ(LightningModule):
 
                     self.log("train/shape_l1", shape_l1.item(), on_step=True, batch_size=1)
 
-                    action_nll=action_nll+0.001*entry_type_nll+0.001*shape_l1
+                    action_nll=action_nll+0.01*entry_type_nll+0.01*shape_l1
 
             else:
                 entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
@@ -233,7 +233,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/entry_head_nll", entry_head_nll.item(), on_step=True, batch_size=1)
 
-                action_nll = action_nll +0.001* entry_nll + 0.01*entry_head_nll
+                action_nll = action_nll +0.01* entry_nll + 0.01*entry_head_nll
 
                 entry_pos_offset=tokenized_agent["entry_pos_offset"]
 
@@ -245,7 +245,7 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
 
-                action_nll=action_nll+0.001*offset_l1+0.01*offset_head
+                action_nll=action_nll+0.01*offset_l1+0.01*offset_head
 
                 if not self.token_processor.use_bird:
                     entry_type = tokenized_agent["entry_pos"]
@@ -261,7 +261,7 @@ class IQ_SoftQ(LightningModule):
 
                     self.log("train/shape_l1", shape_l1.item(), on_step=True, batch_size=1)
 
-                    action_nll=action_nll+0.001*entry_type_nll+0.001*shape_l1
+                    action_nll=action_nll+0.01*entry_type_nll+0.01*shape_l1
 
 
         return action_nll,log_prob
