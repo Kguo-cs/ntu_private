@@ -175,7 +175,7 @@ class IQ_SoftQ(LightningModule):
                 entry_pos_offset=entry_pos_offset[entry_mask]
                 pred_offset=pred_offset[entry_mask]
 
-                action_nll=action_nll+0.001*entry_nll+0.001*entry_head_nll
+                action_nll=action_nll+0.001*entry_nll+0.01*entry_head_nll
 
                 if self.token_processor.token_offset:
                     pred_offset=torch.log_softmax(pred_offset, dim=-1)
@@ -194,7 +194,7 @@ class IQ_SoftQ(LightningModule):
 
                     self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
 
-                    action_nll=action_nll+0.001*offset_l1+0.001*offset_head
+                    action_nll=action_nll+0.001*offset_l1+0.01*offset_head
 
                 if not self.token_processor.use_bird:
                     entry_type = tokenized_agent["entry_type"]
