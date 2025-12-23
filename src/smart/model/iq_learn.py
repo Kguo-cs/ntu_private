@@ -233,13 +233,15 @@ class IQ_SoftQ(LightningModule):
 
                 self.log("train/entry_head_nll", entry_head_nll.item(), on_step=True, batch_size=1)
 
+                action_nll = action_nll + entry_nll + entry_head_nll
+
                 # entry_pos_offset=tokenized_agent["entry_pos_offset"]
                 #
                 # offset_l1=(entry_pos_offset[...,:-1]-pred_offset[...,:-1]).abs().mean()
                 #
                 # self.log("train/offset_l1", offset_l1.item(), on_step=True, batch_size=1)
                 #
-                # action_nll=action_nll+entry_nll+entry_head_nll+offset_l1
+                # action_nll=action_nll+offset_l1
                 #
                 # if self.encoder.agent_encoder.entry_decoder.use_pos_head_offset:
                 #
