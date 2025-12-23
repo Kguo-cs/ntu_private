@@ -138,11 +138,9 @@ class EntryDecoder(nn.Module):
                         input_dim=hidden_dim+self.pos_dim+4, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
                     )
 
-            self.use_pos_head_offset=True
+            self.pos_offset_predict_head = MLPLayer(input_dim=hidden_dim + self.pos_dim + 5, hidden_dim=hidden_dim,
+                                                    output_dim=self.pos_dim + 1)
 
-            # self.pos_offset_predict_head = MLPLayer(input_dim=hidden_dim + self.pos_dim + 5, hidden_dim=hidden_dim,
-            #                                         output_dim=self.pos_dim + 1)
-            #
             if not self.token_processor.use_bird:
                 # self.type_head=MLPLayer(input_dim=hidden_dim+self.pos_dim+1, hidden_dim=hidden_dim, output_dim=3)
                 self.shape_head=MLPLayer(input_dim=hidden_dim+1, hidden_dim=hidden_dim, output_dim=3)
@@ -588,7 +586,7 @@ class EntryDecoder(nn.Module):
 
         entry_local_traj = torch.cat([entry_local_traj, local_head[:, None]], dim=-1)
 
-        #feat_type_shape_pos_head = torch.cat([feat_type_shape_pos, local_head[:, None]], dim=-1)
+        feat_type_shape_pos_head = torch.cat([feat_type_shape_pos, local_head[:, None]], dim=-1)
 
         # if not self.token_processor.use_bird:
         #     # if self.training:
@@ -614,12 +612,12 @@ class EntryDecoder(nn.Module):
         #
         #     feat_pos_head = torch.cat([feat_pos_head_type, entry_shape], dim=-1)
 
-        # pred_offset = self.pos_offset_predict_head(feat_type_shape_pos_head)
-        #
-        # entry_local_traj = entry_local_traj + pred_offset
+        pred_offset = self.pos_offset_predict_head(feat_type_shape_pos_head)
+
+        entry_local_traj = entry_local_traj + pred_offset
 
         if self.training:
-            entry_logit = (entry_logit, head_logit, None, type_logit, pred_shape)
+            entry_logit = (entry_logit, head_logit, pred_offset, type_logit, pred_shape)
         else:
             entry_logit = (entry_mask, entry_local_traj, entry_type, pred_shape)
 

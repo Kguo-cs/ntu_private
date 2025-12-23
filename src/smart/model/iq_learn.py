@@ -235,21 +235,17 @@ class IQ_SoftQ(LightningModule):
 
                 action_nll = action_nll + entry_nll + entry_head_nll
 
-                # entry_pos_offset=tokenized_agent["entry_pos_offset"]
-                #
-                # offset_l1=(entry_pos_offset[...,:-1]-pred_offset[...,:-1]).abs().mean()
-                #
-                # self.log("train/offset_l1", offset_l1.item(), on_step=True, batch_size=1)
-                #
-                # action_nll=action_nll+offset_l1
-                #
-                # if self.encoder.agent_encoder.entry_decoder.use_pos_head_offset:
-                #
-                #     offset_head=wrap_angle(entry_pos_offset[...,-1]-pred_offset[...,-1]).abs().mean()
-                #
-                #     action_nll=action_nll+offset_head
-                #
-                #     self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
+                entry_pos_offset=tokenized_agent["entry_pos_offset"]
+
+                offset_l1=(entry_pos_offset[...,:-1]-pred_offset[...,:-1]).abs().mean()
+
+                self.log("train/offset_l1", offset_l1.item(), on_step=True, batch_size=1)
+
+                offset_head = wrap_angle(entry_pos_offset[..., -1] - pred_offset[..., -1]).abs().mean()
+
+                self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
+
+                action_nll=action_nll+offset_l1+offset_head
 
                 if not self.token_processor.use_bird:
                     entry_type = tokenized_agent["entry_pos"]
