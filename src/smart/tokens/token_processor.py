@@ -50,7 +50,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=True
+        self.autoregressive_entry=False
         self.use_smart=False
         self.use_bird=False
         self.noise=False
