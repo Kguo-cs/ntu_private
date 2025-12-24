@@ -159,23 +159,12 @@ class TokenProcessor(torch.nn.Module):
                         new_tensor.append(torch.cat([value_repeat,valueb]))
                     tokenized_agent[key]=torch.cat(new_tensor)
 
-        # if self.training:
-        #     current_valid = data['agent']["current_valid"]
-        #
-        #     for key, value in tokenized_agent.items():
-        #         if type(value) is torch.Tensor and len(value) == len(current_valid):
-        #             # print(key,current_valid.device,value.device)
-        #
-        #             tokenized_agent[key]=value[current_valid]
-
         if self.pred_exit:
             valid_mask=tokenized_agent["valid_mask"]
             exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
-        # print(len(tokenized_agent['batch']))
-        #54,21,20,1538,16319
         return tokenized_map, tokenized_agent
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
@@ -310,8 +299,6 @@ class TokenProcessor(torch.nn.Module):
         }
         if "batch" in data["pt_token"].keys():
             tokenized_map["batch"] = data["pt_token"]["batch"]
-        if "light_type" in data["pt_token"].keys():
-            tokenized_map["light_type"] = data["pt_token"]["light_type"].long()
 
         #if self.training and self.pred_map_token:
             # pt_valid_mask=torch.rand_like(traj_theta)< 0.5
@@ -818,7 +805,7 @@ class TokenProcessor(torch.nn.Module):
                 ).long()
                 out_dict["entry_shape"]=entry_idx[:,:,6:]
 
-        #self.process_state(data, pos, out_dict["sampled_idx"], out_dict["token_contour"], [], valid)
+        #self.process_state(data, pos, out_dict["sampled_idx"].clone(), out_dict["token_contour"], [], valid)
 
         return out_dict
 
@@ -1025,13 +1012,12 @@ class TokenProcessor(torch.nn.Module):
 
 
     def process_state(self,data,agent_pos,token_index, token_contour, token_all,valid_mask):
-        n_agent, n_all_step = valid_mask.shape
+       # n_agent, n_all_step = valid_mask.shape
         agent_type = data['agent']['type']
         self.disable_invalid = False
         self.predict_state = True
         self.current_step=10
         self.predict_occ=False
-        data['agent']['av_index'] = torch.where(data['agent']['role'][:, 0])[0]
 
         agent_type_masks = {
             "veh": agent_type == 0,
@@ -1107,11 +1093,20 @@ class TokenProcessor(torch.nn.Module):
 
         self._fetch_enterings(data)
 
+        data['batch_size_a'] = data['agent']['ptr'][1:] - data['agent']['ptr'][:-1]
+
+        data['agent']['av_index'] = torch.where(data['agent']['role'][:, 0])[0]
+
+        data['agent']['trajectory_token_veh']  =self.agent_token_all_veh
+        data['agent']['trajectory_token_ped']  =self.agent_token_all_ped
+        data['agent']['trajectory_token_cyc'] = self.agent_token_all_cyc
+
+        ego_mask = data["agent"]["role"][:, 0]
+
+        data['ego_pos'] = data['agent']['token_pos'][ego_mask]
+        data['ego_heading'] = data['agent']['token_heading'][ego_mask]
 
     def _fetch_enterings(self, data: HeteroData):
-
-
-
         data['agent']['grid_token_idx']     = torch.zeros_like(data['agent']['state_idx']).long()
         data['agent']['grid_offset_xy']     = torch.zeros_like(data['agent']['token_pos'])
         data['agent']['heading_token_idx']  = torch.zeros_like(data['agent']['state_idx']).long()
@@ -1126,8 +1121,9 @@ class TokenProcessor(torch.nn.Module):
             data['agent']['pt_grid_token_idx'] = torch.zeros_like(data['pt_token']['token_idx'])[None].repeat(num_step, 1).long()
 
         for b in range(data.num_graphs):
-            av_index = int(data['agent']['av_index'][b])
+           # av_index = int(data['agent']['av_index'][b])
             agent_batch_mask = data['agent']['batch'] == b
+            av_index=agent_batch_mask.sum()-1
             # pt_batch_mask = data['pt_token']['batch'] == b
             # pt_token_idx = data['pt_token']['token_idx'][pt_batch_mask]
             # pt_pos = data['pt_token']['position'][pt_batch_mask]

@@ -470,5 +470,10 @@ class IQ_SoftQ(LightningModule):
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
+        # for key in tokenized_agent["map_feature"].keys():
+        #     data["pt_token"][key]=tokenized_agent["map_feature"][key]
+
+      #  loss1=self.encoder.agent_encoder.inf_decoder(data,tokenized_agent["map_feature"])
+
         self.log("train/loss", loss, on_step=True, batch_size=1)
         return loss

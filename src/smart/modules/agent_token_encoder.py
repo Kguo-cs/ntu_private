@@ -79,6 +79,9 @@ class AgentTokenEncoder(nn.Module):
                     input_dim=input_dim_token, hidden_dim=hidden_dim
                 )
 
+                self.invalid_token_emb=nn.Embedding(1,hidden_dim)
+                self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
+
             else:
                 self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
             self.fusion_emb = MLPEmbedding(
@@ -91,9 +94,10 @@ class AgentTokenEncoder(nn.Module):
         _device = agent_token_index.device
 
         if  not self.discriminator:
-            agent_token_emb = torch.zeros(
-                (n_agent, n_step, self.hidden_dim), device=_device
-            )
+            # agent_token_emb = torch.zeros(
+            #     (n_agent, n_step, self.hidden_dim), device=_device
+            # )#previous invalid
+            agent_token_emb=self.invalid_token_emb.weight[None].repeat(n_agent,n_step,1)
 
             if self.use_type:
                 veh_mask =agent_type == 0
@@ -199,7 +203,7 @@ class AgentTokenEncoder(nn.Module):
         # if self.token_processor.use_token:
 
         if token_mask is not None:
-            feature_a[~token_mask]= -10
+            feature_a[~token_mask]= self.invalid_feat_emb.weight
 
         if self.use_goal:
             if goal_pos is not None:

@@ -31,7 +31,7 @@ from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
 import numpy as np
 from src.smart.modules.entry_encoder import EntryDecoder
-
+from src.smart.modules.inf_encoder import InfGenAgentDecoder
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -90,6 +90,83 @@ class SMARTAgentDecoder(nn.Module):
 
         self.pred_entry=token_processor.pred_entry & (not discriminator)
         self.pred_exit=token_processor.pred_exit & (not discriminator)
+
+        # self.inf_decoder = InfGenAgentDecoder(
+        #     # basic
+        #     dataset="waymo",
+        #     input_dim=2,
+        #     hidden_dim=128,
+        #
+        #     # time
+        #     num_historical_steps=11,
+        #     num_freq_bands=64,
+        #
+        #     # transformer
+        #     num_heads=8,
+        #     head_dim=16,
+        #     dropout=0.1,
+        #     num_layers=1,
+        #
+        #     pl2a_radius=30,
+        #     pl2seed_radius=75.0,
+        #     a2a_radius=60,
+        #     a2sa_radius=10,
+        #     pl2sa_radius=10,
+        #
+        #     # temporal span
+        #     time_span=60,
+        #
+        #     # tokens
+        #     token_size=2048,
+        #     state_token={
+        #         "invalid": 0,
+        #         "valid": 1,
+        #         "enter": 2,
+        #         "exit": 3,
+        #     },
+        #
+        #     # tokenizer
+        #     attr_tokenizer=token_processor.attr_tokenizer,
+        #
+        #     # prediction switches
+        #     predict_motion=False,
+        #     predict_state=True,
+        #     predict_map=False,
+        #     predict_occ=False,
+        #
+        #     # insertion / token usage
+        #     use_grid_token=False,
+        #     use_head_token=True,
+        #     use_state_token=True,
+        #     disable_insertion=False,
+        #
+        #     # seed & buffer
+        #     seed_size=1,
+        #     buffer_size=128,
+        #
+        #     # validation
+        #     num_recurrent_steps_val=300,
+        #
+        #     # loss
+        #     loss_weight={
+        #         "token_cls_loss": 1,
+        #         "map_token_loss": 1,
+        #         "state_cls_loss": 10,
+        #         "type_cls_loss": 5,
+        #         "pos_cls_loss": 1,
+        #         "head_cls_loss": 1,
+        #         "offset_reg_loss": 5,
+        #         "shape_reg_loss": 0.2,
+        #         "pos_reg_loss": 10,
+        #         "state_weight": [0.1, 0.1, 0.8],
+        #         "seed_state_weight": [0.9, 0.1],
+        #         "seed_type_weight": [0.8, 0.1, 0.1],
+        #         "agent_occ_pos_weight": 100,
+        #         "pt_occ_pos_weight": 5,
+        #         "agent_occ_loss": 10,
+        #         "pt_occ_loss": 10,
+        #     }
+        # )
 
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
