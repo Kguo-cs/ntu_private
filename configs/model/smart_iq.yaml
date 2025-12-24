@@ -16,7 +16,7 @@ model_config:
     dropout: 0 #0.1
     hist_drop_prob: 0.1 #0.1
     pt2pt_neighbor: 25
-    pt2a_neighbor: 25
+    pt2a_neighbor: 15
     a2a_neighbor: 25
 
     dis_a2a_radius: 10
