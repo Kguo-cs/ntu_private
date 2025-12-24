@@ -34,6 +34,7 @@ from src.smart.utils import (
 from src.smart.loss.iq_loss import padding
 from scipy.optimize import linear_sum_assignment
 from torch.nn.utils.rnn import pad_sequence
+from .attr_tokenizer import Attr_Tokenizer
 
 class TokenProcessor(torch.nn.Module):
 
@@ -70,6 +71,17 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_exit:
             self.n_token_agent+=1
+
+        self.invalid_state=0
+        self.valid_state= 1
+        self.enter_state= 2
+        self.exit_state= 3
+        self.pl2seed_radius=75
+
+        self.attr_tokenizer= Attr_Tokenizer(grid_range=150,
+                                             grid_interval=3,
+                                             radius=75,
+                                             angle_interval=3)
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -429,6 +441,7 @@ class TokenProcessor(torch.nn.Module):
             ego_mask=ego_mask,
             shape=data["agent"]["shape"],
             type=data["agent"]["type"].long(),
+            data=data
         )
         if "route_map_index" in data["agent"].keys():
             tokenized_agent['route_map_index']=data["agent"]["route_map_index"]
@@ -436,6 +449,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent['id']=data["agent"]["id"]
 
         tokenized_agent.update(token_dict)
+
 
         return tokenized_agent
 
@@ -451,6 +465,7 @@ class TokenProcessor(torch.nn.Module):
         ego_mask=None,
         shape=None,
         type=None,
+        data=None,
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:
@@ -483,7 +498,8 @@ class TokenProcessor(torch.nn.Module):
             "sampled_pos": [],
             "sampled_heading": [],
             'gt_idx':[],
-            'token_mask':[]
+            'token_mask':[],
+            "token_contour":[]
            # 'token_valid':[]
         }
         entry_token_invalid_mask = []
@@ -535,6 +551,8 @@ class TokenProcessor(torch.nn.Module):
 
             # [n_agent, 4, 2]
             token_contour_gt = token_world_gt[range_a, token_idx_gt]
+
+            out_dict["token_contour"].append(token_contour_gt)
 
             token_valid=min_dist<error_dist
             _valid_mask[~token_valid]=False
@@ -800,6 +818,8 @@ class TokenProcessor(torch.nn.Module):
                 ).long()
                 out_dict["entry_shape"]=entry_idx[:,:,6:]
 
+        #self.process_state(data, pos, out_dict["sampled_idx"], out_dict["token_contour"], [], valid)
+
         return out_dict
 
     @staticmethod
@@ -1003,11 +1023,176 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map, tokenized_agent
 
-    def traj_to_idx(self, sampled_traj, token_agent_shape, token_traj):
 
-        contour_local = cal_polygon_contour(sampled_traj[..., :2], sampled_traj[...,  2], token_agent_shape[:, None, None])
+    def process_state(self,data,agent_pos,token_index, token_contour, token_all,valid_mask):
+        n_agent, n_all_step = valid_mask.shape
+        agent_type = data['agent']['type']
+        self.disable_invalid = False
+        self.predict_state = True
+        self.current_step=10
+        self.predict_occ=False
+        data['agent']['av_index'] = torch.where(data['agent']['role'][:, 0])[0]
 
-        sampled_idx =  torch.norm(contour_local - token_traj.unsqueeze(1), dim=-1).mean(-1).argmin(-1)
-        #sampled_idx = contour_local.reshape(len(sampled_traj), -1, 8)  # [n_agent, n_step, 3]
+        agent_type_masks = {
+            "veh": agent_type == 0,
+            "ped": agent_type == 1,
+            "cyc": agent_type == 2,
+        }
 
-        return sampled_idx
+        valid_mask_shift = valid_mask.unfold(1, self.shift + 1, self.shift)
+        token_valid_mask = valid_mask_shift[:, :, 0] * valid_mask_shift[:, :, -1]
+
+        traj_pos = traj_heading = None
+        if len(token_all) > 0:
+            traj_pos = token_all.mean(dim=3)  # [n_agent, n_step, 6, 2]
+            diff_xy = token_all[..., 0, :] - token_all[..., 3, :]
+            traj_heading = torch.arctan2(diff_xy[..., 1], diff_xy[..., 0])
+        token_pos = token_contour.mean(dim=2)  # [n_agent, n_step, 2]
+        diff_xy = token_contour[:, :, 0, :] - token_contour[:, :, 3, :]
+        token_heading = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+
+        # ! compute agent states
+        bos_index = torch.argmax(token_valid_mask.long(), dim=1)
+        eos_index = token_valid_mask.shape[1] - 1 - torch.argmax(torch.flip(token_valid_mask.long(), dims=[1]), dim=1)
+        state_index = torch.ones_like(token_index)  # init with all valid
+        step_index = torch.arange(state_index.shape[1])[None].repeat(state_index.shape[0], 1).to(token_index.device)
+        state_index[step_index == bos_index[:, None]] = self.enter_state
+        state_index[step_index == eos_index[:, None]] = self.exit_state
+        state_index[(step_index < bos_index[:, None]) | (step_index > eos_index[:, None])] = self.invalid_state
+        # ! IMPORTANT: if the last step is exit token, should convert it back to valid token
+        state_index[state_index[:, -1] == self.exit_state, -1] = self.valid_state
+
+        # update token attributions according to state tokens
+        token_valid_mask[state_index == self.enter_state] = False
+        token_pos[state_index == self.invalid_state] = 0.
+        token_heading[state_index == self.invalid_state] = 0.
+        for i in range(self.shift, agent_pos.shape[1], self.shift):
+            is_bos = state_index[:, i // self.shift - 1] == self.enter_state
+            token_pos[is_bos, i // self.shift - 1] = agent_pos[is_bos, i].clone()
+            # token_heading[is_bos, i // self.shift - 1] = agent_heading[is_bos, i].clone()
+        token_index[state_index == self.invalid_state] = -1
+        token_index[state_index == self.enter_state] = -2
+
+        raw_token_valid_mask = token_valid_mask.clone()
+        if not self.disable_invalid:
+            token_valid_mask = torch.ones_like(token_valid_mask).bool()
+
+        # reset shape to first valid shape
+        # for i in range(n_agent):
+        #     bos_shape_index = torch.nonzero(torch.all(data['agent']['shape'][i] != 0., dim=-1))[0]
+        #     data['agent']['shape'][i, :] = data['agent']['shape'][i, bos_shape_index]
+        # if torch.any(torch.all(data['agent']['shape'][i] == 0., dim=-1)):
+        #     raise ValueError(f"Found invalid shape values.")
+
+        # compute mean height values for each scenario
+        raw_height = data['agent']['position'][:, self.current_step, 2]
+        valid_height = raw_token_valid_mask[:, 1].bool()
+        veh_mean_z = raw_height[agent_type_masks['veh'] & valid_height].mean()
+        ped_mean_z = raw_height[agent_type_masks['ped'] & valid_height].mean().nan_to_num_(veh_mean_z)  # FIXME: hard code
+        cyc_mean_z = raw_height[agent_type_masks['cyc'] & valid_height].mean().nan_to_num_(veh_mean_z)
+
+        # output
+        data['agent']['token_idx'] = token_index
+        data['agent']['state_idx'] = state_index
+        data['agent']['token_contour'] = token_contour
+        data['agent']['traj_pos'] = traj_pos
+        data['agent']['traj_heading'] = traj_heading
+        data['agent']['token_pos'] = token_pos
+        data['agent']['token_heading'] = token_heading
+        data['agent']['agent_valid_mask'] = token_valid_mask # (a, t)
+        data['agent']['raw_agent_valid_mask'] = raw_token_valid_mask
+        data['agent']['raw_height'] = dict(veh=veh_mean_z,
+                                           ped=ped_mean_z,
+                                           cyc=cyc_mean_z)
+
+        self._fetch_enterings(data)
+
+
+    def _fetch_enterings(self, data: HeteroData):
+
+
+
+        data['agent']['grid_token_idx']     = torch.zeros_like(data['agent']['state_idx']).long()
+        data['agent']['grid_offset_xy']     = torch.zeros_like(data['agent']['token_pos'])
+        data['agent']['heading_token_idx']  = torch.zeros_like(data['agent']['state_idx']).long()
+        data['agent']['sort_indices']       = torch.zeros_like(data['agent']['state_idx']).long()
+        data['agent']['inrange_mask']       = torch.zeros_like(data['agent']['state_idx']).bool()
+        data['agent']['bos_mask']           = torch.zeros_like(data['agent']['state_idx']).bool()
+
+        data['agent']['pos_xy']     = torch.zeros_like(data['agent']['token_pos'])
+        data['agent']['heading_theta'] = torch.zeros_like(data['agent']['token_heading'])
+        if self.predict_occ:
+            num_step = data['agent']['state_idx'].shape[1]
+            data['agent']['pt_grid_token_idx'] = torch.zeros_like(data['pt_token']['token_idx'])[None].repeat(num_step, 1).long()
+
+        for b in range(data.num_graphs):
+            av_index = int(data['agent']['av_index'][b])
+            agent_batch_mask = data['agent']['batch'] == b
+            # pt_batch_mask = data['pt_token']['batch'] == b
+            # pt_token_idx = data['pt_token']['token_idx'][pt_batch_mask]
+            # pt_pos = data['pt_token']['position'][pt_batch_mask]
+            agent_token_pos = data['agent']['token_pos'][agent_batch_mask]
+            agent_token_heading = data['agent']['token_heading'][agent_batch_mask]
+            state_idx = data['agent']['state_idx'][agent_batch_mask]
+            ego_pos = agent_token_pos[av_index]  # NOTE: `av_index` will be added by `ptr` later
+            ego_heading = agent_token_heading[av_index]
+
+            grid_token_idx = torch.full(state_idx.shape, -1, device=state_idx.device)
+            offset_xy = torch.zeros_like(agent_token_pos)
+            sort_indices = torch.zeros_like(grid_token_idx)
+            #pt_grid_token_idx = torch.full((state_idx.shape[1], *pt_token_idx.shape), -1, device=pt_token_idx.device)
+
+            pos_xy = torch.zeros((*state_idx.shape, 2), device=state_idx.device)
+
+            is_bos = []
+            is_inrange = []
+            for t in range(agent_token_pos.shape[1]): # num_step
+
+                # tokenize position
+                is_bos_t = state_idx[:, t] == self.enter_state
+                is_invalid_t = state_idx[:, t] == self.invalid_state
+                is_inrange_t = ((agent_token_pos[:, t] - ego_pos[[t]]) ** 2).sum(-1).sqrt() <= self.pl2seed_radius
+                grid_index_t, offset_xy_t = self.attr_tokenizer.encode_pos(x=agent_token_pos[~is_invalid_t & is_inrange_t, t],
+                                                                           y=ego_pos[[t]],
+                                                                           theta_y=ego_heading[[t]])
+                grid_token_idx[~is_invalid_t & is_inrange_t, t] = grid_index_t
+                offset_xy[~is_invalid_t & is_inrange_t, t] = offset_xy_t
+
+                pos_xy[~is_invalid_t & is_inrange_t, t] = agent_token_pos[~is_invalid_t & is_inrange_t, t] - ego_pos[[t]]
+
+                # distance = ((agent_token_pos[:, t] - ego_pos[[t]]) ** 2).sum(-1).sqrt()
+                head_vector = torch.stack([ego_heading[[t]].cos(), ego_heading[[t]].sin()], dim=-1)
+                distance = angle_between_2d_vectors(ctr_vector=head_vector,
+                                                    nbr_vector=agent_token_pos[:, t] - ego_pos[[t]])
+                # distance = torch.rand(agent_token_pos.shape[0], device=agent_token_pos.device)
+                distance[~(is_bos_t & is_inrange_t)] = torch.inf
+                sort_dist, sort_indice = distance.sort()
+                sort_indice[torch.isinf(sort_dist)] = av_index
+                sort_indices[:, t] = sort_indice
+
+                is_bos.append(is_bos_t)
+                is_inrange.append(is_inrange_t)
+
+                # tokenize pt token
+                if self.predict_occ:
+                    is_inrange_t = ((pt_pos[:, :2] - ego_pos[None, t]) ** 2).sum(-1).sqrt() <= self.pl2seed_radius
+                    grid_index_t, _ = self.attr_tokenizer.encode_pos(x=pt_pos[is_inrange_t, :2],
+                                                                     y=ego_pos[[t]],
+                                                                     theta_y=ego_heading[[t]])
+
+                    pt_grid_token_idx[t, is_inrange_t] = grid_index_t
+
+            # tokenize heading
+            rel_heading = agent_token_heading - ego_heading[None, ...]
+            heading_token_idx = self.attr_tokenizer.encode_heading(rel_heading)
+
+            data['agent']['grid_token_idx'][agent_batch_mask] = grid_token_idx
+            data['agent']['grid_offset_xy'][agent_batch_mask] = offset_xy
+            data['agent']['heading_token_idx'][agent_batch_mask] = heading_token_idx
+            data['agent']['pos_xy'][agent_batch_mask] = pos_xy
+            data['agent']['heading_theta'][agent_batch_mask] = wrap_angle(rel_heading)
+            data['agent']['sort_indices'][agent_batch_mask] = sort_indices
+            data['agent']['inrange_mask'][agent_batch_mask] = torch.stack(is_inrange, dim=1)
+            data['agent']['bos_mask'][agent_batch_mask] = torch.stack(is_bos, dim=1)
+            if self.predict_occ:
+                data['agent']['pt_grid_token_idx'][:, pt_batch_mask] = pt_grid_token_idx
