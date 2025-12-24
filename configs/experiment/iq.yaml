@@ -37,7 +37,7 @@ model:
 
 #ckpt_path : '/home/ke/code/catk/src/waymo_data/bc40_para_typeshapepos05_head128_epoch=3-step=46261.ckpt'
 
-task_name: bc40_a15 #_para_typeshapepos05_head128_l2_loss001 #_0pospara_typeshapeoffset #cross_prev_query0_head64 #_nodetach #all_para #cross_prev_0pos  #cross_sa #_pos256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
+task_name: bc40_a25 #_para_typeshapepos05_head128_l2_loss001 #_0pospara_typeshapeoffset #cross_prev_query0_head64 #_nodetach #all_para #cross_prev_0pos  #cross_sa #_pos256 #_a_noexit #_cross_sa #_currentvalid #paraentry_sa #currentvalid #current #_exitpred1_clone_allnoentry_sa_all #token10150 #_a2map_notokenfeata #_layer3__tokenexitexit #_14679 #_token_exit #_token #14679_tokenmask #_notokenmask_goal
 
 trainer:
   limit_train_batches: 1.0
