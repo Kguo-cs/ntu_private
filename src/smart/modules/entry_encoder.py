@@ -637,3 +637,4 @@ class EntryDecoder(nn.Module):
         return entry_logit
         # after interact with agent and map,  predict state and type and shape and tokenized position,
         # then refine predict head token and offset_xy ,
+        # #then predict all agent motion

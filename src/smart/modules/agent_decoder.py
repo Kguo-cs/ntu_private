@@ -230,7 +230,7 @@ class SMARTAgentDecoder(nn.Module):
            # feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
 
         if self.pred_entry:
-            entry_logit= self.entry_decoder(feat_a,mask_a,pos_a,head_a,tokenized_agent)
+            entry_logit= self.entry_decoder(feat_a_token[-len(feat_a):],mask_a,pos_a,head_a,tokenized_agent)
 
         return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,exit_logit,feat_a
 
