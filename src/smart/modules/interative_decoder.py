@@ -346,12 +346,12 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_a,rewards,weight
 
-    def forward(self,all_features,counter_feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask ):
+    def forward(self,all_features,feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask,counter_feat_a=None ):
 
         if self.discriminator and token_embedding is not None and not self.use_airl:
             all_features=[feat[:,:-1] for feat in all_features]
 
-        feat_a, pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
+        pos_a, head_a, head_vector_a, mask_a, batch_s_repeat, batch_s=all_features
 
         n_agent,n_step = mask_a.shape
 
@@ -420,7 +420,7 @@ class InterativeDecoder(nn.Module):
         else:
             edge_index_pl2a=r_pl2a=feat_map=None
 
-        feat_a,pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features ]
+        pos_s, head_s, head_vector_s,mask_s, _,batch_s=[feat.transpose(0, 1).flatten(0, 1) for feat in all_features ]
 
         if agent_train_mask is not None:
             train_repeat_mask=agent_train_mask[:,None].repeat(1,n_step).transpose(0, 1).flatten(0, 1)[mask_s]
@@ -429,7 +429,7 @@ class InterativeDecoder(nn.Module):
         else:
             train_repeat_mask=None
 
-        feat_a = feat_a[mask_s]
+        # feat_a = feat_a[mask_s]
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]

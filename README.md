@@ -6,11 +6,11 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_route shanhelo@a
 rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/valid/training/  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_token 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_pos  ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_map2_a/ /home/ke/code/catk/src/waymo_data/full/training_map2_a/ 
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_pos ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
-rsync -avz -e "ssh -p 32884"  guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/training_a/71661601203b21.pkl /home/ke/code/catk/src/waymo_data/full/training_a/
+rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_pos guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 

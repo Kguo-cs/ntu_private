@@ -79,7 +79,7 @@ class AgentTokenEncoder(nn.Module):
                     input_dim=input_dim_token, hidden_dim=hidden_dim
                 )
 
-                self.invalid_token_emb=nn.Embedding(1,hidden_dim)
+                # self.invalid_token_emb=nn.Embedding(1,hidden_dim)
                 self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
 
             else:
@@ -94,10 +94,10 @@ class AgentTokenEncoder(nn.Module):
         _device = agent_token_index.device
 
         if  not self.discriminator:
-            # agent_token_emb = torch.zeros(
-            #     (n_agent, n_step, self.hidden_dim), device=_device
-            # )#previous invalid
-            agent_token_emb=self.invalid_token_emb.weight[None].repeat(n_agent,n_step,1)
+            agent_token_emb = torch.zeros(
+                (n_agent, n_step, self.hidden_dim), device=_device
+            )#previous invalid
+            # agent_token_emb=self.invalid_token_emb.weight[None].repeat(n_agent,n_step,1)
 
             if self.use_type:
                 veh_mask =agent_type == 0
@@ -145,6 +145,7 @@ class AgentTokenEncoder(nn.Module):
             agent_token_index,  # [n_agent, n_step]
             pos_a,  # [n_agent, n_step, 2]
             head_vector_a,  # [n_agent, n_step, 2]
+            mask_a,
             agent_type,  # [n_agent]
             agent_shape,  # [n_agent, 3]
             batch_idx,
@@ -201,7 +202,6 @@ class AgentTokenEncoder(nn.Module):
             )  # [n_agent, n_step, 2]
         feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
 
-        # if self.token_processor.use_token:
 
         if token_mask is not None:
             feature_a[~token_mask]= self.invalid_feat_emb.weight
@@ -234,26 +234,39 @@ class AgentTokenEncoder(nn.Module):
             ego_mask=torch.zeros_like(batch_idx)
             ego_mask[:-1]=batch_idx[:-1]==batch_idx[1:]
 
-            categorical_embs = [
-                self.type_a_emb(agent_type),
-                self.shape_emb(agent_shape),
-                self.ego_embed(ego_mask)
-            ]  # List of len=2, shape [n_agent, hidden_dim]
-            categorical_embs = [
-                v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
-            ]
+            # categorical_embs = [
+            #     self.type_a_emb(agent_type),
+            #     self.shape_emb(agent_shape),
+            #     self.ego_embed(ego_mask)
+            # ]  # List of len=2, shape [n_agent, hidden_dim]
+            # categorical_embs = [
+            #     v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
+            # ]
+
+            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape)+ self.ego_embed(ego_mask)
+
+            categorical_embs=categorical_embs[None].repeat(n_step,1,1)
+            # categorical_embs=torch.stack(categorical_embs)#.sum(dim=0)
         else:
             categorical_embs = None
 
         if self.token_processor.use_time:
             feature_a=torch.cat([feature_a, abs_time[:,:,None]/50000], dim=-1)
 
+        if mask_a is not None:
+            mask_s=mask_a.transpose(0, 1)
+
+            feature_a=feature_a.transpose(0, 1)[mask_s]
+            agent_token_emb=agent_token_emb.transpose(0, 1)[mask_s]
+            categorical_embs=categorical_embs[mask_s]
+        else:
+            feature_a=feature_a.view(-1, feature_a.size(-1))
 
         x_a = self.x_a_emb(
-            continuous_inputs=feature_a.view(-1, feature_a.size(-1)),
+            continuous_inputs=feature_a,
             categorical_embs=categorical_embs,
         )  # [n_agent*n_step, hidden_dim]
-        x_a = x_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
+        #x_a = x_a.view(-1, n_step, self.hidden_dim)  # [n_agent, n_step, hidden_dim]
 
         counter_feat_a=None
 

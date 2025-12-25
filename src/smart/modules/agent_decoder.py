@@ -191,6 +191,7 @@ class SMARTAgentDecoder(nn.Module):
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask_a=mask_a,
             agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
             token_mask=token_mask,
@@ -201,13 +202,13 @@ class SMARTAgentDecoder(nn.Module):
         )
 
         pos_a = pos_a[:, -n_step:]
-        if self.training:
-            feat_a_token=feat_a_token[:,:-1]
-            mask_a=mask_a[:,:-1]
-            pos_a=pos_a[:,:-1]
-            head_a=head_a[:,:-1]
-            head_vector_a=head_vector_a[:,:-1]
-            n_step=n_step-1
+        # if self.training:
+        #     feat_a_token=feat_a_token[:,:-1]
+        #     mask_a=mask_a[:,:-1]
+        #     pos_a=pos_a[:,:-1]
+        #     head_a=head_a[:,:-1]
+        #     head_vector_a=head_vector_a[:,:-1]
+        #     n_step=n_step-1
 
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
@@ -219,9 +220,9 @@ class SMARTAgentDecoder(nn.Module):
 
         batch_s = build_batch(batch_a, tokenized_agent["num_graphs"], n_step).reshape(-1, n_agent).transpose(0, 1)
 
-        all_features=[feat_a_token,pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
+        all_features=[pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
 
-        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,counter_feat_a,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
+        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
         entry_logit = exit_logit=None
 
@@ -240,14 +241,14 @@ class SMARTAgentDecoder(nn.Module):
             post_sampling=False
     ) :
 
-        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,exit_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"],#[:,:-1],
-                                                                                tokenized_agent["token_mask"],#[:,:-1],
-                                                                                tokenized_agent["valid_mask"],#[:,:-1],
-                                                                                tokenized_agent["sampled_pos"],#[:,:-1],
-                                                                                tokenized_agent["sampled_heading"],#[:,:-1] ,
+        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,exit_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
+                                                                                tokenized_agent["token_mask"][:,:-1],
+                                                                                tokenized_agent["valid_mask"][:,:-1],
+                                                                                tokenized_agent["sampled_pos"][:,:-1],
+                                                                                tokenized_agent["sampled_heading"][:,:-1] ,
                                                                                 tokenized_agent,
                                                                                 map_feature,
-                                                                                abs_time=tokenized_agent["abs_time"],#[:,:-1]
+                                                                                abs_time=tokenized_agent["abs_time"][:,:-1]
                                                                                                      )
 
         tokenized_agent["next_token_logits"] = next_token_logits
