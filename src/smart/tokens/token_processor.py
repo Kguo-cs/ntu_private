@@ -72,16 +72,20 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_exit:
             self.n_token_agent+=1
 
-        self.invalid_state=0
-        self.valid_state= 1
-        self.enter_state= 2
-        self.exit_state= 3
-        self.pl2seed_radius=75
+        self.use_infgen=False
 
-        self.attr_tokenizer= Attr_Tokenizer(grid_range=150,
-                                             grid_interval=3,
-                                             radius=75,
-                                             angle_interval=3)
+        if self.use_infgen:
+
+            self.invalid_state=0
+            self.valid_state= 1
+            self.enter_state= 2
+            self.exit_state= 3
+            self.pl2seed_radius=75
+
+            self.attr_tokenizer= Attr_Tokenizer(grid_range=150,
+                                                 grid_interval=3,
+                                                 radius=75,
+                                                 angle_interval=3)
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -482,7 +486,7 @@ class TokenProcessor(torch.nn.Module):
         out_dict = {
             "valid_mask": [],
             "sampled_idx": [],
-            "sampled_pos": [],
+            "sampled_pos": [pos[:, 0]],
             "sampled_heading": [],
             'gt_idx':[],
             'token_mask':[],
@@ -805,7 +809,8 @@ class TokenProcessor(torch.nn.Module):
                 ).long()
                 out_dict["entry_shape"]=entry_idx[:,:,6:]
 
-        #self.process_state(data, pos, out_dict["sampled_idx"].clone(), out_dict["token_contour"], [], valid)
+        if self.use_infgen:
+            self.process_state(data, pos, out_dict["sampled_idx"].clone(), out_dict["token_contour"], [], valid)
 
         return out_dict
 

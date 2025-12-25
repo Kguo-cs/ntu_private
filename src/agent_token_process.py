@@ -34,9 +34,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_token/"
+agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_a/"
+# map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_pos/"
 
 
 
@@ -45,6 +45,8 @@ os.makedirs(ouput_data_directory, exist_ok=True)
 # Worker function
 def process_file(filename):
     input_path = os.path.join(agent_data_directory, filename)
+
+    #print(filename)
 
     with open(input_path, "rb") as f:
         data = pickle.load(f)
@@ -122,6 +124,7 @@ def process_file(filename):
         tokenized_agent[key] = agent[key]
 
     del tokenized_agent['gt_idx']
+    del tokenized_agent['token_contour']
 
     # tokenized_agent["gt_pos_raw"]=pos[:, 5:: 5]
     # tokenized_agent["gt_head_raw"]=heading[:, 5:: 5]
@@ -144,11 +147,11 @@ def process_file(filename):
     # del data["tokenized_agent"]['gt_pos_raw']
     # del data["tokenized_agent"]['gt_head_raw']
     # del data["tokenized_agent"]['gt_valid_raw']
-
-    map_path = os.path.join(map_data_directory, filename)
-
-    with open(map_path, "rb") as f:
-        data2 = pickle.load(f)
+    #
+    # map_path = os.path.join(map_data_directory, filename)
+    #
+    # with open(map_path, "rb") as f:
+    #     data2 = pickle.load(f)
 
     #data1=HeteroData(data2).cuda()
     #
@@ -172,19 +175,19 @@ def process_file(filename):
     #
     # del data2["tokenized_map"]["traj_pos_local"]
 
-    data2["tokenized_agent"]=tokenized_agent#data["tokenized_agent"]
+    data["tokenized_agent"]=tokenized_agent#data["tokenized_agent"]
     #
     #del data2["tokenized_light"]
-
+    del data['agent']
     output_path = os.path.join(ouput_data_directory, filename)
 
     # Save the tokenized data
     with open(output_path, "wb") as f:
-        pickle.dump(data2, f)
+        pickle.dump(data, f)
 
 
 # if __name__ == "__main__":
-files = os.listdir(agent_data_directory)[34110:]
+files = os.listdir(agent_data_directory)[ 177175:]
 
 for file in tqdm(files):
     process_file(file)

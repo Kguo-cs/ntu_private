@@ -723,21 +723,6 @@ class InfGenAgentDecoder(nn.Module):
 
         if mode == 'insert':
 
-            # assert grid_index_a is not None, f"Missing input: grid_index_a!"
-            # grid_index_s = grid_index_a.transpose(0, 1).reshape(-1)
-            # assert grid_index_s[edge_index_a2sa[0]].min() >= 0, "Found invalid values in grid index"
-
-            # r_a2sa = torch.stack(
-            #     [self.attr_tokenizer.dist[grid_index_s[edge_index_a2sa[0]]],
-            #     self.attr_tokenizer.dir[grid_index_s[edge_index_a2sa[0]]],
-            #     rel_head_a2sa,
-            #     seq_index[edge_index_a2sa[0]] - seq_index[edge_index_a2sa[1]]], dim=-1)
-
-            # r_a2sa = torch.stack(
-            #     [torch.norm(rel_pos_a2sa[:, :2], p=2, dim=-1),
-            #     angle_between_2d_vectors(ctr_vector=head_vector_s[edge_index_a2sa[1]], nbr_vector=rel_pos_a2sa[:, :2]),
-            #     rel_head_a2sa,
-            #     seq_index[edge_index_a2sa[0]] - seq_index[edge_index_a2sa[1]]], dim=-1)
             r_a2sa = torch.stack(
                 [torch.norm(rel_pos_a2sa[:, :2], p=2, dim=-1),
                  angle_between_2d_vectors(ctr_vector=head_vector_s[edge_index_a2sa[1]], nbr_vector=rel_pos_a2sa[:, :2]),
@@ -912,34 +897,6 @@ class InfGenAgentDecoder(nn.Module):
                 for s in range(self.num_seed_feature):
                     seq_index[batch_sort_indices[s: s + 1, t].flatten().long() + ptr[b], t] = s + 1
 
-        # 0, 2, 1, ..., N+1, N+2, ...
-        # for b in range(num_graph):
-        #     batch_sort_indices = sort_indices[ptr[b] : ptr[b + 1]]
-        #     batch_agent_valid_mask = data['agent']['inrange_mask'][ptr[b] : ptr[b + 1]] & \
-        #                              data['agent']['raw_agent_valid_mask'][ptr[b] : ptr[b + 1]] & \
-        #                             ~data['agent']['bos_mask'][ptr[b] : ptr[b + 1]]
-        #     batch_agent_valid_mask[av_index[b]] = False
-        #     for t in range(num_step):
-        #         batch_num_valid_agent_t = batch_agent_valid_mask[:, t].sum()
-        #         seq_index[num_agent + b * self.num_seed_feature : num_agent + (b + 1) * self.num_seed_feature, t] += batch_num_valid_agent_t
-        #         random_seq_index = torch.zeros(ptr[b + 1] - ptr[b], device=device)
-        #         random_seq_index[batch_agent_valid_mask[:, t]] = torch.randperm(batch_num_valid_agent_t, device=device).float() + 1  # starts from 1
-        #         seq_index[ptr[b] : ptr[b + 1], t] = random_seq_index
-        #         for s in range(self.num_seed_feature):
-        #             seq_index[batch_sort_indices[s : s + 1, t].flatten().long() + ptr[b], t] = s + 1 + batch_num_valid_agent_t.float()
-
-        # 0, 0, 0, ..., N+1, N+2, ...
-        # for b in range(num_graph):
-        #     batch_sort_indices = sort_indices[ptr[b] : ptr[b + 1]]
-        #     batch_agent_valid_mask = data['agent']['inrange_mask'][ptr[b] : ptr[b + 1]] & \
-        #                              data['agent']['raw_agent_valid_mask'][ptr[b] : ptr[b + 1]] & \
-        #                             ~data['agent']['bos_mask'][ptr[b] : ptr[b + 1]]
-        #     batch_agent_valid_mask[av_index[b]] = False
-        #     for t in range(num_step):
-        #         batch_num_valid_agent_t = batch_agent_valid_mask[:, t].sum()
-        #         seq_index[num_agent + b * self.num_seed_feature : num_agent + (b + 1) * self.num_seed_feature, t] += batch_num_valid_agent_t
-        #         for s in range(self.num_seed_feature):
-        #             seq_index[batch_sort_indices[s : s + 1, t].flatten().long() + ptr[b], t] = s + 1 + batch_num_valid_agent_t.float()
 
         seq_index[av_index] = 0
 
@@ -987,13 +944,6 @@ class InfGenAgentDecoder(nn.Module):
                     if t > 0 and s < pos_rel_index_gt_seed.shape[0] and mask_seed[s, t - 1]:  # insert agents
                         data['agent']['agent_occ'][s, t, pos_rel_index_gt_seed[s, t - 1]] = -1
 
-        # ptr = data['pt_token']['ptr']
-        # pt_grid_token_idx = data['agent']['pt_grid_token_idx']  # (t, num_pt)
-        # for b in range(data.num_graphs):
-        #     batch_pt_grid_token_idx = pt_grid_token_idx[:, ptr[b]: ptr[b + 1]]
-        #     for t in range(num_step):
-        #         data['agent']['map_occ'][b, t, batch_pt_grid_token_idx[t][batch_pt_grid_token_idx[t] != -1]] = 1
-        # data['agent']['map_occ'] = data['agent']['map_occ'].repeat_interleave(repeats=self.num_seed_feature, dim=0)
 
     def forward(self,
                 data: HeteroData,
@@ -1050,7 +1000,7 @@ class InfGenAgentDecoder(nn.Module):
         temporal_mask[motion_mask] = mask[motion_mask]
         temporal_mask = torch.cat([temporal_mask,
                                    torch.ones(data.num_graphs * self.num_seed_feature, *temporal_mask.shape[1:],
-                                              device=device)]).bool()
+                                              device=device)]).bool()#temporal all true
 
         interact_mask[agent_state_index == self.enter_state] = True
         interact_mask = torch.cat([interact_mask,
@@ -1086,34 +1036,34 @@ class InfGenAgentDecoder(nn.Module):
                                                                               interact_mask, pad_mask=pad_mask,
                                                                               av_index=av_index)
         interact_mask = interact_mask[:-data.num_graphs * self.num_seed_feature]
-
-        # predict next motions
-        for i in range(self.num_layers):
-            feat_a = feat_a.reshape(-1, self.hidden_dim)  # (a, t, d) -> (a*t, d)
-            feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
-
-            feat_a = feat_a.reshape(-1, num_step, self.hidden_dim).transpose(0, 1).reshape(-1, self.hidden_dim)
-            feat_a = self.pt2a_attn_layers[i]((
-                map_enc['pt_token'].repeat_interleave(repeats=num_step, dim=0).reshape(-1, num_step,
-                                                                                   self.hidden_dim).transpose(0,
-                                                                                                              1).reshape(
-                    -1, self.hidden_dim), feat_a), r_pl2a[:npl2a], edge_index_pl2a[:, :npl2a])
-
-            feat_a = self.a2a_attn_layers[i](feat_a, r_a2a[:na2a], edge_index_a2a[:, :na2a])
-            feat_a = feat_a.reshape(num_step, -1, self.hidden_dim).transpose(0, 1)
-
-        feat_ea = feat_a[:-data.num_graphs * self.num_seed_feature]
-
-        # next motion token
-        next_token_prob = self.token_predict_head(feat_ea)  # (a, t, token_size)
-        next_token_prob_softmax = torch.softmax(next_token_prob, dim=-1)
-        _, next_token_idx = torch.topk(next_token_prob_softmax, k=10, dim=-1)  # (a, t, 10)
-
-        next_token_index_gt = agent_token_index.roll(shifts=-1, dims=1)
-
-        # next state token
-        next_state_prob = self.state_predict_head(feat_ea)
-        next_state_idx = next_state_prob.softmax(dim=-1).argmax(dim=-1, keepdim=True)  # (a, t, 1)
+        #
+        # # predict next motions
+        # for i in range(self.num_layers):
+        #     feat_a = feat_a.reshape(-1, self.hidden_dim)  # (a, t, d) -> (a*t, d)
+        #     feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+        #
+        #     feat_a = feat_a.reshape(-1, num_step, self.hidden_dim).transpose(0, 1).reshape(-1, self.hidden_dim)
+        #     feat_a = self.pt2a_attn_layers[i]((
+        #         map_enc['pt_token'].repeat_interleave(repeats=num_step, dim=0).reshape(-1, num_step,
+        #                                                                            self.hidden_dim).transpose(0,
+        #                                                                                                       1).reshape(
+        #             -1, self.hidden_dim), feat_a), r_pl2a[:npl2a], edge_index_pl2a[:, :npl2a])
+        #
+        #     feat_a = self.a2a_attn_layers[i](feat_a, r_a2a[:na2a], edge_index_a2a[:, :na2a])
+        #     feat_a = feat_a.reshape(num_step, -1, self.hidden_dim).transpose(0, 1)
+        #
+        # feat_ea = feat_a[:-data.num_graphs * self.num_seed_feature]
+        #
+        # # next motion token
+        # next_token_prob = self.token_predict_head(feat_ea)  # (a, t, token_size)
+        # next_token_prob_softmax = torch.softmax(next_token_prob, dim=-1)
+        # _, next_token_idx = torch.topk(next_token_prob_softmax, k=10, dim=-1)  # (a, t, 10)
+        #
+        # next_token_index_gt = agent_token_index.roll(shifts=-1, dims=1)
+        #
+        # # next state token
+        # next_state_prob = self.state_predict_head(feat_ea)
+        # next_state_idx = next_state_prob.softmax(dim=-1).argmax(dim=-1, keepdim=True)  # (a, t, 1)
 
         next_state_index_gt = agent_state_index.roll(shifts=-1, dims=1)  # (invalid, valid, exit)
 
@@ -1150,7 +1100,7 @@ class InfGenAgentDecoder(nn.Module):
                                                                                                               1).reshape(
                     -1, self.hidden_dim), feat_sa), r_pl2a[-npl2sa:], edge_index_pl2a[:, -npl2sa:])
             feat_sa = self.a2sa_attn_layers[i](feat_sa, r_a2a[-na2sa:], edge_index_a2a[:, -na2sa:])
-            feat_sa = feat_sa.reshape(num_step, -1, self.hidden_dim).transpose(0, 1)
+            feat_sa = feat_sa.reshape(num_step, -1, self.hidden_dim).transpose(0, 1)    #all to new agent
 
         feat_seed = feat_sa[-data.num_graphs * self.num_seed_feature:]
 
@@ -1290,7 +1240,6 @@ class InfGenAgentDecoder(nn.Module):
                                                                                 dims=1) * next_token_eval_mask.roll(
             shifts=1, dims=1)
         for bos_token_index_ in bos_token_index:
-            print(bos_token_index_)#45,
             next_token_eval_mask[bos_token_index_[0], bos_token_index_[1]: bos_token_index_[1] + 1] = 1
             next_token_eval_mask[bos_token_index_[0], bos_token_index_[1] + 1: bos_token_index_[1] + 2] = \
                 mask[bos_token_index_[0], bos_token_index_[1] + 2: bos_token_index_[1] + 3]
@@ -1321,8 +1270,8 @@ class InfGenAgentDecoder(nn.Module):
         next_state_eval_mask_seed[:, 0] = 0
 
         # no invalid motion token will be supervised
-        if (next_token_index_gt[next_token_eval_mask] < 0).any():
-            raise RuntimeError("Found invalid motion index.")
+        # if (next_token_index_gt[next_token_eval_mask] < 0).any():
+        #     raise RuntimeError("Found invalid motion index.")
 
         pred_indices = []
         gt_indices = []
@@ -1420,13 +1369,13 @@ class InfGenAgentDecoder(nn.Module):
         return {'x_a': feat_a,
                 'ego_pos': ego_pos,
                 # motion token
-                'next_token_idx': next_token_idx,
-                'next_token_prob': next_token_prob,
-                'next_token_idx_gt': next_token_index_gt,
-                'next_token_eval_mask': next_token_eval_mask.bool(),
+                # 'next_token_idx': next_token_idx,
+                # 'next_token_prob': next_token_prob,
+                # 'next_token_idx_gt': next_token_index_gt,
+               # 'next_token_eval_mask': next_token_eval_mask.bool(),
                 # state token
-                'next_state_idx': next_state_idx,
-                'next_state_prob': next_state_prob,
+                # 'next_state_idx': next_state_idx,
+                # 'next_state_prob': next_state_prob,
                 'next_state_idx_gt': next_state_index_gt,
                 'next_state_eval_mask': next_state_eval_mask.bool(),
                 # seed agent

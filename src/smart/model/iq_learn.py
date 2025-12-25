@@ -63,7 +63,20 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf = self.encoder.use_lcf
         self.use_gradient_penalty = False
-
+        # self.token_cls_loss = nn.CrossEntropyLoss(label_smoothing=0.1)
+        # if self.predict_state:
+        #     self.state_cls_loss = nn.CrossEntropyLoss(
+        #         torch.tensor(self.loss_weight['state_weight']))
+        #     self.state_cls_loss_seed = nn.CrossEntropyLoss(
+        #         torch.tensor(self.loss_weight['seed_state_weight']))
+        #     self.type_cls_loss_seed = nn.CrossEntropyLoss(
+        #         torch.tensor(self.loss_weight['seed_type_weight']))
+        #     self.pos_cls_loss_seed = nn.CrossEntropyLoss(label_smoothing=0.1)
+        #     self.head_cls_loss_seed = nn.CrossEntropyLoss()
+        #     self.offset_reg_loss_seed = nn.MSELoss()
+        #     self.shape_reg_loss_seed = nn.MSELoss()
+        #     self.pos_reg_loss_seed = nn.MSELoss()
+        #     self.head_reg_loss_seed = nn.MSELoss()
         # self.automatic_optimization=False
     # def on_after_backward(self):
     #     for name, param in self.named_parameters():
@@ -470,10 +483,11 @@ class IQ_SoftQ(LightningModule):
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
-        # for key in tokenized_agent["map_feature"].keys():
-        #     data["pt_token"][key]=tokenized_agent["map_feature"][key]
+        if self.token_processor.use_infgen:
+            for key in tokenized_agent["map_feature"].keys():
+                data["pt_token"][key]=tokenized_agent["map_feature"][key]
 
-      #  loss1=self.encoder.agent_encoder.inf_decoder(data,tokenized_agent["map_feature"])
+            loss1=self.encoder.agent_encoder.inf_decoder(data,tokenized_agent["map_feature"])
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
         return loss

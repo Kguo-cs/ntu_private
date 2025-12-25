@@ -169,13 +169,14 @@ class AgentTokenEncoder(nn.Module):
         #     ) [:,-n_step:] # [n_agent, n_step, 2]
         #
         # else:
-        motion_vector_a = torch.cat(
-            [
-                pos_a.new_zeros(n_agent, 1, pos_a.shape[-1]),
-                pos_a[:, 1:] - pos_a[:, :-1],
-            ],
-            dim=1,
-        ) [:,-n_step:] # [n_agent, n_step, 2]
+        # motion_vector_a = torch.cat(
+        #     [
+        #         pos_a.new_zeros(n_agent, 1, pos_a.shape[-1]),
+        #         pos_a[:, 1:] - pos_a[:, :-1],
+        #     ],
+        #     dim=1,
+        # ) [:,-n_step:] # [n_agent, n_step, 2]
+        motion_vector_a=pos_a[:, 1:] - pos_a[:, :-1]
 
         if self.discriminator:
             u=motion_vector_a[:, :, :2]
