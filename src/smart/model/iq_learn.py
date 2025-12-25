@@ -63,7 +63,7 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf = self.encoder.use_lcf
         self.use_gradient_penalty = False
-        # self.token_cls_loss = nn.CrossEntropyLoss(label_smoothing=0.1)
+        self.token_cls_loss = nn.CrossEntropyLoss(label_smoothing=0.1)
         # if self.predict_state:
         #     self.state_cls_loss = nn.CrossEntropyLoss(
         #         torch.tensor(self.loss_weight['state_weight']))
@@ -105,9 +105,9 @@ class IQ_SoftQ(LightningModule):
         else:
             action_valid=train_mask
 
-        next_token_logits=next_token_logits[action_valid]
+        next_token_logits=next_token_logits[action_valid] / self.alpha
 
-        pi = torch.softmax(next_token_logits / self.alpha, dim=-1)
+        pi = torch.softmax(next_token_logits, dim=-1)
 
         logpi = torch.log(pi + 1e-10)
 
@@ -115,43 +115,20 @@ class IQ_SoftQ(LightningModule):
 
         entropy = -torch.sum(pi * logpi, dim=-1)
 
-        exit_logit = pred["exit_logit"]
+        action_nll=-log_prob.mean()
 
-        if exit_logit is not None:
-            action_valid=valid_mask[:,1:].transpose(0, 1).flatten(0, 1)[train_mask]
+        self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
 
-            action_nll=-log_prob[action_valid].mean()
+        if self.token_processor.pred_exit:
+            exit_mask=action==self.token_processor.n_token_agent-1
 
-            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+            exit_nll = -log_prob[exit_mask].mean()
 
-            exit_log_p = torch.log_softmax(exit_logit, dim=-1)
+            self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
 
-            exit_idx = (~action_valid).to(int)
-
-            exit_log_prob = torch.gather(exit_log_p, dim=-1, index=exit_idx.unsqueeze(-1)).squeeze(-1)
-
-            exit_nll = -exit_log_prob.mean()
-
-            log_prob = log_prob + exit_log_prob
-
-            action_nll = action_nll + 0.1 * exit_nll
-
-        else:
-
-            action_nll=-log_prob.mean()
-
-            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
-
-            if self.token_processor.pred_exit:
-                exit_mask=action==self.token_processor.n_token_agent-1
-
-                exit_nll = -log_prob[exit_mask].mean()
-
-                self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
-
-                # weight=exit_mask+1
-                #
-                # action_nll =weight*action_nll
+            # weight=exit_mask+1
+            #
+            # action_nll =weight*action_nll
 
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
 

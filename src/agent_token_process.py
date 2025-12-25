@@ -44,12 +44,15 @@ os.makedirs(ouput_data_directory, exist_ok=True)
 
 # Worker function
 def process_file(filename):
+    #filename='22c647e7272e850a.pkl'
     input_path = os.path.join(agent_data_directory, filename)
 
     #print(filename)
 
     with open(input_path, "rb") as f:
         data = pickle.load(f)
+
+    return
 
     # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
     #
@@ -187,10 +190,11 @@ def process_file(filename):
 
 
 # if __name__ == "__main__":
-files = os.listdir(agent_data_directory)[ 177175:]
+files = os.listdir(agent_data_directory)#[ 169801:]
 
 for file in tqdm(files):
     process_file(file)
+   # break
 
     # # Use tqdm inside multiprocessing with a wrapper
     # with multiprocessing.Pool(processes=os.cpu_count()) as pool:

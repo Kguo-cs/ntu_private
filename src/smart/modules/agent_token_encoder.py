@@ -80,7 +80,7 @@ class AgentTokenEncoder(nn.Module):
                 )
 
                 # self.invalid_token_emb=nn.Embedding(1,hidden_dim)
-                self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
+               # self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
 
             else:
                 self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
@@ -204,7 +204,7 @@ class AgentTokenEncoder(nn.Module):
 
 
         if token_mask is not None:
-            feature_a[~token_mask]= self.invalid_feat_emb.weight
+            feature_a[~token_mask]= -10#self.invalid_feat_emb.weight
 
         if self.use_goal:
             if goal_pos is not None:
