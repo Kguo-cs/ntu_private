@@ -13,7 +13,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_pos/d6410be4d242
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_a  /home/ke/code/catk/src/waymo_data/full/ 
 
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/catk/src/waymo_data/full/training_map2_pos guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
+rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/waymo_data/full/training_map2_pos guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
 
@@ -97,7 +97,7 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
+CUDA_VISIBLE_DEVICES=3 setsid nohup python run3.py > 3.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2

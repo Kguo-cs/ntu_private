@@ -80,7 +80,7 @@ class AgentTokenEncoder(nn.Module):
                 )
 
                 # self.invalid_token_emb=nn.Embedding(1,hidden_dim)
-               # self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
+                self.invalid_feat_emb=nn.Embedding(1,input_dim_x_a)
 
             else:
                 self.embedding = nn.Embedding(token_processor.n_token_agent, hidden_dim)
@@ -160,23 +160,6 @@ class AgentTokenEncoder(nn.Module):
 
         agent_token_emb=self.get_embedding(agent_token_index,agent_type,token_mask)
 
-        # if self.discriminator:
-        #     motion_vector_a = torch.cat(
-        #         [
-        #             1e-4*pos_a[:,:1],
-        #             pos_a[:, 1:] - pos_a[:, :-1],
-        #         ],
-        #         dim=1,
-        #     ) [:,-n_step:] # [n_agent, n_step, 2]
-        #
-        # else:
-        # motion_vector_a = torch.cat(
-        #     [
-        #         pos_a.new_zeros(n_agent, 1, pos_a.shape[-1]),
-        #         pos_a[:, 1:] - pos_a[:, :-1],
-        #     ],
-        #     dim=1,
-        # ) [:,-n_step:] # [n_agent, n_step, 2]
         motion_vector_a=pos_a[:, 1:] - pos_a[:, :-1]
 
         if self.discriminator:
@@ -204,7 +187,7 @@ class AgentTokenEncoder(nn.Module):
 
 
         if token_mask is not None:
-            feature_a[~token_mask]= -10#self.invalid_feat_emb.weight
+            feature_a[~token_mask]= self.invalid_feat_emb.weight
 
         if self.use_goal:
             if goal_pos is not None:
@@ -246,7 +229,6 @@ class AgentTokenEncoder(nn.Module):
             categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape)+ self.ego_embed(ego_mask)
 
             categorical_embs=categorical_embs[None].repeat(n_step,1,1)
-            # categorical_embs=torch.stack(categorical_embs)#.sum(dim=0)
         else:
             categorical_embs = None
 
