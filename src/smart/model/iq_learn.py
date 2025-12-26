@@ -63,7 +63,9 @@ class IQ_SoftQ(LightningModule):
 
         self.use_lcf = self.encoder.use_lcf
         self.use_gradient_penalty = False
-        self.token_cls_loss = nn.CrossEntropyLoss(label_smoothing=0.1)
+        self.token_cls_loss = nn.CrossEntropyLoss()
+        self.mse = nn.MSELoss()
+
         # if self.predict_state:
         #     self.state_cls_loss = nn.CrossEntropyLoss(
         #         torch.tensor(self.loss_weight['state_weight']))
@@ -131,6 +133,30 @@ class IQ_SoftQ(LightningModule):
             # action_nll =weight*action_nll
 
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
+
+        if self.token_processor.pred_init:
+            pos_logit, entry_head_logit, entry_offset, type_logit, pred_shape=pred["initial_logit"]
+
+            non_ego_mask=~tokenized_agent["initial_ego_mask"]
+            initial_pos_token = tokenized_agent["initial_pos_token"][non_ego_mask]
+            initial_offset_xyh = tokenized_agent["initial_offset_xyh"][non_ego_mask]
+            initial_heading_token = tokenized_agent["initial_heading_token"][non_ego_mask]
+            initial_shape = tokenized_agent["initial_shape"][non_ego_mask]
+            initial_type = tokenized_agent["initial_type"][non_ego_mask]
+
+            pos_nll=self.token_cls_loss(pos_logit, initial_pos_token)
+            head_nll=self.token_cls_loss(entry_head_logit, initial_heading_token)
+            type_nll=self.token_cls_loss(type_logit, initial_type)
+            offset_mse=self.mse(entry_offset, initial_offset_xyh)
+            shape_mse=self.mse(pred_shape, initial_shape)
+
+            self.log("train/pos_nll", pos_nll.item(), on_step=True, batch_size=1)
+            self.log("train/head_nll", head_nll.item(), on_step=True, batch_size=1)
+            self.log("train/type_nll", type_nll.item(), on_step=True, batch_size=1)
+            self.log("train/offset_mse", offset_mse.item(), on_step=True, batch_size=1)
+            self.log("train/shape_mse", shape_mse.item(), on_step=True, batch_size=1)
+
+            action_nll=action_nll+pos_nll+head_nll+type_nll+offset_mse+shape_mse
 
         if self.token_processor.pred_entry:
 

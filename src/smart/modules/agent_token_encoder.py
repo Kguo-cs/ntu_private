@@ -151,6 +151,7 @@ class AgentTokenEncoder(nn.Module):
             batch_idx,
             goal_pos,
             goal_mask,
+            ego_mask,
             abs_time,
             token_mask=None,
             inference=False,
@@ -223,9 +224,6 @@ class AgentTokenEncoder(nn.Module):
 
 
         if agent_shape is not None:
-            ego_mask=torch.zeros_like(batch_idx)
-            ego_mask[:-1]=batch_idx[:-1]==batch_idx[1:]
-
             # categorical_embs = [
             #     self.type_a_emb(agent_type),
             #     self.shape_emb(agent_shape),
@@ -235,7 +233,7 @@ class AgentTokenEncoder(nn.Module):
             #     v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
             # ]
 
-            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape)+ self.ego_embed(ego_mask)
+            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape)+ self.ego_embed(ego_mask.long())
 
             categorical_embs=categorical_embs[None].repeat(n_step,1,1)
         else:

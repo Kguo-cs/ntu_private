@@ -63,6 +63,16 @@ class TokenProcessor(torch.nn.Module):
         self.pred_map_token = False
         self.match_all=False
         self.token_offset=False
+        self.invalid_state=0
+        self.valid_state= 1
+        self.enter_state= 2
+        self.exit_state= 3
+        self.pl2seed_radius=81
+
+        self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
+                                             grid_interval=3,
+                                             radius=self.pl2seed_radius,
+                                             angle_interval=3)
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -77,18 +87,11 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_init=pred_init
 
+        if self.pred_init:
+            self.n_token_entry=self.attr_tokenizer.grid_size
+
         # if self.use_infgen:
 
-        self.invalid_state=0
-        self.valid_state= 1
-        self.enter_state= 2
-        self.exit_state= 3
-        self.pl2seed_radius=81
-
-        self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
-                                             grid_interval=3,
-                                             radius=self.pl2seed_radius,
-                                             angle_interval=3)
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -172,50 +175,55 @@ class TokenProcessor(torch.nn.Module):
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
+        batch = tokenized_agent["batch"]
+
+        if "ego_mask" not in tokenized_agent:
+            ego_mask = torch.ones_like(batch)
+            ego_mask[:-1] = batch[:-1] != batch[1:]
+            tokenized_agent["ego_mask"] = ego_mask.bool()
 
         if self.pred_init:
+            type = tokenized_agent["type"]
 
-            initial_pos=tokenized_agent["sampled_pos"][:,2]
-            initial_heading=tokenized_agent["sampled_heading"][:,1]
-            shape=tokenized_agent["shape"]
-            type=tokenized_agent["type"]
-            batch=tokenized_agent["batch"]
+            if self.training:
 
-            ego_mask=torch.ones_like(batch)
-            ego_mask[:-1]=batch[:-1]!=batch[1:]
-            ego_mask=ego_mask.bool()
+                initial_pos=tokenized_agent["sampled_pos"][:,2]
+                initial_heading=tokenized_agent["sampled_heading"][:,1]
+                shape=tokenized_agent["shape"]
+                ego_mask=tokenized_agent["ego_mask"]
 
-            ego_position=initial_pos[ego_mask][batch]
-            ego_heading=initial_heading[ego_mask][batch]
+                ego_position=initial_pos[ego_mask][batch]
+                ego_heading=initial_heading[ego_mask][batch]
 
-            # local_pos,local_heading=transform_to_local(initial_pos,
-            #                    initial_heading,
-            #                    ego_position,
-            #                    ego_heading,
-            #                    )
-            #
-            # local_pos=local_pos[:,0]
-            # local_heading=local_heading[:,0]
+                grid_index_t, offset_xy=self.attr_tokenizer.encode_pos(initial_pos,ego_position,ego_heading)
 
-            grid_index_t, offset_xy_t=self.attr_tokenizer.encode_pos(initial_pos,ego_position,ego_heading)
-            heading_token_idx =self.attr_tokenizer.encode_heading(initial_heading-ego_heading)
+                rel_heading=initial_heading-ego_heading
 
-            # type_count = torch.zeros(data.num_graphs, 3, device=type.device, dtype=torch.long)
-            #
-            # type_count.index_put_(
-            #     (batch, type),
-            #     torch.ones_like(type),
-            #     accumulate=True
-            # )
-            #
-            sort_rank= batch*1e7+type*1e6+(initial_pos-ego_position).norm(-1)#dist sorted
+                heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
+                token_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
 
-            sort_idx=sort_rank.argsort()
+                offset_h=wrap_angle(rel_heading-token_heading)
 
-            tokenized_agent["grid_index_t"]=grid_index_t[sort_idx]
-            tokenized_agent["offset_xy_t"]=offset_xy_t[sort_idx]
-            tokenized_agent["heading_token_idx"]=heading_token_idx[sort_idx]
-            tokenized_agent["type"]=type[sort_idx]
+                offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
+
+                sort_rank= batch*1e7+type*1e6+torch.norm(initial_pos-ego_position,dim=-1)#dist sorted
+
+                sort_idx=sort_rank.argsort()
+
+                tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
+                tokenized_agent["initial_offset_xyh"]=offset_xyh[sort_idx]
+                tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
+                tokenized_agent["initial_shape"]=shape[sort_idx]
+
+                tokenized_agent["initial_pos"]=initial_pos[sort_idx]
+                tokenized_agent["initial_heading"]=initial_heading[sort_idx]
+                tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
+
+            else:
+                sort_rank= batch*1e7+type*1e6
+                sort_idx=sort_rank.argsort()
+
+            tokenized_agent["initial_type"]=type[sort_idx]
 
         return tokenized_map, tokenized_agent
 
@@ -293,7 +301,7 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
             self.n_token_entry=3
 
-        self.n_token_entry_head=128
+        self.n_token_entry_head=self.attr_tokenizer.angle_size
         self.n_token_entry_head2=self.n_token_entry_head//2
 
     def decode_head(self,entry_head_idx):
@@ -533,7 +541,7 @@ class TokenProcessor(torch.nn.Module):
         out_dict = {
             "valid_mask": [],
             "sampled_idx": [],
-            "sampled_pos": [pos[:, 0]],
+            "sampled_pos": [],#pos[:, 0]
             "sampled_heading": [],
             'gt_idx':[],
             'token_mask':[],
