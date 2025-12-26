@@ -204,10 +204,11 @@ class MultiDataset(Dataset):
         #
         # else:
         #print(self.raw_paths[idx])
-
-        with open(self.raw_paths[idx], "rb") as handle:
-            data = pickle.load(handle)
-
+        if '.pkl' in self.raw_paths[idx]:
+            with open(self.raw_paths[idx], "rb") as handle:
+                data = pickle.load(handle)
+        else:
+            data =torch.load(self.raw_paths[idx])
 
         # if 'keguo' in working_dir:
         #     self.cache_data[idx] = data

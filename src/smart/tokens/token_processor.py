@@ -486,7 +486,7 @@ class TokenProcessor(torch.nn.Module):
         out_dict = {
             "valid_mask": [],
             "sampled_idx": [],
-            "sampled_pos": [pos[:, 0]],
+            "sampled_pos": [],#pos[:, 0]
             "sampled_heading": [],
             'gt_idx':[],
             'token_mask':[],

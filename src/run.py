@@ -35,6 +35,7 @@ wandb.require("service")  # forces the new service backend
 # Optional: use thread start (very robust in multiprocess settings)
 settings = wandb.Settings(start_method="thread")
 os.environ["WANDB__SERVICE_WAIT"] = "3000"
+#Epoch 0:   1%|          | 132/12175 [00:36<55:56,  3.59it/s, v_num=0oba]
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
