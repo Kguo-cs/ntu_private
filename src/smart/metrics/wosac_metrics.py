@@ -36,12 +36,12 @@ class WOSACMetrics(Metric):
     validation metrics based on ground truth trajectory, using waymo_open_dataset api
     """
 
-    def __init__(self, prefix: str, ego_only: bool = False) -> None:
+    def __init__(self, prefix: str,task='sim_agents', ego_only: bool = False) -> None:
         super().__init__()
         self.is_mp_init = False
         self.prefix = prefix
         self.ego_only = ego_only
-        self.wosac_config = self.load_metrics_config()
+        self.wosac_config = self.load_metrics_config(task)
 
         self.field_names = [
             "metametric",
@@ -189,10 +189,17 @@ class WOSACMetrics(Metric):
         return out_dict
 
     @staticmethod
-    def load_metrics_config() -> sim_agents_metrics_pb2.SimAgentMetricsConfig:
-        config_path = (
-            Path(wosac_metrics.__file__).parent / "challenge_2024_config.textproto"
-        )
+    def load_metrics_config(task) -> sim_agents_metrics_pb2.SimAgentMetricsConfig:
+
+        if task=="sim_agents":
+            config_path = (
+                Path(wosac_metrics.__file__).parent / "challenge_2025_sim_agents_config.textproto"
+            )
+        else:
+            config_path = (
+                Path(wosac_metrics.__file__).parent / "challenge_2025_scenario_gen_config.textproto"
+            )
+
         with open(config_path, "r") as f:
             config = sim_agents_metrics_pb2.SimAgentMetricsConfig()
             text_format.Parse(f.read(), config)
