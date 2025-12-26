@@ -208,7 +208,7 @@ class MultiDataset(Dataset):
             with open(self.raw_paths[idx], "rb") as handle:
                 data = pickle.load(handle)
         else:
-            data =torch.load(self.raw_paths[idx])
+            data =torch.load(self.raw_paths[idx],weights_only=True)
 
         # if 'keguo' in working_dir:
         #     self.cache_data[idx] = data
