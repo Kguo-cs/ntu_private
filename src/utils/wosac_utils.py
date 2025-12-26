@@ -17,15 +17,6 @@ import torch
 from torch import Tensor
 from torch_geometric.utils import degree
 from waymo_open_dataset.protos import sim_agents_submission_pb2
-import tensorflow as tf
-import tqdm
-
-from waymo_open_dataset.protos import scenario_pb2
-from waymo_open_dataset.utils import trajectory_utils
-from waymo_open_dataset.utils.sim_agents import submission_specs
-from waymo_open_dataset.utils.sim_agents import visualizations
-from waymo_open_dataset.wdl_limited.sim_agents_metrics import metric_features
-from waymo_open_dataset.wdl_limited.sim_agents_metrics import metrics
 
 
 def _unbatch(src: Tensor, batch: Tensor, dim: int = 0) -> List[Tensor]:
