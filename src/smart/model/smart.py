@@ -74,7 +74,10 @@ class SMART(LightningModule):
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
 
-        self.challenge_type=_ChallengeType.SCENARIO_GEN
+        if self.token_processor.pred_init:
+            self.challenge_type=_ChallengeType.SCENARIO_GEN
+        else:
+            self.challenge_type=_ChallengeType.SIM_AGENTS
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)

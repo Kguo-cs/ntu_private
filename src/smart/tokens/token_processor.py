@@ -44,7 +44,8 @@ class TokenProcessor(torch.nn.Module):
         agent_token_file: str,
         map_token_sampling: DictConfig,
         agent_token_sampling: DictConfig,
-        pred_entry=False
+        pred_entry=False,
+        pred_init=False,
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -74,18 +75,20 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        if self.use_infgen:
+        self.pred_init=pred_init
 
-            self.invalid_state=0
-            self.valid_state= 1
-            self.enter_state= 2
-            self.exit_state= 3
-            self.pl2seed_radius=75
+        # if self.use_infgen:
 
-            self.attr_tokenizer= Attr_Tokenizer(grid_range=150,
-                                                 grid_interval=3,
-                                                 radius=75,
-                                                 angle_interval=3)
+        self.invalid_state=0
+        self.valid_state= 1
+        self.enter_state= 2
+        self.exit_state= 3
+        self.pl2seed_radius=81
+
+        self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
+                                             grid_interval=3,
+                                             radius=self.pl2seed_radius,
+                                             angle_interval=3)
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -168,6 +171,51 @@ class TokenProcessor(torch.nn.Module):
             exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
+
+
+        if self.pred_init:
+
+            initial_pos=tokenized_agent["sampled_pos"][:,2]
+            initial_heading=tokenized_agent["sampled_heading"][:,1]
+            shape=tokenized_agent["shape"]
+            type=tokenized_agent["type"]
+            batch=tokenized_agent["batch"]
+
+            ego_mask=torch.ones_like(batch)
+            ego_mask[:-1]=batch[:-1]!=batch[1:]
+            ego_mask=ego_mask.bool()
+
+            ego_position=initial_pos[ego_mask][batch]
+            ego_heading=initial_heading[ego_mask][batch]
+
+            # local_pos,local_heading=transform_to_local(initial_pos,
+            #                    initial_heading,
+            #                    ego_position,
+            #                    ego_heading,
+            #                    )
+            #
+            # local_pos=local_pos[:,0]
+            # local_heading=local_heading[:,0]
+
+            grid_index_t, offset_xy_t=self.attr_tokenizer.encode_pos(initial_pos,ego_position,ego_heading)
+            heading_token_idx =self.attr_tokenizer.encode_heading(initial_heading-ego_heading)
+
+            # type_count = torch.zeros(data.num_graphs, 3, device=type.device, dtype=torch.long)
+            #
+            # type_count.index_put_(
+            #     (batch, type),
+            #     torch.ones_like(type),
+            #     accumulate=True
+            # )
+            #
+            sort_rank= batch*1e7+type*1e6+(initial_pos-ego_position).norm(-1)#dist sorted
+
+            sort_idx=sort_rank.argsort()
+
+            tokenized_agent["grid_index_t"]=grid_index_t[sort_idx]
+            tokenized_agent["offset_xy_t"]=offset_xy_t[sort_idx]
+            tokenized_agent["heading_token_idx"]=heading_token_idx[sort_idx]
+            tokenized_agent["type"]=type[sort_idx]
 
         return tokenized_map, tokenized_agent
 
@@ -347,6 +395,7 @@ class TokenProcessor(torch.nn.Module):
 
         return tokenized_map
 
+
     def tokenize_agent(self, data: HeteroData,extrapolate=True) -> Dict[str, Tensor]:
         """
         Args: data["agent"]: Dict
@@ -420,7 +469,6 @@ class TokenProcessor(torch.nn.Module):
 
         batch=data["agent"]["batch"]
 
-
         token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
@@ -440,7 +488,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent['id']=data["agent"]["id"]
 
         tokenized_agent.update(token_dict)
-
 
         return tokenized_agent
 

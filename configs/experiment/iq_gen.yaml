@@ -16,6 +16,7 @@ model:
         num_k: 1 # for k nearest neighbors
         temp: 1.0
       pred_entry: False
+      pred_init: True
 
 
     training_rollout_sampling:
@@ -30,7 +31,12 @@ model:
     #val_closed_loop: False
     #finetune: true
     smart: false
-#    n_vis_batch: 1
+    decoder:
+      num_historical_steps: 1
+      num_future_steps: 90
+
+
+    #    n_vis_batch: 1
 #    n_vis_scenario: 1
 #    n_vis_rollout: 1
     #n_rollout_closed_val: 1
@@ -44,7 +50,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.1
-  val_check_interval: 0.0000002
+  #val_check_interval: 0.0000002
   max_epochs: 64
   #gradient_clip_val: 0.0
 
@@ -64,7 +70,7 @@ model_checkpoint:
   every_n_epochs: null
   save_on_train_epoch_end: false       # <== important, disables save after training epoch
 
-data: 
+data:
   train_batch_size: 40
   val_batch_size: 32
   test_batch_size: 10
