@@ -276,7 +276,7 @@ class SMARTAgentDecoder(nn.Module):
 
         sampled_idx=gt_sampled_idx[:, :current_step]
         mask = gt_valid[:, :current_step]
-        pos_a = gt_pos[:, :current_step]#+1
+        pos_a = gt_pos[:, :current_step+1]
         head_a = gt_head[:, :current_step]
 
         n_agent = sampled_idx.shape[0]

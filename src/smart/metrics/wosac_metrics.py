@@ -28,6 +28,8 @@ from waymo_open_dataset.protos import (
     sim_agents_submission_pb2,
 )
 import os
+from waymo_open_dataset.utils.sim_agents import submission_specs
+_ChallengeType = submission_specs.ChallengeType
 
 working_dir=os.getcwd()
 
@@ -36,12 +38,14 @@ class WOSACMetrics(Metric):
     validation metrics based on ground truth trajectory, using waymo_open_dataset api
     """
 
-    def __init__(self, prefix: str,task='sim_agents', ego_only: bool = False) -> None:
+    def __init__(self, prefix: str,challenge_type, ego_only: bool = False) -> None:
         super().__init__()
         self.is_mp_init = False
         self.prefix = prefix
         self.ego_only = ego_only
-        self.wosac_config = self.load_metrics_config(task)
+        self.wosac_config = self.load_metrics_config(challenge_type)
+
+        self.challenge_type=challenge_type
 
         self.field_names = [
             "metametric",
@@ -68,7 +72,7 @@ class WOSACMetrics(Metric):
 
     @staticmethod
     def _compute_scenario_metrics(
-        config, scenario_file, scenario_rollout, ego_only
+        config, scenario_file, scenario_rollout, ego_only,challenge_type
     ) -> sim_agents_metrics_pb2.SimAgentMetrics:
 
         scenario = scenario_pb2.Scenario()
@@ -85,7 +89,7 @@ class WOSACMetrics(Metric):
             scenario.tracks_to_predict[0].track_index = scenario.sdc_track_index
 
         return wosac_metrics.compute_scenario_metrics_for_bundle(
-            config, scenario, scenario_rollout
+            config, scenario, scenario_rollout,challenge_type
         )
 
     def update(
@@ -106,6 +110,7 @@ class WOSACMetrics(Metric):
                         scenario_files,
                         scenario_rollouts,
                         itertools.repeat(self.ego_only),
+                        itertools.repeat(self.challenge_type),
                     ),
                 )
                 pool.close()
@@ -115,7 +120,7 @@ class WOSACMetrics(Metric):
             for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
                 self.pool_scenario_metrics.append(
                     self._compute_scenario_metrics(
-                        self.wosac_config, _scenario, _scenario_rollout, self.ego_only
+                        self.wosac_config, _scenario, _scenario_rollout, self.ego_only,self.challenge_type
                     )
                 )
 
@@ -191,7 +196,7 @@ class WOSACMetrics(Metric):
     @staticmethod
     def load_metrics_config(task) -> sim_agents_metrics_pb2.SimAgentMetricsConfig:
 
-        if task=="sim_agents":
+        if task==_ChallengeType.SIM_AGENTS:
             config_path = (
                 Path(wosac_metrics.__file__).parent / "challenge_2025_sim_agents_config.textproto"
             )

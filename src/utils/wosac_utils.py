@@ -17,6 +17,15 @@ import torch
 from torch import Tensor
 from torch_geometric.utils import degree
 from waymo_open_dataset.protos import sim_agents_submission_pb2
+import tensorflow as tf
+import tqdm
+
+from waymo_open_dataset.protos import scenario_pb2
+from waymo_open_dataset.utils import trajectory_utils
+from waymo_open_dataset.utils.sim_agents import submission_specs
+from waymo_open_dataset.utils.sim_agents import visualizations
+from waymo_open_dataset.wdl_limited.sim_agents_metrics import metric_features
+from waymo_open_dataset.wdl_limited.sim_agents_metrics import metrics
 
 
 def _unbatch(src: Tensor, batch: Tensor, dim: int = 0) -> List[Tensor]:
@@ -31,16 +40,21 @@ def get_scenario_rollouts(
     pred_traj: Tensor,  # [n_agent, n_rollout, n_step, 2]
     pred_z: Tensor,  # [n_agent, n_rollout, n_step]
     pred_head: Tensor,  # [n_agent, n_rollout, n_step]
+    pred_sizes=None,
 ) -> List[sim_agents_submission_pb2.ScenarioRollouts]:
     scenario_id = scenario_id.cpu().numpy()
     agent_id = _unbatch(agent_id, agent_batch)
     pred_traj = _unbatch(pred_traj, agent_batch)
     pred_z = _unbatch(pred_z, agent_batch)
     pred_head = _unbatch(pred_head, agent_batch)
+
     agent_id = [x.cpu().numpy() for x in agent_id]
     pred_traj = [x.cpu().numpy() for x in pred_traj]
     pred_z = [x.cpu().numpy() for x in pred_z]
     pred_head = [x.cpu().numpy() for x in pred_head]
+    if len(pred_sizes):
+        pred_sizes = _unbatch(pred_sizes, agent_batch)
+        pred_sizes = [x.cpu().numpy() for x in pred_sizes]
 
     n_scenario = scenario_id.shape[0]
     n_rollout = pred_traj[0].shape[1]
@@ -50,15 +64,31 @@ def get_scenario_rollouts(
         for i_rollout in range(n_rollout):
             simulated_trajectories = []
             for i_agent in range(len(agent_id[i_scenario])):
-                simulated_trajectories.append(
-                    sim_agents_submission_pb2.SimulatedTrajectory(
-                        center_x=pred_traj[i_scenario][i_agent, i_rollout, :, 0],
-                        center_y=pred_traj[i_scenario][i_agent, i_rollout, :, 1],
-                        center_z=pred_z[i_scenario][i_agent, i_rollout],
-                        heading=pred_head[i_scenario][i_agent, i_rollout],
-                        object_id=agent_id[i_scenario][i_agent],
+                if len(pred_sizes)==0:
+                    simulated_trajectories.append(
+                        sim_agents_submission_pb2.SimulatedTrajectory(
+                            center_x=pred_traj[i_scenario][i_agent, i_rollout, :, 0],
+                            center_y=pred_traj[i_scenario][i_agent, i_rollout, :, 1],
+                            center_z=pred_z[i_scenario][i_agent, i_rollout],
+                            heading=pred_head[i_scenario][i_agent, i_rollout],
+                            object_id=agent_id[i_scenario][i_agent],
+
+                        )
                     )
-                )
+                else:
+                    simulated_trajectories.append(
+                        sim_agents_submission_pb2.SimulatedTrajectory(
+                            center_x=pred_traj[i_scenario][i_agent, i_rollout, :, 0],
+                            center_y=pred_traj[i_scenario][i_agent, i_rollout, :, 1],
+                            center_z=pred_z[i_scenario][i_agent, i_rollout],
+                            heading=pred_head[i_scenario][i_agent, i_rollout],
+                            object_id=agent_id[i_scenario][i_agent],
+                            length=pred_sizes[i_scenario][i_agent, i_rollout, :, 0],
+                            width=pred_sizes[i_scenario][i_agent, i_rollout, :, 1],
+                            height=pred_sizes[i_scenario][i_agent, i_rollout, :, 2],
+                        )
+                    )
+
             joint_scenes.append(
                 sim_agents_submission_pb2.JointScene(
                     simulated_trajectories=simulated_trajectories

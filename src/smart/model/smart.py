@@ -34,6 +34,8 @@ from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollo
 from src.smart.plot.plot_bird.plot_bird import plot_bird_from_tensors
 from src.smart.metrics.bird_metrics import compute_bird_metrics,MetricDict
 from src.smart.plot.plot_rollout import plot_rollout_frames
+from waymo_open_dataset.utils.sim_agents import submission_specs
+_ChallengeType = submission_specs.ChallengeType
 
 
 class SMART(LightningModule):
@@ -72,9 +74,11 @@ class SMART(LightningModule):
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
 
+        self.challenge_type=_ChallengeType.SCENARIO_GEN
+
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
-        self.wosac_metrics = WOSACMetrics("val_closed")
+        self.wosac_metrics = WOSACMetrics("val_closed",challenge_type=self.challenge_type)
         self.wosac_submission = WOSACSubmission(**model_config.wosac_submission)
         self.training_loss = CrossEntropy(**model_config.training_loss)
 
@@ -133,11 +137,6 @@ class SMART(LightningModule):
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
-        # if self.local_rank==0:
-        #     for t in data["agent"]["time"]:
-        #         print(self.local_rank,t[0][0])
-
-
         # # ! open-loop vlidation
         if self.val_open_loop:
             pred = self.encoder(tokenized_map, tokenized_agent)
@@ -164,10 +163,6 @@ class SMART(LightningModule):
             self.all_data.append((attention_weight,edge_weight,edge_index_a2a,relative_pos,valid_mask,sampled_pos,pred["agent_q"]))
 
             #self.all_data.append(data)
-
-
-
-
             # loss = self.training_loss(
             #     **pred,
             #     token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
@@ -193,7 +188,7 @@ class SMART(LightningModule):
 
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
-            pred_traj, pred_z, pred_head,new_agent = [], [], [],[]
+            pred_traj, pred_z, pred_head,new_agent,pred_sizes = [], [], [],[],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
@@ -212,6 +207,9 @@ class SMART(LightningModule):
                     if "new_agent" in pred.keys():
                         new_agent.append(pred["new_agent"])
 
+                if self.challenge_type == _ChallengeType.SCENARIO_GEN:
+                    pred_sizes.append(pred["shape"])
+
 
             pred_traj = torch.stack(pred_traj, dim=1)  # [n_ag, n_rollout, n_step, 2]
             if not self.token_processor.use_bird:
@@ -220,6 +218,14 @@ class SMART(LightningModule):
 
                 if len(new_agent):
                     new_agent=torch.stack(new_agent, dim=1)
+
+            if self.challenge_type == _ChallengeType.SCENARIO_GEN:
+
+                pred_traj =torch.cat([pred_traj[:,:,:11], pred_traj], dim=2)
+                pred_z =torch.cat([pred_z[:,:,:11], pred_z], dim=2)
+                pred_head=torch.cat([pred_head[:,:,:11], pred_head], dim=2)
+
+                pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
 
             if self.token_processor.use_bird :
@@ -306,15 +312,17 @@ class SMART(LightningModule):
                 self.wosac_submission.reset()
 
             else:  # ! compute metrics, disable if save WOSAC submission
-                self.minADE.update(
-                    pred=pred_traj,
-                    target=data["agent"]["position"][
-                        :, self.num_historical_steps :, : pred_traj.shape[-1]
-                    ],
-                    target_valid=data["agent"]["valid_mask"][
-                        :, self.num_historical_steps :
-                    ],
-                ) #minimum sum distance
+
+                if self.challenge_type != _ChallengeType.SCENARIO_GEN:
+                    self.minADE.update(
+                        pred=pred_traj,
+                        target=data["agent"]["position"][
+                            :, self.num_historical_steps :, : pred_traj.shape[-1]
+                        ],
+                        target_valid=data["agent"]["valid_mask"][
+                            :, self.num_historical_steps :
+                        ],
+                    ) #minimum sum distance
 
                 # WOSAC metrics
                 if batch_idx < self.n_batch_wosac_metric:
@@ -328,7 +336,22 @@ class SMART(LightningModule):
                         pred_traj=pred_traj,
                         pred_z=pred_z,
                         pred_head=pred_head,
+                        pred_sizes=pred_sizes,
                     )
+                    # else:
+                    #     simulated_states=torch.cat([pred_traj, pred_z[...,None], pred_head[...,None]],dim=-1)
+                    #
+                    #     simulated_sizes=data['agent']['shape']
+                    #
+                    #     agent_id=data["agent"]["id"]
+
+                        # states: (32, 8, 91, 4)
+                        # simulated_sizes(32, 8, 91, 3)
+
+                        # scenario_rollouts = scenario_rollouts_from_states(
+                        #     scenario, simulated_states, simulated_sizes, agent_id
+                        # )
+
                     if len(scenario_rollouts) > 32:
                         self.wosac_metrics.update(data["tfrecord_path"][:20], scenario_rollouts[:20])
                         self.wosac_metrics.update(data["tfrecord_path"][20:], scenario_rollouts[20:])
@@ -434,7 +457,9 @@ class SMART(LightningModule):
         if self.val_closed_loop:
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
-                epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
+
+                if self.challenge_type!=_ChallengeType.SCENARIO_GEN:
+                   epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
 
                 if self.global_rank == 0:
