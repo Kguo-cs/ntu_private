@@ -187,7 +187,7 @@ class TokenProcessor(torch.nn.Module):
 
             if self.training:
 
-                initial_pos=tokenized_agent["sampled_pos"][:,2]
+                initial_pos=tokenized_agent["sampled_pos"][:,1]
                 initial_heading=tokenized_agent["sampled_heading"][:,1]
                 shape=tokenized_agent["shape"]
                 ego_mask=tokenized_agent["ego_mask"]
