@@ -12,13 +12,15 @@ import sys
 torch.set_float32_matmul_precision("highest")
 
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 sys.path.append('/home/ke/code/catk')
 sys.path.append('/home/users/ntu/zhangshu/scratch/sim')
 sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
+sys.path.append('/home/ke/keguo/sim')
+sys.path.append('/home/guoke/sim')
 
 
 from src.smart.tokens.token_processor import TokenProcessor
@@ -34,9 +36,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./src/waymo_data/full/training_map2_03_token/"
+agent_data_directory = "./waymo_data/full/training_map2_03_token/"
 # map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
-ouput_data_directory = "./src/waymo_data/full/training_map2_03_pt/"
+ouput_data_directory = "./waymo_data/full/training_map2_03_pt/"
 
 
 
