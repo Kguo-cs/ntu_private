@@ -131,20 +131,20 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         scenario = scenario_pb2.Scenario()
         scenario.ParseFromString(bytes(tf_data))
 
-        track_infos = decode_tracks_from_proto(scenario)
-       #  map_infos = decode_map_features_from_proto(scenario.map_features)
-       #  # dynamic_map_infos = decode_dynamic_map_states_from_proto(
-       #  #     scenario.dynamic_map_states
-       #  # )## scenario.dynamic_map_states has stop_point
+        #track_infos = decode_tracks_from_proto(scenario)
+        map_infos = decode_map_features_from_proto(scenario.map_features)
+        dynamic_map_infos = decode_dynamic_map_states_from_proto(
+            scenario.dynamic_map_states
+        )## scenario.dynamic_map_states has stop_point
        #
         current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id
-       #  #tf_lights = process_dynamic_map(dynamic_map_infos)
-       #  #tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-       #  map_data = get_map_features(map_infos, {})
+        tf_lights = process_dynamic_map(dynamic_map_infos)
+        tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+        map_data = get_map_features(map_infos,tf_current_light)
        #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
        #  # map_data = get_map_features(map_infos, [])
-       #  data = preprocess_map(map_data)
+        data = preprocess_map(map_data)
        #
        #  del data['pt_token']['light_type']
        #  del data['pt_token']['pl_type']
@@ -161,16 +161,16 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         #     num_steps=91,
         # )
 
-        agent = get_agent_features(
-            track_infos,
-            split=split,
-            num_historical_steps=current_time_index + 1,
-            num_steps=91,
-        )
+        # agent = get_agent_features(
+        #     track_infos,
+        #     split=split,
+        #     num_historical_steps=current_time_index + 1,
+        #     num_steps=91,
+        # )
 
         #del agent["id"]
 
-        data={"agent":agent["real_valid_mask"][:,10]}#"shape":agent["shape"]
+        #data={"agent":agent["real_valid_mask"][:,10]}#"shape":agent["shape"]
 
         #
         # data["light"]=process_light(map_infos,tf_lights,tf_current_light)

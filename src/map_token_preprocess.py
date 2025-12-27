@@ -34,8 +34,8 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_static100_clean/"
-map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/nuplan_static100/"
+agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
+map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_a/"
 ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_noisemap_clean/"
 
 

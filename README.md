@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pnt
 
 rsync -avz   ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_pos ./
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_map2_pos ./ /home/ke/code/catk/src/waymo_data/full/training_map2_pos ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_map2_pos/  
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_a  /home/ke/code/catk/src/waymo_data/full/ 
 
@@ -97,7 +97,7 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
+CUDA_VISIBLE_DEVICES=3 setsid nohup python run3.py > 3.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2
@@ -112,7 +112,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python run.py >  1.log 2>&1 &
+nohup python start.py >  1.log 2>&1 &
 
 
 

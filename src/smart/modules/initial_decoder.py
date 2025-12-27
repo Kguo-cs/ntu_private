@@ -91,8 +91,6 @@ class InitDecoder(nn.Module):
             self.type_embedding = nn.Embedding(3, hidden_dim)
             self.shape_embedding = MLPLayer(input_dim=3, hidden_dim=hidden_dim, output_dim=hidden_dim)
 
-            self.type_head_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
-
             self.shape_head_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
 
         # self.task_embedding = nn.Embedding(self.num_levels + 1, hidden_dim)
@@ -543,10 +541,9 @@ class InitDecoder(nn.Module):
             pos_logit = self.entry_decoder(attr_feature)
             entry_head_logit = self.entry_head_decoder(attr_feature)
             entry_offset = self.offset_head_decoder(attr_feature)
-            type_logit = self.type_head_decoder(attr_feature)
             pred_shape = self.shape_head_decoder(attr_feature)
 
-            entry_logit=(pos_logit,entry_head_logit,entry_offset,type_logit,pred_shape)
+            entry_logit=(pos_logit,entry_head_logit,entry_offset,pred_shape)
         else:
             entry_logit=None
 
