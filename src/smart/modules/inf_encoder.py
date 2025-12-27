@@ -36,39 +36,116 @@ AGENT_STATE = ['invalid', 'valid', 'enter', 'exit']
 class InfGenAgentDecoder(nn.Module):
 
     def __init__(self,
-                 dataset: str,
-                 input_dim: int,
-                 hidden_dim: int,
-                 num_historical_steps: int,
-                 time_span: Optional[int],
-                 pl2a_radius: float,
-                 pl2seed_radius: float,
-                 a2a_radius: float,
-                 a2sa_radius: float,
-                 pl2sa_radius: float,
-                 num_freq_bands: int,
-                 num_layers: int,
-                 num_heads: int,
-                 head_dim: int,
-                 dropout: float,
-                 token_size: int,
-                 attr_tokenizer = None,
-                 predict_motion: bool = False,
-                 predict_state: bool = False,
-                 predict_map: bool = False,
-                 predict_occ: bool = False,
-                 state_token: Dict[str, int] = None,
-                 use_grid_token: bool = True,
-                 use_head_token: bool = True,
-                 use_state_token: bool = True,
-                 disable_insertion: bool = False,
-                 seed_size: int = 5,
-                 buffer_size: int = 32,
-                 num_recurrent_steps_val: int = -1,
-                 loss_weight: dict = None,
+                 # basic
+                 dataset="waymo",
+                 input_dim=2,
+                 hidden_dim=128,
+
+                 # time
+                 num_historical_steps=11,
+                 num_freq_bands=64,
+
+                 # transformer
+                 num_heads=8,
+                 head_dim=16,
+                 dropout=0.1,
+                 num_layers=1,
+
+                 pl2a_radius=30,
+                 pl2seed_radius=75.0,
+                 a2a_radius=60,
+                 a2sa_radius=10,
+                 pl2sa_radius=10,
+
+                 # temporal span
+                 time_span=60,
+
+                 # tokens
+                 token_size=2048,
+
+                 # tokenizer
+                 attr_tokenizer=None,
+
+                 # prediction switches
+                 predict_motion=False,
+                 predict_state=True,
+                 predict_map=False,
+                 predict_occ=False,
+
+                 # insertion / token usage
+                 use_grid_token=False,
+                 use_head_token=True,
+                 use_state_token=True,
+                 disable_insertion=False,
+
+                 # seed & buffer
+                 seed_size=1,
+                 buffer_size=128,
+
+                 # validation
+                 num_recurrent_steps_val=300,
+
+                 # loss
+
+
+    # dataset: str,
+                 # input_dim: int,
+                 # hidden_dim: int,
+                 # num_historical_steps: int,
+                 # time_span: Optional[int],
+                 # pl2a_radius: float,
+                 # pl2seed_radius: float,
+                 # a2a_radius: float,
+                 # a2sa_radius: float,
+                 # pl2sa_radius: float,
+                 # num_freq_bands: int,
+                 # num_layers: int,
+                 # num_heads: int,
+                 # head_dim: int,
+                 # dropout: float,
+                 # token_size: int,
+                 # attr_tokenizer = None,
+                 # predict_motion: bool = False,
+                 # predict_state: bool = False,
+                 # predict_map: bool = False,
+                 # predict_occ: bool = False,
+                 # state_token: Dict[str, int] = None,
+                 # use_grid_token: bool = True,
+                 # use_head_token: bool = True,
+                 # use_state_token: bool = True,
+                 # disable_insertion: bool = False,
+                 # seed_size: int = 5,
+                 # buffer_size: int = 32,
+                 # num_recurrent_steps_val: int = -1,
+                 # loss_weight: dict = None,
                  logger=None) -> None:
 
         super(InfGenAgentDecoder, self).__init__()
+        loss_weight = {
+            "token_cls_loss": 1,
+            "map_token_loss": 1,
+            "state_cls_loss": 10,
+            "type_cls_loss": 5,
+            "pos_cls_loss": 1,
+            "head_cls_loss": 1,
+            "offset_reg_loss": 5,
+            "shape_reg_loss": 0.2,
+            "pos_reg_loss": 10,
+            "state_weight": [0.1, 0.1, 0.8],
+            "seed_state_weight": [0.9, 0.1],
+            "seed_type_weight": [0.8, 0.1, 0.1],
+            "agent_occ_pos_weight": 100,
+            "pt_occ_pos_weight": 5,
+            "agent_occ_loss": 10,
+            "pt_occ_loss": 10,
+        },
+        state_token = {
+            "invalid": 0,
+            "valid": 1,
+            "enter": 2,
+            "exit": 3,
+        },
+
         self.dataset = dataset
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
