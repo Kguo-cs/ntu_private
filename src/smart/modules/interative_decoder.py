@@ -158,7 +158,8 @@ class InterativeDecoder(nn.Module):
 
         self.n_token_agent=n_token_agent
 
-        self.start_step=self.num_historical_steps//self.shift-1
+        self.start_eval_step=self.num_historical_steps//self.shift-1
+        self.start_step=0
 
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
@@ -370,7 +371,11 @@ class InterativeDecoder(nn.Module):
                     inference_mask = mask_a.clone()
 
                 if not self.discriminator:
-                    inference_mask[:, :self.start_step] = False
+
+                    if self.training:
+                        inference_mask[:, :self.start_step] = False
+                    else:
+                        inference_mask[:, self.start_eval_step:] = False
             else:
                 self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
                 self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]

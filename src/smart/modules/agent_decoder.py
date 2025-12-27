@@ -83,7 +83,7 @@ class SMARTAgentDecoder(nn.Module):
                                                     discriminator=discriminator
                                                     )
 
-        self.start_step=self.num_historical_steps//self.shift-1
+        self.start_step=self.interative_decoder.start_step#self.num_historical_steps//self.shift-1
         self.t_num_layers = 1
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
         self.alpha = alpha
