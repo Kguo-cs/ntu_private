@@ -34,9 +34,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
+agent_data_directory = "./waymo_data/full/training_map2_03_token/"
 # map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pt/"
+ouput_data_directory = "./waymo_data/full/training_map2_03_pt/"
 
 
 
