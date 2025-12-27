@@ -34,9 +34,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_all/"
+agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
 # map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_all_pt/"
+ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_pt/"
 
 
 
@@ -52,11 +52,11 @@ def process_file(filename):
     with open(input_path, "rb") as f:
         data = pickle.load(f)
 
-    # output_path = os.path.join(ouput_data_directory, filename[:-3]+'pt')
+    output_path = os.path.join(ouput_data_directory, filename[:-3]+'pt')
 
-    # torch.save(data, output_path)
-    #
-    # return
+    torch.save(data, output_path)
+    
+    return
 
 
     # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]

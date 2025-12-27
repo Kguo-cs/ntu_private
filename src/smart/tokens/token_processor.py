@@ -185,43 +185,56 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_init:
             type = tokenized_agent["type"]
 
+            #if self.training:
             if self.training:
-
                 initial_pos=tokenized_agent["sampled_pos"][:,1]
                 initial_heading=tokenized_agent["sampled_heading"][:,1]
-                shape=tokenized_agent["shape"]
-                ego_mask=tokenized_agent["ego_mask"]
-
-                ego_position=initial_pos[ego_mask][batch]
-                ego_heading=initial_heading[ego_mask][batch]
-
-                grid_index_t, offset_xy=self.attr_tokenizer.encode_pos(initial_pos,ego_position,ego_heading)
-
-                rel_heading=initial_heading-ego_heading
-
-                heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
-                token_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
-
-                offset_h=wrap_angle(rel_heading-token_heading)
-
-                offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
-
-                sort_rank= batch*1e7+type*1e6+torch.norm(initial_pos-ego_position,dim=-1)#dist sorted
-
-                sort_idx=sort_rank.argsort()
-
-                tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
-                tokenized_agent["initial_offset_xyh"]=offset_xyh[sort_idx]
-                tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
-                tokenized_agent["initial_shape"]=shape[sort_idx]
-
-                tokenized_agent["initial_pos"]=initial_pos[sort_idx]
-                tokenized_agent["initial_heading"]=initial_heading[sort_idx]
-                tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
-
             else:
-                sort_rank= batch*1e7+type*1e6
-                sort_idx=sort_rank.argsort()
+                initial_pos=data["agent"]["position"][:,0,:2]
+                initial_heading=data["agent"]["heading"][:,0]
+            shape=tokenized_agent["shape"]
+            ego_mask=tokenized_agent["ego_mask"]
+
+            ego_position=initial_pos[ego_mask][batch]
+            ego_heading=initial_heading[ego_mask][batch]
+
+            grid_index_t, offset_xy=self.attr_tokenizer.encode_pos(initial_pos,ego_position,ego_heading)
+
+            rel_heading=initial_heading-ego_heading
+
+            heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
+            token_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
+
+            offset_h=wrap_angle(rel_heading-token_heading)
+
+            offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
+
+            dist=torch.norm(initial_pos-ego_position,dim=-1)
+
+            dist_max=dist.max()+1
+
+            sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
+
+            sort_idx=sort_rank.argsort()
+
+            # ego_idx=torch.where(ego_mask[sort_idx])
+            #
+            # print(torch.where(ego_mask[sort_idx]))
+
+            tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
+            tokenized_agent["initial_offset_xyh"]=offset_xyh[sort_idx]
+            tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
+            tokenized_agent["initial_shape"]=shape[sort_idx]
+
+            tokenized_agent["initial_pos"]=initial_pos[sort_idx]
+            tokenized_agent["initial_heading"]=initial_heading[sort_idx]
+            tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
+
+            #batch = tokenized_agent["batch"][sort_idx]
+
+            # else:
+            #     sort_rank= batch*1e7+type*1e6
+            #     sort_idx=sort_rank.argsort()
 
             tokenized_agent["initial_type"]=type[sort_idx]
 

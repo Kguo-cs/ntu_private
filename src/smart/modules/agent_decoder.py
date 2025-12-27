@@ -132,19 +132,13 @@ class SMARTAgentDecoder(nn.Module):
         )
 
         pos_a = pos_a[:, -n_step:]
-        # if self.training:
-        #     feat_a_token=feat_a_token[:,:-1]
-        #     mask_a=mask_a[:,:-1]
-        #     pos_a=pos_a[:,:-1]
-        #     head_a=head_a[:,:-1]
-        #     head_vector_a=head_vector_a[:,:-1]
-        #     n_step=n_step-1
 
         if self.pred_init and self.training:
             mask_s=mask_a.transpose(0, 1)
             ego_mask_step = tokenized_agent["ego_mask"][None, :].repeat(n_step, 1)  # (num_step, num_agent)
-            ego_mask_step[4:]=False
-            ego_mask_step[:2]=False
+            if self.training:
+                ego_mask_step[4:]=False
+                ego_mask_step[:2]=False
             ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
             ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
 
@@ -214,25 +208,54 @@ class SMARTAgentDecoder(nn.Module):
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
-
-        gt_valid=tokenized_agent["valid_mask"].clone()
-        gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         gt_pos=tokenized_agent["sampled_pos"].clone()
         gt_head=tokenized_agent["sampled_heading"].clone()
+        gt_valid=tokenized_agent["valid_mask"].clone()
+        shape=tokenized_agent["shape"]
+        gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
+        sampled_idx=gt_sampled_idx[:, :current_step]
 
         abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
-        token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
         batch = tokenized_agent['batch']
-
-        sampled_idx=gt_sampled_idx[:, :current_step]
-        mask = gt_valid[:, :current_step]
 
         if gt_pos.shape[1]==gt_head.shape[1]:
             pos_a = gt_pos[:, :current_step]
         else:
             pos_a = gt_pos[:, :current_step+1]
+
         head_a = gt_head[:, :current_step]
+        mask = gt_valid[:, :current_step]
+        token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
+
+        if self.pred_init:
+            ego_mask = tokenized_agent["ego_mask"]
+            head_a= head_a[ego_mask]
+
+            head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+            feat_a_token, agent_token_emb, counter_feat_a = self.agent_token_embedding(
+                agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
+                pos_a=pos_a[ego_mask],  # [n_agent, n_step, 2]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask_a=mask[ego_mask],
+                agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
+                agent_shape=shape[ego_mask],  # [n_agent, 3]
+                token_mask=token_mask[ego_mask],
+                batch_idx=batch[ego_mask],
+                goal_pos=tokenized_agent["goal_pos"],
+                goal_mask=tokenized_agent["goal_mask"],
+                ego_mask=ego_mask[ego_mask],
+                abs_time=abs_time,
+            )
+            ego_feature = feat_a_token.reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
+
+            pos_a, head_a, shape=self.init_decoder(map_feature,ego_feature, tokenized_agent)
+            current_step=1
+            max_step=18
+            token_mask=torch.zeros_like(token_mask[:, :current_step])
+            mask=torch.ones_like(mask[:, :current_step])
+            sampled_idx=sampled_idx[:, :current_step]
 
         n_agent = sampled_idx.shape[0]
 
@@ -254,18 +277,12 @@ class SMARTAgentDecoder(nn.Module):
                     else:
                         entry_logit=None
 
-                    #feat_a = tokenized_agent["feat_a"][:a_num]
-
                     self.interative_decoder.pos_cache = self.interative_decoder.pos_cache[:, :current_step]
                     self.interative_decoder.head_cache = self.interative_decoder.head_cache[:, :current_step]
                     self.interative_decoder.mask_cache = self.interative_decoder.mask_cache[:, :current_step]
                     self.interative_decoder.head_vector_cache = self.interative_decoder.head_vector_cache[:,
                                                                 :current_step]
-
-                    # if self.token_processor.use_bird:
                     self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:current_step]
-                    # else:
-                    #     self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:, :current_step]
                 else:
                     next_token_logits,_,_,_,entry_logit,init_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,0,abs_time)
@@ -479,7 +496,7 @@ class SMARTAgentDecoder(nn.Module):
 
         out_dict = {
             "type": tokenized_agent["type"],
-            "shape": tokenized_agent["shape"],
+            "shape": shape,
             "batch": tokenized_agent["batch"],
             "sampled_pos": pos_a,  # [n_agent, 18, 2]
             "sampled_heading": head_a,  # [n_agent, 18]
@@ -494,6 +511,10 @@ class SMARTAgentDecoder(nn.Module):
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
 
+            if self.pred_init:
+                out_dict["pred_traj_10hz"] = torch.cat([pos_a[:,:1],out_dict["pred_traj_10hz"]], dim=1)
+                out_dict["pred_head_10hz"] = torch.cat([head_a[:,:1],out_dict["pred_head_10hz"]], dim=1)
+
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
             if self.token_processor.pred_entry :
@@ -506,12 +527,9 @@ class SMARTAgentDecoder(nn.Module):
                 new_shape=tokenized_agent["shape"][~current_valid][:,None].repeat(1,new_xy.shape[1],1)
 
                 out_dict["new_agent"]=torch.cat([new_xy, new_head, new_shape], dim=-1)
-
-
                 out_dict["pred_traj_10hz"]=out_dict["pred_traj_10hz"][current_valid]
                 out_dict["pred_head_10hz"]=out_dict["pred_head_10hz"][current_valid]
                 out_dict["pred_z_10hz"]=out_dict["pred_z_10hz"][current_valid]
-
 
         return out_dict
 

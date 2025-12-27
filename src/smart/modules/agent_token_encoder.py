@@ -168,7 +168,7 @@ class AgentTokenEncoder(nn.Module):
                     pos_a[:, 1:] - pos_a[:, :-1],
                 ],
                 dim=1,
-            )
+            )[:,-n_step:]
         else:
            motion_vector_a=pos_a[:, 1:] - pos_a[:, :-1]
 

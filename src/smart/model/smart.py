@@ -202,7 +202,6 @@ class SMART(LightningModule):
                 )
                 pred_traj.append(pred["pred_traj_10hz"])
 
-
                 if not self.token_processor.use_bird:
                     pred_z.append(pred["pred_z_10hz"])
                     pred_head.append(pred["pred_head_10hz"])
@@ -223,11 +222,6 @@ class SMART(LightningModule):
                     new_agent=torch.stack(new_agent, dim=1)
 
             if self.challenge_type == _ChallengeType.SCENARIO_GEN:
-
-                pred_traj =torch.cat([pred_traj[:,:,:11], pred_traj], dim=2)
-                pred_z =torch.cat([pred_z[:,:,:11], pred_z], dim=2)
-                pred_head=torch.cat([pred_head[:,:,:11], pred_head], dim=2)
-
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
 

@@ -95,10 +95,12 @@ class Attr_Tokenizer(nn.Module):
 
         return index.long(), offset_xy
 
-    def decode_pos(self, index, y=None, theta_y=None):
+    def decode_pos(self, index, offset_xy,y=None, theta_y=None):
         assert torch.all((index >= 0) & (index < self.grid_size))
         centered_x = self.grid.to(index.device)[index.long()]
         if y is not None:
+            if offset_xy is not None:
+                centered_x=offset_xy+centered_x
             if theta_y is not None:
                 centered_x = self._apply_rot(centered_x[:, None], (theta_y - self.heading).expand(centered_x.shape[0]))[:, 0]
             x = centered_x + y
