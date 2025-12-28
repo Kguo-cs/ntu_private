@@ -189,6 +189,9 @@ class TokenProcessor(torch.nn.Module):
             if self.training:
                 initial_pos=tokenized_agent["sampled_pos"][:,1]
                 initial_heading=tokenized_agent["sampled_heading"][:,1]
+
+                tokenized_agent["token_mask"][:,:1]=False
+
             else:
                 initial_pos=data["agent"]["position"][:,0,:2]
                 initial_heading=data["agent"]["heading"][:,0]
@@ -217,25 +220,13 @@ class TokenProcessor(torch.nn.Module):
 
             sort_idx=sort_rank.argsort()
 
-            # ego_idx=torch.where(ego_mask[sort_idx])
-            #
-            # print(torch.where(ego_mask[sort_idx]))
-
             tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
             tokenized_agent["initial_offset_xyh"]=offset_xyh[sort_idx]
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
             tokenized_agent["initial_shape"]=shape[sort_idx]
-
             tokenized_agent["initial_pos"]=initial_pos[sort_idx]
             tokenized_agent["initial_heading"]=initial_heading[sort_idx]
             tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
-
-            #batch = tokenized_agent["batch"][sort_idx]
-
-            # else:
-            #     sort_rank= batch*1e7+type*1e6
-            #     sort_idx=sort_rank.argsort()
-
             tokenized_agent["initial_type"]=type[sort_idx]
 
         return tokenized_map, tokenized_agent
@@ -289,12 +280,9 @@ class TokenProcessor(torch.nn.Module):
 
         if self.autoregressive_entry:
             entry_token = os.path.join(module_dir, 'entry_prev_global512.pkl')
-
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
-
-
             if self.token_offset:
                 module_dir = os.path.dirname(__file__)
                 offset_token=os.path.join(module_dir, 'offset512.pkl')
@@ -303,9 +291,7 @@ class TokenProcessor(torch.nn.Module):
                 self.register_buffer(f"offset_token", offset_token, persistent=False)
                 self.n_token_offset = self.offset_token.shape[0]
             else:
-
                 self.n_token_offset=4
-
         else:
             entry_token = os.path.join(module_dir, 'entry512.pkl')
 
