@@ -29,6 +29,7 @@ from waymo_open_dataset.protos import (
 )
 import os
 from waymo_open_dataset.utils.sim_agents import submission_specs
+from tqdm import tqdm
 _ChallengeType = submission_specs.ChallengeType
 
 working_dir=os.getcwd()
@@ -117,7 +118,7 @@ class WOSACMetrics(Metric):
                 pool.join()
         else:
             self.pool_scenario_metrics = []
-            for _scenario, _scenario_rollout in zip(scenario_files, scenario_rollouts):
+            for _scenario, _scenario_rollout in tqdm(zip(scenario_files, scenario_rollouts)):
                 self.pool_scenario_metrics.append(
                     self._compute_scenario_metrics(
                         self.wosac_config, _scenario, _scenario_rollout, self.ego_only,self.challenge_type
