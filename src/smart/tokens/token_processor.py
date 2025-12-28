@@ -68,6 +68,11 @@ class TokenProcessor(torch.nn.Module):
         self.enter_state= 2
         self.exit_state= 3
         self.pl2seed_radius=81
+        self.pred_init=pred_init
+
+        if self.pred_init:
+            self.n_token_entry=self.attr_tokenizer.grid_size
+            self.pred_exit=False
 
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
                                              grid_interval=3,
@@ -85,10 +90,6 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.pred_init=pred_init
-
-        if self.pred_init:
-            self.n_token_entry=self.attr_tokenizer.grid_size
 
         # if self.use_infgen:
 

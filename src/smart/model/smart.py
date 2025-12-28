@@ -350,7 +350,7 @@ class SMART(LightningModule):
                         # )
                     print('start metric evaluation')
 
-                    if len(scenario_rollouts) > 32 or self.challenge_type == _ChallengeType.SCENARIO_GEN:
+                    if len(scenario_rollouts) > 32:
                         self.wosac_metrics.update(data["tfrecord_path"][:len(scenario_rollouts)//2], scenario_rollouts[:len(scenario_rollouts)//2])
                         self.wosac_metrics.update(data["tfrecord_path"][len(scenario_rollouts)//2:], scenario_rollouts[len(scenario_rollouts)//2:])
                     else:
