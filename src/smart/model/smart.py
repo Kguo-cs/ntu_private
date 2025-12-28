@@ -76,8 +76,10 @@ class SMART(LightningModule):
 
         if self.token_processor.pred_init:
             self.challenge_type=_ChallengeType.SCENARIO_GEN
+            self.para_num=8
         else:
             self.challenge_type=_ChallengeType.SIM_AGENTS
+            self.para_num=32
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -351,10 +353,10 @@ class SMART(LightningModule):
                     print('start metric evaluation')
                     time1=time.time()
 
-                    if len(scenario_rollouts) > 32:
-                        for i in range(len(scenario_rollouts) // 32):  # 64
-                            self.wosac_metrics.update(data["tfrecord_path"][32 * i:32 * (i + 1)],
-                                                      scenario_rollouts[32 * i:32 * (i + 1)])
+                    if len(scenario_rollouts) > self.para_num:
+                        for i in range(len(scenario_rollouts) // self.para_num):  # 64
+                            self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
+                                                      scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
                     else:
                         self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
 
