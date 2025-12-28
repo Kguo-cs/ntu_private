@@ -350,8 +350,8 @@ class SMART(LightningModule):
                         # )
 
                     if len(scenario_rollouts) > 32:
-                        self.wosac_metrics.update(data["tfrecord_path"][:20], scenario_rollouts[:20])
-                        self.wosac_metrics.update(data["tfrecord_path"][20:], scenario_rollouts[20:])
+                        self.wosac_metrics.update(data["tfrecord_path"][:len(scenario_rollouts)//2], scenario_rollouts[:len(scenario_rollouts)//2])
+                        self.wosac_metrics.update(data["tfrecord_path"][len(scenario_rollouts)//2:], scenario_rollouts[len(scenario_rollouts)//2:])
                     else:
                         self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
 

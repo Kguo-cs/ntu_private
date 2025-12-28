@@ -341,7 +341,8 @@ class SMARTAgentDecoder(nn.Module):
             head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
             if self.pred_entry or self.token_processor.use_bird:
-               self.enter()
+               self.enter(entry_logit,present_mask,batch,next_mask,pos_a_next,head_a_next,pos_a,head_a,tokenized_agent,
+              gt_valid,gt_pos,gt_head,t,pred_traj,exit_mask)
             else:
                 if self.token_processor.pred_exit:
                     next_mask = next_mask & ~exit_mask
@@ -420,7 +421,8 @@ class SMARTAgentDecoder(nn.Module):
 
         return out_dict
 
-    def enter(self):
+    def enter(self,entry_logit,present_mask,batch,next_mask,pos_a_next,head_a_next,pos_a,head_a,tokenized_agent,
+              gt_valid,gt_pos,gt_head,t,pred_traj,exit_mask  ):
         # agent_token_emb=self.agent_token_embedding.get_embedding(next_token_idx[next_mask][:,None],tokenized_agent["type"][next_mask],~exit_mask[next_mask][:,None])
         #
         # feat_a = feat_a + agent_token_emb[:,0]
@@ -447,7 +449,7 @@ class SMARTAgentDecoder(nn.Module):
 
                     non_present_idx = torch.nonzero((batch == b) & non_present_mask, as_tuple=False).squeeze(1)
                     if len(non_present_idx) == 0:
-                        print('full entry', t, b)
+                        print('full entry',  b)
                         continue
 
                     chosen = non_present_idx[:n_new]

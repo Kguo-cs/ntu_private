@@ -55,8 +55,14 @@ class InitDecoder(nn.Module):
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
 
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
-                                         hist_len=self.entry_his_len)        # drop 01 is important
+        self.use_refine=False
+
+        if self.use_refine:
+
+            self.use_refine = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
+                                             hist_len=self.entry_his_len)        # drop 01 is important
+
+
 
         self.pos_embedding = nn.Embedding(self.n_token_entry , hidden_dim)
         self.head_embedding = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
@@ -83,9 +89,12 @@ class InitDecoder(nn.Module):
         shape_embedding = self.shape_embedding(initial_shape)
         heading_embedding = self.head_embedding(initial_heading_token)
         pos_embedding = self.pos_embedding(initial_pos_token)
-        offset_embedding = self.offset_embedding(initial_offset_xyh)
 
-        feat_a = type_embedding + shape_embedding + heading_embedding + pos_embedding + offset_embedding
+        feat_a = type_embedding + shape_embedding + heading_embedding + pos_embedding
+
+        if initial_offset_xyh.any():
+            offset_embedding = self.offset_embedding(initial_offset_xyh)
+            feat_a = feat_a + offset_embedding
 
         pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch)
 
@@ -105,7 +114,7 @@ class InitDecoder(nn.Module):
         feat_map_b = feat_map_b + ego_feature[:, None]
 
         if self.training:
-            pred_mask = ~tokenized_agent["ego_mask"]
+            pred_mask = ~tokenized_agent["ego_mask"]#non-last mask
             iteration_num=1
         else:
             pred_mask = tokenized_agent["initial_ego_mask"]
@@ -125,17 +134,26 @@ class InitDecoder(nn.Module):
             if self.use_entry_former:
                 self.entry_former.attn.caching = True
 
-            ego_position=tokenized_agent["initial_pos"][pred_mask]
-            ego_heading=tokenized_agent["initial_heading"][pred_mask]
-
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
         initial_offset_xyh = tokenized_agent["initial_offset_xyh"][pred_mask]
         initial_heading_token = tokenized_agent["initial_heading_token"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
-        initial_pos = tokenized_agent["initial_pos"][pred_mask]
-        initial_heading = tokenized_agent["initial_heading"][pred_mask]
         batch=tokenized_agent["batch"][pred_mask]
+        ego_position=tokenized_agent["initial_pos"][pred_mask]
+        ego_heading=tokenized_agent["initial_heading"][pred_mask]
+
+        if self.use_refine:
+            initial_offset_xyh=None
+            initial_pos = self.token_processor.attr_tokenizer.decode_pos(initial_pos_token, None,
+                                                                         ego_position, ego_heading)
+
+            token_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
+
+            initial_heading = wrap_angle(token_heading + ego_heading)
+        else:
+            initial_pos = tokenized_agent["initial_pos"][pred_mask]
+            initial_heading = tokenized_agent["initial_heading"][pred_mask]
 
         global_pos_list=[initial_pos]
         global_heading_list=[initial_heading]
@@ -144,6 +162,7 @@ class InitDecoder(nn.Module):
         for n_current in range(iteration_num):
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch)
+
 
             entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
                                                               heading_a_b, mask_a_b,
@@ -159,10 +178,15 @@ class InitDecoder(nn.Module):
 
             pos_logit = self.pos_decoder(attr_feature)
             head_logit = self.head_decoder(attr_feature)
-            initial_offset_xyh = self.offset_head_decoder(attr_feature)
             initial_shape = self.shape_head_decoder(attr_feature)
-            initial_offset_xyh[...,:2] = torch.tanh(initial_offset_xyh[...,:2]) * self.token_processor.attr_tokenizer.grid_interval/2
-            initial_offset_xyh[...,2] = torch.tanh(initial_offset_xyh[...,2]) * (torch.pi/self.token_processor.n_token_entry_head)
+
+            if not self.use_refine:
+                initial_offset_xyh = self.offset_head_decoder(attr_feature)
+
+                initial_offset_xyh[...,:2] = torch.tanh(initial_offset_xyh[...,:2]) * self.token_processor.attr_tokenizer.grid_interval/2
+                initial_offset_xyh[...,2] = torch.tanh(initial_offset_xyh[...,2]) * (torch.pi/self.token_processor.n_token_entry_head)
+            else:
+                initial_offset_xyh = torch.zeros_like(initial_shape)
 
             entry_logit=(pos_logit,head_logit,initial_offset_xyh,initial_shape)
 
@@ -181,6 +205,28 @@ class InitDecoder(nn.Module):
                 shape_list.append(initial_shape)
 
                 initial_type=all_initial_type[:,n_current+1]
+
+        if self.use_refine:
+            refine_initial_pos = tokenized_agent["initial_pos"][pred_mask]
+            refine_initial_heading = tokenized_agent["initial_heading"][pred_mask]
+
+            if not self.training:
+                initial_pos = tokenized_agent["initial_pos"][pred_mask]
+                initial_heading = tokenized_agent["initial_heading"][pred_mask]
+            else:
+                global_token_pos = torch.stack(global_pos_list, dim=1)[agent_mask]  # 32,125
+                global_token_heading = torch.stack(global_heading_list, dim=1)[agent_mask]
+
+            offset_embedding = self.offset_embedding(initial_offset_xyh)
+
+
+            pos_a_b, heading_a_b, feat_offset, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch)
+
+            entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                                                              heading_a_b, mask_a_b,
+                                                              entry_feature,
+                                                              pos_pl_b,
+                                                              orient_pl_b, map_mask)
 
         if not self.training:
             self.attr_former.attn.kv_caching(0)
