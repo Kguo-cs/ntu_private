@@ -78,8 +78,8 @@ class InitDecoder(nn.Module):
         self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,self.pos_dim + 1)  # offset to offset
         self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
-    def padding(self,pos,heading,feature,batch):
-        lengths = torch.bincount(batch).tolist()
+    def padding(self,pos,heading,feature,batch,batch_num):
+        lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
         padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
         padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
@@ -87,7 +87,7 @@ class InitDecoder(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self,initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch ):
+    def embed_input(self,initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num ):
         type_embedding = self.type_embedding(initial_type)
         shape_embedding = self.shape_embedding(initial_shape)
         heading_embedding = self.head_embedding(initial_heading_token)
@@ -99,7 +99,7 @@ class InitDecoder(nn.Module):
             offset_embedding = self.offset_embedding(initial_offset_xyh)
             feat_a = feat_a + offset_embedding
 
-        pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch)
+        pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch,batch_num)
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
@@ -111,7 +111,10 @@ class InitDecoder(nn.Module):
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
-        pos_pl_b, orient_pl_b, feat_map_b = self.padding(pos_pl, orient_pl, feat_map, batch_pl)
+
+        batch_num=tokenized_agent["num_graphs"]
+
+        pos_pl_b, orient_pl_b, feat_map_b = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
         map_mask = torch.any(feat_map_b != 0, dim=-1)
 
         feat_map_b = feat_map_b + ego_feature[:, None]
@@ -164,7 +167,7 @@ class InitDecoder(nn.Module):
 
         for n_current in range(iteration_num):
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch)
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num)
 
 
             entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
