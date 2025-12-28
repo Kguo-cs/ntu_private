@@ -79,7 +79,7 @@ class SMART(LightningModule):
             self.para_num=8
         else:
             self.challenge_type=_ChallengeType.SIM_AGENTS
-            self.para_num=32
+            self.para_num=64
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -360,7 +360,9 @@ class SMART(LightningModule):
                     else:
                         self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
 
-                    print('end metric evaluation',time.time()-time1)#322.7260935306549/4  #end metric evaluation 54.91072988510132
+                    print('end metric evaluation',time.time()-time1)
+                    #322.7260935306549/4  #end metric evaluation 54.91072988510132
+                    #sim32
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
