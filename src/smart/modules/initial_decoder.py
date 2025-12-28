@@ -55,11 +55,14 @@ class InitDecoder(nn.Module):
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
 
+        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
+                                         hist_len=self.entry_his_len)        # drop 01 is important
+
         self.use_refine=False
 
         if self.use_refine:
 
-            self.use_refine = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
+            self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
 
