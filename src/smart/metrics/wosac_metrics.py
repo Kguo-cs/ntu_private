@@ -98,7 +98,7 @@ class WOSACMetrics(Metric):
         scenario_files: List[str],
         scenario_rollouts: List[sim_agents_submission_pb2.ScenarioRollouts],
     ) :
-        if  (('keguo' in working_dir) or ("guoke" in working_dir)) and self.challenge_type==_ChallengeType.SIM_AGENTS:#or "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
+        if  (('keguo' in working_dir) or ("guoke" in working_dir)) :#and self.challenge_type==_ChallengeType.SIM_AGENTSor "guoke" in working_diros.environ.get("CUDA_VISIBLE_DEVICES", "") in ["", "0"] and
             if not self.is_mp_init:
                 self.is_mp_init = True
                 mp.set_start_method("forkserver", force=True)
@@ -125,7 +125,7 @@ class WOSACMetrics(Metric):
                     )
                 )
 
-        # print("finished computing scenario metrics")
+        print("finished computing scenario metrics")
 
         for scenario_metrics in self.pool_scenario_metrics:
             self.scenario_counter += 1
