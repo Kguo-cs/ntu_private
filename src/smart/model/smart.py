@@ -349,7 +349,7 @@ class SMART(LightningModule):
                         #     scenario, simulated_states, simulated_sizes, agent_id
                         # )
 
-                    if len(scenario_rollouts) > 32:
+                    if len(scenario_rollouts) > 32 or self.challenge_type == _ChallengeType.SCENARIO_GEN:
                         self.wosac_metrics.update(data["tfrecord_path"][:len(scenario_rollouts)//2], scenario_rollouts[:len(scenario_rollouts)//2])
                         self.wosac_metrics.update(data["tfrecord_path"][len(scenario_rollouts)//2:], scenario_rollouts[len(scenario_rollouts)//2:])
                     else:
