@@ -58,20 +58,16 @@ class InitDecoder(nn.Module):
         self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
-
         self.pos_embedding = nn.Embedding(self.n_token_entry , hidden_dim)
         self.head_embedding = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
-        self.shape_embedding = MLPLayer(input_dim=3, hidden_dim=hidden_dim, output_dim=hidden_dim)
+        self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
         self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
 
-        self.pos_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.n_token_entry )
-        self.head_decoder = MLPLayer(
-            input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=self.token_processor.n_token_entry_head
-        )
-        self.offset_head_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                            output_dim=self.pos_dim + 1)  # offset to offset
-        self.shape_head_decoder = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=3)
+        self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
+        self.head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.n_token_entry_head )
+        self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,self.pos_dim + 1)  # offset to offset
+        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
     def padding(self,pos,heading,feature,batch):
         lengths = torch.bincount(batch).tolist()
@@ -121,7 +117,6 @@ class InitDecoder(nn.Module):
             agent_mask=all_initial_type!=-1
 
             all_initial_type[~agent_mask]=0
-            # agent_mask=agent_mask.transpose(0,1)
 
             iteration_num=all_initial_type.shape[1]-1
 
@@ -196,12 +191,9 @@ class InitDecoder(nn.Module):
             global_heading = torch.stack(global_heading_list,dim=1)[agent_mask]
             shape = torch.stack(shape_list,dim=1)[agent_mask]
 
-            return global_pos[:,None], global_heading[:,None], shape
+            tokenized_agent["shape"]=shape
 
-            # tokenized_agent["sampled_pos"]=global_pos[:,None]
-            # tokenized_agent["sampled_heading"]=global_heading[:,None]
-            # tokenized_agent["shape"]=shape
-
+            return global_pos[:,None], global_heading[:,None]
 
         return entry_logit
         # after interact with agent and map,  predict state and type and shape and tokenized position,
