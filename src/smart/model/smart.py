@@ -36,7 +36,7 @@ from src.smart.metrics.bird_metrics import compute_bird_metrics,MetricDict
 from src.smart.plot.plot_rollout import plot_rollout_frames
 from waymo_open_dataset.utils.sim_agents import submission_specs
 _ChallengeType = submission_specs.ChallengeType
-
+import time
 
 class SMART(LightningModule):
 
@@ -349,12 +349,15 @@ class SMART(LightningModule):
                         #     scenario, simulated_states, simulated_sizes, agent_id
                         # )
                     print('start metric evaluation')
+                    time1=time.time()
 
                     if len(scenario_rollouts) > 32:
                         self.wosac_metrics.update(data["tfrecord_path"][:len(scenario_rollouts)//2], scenario_rollouts[:len(scenario_rollouts)//2])
                         self.wosac_metrics.update(data["tfrecord_path"][len(scenario_rollouts)//2:], scenario_rollouts[len(scenario_rollouts)//2:])
                     else:
                         self.wosac_metrics.update(data["tfrecord_path"], scenario_rollouts)
+
+                    print('end metric evaluation',time.time()-time1)
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
