@@ -351,7 +351,7 @@ class SMART(LightningModule):
                     print('start metric evaluation')
                     time1=time.time()
 
-                    for i in range(len(scenario_rollouts) // 32):  # 64
+                    for i in range((len(scenario_rollouts)+1) // 32):  # 64
                         self.wosac_metrics.update(data["tfrecord_path"][32 * i:32 * (i + 1)],
                                                   scenario_rollouts[32 * i:32 * (i + 1)])
 
