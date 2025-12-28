@@ -361,7 +361,7 @@ class SMART(LightningModule):
                         self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
 
                     print('end metric evaluation',time.time()-time1)
-                    #322.7260935306549/4  #end metric evaluation 54.91072988510132
+                    #322.7260935306549/4  #end metric evaluation 54.91072988510132 para4->end metric evaluation 280.7700307369232
                     #sim end metric evaluation para32->124.54043221473694  para64->
 
             # ! visualization
