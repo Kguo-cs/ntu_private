@@ -176,8 +176,10 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         # data["light"]=process_light(map_infos,tf_lights,tf_current_light)
 
         #data["scenario_id"] = scenario_id
-        with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
-            pickle.dump(data, f)
+        # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
+        #     pickle.dump(data, f)
+
+        torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
 
         # if output_dir_tfrecords_splitted is not None:
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
@@ -213,7 +215,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/media/ke/Windows/waymo_data/waymo",
+        default="/home/ke/code/waymo",
     )
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map2_light"
@@ -226,17 +228,17 @@ if __name__ == "__main__":
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     )
 
-    args.split='testing'
-
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    )
-
-    args.split='training'
-
-    batch_process9s_transformer(
-        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    )
+    # args.split='testing'
+    #
+    # batch_process9s_transformer(
+    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    # )
+    #
+    # args.split='training'
+    #
+    # batch_process9s_transformer(
+    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    # )
     #
     #
     # files = os.listdir(data_directory)
