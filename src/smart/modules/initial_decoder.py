@@ -139,6 +139,8 @@ class InitDecoder(nn.Module):
 
             if self.use_entry_former:
                 self.entry_former.attn.caching = True
+            ego_position=tokenized_agent["initial_pos"][pred_mask]
+            ego_heading=tokenized_agent["initial_heading"][pred_mask]
 
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
@@ -146,8 +148,6 @@ class InitDecoder(nn.Module):
         initial_heading_token = tokenized_agent["initial_heading_token"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
         batch=tokenized_agent["batch"][pred_mask]
-        ego_position=tokenized_agent["initial_pos"][pred_mask]
-        ego_heading=tokenized_agent["initial_heading"][pred_mask]
 
         if self.use_refine:
             initial_offset_xyh=None

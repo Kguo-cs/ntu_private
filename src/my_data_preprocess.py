@@ -194,7 +194,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[1:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[31:]
     func = partial(
         wm2argo,
         split=split,
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/media/ke/Windows/waymo_data",
+        default="/media/ke/Windows/waymo_data/waymo",
     )
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/code/catk/src/waymo_data/map2_light"
@@ -226,17 +226,17 @@ if __name__ == "__main__":
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     )
 
-    # args.split='validation'
-    #
-    # batch_process9s_transformer(
-    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    # )
-    #
-    # args.split='testing'
-    #
-    # batch_process9s_transformer(
-    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    # )
+    args.split='testing'
+
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    )
+
+    args.split='training'
+
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    )
     #
     #
     # files = os.listdir(data_directory)

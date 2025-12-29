@@ -29,14 +29,12 @@ model:
     smart : false
     decoder:
       hist_drop_prob: 0.1 #0.1 #0.1
-#      hidden_dim: 64
-#      num_freq_bands: 32
-#      num_heads: 8
-#      head_dim: 8
-#      num_agent_layers: 1
+
+    token_processor:
+      pred_init: True
 
 
-ckpt_path: '/home/ke/code/catk/src/epoch=0-step=12175.ckpt'
+ckpt_path: '/home/ke/code/catk/src/last.ckpt'
 
 trainer:
   limit_train_batches: 1.0
@@ -46,7 +44,7 @@ trainer:
 
 data:
   train_batch_size: 2
-  val_batch_size: 128
+  val_batch_size: 64
   test_batch_size: 128
   num_workers: 32
   shuffle: false

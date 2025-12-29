@@ -84,7 +84,7 @@ class VisWaymo:
             COLOR_VIOLET,  # FLASHING = 4;
         ]
         # sdc=0, interest=1, predict=2
-        self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_MAGENTA]
+        self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_ALUMINIUM_0]#COLOR_MAGENTA]
 
         self.agent_cmd_txt = [
             "STATIONARY",  # STATIONARY = 0;

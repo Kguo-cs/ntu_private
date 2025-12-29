@@ -63,6 +63,7 @@ class WOSACSubmission(Metric):
                 "pred_traj",
                 "pred_z",
                 "pred_head",
+                "pred_sizes"
             ]
             for k in self.data_keys:
                 self.add_state(k, default=[], dist_reduce_fx="cat")
@@ -75,6 +76,7 @@ class WOSACSubmission(Metric):
         pred_traj: Tensor,
         pred_z: Tensor,
         pred_head: Tensor,
+        pred_sizes,
         global_rank: int,
     ) -> None:
         _device = pred_traj.device
@@ -83,6 +85,7 @@ class WOSACSubmission(Metric):
         self.pred_traj.append(pred_traj)
         self.pred_z.append(pred_z)
         self.pred_head.append(pred_head)
+        self.pred_sizes.append(pred_sizes)
 
         batch_size = len(scenario_id)
         self.agent_batch.append(agent_batch + batch_size * global_rank)
@@ -136,6 +139,7 @@ class WOSACSubmission(Metric):
             num_model_parameters="7M",
             acknowledge_complies_with_closed_loop_requirement=True,
         )
+
         output_filename = self.submission_dir / f"submission.binproto-{self.i_file:05d}"
         log.info(f"Saving wosac submission files to {output_filename}")
         with open(output_filename, "wb") as f:

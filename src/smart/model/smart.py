@@ -299,6 +299,7 @@ class SMART(LightningModule):
                     pred_traj=pred_traj,
                     pred_z=pred_z,
                     pred_head=pred_head,
+                    pred_sizes=pred_sizes,
                     global_rank=self.global_rank,
                 )
                 _gpu_dict_sync = self.wosac_submission.compute()
@@ -337,19 +338,6 @@ class SMART(LightningModule):
                         pred_head=pred_head,
                         pred_sizes=pred_sizes,
                     )
-                    # else:
-                    #     simulated_states=torch.cat([pred_traj, pred_z[...,None], pred_head[...,None]],dim=-1)
-                    #
-                    #     simulated_sizes=data['agent']['shape']
-                    #
-                    #     agent_id=data["agent"]["id"]
-
-                        # states: (32, 8, 91, 4)
-                        # simulated_sizes(32, 8, 91, 3)
-
-                        # scenario_rollouts = scenario_rollouts_from_states(
-                        #     scenario, simulated_states, simulated_sizes, agent_id
-                        # )
                     print('start metric evaluation')
                     time1=time.time()
 
