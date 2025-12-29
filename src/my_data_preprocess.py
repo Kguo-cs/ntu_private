@@ -228,11 +228,11 @@ if __name__ == "__main__":
         args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
     )
 
-    # args.split='testing'
-    #
-    # batch_process9s_transformer(
-    #     args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
-    # )
+    args.split='testing'
+
+    batch_process9s_transformer(
+        args.input_dir, args.output_dir, args.split, num_workers=args.num_workers
+    )
     #
     # args.split='training'
     #

@@ -221,7 +221,7 @@ class SMART(LightningModule):
                 pred_head = torch.stack(pred_head, dim=1)  # [n_ag, n_rollout, n_step]
 
                 if len(new_agent):
-                    new_agent=torch.stack(new_agent, dim=1)
+                    new_agent=torch.stack(new_agent, dim=1).cpu().numpy()
 
             if self.challenge_type == _ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
@@ -331,7 +331,7 @@ class SMART(LightningModule):
                         scenario_id=get_scenario_id_int_tensor(
                             data["scenario_id"], device
                         ),
-                        agent_id=data["agent"]["id"],
+                        agent_id=tokenized_agent['id'],
                         agent_batch=data["agent"]["batch"],
                         pred_traj=pred_traj,
                         pred_z=pred_z,
@@ -341,14 +341,14 @@ class SMART(LightningModule):
                     print('start metric evaluation')
                     time1=time.time()
 
-                    if len(scenario_rollouts) > self.para_num:
-                        for i in range(len(scenario_rollouts) // self.para_num):  # 64
-                            self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
-                                                      scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
-                    else:
-                        self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
-
-                    print('end metric evaluation',time.time()-time1)
+                    # if len(scenario_rollouts) > self.para_num:
+                    #     for i in range(len(scenario_rollouts) // self.para_num):  # 64
+                    #         self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
+                    #                                   scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
+                    # else:
+                    #     self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
+                    #
+                    # print('end metric evaluation',time.time()-time1)
                     #322.7260935306549/4  #end metric evaluation 54.91072988510132 para4->end metric evaluation 280.7700307369232
                     #sim end metric evaluation para32->124.54043221473694  para64->
 
@@ -363,7 +363,7 @@ class SMART(LightningModule):
                             / f"step_{self.global_step}_batch_{batch_idx:02d}-scenario_{_i_sc:02d}",
                         )
                         _vis.save_video_scenario_rollout(
-                            scenario_rollouts[_i_sc], self.n_vis_rollout,new_agent[_i_sc*100:(_i_sc+1)*100].cpu().numpy()
+                            scenario_rollouts[_i_sc], self.n_vis_rollout,new_agent[_i_sc*100:(_i_sc+1)*100],
                         )
                         # for _path in _vis.video_paths:
                         #     self.logger.log_video(

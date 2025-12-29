@@ -142,7 +142,7 @@ class VisWaymo:
             self._draw_agents(im_gt_agents, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
             for i in range(len(im_gt_agents)):
                 self.im_gt_blended.append(
-                    cv2.addWeighted(im_gt_agents[i], 0.6, im_gt_maps[i], 1, 0)
+                    cv2.addWeighted(im_gt_agents[i], 0.1, im_gt_maps[i], 1, 0)
                 )
         else:
             for i in range(n_step):
@@ -283,42 +283,54 @@ class VisWaymo:
         self,
         scenario_rollout: sim_agents_submission_pb2.ScenarioRollouts,
         n_vis_rollout: int,
-        new_agent
+        new_agent=None
     ):
         for i_rollout in range(n_vis_rollout):
-            images = deepcopy(self.im_gt_blended)
+            images = deepcopy(self.im_gt_blended)#46  0,91,2 0,2,...,10,12
             ag_valid, ag_xy, ag_yaw, ag_size, ag_role = self._get_features_from_trajs(
                 scenario_rollout.joint_scenes[i_rollout].simulated_trajectories
             )
 
-            self._draw_agents(
-                images[self.step_current//self.interval + 1 :],
-                ag_valid[:,::self.interval],
-                ag_xy[:,::self.interval],
-                ag_yaw[:,::self.interval],
-                ag_size,
-                ag_role,
-            )
+            if len(images)==ag_valid[:,::self.interval].shape[1]:
+                self._draw_agents(
+                    images,
+                    ag_valid[:,::self.interval],#11,13
+                    ag_xy[:,::self.interval],
+                    ag_yaw[:,::self.interval],
+                    ag_size,
+                    ag_role,
+                )
+            else:
+                self._draw_agents(
+                    images[self.step_current//self.interval + 1 :],
+                    ag_valid[:,self.interval-1::self.interval],#11,13
+                    ag_xy[:,self.interval-1::self.interval],
+                    ag_yaw[:,self.interval-1::self.interval],
+                    ag_size,
+                    ag_role,
+                )
 
-            new_agent_i=new_agent[:,i_rollout]
+            if len(new_agent):
 
-            new_xy=new_agent_i[:,:,:2]
-            new_yaw=new_agent_i[:,:,2:3]
-            new_size=new_agent_i[:,0,3:]
+                new_agent_i=new_agent[:,i_rollout]
 
-            new_role=np.zeros_like(new_size)
-            new_role[:,1]=True
+                new_xy=new_agent_i[:,:,:2]
+                new_yaw=new_agent_i[:,:,2:3]
+                new_size=new_agent_i[:,0,3:]
 
-            new_valid=np.any(new_xy!=10000,axis=-1)
+                new_role=np.zeros_like(new_size)
+                new_role[:,1]=True
 
-            self._draw_agents(
-                images[self.step_current // self.interval + 1:],
-                new_valid[:, ::self.interval],
-                new_xy[:, ::self.interval],
-                new_yaw[:, ::self.interval],
-                new_size,
-                new_role,
-            )
+                new_valid=np.any(new_xy!=10000,axis=-1)
+
+                self._draw_agents(
+                    images[self.step_current // self.interval + 1:],
+                    new_valid[:, ::self.interval],
+                    new_xy[:, ::self.interval],
+                    new_yaw[:, ::self.interval],
+                    new_size,
+                    new_role,
+                )
 
             _video_path = (self.save_dir / f"rollout_{i_rollout:02d}.mp4").as_posix()
             self.video_paths.append(_video_path)
@@ -345,7 +357,10 @@ class VisWaymo:
         for i_ag, _traj in enumerate(trajs):
             ag_xy[i_ag] = np.stack([_traj.center_x, _traj.center_y], axis=-1)
             ag_yaw[i_ag, :, 0] = _traj.heading
-            ag_size[i_ag] = self.ag_id2size[_traj.object_id]
+            # ag_size[i_ag] = self.ag_id2size[_traj.object_id]
+            ag_size[i_ag,0] = _traj.length[0]#self.ag_id2size[_traj.object_id]
+            ag_size[i_ag,1] = _traj.width[0]#self.ag_id2size[_traj.object_id]
+            ag_size[i_ag,2] = _traj.height[0]#self.ag_id2size[_traj.object_id]
             ag_role[i_ag] = self.ag_id2role[_traj.object_id]
 
         return ag_valid, ag_xy, ag_yaw, ag_size, ag_role
