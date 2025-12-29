@@ -218,7 +218,7 @@ if __name__ == "__main__":
         default="/home/ke/keguo/waymo",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/sim/src/waymo_data/map2_light"
+        "--output_dir", type=str, default="/home/ke/keguo/sim/src/waymo_data/map2_light"
     )
     parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
