@@ -1,14 +1,8 @@
 export PBS_JOBID=83255.pbs111
 
-
-rsync -avz /home/ke/code/catk/src/waymo_data/full/nuplan_cross2_route shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
-
-rsync -avz /home/ke/code/catk/src/waymo_data/full/validation shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/  
-
-
 rsync -avz   ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_light ./
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
+rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/validation_map2light ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/   
 
@@ -16,16 +10,11 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/testing_map2 ./
 
 rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/waymo_data/full/training_map2_03_light guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/catk/src/waymo_data/full/training_inter10_raw zhangshu@aspire2antu.nscc.sg:~/scratch/sim/src/waymo_data/full/ 
-
-rsync -avz /home/ke/code/catk/src/waymo_data/full/validation_tfrecords_splitted lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
+rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_03_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/
 
 rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bcgen40_feat2_token0_shape_noexit/2025-12-28_18-20-20/bc/vnic9sk3/checkpoints/last.ckpt ./
-
-
-rsync -avz shanhelo@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/AIRL80_4025_00_dis60_1m/2025-11-20_10-14-36/sim/9ixc77v2/checkpoints/epoch=2-step=15220.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/keguo/sim/src/waymo_data/full/training_map2_03_light ./
 
