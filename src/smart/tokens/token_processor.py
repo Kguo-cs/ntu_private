@@ -147,7 +147,6 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent['type']=tokenized_agent['type'].long()
 
-
         if not self.training and self.pred_entry:
             batch = tokenized_agent["batch"].clone()
 
@@ -186,10 +185,6 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent[key]=tokenized_agent[key][:,1:]
 
                 tokenized_agent["token_mask"][:,:1]=False
-
-            # else:
-            #     initial_pos=data["agent"]["position"][:,0,:2]
-            #     initial_heading=data["agent"]["heading"][:,0]
 
             shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]
