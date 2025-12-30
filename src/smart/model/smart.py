@@ -237,8 +237,11 @@ class SMART(LightningModule):
                     ego_mask=ego_mask[ego_mask],
                     abs_time=abs_time,
                 )
-                map_feature["ego_feature"] = feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).sum(0)  # (2, num_agent)
 
+                ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).sum(0)
+                batch_ego_feature = ego_feature[map_feature['batch']]
+
+                map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
 
             for _ in range(self.n_rollout_closed_val):
 

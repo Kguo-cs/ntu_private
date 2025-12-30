@@ -182,17 +182,19 @@ class TokenProcessor(torch.nn.Module):
             type = tokenized_agent["type"]
 
             if self.training:
-                initial_pos=tokenized_agent["sampled_pos"][:,1]
-                initial_heading=tokenized_agent["sampled_heading"][:,1]
+                for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
+                    tokenized_agent[key]=tokenized_agent[key][:,1:]
 
                 tokenized_agent["token_mask"][:,:1]=False
 
-            else:
-                initial_pos=data["agent"]["position"][:,0,:2]
-                initial_heading=data["agent"]["heading"][:,0]
+            # else:
+            #     initial_pos=data["agent"]["position"][:,0,:2]
+            #     initial_heading=data["agent"]["heading"][:,0]
 
             shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]
+            initial_pos = tokenized_agent["sampled_pos"][:, 0]
+            initial_heading = tokenized_agent["sampled_heading"][:, 0]
 
             ego_position=initial_pos[ego_mask][batch]
             ego_heading=initial_heading[ego_mask][batch]

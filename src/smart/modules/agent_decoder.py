@@ -133,14 +133,19 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a = pos_a[:, -n_step:]
 
-        # if self.pred_init and self.training:
-        #     mask_s=mask_a.transpose(0, 1)
-        #     ego_mask_step = tokenized_agent["ego_mask"][None, :].repeat(n_step, 1)  # (num_step, num_agent)
-        #     if self.training:
-        #         ego_mask_step[4:]=False
-        #         ego_mask_step[:2]=False
-        #     ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
-        #     ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
+        if self.pred_init and self.training:
+            mask_s=mask_a.transpose(0, 1)
+            ego_mask_step = tokenized_agent["ego_mask"][None, :].repeat(n_step, 1)  # (num_step, num_agent)
+            if self.training:
+                ego_mask_step[3:]=False
+                ego_mask_step[:1]=False
+            ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
+            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
+
+            batch_ego_feature=ego_feature[map_feature['batch']]
+
+            map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+
         #
         #     # feat_a_step = torch.zeros(
         #     #     n_step, n_agent, self.hidden_dim,
@@ -151,7 +156,7 @@ class SMARTAgentDecoder(nn.Module):
         #     # # 只取前 2 step 的 ego
         #     # ego_feature1 = feat_a_step[:2, tokenized_agent["ego_mask"]] .sum(0) # (2, num_ego, D)
         #
-        #     initial_logit = self.init_decoder(map_feature,ego_feature, tokenized_agent)
+        #     initial_logit = self.init_decoder(map_feature, tokenized_agent)
         # else:
         initial_logit=None
 
@@ -230,7 +235,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_init:
             current_step=1
 
-            #pos_a, head_a=self.init_decoder(map_feature,map_feature["ego_feature"], tokenized_agent)
+            #pos_a, head_a=self.init_decoder(map_feature, tokenized_agent)
             pos_a=gt_pos[:, :current_step]
             head_a = gt_head[:, :current_step]
 

@@ -105,7 +105,7 @@ class InitDecoder(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
-    def forward(self,map_feature,ego_feature, tokenized_agent):
+    def forward(self,map_feature, tokenized_agent):
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]
@@ -116,8 +116,6 @@ class InitDecoder(nn.Module):
 
         pos_pl_b, orient_pl_b, feat_map_b = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
         map_mask = torch.any(feat_map_b != 0, dim=-1)
-
-        feat_map_b = feat_map_b + ego_feature[:, None]
 
         if self.training:
             pred_mask = ~tokenized_agent["ego_mask"]#non-last mask
