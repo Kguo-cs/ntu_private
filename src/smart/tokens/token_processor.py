@@ -312,7 +312,7 @@ class TokenProcessor(torch.nn.Module):
         traj_theta = data["map_save"]["traj_theta"] # [n_pl]
         type = data["pt_token"]["type"]  # [n_pl]
         #pl_type = data["pt_token"]["pl_type"]  # [n_pl]
-        #light_type= data["pt_token"]["light_type"]   # [n_pl]
+        light_type= data["pt_token"]["light_type"]   # [n_pl]
 
         # if self.training:
         #     traj_pos=traj_pos+torch.randn_like(traj_pos)*0.05
@@ -353,7 +353,7 @@ class TokenProcessor(torch.nn.Module):
             #"token_traj_src": self.map_token_traj_src,  # [n_token, 11*2]
             "type": type,  # [n_pl]
             #"pl_type": pl_type.long(),  # [n_pl]
-            #"light_type": light_type.long(),  # [n_pl]
+            "light_type": light_type#.long(),  # [n_pl]
            # "batch": batch,  # [n_pl]
         }
         if "batch" in data["pt_token"].keys():

@@ -34,10 +34,13 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "/home/ke/code/catk/src/waymo_data/full/training_map2_03_token/"
-map_data_directory  = "/home/ke/code/catk/src/waymo_data/full/training_a/"
-ouput_data_directory = "/home/ke/code/catk/src/waymo_data/full/nuplan_noisemap_clean/"
+agent_data_directory = "./waymo_data/full/training_map2_03_pt"
+map_data_directory  = "./waymo_data/map2_light/training"
+ouput_data_directory = "./waymo_data/full/training_map2_03_light"
 
+
+# agent_data_directory = "/home/ke/code/sim/src/waymo_data/full/validation_map2light"
+# map_data_directory  = "./waymo_data/map2_light/validation"
 
 
 os.makedirs(ouput_data_directory, exist_ok=True)
@@ -45,8 +48,10 @@ os.makedirs(ouput_data_directory, exist_ok=True)
 # Worker function
 def process_file(filename):
     input_path = os.path.join(agent_data_directory, filename)
-    with open(input_path, "rb") as f:
-        data = pickle.load(f)
+    # with open(input_path, "rb") as f:
+    #     data = pickle.load(f)
+
+    data=torch.load(input_path)
 
     #data1= HeteroData(data).cuda()
 
@@ -103,13 +108,13 @@ def process_file(filename):
 
     map_path = os.path.join(map_data_directory, filename)
 
-    with open(map_path, "rb") as f:
-        data2 = pickle.load(f)
+    # with open(map_path, "rb") as f:
+    #     data2 = pickle.load(f)
+    data2=torch.load(map_path)
 
     data1=HeteroData(data2).cuda()
 
     tokenized_map = token_processor.tokenize_map(data1)
-    del tokenized_map["light_type"]
 
     for key in tokenized_map.keys():
         tokenized_map[key] = tokenized_map[key].cpu()
@@ -132,12 +137,13 @@ def process_file(filename):
     #data2["tokenized_agent"]=data["tokenized_agent"]
     #
     #del data2["tokenized_light"]
-
+    # print(tokenized_map['light_type'].max())
     output_path = os.path.join(ouput_data_directory, filename)
 
+    torch.save(data, output_path)
     # Save the tokenized data
-    with open(output_path, "wb") as f:
-        pickle.dump(data, f)
+    # with open(output_path, "wb") as f:
+    #     pickle.dump(data, f)
 
 
 if __name__ == "__main__":
