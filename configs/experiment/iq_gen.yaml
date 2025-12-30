@@ -32,9 +32,9 @@ model:
     #finetune: true
     smart: false
     n_rollout_closed_val: 1
-#    n_vis_batch: 1
-#    n_vis_scenario: 1
-#    n_vis_rollout: 1
+    n_vis_batch: 1
+    n_vis_scenario: 32
+    n_vis_rollout: 1
 
 #ckpt_path : '/home/ke/code/sim/src/waymo_data/last.ckpt'
 

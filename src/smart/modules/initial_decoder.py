@@ -257,6 +257,7 @@ class InitDecoder(nn.Module):
             tokenized_agent["shape"]=shape
             tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
             tokenized_agent["type"] = tokenized_agent['initial_type']
+            # tokenized_agent['id']=tokenized_agent['initial_id']
 
             return global_pos[:,None], global_heading[:,None]
 
