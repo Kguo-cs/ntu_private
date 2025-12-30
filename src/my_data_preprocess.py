@@ -149,7 +149,9 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
        #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
        #  # map_data = get_map_features(map_infos, [])
         data = preprocess_map(map_data)
-       #
+
+
+
        #  del data['pt_token']['light_type']
        #  del data['pt_token']['pl_type']
 
@@ -183,7 +185,9 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
         #     pickle.dump(data, f)
 
-        torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
+        print(1)
+
+        #torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
 
         # if output_dir_tfrecords_splitted is not None:
         #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
@@ -200,7 +204,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[750:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[750:]
     func = partial(
         wm2argo,
         split=split,
@@ -219,12 +223,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/home/ke/keguo/waymo",
+        default="/home/ke/code/waymo",
     )
     parser.add_argument(
         "--output_dir", type=str, default="/home/ke/keguo/sim/src/waymo_data/map2_light"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
