@@ -223,7 +223,7 @@ class SMART(LightningModule):
 
                 head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
 
-                feat_a_token, agent_token_emb, counter_feat_a = self.agent_token_embedding(
+                feat_a_token, agent_token_emb, counter_feat_a = self.encoder.agent_encoder.agent_token_embedding(
                     agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
                     pos_a=pos_a[ego_mask],  # [n_agent, n_step, 2]
                     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
@@ -237,7 +237,7 @@ class SMART(LightningModule):
                     ego_mask=ego_mask[ego_mask],
                     abs_time=abs_time,
                 )
-                map_feature["ego_feature"] = feat_a_token.reshape(2, -1, self.hidden_dim).sum(0)  # (2, num_agent)
+                map_feature["ego_feature"] = feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).sum(0)  # (2, num_agent)
 
 
             for _ in range(self.n_rollout_closed_val):

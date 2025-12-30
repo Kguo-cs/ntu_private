@@ -216,7 +216,7 @@ class InitDecoder(nn.Module):
 
                 type_list.append(initial_type)
 
-                print(initial_type)
+            #    print(initial_type)
 
         if self.use_refine:
             refine_initial_pos = tokenized_agent["initial_pos"][pred_mask]
