@@ -160,7 +160,7 @@ class InterativeDecoder(nn.Module):
 
         self.start_eval_step=self.num_historical_steps//self.shift-1
 
-        if self.token_processor.pred_init:
+        if token_processor.pred_init:
             self.start_step=0
         else:
             self.start_step=self.num_historical_steps//self.shift-1
