@@ -71,7 +71,7 @@ def get_agent_features(
 
     idx_agents_to_add = []
     for i in range(len(track_infos["object_id"])):
-        add_agent = True#track_infos["valid"][i, num_historical_steps - 1]
+        add_agent = track_infos["valid"][i, num_historical_steps - 1]
 
         if add_agent:
             idx_agents_to_add.append(i)
@@ -87,8 +87,6 @@ def get_agent_features(
         "heading": torch.zeros([num_agents, num_steps], dtype=torch.float32),
         "velocity": torch.zeros([num_agents, num_steps, 2], dtype=torch.float32),
         "shape": torch.zeros([num_agents, 3], dtype=torch.float32),
-
-        'real_valid_mask': torch.zeros([num_agents, num_steps], dtype=torch.bool),
     }
 
     for i, idx in enumerate(idx_agents_to_add):
@@ -108,8 +106,6 @@ def get_agent_features(
         position = states[:, :3]  # [n_step, dim], x, y, z
         velocity = states[:, 7:9]  # [n_step, 2], vx, vy
         heading = states[:, 6]  # [n_step], heading
-
-        out_dict["real_valid_mask"][i]=torch.from_numpy(valid)
         if valid.sum() > 1:
             t_start, t_end = valid_steps[0], valid_steps[-1]
             f_pos = interp1d(valid_steps, position[valid], axis=0)
@@ -129,7 +125,7 @@ def get_agent_features(
 
     return out_dict
 
-def get_map_features(map_infos, tf_current_light, dim=2):
+def get_map_features(map_infos, tf_current_light,dim=2, remove_last=False):
     polygon_ids = [x["id"] for k in _polygon_types for x in map_infos[k]]
     num_polygons = len(polygon_ids)
 
@@ -140,30 +136,26 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     # point_orientation: List[Optional[torch.Tensor]] = [None] * num_polygons
     point_type: List[Optional[torch.Tensor]] = [None] * num_polygons
 
-    polygon_xyz=[]
-
-    map_type=[]
-
     for _key in _polygon_types:
         for _seg in map_infos[_key]:
             _idx = polygon_ids.index(_seg["id"])
             centerline = map_infos["all_polylines"][
                 _seg["polyline_index"][0] : _seg["polyline_index"][1]
             ]
-            polygon_xyz.append(centerline[:,:3])
             centerline = torch.from_numpy(centerline).float()
             polygon_type[_idx] = _polygon_types.index(_key)
 
-            point_position[_idx] = centerline#[:-1, :dim]
-            #center_vectors = centerline[1:] - centerline[:-1]
+            if remove_last:
+                point_position[_idx] = centerline[:-1, :dim]
+                centerline = centerline[1:] - centerline[:-1]
+            else:
+                point_position[_idx] = centerline[:, :dim]
             # point_orientation[_idx] = torch.cat(
             #     [torch.atan2(center_vectors[:, 1], center_vectors[:, 0])], dim=0
             # )
             point_type[_idx] = torch.full(
                 (len(centerline),), _seg["type"], dtype=torch.uint8
             )
-
-            map_type.append(_seg["type"])
 
             if _key == "lane" and len(tf_current_light):
                 res = tf_current_light[tf_current_light["lane_id"] == _seg["id"]]
@@ -191,10 +183,6 @@ def get_map_features(map_infos, tf_current_light, dim=2):
     map_data["map_polygon"]["num_nodes"] = num_polygons
     map_data["map_polygon"]["type"] = polygon_type
     map_data["map_polygon"]["light_type"] = polygon_light_type
-    map_data["map_polygon"]["polygon_ids"] = polygon_ids
-    map_data["map_polygon"]["polygon_xyz"] = polygon_xyz
-    map_data["map_polygon"]["map_type"] = map_type
-
     if len(num_points) == 0:
         map_data["map_point"]["num_nodes"] = 0
         map_data["map_point"]["position"] = torch.tensor([], dtype=torch.float)
@@ -296,11 +284,7 @@ def decode_tracks_from_proto(scenario):
 def decode_map_features_from_proto(map_features,remove_mapid=[]):
     map_infos = {"lane": [], "road_edge": [], "road_line": [], "crosswalk": []}
     polylines = []
-    # other_id=[]
     point_cnt = 0
-    #centerline_list=[]
-    #road_edge_list=[]
-
     for mf in map_features:
         feature_data_type = mf.WhichOneof("feature_data")
         # pip install waymo-open-dataset-tf-2-6-0==1.4.9, not updated, should be driveway
@@ -335,7 +319,6 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 map_infos["lane"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
-                #centerline_list.append(cur_polyline[:,:2])
 
         elif feature_data_type == "road_edge":
             if len(feature.polyline) > 1:
@@ -355,8 +338,6 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 map_infos["road_edge"].append(cur_info)
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
-
-                #road_edge_list.append(cur_polyline[:,:2])
 
         elif feature_data_type == "road_line":
             if len(feature.polyline) > 1:
@@ -391,11 +372,10 @@ def decode_map_features_from_proto(map_features,remove_mapid=[]):
                 polylines.append(cur_polyline)
                 point_cnt += len(cur_polyline)
 
-        elif feature_data_type in ["speed_bump", "driveway","crosswalk"]:#
+        elif feature_data_type in ["speed_bump", "driveway", "crosswalk"]:
             xyz = np.array([[p.x, p.y, p.z] for p in feature.polygon])
             polygon_idx = np.linspace(0, xyz.shape[0], 4, endpoint=False, dtype=int)
             pl_polygon = get_polylines_from_polygon(xyz[polygon_idx])
-
             cur_info = {"id": mf.id, "type": 9}
 
             cur_polyline = np.stack(

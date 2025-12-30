@@ -135,20 +135,20 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         scenario = scenario_pb2.Scenario()
         scenario.ParseFromString(bytes(tf_data))
 
-        #track_infos = decode_tracks_from_proto(scenario)
-        map_infos = decode_map_features_from_proto(scenario.map_features)
-        dynamic_map_infos = decode_dynamic_map_states_from_proto(
-            scenario.dynamic_map_states
-        )## scenario.dynamic_map_states has stop_point
-       #
-        current_time_index = scenario.current_time_index
+       #  #track_infos = decode_tracks_from_proto(scenario)
+       #  map_infos = decode_map_features_from_proto(scenario.map_features)
+       #  dynamic_map_infos = decode_dynamic_map_states_from_proto(
+       #      scenario.dynamic_map_states
+       #  )## scenario.dynamic_map_states has stop_point
+       # #
+       #  current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id
-        tf_lights = process_dynamic_map(dynamic_map_infos)
-        tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-        map_data = get_map_features(map_infos,tf_current_light)
-       #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
-       #  # map_data = get_map_features(map_infos, [])
-        data = preprocess_map(map_data)
+       #  tf_lights = process_dynamic_map(dynamic_map_infos)
+       #  tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+       #  map_data = get_map_features(map_infos,tf_current_light,remove_last=False)
+       # #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
+       # #  # map_data = get_map_features(map_infos, [])
+       #  data = preprocess_map(map_data)
 
 
 
@@ -185,21 +185,21 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         # with open(output_dir / f"{scenario_id}.pkl", "wb+") as f:
         #     pickle.dump(data, f)
 
-        print(1)
+        #print(1)
 
         #torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
 
-        # if output_dir_tfrecords_splitted is not None:
-        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-        #         file_writer.write(tf_data)
+        if output_dir_tfrecords_splitted is not None:
+            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+                file_writer.write(tf_data)
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir = Path(output_dir)
     output_dir_tfrecords_splitted = None
-    # if split == "validation":
-    #     output_dir_tfrecords_splitted = output_dir / "validation_tfrecords_splitted"
-    #     output_dir_tfrecords_splitted.mkdir(exist_ok=True, parents=True)
+    if split == "validation":
+        output_dir_tfrecords_splitted = output_dir / "validation_tfrecords_splitted"
+        output_dir_tfrecords_splitted.mkdir(exist_ok=True, parents=True)
     output_dir = output_dir / split
     output_dir.mkdir(exist_ok=True, parents=True)
 
@@ -226,7 +226,7 @@ if __name__ == "__main__":
         default="/home/ke/code/waymo",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/keguo/sim/src/waymo_data/map2_light"
+        "--output_dir", type=str, default="/home/ke/code/sim/src/waymo_data/full"
     )
     parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
