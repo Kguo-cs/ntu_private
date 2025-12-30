@@ -135,44 +135,43 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         scenario = scenario_pb2.Scenario()
         scenario.ParseFromString(bytes(tf_data))
 
-       #  #track_infos = decode_tracks_from_proto(scenario)
-       #  map_infos = decode_map_features_from_proto(scenario.map_features)
-       #  dynamic_map_infos = decode_dynamic_map_states_from_proto(
-       #      scenario.dynamic_map_states
-       #  )## scenario.dynamic_map_states has stop_point
-       # #
-       #  current_time_index = scenario.current_time_index
         scenario_id = scenario.scenario_id
-       #  tf_lights = process_dynamic_map(dynamic_map_infos)
-       #  tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-       #  map_data = get_map_features(map_infos,tf_current_light,remove_last=False)
-       # #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
-       # #  # map_data = get_map_features(map_infos, [])
-       #  data = preprocess_map(map_data)
+        current_time_index = scenario.current_time_index
+        #if scenario_id=='4d82fec943ddaa44':
+            #  map_infos = decode_map_features_from_proto(scenario.map_features)
+            #  dynamic_map_infos = decode_dynamic_map_states_from_proto(
+            #      scenario.dynamic_map_states
+            #  )## scenario.dynamic_map_states has stop_point
+            # #
+            #  current_time_index = scenario.current_time_index
+            #
+            #  tf_lights = process_dynamic_map(dynamic_map_infos)
+            #  tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+            #  map_data = get_map_features(map_infos,tf_current_light,remove_last=False)
+            # #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
+            # #  # map_data = get_map_features(map_infos, [])
+            #  data = preprocess_map(map_data)
+            #
+            #  print(scenario_id == '4d82fec943ddaa44')
 
+    #  del data['pt_token']['light_type']
+    #  del data['pt_token']['pl_type']
 
+    # data={"edge":map_infos['road_edge_list']}
 
-       #  del data['pt_token']['light_type']
-       #  del data['pt_token']['pl_type']
+    # data= process_map(map_infos['all_polylines_list'])
+        track_infos = decode_tracks_from_proto(scenario)
 
-        # data={"edge":map_infos['road_edge_list']}
+        agent = get_agent_features(
+            track_infos,
+            split=split,
+            num_historical_steps=current_time_index + 1,
+            num_steps=91,
+        )
 
-        #data= process_map(map_infos['all_polylines_list'])
+        data={}
 
-        #data = preprocess_map(map_data)
-        # agent = get_agent_features(
-        #     track_infos,
-        #     split=split,
-        #     num_historical_steps=current_time_index + 1,
-        #     num_steps=91,
-        # )
-
-        # agent = get_agent_features(
-        #     track_infos,
-        #     split=split,
-        #     num_historical_steps=current_time_index + 1,
-        #     num_steps=91,
-        # )
+        data["agent"]=agent
 
         #del agent["id"]
 
@@ -187,12 +186,12 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
 
         #print(1)
 
-        #torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
+        torch.save(data, os.path.join(output_dir, f"{scenario_id}.pt"))
 
-        if output_dir_tfrecords_splitted is not None:
-            file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
-            with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
-                file_writer.write(tf_data)
+        # if output_dir_tfrecords_splitted is not None:
+        #     file_name = output_dir_tfrecords_splitted / f"{scenario_id}.tfrecords"
+        #     with tf.io.TFRecordWriter(file_name.as_posix()) as file_writer:
+        #         file_writer.write(tf_data)
 
 def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir = Path(output_dir)
@@ -204,7 +203,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[750:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[123:]
     func = partial(
         wm2argo,
         split=split,
@@ -212,11 +211,11 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
         output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
     )
 
-    # with multiprocessing.Pool(num_workers) as p:
-    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    with multiprocessing.Pool(num_workers) as p:
+        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
     # print(len(packages))
-    for file_path in tqdm(packages):
-        wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
+    # for file_path in tqdm(packages):
+    #     wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -226,7 +225,7 @@ if __name__ == "__main__":
         default="/home/ke/code/waymo",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/sim/src/waymo_data/full"
+        "--output_dir", type=str, default="/home/ke/code/sim/src/waymo_data/agent"
     )
     parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)

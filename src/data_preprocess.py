@@ -98,8 +98,8 @@ def get_agent_features(
         valid = track_infos["valid"][idx]  # [n_step]
         states = track_infos["states"][idx]
 
-        object_shape = states[:, 3:6]  # [n_step, 3], length, width, height
-        object_shape = object_shape[valid].mean(axis=0)  # [3]
+        object_shape = states[:11, 3:6]  # [n_step, 3], length, width, height
+        object_shape = object_shape[valid[:11]].mean(axis=0)  # [3]
         out_dict["shape"][i] = torch.from_numpy(object_shape)
 
         valid_steps = np.where(valid)[0]
