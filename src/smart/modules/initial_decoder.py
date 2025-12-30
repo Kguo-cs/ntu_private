@@ -165,6 +165,8 @@ class InitDecoder(nn.Module):
         global_heading_list=[initial_heading]
         shape_list=[initial_shape]
 
+        type_list=[initial_type]
+
         for n_current in range(iteration_num):
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num)
@@ -212,6 +214,10 @@ class InitDecoder(nn.Module):
 
                 initial_type=all_initial_type[:,n_current+1]
 
+                type_list.append(initial_type)
+
+                print(initial_type)
+
         if self.use_refine:
             refine_initial_pos = tokenized_agent["initial_pos"][pred_mask]
             refine_initial_heading = tokenized_agent["initial_heading"][pred_mask]
@@ -243,7 +249,13 @@ class InitDecoder(nn.Module):
             global_heading = torch.stack(global_heading_list,dim=1)[agent_mask]
             shape = torch.stack(shape_list,dim=1)[agent_mask]
 
+
+            # type = torch.stack(type_list,dim=1)[agent_mask]
+            #
+            # print(torch.all(type==tokenized_agent["initial_type"]))
+
             tokenized_agent["shape"]=shape
+            tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
 
             return global_pos[:,None], global_heading[:,None]
 

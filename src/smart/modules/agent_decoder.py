@@ -228,31 +228,11 @@ class SMARTAgentDecoder(nn.Module):
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         if self.pred_init:
-            # ego_mask = tokenized_agent["ego_mask"]
-            # head_a= head_a[ego_mask]
-            #
-            # head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
-            #
-            # feat_a_token, agent_token_emb, counter_feat_a = self.agent_token_embedding(
-            #     agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
-            #     pos_a=pos_a[ego_mask],  # [n_agent, n_step, 2]
-            #     head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            #     mask_a=mask[ego_mask],
-            #     agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
-            #     agent_shape=tokenized_agent["shape"][ego_mask],  # [n_agent, 3]
-            #     token_mask=token_mask[ego_mask],
-            #     batch_idx=batch[ego_mask],
-            #     goal_pos=tokenized_agent["goal_pos"],
-            #     goal_mask=tokenized_agent["goal_mask"],
-            #     ego_mask=ego_mask[ego_mask],
-            #     abs_time=abs_time,
-            # )
-            # ego_feature = feat_a_token.reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
             current_step=1
 
-            # pos_a, head_a=self.init_decoder(map_feature,ego_feature, tokenized_agent)
-            pos_a=gt_pos[:, :current_step]
-            head_a = gt_head[:, :current_step]
+            pos_a, head_a=self.init_decoder(map_feature,map_feature["ego_feature"], tokenized_agent)
+            # pos_a=gt_pos[:, :current_step]
+            # head_a = gt_head[:, :current_step]
 
             max_step=18
             token_mask=torch.zeros_like(token_mask[:, :current_step])

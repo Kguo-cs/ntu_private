@@ -19,6 +19,7 @@ import hydra
 import torch
 from lightning import LightningModule
 from torch.optim.lr_scheduler import LambdaLR
+from waymo_open_dataset.utils.sim_agents.submission_specs import ChallengeType
 
 from src.smart.metrics import (
     CrossEntropy,
@@ -196,6 +197,48 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head,new_agent,pred_sizes = [], [], [],[],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
+
+            if self.challenge_type==ChallengeType.SCENARIO_GEN:
+                ego_mask = tokenized_agent["ego_mask"]
+                gt_pos = tokenized_agent["sampled_pos"].clone()
+                gt_head = tokenized_agent["sampled_heading"].clone()
+                gt_valid = tokenized_agent["valid_mask"].clone()
+                gt_sampled_idx = tokenized_agent["sampled_idx"].clone()
+                current_step=2
+                sampled_idx = gt_sampled_idx[:, :current_step]
+
+                abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
+                batch = tokenized_agent['batch']
+
+                if gt_pos.shape[1] == gt_head.shape[1]:
+                    pos_a = gt_pos[:, :current_step]
+                else:
+                    pos_a = gt_pos[:, :current_step + 1]
+
+                head_a = gt_head[:, :current_step]
+                mask = gt_valid[:, :current_step]
+                token_mask = tokenized_agent["token_mask"][:, :current_step].clone()
+
+                head_a = head_a[ego_mask]
+
+                head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+                feat_a_token, agent_token_emb, counter_feat_a = self.agent_token_embedding(
+                    agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
+                    pos_a=pos_a[ego_mask],  # [n_agent, n_step, 2]
+                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                    mask_a=mask[ego_mask],
+                    agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
+                    agent_shape=tokenized_agent["shape"][ego_mask],  # [n_agent, 3]
+                    token_mask=token_mask[ego_mask],
+                    batch_idx=batch[ego_mask],
+                    goal_pos=tokenized_agent["goal_pos"],
+                    goal_mask=tokenized_agent["goal_mask"],
+                    ego_mask=ego_mask[ego_mask],
+                    abs_time=abs_time,
+                )
+                map_feature["ego_feature"] = feat_a_token.reshape(2, -1, self.hidden_dim).sum(0)  # (2, num_agent)
+
 
             for _ in range(self.n_rollout_closed_val):
 
