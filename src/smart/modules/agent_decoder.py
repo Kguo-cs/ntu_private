@@ -230,9 +230,9 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_init:
             current_step=1
 
-            # pos_a, head_a=self.init_decoder(map_feature,map_feature["ego_feature"], tokenized_agent)
-            pos_a=gt_pos[:, :current_step]
-            head_a = gt_head[:, :current_step]
+            pos_a, head_a=self.init_decoder(map_feature,map_feature["ego_feature"], tokenized_agent)
+            #pos_a=gt_pos[:, :current_step]
+            #head_a = gt_head[:, :current_step]
 
             max_step=18
             token_mask=torch.zeros_like(token_mask[:, :current_step])

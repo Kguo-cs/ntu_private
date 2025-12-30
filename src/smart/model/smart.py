@@ -384,12 +384,14 @@ class SMART(LightningModule):
                     print('start metric evaluation')
                     time1=time.time()
 
-                    # if len(scenario_rollouts) > self.para_num:
-                    #     for i in range(len(scenario_rollouts) // self.para_num):  # 64
-                    #         self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
-                    #                                   scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
-                    # else:
-                    #     self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
+                    if self.n_vis_batch==0:
+
+                        if len(scenario_rollouts) > self.para_num:
+                            for i in range(len(scenario_rollouts) // self.para_num):  # 64
+                                self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
+                                                          scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
+                        else:
+                            self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
                     # #
                     # print('end metric evaluation',time.time()-time1)
                     #322.7260935306549/4  #end metric evaluation 54.91072988510132 para4->end metric evaluation 280.7700307369232

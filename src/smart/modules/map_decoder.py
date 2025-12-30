@@ -60,7 +60,7 @@ class SMARTMapDecoder(nn.Module):
             self.type_pt_emb = nn.Embedding(10, hidden_dim)
             self.polygon_type_emb = nn.Embedding(4, hidden_dim)
             # if not self.token_processor.pred_light:
-            #     self.light_pl_emb = nn.Embedding(5, hidden_dim)
+            self.light_pl_emb = nn.Embedding(5, hidden_dim)
 
 
             self.head_dim=head_dim
@@ -112,7 +112,7 @@ class SMARTMapDecoder(nn.Module):
             return tokenized_map
 
         map_type=tokenized_map["type"].long()
-        map_type[map_type>9] = 9
+        # map_type[map_type>9] = 9
         
         # mask = torch.zeros_like(map_type, dtype=bool)
         # #mask = torch.ones_like(map_type, dtype=bool)
@@ -125,11 +125,11 @@ class SMARTMapDecoder(nn.Module):
         #
         # mask[(map_type!=4)&(map_type!=5)] = True
         #
-        map_type[map_type==5]=4
-        map_type[map_type==8]=7
-        map_type[map_type==0]=1
-        map_type[map_type==2]=1
-        map_type[map_type==3]=1
+        # map_type[map_type==5]=4
+        # map_type[map_type==8]=7
+        # map_type[map_type==0]=1
+        # map_type[map_type==2]=1
+        # map_type[map_type==3]=1
         # # #
         # mask=(map_type==4) | (map_type==6) | (map_type==7)  | (map_type==9) #| (map_type==1)
 
@@ -137,6 +137,7 @@ class SMARTMapDecoder(nn.Module):
         pos_pt = tokenized_map["position"]#[mask]
         orient_pt = tokenized_map["orientation"]#[mask]
         token_idx=tokenized_map["token_idx"].long()#[mask]
+        light_type=tokenized_map["light_type"].long()
         #map_type=map_type[mask]
 
         mask =(map_type==4) | (map_type==5)#| (map_type==6) | (map_type==7) | (map_type==9)| (map_type==1)#  |#|   (map_type==4) | # | (map_type==7) #(map_type == 4) | (map_type == 5)
@@ -212,7 +213,7 @@ class SMARTMapDecoder(nn.Module):
         x_pt_categorical_embs = [
             self.type_pt_emb(map_type),
             self.polygon_type_emb(pl_type),
-            # self.light_pl_emb(tokenized_map["light_type"].long()),#
+            self.light_pl_emb(light_type),
         ]
 
         x_pt = x_pt + torch.stack(x_pt_categorical_embs).sum(dim=0)
