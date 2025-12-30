@@ -228,7 +228,6 @@ class TokenProcessor(torch.nn.Module):
 
             if not self.training:
                 tokenized_agent['id']=tokenized_agent['id'][sort_idx]
-                tokenized_agent["type"]=tokenized_agent['initial_type']
 
         return tokenized_map, tokenized_agent
 
