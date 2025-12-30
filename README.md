@@ -10,9 +10,9 @@ rsync -avz   ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_pos 
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_token ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_pt  /home/ke/code/catk/src/waymo_data/full/ 
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/testing_map2  /home/ke/code/catk/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_pt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/testing_map2 ./
 
 rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/waymo_data/full/ guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
 
