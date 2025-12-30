@@ -159,7 +159,11 @@ class InterativeDecoder(nn.Module):
         self.n_token_agent=n_token_agent
 
         self.start_eval_step=self.num_historical_steps//self.shift-1
-        self.start_step=self.num_historical_steps//self.shift-1
+
+        if self.token_processor.pred_init:
+            self.start_step=0
+        else:
+            self.start_step=self.num_historical_steps//self.shift-1
 
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius

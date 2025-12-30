@@ -181,7 +181,6 @@ class TokenProcessor(torch.nn.Module):
         if self.pred_init:
             type = tokenized_agent["type"]
 
-            #if self.training:
             if self.training:
                 initial_pos=tokenized_agent["sampled_pos"][:,1]
                 initial_heading=tokenized_agent["sampled_heading"][:,1]
