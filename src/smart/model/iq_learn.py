@@ -134,7 +134,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
 
-        if self.token_processor.pred_init:
+        if pred["initial_logit"] is not None:
             pos_logit, entry_head_logit, entry_offset, pred_shape=pred["initial_logit"]
 
             non_ego_mask=~tokenized_agent["initial_ego_mask"]

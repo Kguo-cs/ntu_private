@@ -99,8 +99,8 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        if self.pred_init:
-            self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
+        # if self.pred_init:
+        #     self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
         self.token_processor= token_processor
         self.discriminator=discriminator
@@ -133,27 +133,27 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a = pos_a[:, -n_step:]
 
-        if self.pred_init and self.training:
-            mask_s=mask_a.transpose(0, 1)
-            ego_mask_step = tokenized_agent["ego_mask"][None, :].repeat(n_step, 1)  # (num_step, num_agent)
-            if self.training:
-                ego_mask_step[4:]=False
-                ego_mask_step[:2]=False
-            ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
-            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
-
-            # feat_a_step = torch.zeros(
-            #     n_step, n_agent, self.hidden_dim,
-            #     device=feat_a_token.device
-            # )
-            # feat_a_step[mask_s] = feat_a_token
-            #
-            # # 只取前 2 step 的 ego
-            # ego_feature1 = feat_a_step[:2, tokenized_agent["ego_mask"]] .sum(0) # (2, num_ego, D)
-
-            initial_logit = self.init_decoder(map_feature,ego_feature, tokenized_agent)
-        else:
-            initial_logit=None
+        # if self.pred_init and self.training:
+        #     mask_s=mask_a.transpose(0, 1)
+        #     ego_mask_step = tokenized_agent["ego_mask"][None, :].repeat(n_step, 1)  # (num_step, num_agent)
+        #     if self.training:
+        #         ego_mask_step[4:]=False
+        #         ego_mask_step[:2]=False
+        #     ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
+        #     ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
+        #
+        #     # feat_a_step = torch.zeros(
+        #     #     n_step, n_agent, self.hidden_dim,
+        #     #     device=feat_a_token.device
+        #     # )
+        #     # feat_a_step[mask_s] = feat_a_token
+        #     #
+        #     # # 只取前 2 step 的 ego
+        #     # ego_feature1 = feat_a_step[:2, tokenized_agent["ego_mask"]] .sum(0) # (2, num_ego, D)
+        #
+        #     initial_logit = self.init_decoder(map_feature,ego_feature, tokenized_agent)
+        # else:
+        initial_logit=None
 
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
