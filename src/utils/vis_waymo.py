@@ -84,7 +84,7 @@ class VisWaymo:
             COLOR_VIOLET,  # FLASHING = 4;
         ]
         # sdc=0, interest=1, predict=2
-        self.agent_role_style = [COLOR_CYAN, COLOR_CHAMELEON, COLOR_ALUMINIUM_0]#COLOR_MAGENTA]
+        self.agent_role_style = [COLOR_CYAN, COLOR_ALUMINIUM_0, COLOR_ALUMINIUM_0]#COLOR_CHAMELEON,COLOR_MAGENTA] # red,green
 
         self.agent_cmd_txt = [
             "STATIONARY",  # STATIONARY = 0;
@@ -142,7 +142,7 @@ class VisWaymo:
             self._draw_agents(im_gt_agents, ag_valid[:,::self.interval], ag_xy[:,::self.interval], ag_yaw[:,::self.interval], ag_size, ag_role)
             for i in range(len(im_gt_agents)):
                 self.im_gt_blended.append(
-                    cv2.addWeighted(im_gt_agents[i], 0.1, im_gt_maps[i], 1, 0)
+                    cv2.addWeighted(im_gt_agents[i], 0.5, im_gt_maps[i], 1, 0)
                 )
         else:
             for i in range(n_step):
@@ -357,10 +357,12 @@ class VisWaymo:
         for i_ag, _traj in enumerate(trajs):
             ag_xy[i_ag] = np.stack([_traj.center_x, _traj.center_y], axis=-1)
             ag_yaw[i_ag, :, 0] = _traj.heading
-            # ag_size[i_ag] = self.ag_id2size[_traj.object_id]
-            ag_size[i_ag,0] = _traj.length[0]#self.ag_id2size[_traj.object_id]
-            ag_size[i_ag,1] = _traj.width[0]#self.ag_id2size[_traj.object_id]
-            ag_size[i_ag,2] = _traj.height[0]#self.ag_id2size[_traj.object_id]
+            if len(_traj.length):
+                ag_size[i_ag, 0] = _traj.length[0]  # self.ag_id2size[_traj.object_id]
+                ag_size[i_ag, 1] = _traj.width[0]  # self.ag_id2size[_traj.object_id]
+                ag_size[i_ag, 2] = _traj.height[0]  # self.ag_id2size[_traj.object_id]
+            else:
+                ag_size[i_ag] = self.ag_id2size[_traj.object_id]
             ag_role[i_ag] = self.ag_id2role[_traj.object_id]
 
         return ag_valid, ag_xy, ag_yaw, ag_size, ag_role

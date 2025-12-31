@@ -189,23 +189,27 @@ class TokenProcessor(torch.nn.Module):
                 initial_heading = tokenized_agent["sampled_heading"][:, 0]
 
             else:
-                valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
-                heading = data["agent"]["heading"]  # [n_agent, n_step]
-                pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-                vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
-
-                first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
-
-                agent_idx = torch.arange(valid.shape[0], device=valid.device)
-
-                tokenized_agent["extra_heading"] = heading[agent_idx, first_valid_step]
-                initial_vel = vel[agent_idx, first_valid_step]
-                initial_pos = pos[agent_idx, first_valid_step]
-
-                dt = 0.1
-                tokenized_agent["extra_pos"] = initial_pos - initial_vel * first_valid_step.unsqueeze(-1) * dt
+                # valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
+                # heading = data["agent"]["heading"]  # [n_agent, n_step]
+                # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
+                # vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+                #
+                # first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
+                #
+                # agent_idx = torch.arange(valid.shape[0], device=valid.device)
+                #
+                # tokenized_agent["extra_heading"] = heading[agent_idx, first_valid_step]
+                # initial_vel = vel[agent_idx, first_valid_step]
+                # initial_pos = pos[agent_idx, first_valid_step]
+                #
+                # dt = 0.1
+                # tokenized_agent["extra_pos"] = initial_pos - initial_vel * first_valid_step.unsqueeze(-1) * dt
                 initial_pos = tokenized_agent["sampled_pos"][:, 1]
                 initial_heading = tokenized_agent["sampled_heading"][:, 1]
+
+                tokenized_agent["extra_pos"]=initial_pos
+                tokenized_agent["extra_heading"]=initial_heading
+
 
             shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]

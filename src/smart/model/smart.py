@@ -75,12 +75,12 @@ class SMART(LightningModule):
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
 
-        if self.token_processor.pred_init:
-            self.challenge_type=_ChallengeType.SCENARIO_GEN
-            self.para_num=4
-        else:
-            self.challenge_type=_ChallengeType.SIM_AGENTS
-            self.para_num=32
+        # if self.token_processor.pred_init:
+        #     self.challenge_type=_ChallengeType.SCENARIO_GEN
+        #     self.para_num=4
+        # else:
+        self.challenge_type=_ChallengeType.SIM_AGENTS
+        self.para_num=32
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -204,7 +204,7 @@ class SMART(LightningModule):
                 gt_head = tokenized_agent["sampled_heading"].clone()
                 gt_valid = tokenized_agent["valid_mask"].clone()
                 gt_sampled_idx = tokenized_agent["sampled_idx"].clone()
-                current_step=2
+                current_step=4
                 sampled_idx = gt_sampled_idx[:, :current_step]
 
                 abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
@@ -238,7 +238,7 @@ class SMART(LightningModule):
                     abs_time=abs_time,
                 )
 
-                ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).sum(0)
+                ego_feature=feat_a_token.reshape(4, -1, feat_a_token.shape[-1])[:,2:].sum(0)
                 batch_ego_feature = ego_feature[map_feature['batch']]
 
                 map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
