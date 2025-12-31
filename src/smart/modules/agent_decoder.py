@@ -130,18 +130,85 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a = pos_a[:, -n_step:]
 
-        # if self.pred_init and self.training:
-        #     mask_s=mask_a.transpose(0, 1)
-        #     ego_mask_step = tokenized_agent["ego_mask"][None, :].repeat(n_step, 1)  # (num_step, num_agent)
-        #     if self.training:
-        #         ego_mask_step[3:]=False
-        #         ego_mask_step[:1]=False
-        #     ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
-        #     ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, num_agent)
-        #
-        #     batch_ego_feature=ego_feature[map_feature['batch']]
-        #
-        #     map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+        if self.pred_init and self.training:
+            mask_s=mask_a.transpose(0, 1)
+            ego_mask=tokenized_agent["ego_mask"]
+            ego_mask_step = ego_mask[None, :].repeat(n_step, 1)  # (num_step, num_agent)
+            if self.training:
+                ego_mask_step[3:]=False
+                ego_mask_step[:1]=False
+            ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
+            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).sum(0)   # (2, batch)
+
+            ego_pos=pos_a[:,0][ego_mask]
+            ego_heading=head_a[:,0][ego_mask]
+
+            batch = map_feature['batch']  # (N,)
+            pt_token = map_feature['pt_token']  # (N, C)
+            position = map_feature['position']  # (N, D)
+            orientation = map_feature['orientation']  # (N, H)
+
+            B = int(batch.max().item()) + 1
+            device = batch.device
+
+            # 1. Count elements per batch
+            counts = torch.bincount(batch, minlength=B)  # (B,)
+
+            # 2. Build insertion indices
+            # Each batch gets 1 extra slot (for ego)
+            new_counts = counts + 1
+            new_offsets = torch.cumsum(new_counts, dim=0) - new_counts
+
+            # Indices where ego entries will go
+            ego_indices = new_offsets  # (B,)
+
+            # Indices where original map elements will go
+            map_indices = torch.arange(batch.size(0), device=device)
+            map_indices = map_indices + new_offsets[batch] + 1
+
+            # 3. Allocate output tensors
+            N_new = new_counts.sum().item()
+
+            pt_token_out = torch.empty(
+                (N_new, pt_token.size(1)),
+                device=device,
+                dtype=pt_token.dtype,
+            )
+            position_out = torch.empty(
+                (N_new, position.size(1)),
+                device=device,
+                dtype=position.dtype,
+            )
+            orientation_out = torch.empty(
+                (N_new, orientation.size(1)),
+                device=device,
+                dtype=orientation.dtype,
+            )
+            batch_out = torch.empty(
+                (N_new,),
+                device=device,
+                dtype=batch.dtype,
+            )
+
+            # 4. Scatter ego features
+            pt_token_out[ego_indices] = ego_feature
+            position_out[ego_indices] = ego_pos
+            orientation_out[ego_indices] = ego_heading
+            batch_out[ego_indices] = torch.arange(B, device=device)
+
+            # 5. Scatter original map features
+            pt_token_out[map_indices] = pt_token
+            position_out[map_indices] = position
+            orientation_out[map_indices] = orientation
+            batch_out[map_indices] = batch
+
+            # 6. Write back
+            map_feature['pt_token'] = pt_token_out
+            map_feature['position'] = position_out
+            map_feature['orientation'] = orientation_out
+            map_feature['batch'] = batch_out
+
+            # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
 
         #
         #     # feat_a_step = torch.zeros(

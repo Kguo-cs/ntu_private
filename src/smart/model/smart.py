@@ -198,50 +198,114 @@ class SMART(LightningModule):
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
-            # if self.challenge_type==ChallengeType.SCENARIO_GEN:
-            #     ego_mask = tokenized_agent["ego_mask"]
-            #     gt_pos = tokenized_agent["sampled_pos"].clone()
-            #     gt_head = tokenized_agent["sampled_heading"].clone()
-            #     gt_valid = tokenized_agent["valid_mask"].clone()
-            #     gt_sampled_idx = tokenized_agent["sampled_idx"].clone()
-            #     current_step=4
-            #     sampled_idx = gt_sampled_idx[:, :current_step]
-            #
-            #     abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
-            #     batch = tokenized_agent['batch']
-            #
-            #     if gt_pos.shape[1] == gt_head.shape[1]:
-            #         pos_a = gt_pos[:, :current_step]
-            #     else:
-            #         pos_a = gt_pos[:, :current_step + 1]
-            #
-            #     head_a = gt_head[:, :current_step]
-            #     mask = gt_valid[:, :current_step]
-            #     token_mask = tokenized_agent["token_mask"][:, :current_step].clone()
-            #
-            #     head_a = head_a[ego_mask]
-            #
-            #     head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
-            #
-            #     feat_a_token, agent_token_emb, counter_feat_a = self.encoder.agent_encoder.agent_token_embedding(
-            #         agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
-            #         pos_a=pos_a[ego_mask],  # [n_agent, n_step, 2]
-            #         head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            #         mask_a=mask[ego_mask],
-            #         agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
-            #         agent_shape=tokenized_agent["shape"][ego_mask],  # [n_agent, 3]
-            #         token_mask=token_mask[ego_mask],
-            #         batch_idx=batch[ego_mask],
-            #         goal_pos=tokenized_agent["goal_pos"],
-            #         goal_mask=tokenized_agent["goal_mask"],
-            #         ego_mask=ego_mask[ego_mask],
-            #         abs_time=abs_time,
-            #     )
-            #
-            #     ego_feature=feat_a_token.reshape(4, -1, feat_a_token.shape[-1])[:,2:].sum(0)
-            #     batch_ego_feature = ego_feature[map_feature['batch']]
-            #
-            #     map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+            if self.challenge_type==ChallengeType.SCENARIO_GEN:
+                ego_mask = tokenized_agent["ego_mask"]
+                gt_pos = tokenized_agent["sampled_pos"].clone()
+                gt_head = tokenized_agent["sampled_heading"].clone()
+                gt_valid = tokenized_agent["valid_mask"].clone()
+                gt_sampled_idx = tokenized_agent["sampled_idx"].clone()
+                current_step=4
+                sampled_idx = gt_sampled_idx[:, :current_step]
+
+                abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
+                batch = tokenized_agent['batch']
+
+                if gt_pos.shape[1] == gt_head.shape[1]:
+                    pos_a = gt_pos[:, :current_step]
+                else:
+                    pos_a = gt_pos[:, :current_step + 1]
+
+                head_a = gt_head[:, :current_step]
+                mask = gt_valid[:, :current_step]
+                token_mask = tokenized_agent["token_mask"][:, :current_step].clone()
+
+                head_a = head_a[ego_mask]
+
+                head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+                feat_a_token, agent_token_emb, counter_feat_a = self.encoder.agent_encoder.agent_token_embedding(
+                    agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
+                    pos_a=pos_a[ego_mask],  # [n_agent, n_step, 2]
+                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                    mask_a=mask[ego_mask],
+                    agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
+                    agent_shape=tokenized_agent["shape"][ego_mask],  # [n_agent, 3]
+                    token_mask=token_mask[ego_mask],
+                    batch_idx=batch[ego_mask],
+                    goal_pos=tokenized_agent["goal_pos"],
+                    goal_mask=tokenized_agent["goal_mask"],
+                    ego_mask=ego_mask[ego_mask],
+                    abs_time=abs_time,
+                )
+
+                ego_feature=feat_a_token.reshape(4, -1, feat_a_token.shape[-1])[:,2:].sum(0)
+                ego_pos = pos_a[:, 1][ego_mask]
+                ego_heading = head_a[:, 1][ego_mask]
+
+                batch = map_feature['batch']  # (N,)
+                pt_token = map_feature['pt_token']  # (N, C)
+                position = map_feature['position']  # (N, D)
+                orientation = map_feature['orientation']  # (N, H)
+
+                B = int(batch.max().item()) + 1
+                device = batch.device
+
+                # 1. Count elements per batch
+                counts = torch.bincount(batch, minlength=B)  # (B,)
+
+                # 2. Build insertion indices
+                # Each batch gets 1 extra slot (for ego)
+                new_counts = counts + 1
+                new_offsets = torch.cumsum(new_counts, dim=0) - new_counts
+
+                # Indices where ego entries will go
+                ego_indices = new_offsets  # (B,)
+
+                # Indices where original map elements will go
+                map_indices = torch.arange(batch.size(0), device=device)
+                map_indices = map_indices + new_offsets[batch] + 1
+
+                # 3. Allocate output tensors
+                N_new = new_counts.sum().item()
+
+                pt_token_out = torch.empty(
+                    (N_new, pt_token.size(1)),
+                    device=device,
+                    dtype=pt_token.dtype,
+                )
+                position_out = torch.empty(
+                    (N_new, position.size(1)),
+                    device=device,
+                    dtype=position.dtype,
+                )
+                orientation_out = torch.empty(
+                    (N_new, orientation.size(1)),
+                    device=device,
+                    dtype=orientation.dtype,
+                )
+                batch_out = torch.empty(
+                    (N_new,),
+                    device=device,
+                    dtype=batch.dtype,
+                )
+
+                # 4. Scatter ego features
+                pt_token_out[ego_indices] = ego_feature
+                position_out[ego_indices] = ego_pos
+                orientation_out[ego_indices] = ego_heading
+                batch_out[ego_indices] = torch.arange(B, device=device)
+
+                # 5. Scatter original map features
+                pt_token_out[map_indices] = pt_token
+                position_out[map_indices] = position
+                orientation_out[map_indices] = orientation
+                batch_out[map_indices] = batch
+
+                # 6. Write back
+                map_feature['pt_token'] = pt_token_out
+                map_feature['position'] = position_out
+                map_feature['orientation'] = orientation_out
+                map_feature['batch'] = batch_out
 
             for _ in range(self.n_rollout_closed_val):
 
