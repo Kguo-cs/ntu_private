@@ -180,7 +180,7 @@ class SMARTAgentDecoder(nn.Module):
                 dtype=position.dtype,
             )
             orientation_out = torch.empty(
-                (N_new, orientation.size(1)),
+                (N_new),
                 device=device,
                 dtype=orientation.dtype,
             )
