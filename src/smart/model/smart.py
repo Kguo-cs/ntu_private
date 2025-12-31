@@ -241,6 +241,9 @@ class SMART(LightningModule):
                 # batch_ego_feature = ego_feature[map_feature['batch']]
                 #
                 # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+                ego_feature = torch.sum(ego_feature, keepdim=True, dim=1)
+                ego_pos=ego_pos[:,:1]
+                ego_heading=ego_heading[:,:1]
 
                 # # Map features
                 batch = map_feature['batch']  # (N,)

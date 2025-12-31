@@ -144,9 +144,11 @@ class SMARTAgentDecoder(nn.Module):
             #
             # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
 
+            ego_feature=torch.sum(ego_feature,keepdim=True,dim=1)
 
-            ego_pos = pos_a[:, 1:3][ego_mask]
-            ego_heading = head_a[:, 1:3][ego_mask]
+
+            ego_pos = pos_a[:, 1:2][ego_mask]
+            ego_heading = head_a[:, 1:2][ego_mask]
 
             # Map features
             batch = map_feature['batch']  # (N,)
