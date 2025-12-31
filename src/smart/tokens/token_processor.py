@@ -240,7 +240,9 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["initial_heading"]=initial_heading[sort_idx]
             tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
             tokenized_agent["initial_type"]=type[sort_idx]
-            tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
+
+            if not self.training:
+                tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
 
         return tokenized_map, tokenized_agent
 
