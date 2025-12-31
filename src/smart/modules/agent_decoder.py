@@ -163,8 +163,12 @@ class SMARTAgentDecoder(nn.Module):
             ego_indices = new_offsets  # (B,)
 
             # Indices where original map elements will go
-            map_indices = torch.arange(batch.size(0), device=device)
-            map_indices = map_indices + new_offsets[batch] + 1
+            # map_indices = torch.arange(batch.size(0), device=device)
+            # map_indices = map_indices + new_offsets[batch] + 1
+            pos_in_batch = torch.arange(batch.size(0), device=device) \
+                           - torch.cumsum(counts, 0)[batch] + counts[batch]
+
+            map_indices = new_offsets[batch] + 1 + pos_in_batch
 
             # 3. Allocate output tensors
             N_new = new_counts.sum().item()
