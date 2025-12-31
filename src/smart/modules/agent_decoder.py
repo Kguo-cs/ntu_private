@@ -130,19 +130,19 @@ class SMARTAgentDecoder(nn.Module):
 
         pos_a = pos_a[:, -n_step:]
 
-        # if self.pred_init and self.training:
-        #     mask_s=mask_a.transpose(0, 1)
-        #     ego_mask=tokenized_agent["ego_mask"]
-        #     ego_mask_step = ego_mask[None, :].repeat(n_step, 1)  # (num_step, num_agent)
-        #     if self.training:
-        #         ego_mask_step[3:]=False
-        #         ego_mask_step[:1]=False
-        #     ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
-        #     ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1)#.sum(0)   # (2, batch)#
-        #     #
-        #     # batch_ego_feature=ego_feature[map_feature['batch']]
-        #     #
-        #     # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+        if self.pred_init and self.training:
+            mask_s=mask_a.transpose(0, 1)
+            ego_mask=tokenized_agent["ego_mask"]
+            ego_mask_step = ego_mask[None, :].repeat(n_step, 1)  # (num_step, num_agent)
+            if self.training:
+                ego_mask_step[3:]=False
+                ego_mask_step[:1]=False
+            ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
+            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1).sum(1)   # (2, batch)#
+            #
+            batch_ego_feature=ego_feature[map_feature['batch']]
+
+            map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
         #
         #     ego_feature=torch.sum(ego_feature,keepdim=True,dim=1)
         #
