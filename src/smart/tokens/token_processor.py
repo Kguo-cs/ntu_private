@@ -185,6 +185,8 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent[key]=tokenized_agent[key][:,1:]
 
                 tokenized_agent["token_mask"][:,:1]=False
+                initial_pos = tokenized_agent["sampled_pos"][:, 0]
+                initial_heading = tokenized_agent["sampled_heading"][:, 0]
 
             else:
                 valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
@@ -202,13 +204,11 @@ class TokenProcessor(torch.nn.Module):
 
                 dt = 0.1
                 tokenized_agent["extra_pos"] = initial_pos - initial_vel * first_valid_step.unsqueeze(-1) * dt
-
-                print(1)
+                initial_pos = tokenized_agent["sampled_pos"][:, 1]
+                initial_heading = tokenized_agent["sampled_heading"][:, 1]
 
             shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]
-            initial_pos = tokenized_agent["sampled_pos"][:, 0]
-            initial_heading = tokenized_agent["sampled_heading"][:, 0]
 
             ego_position=initial_pos[ego_mask][batch]
             ego_heading=initial_heading[ego_mask][batch]
