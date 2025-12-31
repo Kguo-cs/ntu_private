@@ -186,6 +186,25 @@ class TokenProcessor(torch.nn.Module):
 
                 tokenized_agent["token_mask"][:,:1]=False
 
+            else:
+                valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
+                heading = data["agent"]["heading"]  # [n_agent, n_step]
+                pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
+                vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+
+                first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
+
+                agent_idx = torch.arange(valid.shape[0], device=valid.device)
+
+                tokenized_agent["extra_heading"] = heading[agent_idx, first_valid_step]
+                initial_vel = vel[agent_idx, first_valid_step]
+                initial_pos = pos[agent_idx, first_valid_step]
+
+                dt = 0.1
+                tokenized_agent["extra_pos"] = initial_pos - initial_vel * first_valid_step.unsqueeze(-1) * dt
+
+                print(1)
+
             shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]
             initial_pos = tokenized_agent["sampled_pos"][:, 0]
@@ -221,9 +240,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["initial_heading"]=initial_heading[sort_idx]
             tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
             tokenized_agent["initial_type"]=type[sort_idx]
-
-            if not self.training:
-                tokenized_agent['id']=tokenized_agent['id'][sort_idx]
+            tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
 
         return tokenized_map, tokenized_agent
 
@@ -420,10 +437,10 @@ class TokenProcessor(torch.nn.Module):
         )
 
         # ! get raw trajectory data
-        valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
-        heading = data["agent"]["heading"]  # [n_agent, n_step]
-        pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-        vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+        valid = data["agent"]["valid_mask"].clone()  # [n_agent, n_step]
+        heading = data["agent"]["heading"].clone()   # [n_agent, n_step]
+        pos = data["agent"]["position"][..., :2].contiguous().clone()   # [n_agent, n_step, 2]
+        vel = data["agent"]["velocity"].clone()   # [n_agent, n_step, 2]
 
         # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
 
