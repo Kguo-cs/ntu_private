@@ -75,12 +75,12 @@ class SMART(LightningModule):
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
 
-        if self.token_processor.pred_init:
-            self.challenge_type=_ChallengeType.SCENARIO_GEN
-            self.para_num=4
-        else:
-            self.challenge_type=_ChallengeType.SIM_AGENTS
-            self.para_num=32
+        # if self.token_processor.pred_init:
+        #     self.challenge_type=_ChallengeType.SCENARIO_GEN
+        #     self.para_num=4
+        # else:
+        self.challenge_type=_ChallengeType.SIM_AGENTS
+        self.para_num=32
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -271,6 +271,10 @@ class SMART(LightningModule):
 
             if self.challenge_type == _ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
+            else:
+                pred_traj=pred_traj[:,:,-80:]
+                pred_z=pred_z[:,:,-80:]
+                pred_head=pred_head[:,:,-80:]
 
 
             if self.token_processor.use_bird :

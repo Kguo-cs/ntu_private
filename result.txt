@@ -1,0 +1,41 @@
+# 475 v121 '4d82fec943ddaa44' remove last =False
+# 474 remove last =true
+
+
+#v131  remove last =true 475 remove last =true 477
+
+
+simformer
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.66234016 |
+| Linear Speed Likelihood               | 0.37729618 |
+| Linear Acceleration Likelihood        | 0.5030157  |
+| Angular Speed Likelihood              | 0.60581106 |
+| Angular Acceleration Likelihood       | 0.68027556 |
+| Distance To Nearest Object Likelihood | 0.30762887 |
+| Collision Likelihood                  | 0.866547   |
+| Time To Collision Likelihood          | 0.8635248  |
+| Distance To Road Edge Likelihood      | 0.3524368  |
+| Offroad Likelihood                    | 0.6178145  |
+| minADE                                | 0          |
+
+
+
+my
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.5494112  |
+| Linear Speed Likelihood               | 0.30593494 |
+| Linear Acceleration Likelihood        | 0.46620414 |
+| Angular Speed Likelihood              | 0.567041   |
+| Angular Acceleration Likelihood       | 0.66190916 |
+| Distance To Nearest Object Likelihood | 0.2291617  |
+| Collision Likelihood                  | 0.6502053  |
+| Time To Collision Likelihood          | 0.8464664  |
+| Distance To Road Edge Likelihood      | 0.2258717  |
+| Offroad Likelihood                    | 0.47881484 |
+| minADE                                | 0          |
+

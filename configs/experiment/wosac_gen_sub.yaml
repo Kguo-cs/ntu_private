@@ -18,7 +18,7 @@ model:
       temp: 1.0
     wosac_submission:
       is_active: true
-      method_name: "SMART-micro-DecompGAIL"
+      method_name: "SMART-micro-gt"
       authors: Ke Guo
       affiliation: ntu
       description: Learning Realistic Traffic Behaviors with Decomposed Multi-Agent Generative Adversarial Imitation Learning
@@ -34,7 +34,7 @@ model:
       pred_init: True
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/last.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/epoch=10-step=133925.ckpt'
 
 trainer:
   limit_train_batches: 1.0
