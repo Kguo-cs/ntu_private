@@ -239,8 +239,6 @@ class SMARTAgentDecoder(nn.Module):
             map_feature['orientation'] = orientation_out
             map_feature['batch'] = batch_out
 
-            # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
-
         #
         #     # feat_a_step = torch.zeros(
         #     #     n_step, n_agent, self.hidden_dim,
@@ -334,7 +332,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=tokenized_agent["extra_pos"][:,None]
             head_a =tokenized_agent["extra_heading"][:,None]
 
-            max_step=16
+            max_step=18
             token_mask=torch.zeros_like(token_mask[:, :current_step])
             mask=torch.ones_like(mask[:, :current_step])
             sampled_idx=sampled_idx[:, :current_step]
