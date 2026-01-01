@@ -153,7 +153,6 @@ class InitDecoder(nn.Module):
 
         map_mask = torch.any(feat_map != 0, dim=-1)
 
-
         if self.training:
             pred_mask = ~tokenized_agent["ego_mask"]#non-last mask
             iteration_num=1

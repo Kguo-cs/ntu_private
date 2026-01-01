@@ -232,7 +232,7 @@ class TokenProcessor(torch.nn.Module):
             offset_h=wrap_angle(rel_heading-token_heading)
 
             offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
-
+            #
             # dist=torch.norm(initial_pos-ego_position,dim=-1)
             #
             # dist_max=dist.max()+1
@@ -241,8 +241,10 @@ class TokenProcessor(torch.nn.Module):
             #
             # sort_idx=sort_rank.argsort()
 
-            sort_idx=self.chained_sort(initial_pos,batch,type,ego_mask)
-            #sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask)
+            #sort_idx=self.chained_sort(initial_pos,batch,type,ego_mask)
+            sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
+
+            # print(torch.all(sort_idx==sort_idx1))
 
 
             tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
@@ -265,75 +267,43 @@ class TokenProcessor(torch.nn.Module):
             batch,  # (N,)
             type,  # (N,)
             ego_mask,  # (N,) bool
-            num_types=3
+            batch_num,
+            num_types=3,
     ):
-        device = initial_pos.device
-        N, D = initial_pos.shape
+        lengths = torch.bincount(batch,minlength=batch_num)
 
-        # ---------------------------------------------------------
-        # 1. Build group id: (batch, type)
-        # ---------------------------------------------------------
-        group = batch * num_types + type
-        G = group.max().item() + 1
+        padding_pos_a = padding(initial_pos, lengths.tolist(), padding_value=torch.inf)  # b, n, d
 
-        # ---------------------------------------------------------
-        # 2. Sort by group (stable)
-        # ---------------------------------------------------------
-        sort_idx = torch.argsort(group)
-        group_s = group[sort_idx]
-        pos_s = initial_pos[sort_idx]
-        ego_s = ego_mask[sort_idx]
+        type_b = padding(type.to(torch.float32), lengths.tolist(), padding_value=torch.inf)  # b, n, d
 
-        sizes = torch.bincount(group_s, minlength=G)
-        max_M = sizes.max()
+        mask=padding_pos_a[:,:,0]!=torch.inf
 
-        offsets = torch.cumsum(sizes, 0) - sizes
-        pos_in_group = torch.arange(N, device=device) - offsets[group_s]
+        sort_idx = torch.zeros_like(padding_pos_a[:,:,0]).to(torch.int64)-1
 
-        # ---------------------------------------------------------
-        # 3. Pad positions per group
-        # ---------------------------------------------------------
-        P = torch.zeros(G, max_M, D, device=device)
-        valid = pos_in_group < sizes[group_s]
+        last_pos = initial_pos[ego_mask]
 
-        P[group_s[valid], pos_in_group[valid]] = pos_s[valid]
+        last_type=type[ego_mask]
 
-        # ---------------------------------------------------------
-        # 4. Ego start position per group
-        # ---------------------------------------------------------
-        ego_pos = torch.zeros(G, D, device=device)
-        ego_group = group_s[ego_s]
-        ego_pos[ego_group] = pos_s[ego_s]
+        for i in range(padding_pos_a.shape[1]):
 
-        # ---------------------------------------------------------
-        # 5. Pairwise distances (GPU)
-        # ---------------------------------------------------------
-        Dmat = torch.cdist(P, P)  # (G, M, M)
+            same_type=torch.abs(type_b-last_type[:,None])
 
-        # ---------------------------------------------------------
-        # 6. Exact NN chaining (UNAVOIDABLE LOOP)
-        # ---------------------------------------------------------
-        visited = ~valid.clone()
-        order = torch.zeros(G, max_M, dtype=torch.long, device=device)
+            dist=torch.linalg.norm(padding_pos_a-last_pos[:,None],dim=-1)
 
-        dist_to_last = torch.norm(P - ego_pos[:, None], dim=-1)
+            nearest_last=(same_type*1000+ dist).argmin(-1)
 
-        for k in range(max_M):
-            dist_to_last[visited] = float("inf")
-            j = dist_to_last.argmin(dim=1)
+            sort_idx[:,i] =nearest_last
 
-            order[:, k] = j
-            visited[torch.arange(G), j] = True
-            dist_to_last = Dmat[torch.arange(G), j]
+            last_pos = padding_pos_a[torch.arange(batch_num),nearest_last]
+            last_type = type_b[torch.arange(batch_num),nearest_last]
 
-        # ---------------------------------------------------------
-        # 7. Map back to original indices
-        # ---------------------------------------------------------
-        global_idx = torch.full((G, max_M), -1, device=device, dtype=torch.long)
-        global_idx[group_s[valid], pos_in_group[valid]] = sort_idx[valid]
+            padding_pos_a[torch.arange(batch_num),nearest_last]=torch.inf
 
-        final_idx = global_idx[torch.arange(G)[:, None], order]
-        final_idx = final_idx[final_idx >= 0]
+        final_idx=sort_idx[mask]
+
+        offsets = torch.cumsum(lengths, 0) - lengths
+
+        final_idx=final_idx+offsets[batch]
 
         return final_idx
 
