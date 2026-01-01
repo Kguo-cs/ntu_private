@@ -36,7 +36,7 @@ class AgentTokenEncoder(nn.Module):
             input_dim_x_a=3
         else:
             self.type_a_emb = nn.Embedding(3, hidden_dim)
-            self.shape_emb = MLPLayer(3, hidden_dim, hidden_dim)
+            self.shape_emb = MLPLayer(2, hidden_dim, hidden_dim)
             input_dim_x_a=2
 
 
@@ -233,7 +233,7 @@ class AgentTokenEncoder(nn.Module):
             #     v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
             # ]
 
-            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape)+ self.ego_embed(ego_mask.long())
+            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape[:,:2])+ self.ego_embed(ego_mask.long())
 
             categorical_embs=categorical_embs[None].repeat(n_step,1,1)
         else:

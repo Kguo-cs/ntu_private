@@ -209,7 +209,7 @@ class TokenProcessor(torch.nn.Module):
 
             if self.training:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                    tokenized_agent[key]=tokenized_agent[key][:,1:]
+                    tokenized_agent[key]=torch.cat([tokenized_agent[key][:,:1],tokenized_agent[key]], dim=1)
 
                 tokenized_agent["token_mask"][:,:1]=False
                 initial_pos = tokenized_agent["sampled_pos"][:, 0]
@@ -233,7 +233,7 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["extra_pos"] = first_pos - first_vel * first_valid_step.unsqueeze(-1) * dt
                 initial_pos = tokenized_agent["sampled_pos"][:, 1]
                 initial_heading = tokenized_agent["sampled_heading"][:, 1]
-                #
+
                 # for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
                 #     tokenized_agent[key]=tokenized_agent[key][:,2:]
                 #
@@ -246,30 +246,7 @@ class TokenProcessor(torch.nn.Module):
             shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]
 
-            ego_position=initial_pos[ego_mask][batch]
-            ego_heading=initial_heading[ego_mask][batch]
-
-            grid_index_t, offset_xy=self.attr_tokenizer.encode_pos(initial_pos,ego_position,ego_heading)
-
-            rel_heading=initial_heading-ego_heading
-
-            heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
-
-            token_initial_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
-
-            heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
-
-            # offset_h=wrap_angle(rel_heading-token_heading)
-            #
-            # offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
-
-            token_initial_pos = self.attr_tokenizer.grid[grid_index_t]
-
-            offset_idx ,offset_offset_xy=self.offset_tokenizer.encode_pos(offset_xy,0)
-
-            token_offset = self.offset_tokenizer.grid[offset_idx]
-
-            token_initial_pos=token_initial_pos+token_offset
+            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
 
             dist=torch.norm(token_initial_pos,dim=-1)
 
@@ -279,6 +256,9 @@ class TokenProcessor(torch.nn.Module):
 
             sort_idx=sort_rank.argsort()
             # sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
+            # offset_h=wrap_angle(rel_heading-token_heading)
+            #
+            # offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
 
             # print(torch.all(sort_idx==sort_idx1))
 
@@ -291,9 +271,11 @@ class TokenProcessor(torch.nn.Module):
 
             shape=self.shape_grid[shape_token]
 
+            tokenized_agent["shape"][:,:2]=shape
+
             # shape=torch.cat([shape,torch.zeros_like(shape[:,:1])+1.75],dim=-1)
 
-            tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
+            tokenized_agent["initial_pos_token"]=pos_token_idx[sort_idx]
             tokenized_agent["initial_offset_token"]=offset_idx[sort_idx]
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
             tokenized_agent["initial_shape_token"]=shape_token[sort_idx]
@@ -307,6 +289,29 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
 
         return tokenized_map, tokenized_agent
+
+    def tokenize_initial(self,initial_pos,initial_heading,ego_mask,batch):
+
+        ego_position = initial_pos[ego_mask][batch]
+        ego_heading = initial_heading[ego_mask][batch]
+
+        pos_token_idx, offset_xy = self.attr_tokenizer.encode_pos(initial_pos, ego_position, ego_heading)
+
+        rel_heading = initial_heading - ego_heading
+
+        heading_token_idx = self.attr_tokenizer.encode_heading(rel_heading)
+
+        token_initial_heading = self.attr_tokenizer.decode_heading(heading_token_idx)
+
+        token_initial_pos = self.attr_tokenizer.grid[pos_token_idx]
+
+        offset_idx, offset_offset_xy = self.offset_tokenizer.encode_pos(offset_xy, 0)
+
+        token_offset = self.offset_tokenizer.grid[offset_idx]
+
+        token_initial_pos = token_initial_pos + token_offset
+
+        return token_initial_pos,token_initial_heading,pos_token_idx,heading_token_idx,offset_idx
 
     def batched_nn_chain(
             self,
@@ -640,7 +645,18 @@ class TokenProcessor(torch.nn.Module):
             # [n_agent]
             tokenized_agent["gt_z_raw"] = data["agent"]["position"][:, 10, 2]
 
-        batch=data["agent"]["batch"]
+        batch = data["agent"]["batch"]
+
+        if self.training:
+            valid =valid[:,10:]
+            pos=pos[:,10:]
+            heading=heading[:,10:]
+
+            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+
+            pos[:, 0]=token_initial_pos
+            heading[:, 0]=token_initial_heading
+
 
         token_dict = self._match_agent_token(
             valid=valid,
