@@ -199,11 +199,11 @@ class TokenProcessor(torch.nn.Module):
                 # agent_idx = torch.arange(valid.shape[0], device=valid.device)
                 #
                 # tokenized_agent["extra_heading"] = heading[agent_idx, first_valid_step]
-                # initial_vel = vel[agent_idx, first_valid_step]
-                # initial_pos = pos[agent_idx, first_valid_step]
+                # first_vel = vel[agent_idx, first_valid_step]
+                # first_pos = pos[agent_idx, first_valid_step]
                 #
                 # dt = 0.1
-                # tokenized_agent["extra_pos"] = initial_pos - initial_vel * first_valid_step.unsqueeze(-1) * dt
+                # tokenized_agent["extra_pos"] = first_pos - first_vel * first_valid_step.unsqueeze(-1) * dt
                 initial_pos = tokenized_agent["sampled_pos"][:, 1]
                 initial_heading = tokenized_agent["sampled_heading"][:, 1]
 
