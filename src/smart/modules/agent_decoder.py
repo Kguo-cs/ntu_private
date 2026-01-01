@@ -149,7 +149,7 @@ class SMARTAgentDecoder(nn.Module):
 
             initial_logit = self.init_decoder(map_feature, tokenized_agent)
 
-            return None, None, None, None, None, initial_logit, None
+            # return None, None, None, None, None, initial_logit, None
         else:
             initial_logit=None
 
