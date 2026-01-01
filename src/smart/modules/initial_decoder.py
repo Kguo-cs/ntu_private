@@ -47,7 +47,7 @@ class InitDecoder(nn.Module):
 
         self.use_cross_attention = True
 
-        self.use_entry_former = False
+        self.use_entry_former = True
 
         if  self.use_cross_attention:
 
@@ -177,6 +177,15 @@ class InitDecoder(nn.Module):
 
         if self.use_entry_former:
             pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
+            pred_mask = tokenized_agent["initial_ego_mask"]
+            ego_position=tokenized_agent["initial_pos"][pred_mask]
+            ego_heading=tokenized_agent["initial_heading"][pred_mask]
+
+            pos_pl,orient_pl=transform_to_local(pos_pl,
+                               orient_pl,
+                               ego_position,
+                               ego_heading,
+                               )
 
         map_mask = torch.any(feat_map != 0, dim=-1)
 
@@ -185,6 +194,8 @@ class InitDecoder(nn.Module):
             iteration_num=1
         else:
             pred_mask = tokenized_agent["initial_ego_mask"]
+            ego_position=tokenized_agent["initial_pos"][pred_mask]
+            ego_heading=tokenized_agent["initial_heading"][pred_mask]
 
             lengths = torch.bincount(tokenized_agent["batch"]).tolist()
 
@@ -200,8 +211,6 @@ class InitDecoder(nn.Module):
 
             if self.use_entry_former:
                 self.entry_former.attn.caching = True
-            ego_position=tokenized_agent["initial_pos"][pred_mask]
-            ego_heading=tokenized_agent["initial_heading"][pred_mask]
 
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
@@ -233,14 +242,14 @@ class InitDecoder(nn.Module):
             pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num)
 
             if self.use_entry_former:
-                entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                                  heading_a_b, mask_a_b,
+                entry_feature = self.entry_former.cross_attention(feat_a_b, torch.zeros_like(pos_a_b),
+                                                                  torch.zeros_like(heading_a_b), mask_a_b,
                                                                   feat_map,
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
             else:
-                entry_feature = self.graph_embed(feat_a_b, pos_a_b,
-                                                  heading_a_b, mask_a_b,
+                entry_feature = self.graph_embed(feat_a_b, torch.zeros_like(pos_a_b),
+                                                  torch.zeros_like(heading_a_b), mask_a_b,
                                                   batch,
                                                   feat_map,
                                                   pos_pl,
