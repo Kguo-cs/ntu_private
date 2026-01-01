@@ -89,6 +89,12 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
+        self.offset_tokenizer= Attr_Tokenizer(grid_range=3,
+                                             grid_interval=0.1,
+                                             radius=100,
+                                             angle_interval=3)
+
+
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
@@ -227,13 +233,22 @@ class TokenProcessor(torch.nn.Module):
             rel_heading=initial_heading-ego_heading
 
             heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
-            token_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
 
-            offset_h=wrap_angle(rel_heading-token_heading)
+            token_initial_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
 
-            offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
+            # offset_h=wrap_angle(rel_heading-token_heading)
             #
-            dist=torch.norm(initial_pos-ego_position,dim=-1)
+            # offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
+
+            token_initial_pos = self.attr_tokenizer.grid[grid_index_t]
+
+            offset_idx ,offset_offset_xy=self.offset_tokenizer.encode_pos(offset_xy,0)
+
+            token_offset = self.offset_tokenizer.grid[offset_idx]
+
+            token_initial_pos=token_initial_pos+token_offset
+
+            dist=torch.norm(token_initial_pos,dim=-1)
 
             dist_max=dist.max()+1
 
@@ -248,11 +263,11 @@ class TokenProcessor(torch.nn.Module):
 
 
             tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
-            tokenized_agent["initial_offset_xyh"]=offset_xyh[sort_idx]
+            tokenized_agent["initial_offset_token"]=offset_idx[sort_idx]
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
             tokenized_agent["initial_shape"]=shape[sort_idx]
-            tokenized_agent["initial_pos"]=initial_pos[sort_idx]
-            tokenized_agent["initial_heading"]=initial_heading[sort_idx]
+            tokenized_agent["initial_pos"]=token_initial_pos[sort_idx]
+            tokenized_agent["initial_heading"]=token_initial_heading[sort_idx]
             tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
             tokenized_agent["initial_type"]=type[sort_idx]
 

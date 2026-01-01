@@ -82,8 +82,8 @@ class Attr_Tokenizer(nn.Module):
         return x[:, None] + grid
 
     def encode_pos(self, x, y, theta_y=None):
-        assert x.dim() == y.dim() and x.shape[-1] == 2 and y.shape[-1] == 2, \
-                    f"Invalid input shape x: {x.shape}, y: {y.shape}."
+        # assert x.dim() == y.dim() and x.shape[-1] == 2 and y.shape[-1] == 2, \
+        #             f"Invalid input shape x: {x.shape}, y: {y.shape}."
         centered_x = x - y
         if theta_y is not None:
             centered_x = self._apply_rot(centered_x[:, None], -(theta_y - self.heading).expand(x.shape[0]))[:, 0]

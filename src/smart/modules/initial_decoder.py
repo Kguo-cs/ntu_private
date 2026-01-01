@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from smart.utils import transform_to_global
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.distributions import Categorical
@@ -13,7 +14,7 @@ from src.smart.layers.relative_transformer import RoFormerBlock
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     cal_polygon_contour,
-    transform_to_global,
+    transform_to_local,
     transform_to_local,
     wrap_angle,
 )
@@ -96,15 +97,15 @@ class InitDecoder(nn.Module):
 
 
 
-        self.pos_embedding = nn.Embedding(self.n_token_entry , hidden_dim)
-        self.head_embedding = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
+        self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
        # self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
         #self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.n_token_entry_head )
-        self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,self.pos_dim + 1)  # offset to offset
+        self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.offset_tokenizer.grid_size)  # offset to offset
         self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
     def padding(self,pos,heading,feature,batch,batch_num):
@@ -116,10 +117,10 @@ class InitDecoder(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self,initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num ):
+    def embed_input(self,initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num ):
         type_embedding = self.type_embedding(initial_type)
-        heading_embedding = self.head_embedding(initial_heading_token)
-        pos_embedding = self.pos_embedding(initial_pos_token)
+        heading_embedding = self.head_embedding(initial_heading[:,None])
+        pos_embedding = self.pos_embedding(initial_pos)
        # shape_embedding = self.shape_embedding(initial_shape)
 
         feat_a = type_embedding  + heading_embedding + pos_embedding#+ shape_embedding
@@ -213,9 +214,6 @@ class InitDecoder(nn.Module):
                 self.entry_former.attn.caching = True
 
         initial_type = tokenized_agent["initial_type"][pred_mask]
-        initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
-        initial_offset_xyh = tokenized_agent["initial_offset_xyh"][pred_mask]
-        initial_heading_token = tokenized_agent["initial_heading_token"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
         batch=tokenized_agent["batch"][pred_mask]
 
@@ -231,15 +229,15 @@ class InitDecoder(nn.Module):
             initial_pos = tokenized_agent["initial_pos"][pred_mask]
             initial_heading = tokenized_agent["initial_heading"][pred_mask]
 
-        global_pos_list=[initial_pos]
-        global_heading_list=[initial_heading]
+        local_pos_list=[initial_pos]
+        local_heading_list=[initial_heading]
         shape_list=[initial_shape]
 
         type_list=[initial_type]
 
         for n_current in range(iteration_num):
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num)
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num)
 
             if self.use_entry_former:
                 entry_feature = self.entry_former.cross_attention(feat_a_b, torch.zeros_like(pos_a_b),
@@ -267,75 +265,59 @@ class InitDecoder(nn.Module):
             initial_shape = self.shape_head_decoder(attr_feature)
 
             if not self.use_refine:
-                initial_offset_xyh = self.offset_head_decoder(attr_feature)
+                offset_logit = self.offset_head_decoder(attr_feature)
 
-                initial_offset_xyh[...,:2] = torch.tanh(initial_offset_xyh[...,:2]) * self.token_processor.attr_tokenizer.grid_interval/2
-                initial_offset_xyh[...,2] = torch.tanh(initial_offset_xyh[...,2]) * (torch.pi/self.token_processor.n_token_entry_head)
+                # initial_offset_xyh=self.token_processor.attr_tokenizer1.decode_pos(initial_offset_idx,0,0,0)
+
+                # initial_offset_xyh[...,:2] = torch.tanh(initial_offset_xyh[...,:2]) * self.token_processor.attr_tokenizer.grid_interval/2
+                # initial_offset_xyh[...,2] = torch.tanh(initial_offset_xyh[...,2]) * (torch.pi/self.token_processor.n_token_entry_head)
             else:
                 initial_offset_xyh = torch.zeros_like(initial_shape)
 
-            entry_logit=(pos_logit,head_logit,initial_offset_xyh,initial_shape)
+            entry_logit=(pos_logit,head_logit,offset_logit,initial_shape)
 
             if not self.training:
                 initial_pos_token = Categorical(logits=pos_logit).sample()
                 initial_heading_token=Categorical(logits=head_logit).sample()
+                initial_offset_token=Categorical(logits=offset_logit).sample()
 
-                token_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
+                token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
+                token_pos= self.token_processor.attr_tokenizer.grid[initial_offset_token]
 
-                initial_heading=wrap_angle(token_heading+ego_heading+initial_offset_xyh[:,-1])
+                initial_pos=token_pos+token_offset
+                
+                initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
 
-                initial_pos = self.token_processor.attr_tokenizer.decode_pos(initial_pos_token,initial_offset_xyh[:,:2],ego_position,ego_heading)
-
-                global_pos_list.append(initial_pos)
-                global_heading_list.append(initial_heading)
+                local_pos_list.append(initial_pos)
+                local_heading_list.append(initial_heading)
                 shape_list.append(initial_shape)
 
                 initial_type=all_initial_type[:,n_current+1]
 
                 type_list.append(initial_type)
 
-        if self.use_refine:
-            refine_initial_pos = tokenized_agent["initial_pos"][pred_mask]
-            refine_initial_heading = tokenized_agent["initial_heading"][pred_mask]
-
-            if not self.training:
-                initial_pos = tokenized_agent["initial_pos"][pred_mask]
-                initial_heading = tokenized_agent["initial_heading"][pred_mask]
-            else:
-                global_token_pos = torch.stack(global_pos_list, dim=1)[agent_mask]  # 32,125
-                global_token_heading = torch.stack(global_heading_list, dim=1)[agent_mask]
-
-            offset_embedding = self.offset_embedding(initial_offset_xyh)
-
-
-            pos_a_b, heading_a_b, feat_offset, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch)
-
-            entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                              heading_a_b, mask_a_b,
-                                                              entry_feature,
-                                                              pos_pl_b,
-                                                              orient_pl_b, map_mask)
-
         if not self.training:
             self.attr_former.attn.kv_caching(0)
             if self.use_entry_former:
                 self.entry_former.attn.kv_caching(0)
 
-            global_pos = torch.stack(global_pos_list,dim=1)[agent_mask]#32,125
-            global_heading = torch.stack(global_heading_list,dim=1)[agent_mask]
+            local_pos = torch.stack(local_pos_list,dim=1)[agent_mask]#32,125
+            local_heading = torch.stack(local_heading_list,dim=1)[agent_mask]
             shape = torch.stack(shape_list,dim=1)[agent_mask]
-
-
-            # type = torch.stack(type_list,dim=1)[agent_mask]
-            #
-            # print(torch.all(type==tokenized_agent["initial_type"]))
+            
+            global_pos,global_heading=transform_to_global(
+                local_pos[:,None],
+                local_heading[:,None],
+                ego_position[tokenized_agent["batch"]],
+                ego_heading[tokenized_agent["batch"]],
+            )
 
             tokenized_agent["shape"]=shape
             tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
             tokenized_agent["type"] = tokenized_agent['initial_type']
             tokenized_agent['id']=tokenized_agent['initial_id']
 
-            return global_pos[:,None], global_heading[:,None]
+            return global_pos, global_heading
 
         return entry_logit
         # after interact with agent and map,  predict state and type and shape and tokenized position,
