@@ -212,8 +212,8 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent[key]=torch.cat([tokenized_agent[key][:,:1],tokenized_agent[key]], dim=1)
 
                 tokenized_agent["token_mask"][:,:1]=False
-                initial_pos = tokenized_agent["sampled_pos"][:, 0]
-                initial_heading = tokenized_agent["sampled_heading"][:, 0]
+                initial_pos = tokenized_agent["initial_pos"]
+                initial_heading = tokenized_agent["initial_heading"]
 
             else:
                 valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
@@ -654,9 +654,22 @@ class TokenProcessor(torch.nn.Module):
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
 
-            pos[:, 0]=token_initial_pos
-            heading[:, 0]=token_initial_heading
+            ego_position = pos[:,0][ego_mask][batch]
+            ego_heading = heading[:,0][ego_mask][batch]
 
+            initial_pos,initial_heading=transform_to_global(
+                token_initial_pos[:,None],
+                token_initial_heading[:,None],
+                ego_position,
+                ego_heading,
+
+            )
+
+            pos[:, :1]=initial_pos
+            heading[:, :1]=initial_heading
+
+            tokenized_agent["initial_pos"]=initial_pos[:,0]
+            tokenized_agent["initial_heading"]=initial_heading[:,0]
 
         token_dict = self._match_agent_token(
             valid=valid,
