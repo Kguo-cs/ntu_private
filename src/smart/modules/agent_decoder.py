@@ -20,13 +20,10 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
-)
-from src.smart.utils import (
-    transform_to_global,
-    weight_init,
+    weight_init
 )
 from torch.distributions import Categorical
-from .build_edge import build_batch
+from .build_edge import build_batch,insert_ego
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
 import numpy as np
@@ -99,8 +96,8 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        # if self.pred_init:
-        #     self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
+        if self.pred_init:
+            self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
         self.token_processor= token_processor
         self.discriminator=discriminator
@@ -140,125 +137,19 @@ class SMARTAgentDecoder(nn.Module):
             ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
             ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1).sum(1)   # (2, batch)#
 
-            batch_ego_feature=ego_feature[map_feature['batch']]
+            # batch_ego_feature=ego_feature[map_feature['batch']]
+            #
+            # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
 
-            map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+            ego_feature=ego_feature[:,None]
+            ego_pos = pos_a[:, 1:2][ego_mask]
+            ego_heading = head_a[:, 1:2][ego_mask]
 
-            # ego_feature=ego_feature[:,None]
+            map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
-
-            # ego_pos = pos_a[:, 1:3][ego_mask]
-            # ego_heading = head_a[:, 1:3][ego_mask]
-            #
-            # # Map features
-            # batch = map_feature['batch']  # (N,)
-            # pt_token = map_feature['pt_token']  # (N, F)
-            # position = map_feature['position']  # (N, D)
-            # orientation = map_feature['orientation']  # (N, H)
-            #
-            # device = batch.device
-            # B = ego_feature.size(0)
-            # E = ego_feature.size(1)  # = 2
-            #
-            # # =========================
-            # # 1. Count map elements per batch
-            # # =========================
-            # counts = torch.bincount(batch, minlength=B)  # (B,)
-            #
-            # # =========================
-            # # 2. Compute batch offsets (+E ego per batch)
-            # # =========================
-            # new_counts = counts + E
-            # offsets = torch.cumsum(new_counts, dim=0) - new_counts  # (B,)
-            #
-            # # =========================
-            # # 3. Ego indices
-            # # =========================
-            # ego_indices = (
-            #         offsets[:, None] +
-            #         torch.arange(E, device=device)[None, :]
-            # ).reshape(-1)  # (B*E,)
-            #
-            # # =========================
-            # # 4. Map indices (order-preserving)
-            # # =========================
-            # pos_in_batch = (
-            #         torch.arange(batch.size(0), device=device)
-            #         - torch.cumsum(counts, 0)[batch]
-            #         + counts[batch]
-            # )
-            #
-            # map_indices = offsets[batch] + E + pos_in_batch
-            #
-            # # =========================
-            # # 5. Allocate outputs
-            # # =========================
-            # N_new = new_counts.sum().item()
-            #
-            # pt_token_out = torch.empty(
-            #     (N_new, pt_token.size(1)),
-            #     device=device,
-            #     dtype=pt_token.dtype,
-            # )
-            #
-            # position_out = torch.empty(
-            #     (N_new, position.size(1)),
-            #     device=device,
-            #     dtype=position.dtype,
-            # )
-            #
-            # orientation_out = torch.empty(
-            #     (N_new),
-            #     device=device,
-            #     dtype=orientation.dtype,
-            # )
-            #
-            # batch_out = torch.empty(
-            #     (N_new,),
-            #     device=device,
-            #     dtype=batch.dtype,
-            # )
-            #
-            # # =========================
-            # # 6. Scatter ego (flatten B×E → (B*E))
-            # # =========================
-            # pt_token_out[ego_indices] = ego_feature.reshape(-1, pt_token.size(1))
-            # position_out[ego_indices] = ego_pos.reshape(-1, position.size(1))
-            # orientation_out[ego_indices] = ego_heading.reshape(-1)
-            # batch_out[ego_indices] = torch.repeat_interleave(
-            #     torch.arange(B, device=device),
-            #     E
-            # )
-            #
-            # # =========================
-            # # 7. Scatter map features
-            # # =========================
-            # pt_token_out[map_indices] = pt_token
-            # position_out[map_indices] = position
-            # orientation_out[map_indices] = orientation
-            # batch_out[map_indices] = batch
-            #
-            # # =========================
-            # # 8. Write back
-            # # =========================
-            # map_feature['pt_token'] = pt_token_out
-            # map_feature['position'] = position_out
-            # map_feature['orientation'] = orientation_out
-            # map_feature['batch'] = batch_out
-
-        #
-        #     # feat_a_step = torch.zeros(
-        #     #     n_step, n_agent, self.hidden_dim,
-        #     #     device=feat_a_token.device
-        #     # )
-        #     # feat_a_step[mask_s] = feat_a_token
-        #     #
-        #     # # 只取前 2 step 的 ego
-        #     # ego_feature1 = feat_a_step[:2, tokenized_agent["ego_mask"]] .sum(0) # (2, num_ego, D)
-        #
-        #     initial_logit = self.init_decoder(map_feature, tokenized_agent)
-        # else:
-        initial_logit=None
+            initial_logit = self.init_decoder(map_feature, tokenized_agent)
+        else:
+            initial_logit=None
 
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)

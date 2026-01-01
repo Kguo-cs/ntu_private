@@ -273,3 +273,104 @@ def generate_limited_causal_mask(seq_len, history_len,n_agent=1, device='cpu'):
     mask = (j> i) | (j < i - history_len+ 1)  # True means masked
 
     return mask  # shape: [seq_len, seq_len]
+
+
+def insert_ego(map_feature,ego_feature,ego_pos,ego_heading):
+    # Map features
+    batch = map_feature['batch']  # (N,)
+    pt_token = map_feature['pt_token']  # (N, F)
+    position = map_feature['position']  # (N, D)
+    orientation = map_feature['orientation']  # (N, H)
+
+    device = batch.device
+    B = ego_feature.size(0)
+    E = ego_feature.size(1)  # = 2
+
+    # =========================
+    # 1. Count map elements per batch
+    # =========================
+    counts = torch.bincount(batch, minlength=B)  # (B,)
+
+    # =========================
+    # 2. Compute batch offsets (+E ego per batch)
+    # =========================
+    new_counts = counts + E
+    offsets = torch.cumsum(new_counts, dim=0) - new_counts  # (B,)
+
+    # =========================
+    # 3. Ego indices
+    # =========================
+    ego_indices = (
+            offsets[:, None] +
+            torch.arange(E, device=device)[None, :]
+    ).reshape(-1)  # (B*E,)
+
+    # =========================
+    # 4. Map indices (order-preserving)
+    # =========================
+    pos_in_batch = (
+            torch.arange(batch.size(0), device=device)
+            - torch.cumsum(counts, 0)[batch]
+            + counts[batch]
+    )
+
+    map_indices = offsets[batch] + E + pos_in_batch
+
+    # =========================
+    # 5. Allocate outputs
+    # =========================
+    N_new = new_counts.sum().item()
+
+    pt_token_out = torch.empty(
+        (N_new, pt_token.size(1)),
+        device=device,
+        dtype=pt_token.dtype,
+    )
+
+    position_out = torch.empty(
+        (N_new, position.size(1)),
+        device=device,
+        dtype=position.dtype,
+    )
+
+    orientation_out = torch.empty(
+        (N_new),
+        device=device,
+        dtype=orientation.dtype,
+    )
+
+    batch_out = torch.empty(
+        (N_new,),
+        device=device,
+        dtype=batch.dtype,
+    )
+
+    # =========================
+    # 6. Scatter ego (flatten B×E → (B*E))
+    # =========================
+    pt_token_out[ego_indices] = ego_feature.reshape(-1, pt_token.size(1))
+    position_out[ego_indices] = ego_pos.reshape(-1, position.size(1))
+    orientation_out[ego_indices] = ego_heading.reshape(-1)
+    batch_out[ego_indices] = torch.repeat_interleave(
+        torch.arange(B, device=device),
+        E
+    )
+
+    # =========================
+    # 7. Scatter map features
+    # =========================
+    pt_token_out[map_indices] = pt_token
+    position_out[map_indices] = position
+    orientation_out[map_indices] = orientation
+    batch_out[map_indices] = batch
+
+    # =========================
+    # 8. Write back
+    # =========================
+    map_feature['pt_token'] = pt_token_out
+    map_feature['position'] = position_out
+    map_feature['orientation'] = orientation_out
+    map_feature['batch'] = batch_out
+
+    return map_feature
+

@@ -35,9 +35,9 @@ from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollo
 from src.smart.plot.plot_bird.plot_bird import plot_bird_from_tensors
 from src.smart.metrics.bird_metrics import compute_bird_metrics,MetricDict
 from src.smart.plot.plot_rollout import plot_rollout_frames
-from waymo_open_dataset.utils.sim_agents import submission_specs
-_ChallengeType = submission_specs.ChallengeType
+from src.smart.metrics.wosac_metrics import WOSACMetrics
 import time
+from src.smart.modules.build_edge import insert_ego
 
 class SMART(LightningModule):
 
@@ -76,10 +76,10 @@ class SMART(LightningModule):
         #             p.requires_grad = False
 
         if self.token_processor.pred_init:
-            self.challenge_type=_ChallengeType.SCENARIO_GEN
+            self.challenge_type=ChallengeType.SCENARIO_GEN
             self.para_num=4
         else:
-            self.challenge_type=_ChallengeType.SIM_AGENTS
+            self.challenge_type=ChallengeType.SIM_AGENTS
             self.para_num=32
 
         self.minADE = minADE()
@@ -238,108 +238,14 @@ class SMART(LightningModule):
 
                 ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).transpose(0,1).sum(1)  #
 
-                batch_ego_feature = ego_feature[map_feature['batch']]
+                # batch_ego_feature = ego_feature[map_feature['batch']]
+                # 
+                # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+                ego_feature = ego_feature[:, None]
+                ego_pos=ego_pos[:,:1]
+                ego_heading=ego_heading[:,:1]
 
-                map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
-                # ego_feature = ego_feature[:, None]
-                # ego_pos=ego_pos[:,:1]
-                # ego_heading=ego_heading[:,:1]
-
-                # # Map features
-                # batch = map_feature['batch']  # (N,)
-                # pt_token = map_feature['pt_token']  # (N, F)
-                # position = map_feature['position']  # (N, D)
-                # orientation = map_feature['orientation']  # (N, H)
-                #
-                # device = batch.device
-                # B = ego_feature.size(0)
-                # E = ego_feature.size(1)  # = 2
-                #
-                # # =========================
-                # # 1. Count map elements per batch
-                # # =========================
-                # counts = torch.bincount(batch, minlength=B)  # (B,)
-                #
-                # # =========================
-                # # 2. Compute batch offsets (+E ego per batch)
-                # # =========================
-                # new_counts = counts + E
-                # offsets = torch.cumsum(new_counts, dim=0) - new_counts  # (B,)
-                #
-                # # =========================
-                # # 3. Ego indices
-                # # =========================
-                # ego_indices = (
-                #         offsets[:, None] +
-                #         torch.arange(E, device=device)[None, :]
-                # ).reshape(-1)  # (B*E,)
-                #
-                # # =========================
-                # # 4. Map indices (order-preserving)
-                # # =========================
-                # pos_in_batch = (
-                #         torch.arange(batch.size(0), device=device)
-                #         - torch.cumsum(counts, 0)[batch]
-                #         + counts[batch]
-                # )
-                #
-                # map_indices = offsets[batch] + E + pos_in_batch
-                #
-                # # =========================
-                # # 5. Allocate outputs
-                # # =========================
-                # N_new = new_counts.sum().item()
-                #
-                # pt_token_out = torch.empty(
-                #     (N_new, pt_token.size(1)),
-                #     device=device,
-                #     dtype=pt_token.dtype,
-                # )
-                #
-                # position_out = torch.empty(
-                #     (N_new, position.size(1)),
-                #     device=device,
-                #     dtype=position.dtype,
-                # )
-                #
-                # orientation_out = torch.empty(
-                #     (N_new),
-                #     device=device,
-                #     dtype=orientation.dtype,
-                # )
-                #
-                # batch_out = torch.empty(
-                #     (N_new,),
-                #     device=device,
-                #     dtype=batch.dtype,
-                # )
-                #
-                # # =========================
-                # # 6. Scatter ego (flatten B×E → (B*E))
-                # # =========================
-                # pt_token_out[ego_indices] = ego_feature.reshape(-1, pt_token.size(1))
-                # position_out[ego_indices] = ego_pos.reshape(-1, position.size(1))
-                # orientation_out[ego_indices] = ego_heading.reshape(-1)
-                # batch_out[ego_indices] = torch.repeat_interleave(
-                #     torch.arange(B, device=device),
-                #     E
-                # )
-                #
-                # # =========================
-                # # 7. Scatter map features
-                # # =========================
-                # pt_token_out[map_indices] = pt_token
-                # position_out[map_indices] = position
-                # orientation_out[map_indices] = orientation
-                # batch_out[map_indices] = batch
-                #
-                # # =========================
-                # # 8. Write back
-                # # =========================
-                # map_feature['pt_token'] = pt_token_out
-                # map_feature['position'] = position_out
-                # map_feature['orientation'] = orientation_out
-                # map_feature['batch'] = batch_out
+                map_feature = insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
             for _ in range(self.n_rollout_closed_val):
 
@@ -355,7 +261,7 @@ class SMART(LightningModule):
                     if "new_agent" in pred.keys():
                         new_agent.append(pred["new_agent"])
 
-                if self.challenge_type == _ChallengeType.SCENARIO_GEN:
+                if self.challenge_type == ChallengeType.SCENARIO_GEN:
                     pred_sizes.append(pred["shape"])
 
 
@@ -367,7 +273,7 @@ class SMART(LightningModule):
                 if len(new_agent):
                     new_agent=torch.stack(new_agent, dim=1).cpu().numpy()
 
-            if self.challenge_type == _ChallengeType.SCENARIO_GEN:
+            if self.challenge_type == ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
             else:
                 pred_traj=pred_traj[:,:,-80:]
@@ -461,7 +367,7 @@ class SMART(LightningModule):
 
             else:  # ! compute metrics, disable if save WOSAC submission
 
-                if self.challenge_type != _ChallengeType.SCENARIO_GEN:
+                if self.challenge_type != ChallengeType.SCENARIO_GEN:
                     self.minADE.update(
                         pred=pred_traj,
                         target=data["agent"]["position"][
@@ -602,7 +508,7 @@ class SMART(LightningModule):
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
 
-                if self.challenge_type!=_ChallengeType.SCENARIO_GEN:
+                if self.challenge_type!=ChallengeType.SCENARIO_GEN:
                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
 
