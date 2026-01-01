@@ -94,6 +94,12 @@ class TokenProcessor(torch.nn.Module):
                                              radius=100,
                                              angle_interval=3)
 
+        self.shape_tokenizer = Attr_Tokenizer(grid_range=10,
+                                             grid_interval=0.5,
+                                             radius=100,
+                                             angle_interval=3)
+
+
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -235,6 +241,8 @@ class TokenProcessor(torch.nn.Module):
             heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
 
             token_initial_heading =self.attr_tokenizer.decode_heading(heading_token_idx)
+
+            heading_token_idx =self.attr_tokenizer.encode_heading(rel_heading)
 
             # offset_h=wrap_angle(rel_heading-token_heading)
             #

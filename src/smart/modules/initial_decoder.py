@@ -282,13 +282,13 @@ class InitDecoder(nn.Module):
                 initial_offset_token=Categorical(logits=offset_logit).sample()
 
                 token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
-                token_pos= self.token_processor.attr_tokenizer.grid[initial_offset_token]
+                initial_pos= self.token_processor.attr_tokenizer.grid[initial_offset_token]
 
-                initial_pos=token_pos+token_offset
+                #initial_pos=token_pos+token_offset
                 
                 initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
 
-                local_pos_list.append(initial_pos)
+                local_pos_list.append(initial_pos+token_offset)
                 local_heading_list.append(initial_heading)
                 shape_list.append(initial_shape)
 

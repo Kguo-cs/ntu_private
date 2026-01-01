@@ -66,25 +66,6 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        # if self.predict_state:
-        #     self.state_cls_loss = nn.CrossEntropyLoss(
-        #         torch.tensor(self.loss_weight['state_weight']))
-        #     self.state_cls_loss_seed = nn.CrossEntropyLoss(
-        #         torch.tensor(self.loss_weight['seed_state_weight']))
-        #     self.type_cls_loss_seed = nn.CrossEntropyLoss(
-        #         torch.tensor(self.loss_weight['seed_type_weight']))
-        #     self.pos_cls_loss_seed = nn.CrossEntropyLoss(label_smoothing=0.1)
-        #     self.head_cls_loss_seed = nn.CrossEntropyLoss()
-        #     self.offset_reg_loss_seed = nn.MSELoss()
-        #     self.shape_reg_loss_seed = nn.MSELoss()
-        #     self.pos_reg_loss_seed = nn.MSELoss()
-        #     self.head_reg_loss_seed = nn.MSELoss()
-        # self.automatic_optimization=False
-    # def on_after_backward(self):
-    #     for name, param in self.named_parameters():
-    #         if param.grad is None:
-    #             print(f"Unused parameter: {name}")
-
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
         action = tokenized_agent["sampled_idx"][:, self.start_step + 1:]
@@ -145,15 +126,15 @@ class IQ_SoftQ(LightningModule):
             head_nll=self.token_cls_loss(entry_head_logit, initial_heading_token)
             offset_nll=self.token_cls_loss(entry_offset, initial_offset_token)
             #offset_mse=self.token_cls_loss(entry_offset, initial_offset_token)
-            shape_mse=self.mse(pred_shape, initial_shape)
+            shape_nll=self.token_cls_loss(pred_shape, initial_shape)
 
             self.log("train/pos_nll", pos_nll.item(), on_step=True, batch_size=1)
             self.log("train/head_nll", head_nll.item(), on_step=True, batch_size=1)
             self.log("train/offset_nll", offset_nll.item(), on_step=True, batch_size=1)
             # self.log("train/offset_mse", offset_mse.item(), on_step=True, batch_size=1)
-            self.log("train/shape_mse", shape_mse.item(), on_step=True, batch_size=1)
+            self.log("train/shape_mse", shape_nll.item(), on_step=True, batch_size=1)
 
-            action_nll=action_nll+pos_nll+head_nll+offset_nll+shape_mse
+            action_nll=action_nll+pos_nll+head_nll+offset_nll+shape_nll
 
         if pred["entry_logit"] is not None:
 
