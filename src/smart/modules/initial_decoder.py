@@ -47,7 +47,7 @@ class InitDecoder(nn.Module):
 
         self.use_cross_attention = True
 
-        self.use_entry_former = False
+        self.use_entry_former = True
 
         if  self.use_cross_attention:
 
