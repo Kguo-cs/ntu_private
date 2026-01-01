@@ -100,7 +100,7 @@ class InitDecoder(nn.Module):
         self.head_embedding = nn.Embedding(self.token_processor.n_token_entry_head, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
         self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
-        self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
+        #self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.n_token_entry_head )
@@ -118,15 +118,15 @@ class InitDecoder(nn.Module):
 
     def embed_input(self,initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num ):
         type_embedding = self.type_embedding(initial_type)
-        shape_embedding = self.shape_embedding(initial_shape)
         heading_embedding = self.head_embedding(initial_heading_token)
         pos_embedding = self.pos_embedding(initial_pos_token)
+        shape_embedding = self.shape_embedding(initial_shape)
 
-        feat_a = type_embedding + shape_embedding + heading_embedding + pos_embedding
+        feat_a = type_embedding  + heading_embedding + pos_embedding+ shape_embedding
 
-        if initial_offset_xyh.any():
-            offset_embedding = self.offset_embedding(initial_offset_xyh)
-            feat_a = feat_a + offset_embedding
+        # if initial_offset_xyh.any():
+        #     offset_embedding = self.offset_embedding(initial_offset_xyh)
+        #     feat_a = feat_a + offset_embedding
 
         pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch,batch_num)
 
@@ -293,8 +293,6 @@ class InitDecoder(nn.Module):
                 initial_type=all_initial_type[:,n_current+1]
 
                 type_list.append(initial_type)
-
-            #    print(initial_type)
 
         if self.use_refine:
             refine_initial_pos = tokenized_agent["initial_pos"][pred_mask]
