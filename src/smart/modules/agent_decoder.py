@@ -138,17 +138,17 @@ class SMARTAgentDecoder(nn.Module):
                 ego_mask_step[3:]=False
                 ego_mask_step[:1]=False
             ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
-            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1).sum(1)   # (2, batch)#
+            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1)#.sum(1)   # (2, batch)#
             #
             # batch_ego_feature=ego_feature[map_feature['batch']]
             #
             # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
 
-            ego_feature=ego_feature[:,None]
+            # ego_feature=ego_feature[:,None]
 
 
-            ego_pos = pos_a[:, 1:2][ego_mask]
-            ego_heading = head_a[:, 1:2][ego_mask]
+            ego_pos = pos_a[:, 1:3][ego_mask]
+            ego_heading = head_a[:, 1:3][ego_mask]
 
             # Map features
             batch = map_feature['batch']  # (N,)

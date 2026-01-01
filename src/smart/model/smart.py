@@ -236,14 +236,14 @@ class SMART(LightningModule):
                     abs_time=abs_time,
                 )
 
-                ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).transpose(0,1).sum(1)  #
+                ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).transpose(0,1)#.sum(1)  #
 
                 # batch_ego_feature = ego_feature[map_feature['batch']]
                 #
                 # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
-                ego_feature = ego_feature[:, None]
-                ego_pos=ego_pos[:,:1]
-                ego_heading=ego_heading[:,:1]
+                # ego_feature = ego_feature[:, None]
+                # ego_pos=ego_pos[:,:1]
+                # ego_heading=ego_heading[:,:1]
 
                 # # Map features
                 batch = map_feature['batch']  # (N,)
