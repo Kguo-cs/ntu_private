@@ -47,7 +47,7 @@ class InitDecoder(nn.Module):
 
         self.use_cross_attention = True
 
-        self.use_entry_former = True
+        self.use_entry_former = False
 
         if  self.use_cross_attention:
 
@@ -134,10 +134,37 @@ class InitDecoder(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
+    def graph_embed(self,feat_a_b, pos_a_b, heading_a_b, mask_a_b,batch_s_repeat, feat_map,  pos_pl,    orient_pl,batch_pl):
 
-    def graph_embed(self,feat_a_b, pos_a_b,heading_a_b, mask_a_b, feat_map_b,     pos_pl_b,orient_pl_b, map_mask):
+        res=torch.zeros_like(feat_a_b)
 
-        return 1
+        head_a=heading_a_b[mask_a_b]
+        pos_a=pos_a_b[mask_a_b]
+        feat_a=feat_a_b[mask_a_b]
+        mask_a=None
+
+        head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+        edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+            pos_pl=pos_pl,  # [n_pl, 2]
+            orient_pl=orient_pl,  # [n_pl]
+            pos_a=pos_a,  # [n_agent, n_step, 2]
+            head_a=head_a,  # [n_agent, n_step]
+            head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+            mask=mask_a,  # [n_agent, n_step]
+            batch_s=batch_s_repeat,  # [n_agent,n_step]
+            batch_pl=batch_pl,  # [n_pl*n_step]
+            pl2a_radius=40,
+            max_num_neighbors=20,
+            agent_train_mask=None,
+            layer_num=1
+        )
+
+        feat_a = self.pt2a_attn_layers[0]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
+        res[mask_a_b]=feat_a
+
+        return res
 
     def forward(self,map_feature, tokenized_agent):
 
@@ -205,12 +232,20 @@ class InitDecoder(nn.Module):
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_heading_token,initial_type,initial_shape,initial_offset_xyh,initial_pos, initial_heading,batch,batch_num)
 
+            if self.use_entry_former:
+                entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                                                                  heading_a_b, mask_a_b,
+                                                                  feat_map,
+                                                                  pos_pl,
+                                                                  orient_pl, map_mask)
+            else:
+                entry_feature = self.graph_embed(feat_a_b, pos_a_b,
+                                                  heading_a_b, mask_a_b,
+                                                     batch,
+                                                  feat_map,
+                                                  pos_pl,
+                                                  orient_pl, batch_pl)
 
-            entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                              heading_a_b, mask_a_b,
-                                                              feat_map,
-                                                              pos_pl,
-                                                              orient_pl, map_mask)
 
             n_agent=feat_a_b.shape[1]
 
