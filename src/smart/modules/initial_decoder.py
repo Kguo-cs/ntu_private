@@ -258,7 +258,7 @@ class InitDecoder(nn.Module):
 
             n_agent=feat_a_b.shape[1]
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b,n_agent, n_current, mask_a_b)
+            attr_feature = self.attr_former.temporal_embed(entry_feature, torch.zeros_like(pos_a_b), torch.zeros_like(heading_a_b),n_agent, n_current, mask_a_b)
 
             attr_feature=attr_feature[mask_a_b]
 
