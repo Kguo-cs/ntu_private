@@ -71,6 +71,14 @@ class SMART(LightningModule):
 
         if self.use_smart:
             set_model_for_finetuning(self.encoder, model_config.finetune)
+
+        if self.token_processor.pred_init and model_config.finetune:
+            for p in self.encoder.parameters():
+                p.requires_grad = False
+
+            for p in self.encoder.agent_encoder.init_decoder.parameters():
+                p.requires_grad = True
+
         # else:
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False

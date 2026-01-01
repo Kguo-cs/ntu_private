@@ -148,6 +148,8 @@ class SMARTAgentDecoder(nn.Module):
             map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
             initial_logit = self.init_decoder(map_feature, tokenized_agent)
+
+            return None, None, None, None, None, initial_logit, None
         else:
             initial_logit=None
 
@@ -200,7 +202,7 @@ class SMARTAgentDecoder(nn.Module):
         return {
             "initial_logit":initial_logit,
             "entry_logit":entry_logit,
-            "agent_q": next_token_logits
+            "next_token_logits": next_token_logits
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):

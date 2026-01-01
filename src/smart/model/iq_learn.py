@@ -91,48 +91,46 @@ class IQ_SoftQ(LightningModule):
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
-            agent_train_mask=tokenized_agent["train_mask"]
-            valid_mask=valid_mask[agent_train_mask]
-            action=action[agent_train_mask]
+        if pred["next_token_logits"] is not None:
+            if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
+                agent_train_mask=tokenized_agent["train_mask"]
+                valid_mask=valid_mask[agent_train_mask]
+                action=action[agent_train_mask]
 
-        train_mask=train_mask.flatten(0, 1)
+            train_mask=train_mask.flatten(0, 1)
 
-        action=action.transpose(0, 1).flatten(0, 1)[train_mask]
+            action=action.transpose(0, 1).flatten(0, 1)[train_mask]
 
-        next_token_logits=pred["agent_q"]
+            next_token_logits=pred["next_token_logits"]
 
-        if key == "expert":
-            action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
+            if key == "expert":
+                action_valid=train_mask[valid_mask[:,:-1].transpose(0, 1).flatten(0, 1)]
+            else:
+                action_valid=train_mask
+
+            next_token_logits=next_token_logits[action_valid] / self.alpha
+
+            pi = torch.softmax(next_token_logits, dim=-1)
+
+            logpi = torch.log(pi + 1e-10)
+
+            log_prob = torch.gather(logpi, dim=-1, index=action.unsqueeze(-1)).squeeze(-1) #t,a
+
+            entropy = -torch.sum(pi * logpi, dim=-1)
+
+            action_nll=-log_prob.mean()
+
+            self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
+
+            if self.token_processor.pred_exit:
+                exit_mask=action==self.token_processor.n_token_agent-1
+
+                exit_nll = -log_prob[exit_mask].mean()
+
+                self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
         else:
-            action_valid=train_mask
-
-        next_token_logits=next_token_logits[action_valid] / self.alpha
-
-        pi = torch.softmax(next_token_logits, dim=-1)
-
-        logpi = torch.log(pi + 1e-10)
-
-        log_prob = torch.gather(logpi, dim=-1, index=action.unsqueeze(-1)).squeeze(-1) #t,a
-
-        entropy = -torch.sum(pi * logpi, dim=-1)
-
-        action_nll=-log_prob.mean()
-
-        self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
-
-        if self.token_processor.pred_exit:
-            exit_mask=action==self.token_processor.n_token_agent-1
-
-            exit_nll = -log_prob[exit_mask].mean()
-
-            self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
-
-            # weight=exit_mask+1
-            #
-            # action_nll =weight*action_nll
-
-        self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
+            action_nll=log_prob=0
 
         if pred["initial_logit"] is not None:
             pos_logit, entry_head_logit, entry_offset, pred_shape=pred["initial_logit"]
@@ -155,7 +153,7 @@ class IQ_SoftQ(LightningModule):
 
             action_nll=action_nll+pos_nll+head_nll+offset_mse+shape_mse
 
-        if self.token_processor.pred_entry:
+        if pred["entry_logit"] is not None:
 
             if self.token_processor.autoregressive_entry:
 
