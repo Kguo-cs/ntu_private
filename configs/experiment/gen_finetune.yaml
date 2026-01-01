@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './ckpts/bcgen56_featv1_gtsim648_epoch=14-step=130455.ckpt'
 
-task_name: bcgen256_seqsort_graph_alllocal
+task_name: bcgen256_graph_alllocal #_seqsort
 
 trainer:
   limit_train_batches: 1.0

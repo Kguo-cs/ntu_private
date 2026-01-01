@@ -233,16 +233,16 @@ class TokenProcessor(torch.nn.Module):
 
             offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
             #
-            # dist=torch.norm(initial_pos-ego_position,dim=-1)
-            #
-            # dist_max=dist.max()+1
-            #
-            # sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
-            #
-            # sort_idx=sort_rank.argsort()
+            dist=torch.norm(initial_pos-ego_position,dim=-1)
+
+            dist_max=dist.max()+1
+
+            sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
+
+            sort_idx=sort_rank.argsort()
 
             #sort_idx=self.chained_sort(initial_pos,batch,type,ego_mask)
-            sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
+            # sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
 
             # print(torch.all(sort_idx==sort_idx1))
 
