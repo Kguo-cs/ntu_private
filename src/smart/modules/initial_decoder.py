@@ -100,13 +100,13 @@ class InitDecoder(nn.Module):
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
-       # self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
+       # self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         #self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.n_token_entry_head )
         self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.offset_tokenizer.grid_size)  # offset to offset
-        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
+        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, self.token_processor.shape_grid.shape[0])
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -262,7 +262,7 @@ class InitDecoder(nn.Module):
 
             pos_logit = self.pos_decoder(attr_feature)
             head_logit = self.head_decoder(attr_feature)
-            initial_shape = self.shape_head_decoder(attr_feature)
+            shape_logit = self.shape_head_decoder(attr_feature)
 
             if not self.use_refine:
                 offset_logit = self.offset_head_decoder(attr_feature)
@@ -274,12 +274,13 @@ class InitDecoder(nn.Module):
             else:
                 initial_offset_xyh = torch.zeros_like(initial_shape)
 
-            entry_logit=(pos_logit,head_logit,offset_logit,initial_shape)
+            entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
 
             if not self.training:
                 initial_pos_token = Categorical(logits=pos_logit).sample()
                 initial_heading_token=Categorical(logits=head_logit).sample()
                 initial_offset_token=Categorical(logits=offset_logit).sample()
+                initial_shape_token=Categorical(logits=shape_logit).sample()
 
                 initial_pos= self.token_processor.attr_tokenizer.grid[initial_pos_token]
                 token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
@@ -287,6 +288,8 @@ class InitDecoder(nn.Module):
                 initial_pos=initial_pos+token_offset
                 
                 initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
+
+                initial_shape=self.token_processor.shape_grid[initial_shape_token]
 
                 local_pos_list.append(initial_pos)
                 local_heading_list.append(initial_heading)
@@ -311,6 +314,8 @@ class InitDecoder(nn.Module):
                 ego_position[tokenized_agent["batch"]],
                 ego_heading[tokenized_agent["batch"]],
             )
+
+            shape = torch.cat([shape, torch.zeros_like(shape[:, :1]) + 1.75], dim=-1)
 
             tokenized_agent["shape"]=shape
             tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]

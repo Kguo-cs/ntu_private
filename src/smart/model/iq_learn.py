@@ -120,7 +120,7 @@ class IQ_SoftQ(LightningModule):
             initial_pos_token = tokenized_agent["initial_pos_token"][non_ego_mask]
             initial_offset_token = tokenized_agent["initial_offset_token"][non_ego_mask]
             initial_heading_token = tokenized_agent["initial_heading_token"][non_ego_mask]
-            initial_shape = tokenized_agent["initial_shape"][non_ego_mask]
+            initial_shape = tokenized_agent["initial_shape_token"][non_ego_mask]
 
             pos_nll=self.token_cls_loss(pos_logit, initial_pos_token)
             head_nll=self.token_cls_loss(entry_head_logit, initial_heading_token)
@@ -132,7 +132,7 @@ class IQ_SoftQ(LightningModule):
             self.log("train/head_nll", head_nll.item(), on_step=True, batch_size=1)
             self.log("train/offset_nll", offset_nll.item(), on_step=True, batch_size=1)
             # self.log("train/offset_mse", offset_mse.item(), on_step=True, batch_size=1)
-            self.log("train/shape_mse", shape_nll.item(), on_step=True, batch_size=1)
+            self.log("train/shape_nll", shape_nll.item(), on_step=True, batch_size=1)
 
             action_nll=action_nll+pos_nll+head_nll+offset_nll+shape_nll
 

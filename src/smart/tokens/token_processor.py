@@ -94,11 +94,26 @@ class TokenProcessor(torch.nn.Module):
                                              radius=100,
                                              angle_interval=3)
 
-        self.shape_tokenizer = Attr_Tokenizer(grid_range=10,
-                                             grid_interval=0.5,
-                                             radius=100,
-                                             angle_interval=3)
 
+        res = 0.5
+
+        length, width = 15.0, 3.5
+
+        # number of tokens
+        nx = int(length / res)
+        ny = int(width  / res)
+
+        # grid coordinates (centered)
+        x = torch.arange(1,nx+1)* res
+        y = torch.arange(1,ny+1) * res
+
+        # meshgrid
+        yy, xx = torch.meshgrid(y, x, indexing="ij")
+
+        self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
+
+
+        # self.register_buffer( "shape_grid",shape_grid,       persistent=False)  # [n_token, 11*2]
 
 
     @torch.no_grad()
@@ -263,16 +278,25 @@ class TokenProcessor(torch.nn.Module):
             sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
 
             sort_idx=sort_rank.argsort()
-
-            #sort_idx=self.chained_sort(initial_pos,batch,type,ego_mask)
             # sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
 
             # print(torch.all(sort_idx==sort_idx1))
 
+            # length=shape[0]#0.5,15
+            # width=shape[1]#0.5 3.5
+            #height=1.75
+            self.shape_grid=self.shape_grid.to(shape.device)
+
+            shape_token=torch.argmin(torch.linalg.norm(self.shape_grid[None]-shape[:,None,:2],dim=-1),dim=-1)
+
+            shape=self.shape_grid[shape_token]
+
+            # shape=torch.cat([shape,torch.zeros_like(shape[:,:1])+1.75],dim=-1)
 
             tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
             tokenized_agent["initial_offset_token"]=offset_idx[sort_idx]
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
+            tokenized_agent["initial_shape_token"]=shape_token[sort_idx]
             tokenized_agent["initial_shape"]=shape[sort_idx]
             tokenized_agent["initial_pos"]=token_initial_pos[sort_idx]
             tokenized_agent["initial_heading"]=token_initial_heading[sort_idx]
