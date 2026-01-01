@@ -154,8 +154,8 @@ class InitDecoder(nn.Module):
             mask=mask_a,  # [n_agent, n_step]
             batch_s=batch_s_repeat,  # [n_agent,n_step]
             batch_pl=batch_pl,  # [n_pl*n_step]
-            pl2a_radius=40,
-            max_num_neighbors=20,
+            pl2a_radius=100,
+            max_num_neighbors=100,
             agent_train_mask=None,
             layer_num=1
         )
@@ -241,7 +241,7 @@ class InitDecoder(nn.Module):
             else:
                 entry_feature = self.graph_embed(feat_a_b, pos_a_b,
                                                   heading_a_b, mask_a_b,
-                                                     batch,
+                                                  batch,
                                                   feat_map,
                                                   pos_pl,
                                                   orient_pl, batch_pl)
