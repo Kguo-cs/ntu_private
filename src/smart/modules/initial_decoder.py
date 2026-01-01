@@ -54,6 +54,35 @@ class InitDecoder(nn.Module):
             if self.use_entry_former:
                 self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
+            else:
+                self.edge_encoder = EdgeEncoder(hidden_dim,
+                                                num_freq_bands,
+                                                a2a=False,
+                                                share=False,
+                                                hist_drop_prob=0,
+                                                time_span=0,
+                                                shift=token_processor.shift,
+                                                discriminator=False,
+                                                use_bird=token_processor.use_bird,
+                                                use_cross=True
+                                                )
+
+                num_layers=1
+
+                self.pt2a_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=hidden_dim//num_heads,
+                            dropout=0,
+                            bipartite=True,
+                            has_pos_emb=True,
+                            #  gated_attention=discriminator,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
 
         self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                          hist_len=self.entry_his_len)        # drop 01 is important
@@ -105,6 +134,11 @@ class InitDecoder(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
+
+    def graph_embed(self,feat_a_b, pos_a_b,heading_a_b, mask_a_b, feat_map_b,     pos_pl_b,orient_pl_b, map_mask):
+
+        return 1
+
     def forward(self,map_feature, tokenized_agent):
 
         batch_pl = map_feature["batch"]
@@ -114,8 +148,11 @@ class InitDecoder(nn.Module):
 
         batch_num=tokenized_agent["num_graphs"]
 
-        pos_pl_b, orient_pl_b, feat_map_b = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
-        map_mask = torch.any(feat_map_b != 0, dim=-1)
+        if self.use_entry_former:
+            pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
+
+        map_mask = torch.any(feat_map != 0, dim=-1)
+
 
         if self.training:
             pred_mask = ~tokenized_agent["ego_mask"]#non-last mask
@@ -172,9 +209,9 @@ class InitDecoder(nn.Module):
 
             entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
                                                               heading_a_b, mask_a_b,
-                                                              feat_map_b,
-                                                              pos_pl_b,
-                                                              orient_pl_b, map_mask)
+                                                              feat_map,
+                                                              pos_pl,
+                                                              orient_pl, map_mask)
 
             n_agent=feat_a_b.shape[1]
 

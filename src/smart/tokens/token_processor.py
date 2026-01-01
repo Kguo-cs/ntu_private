@@ -233,13 +233,17 @@ class TokenProcessor(torch.nn.Module):
 
             offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
 
-            dist=torch.norm(initial_pos-ego_position,dim=-1)
+            # dist=torch.norm(initial_pos-ego_position,dim=-1)
+            #
+            # dist_max=dist.max()+1
+            #
+            # sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
+            #
+            # sort_idx=sort_rank.argsort()
 
-            dist_max=dist.max()+1
+            sort_idx=self.chained_sort(initial_pos,batch,type,ego_mask)
+            #sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask)
 
-            sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
-
-            sort_idx=sort_rank.argsort()
 
             tokenized_agent["initial_pos_token"]=grid_index_t[sort_idx]
             tokenized_agent["initial_offset_xyh"]=offset_xyh[sort_idx]
@@ -254,6 +258,124 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
 
         return tokenized_map, tokenized_agent
+
+    def batched_nn_chain(
+            self,
+            initial_pos,  # (N, D)
+            batch,  # (N,)
+            type,  # (N,)
+            ego_mask,  # (N,) bool
+            num_types=3
+    ):
+        device = initial_pos.device
+        N, D = initial_pos.shape
+
+        # ---------------------------------------------------------
+        # 1. Build group id: (batch, type)
+        # ---------------------------------------------------------
+        group = batch * num_types + type
+        G = group.max().item() + 1
+
+        # ---------------------------------------------------------
+        # 2. Sort by group (stable)
+        # ---------------------------------------------------------
+        sort_idx = torch.argsort(group)
+        group_s = group[sort_idx]
+        pos_s = initial_pos[sort_idx]
+        ego_s = ego_mask[sort_idx]
+
+        sizes = torch.bincount(group_s, minlength=G)
+        max_M = sizes.max()
+
+        offsets = torch.cumsum(sizes, 0) - sizes
+        pos_in_group = torch.arange(N, device=device) - offsets[group_s]
+
+        # ---------------------------------------------------------
+        # 3. Pad positions per group
+        # ---------------------------------------------------------
+        P = torch.zeros(G, max_M, D, device=device)
+        valid = pos_in_group < sizes[group_s]
+
+        P[group_s[valid], pos_in_group[valid]] = pos_s[valid]
+
+        # ---------------------------------------------------------
+        # 4. Ego start position per group
+        # ---------------------------------------------------------
+        ego_pos = torch.zeros(G, D, device=device)
+        ego_group = group_s[ego_s]
+        ego_pos[ego_group] = pos_s[ego_s]
+
+        # ---------------------------------------------------------
+        # 5. Pairwise distances (GPU)
+        # ---------------------------------------------------------
+        Dmat = torch.cdist(P, P)  # (G, M, M)
+
+        # ---------------------------------------------------------
+        # 6. Exact NN chaining (UNAVOIDABLE LOOP)
+        # ---------------------------------------------------------
+        visited = ~valid.clone()
+        order = torch.zeros(G, max_M, dtype=torch.long, device=device)
+
+        dist_to_last = torch.norm(P - ego_pos[:, None], dim=-1)
+
+        for k in range(max_M):
+            dist_to_last[visited] = float("inf")
+            j = dist_to_last.argmin(dim=1)
+
+            order[:, k] = j
+            visited[torch.arange(G), j] = True
+            dist_to_last = Dmat[torch.arange(G), j]
+
+        # ---------------------------------------------------------
+        # 7. Map back to original indices
+        # ---------------------------------------------------------
+        global_idx = torch.full((G, max_M), -1, device=device, dtype=torch.long)
+        global_idx[group_s[valid], pos_in_group[valid]] = sort_idx[valid]
+
+        final_idx = global_idx[torch.arange(G)[:, None], order]
+        final_idx = final_idx[final_idx >= 0]
+
+        return final_idx
+
+
+    def chained_sort(self,initial_pos, batch, type, ego_mask, type_order=(0, 1, 2)):
+        device = initial_pos.device
+        N = initial_pos.size(0)
+        sort_idx_all = []
+
+        for b in batch.unique(sorted=True):
+            batch_mask = batch == b
+            batch_idx = torch.where(batch_mask)[0]
+
+            # ego index
+            ego_idx = batch_idx[ego_mask[batch_mask]][0]
+            last_pos = initial_pos[ego_idx]
+
+            sort_idx_all.append(ego_idx)
+
+            for t in type_order:
+                type_mask = batch_mask & (type == t)
+                candidates = torch.where(type_mask)[0]
+
+                # remove ego if ego is car
+                candidates = candidates[candidates != ego_idx]
+
+                if candidates.numel() == 0:
+                    continue
+
+                remaining = candidates.clone()
+
+                while remaining.numel() > 0:
+                    d = torch.norm(initial_pos[remaining] - last_pos, dim=-1)
+                    nn = torch.argmin(d)
+                    chosen = remaining[nn]
+
+                    sort_idx_all.append(chosen)
+                    last_pos = initial_pos[chosen]
+
+                    remaining = torch.cat([remaining[:nn], remaining[nn + 1:]])
+
+        return torch.stack(sort_idx_all)
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]
