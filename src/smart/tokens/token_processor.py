@@ -660,24 +660,24 @@ class TokenProcessor(torch.nn.Module):
             pos=pos[:,10:]
             heading=heading[:,10:]
 
-            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+            # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+            #
+            # ego_position = pos[:,0][ego_mask][batch]
+            # ego_heading = heading[:,0][ego_mask][batch]
+            #
+            # initial_pos,initial_heading=transform_to_global(
+            #     token_initial_pos[:,None],
+            #     token_initial_heading[:,None],
+            #     ego_position,
+            #     ego_heading,
+            #
+            # )
+            #
+            # pos[:, :1]=initial_pos
+            # heading[:, :1]=initial_heading
 
-            ego_position = pos[:,0][ego_mask][batch]
-            ego_heading = heading[:,0][ego_mask][batch]
-
-            initial_pos,initial_heading=transform_to_global(
-                token_initial_pos[:,None],
-                token_initial_heading[:,None],
-                ego_position,
-                ego_heading,
-
-            )
-
-            pos[:, :1]=initial_pos
-            heading[:, :1]=initial_heading
-
-            tokenized_agent["initial_pos"]=initial_pos[:,0]
-            tokenized_agent["initial_heading"]=initial_heading[:,0]
+            tokenized_agent["initial_pos"]=pos[:,0]
+            tokenized_agent["initial_heading"]=heading[:,0]
 
         token_dict = self._match_agent_token(
             valid=valid,
