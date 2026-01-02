@@ -100,7 +100,7 @@ class InitDecoder(nn.Module):
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
-       # self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         #self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
@@ -121,9 +121,9 @@ class InitDecoder(nn.Module):
         type_embedding = self.type_embedding(initial_type)
         heading_embedding = self.head_embedding(initial_heading[:,None])
         pos_embedding = self.pos_embedding(initial_pos)
-       # shape_embedding = self.shape_embedding(initial_shape)
+        shape_embedding = self.shape_embedding(initial_shape[:,:2])
 
-        feat_a = type_embedding  + heading_embedding + pos_embedding#+ shape_embedding
+        feat_a = type_embedding  + heading_embedding + pos_embedding+ shape_embedding
 
         # if initial_offset_xyh.any():
         #     offset_embedding = self.offset_embedding(initial_offset_xyh)
@@ -272,7 +272,7 @@ class InitDecoder(nn.Module):
                 # initial_offset_xyh[...,:2] = torch.tanh(initial_offset_xyh[...,:2]) * self.token_processor.attr_tokenizer.grid_interval/2
                 # initial_offset_xyh[...,2] = torch.tanh(initial_offset_xyh[...,2]) * (torch.pi/self.token_processor.n_token_entry_head)
             else:
-                initial_offset_xyh = torch.zeros_like(initial_shape)
+                offset_logit = torch.zeros_like(initial_shape)
 
             entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
 
