@@ -82,7 +82,19 @@ class SMART(LightningModule):
         # else:
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
+        self.n_rollout_closed_val = model_config.n_rollout_closed_val
+        self.n_vis_batch = model_config.n_vis_batch
+        self.n_vis_scenario = model_config.n_vis_scenario
+        self.n_vis_rollout = model_config.n_vis_rollout
+        self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
 
+        # if self.token_processor.pred_init:
+        #     self.challenge_type=ChallengeType.SCENARIO_GEN
+        #     self.para_num=4
+        # else:
+        self.challenge_type=ChallengeType.SIM_AGENTS
+        self.para_num=32
+        self.n_rollout_closed_val=8
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -90,11 +102,6 @@ class SMART(LightningModule):
         self.wosac_submission = WOSACSubmission(**model_config.wosac_submission)
         self.training_loss = CrossEntropy(**model_config.training_loss)
 
-        self.n_rollout_closed_val = model_config.n_rollout_closed_val
-        self.n_vis_batch = model_config.n_vis_batch
-        self.n_vis_scenario = model_config.n_vis_scenario
-        self.n_vis_rollout = model_config.n_vis_rollout
-        self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
 
         self.video_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         self.video_dir = Path(self.video_dir) / "videos"
@@ -114,13 +121,6 @@ class SMART(LightningModule):
 
         self.metric_logger=MetricDict()
 
-        # if self.token_processor.pred_init:
-        #     self.challenge_type=ChallengeType.SCENARIO_GEN
-        #     self.para_num=4
-        # else:
-        self.challenge_type=ChallengeType.SIM_AGENTS
-        self.para_num=32
-        self.n_rollout_closed_val=8
 
         #self.wosac_submission.save_sub_file()
 
