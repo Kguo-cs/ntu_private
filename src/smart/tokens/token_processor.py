@@ -72,7 +72,7 @@ class TokenProcessor(torch.nn.Module):
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
                                              grid_interval=3,
                                              radius=self.pl2seed_radius,
-                                             angle_interval=3)
+                                             angle_interval=1)
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -92,7 +92,7 @@ class TokenProcessor(torch.nn.Module):
         self.offset_tokenizer= Attr_Tokenizer(grid_range=3,
                                              grid_interval=0.1,
                                              radius=100,
-                                             angle_interval=3)
+                                             angle_interval=1)
 
 
         res = 0.5
@@ -660,21 +660,21 @@ class TokenProcessor(torch.nn.Module):
             pos=pos[:,10:]
             heading=heading[:,10:]
 
-            # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-            #
-            # ego_position = pos[:,0][ego_mask][batch]
-            # ego_heading = heading[:,0][ego_mask][batch]
-            #
-            # initial_pos,initial_heading=transform_to_global(
-            #     token_initial_pos[:,None],
-            #     token_initial_heading[:,None],
-            #     ego_position,
-            #     ego_heading,
-            #
-            # )
-            #
-            # pos[:, :1]=initial_pos
-            # heading[:, :1]=initial_heading
+            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+
+            ego_position = pos[:,0][ego_mask][batch]
+            ego_heading = heading[:,0][ego_mask][batch]
+
+            initial_pos,initial_heading=transform_to_global(
+                token_initial_pos[:,None],
+                token_initial_heading[:,None],
+                ego_position,
+                ego_heading,
+
+            )
+
+            pos[:, :1]=initial_pos
+            heading[:, :1]=initial_heading
 
             tokenized_agent["initial_pos"]=pos[:,0]
             tokenized_agent["initial_heading"]=heading[:,0]
