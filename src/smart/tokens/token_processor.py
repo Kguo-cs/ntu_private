@@ -260,8 +260,8 @@ class TokenProcessor(torch.nn.Module):
             # print(torch.all(sort_idx==sort_idx1))
             shape=tokenized_agent["shape"]
 
-            print(torch.max(shape[:,0]),torch.min(shape[:,0]))
-            print(torch.max(shape[:,1]),torch.min(shape[:,1]))
+            # print(torch.max(shape[:,0]),torch.min(shape[:,0]))
+            # print(torch.max(shape[:,1]),torch.min(shape[:,1]))
 
             self.shape_grid=self.shape_grid.to(shape.device)
 
