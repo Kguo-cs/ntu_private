@@ -246,8 +246,8 @@ class InitDecoder(nn.Module):
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
             else:
-                entry_feature = self.graph_embed(feat_a_b, torch.zeros_like(pos_a_b),
-                                                  torch.zeros_like(heading_a_b), mask_a_b,
+                entry_feature = self.graph_embed(feat_a_b, pos_a_b,
+                                                  heading_a_b, mask_a_b,
                                                   batch,
                                                   feat_map,
                                                   pos_pl,
