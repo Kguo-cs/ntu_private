@@ -91,7 +91,7 @@ class TokenProcessor(torch.nn.Module):
         self.offset_tokenizer= Attr_Tokenizer(grid_range=3,
                                              grid_interval=0.1,
                                              radius=100,
-                                             angle_interval=1)
+                                             angle_interval=3)
 
 
         res = 0.5
@@ -241,8 +241,6 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["extra_pos"]=initial_pos
                 tokenized_agent["extra_heading"]=initial_heading
 
-
-            shape=tokenized_agent["shape"]
             ego_mask=tokenized_agent["ego_mask"]
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
@@ -260,6 +258,7 @@ class TokenProcessor(torch.nn.Module):
             # offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
 
             # print(torch.all(sort_idx==sort_idx1))
+            shape=tokenized_agent["shape"]
 
             # length=shape[0]#0.5,15
             # width=shape[1]#0.5 3.5
@@ -271,9 +270,6 @@ class TokenProcessor(torch.nn.Module):
             shape=self.shape_grid[shape_token]
 
             tokenized_agent["shape"][:,:2]=shape
-
-            # shape=torch.cat([shape,torch.zeros_like(shape[:,:1])+1.75],dim=-1)
-
             tokenized_agent["initial_pos_token"]=pos_token_idx[sort_idx]
             tokenized_agent["initial_offset_token"]=offset_idx[sort_idx]
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
@@ -574,21 +570,21 @@ class TokenProcessor(torch.nn.Module):
             pos=pos[:,10:]
             heading=heading[:,10:]
 
-            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-
-            ego_position = pos[:,0][ego_mask][batch]
-            ego_heading = heading[:,0][ego_mask][batch]
-
-            initial_pos,initial_heading=transform_to_global(
-                token_initial_pos[:,None],
-                token_initial_heading[:,None],
-                ego_position,
-                ego_heading,
-
-            )
-
-            pos[:, :1]=initial_pos
-            heading[:, :1]=initial_heading
+            # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+            #
+            # ego_position = pos[:,0][ego_mask][batch]
+            # ego_heading = heading[:,0][ego_mask][batch]
+            #
+            # initial_pos,initial_heading=transform_to_global(
+            #     token_initial_pos[:,None],
+            #     token_initial_heading[:,None],
+            #     ego_position,
+            #     ego_heading,
+            #
+            # )
+            #
+            # pos[:, :1]=initial_pos
+            # heading[:, :1]=initial_heading
 
             tokenized_agent["initial_pos"]=pos[:,0]
             tokenized_agent["initial_heading"]=heading[:,0]
