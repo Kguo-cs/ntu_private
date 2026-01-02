@@ -230,12 +230,18 @@ class TokenProcessor(torch.nn.Module):
                 #
                 # initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
 
+                initial_pos = tokenized_agent["sampled_pos"][:, 1:2]
+                initial_heading = tokenized_agent["sampled_heading"][:, 1:2]
+
+                for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
+                    tokenized_agent[key]=tokenized_agent[key][:,2:]
+
             ego_mask=tokenized_agent["ego_mask"]
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,extra_pos, extra_heading=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
 
-            tokenized_agent["extra_pos"]=extra_pos
-            tokenized_agent["extra_heading"]=extra_heading
+            tokenized_agent["extra_pos"]=initial_pos#extra_pos
+            tokenized_agent["extra_heading"]=initial_heading#extra_heading
 
             dist=torch.norm(token_initial_pos,dim=-1)
 
@@ -553,10 +559,10 @@ class TokenProcessor(torch.nn.Module):
             pos=pos[:,10:]
             heading=heading[:,10:]
 
-            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-
-            pos[:, :1]=initial_pos
-            heading[:, :1]=initial_heading
+            # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+            #
+            # pos[:, :1]=initial_pos
+            # heading[:, :1]=initial_heading
 
             tokenized_agent["initial_pos"]=pos[:,0]
             tokenized_agent["initial_heading"]=heading[:,0]
