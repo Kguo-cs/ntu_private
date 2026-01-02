@@ -38,7 +38,7 @@ model:
 
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/epoch=10-step=133925.ckpt'
 
-task_name: bcgen56_graphv1_sim648_sim16 #_onlytokenshapegtsim16 #sim648nolocal__angle1
+task_name: bcgen56_tokeninit_graphv1_angle1_shape25_sim #648 #_sim16 #_onlytokenshapegtsim16 #sim648nolocal__angle1
 
 trainer:
   limit_train_batches: 1.0
