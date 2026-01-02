@@ -171,9 +171,7 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
 
-
         if self.discriminator:
-
             if self.use_edge_feature:
                 self.interact_head = MLPLayer(
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent

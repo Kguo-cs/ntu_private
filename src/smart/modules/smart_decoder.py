@@ -226,45 +226,6 @@ class SMARTDecoder(nn.Module):
             else:
                 map_feature = self.map_encoder(tokenized_map)
 
-        # if self.agent_encoder.use_vae:
-        #     #mu=torch.zeros([len(tokenized_agent["sampled_idx"]),1,self.agent_encoder.k_dim],device=tokenized_agent["sampled_idx"].device)
-        #     #std=torch.ones_like(mu)
-        #     mu,logvar=tokenized_agent["latent_prior"]
-        #     std = torch.exp(0.5 * logvar)
-        #
-        #     latent_z = mu + torch.randn_like(std) * std
-        #
-        #     tokenized_agent["latent_z"] = latent_z
-
-        # if self.agent_encoder.use_latent:
-        #     if "latent_z" not  in tokenized_agent.keys():
-        #         # logits = self.prior_net.predict_agent(tokenized_agent["sampled_idx"][:,:2],
-        #         #                                      tokenized_agent["goal_idx"],
-        #         #                                      tokenized_agent["valid_mask"][:,:2],
-        #         #                                      tokenized_agent["sampled_pos"][:,:2],
-        #         #                                      tokenized_agent["sampled_heading"][:,:2],
-        #         #                                      tokenized_agent,
-        #         #                                      tokenized_agent["detach_map_feature"],
-        #         #                                      tokenized_agent["light_idx"],
-        #         #                                      None)[0]  # [all_valid]
-        #         #
-        #         # logits_p=logits[:,-1]
-        #         # probs = logits_p.softmax(-1)
-        #         # latent_z = torch.multinomial(probs, 1).squeeze(-1)  # [B]
-        #         # z_oh = F.one_hot(z_idx, num_classes=probs.shape[-1]).float()
-        #         #
-        #         # print(1)
-        #
-        #         # batch_idx = tokenized_agent['batch']
-        #         # #latent_z = torch.randint(low=0, high=self.k_dim, size=(max(batch_idx)+1, 1)).to(batch_idx.device)
-        #         # #latent_z = latent_z[batch_idx]
-        #         # latent_z=torch.randint(low=0, high=self.k_dim, size=(len(batch_idx), 1),device=batch_idx.device)
-        #         #
-        #         tokenized_agent["latent_z"]=latent_z
-        #         tokenized_agent["logits_p"]=logits_p
-        # else:
-        #     tokenized_agent["latent_z"]=None
-
         pred_dict = self.agent_encoder.inference(
             tokenized_agent, map_feature, post_sampling,n_step_future_10hz=n_step_future_10hz
         )

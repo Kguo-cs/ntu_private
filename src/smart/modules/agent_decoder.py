@@ -232,7 +232,7 @@ class SMARTAgentDecoder(nn.Module):
             pos_a=tokenized_agent["extra_pos"][:,None]
             head_a =tokenized_agent["extra_heading"][:,None]
 
-            max_step=18
+            max_step=16
             token_mask=torch.zeros_like(token_mask[:, :current_step])
             mask=torch.ones_like(mask[:, :current_step])
             sampled_idx=sampled_idx[:, :current_step]
