@@ -205,16 +205,18 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_init:
             type = tokenized_agent["type"]
-            initial_pos = tokenized_agent["initial_pos"]
-            initial_heading = tokenized_agent["initial_heading"]
+            # initial_pos = tokenized_agent["initial_pos"]
+            # initial_heading = tokenized_agent["initial_heading"]
+            initial_pos = tokenized_agent["sampled_pos"][:, 1:2]
+            initial_heading = tokenized_agent["sampled_heading"][:, 1:2]
 
             if self.training:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                    tokenized_agent[key]=torch.cat([tokenized_agent[key][:,:1],tokenized_agent[key]], dim=1)
+                    tokenized_agent[key]=tokenized_agent[key][:,1:]#torch.cat([tokenized_agent[key][:,:1],tokenized_agent[key]], dim=1)
 
                 tokenized_agent["token_mask"][:,:1]=False
 
-            # else:
+            else:
                 # valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
                 # heading = data["agent"]["heading"]  # [n_agent, n_step]
                 # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
