@@ -217,3 +217,6 @@ To alleviate the imbalance of these two control tokens, we set the label weights
 
 
 clean predict nosie v loss
+
+
+#sim 16-> sim 18->gt gen 

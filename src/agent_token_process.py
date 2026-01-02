@@ -8,6 +8,13 @@ import torch
 from pathlib import Path
 from torch_geometric.data import HeteroData
 import sys
+from src.smart.utils import (
+    cal_polygon_contour,
+    transform_to_global,
+    transform_to_local,
+    wrap_angle,
+    angle_between_2d_vectors
+)
 
 torch.set_float32_matmul_precision("highest")
 
@@ -36,11 +43,11 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_map2_a"
-map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_light"
+agent_data_directory = "./waymo_data/full/training_map2_a_light"
+# map_data_directory  = "./waymo_data/map2_light/training"
+ouput_data_directory = "./waymo_data/full/training_map2_init_light"
 
-
+pred_init=True
 
 os.makedirs(ouput_data_directory, exist_ok=True)
 
@@ -49,15 +56,15 @@ def process_file(filename):
     #filename='22c647e7272e850a.pkl'
     input_path = os.path.join(agent_data_directory, filename)
 
-    with open(input_path, "rb") as f:
-        data = pickle.load(f)
+    # with open(input_path, "rb") as f:
+    #     data = pickle.load(f)
 
     # output_path = os.path.join(ouput_data_directory, filename[:-3]+'pt')
     #
     # torch.save(data, output_path)
     #
     # return
-
+    data=torch.load(input_path)
 
     # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
     #
@@ -114,7 +121,32 @@ def process_file(filename):
     valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
         valid, pos, heading, vel
     )
-    batch= torch.zeros(len(pos))
+    batch= torch.zeros(len(pos),dtype=torch.long).cuda()
+
+    if pred_init:
+        ego_mask=data["agent"]["role"][:, 0]
+
+        valid = valid[:, 10:]
+        pos = pos[:, 10:]
+        heading = heading[:, 10:]
+
+        token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx = token_processor.tokenize_initial(
+            pos[:, 0], heading[:, 0], ego_mask, batch)
+
+        ego_position = pos[:, 0][ego_mask][batch]
+        ego_heading = heading[:, 0][ego_mask][batch]
+
+        initial_pos, initial_heading = transform_to_global(
+            token_initial_pos[:, None],
+            token_initial_heading[:, None],
+            ego_position,
+            ego_heading,
+
+        )
+
+        pos[:, :1] = initial_pos
+        heading[:, :1] = initial_heading
+
 
     tokenized_agent = token_processor._match_agent_token(valid, pos,
                                         heading,
@@ -127,6 +159,8 @@ def process_file(filename):
     pred_mask = role_mask[:, 0] | role_mask[:, 2]
 
     tokenized_agent["pred_mask"] = pred_mask
+    tokenized_agent["initial_pos"] = pos[:, 0]
+    tokenized_agent["initial_heading"] = heading[:, 0]
 
     for key in ["type", "shape"]:
         tokenized_agent[key] = agent[key]

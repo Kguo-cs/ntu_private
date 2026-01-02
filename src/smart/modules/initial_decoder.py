@@ -218,7 +218,6 @@ class InitDecoder(nn.Module):
         batch=tokenized_agent["batch"][pred_mask]
 
         if self.use_refine:
-            initial_offset_xyh=None
             initial_pos = self.token_processor.attr_tokenizer.decode_pos(initial_pos_token, None,
                                                                          ego_position, ego_heading)
 
