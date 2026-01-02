@@ -66,12 +66,12 @@ class TokenProcessor(torch.nn.Module):
         self.valid_state= 1
         self.enter_state= 2
         self.exit_state= 3
-        self.pl2seed_radius=81
+        self.pl2seed_radius=80
         self.pred_init=pred_init
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
                                              grid_interval=3,
                                              radius=self.pl2seed_radius,
-                                             angle_interval=1)
+                                             angle_interval=0.5)
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -110,6 +110,8 @@ class TokenProcessor(torch.nn.Module):
         yy, xx = torch.meshgrid(y, x, indexing="ij")
 
         self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
+
+        self.token_initial=True
 
 
         # self.register_buffer( "shape_grid",shape_grid,       persistent=False)  # [n_token, 11*2]
@@ -205,14 +207,20 @@ class TokenProcessor(torch.nn.Module):
 
         if self.pred_init:
             type = tokenized_agent["type"]
-            # initial_pos = tokenized_agent["initial_pos"]
-            # initial_heading = tokenized_agent["initial_heading"]
-            initial_pos = tokenized_agent["sampled_pos"][:, 1]
-            initial_heading = tokenized_agent["sampled_heading"][:, 1]
+
+            if self.token_initial:
+                initial_pos = tokenized_agent["initial_pos"]
+                initial_heading = tokenized_agent["initial_heading"]
+            else:
+                initial_pos = tokenized_agent["sampled_pos"][:, 1]
+                initial_heading = tokenized_agent["sampled_heading"][:, 1]
 
             if self.training:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                    tokenized_agent[key]=tokenized_agent[key][:,1:]#torch.cat([tokenized_agent[key][:,:1],tokenized_agent[key]], dim=1)
+                    if self.token_initial:
+                        tokenized_agent[key] = torch.cat([tokenized_agent[key][:, :1], tokenized_agent[key]], dim=1)
+                    else:
+                        tokenized_agent[key]=tokenized_agent[key][:,1:]
 
                 tokenized_agent["token_mask"][:,:1]=False
 
@@ -232,15 +240,20 @@ class TokenProcessor(torch.nn.Module):
                 #
                 # initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
 
-                for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                    tokenized_agent[key]=tokenized_agent[key][:,2:]
+                if not self.token_initial:
+                    for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
+                        tokenized_agent[key]=tokenized_agent[key][:,2:]
 
             ego_mask=tokenized_agent["ego_mask"]
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,extra_pos, extra_heading=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
 
-            tokenized_agent["extra_pos"]=initial_pos[:,None]#extra_pos
-            tokenized_agent["extra_heading"]=initial_heading[:,None]#extra_heading
+            if self.token_initial:
+                tokenized_agent["extra_pos"]=extra_pos
+                tokenized_agent["extra_heading"]=extra_heading
+            else:
+                tokenized_agent["extra_pos"]=initial_pos[:,None]
+                tokenized_agent["extra_heading"]=initial_heading[:,None]
 
             dist=torch.norm(token_initial_pos,dim=-1)
 
@@ -553,18 +566,18 @@ class TokenProcessor(torch.nn.Module):
 
         batch = data["agent"]["batch"]
 
-        # if  self.pred_init:
-        #     valid =valid[:,10:]
-        #     pos=pos[:,10:]
-        #     heading=heading[:,10:]
-        #
-        #     # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-        #     #
-        #     # pos[:, :1]=initial_pos
-        #     # heading[:, :1]=initial_heading
-        #
-        #     tokenized_agent["initial_pos"]=pos[:,0]
-        #     tokenized_agent["initial_heading"]=heading[:,0]
+        if  self.token_initial:
+            valid =valid[:,10:]
+            pos=pos[:,10:]
+            heading=heading[:,10:]
+
+            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+
+            pos[:, :1]=initial_pos
+            heading[:, :1]=initial_heading
+
+            tokenized_agent["initial_pos"]=pos[:,0]
+            tokenized_agent["initial_heading"]=heading[:,0]
 
         token_dict = self._match_agent_token(
             valid=valid,
