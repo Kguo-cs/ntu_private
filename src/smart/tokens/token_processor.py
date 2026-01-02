@@ -71,7 +71,7 @@ class TokenProcessor(torch.nn.Module):
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
                                              grid_interval=3,
                                              radius=self.pl2seed_radius,
-                                             angle_interval=0.5)
+                                             angle_interval=1)
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
