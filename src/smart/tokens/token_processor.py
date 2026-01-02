@@ -69,9 +69,9 @@ class TokenProcessor(torch.nn.Module):
         self.pl2seed_radius=80
         self.pred_init=pred_init
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
-                                             grid_interval=3,
+                                             grid_interval=2.5,
                                              radius=self.pl2seed_radius,
-                                             angle_interval=1)
+                                             angle_interval=0.25)
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -88,23 +88,25 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.offset_tokenizer= Attr_Tokenizer(grid_range=3,
-                                             grid_interval=0.1,
+        self.offset_tokenizer= Attr_Tokenizer(grid_range=2.5,
+                                             grid_interval=0.05,
                                              radius=100,
                                              angle_interval=3)
 
 
         res = 0.25
 
+        res1=0.125
+
         length, width = 12.25, 3.25
 
         # number of tokens
         nx = int(length / res)
-        ny = int(width  / res)
+        ny = int(width  / res1)
 
         # grid coordinates (centered)
         x = torch.arange(1,nx+1)* res
-        y = torch.arange(1,ny+1) * res
+        y = torch.arange(1,ny+1) * res1
 
         # meshgrid
         yy, xx = torch.meshgrid(y, x, indexing="ij")
