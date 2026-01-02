@@ -517,11 +517,10 @@ class TokenProcessor(torch.nn.Module):
         # # if not (self.pred_last_res and self.pred_all_res):
         heading = self._clean_heading(valid, heading)
 
-        if extrapolate:
-        # ! extrapolate to previous 5th step.
-            valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
-                valid, pos, heading, vel
-            )
+        # valid, pos, heading, vel = self._extrapolate_agent_to_first_step(
+        #     valid, pos, heading, vel
+        # )
+        valid,pos,heading,vel=extrapolate_agent_to_first_step_vectorized(valid, pos, heading, vel)
 
         role_mask = data["agent"]["role"]
 
@@ -563,9 +562,9 @@ class TokenProcessor(torch.nn.Module):
         batch = data["agent"]["batch"]
 
         if  self.pred_init:
-            valid =valid[:,10:]
-            pos=pos[:,10:]
-            heading=heading[:,10:]
+            # valid =valid[:,10:]
+            # pos=pos[:,10:]
+            # heading=heading[:,10:]
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
 
@@ -1370,3 +1369,68 @@ class TokenProcessor(torch.nn.Module):
             data['agent']['bos_mask'][agent_batch_mask] = torch.stack(is_bos, dim=1)
             if self.predict_occ:
                 data['agent']['pt_grid_token_idx'][:, pt_batch_mask] = pt_grid_token_idx
+
+
+import torch
+from typing import Tuple
+
+def extrapolate_agent_to_first_step_vectorized(
+    valid: torch.Tensor,    # [n_agent, n_step]
+    pos: torch.Tensor,      # [n_agent, n_step, 2]
+    heading: torch.Tensor,  # [n_agent, n_step]
+    vel: torch.Tensor,      # [n_agent, n_step, 2]
+    dt: float = 0.1,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+
+    device = valid.device
+    n_agent, n_step = valid.shape
+
+    # --------------------------------------------------
+    # 1. First valid step per agent
+    # --------------------------------------------------
+    first_valid = valid.float().argmax(dim=1)   # [n_agent]
+
+    # mask: steps before first valid
+    steps = torch.arange(n_step, device=device)[None, :]   # [1, n_step]
+    before = steps < first_valid[:, None]                   # [n_agent, n_step]
+
+    # agents that actually need extrapolation
+    has_gap = first_valid > 0
+
+    # --------------------------------------------------
+    # 2. Gather reference state at first valid step
+    # --------------------------------------------------
+    idx = first_valid[:, None, None]
+
+    vel0 = vel.gather(1, idx.expand(-1, -1, 2)).squeeze(1)      # [n_agent, 2]
+    pos0 = pos.gather(1, idx.expand(-1, -1, 2)).squeeze(1)      # [n_agent, 2]
+    heading0 = heading.gather(1, first_valid[:, None]).squeeze(1)  # [n_agent]
+
+    # --------------------------------------------------
+    # 3. Extrapolate positions
+    # --------------------------------------------------
+    # time offset: (t - j) * dt
+    delta_t = (first_valid[:, None] - steps).clamp(min=0) * dt   # [n_agent, n_step]
+
+    pos_extrap = pos0[:, None, :] - delta_t[..., None] * vel0[:, None, :]
+
+    # --------------------------------------------------
+    # 4. Apply updates (masked)
+    # --------------------------------------------------
+    pos = torch.where(before[..., None], pos_extrap, pos)
+
+    vel = torch.where(
+        before[..., None],
+        vel0[:, None, :],
+        vel
+    )
+
+    heading = torch.where(
+        before,
+        heading0[:, None],
+        heading
+    )
+
+    valid = valid | before
+
+    return valid, pos, heading, vel
