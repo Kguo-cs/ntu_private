@@ -4,7 +4,7 @@ rsync -avz   ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_l
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
-rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_a_light ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/   
+rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init_light ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/   
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2__light ./
 

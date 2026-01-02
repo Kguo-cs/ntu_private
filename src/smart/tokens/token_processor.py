@@ -214,28 +214,21 @@ class TokenProcessor(torch.nn.Module):
 
                 tokenized_agent["token_mask"][:,:1]=False
 
-            else:
-                valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
-                heading = data["agent"]["heading"]  # [n_agent, n_step]
-                pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-                vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
-
-                first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
-
-                agent_idx = torch.arange(valid.shape[0], device=valid.device)
-                first_vel = vel[agent_idx, first_valid_step]
-                first_pos = pos[agent_idx, first_valid_step]
-
-                initial_heading = heading[agent_idx, first_valid_step]
-
-                initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
-                # initial_pos = tokenized_agent["sampled_pos"][:, 1]
-                # initial_heading = tokenized_agent["sampled_heading"][:, 1]
-
-                # for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                #     tokenized_agent[key]=tokenized_agent[key][:,2:]
-                # tokenized_agent["extra_pos"]=initial_pos
-                # tokenized_agent["extra_heading"]=initial_heading
+            # else:
+                # valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
+                # heading = data["agent"]["heading"]  # [n_agent, n_step]
+                # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
+                # vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+                #
+                # first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
+                #
+                # agent_idx = torch.arange(valid.shape[0], device=valid.device)
+                # first_vel = vel[agent_idx, first_valid_step]
+                # first_pos = pos[agent_idx, first_valid_step]
+                #
+                # initial_heading = heading[agent_idx, first_valid_step]
+                #
+                # initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
 
             ego_mask=tokenized_agent["ego_mask"]
 
@@ -312,7 +305,6 @@ class TokenProcessor(torch.nn.Module):
         )
 
         return token_initial_pos,token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos, initial_heading
-
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]
@@ -512,15 +504,13 @@ class TokenProcessor(torch.nn.Module):
         pos = data["agent"]["position"][..., :2].contiguous().clone()   # [n_agent, n_step, 2]
         vel = data["agent"]["velocity"].clone()   # [n_agent, n_step, 2]
 
-        # # ! agent, specifically vehicle's heading can be 180 degree off. We fix it here.
-
         # # if not (self.pred_last_res and self.pred_all_res):
         heading = self._clean_heading(valid, heading)
 
-        # valid, pos, heading, vel = self._extrapolate_agent_to_first_step(
-        #     valid, pos, heading, vel
-        # )
-        valid,pos,heading,vel=extrapolate_agent_to_first_step_vectorized(valid, pos, heading, vel)
+        valid, pos, heading, vel = self._extrapolate_agent_to_prev_token_step(
+            valid, pos, heading, vel
+        )
+        #valid,pos,heading,vel=extrapolate_agent_to_first_step_vectorized(valid, pos, heading, vel)
 
         role_mask = data["agent"]["role"]
 
@@ -550,9 +540,6 @@ class TokenProcessor(torch.nn.Module):
         # [n_token, 8]
         for k in ["veh", "ped", "cyc"]:
             tokenized_agent[f"trajectory_token_{k}"] =getattr(self,f"trajectory_token_{k}")
-            #     getattr(
-            #     self, f"agent_token_all_{k}"
-            # )[:, -1].flatten(1, 2)
 
         # ! match token for each agent
         if not self.training:
@@ -562,9 +549,9 @@ class TokenProcessor(torch.nn.Module):
         batch = data["agent"]["batch"]
 
         if  self.pred_init:
-            # valid =valid[:,10:]
-            # pos=pos[:,10:]
-            # heading=heading[:,10:]
+            valid =valid[:,10:]
+            pos=pos[:,10:]
+            heading=heading[:,10:]
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
 
@@ -612,22 +599,6 @@ class TokenProcessor(torch.nn.Module):
         shift=5,
         error_dist=0.3
     ) -> Dict[str, Tensor]:
-        """n_step_token=n_step//5
-        n_step_token=18 for train with BC.
-        n_step_token=2 for val/test and train with closed-loop rollout.
-        Returns: Dict
-            # ! action that goes from [(0->5), (5->10), ..., (85->90)]
-            "valid_mask": [n_agent, n_step_token]
-            "gt_idx": [n_agent, n_step_token]
-            # ! at step [5, 10, 15, ..., 90]
-            "gt_pos": [n_agent, n_step_token, 2]
-            "gt_heading": [n_agent, n_step_token]
-            # ! noisy sampling for training data augmentation
-            "sampled_idx": [n_agent, n_step_token]
-            "sampled_pos": [n_agent, n_step_token, 2]
-            "sampled_heading": [n_agent, n_step_token]
-        """
-
         #num_k = self.agent_token_sampling.num_k if self.training else 1
         n_agent, n_step = valid.shape
         range_a = torch.arange(n_agent)
@@ -1132,6 +1103,11 @@ class TokenProcessor(torch.nn.Module):
 
             if "pred_mask" in agent.keys():
                 tokenized_agent["pred_mask"] = agent["pred_mask"]
+
+            if "initial_pos" in agent.keys():
+                tokenized_agent["initial_pos"] = agent["initial_pos"]
+                tokenized_agent["initial_heading"] = agent["initial_heading"]
+
 
             if "gt_valid_raw" in data.keys():
                 for key in ["type", "batch", "shape"]:

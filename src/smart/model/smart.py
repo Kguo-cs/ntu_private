@@ -83,12 +83,6 @@ class SMART(LightningModule):
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
 
-        # if self.token_processor.pred_init:
-        #     self.challenge_type=ChallengeType.SCENARIO_GEN
-        #     self.para_num=4
-        # else:
-        self.challenge_type=ChallengeType.SIM_AGENTS
-        self.para_num=32
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -119,6 +113,14 @@ class SMART(LightningModule):
         self.all_data=[]
 
         self.metric_logger=MetricDict()
+
+        # if self.token_processor.pred_init:
+        #     self.challenge_type=ChallengeType.SCENARIO_GEN
+        #     self.para_num=4
+        # else:
+        self.challenge_type=ChallengeType.SIM_AGENTS
+        self.para_num=32
+        self.n_rollout_closed_val=8
 
         #self.wosac_submission.save_sub_file()
 
