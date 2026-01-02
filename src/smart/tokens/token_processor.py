@@ -267,9 +267,9 @@ class TokenProcessor(torch.nn.Module):
 
             shape_token=torch.argmin(torch.linalg.norm(self.shape_grid[None]-shape[:,None,:2],dim=-1),dim=-1)
 
-            shape=self.shape_grid[shape_token]
+            # shape=self.shape_grid[shape_token]
 
-            tokenized_agent["shape"][:,:2]=shape
+            tokenized_agent["shape"][:,:2]=shape[:,:2]
             tokenized_agent["initial_pos_token"]=pos_token_idx[sort_idx]
             tokenized_agent["initial_offset_token"]=offset_idx[sort_idx]
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
