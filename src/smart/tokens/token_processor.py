@@ -297,6 +297,10 @@ class TokenProcessor(torch.nn.Module):
 
         pos_token_idx, offset_xy = self.attr_tokenizer.encode_pos(initial_pos, ego_position, ego_heading)
 
+
+        #rec_pos = self.attr_tokenizer.decode_pos(pos_token_idx, None,ego_position, ego_heading)
+
+
         rel_heading = initial_heading - ego_heading
 
         heading_token_idx = self.attr_tokenizer.encode_heading(rel_heading)
@@ -304,6 +308,10 @@ class TokenProcessor(torch.nn.Module):
         token_initial_heading = self.attr_tokenizer.decode_heading(heading_token_idx)
 
         token_initial_pos = self.attr_tokenizer.grid[pos_token_idx]
+
+        # rec_pos1=transform_to_global(
+        #     token_initial_pos[:,None],None,ego_position,ego_heading,
+        # )[0][:,0]
 
         offset_idx, offset_offset_xy = self.offset_tokenizer.encode_pos(offset_xy, 0)
 
@@ -647,7 +655,7 @@ class TokenProcessor(torch.nn.Module):
 
         batch = data["agent"]["batch"]
 
-        if self.training:
+        if self.training and self.pred_init:
             valid =valid[:,10:]
             pos=pos[:,10:]
             heading=heading[:,10:]

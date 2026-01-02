@@ -20,7 +20,7 @@ class Attr_Tokenizer(nn.Module):
         self.grid_interval = grid_interval
         self.radius = radius
         self.angle_interval = angle_interval
-        self.heading = torch.pi / 2
+        self.heading = 0#torch.pi / 2
         self._prepare_grid()
 
         self.grid_size = self.grid.shape[0]
@@ -95,7 +95,7 @@ class Attr_Tokenizer(nn.Module):
 
         return index.long(), offset_xy
 
-    def decode_pos(self, index, offset_xy,y=None, theta_y=None):
+    def decode_pos(self, index, offset_xy=None,y=None, theta_y=None):
         assert torch.all((index >= 0) & (index < self.grid_size))
         centered_x = self.grid.to(index.device)[index.long()]
         if y is not None:
