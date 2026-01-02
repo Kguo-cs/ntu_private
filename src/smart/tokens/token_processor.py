@@ -31,7 +31,6 @@ from src.smart.utils import (
     wrap_angle,
     angle_between_2d_vectors
 )
-from src.smart.loss.iq_loss import padding
 from scipy.optimize import linear_sum_assignment
 from torch.nn.utils.rnn import pad_sequence
 from .attr_tokenizer import Attr_Tokenizer
@@ -321,91 +320,6 @@ class TokenProcessor(torch.nn.Module):
 
         return token_initial_pos,token_initial_heading,pos_token_idx,heading_token_idx,offset_idx
 
-    def batched_nn_chain(
-            self,
-            initial_pos,  # (N, D)
-            batch,  # (N,)
-            type,  # (N,)
-            ego_mask,  # (N,) bool
-            batch_num,
-            num_types=3,
-    ):
-        lengths = torch.bincount(batch,minlength=batch_num)
-
-        padding_pos_a = padding(initial_pos, lengths.tolist(), padding_value=torch.inf)  # b, n, d
-
-        type_b = padding(type.to(torch.float32), lengths.tolist(), padding_value=torch.inf)  # b, n, d
-
-        mask=padding_pos_a[:,:,0]!=torch.inf
-
-        sort_idx = torch.zeros_like(padding_pos_a[:,:,0]).to(torch.int64)-1
-
-        last_pos = initial_pos[ego_mask]
-
-        last_type=type[ego_mask]
-
-        for i in range(padding_pos_a.shape[1]):
-
-            same_type=torch.abs(type_b-last_type[:,None])
-
-            dist=torch.linalg.norm(padding_pos_a-last_pos[:,None],dim=-1)
-
-            nearest_last=(same_type*1000+ dist).argmin(-1)
-
-            sort_idx[:,i] =nearest_last
-
-            last_pos = padding_pos_a[torch.arange(batch_num),nearest_last]
-            last_type = type_b[torch.arange(batch_num),nearest_last]
-
-            padding_pos_a[torch.arange(batch_num),nearest_last]=torch.inf
-
-        final_idx=sort_idx[mask]
-
-        offsets = torch.cumsum(lengths, 0) - lengths
-
-        final_idx=final_idx+offsets[batch]
-
-        return final_idx
-
-
-    def chained_sort(self,initial_pos, batch, type, ego_mask, type_order=(0, 1, 2)):
-        device = initial_pos.device
-        N = initial_pos.size(0)
-        sort_idx_all = []
-
-        for b in batch.unique(sorted=True):
-            batch_mask = batch == b
-            batch_idx = torch.where(batch_mask)[0]
-
-            # ego index
-            ego_idx = batch_idx[ego_mask[batch_mask]][0]
-            last_pos = initial_pos[ego_idx]
-
-            sort_idx_all.append(ego_idx)
-
-            for t in type_order:
-                type_mask = batch_mask & (type == t)
-                candidates = torch.where(type_mask)[0]
-
-                # remove ego if ego is car
-                candidates = candidates[candidates != ego_idx]
-
-                if candidates.numel() == 0:
-                    continue
-
-                remaining = candidates.clone()
-
-                while remaining.numel() > 0:
-                    d = torch.norm(initial_pos[remaining] - last_pos, dim=-1)
-                    nn = torch.argmin(d)
-                    chosen = remaining[nn]
-
-                    sort_idx_all.append(chosen)
-                    last_pos = initial_pos[chosen]
-
-                    remaining = torch.cat([remaining[:nn], remaining[nn + 1:]])
-
-        return torch.stack(sort_idx_all)
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]

@@ -181,55 +181,55 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head,new_agent,pred_sizes = [], [], [],[],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
-            #
-            # if self.token_processor.pred_init:
-            #     ego_mask = tokenized_agent["ego_mask"]
-            #     gt_pos = tokenized_agent["sampled_pos"].clone()
-            #     gt_head = tokenized_agent["sampled_heading"].clone()
-            #     gt_valid = tokenized_agent["valid_mask"].clone()
-            #     gt_sampled_idx = tokenized_agent["sampled_idx"].clone()
-            #     current_step=2
-            #
-            #     abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
-            #     batch = tokenized_agent['batch']
-            #
-            #     head_a = gt_head[:, :current_step]
-            #     mask = gt_valid[:, :current_step]
-            #     pos_a = gt_pos[:, :current_step]
-            #     sampled_idx = gt_sampled_idx[:, :current_step]
-            #
-            #     token_mask = tokenized_agent["token_mask"][:, :current_step].clone()
-            #
-            #     ego_heading = head_a[ego_mask]
-            #     ego_pos = pos_a[ego_mask]
-            #
-            #     head_vector_a = torch.stack([ego_heading.cos(), ego_heading.sin()], dim=-1)
-            #
-            #     feat_a_token, agent_token_emb, counter_feat_a = self.encoder.agent_encoder.agent_token_embedding(
-            #         agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
-            #         pos_a=ego_pos,  # [n_agent, n_step, 2]
-            #         head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            #         mask_a=mask[ego_mask],
-            #         agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
-            #         agent_shape=tokenized_agent["shape"][ego_mask],  # [n_agent, 3]
-            #         token_mask=token_mask[ego_mask],
-            #         batch_idx=batch[ego_mask],
-            #         goal_pos=tokenized_agent["goal_pos"],
-            #         goal_mask=tokenized_agent["goal_mask"],
-            #         ego_mask=ego_mask[ego_mask],
-            #         abs_time=abs_time,
-            #     )
-            #
-            #     ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).transpose(0,1).sum(1)  #
-            #
-            #     # batch_ego_feature = ego_feature[map_feature['batch']]
-            #     #
-            #     # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
-            #     ego_feature = ego_feature[:, None]
-            #     ego_pos=ego_pos[:,:1]
-            #     ego_heading=ego_heading[:,:1]
-            #
-            #     map_feature = insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
+
+            if self.token_processor.pred_init:
+                ego_mask = tokenized_agent["ego_mask"]
+                gt_pos = tokenized_agent["sampled_pos"].clone()
+                gt_head = tokenized_agent["sampled_heading"].clone()
+                gt_valid = tokenized_agent["valid_mask"].clone()
+                gt_sampled_idx = tokenized_agent["sampled_idx"].clone()
+                current_step=2
+
+                abs_time = tokenized_agent["abs_time"][:, :current_step].clone()
+                batch = tokenized_agent['batch']
+
+                head_a = gt_head[:, :current_step]
+                mask = gt_valid[:, :current_step]
+                pos_a = gt_pos[:, :current_step]
+                sampled_idx = gt_sampled_idx[:, :current_step]
+
+                token_mask = tokenized_agent["token_mask"][:, :current_step].clone()
+
+                ego_heading = head_a[ego_mask]
+                ego_pos = pos_a[ego_mask]
+
+                head_vector_a = torch.stack([ego_heading.cos(), ego_heading.sin()], dim=-1)
+
+                feat_a_token, agent_token_emb, counter_feat_a = self.encoder.agent_encoder.agent_token_embedding(
+                    agent_token_index=sampled_idx[ego_mask],  # [n_ag, n_step]
+                    pos_a=ego_pos,  # [n_agent, n_step, 2]
+                    head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                    mask_a=mask[ego_mask],
+                    agent_type=tokenized_agent["type"][ego_mask],  # [n_agent]
+                    agent_shape=tokenized_agent["shape"][ego_mask],  # [n_agent, 3]
+                    token_mask=token_mask[ego_mask],
+                    batch_idx=batch[ego_mask],
+                    goal_pos=tokenized_agent["goal_pos"],
+                    goal_mask=tokenized_agent["goal_mask"],
+                    ego_mask=ego_mask[ego_mask],
+                    abs_time=abs_time,
+                )
+
+                ego_feature=feat_a_token.reshape(2, -1, feat_a_token.shape[-1]).transpose(0,1).sum(1)  #
+
+                # batch_ego_feature = ego_feature[map_feature['batch']]
+                #
+                # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+                ego_feature = ego_feature[:, None]
+                ego_pos=ego_pos[:,:1]
+                ego_heading=ego_heading[:,:1]
+
+                map_feature = insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
             for _ in range(self.n_rollout_closed_val):
 
