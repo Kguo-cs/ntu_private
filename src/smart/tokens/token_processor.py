@@ -553,18 +553,18 @@ class TokenProcessor(torch.nn.Module):
 
         batch = data["agent"]["batch"]
 
-        if  self.pred_init:
-            valid =valid[:,10:]
-            pos=pos[:,10:]
-            heading=heading[:,10:]
-
-            # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-            #
-            # pos[:, :1]=initial_pos
-            # heading[:, :1]=initial_heading
-
-            tokenized_agent["initial_pos"]=pos[:,0]
-            tokenized_agent["initial_heading"]=heading[:,0]
+        # if  self.pred_init:
+        #     valid =valid[:,10:]
+        #     pos=pos[:,10:]
+        #     heading=heading[:,10:]
+        #
+        #     # token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+        #     #
+        #     # pos[:, :1]=initial_pos
+        #     # heading[:, :1]=initial_heading
+        #
+        #     tokenized_agent["initial_pos"]=pos[:,0]
+        #     tokenized_agent["initial_heading"]=heading[:,0]
 
         token_dict = self._match_agent_token(
             valid=valid,
