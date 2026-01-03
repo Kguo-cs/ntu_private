@@ -248,14 +248,7 @@ class TokenProcessor(torch.nn.Module):
 
             ego_mask=tokenized_agent["ego_mask"]
 
-            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,extra_pos, extra_heading=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
-
-            if self.token_initial:
-                tokenized_agent["extra_pos"]=extra_pos
-                tokenized_agent["extra_heading"]=extra_heading
-            else:
-                tokenized_agent["extra_pos"]=initial_pos[:,None]
-                tokenized_agent["extra_heading"]=initial_heading[:,None]
+            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,global_initial_pos, global_initial_heading=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
 
             dist=torch.norm(token_initial_pos,dim=-1)
 
@@ -289,10 +282,17 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
             tokenized_agent["initial_shape_token"]=shape_token[sort_idx]
             tokenized_agent["initial_shape"]=shape[sort_idx]
-            tokenized_agent["initial_pos"]=token_initial_pos[sort_idx]
-            tokenized_agent["initial_heading"]=token_initial_heading[sort_idx]
+            tokenized_agent["token_initial_pos"]=token_initial_pos[sort_idx]
+            tokenized_agent["token_initial_heading"]=token_initial_heading[sort_idx]
             tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
             tokenized_agent["initial_type"]=type[sort_idx]
+
+            if self.token_initial:
+                tokenized_agent["global_initial_pos"]=global_initial_pos[sort_idx]
+                tokenized_agent["global_initial_heading"]=global_initial_heading[sort_idx]
+            else:
+                tokenized_agent["global_initial_pos"]=initial_pos[:,None]
+                tokenized_agent["global_initial_heading"]=initial_heading[:,None]
 
             if not self.training:
                 tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]

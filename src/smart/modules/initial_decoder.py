@@ -172,9 +172,10 @@ class InitDecoder(nn.Module):
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
+        batch=tokenized_agent["batch"]
 
         batch_num=tokenized_agent["num_graphs"]
-        lengths = torch.bincount(tokenized_agent["batch"]).tolist()
+        lengths = torch.bincount(batch).tolist()
 
         all_initial_type = padding(tokenized_agent["initial_type"], lengths, padding_value=3)  # b, n, d
 
@@ -209,9 +210,6 @@ class InitDecoder(nn.Module):
             iteration_num=1
         else:
             pred_mask = tokenized_agent["initial_ego_mask"]
-            ego_position=tokenized_agent["initial_pos"][pred_mask]
-            ego_heading=tokenized_agent["initial_heading"][pred_mask]
-
 
             agent_mask=all_initial_type!=3
 
@@ -227,8 +225,8 @@ class InitDecoder(nn.Module):
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
         batch=tokenized_agent["batch"][pred_mask]
-        initial_pos = tokenized_agent["initial_pos"][pred_mask]
-        initial_heading = tokenized_agent["initial_heading"][pred_mask]
+        initial_pos = tokenized_agent["token_initial_pos"][pred_mask]
+        initial_heading = tokenized_agent["token_initial_heading"][pred_mask]
         initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
         initial_offset_token = tokenized_agent["initial_offset_token"][pred_mask]
 
@@ -328,12 +326,15 @@ class InitDecoder(nn.Module):
             local_pos = torch.stack(local_pos_list,dim=1)[agent_mask]#32,125
             local_heading = torch.stack(local_heading_list,dim=1)[agent_mask]
             shape = torch.stack(shape_list,dim=1)[agent_mask]
-            
+
+            ego_position=tokenized_agent["global_initial_pos"][pred_mask][:,0]
+            ego_heading=tokenized_agent["global_initial_heading"][pred_mask][:,0]
+
             global_pos,global_heading=transform_to_global(
                 local_pos[:,None],
                 local_heading[:,None],
-                ego_position[tokenized_agent["batch"]],
-                ego_heading[tokenized_agent["batch"]],
+                ego_position[batch],
+                ego_heading[batch],
             )
 
             shape = torch.cat([shape, torch.zeros_like(shape[:, :1]) + 1.75], dim=-1)
