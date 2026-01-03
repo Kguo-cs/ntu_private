@@ -88,15 +88,14 @@ class SMART(LightningModule):
         self.n_vis_rollout = model_config.n_vis_rollout
         self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
 
-        # if self.token_processor.pred_init:
-        #     self.challenge_type=ChallengeType.SCENARIO_GEN
-        #     self.para_num=4
-        # self.n_rollout_closed_val=8
-
-        # else:
-        self.challenge_type=ChallengeType.SIM_AGENTS
-        self.para_num=32
-        self.n_rollout_closed_val=8
+        if self.token_processor.pred_init:
+            self.challenge_type=ChallengeType.SCENARIO_GEN
+            self.para_num=4
+            self.n_rollout_closed_val=4
+        else:
+            self.challenge_type=ChallengeType.SIM_AGENTS
+            self.para_num=32
+            self.n_rollout_closed_val=8
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
