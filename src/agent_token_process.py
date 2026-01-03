@@ -19,7 +19,7 @@ from src.smart.utils import (
 torch.set_float32_matmul_precision("highest")
 
 
-ys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
+sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 sys.path.append('/home/ke/code/catk')
