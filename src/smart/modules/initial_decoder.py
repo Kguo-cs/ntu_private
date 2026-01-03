@@ -95,14 +95,14 @@ class InitDecoder(nn.Module):
             self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
-        self.sequential=True
+        self.sequential=False
 
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
         self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        #self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
+        self.offset_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
         self.type_count_embedding = MLPLayer(3,hidden_dim, hidden_dim)
 
@@ -204,7 +204,8 @@ class InitDecoder(nn.Module):
         if self.training:
             pred_mask = ~tokenized_agent["ego_mask"]#non-last mask
 
-            # pred_mask=torch.ones_like(pred_mask)
+            if self.sequential:
+                pred_mask=torch.ones_like(pred_mask)
             iteration_num=1
         else:
             pred_mask = tokenized_agent["initial_ego_mask"]
@@ -236,24 +237,48 @@ class InitDecoder(nn.Module):
         shape_list=[initial_shape]
         type_list=[initial_type]
 
-        #type, position token, size and heading , trajectory tokens
+        #each agent's type, position token, size and heading , trajectory tokens
         #This is achieved by estimating the agent’s recent movement based on its position, velocity, and heading, and then comparing it with the candidate trajectory tokens to select the best match
-        #token initialization by speed 
+        #token initialization by speed
+
+        if self.sequential:
+            type_embedding = self.type_embedding(initial_type)
+            heading_embedding = self.head_embedding(initial_heading[:,None])
+            shape_embedding = self.shape_embedding(initial_shape[:,:2])
+            pos_embedding = self.pos_embedding(self.token_processor.attr_tokenizer.grid[initial_pos_token])
+            offset_embedding = self.offset_embedding(self.token_processor.offset_tokenizer.grid[initial_offset_token])
+
+            feat1=pos_embedding+heading_embedding+shape_embedding
+
+            features=torch.stack([pos_embedding,feat1,feat1+offset_embedding],dim=1)
+
+            features=features+type_embedding[:,None].repeat(1,3,1)
+
+            # features=features.flatten(0,1)
+
+            pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos[:,None], initial_heading[:,None], features, batch,batch_num)
+
+            feat_a_b=feat_a_b.flatten(1,2)
+            pos_a_b=pos_a_b.repeat(1,1,3,1).flatten(1,2)
+            heading_a_b=heading_a_b.flatten(1,1,3).flatten(1,2)
+            mask_a_b = torch.any(feat_a_b != 0, dim=-1)
+
 
         for n_current in range(iteration_num):
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_offset_token,
-                                                                      initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num)
+            if not self.sequential:
+                pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_offset_token,
+                                                                          initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num)
 
             if self.use_entry_former:
-                entry_feature = self.entry_former.cross_attention(feat_a_b, torch.zeros_like(pos_a_b),
-                                                                  torch.zeros_like(heading_a_b), mask_a_b,
+                entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                                                                  heading_a_b, mask_a_b,
                                                                   feat_map,
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
             else:
-                entry_feature = self.graph_embed(feat_a_b, torch.zeros_like(pos_a_b),
-                                                  torch.zeros_like(heading_a_b), mask_a_b,
+                entry_feature = self.graph_embed(feat_a_b, pos_a_b,
+                                                  heading_a_b, mask_a_b,
                                                   batch,
                                                   feat_map,
                                                   pos_pl,
