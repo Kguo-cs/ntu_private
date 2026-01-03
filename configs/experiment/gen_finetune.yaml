@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './ckpts/bcgen56_tokenshape025_a_sim16_epoch=10-step=95667.ckpt'
 
-task_name: bcgen256_typecount_seqsum_randsort  #_tokenoffsetshape#2 #local_noshapeinput__alloffset_shape2 #offset_seqsort_graphshape
+task_name: bcgen256_typecount_seqsum #_randsort  #_tokenoffsetshape#2 #local_noshapeinput__alloffset_shape2 #offset_seqsort_graphshape
 
 trainer:
   limit_train_batches: 1.0
