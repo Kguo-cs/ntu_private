@@ -575,8 +575,8 @@ class TokenProcessor(torch.nn.Module):
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
 
-            print(torch.linalg.norm(initial_pos - pos[:, :1],dim=-1).max())
-            print(wrap_angle(heading[:,:1]-initial_heading).max())
+            # print(torch.linalg.norm(initial_pos - pos[:, :1],dim=-1).max())
+            # print(wrap_angle(heading[:,:1]-initial_heading).max())
 
             pos[:, :1]=initial_pos
             heading[:, :1]=initial_heading

@@ -45,7 +45,7 @@ token_processor.eval()
 
 agent_data_directory = "./waymo_data/full/training_map2_a_light"
 # map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_init_light"
+ouput_data_directory = "./waymo_data/full/training_map2_init005_light"
 
 pred_init=True
 
@@ -130,19 +130,8 @@ def process_file(filename):
         pos = pos[:, 10:]
         heading = heading[:, 10:]
 
-        token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx = token_processor.tokenize_initial(
+        token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx,initial_pos,initial_heading = token_processor.tokenize_initial(
             pos[:, 0], heading[:, 0], ego_mask, batch)
-
-        ego_position = pos[:, 0][ego_mask][batch]
-        ego_heading = heading[:, 0][ego_mask][batch]
-
-        initial_pos, initial_heading = transform_to_global(
-            token_initial_pos[:, None],
-            token_initial_heading[:, None],
-            ego_position,
-            ego_heading,
-
-        )
 
         pos[:, :1] = initial_pos
         heading[:, :1] = initial_heading
