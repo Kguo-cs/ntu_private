@@ -95,6 +95,7 @@ class InitDecoder(nn.Module):
             self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
+        self.sequential=True
 
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
@@ -102,6 +103,8 @@ class InitDecoder(nn.Module):
         self.type_embedding = nn.Embedding(3, hidden_dim)
         self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         #self.offset_embedding = MLPLayer(self.pos_dim + 1, hidden_dim, hidden_dim)
+
+        self.type_count_embedding = MLPLayer(3,hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.n_token_entry_head )
@@ -117,17 +120,13 @@ class InitDecoder(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self,initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num ):
+    def embed_input(self,initial_pos_token,initial_offset_token,initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num ):
         type_embedding = self.type_embedding(initial_type)
         heading_embedding = self.head_embedding(initial_heading[:,None])
         pos_embedding = self.pos_embedding(initial_pos)
         shape_embedding = self.shape_embedding(initial_shape[:,:2])
 
         feat_a = type_embedding  + heading_embedding + pos_embedding+ shape_embedding
-
-        # if initial_offset_xyh.any():
-        #     offset_embedding = self.offset_embedding(initial_offset_xyh)
-        #     feat_a = feat_a + offset_embedding
 
         pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch,batch_num)
 
@@ -175,6 +174,16 @@ class InitDecoder(nn.Module):
         feat_map = map_feature["pt_token"]
 
         batch_num=tokenized_agent["num_graphs"]
+        lengths = torch.bincount(tokenized_agent["batch"]).tolist()
+
+        all_initial_type = padding(tokenized_agent["initial_type"], lengths, padding_value=3)  # b, n, d
+
+        type_count = torch.nn.functional.one_hot(
+            all_initial_type,
+            num_classes=4
+        ).sum(dim=1).to(torch.float32)
+
+        type_count_feature= self.type_count_embedding(type_count[:,:3])
 
         if self.use_entry_former:
             pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
@@ -188,21 +197,22 @@ class InitDecoder(nn.Module):
                                ego_heading,
                                )
 
-        map_mask = torch.any(feat_map != 0, dim=-1)
+            map_mask = torch.any(feat_map != 0, dim=-1)
+
+            feat_map=feat_map+type_count_feature[:,None]
 
         if self.training:
             pred_mask = ~tokenized_agent["ego_mask"]#non-last mask
+
+            # pred_mask=torch.ones_like(pred_mask)
             iteration_num=1
         else:
             pred_mask = tokenized_agent["initial_ego_mask"]
             ego_position=tokenized_agent["initial_pos"][pred_mask]
             ego_heading=tokenized_agent["initial_heading"][pred_mask]
 
-            lengths = torch.bincount(tokenized_agent["batch"]).tolist()
 
-            all_initial_type = padding(tokenized_agent["initial_type"], lengths, padding_value=-1)  # b, n, d
-
-            agent_mask=all_initial_type!=-1
+            agent_mask=all_initial_type!=3
 
             all_initial_type[~agent_mask]=0
 
@@ -216,27 +226,24 @@ class InitDecoder(nn.Module):
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
         batch=tokenized_agent["batch"][pred_mask]
-
-        if self.use_refine:
-            initial_pos = self.token_processor.attr_tokenizer.decode_pos(initial_pos_token, None,
-                                                                         ego_position, ego_heading)
-
-            token_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
-
-            initial_heading = wrap_angle(token_heading + ego_heading)
-        else:
-            initial_pos = tokenized_agent["initial_pos"][pred_mask]
-            initial_heading = tokenized_agent["initial_heading"][pred_mask]
+        initial_pos = tokenized_agent["initial_pos"][pred_mask]
+        initial_heading = tokenized_agent["initial_heading"][pred_mask]
+        initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
+        initial_offset_token = tokenized_agent["initial_offset_token"][pred_mask]
 
         local_pos_list=[initial_pos]
         local_heading_list=[initial_heading]
         shape_list=[initial_shape]
-
         type_list=[initial_type]
+
+        #type, position token, size and heading , trajectory tokens
+        #This is achieved by estimating the agent’s recent movement based on its position, velocity, and heading, and then comparing it with the candidate trajectory tokens to select the best match
+        #token initialization by speed 
 
         for n_current in range(iteration_num):
 
-            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num)
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_offset_token,
+                                                                      initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num)
 
             if self.use_entry_former:
                 entry_feature = self.entry_former.cross_attention(feat_a_b, torch.zeros_like(pos_a_b),
@@ -245,13 +252,12 @@ class InitDecoder(nn.Module):
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
             else:
-                entry_feature = self.graph_embed(feat_a_b, pos_a_b,
-                                                  heading_a_b, mask_a_b,
+                entry_feature = self.graph_embed(feat_a_b, torch.zeros_like(pos_a_b),
+                                                  torch.zeros_like(heading_a_b), mask_a_b,
                                                   batch,
                                                   feat_map,
                                                   pos_pl,
                                                   orient_pl, batch_pl)
-
 
             n_agent=feat_a_b.shape[1]
 
@@ -262,16 +268,7 @@ class InitDecoder(nn.Module):
             pos_logit = self.pos_decoder(attr_feature)
             head_logit = self.head_decoder(attr_feature)
             shape_logit = self.shape_head_decoder(attr_feature)
-
-            if not self.use_refine:
-                offset_logit = self.offset_head_decoder(attr_feature)
-
-                # initial_offset_xyh=self.token_processor.attr_tokenizer1.decode_pos(initial_offset_idx,0,0,0)
-
-                # initial_offset_xyh[...,:2] = torch.tanh(initial_offset_xyh[...,:2]) * self.token_processor.attr_tokenizer.grid_interval/2
-                # initial_offset_xyh[...,2] = torch.tanh(initial_offset_xyh[...,2]) * (torch.pi/self.token_processor.n_token_entry_head)
-            else:
-                offset_logit = torch.zeros_like(initial_shape)
+            offset_logit = self.offset_head_decoder(attr_feature)
 
             entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
 

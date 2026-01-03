@@ -87,7 +87,7 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 setsid nohup python run1.py > 1.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2
@@ -220,3 +220,13 @@ clean predict nosie v loss
 
 
 #sim 16-> sim 18->gt gen 
+
+
+
+For each
+agent, it sequentially predicts (a) an agent type token,
+(b) a position token, (c) tokens for size and dynamic
+attributes, and (d) a sequence of trajectory tokens.
+Each prediction is conditioned on the map, ego history,
+agent type specification, and all previously generated
+agents.
