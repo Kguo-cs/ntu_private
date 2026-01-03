@@ -232,7 +232,7 @@ class InitDecoder(nn.Module):
             heading_embedding = self.head_embedding(token_initial_heading[:,None])
             shape_embedding = self.shape_embedding(initial_shape[:,:2])
             pos_embedding = self.pos_embedding(self.token_processor.attr_tokenizer.grid[initial_pos_token])
-            offset_embedding = self.offset_embedding(token_initial_pos)
+            offset_embedding = self.offset_embedding(self.token_processor.offset_tokenizer.grid[initial_offset_token])
 
             feat1=type_embedding+pos_embedding
 
@@ -329,7 +329,7 @@ class InitDecoder(nn.Module):
                         token_initial_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
                         token_initial_pos=token_initial_pos1+token_initial_offset
 
-                        offset_embedding = self.offset_embedding(token_initial_pos)
+                        offset_embedding = self.offset_embedding(token_initial_offset)
 
                         local_pos_list.append(token_initial_pos[:,0])
 
