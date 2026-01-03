@@ -224,7 +224,7 @@ class InitDecoder(nn.Module):
 
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
-        batch=tokenized_agent["batch"][pred_mask]
+        batch=batch[pred_mask]
         initial_pos = tokenized_agent["token_initial_pos"][pred_mask]
         initial_heading = tokenized_agent["token_initial_heading"][pred_mask]
         initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
@@ -333,8 +333,8 @@ class InitDecoder(nn.Module):
             global_pos,global_heading=transform_to_global(
                 local_pos[:,None],
                 local_heading[:,None],
-                ego_position[batch],
-                ego_heading[batch],
+                ego_position[tokenized_agent["batch"]],
+                ego_heading[tokenized_agent["batch"]],
             )
 
             shape = torch.cat([shape, torch.zeros_like(shape[:, :1]) + 1.75], dim=-1)

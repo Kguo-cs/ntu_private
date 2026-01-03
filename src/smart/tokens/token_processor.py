@@ -115,10 +115,6 @@ class TokenProcessor(torch.nn.Module):
 
         self.token_initial=True
 
-
-        # self.register_buffer( "shape_grid",shape_grid,       persistent=False)  # [n_token, 11*2]
-
-
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
