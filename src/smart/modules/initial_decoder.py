@@ -84,7 +84,7 @@ class InitDecoder(nn.Module):
             self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
-        self.sequential=False
+        self.sequential=True
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
@@ -213,13 +213,13 @@ class InitDecoder(nn.Module):
         initial_type = tokenized_agent["initial_type"][pred_mask]
         initial_shape = tokenized_agent["initial_shape"][pred_mask]
         batch=batch[pred_mask]
-        initial_pos = tokenized_agent["token_initial_pos"][pred_mask]
-        initial_heading = tokenized_agent["token_initial_heading"][pred_mask]
+        token_initial_pos = tokenized_agent["token_initial_pos"][pred_mask]
+        token_initial_heading = tokenized_agent["token_initial_heading"][pred_mask]
         initial_pos_token = tokenized_agent["initial_pos_token"][pred_mask]
         initial_offset_token = tokenized_agent["initial_offset_token"][pred_mask]
 
-        local_pos_list=[initial_pos]
-        local_heading_list=[initial_heading]
+        local_pos_list=[token_initial_pos]
+        local_heading_list=[token_initial_heading]
         shape_list=[initial_shape]
         type_list=[initial_type]
 
@@ -229,7 +229,7 @@ class InitDecoder(nn.Module):
 
         if self.sequential:
             type_embedding = self.type_embedding(initial_type)
-            heading_embedding = self.head_embedding(initial_heading[:,None])
+            heading_embedding = self.head_embedding(token_initial_heading[:,None])
             shape_embedding = self.shape_embedding(initial_shape[:,:2])
             pos_embedding = self.pos_embedding(self.token_processor.attr_tokenizer.grid[initial_pos_token])
             offset_embedding = self.offset_embedding(self.token_processor.offset_tokenizer.grid[initial_offset_token])
@@ -240,16 +240,27 @@ class InitDecoder(nn.Module):
 
             features=torch.stack([feat1,feat2,feat2+offset_embedding],dim=1)
 
-            pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos[:,None], initial_heading[:,None], features, batch,batch_num)
+            pos_a_b, heading_a_b, feat_a_b = self.padding(token_initial_pos[:,None], token_initial_heading[:,None], features, batch,batch_num)
 
             feat_a_b=feat_a_b.flatten(1,2)
             pos_a_b=pos_a_b.repeat(1,1,3,1).flatten(1,2)
             heading_a_b=heading_a_b.repeat(1,1,3).flatten(1,2)
-            mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
-            feat_a_b=feat_a_b[2:-1]
-            pos_a_b=pos_a_b[2:-1]
-            heading_a_b=heading_a_b[2:-1]
+            if self.training:
+                feat_a_b=feat_a_b[:,2:-1]
+                pos_a_b=pos_a_b[:,2:-1]
+                heading_a_b=heading_a_b[:,2:-1]
+            else:
+                feat_a_b=feat_a_b[:,2:]
+                pos_a_b=pos_a_b[:,2:]
+                heading_a_b=heading_a_b[:,2:]
+
+            mask_a_b = torch.any(feat_a_b != 0, dim=-1)
+            pos_a_b=torch.zeros_like(pos_a_b)
+            heading_a_b=torch.zeros_like(heading_a_b)
+
+            if not self.training:
+                iteration_num=iteration_num*3
 
 
         for n_current in range(iteration_num):
@@ -276,17 +287,51 @@ class InitDecoder(nn.Module):
 
             attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b,n_agent, n_current, mask_a_b)
 
-            attr_feature=attr_feature[mask_a_b]
 
             if self.sequential:
 
                 if self.training:
-                    pos_logit = self.pos_decoder(attr_feature[::3])
-                    head_logit = self.head_decoder(attr_feature[1::3])
-                    shape_logit = self.shape_head_decoder(attr_feature[1::3])
-                    offset_logit = self.offset_head_decoder(attr_feature[1::3])
+                    agent_mask=mask_a_b[:,1::3]
 
+                    pos_logit = self.pos_decoder(attr_feature[:,::3][agent_mask])      #offset feature predict pos
+                    head_logit = self.head_decoder(attr_feature[:,1::3][agent_mask])
+                    shape_logit = self.shape_head_decoder(attr_feature[:,1::3][agent_mask])
+                    offset_logit = self.offset_head_decoder(attr_feature[:,2::3][agent_mask])#last_feature offset first and remove last
+
+                    entry_logit = (pos_logit, head_logit, offset_logit, shape_logit)
+                else:
+                    if n_current%3==0:
+                        pos_logit = self.pos_decoder(attr_feature)  # offset feature predict pos
+                        initial_pos_token = Categorical(logits=pos_logit).sample()
+                        token_initial_pos1= self.token_processor.attr_tokenizer.grid[initial_pos_token]
+                        feat_a_b = self.pos_embedding(token_initial_pos1)
+                    elif n_current%3==1:
+                        head_logit = self.head_decoder(attr_feature)
+                        shape_logit = self.shape_head_decoder(attr_feature)
+                        initial_heading_token=Categorical(logits=head_logit).sample()
+                        initial_shape_token=Categorical(logits=shape_logit).sample()
+                        token_initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
+                        initial_shape=self.token_processor.shape_grid[initial_shape_token]
+
+                        local_heading_list.append(token_initial_heading[:,0])
+                        shape_list.append(initial_shape[:,0])
+
+                        heading_embedding = self.head_embedding(token_initial_heading[:, None])
+                        shape_embedding = self.shape_embedding(initial_shape[:, :2])
+                        feat_a_b = feat_a_b+heading_embedding+shape_embedding
+                    else:
+                        offset_logit = self.offset_head_decoder(attr_feature)
+                        initial_offset_token = Categorical(logits=offset_logit).sample()
+                        token_initial_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
+                        offset_embedding = self.offset_embedding(token_initial_offset)
+
+                        token_initial_pos=token_initial_pos1+token_initial_offset
+
+                        local_pos_list.append(token_initial_pos[:,0])
+
+                        feat_a_b = feat_a_b + offset_embedding
             else:
+                attr_feature=attr_feature[mask_a_b]
                 pos_logit = self.pos_decoder(attr_feature)
                 head_logit = self.head_decoder(attr_feature)
                 shape_logit = self.shape_head_decoder(attr_feature)
@@ -300,10 +345,10 @@ class InitDecoder(nn.Module):
                     initial_offset_token=Categorical(logits=offset_logit).sample()
                     initial_shape_token=Categorical(logits=shape_logit).sample()
 
-                    initial_pos= self.token_processor.attr_tokenizer.grid[initial_pos_token]
+                    initial_pos1= self.token_processor.attr_tokenizer.grid[initial_pos_token]
                     token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
 
-                    initial_pos=initial_pos+token_offset
+                    initial_pos=initial_pos1+token_offset
 
                     initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
 
