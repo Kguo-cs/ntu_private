@@ -259,6 +259,10 @@ class TokenProcessor(torch.nn.Module):
 
             dist=torch.norm(token_initial_pos,dim=-1)
 
+            dist=torch.rand_like(dist)
+
+            dist[ego_mask]=0
+
             dist_max=dist.max()+1
 
             sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
