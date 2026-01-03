@@ -94,11 +94,11 @@ class TokenProcessor(torch.nn.Module):
                                              angle_interval=3)
 
 
-        res = 0.5
+        res = 0.25
 
-        res1=0.5
+        res1=0.25
 
-        length, width = 12.5, 3.5
+        length, width = 12.25, 3.25
 
         # number of tokens
         nx = int(length / res)
