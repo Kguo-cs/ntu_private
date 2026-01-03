@@ -19,7 +19,7 @@ from src.smart.utils import (
 torch.set_float32_matmul_precision("highest")
 
 
-sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
+ys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/sim')
 sys.path.append('/home/ke/code/sim')
 sys.path.append('/home/users/ntu/ke.guo/scratch/sim')
 sys.path.append('/home/ke/code/catk')
@@ -28,7 +28,6 @@ sys.path.append('/home/users/ntu/shanhelo/scratch/keguo_projects/sim')
 sys.path.append('/mnt/d/code/sim')
 sys.path.append('/home/ke/keguo/sim')
 sys.path.append('/home/guoke/sim')
-
 
 from src.smart.tokens.token_processor import TokenProcessor
 
