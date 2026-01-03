@@ -74,7 +74,7 @@ class InitDecoder(nn.Module):
                     ]
                 )
 
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
+        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
         self.use_refine=False
