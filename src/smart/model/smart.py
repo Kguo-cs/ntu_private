@@ -87,7 +87,7 @@ class SMART(LightningModule):
         self.n_vis_scenario = model_config.n_vis_scenario
         self.n_vis_rollout = model_config.n_vis_rollout
         self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
-
+        #
         if self.token_processor.pred_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
             self.para_num=4

@@ -248,9 +248,9 @@ class TokenProcessor(torch.nn.Module):
 
             dist=torch.norm(token_initial_pos,dim=-1)
 
-            dist=torch.rand_like(dist)
-
-            dist[ego_mask]=0
+            # dist=torch.rand_like(dist)
+            #
+            # dist[ego_mask]=0
 
             dist_max=dist.max()+1
 
