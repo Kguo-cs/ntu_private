@@ -8,13 +8,6 @@ import torch
 from pathlib import Path
 from torch_geometric.data import HeteroData
 import sys
-from src.smart.utils import (
-    cal_polygon_contour,
-    transform_to_global,
-    transform_to_local,
-    wrap_angle,
-    angle_between_2d_vectors
-)
 
 torch.set_float32_matmul_precision("highest")
 
