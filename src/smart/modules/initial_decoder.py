@@ -304,7 +304,11 @@ class InitDecoder(nn.Module):
                         pos_logit = self.pos_decoder(attr_feature)  # offset feature predict pos
                         initial_pos_token = Categorical(logits=pos_logit).sample()
                         token_initial_pos1= self.token_processor.attr_tokenizer.grid[initial_pos_token]
-                        feat_a_b = self.pos_embedding(token_initial_pos1)
+                        initial_type = all_initial_type[:, n_current//3 + 1]
+
+                        type_embedding = self.type_embedding(initial_type[:,None])
+
+                        feat_a_b = self.pos_embedding(token_initial_pos1)+type_embedding
                     elif n_current%3==1:
                         head_logit = self.head_decoder(attr_feature)
                         shape_logit = self.shape_head_decoder(attr_feature)
