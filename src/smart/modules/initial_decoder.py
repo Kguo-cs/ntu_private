@@ -26,23 +26,12 @@ class InitDecoder(nn.Module):
             num_heads: int,
             num_freq_bands,
             token_processor,
-            start_step
     ) -> None:
 
         super(InitDecoder, self).__init__()
-        self.autoregressive_entry= token_processor.autoregressive_entry
-        self.n_token_entry=token_processor.n_token_entry
-
         self.token_processor=token_processor
 
         self.hidden_dim=hidden_dim
-
-        self.start_step=start_step
-
-        if self.token_processor.use_bird:
-            self.pos_dim=3
-        else:
-            self.pos_dim=2
 
         self.entry_his_len = 1000000
 
@@ -97,7 +86,6 @@ class InitDecoder(nn.Module):
 
         self.sequential=False
 
-
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
@@ -106,10 +94,10 @@ class InitDecoder(nn.Module):
 
         self.type_count_embedding = MLPLayer(3,hidden_dim, hidden_dim)
 
-        self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, self.n_token_entry )
-        self.head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.n_token_entry_head )
-        self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,self.token_processor.offset_tokenizer.grid_size)  # offset to offset
-        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, self.token_processor.shape_grid.shape[0])
+        self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, token_processor.n_token_entry )
+        self.head_decoder = MLPLayer(hidden_dim, hidden_dim,token_processor.n_token_entry_head )
+        self.offset_head_decoder = MLPLayer(hidden_dim, hidden_dim,token_processor.offset_tokenizer.grid_size)  # offset to offset
+        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, token_processor.shape_grid.shape[0])
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -246,20 +234,22 @@ class InitDecoder(nn.Module):
             pos_embedding = self.pos_embedding(self.token_processor.attr_tokenizer.grid[initial_pos_token])
             offset_embedding = self.offset_embedding(self.token_processor.offset_tokenizer.grid[initial_offset_token])
 
-            feat1=pos_embedding+heading_embedding+shape_embedding
+            feat1=type_embedding+pos_embedding
 
-            features=torch.stack([pos_embedding,feat1,feat1+offset_embedding],dim=1)
+            feat2=feat1+heading_embedding+shape_embedding
 
-            features=features+type_embedding[:,None].repeat(1,3,1)
-
-            # features=features.flatten(0,1)
+            features=torch.stack([feat1,feat2,feat2+offset_embedding],dim=1)
 
             pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos[:,None], initial_heading[:,None], features, batch,batch_num)
 
             feat_a_b=feat_a_b.flatten(1,2)
             pos_a_b=pos_a_b.repeat(1,1,3,1).flatten(1,2)
-            heading_a_b=heading_a_b.flatten(1,1,3).flatten(1,2)
+            heading_a_b=heading_a_b.repeat(1,1,3).flatten(1,2)
             mask_a_b = torch.any(feat_a_b != 0, dim=-1)
+
+            feat_a_b=feat_a_b[2:-1]
+            pos_a_b=pos_a_b[2:-1]
+            heading_a_b=heading_a_b[2:-1]
 
 
         for n_current in range(iteration_num):
@@ -288,35 +278,44 @@ class InitDecoder(nn.Module):
 
             attr_feature=attr_feature[mask_a_b]
 
-            pos_logit = self.pos_decoder(attr_feature)
-            head_logit = self.head_decoder(attr_feature)
-            shape_logit = self.shape_head_decoder(attr_feature)
-            offset_logit = self.offset_head_decoder(attr_feature)
+            if self.sequential:
 
-            entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
+                if self.training:
+                    pos_logit = self.pos_decoder(attr_feature[::3])
+                    head_logit = self.head_decoder(attr_feature[1::3])
+                    shape_logit = self.shape_head_decoder(attr_feature[1::3])
+                    offset_logit = self.offset_head_decoder(attr_feature[1::3])
 
-            if not self.training:
-                initial_pos_token = Categorical(logits=pos_logit).sample()
-                initial_heading_token=Categorical(logits=head_logit).sample()
-                initial_offset_token=Categorical(logits=offset_logit).sample()
-                initial_shape_token=Categorical(logits=shape_logit).sample()
+            else:
+                pos_logit = self.pos_decoder(attr_feature)
+                head_logit = self.head_decoder(attr_feature)
+                shape_logit = self.shape_head_decoder(attr_feature)
+                offset_logit = self.offset_head_decoder(attr_feature)
 
-                initial_pos= self.token_processor.attr_tokenizer.grid[initial_pos_token]
-                token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
+                entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
 
-                initial_pos=initial_pos+token_offset
-                
-                initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
+                if not self.training:
+                    initial_pos_token = Categorical(logits=pos_logit).sample()
+                    initial_heading_token=Categorical(logits=head_logit).sample()
+                    initial_offset_token=Categorical(logits=offset_logit).sample()
+                    initial_shape_token=Categorical(logits=shape_logit).sample()
 
-                initial_shape=self.token_processor.shape_grid[initial_shape_token]
+                    initial_pos= self.token_processor.attr_tokenizer.grid[initial_pos_token]
+                    token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
 
-                local_pos_list.append(initial_pos)
-                local_heading_list.append(initial_heading)
-                shape_list.append(initial_shape)
+                    initial_pos=initial_pos+token_offset
 
-                initial_type=all_initial_type[:,n_current+1]
+                    initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
 
-                type_list.append(initial_type)
+                    initial_shape=self.token_processor.shape_grid[initial_shape_token]
+
+                    local_pos_list.append(initial_pos)
+                    local_heading_list.append(initial_heading)
+                    shape_list.append(initial_shape)
+
+                    initial_type=all_initial_type[:,n_current+1]
+
+                    type_list.append(initial_type)
 
         if not self.training:
             self.attr_former.attn.kv_caching(0)
