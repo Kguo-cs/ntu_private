@@ -10,7 +10,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_init00
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_a_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
+rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
 rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 

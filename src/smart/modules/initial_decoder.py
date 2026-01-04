@@ -150,8 +150,8 @@ class InitDecoder(nn.Module):
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
-        # pos_a_b=torch.zeros_like(pos_a_b)
-        # heading_a_b=torch.zeros_like(heading_a_b)
+        pos_a_b=torch.zeros_like(pos_a_b)
+        heading_a_b=torch.zeros_like(heading_a_b)
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
