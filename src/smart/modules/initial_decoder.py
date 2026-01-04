@@ -439,7 +439,7 @@ class InitDecoder(nn.Module):
                 entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
 
                 if not self.training:
-                    initial_pos_token = Categorical(logits=pos_logit).sample()
+                    initial_pos_token = Categorical(logits=pos_logit/0.1).sample()
                     initial_heading_token=Categorical(logits=head_logit/0.1).sample()
                     initial_offset_token=Categorical(logits=offset_logit/0.1).sample()
                     initial_shape_token=Categorical(logits=shape_logit/0.1).sample()
