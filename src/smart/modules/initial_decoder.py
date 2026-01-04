@@ -440,9 +440,9 @@ class InitDecoder(nn.Module):
 
                 if not self.training:
                     initial_pos_token = Categorical(logits=pos_logit).sample()
-                    initial_heading_token=Categorical(logits=head_logit).sample()
-                    initial_offset_token=Categorical(logits=offset_logit).sample()
-                    initial_shape_token=Categorical(logits=shape_logit).sample()
+                    initial_heading_token=Categorical(logits=head_logit/0.1).sample()
+                    initial_offset_token=Categorical(logits=offset_logit/0.1).sample()
+                    initial_shape_token=Categorical(logits=shape_logit/0.1).sample()
 
                     initial_pos1= self.token_processor.attr_tokenizer.grid[initial_pos_token]
                     token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
