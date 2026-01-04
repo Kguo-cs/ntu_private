@@ -114,7 +114,7 @@ class InitDecoder(nn.Module):
             self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
-        self.sequential=True
+        self.sequential=False
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
@@ -150,8 +150,8 @@ class InitDecoder(nn.Module):
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
-        pos_a_b=torch.zeros_like(pos_a_b)
-        heading_a_b=torch.zeros_like(heading_a_b)
+        # pos_a_b=torch.zeros_like(pos_a_b)
+        # heading_a_b=torch.zeros_like(heading_a_b)
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
