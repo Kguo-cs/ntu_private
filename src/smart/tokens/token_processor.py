@@ -284,6 +284,9 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["initial_type"]=type[sort_idx]
 
             if self.token_initial:
+                tokenized_agent["gt_initial_pos"]=global_initial_pos
+                tokenized_agent["gt_initial_heading"]=global_initial_heading
+
                 tokenized_agent["global_initial_pos"]=global_initial_pos[sort_idx]
                 tokenized_agent["global_initial_heading"]=global_initial_heading[sort_idx]
             else:
