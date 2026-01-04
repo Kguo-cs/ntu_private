@@ -16,7 +16,7 @@ rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bcgen40_start0_light_ego1_gtinit641/2025-12-30_22-30-41/bc/tmy1q8kx/checkpoints/epoch=10-step=133925.ckpt ./
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/bcgen128_typecount_offset_seqsum_randsort/2026-01-03_13-31-50/bc/xdn3ed4w/checkpoints/epoch=6-step=26635.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/bcgen128_randsort04_map100_nooffset_max_01shape0offset/2026-01-04_04-14-39/bc/ry3j2eke/checkpoints/epoch=7-step=30440.ckpt ./
 
 
 

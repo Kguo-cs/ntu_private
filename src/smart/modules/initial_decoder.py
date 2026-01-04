@@ -116,6 +116,8 @@ class InitDecoder(nn.Module):
 
         self.sequential=False
 
+        self.use_offset=False
+
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
@@ -441,13 +443,13 @@ class InitDecoder(nn.Module):
                 if not self.training:
                     initial_pos_token = Categorical(logits=pos_logit).sample()
                     initial_heading_token=Categorical(logits=head_logit/0.1).sample()
-                    initial_offset_token=Categorical(logits=offset_logit/0.1).sample()
+                    #initial_offset_token=Categorical(logits=offset_logit/0.1).sample()
                     initial_shape_token=Categorical(logits=shape_logit/0.1).sample()
 
                     token_initial_pos= self.token_processor.attr_tokenizer.grid[initial_pos_token]
-                    token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
+                    #token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
 
-                    token_initial_pos=token_initial_pos+token_offset
+                    #token_initial_pos=token_initial_pos+token_offset
                     #
                     token_initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
 
