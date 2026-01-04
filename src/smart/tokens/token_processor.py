@@ -323,9 +323,9 @@ class TokenProcessor(torch.nn.Module):
 
         offset_idx, offset_offset_xy = self.offset_tokenizer.encode_pos(offset_xy, 0)
 
-        # token_offset = self.offset_tokenizer.grid[offset_idx]
+        token_offset = self.offset_tokenizer.grid[offset_idx]
 
-        # token_initial_pos = token_initial_pos + token_offset
+        token_initial_pos = token_initial_pos + token_offset
 
         initial_pos, initial_heading = transform_to_global(
             token_initial_pos[:, None],

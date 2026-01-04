@@ -134,7 +134,7 @@ class IQ_SoftQ(LightningModule):
             # self.log("train/offset_mse", offset_mse.item(), on_step=True, batch_size=1)
             self.log("train/shape_nll", shape_nll.item(), on_step=True, batch_size=1)
 
-            action_nll=action_nll+pos_nll+head_nll+0.1*shape_nll#+offset_nll
+            action_nll=action_nll+pos_nll+head_nll+0.1*shape_nll+0.1*offset_nll
 
         if pred["entry_logit"] is not None:
 
