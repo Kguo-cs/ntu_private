@@ -114,7 +114,7 @@ class InitDecoder(nn.Module):
             self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
-        self.sequential=False
+        self.sequential=True
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
@@ -407,8 +407,8 @@ class InitDecoder(nn.Module):
                     elif n_current%3==1:
                         head_logit = self.head_decoder(attr_feature)
                         shape_logit = self.shape_head_decoder(attr_feature)
-                        initial_heading_token=Categorical(logits=head_logit).sample()
-                        initial_shape_token=Categorical(logits=shape_logit).sample()
+                        initial_heading_token=Categorical(logits=head_logit/0.1).sample()
+                        initial_shape_token=Categorical(logits=shape_logit/0.1).sample()
                         token_initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
                         initial_shape=self.token_processor.shape_grid[initial_shape_token]
 
@@ -420,7 +420,7 @@ class InitDecoder(nn.Module):
                         feat_a_b = feat_a_b+heading_embedding+shape_embedding
                     else:
                         offset_logit = self.offset_head_decoder(attr_feature)
-                        initial_offset_token = Categorical(logits=offset_logit).sample()
+                        initial_offset_token = Categorical(logits=offset_logit/0.1).sample()
                         token_initial_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
                         token_initial_pos=token_initial_pos1+token_initial_offset
 
@@ -439,7 +439,7 @@ class InitDecoder(nn.Module):
                 entry_logit=(pos_logit,head_logit,offset_logit,shape_logit)
 
                 if not self.training:
-                    initial_pos_token = Categorical(logits=pos_logit/0.1).sample()
+                    initial_pos_token = Categorical(logits=pos_logit).sample()
                     initial_heading_token=Categorical(logits=head_logit/0.1).sample()
                     initial_offset_token=Categorical(logits=offset_logit/0.1).sample()
                     initial_shape_token=Categorical(logits=shape_logit/0.1).sample()

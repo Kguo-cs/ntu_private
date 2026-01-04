@@ -230,3 +230,9 @@ attributes, and (d) a sequence of trajectory tokens.
 Each prediction is conditioned on the map, ego history,
 agent type specification, and all previously generated
 agents.
+
+
+如果你正在用 LS，可以换成 MaxSup 试试。 与其惩罚 Ground-truth 的 logit，不如直接去压那个最大的 logit。
+
+
+
