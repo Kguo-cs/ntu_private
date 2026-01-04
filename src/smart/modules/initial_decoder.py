@@ -84,7 +84,7 @@ class InitDecoder(nn.Module):
             self.refine_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
-        self.sequential=True
+        self.sequential=False
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
@@ -108,7 +108,7 @@ class InitDecoder(nn.Module):
 
         return padding_pos_a, padding_heading_a, padding_features_a
 
-    def embed_input(self,initial_pos_token,initial_offset_token,initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num ):
+    def embed_input(self,initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num ):
         type_embedding = self.type_embedding(initial_type)
         heading_embedding = self.head_embedding(initial_heading[:,None])
         pos_embedding = self.pos_embedding(initial_pos)
@@ -119,6 +119,9 @@ class InitDecoder(nn.Module):
         pos_a_b, heading_a_b, feat_a_b = self.padding(initial_pos, initial_heading, feat_a, batch,batch_num)
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
+
+        pos_a_b=torch.zeros_like(pos_a_b)
+        heading_a_b=torch.zeros_like(heading_a_b)
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
@@ -266,8 +269,7 @@ class InitDecoder(nn.Module):
         for n_current in range(iteration_num):
 
             if not self.sequential:
-                pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input(initial_pos_token,initial_offset_token,
-                                                                          initial_pos, initial_heading,initial_type,initial_shape,batch,batch_num)
+                pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input( token_initial_pos, token_initial_heading,initial_type,initial_shape,batch,batch_num)
 
             if self.use_entry_former:
                 entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
@@ -352,14 +354,14 @@ class InitDecoder(nn.Module):
                     initial_pos1= self.token_processor.attr_tokenizer.grid[initial_pos_token]
                     token_offset = self.token_processor.offset_tokenizer.grid[initial_offset_token]
 
-                    initial_pos=initial_pos1+token_offset
+                    token_initial_pos=initial_pos1+token_offset
 
-                    initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
+                    token_initial_heading = self.token_processor.attr_tokenizer.decode_heading(initial_heading_token)
 
                     initial_shape=self.token_processor.shape_grid[initial_shape_token]
 
-                    local_pos_list.append(initial_pos)
-                    local_heading_list.append(initial_heading)
+                    local_pos_list.append(token_initial_pos)
+                    local_heading_list.append(token_initial_heading)
                     shape_list.append(initial_shape)
 
                     initial_type=all_initial_type[:,n_current+1]
