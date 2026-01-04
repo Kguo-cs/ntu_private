@@ -96,7 +96,9 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        if self.pred_init:
+        self.learn_init=True
+
+        if self.pred_init and self.learn_init:
             self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         self.token_processor= token_processor
@@ -146,10 +148,11 @@ class SMARTAgentDecoder(nn.Module):
             ego_heading = head_a[:, 1:2][ego_mask]
 
             map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
-        #
-            initial_logit = self.init_decoder(map_feature, tokenized_agent)
 
-            return None, None, None, None, None, initial_logit, None
+            if self.learn_init:
+                initial_logit = self.init_decoder(map_feature, tokenized_agent)
+
+                return None, None, None, None, None, initial_logit, None
         # else:
         initial_logit=None
 
@@ -228,11 +231,14 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_init:
             current_step=1
 
-            pos_a, head_a=self.init_decoder(map_feature, tokenized_agent)
-           #  pos_a=tokenized_agent["gt_initial_pos"]
-           #  head_a =tokenized_agent["gt_initial_heading"]
+            if self.learn_init:
+                pos_a, head_a=self.init_decoder(map_feature, tokenized_agent)
+                max_step=18
+            else:
+                pos_a=tokenized_agent["gt_initial_pos"]
+                head_a =tokenized_agent["gt_initial_heading"]
+                max_step=16
 
-            max_step=16
             token_mask=torch.zeros_like(token_mask[:, :current_step])
             mask=torch.ones_like(mask[:, :current_step])
             sampled_idx=sampled_idx[:, :current_step]
