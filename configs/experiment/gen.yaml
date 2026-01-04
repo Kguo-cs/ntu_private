@@ -36,7 +36,7 @@ model:
 #    n_vis_scenario: 32
 #    n_vis_rollout: 1
 
-ckpt_path: './ckpts/bcgen56_tokenshape025_a_sim16_epoch=10-step=95667.ckpt'
+#ckpt_path: './ckpts/bcgen56_tokenshape025_a_sim16_epoch=10-step=95667.ckpt'
 
 task_name: bcgen56_tokenshape025_a_sim #learnfirst_sim18_tokeninit_graphv1_angle1_shape25sim18 #648 #_sim16 #_onlytokenshapegtsim16 #sim648nolocal__angle1
 
