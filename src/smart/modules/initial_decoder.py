@@ -19,6 +19,36 @@ from src.smart.utils import (
     wrap_angle,
 )
 
+
+def box_corners(center, heading, shape):
+    """
+    center : [K, 2]
+    heading: [K]
+    shape  : [K, 2]  (length, width)
+    return : [K, 5, 2] closed polygons
+    """
+    l = shape[:, 0] / 2
+    w = shape[:, 1] / 2
+
+    # local box corners
+    corners = torch.stack([
+        torch.stack([ l,  w], dim=1),
+        torch.stack([ l, -w], dim=1),
+        torch.stack([-l, -w], dim=1),
+        torch.stack([-l,  w], dim=1),
+        torch.stack([ l,  w], dim=1),
+    ], dim=1)  # [K, 5, 2]
+
+    c = torch.cos(heading)
+    s = torch.sin(heading)
+
+    R = torch.stack([
+        torch.stack([ c, -s], dim=1),
+        torch.stack([ s,  c], dim=1),
+    ], dim=1)  # [K, 2, 2]
+
+    return corners @ R.transpose(1, 2) + center[:, None, :]
+
 class InitDecoder(nn.Module):
     def __init__(
             self,
@@ -74,7 +104,7 @@ class InitDecoder(nn.Module):
                     ]
                 )
 
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.4,
+        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
         self.use_refine=False
@@ -120,8 +150,8 @@ class InitDecoder(nn.Module):
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
-        pos_a_b=torch.zeros_like(pos_a_b)
-        heading_a_b=torch.zeros_like(heading_a_b)
+        # pos_a_b=torch.zeros_like(pos_a_b)
+        # heading_a_b=torch.zeros_like(heading_a_b)
 
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
@@ -178,16 +208,30 @@ class InitDecoder(nn.Module):
         type_count_feature= self.type_count_embedding(type_count[:,:3])
 
         if self.use_entry_former:
-            pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
             pred_mask = tokenized_agent["initial_ego_mask"]
-            ego_position=tokenized_agent["initial_pos"][pred_mask]
-            ego_heading=tokenized_agent["initial_heading"][pred_mask]
 
-            pos_pl,orient_pl=transform_to_local(pos_pl,
-                               orient_pl,
+            ego_position=tokenized_agent["initial_pos"][pred_mask][batch_pl]
+            ego_heading=tokenized_agent["initial_heading"][pred_mask][batch_pl]
+
+            pos_pl,orient_pl=transform_to_local(pos_pl[:,None],
+                               orient_pl[:,None],
                                ego_position,
                                ego_heading,
                                )
+
+            pos_pl=pos_pl[:,0]
+            orient_pl=orient_pl[:,0]
+
+            ego_dist=torch.linalg.norm(pos_pl,dim=-1)
+
+            ego_dist_mask=ego_dist<100
+
+            pos_pl=pos_pl[ego_dist_mask]
+            orient_pl=orient_pl[ego_dist_mask]
+            batch_pl=batch_pl[ego_dist_mask]
+            feat_map=feat_map[ego_dist_mask]
+
+            pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
 
             map_mask = torch.any(feat_map != 0, dim=-1)
 
@@ -266,10 +310,59 @@ class InitDecoder(nn.Module):
                 iteration_num=iteration_num*3
 
 
+
         for n_current in range(iteration_num):
 
             if not self.sequential:
                 pos_a_b, heading_a_b, feat_a_b, mask_a_b=self.embed_input( token_initial_pos, token_initial_heading,initial_type,initial_shape,batch,batch_num)
+
+            # from matplotlib.collections import LineCollection
+            # import matplotlib.pyplot as plt
+            # for i in range(len(pos_a_b)):
+            #     centers=pos_a_b[i][mask_a_b[i]]
+            #     headings=heading_a_b[i][mask_a_b[i]]
+            #     shapes=initial_shape[batch==i]
+            #     polygons = box_corners(centers, headings, shapes)
+            #     polygons = polygons.cpu().numpy()  # matplotlib needs numpy
+            #
+            #     fig, ax = plt.subplots(figsize=(8, 6))
+            #
+            #     lines = LineCollection(
+            #         polygons,
+            #         colors="tab:blue",
+            #         linewidths=1.0,
+            #         alpha=0.7,
+            #     )
+            #
+            #     pos_pl_i=pos_pl[i][map_mask[i]]
+            #     orient_pl_i=orient_pl[i][map_mask[i]]
+            #
+            #     dx = torch.cos(orient_pl_i)
+            #     dy = torch.sin(orient_pl_i)
+            #
+            #     ax.quiver(
+            #         pos_pl_i[:, 0].cpu(),
+            #         pos_pl_i[:, 1].cpu(),
+            #         dx.cpu(),
+            #         dy.cpu(),
+            #         angles="xy",
+            #         scale_units="xy",
+            #         scale=5,
+            #         color="red",
+            #         width=0.01,
+            #     )
+            #
+            #     ax.add_collection(lines)
+            #     ax.autoscale()
+            #     ax.set_aspect("equal")
+            #
+            #     ax.set_xlabel("x")
+            #     ax.set_ylabel("y")
+            #     ax.set_title("All Oriented Bounding Boxes")
+            #
+            #     plt.show()
+            #
+            #     print(1)
 
             if self.use_entry_former:
                 entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,

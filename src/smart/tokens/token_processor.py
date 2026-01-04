@@ -66,11 +66,16 @@ class TokenProcessor(torch.nn.Module):
         self.valid_state= 1
         self.enter_state= 2
         self.exit_state= 3
-        self.pl2seed_radius=81#80
         self.pred_init=pred_init
-        self.grid_interval=3#0.25
-        self.offset_interval=0.1#0.05
-        self.angle_interval=3#0.25
+
+        # self.pl2seed_radius=81#80
+        # self.grid_interval=3#0.25
+        # self.offset_interval=0.1#0.05
+        # self.angle_interval=3#0.25
+        self.pl2seed_radius=80
+        self.grid_interval=2.5
+        self.offset_interval=0.05
+        self.angle_interval=0.25
 
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
                                              grid_interval=self.grid_interval,

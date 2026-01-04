@@ -35,7 +35,7 @@ class AgentTokenEncoder(nn.Module):
             self.use_type=False
             input_dim_x_a=3
         else:
-            self.shape_dim=3
+            self.shape_dim=2
 
             self.type_a_emb = nn.Embedding(3, hidden_dim)
             self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
