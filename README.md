@@ -102,7 +102,7 @@ cd /home/ke/keguo/sim/src
 conda activate sim
 git pull
 
-nohup python start.py >  1.log 2>&1 &
+nohup python run.py >  1.log 2>&1 &
 
 
 

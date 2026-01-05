@@ -121,7 +121,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
 
-        self.token_initial=True
+        self.token_initial=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -298,6 +298,9 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["global_initial_pos"]=global_initial_pos[sort_idx]
                 tokenized_agent["global_initial_heading"]=global_initial_heading[sort_idx]
             else:
+                tokenized_agent["gt_initial_pos"]=initial_pos[:,None]
+                tokenized_agent["gt_initial_heading"]=initial_heading[:,None]
+
                 tokenized_agent["global_initial_pos"]=initial_pos[:,None]
                 tokenized_agent["global_initial_heading"]=initial_heading[:,None]
 
