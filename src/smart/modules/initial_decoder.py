@@ -211,14 +211,14 @@ class InitDecoder(nn.Module):
 
         if self.use_entry_former:
             pred_mask = tokenized_agent["initial_ego_mask"]
+            ego_position=tokenized_agent["global_initial_pos"][pred_mask][:,0]
+            ego_heading=tokenized_agent["global_initial_heading"][pred_mask][:,0]
 
-            ego_position=tokenized_agent["global_initial_pos"][pred_mask][batch_pl]
-            ego_heading=tokenized_agent["global_initial_heading"][pred_mask][batch_pl]
 
             pos_pl,orient_pl=transform_to_local(pos_pl[:,None],
                                orient_pl[:,None],
-                               ego_position,
-                               ego_heading,
+                               ego_position[batch_pl],
+                               ego_heading[batch_pl],
                                )
 
             pos_pl=pos_pl[:,0]
@@ -472,8 +472,6 @@ class InitDecoder(nn.Module):
             local_heading = torch.stack(local_heading_list,dim=1)[agent_mask]
             shape = torch.stack(shape_list,dim=1)[agent_mask]
 
-            ego_position=tokenized_agent["global_initial_pos"][pred_mask][:,0]
-            ego_heading=tokenized_agent["global_initial_heading"][pred_mask][:,0]
 
             global_pos,global_heading=transform_to_global(
                 local_pos[:,None],
