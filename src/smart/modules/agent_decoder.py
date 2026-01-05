@@ -152,9 +152,9 @@ class SMARTAgentDecoder(nn.Module):
             if self.learn_init:
                 initial_logit = self.init_decoder(map_feature, tokenized_agent)
 
-                return None, None, None, None, None, initial_logit, None
-        # else:
-        initial_logit=None
+                # return None, None, None, None, None, initial_logit, None
+        else:
+            initial_logit=None
 
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
