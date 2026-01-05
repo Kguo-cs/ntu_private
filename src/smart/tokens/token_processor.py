@@ -68,7 +68,7 @@ class TokenProcessor(torch.nn.Module):
         self.exit_state= 3
         self.pred_init=pred_init
 
-        self.token_initial=True
+        self.token_initial=False
 
 
         if self.token_initial:
@@ -350,6 +350,8 @@ class TokenProcessor(torch.nn.Module):
             token_initial_pos=token_initial_pos[:,0]
             token_initial_heading=token_initial_heading[:,0]
             pos_token_idx=heading_token_idx=offset_idx=None
+            initial_pos=initial_pos[:,None]
+            initial_heading=initial_heading[:,None]
 
         return token_initial_pos,token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos, initial_heading
 
@@ -600,13 +602,13 @@ class TokenProcessor(torch.nn.Module):
             pos=pos[:,10:]
             heading=heading[:,10:]
 
-            #token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
+            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
 
             # print(torch.linalg.norm(initial_pos - pos[:, :1],dim=-1).max())
             # print(wrap_angle(heading[:,:1]-initial_heading).max())
 
-            # pos[:, :1]=initial_pos
-            # heading[:, :1]=initial_heading
+            pos[:, :1]=initial_pos
+            heading[:, :1]=initial_heading
 
             tokenized_agent["initial_pos"]=pos[:,0]
             tokenized_agent["initial_heading"]=heading[:,0]
