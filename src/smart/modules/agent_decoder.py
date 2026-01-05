@@ -96,7 +96,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        self.learn_init=True
+        self.learn_init=False
 
         if self.pred_init and self.learn_init:
             self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -151,6 +151,8 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.learn_init:
                 initial_logit = self.init_decoder(map_feature, tokenized_agent)
+            else:
+                initial_logit=None
 
                 # return None, None, None, None, None, initial_logit, None
         else:
