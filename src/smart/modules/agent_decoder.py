@@ -30,6 +30,7 @@ import numpy as np
 from src.smart.modules.entry_encoder import EntryDecoder
 from src.smart.modules.inf_encoder import InfGenAgentDecoder
 from src.smart.modules.initial_decoder import InitDecoder
+from src.smart.modules.initial_gan import InitGAN
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -62,6 +63,8 @@ class SMARTAgentDecoder(nn.Module):
         self.num_historical_steps = num_historical_steps
         self.num_future_steps = num_future_steps
         self.time_span = time_span if time_span is not None else num_historical_steps
+        self.token_processor= token_processor
+        self.discriminator=discriminator
 
         self.shift = token_processor.shift
 
@@ -96,13 +99,17 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        self.learn_init=False
+        self.learn_init=True
+
+        self.token_initial=token_processor.token_initial
 
         if self.pred_init and self.learn_init:
-            self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
 
-        self.token_processor= token_processor
-        self.discriminator=discriminator
+            if self.token_initial:
+                self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
+            else:
+                self.init_decoder=InitGAN(hidden_dim,num_heads,num_freq_bands,token_processor)
+
         self.apply(weight_init)
 
 
@@ -151,10 +158,10 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.learn_init:
                 initial_logit = self.init_decoder(map_feature, tokenized_agent)
+
+                return None, None, None, None, None, initial_logit, None
             else:
                 initial_logit=None
-
-                # return None, None, None, None, None, initial_logit, None
         else:
             initial_logit=None
 

@@ -68,14 +68,19 @@ class TokenProcessor(torch.nn.Module):
         self.exit_state= 3
         self.pred_init=pred_init
 
-        # self.pl2seed_radius=81#80
-        # self.grid_interval=3#0.25
-        # self.offset_interval=0.1#0.05
-        # self.angle_interval=3#0.25
-        self.pl2seed_radius=80
-        self.grid_interval=2.5
-        self.offset_interval=0.05
-        self.angle_interval=0.25
+        self.token_initial=True
+
+
+        if self.token_initial:
+            self.pl2seed_radius = 80
+            self.grid_interval = 2.5
+            self.offset_interval = 0.05
+            self.angle_interval = 0.25
+        else:
+            self.pl2seed_radius=81#80
+            self.grid_interval=3#0.25
+            self.offset_interval=0.1#0.05
+            self.angle_interval=3#0.25
 
         self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
                                              grid_interval=self.grid_interval,
@@ -121,7 +126,6 @@ class TokenProcessor(torch.nn.Module):
 
         self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
 
-        self.token_initial=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -136,45 +140,7 @@ class TokenProcessor(torch.nn.Module):
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 
         if self.use_goal and self.training:
-
-            sampled_pos=tokenized_agent["sampled_pos"]
-            sampled_heading=tokenized_agent["sampled_heading"]
-            valid_mask=tokenized_agent["valid_mask"]
-
-            A, T, _ = sampled_pos.shape
-
-            # Convert heading → unit direction (XY)
-            dir_xy = torch.stack([torch.cos(sampled_heading), torch.sin(sampled_heading)], dim=-1)  # (A,T,2)
-
-            # Find index of last valid step for each agent
-            valid_mask = valid_mask.bool()
-            # We want *last* valid, not first
-            last_idx = (valid_mask.float() * torch.arange(T, device=sampled_pos.device).float()).max(dim=1).indices
-
-            # Gather last valid pos and heading
-            idx = last_idx.view(-1, 1, 1).expand(-1, 1, 2)  # shape (A,1,3)
-            last_pos = sampled_pos.gather(1, idx).squeeze(1)  # (A,3)
-            last_dir = dir_xy.gather(1, idx).squeeze(1)  # (A,2)
-
-            # Sample random extrapolation distances [0, max_extend)
-            goal_dist = torch.rand((A,), device=sampled_pos.device) * 50
-
-            goal_dist[np.random.random(A)<0.5]=0
-
-            # Compute goal position = last_pos + dist * direction
-            goal_pos = last_pos + goal_dist[:, None] * last_dir
-
-            tokenized_agent["goal_pos"]=goal_pos
-
-            batch_idx=tokenized_agent["batch"]
-
-            rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
-
-            goal_mask = rand_idx[batch_idx] < 1
-
-            goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
-
-            tokenized_agent["goal_mask"]=goal_mask[:,0]
+            self.compute_goal(tokenized_agent)
         else:
             tokenized_agent["goal_pos"]=None
             tokenized_agent["goal_mask"]=None
@@ -252,19 +218,21 @@ class TokenProcessor(torch.nn.Module):
 
             ego_mask=tokenized_agent["ego_mask"]
 
-            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,global_initial_pos, global_initial_heading=self.tokenize_initial(initial_pos,initial_heading,ego_mask,batch)
+            token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx, global_initial_pos, global_initial_heading = self.tokenize_initial(
+                initial_pos, initial_heading, ego_mask, batch)
 
-            dist=torch.norm(token_initial_pos,dim=-1)
+            dist = torch.norm(token_initial_pos, dim=-1)
 
-            dist=torch.rand_like(dist)
+            dist = torch.rand_like(dist)
 
-            dist[ego_mask]=0
+            dist[ego_mask] = 0
 
-            dist_max=dist.max()+1
+            dist_max = dist.max() + 1
 
-            sort_rank= batch.to(torch.float64)*dist_max*3+type.to(torch.float64)*dist_max+dist.to(torch.float64) #-ego_mask.float()#+dist#dist sorted
+            sort_rank = batch.to(torch.float64) * dist_max * 3 + type.to(torch.float64) * dist_max + dist.to(
+                torch.float64)  # -ego_mask.float()#+dist#dist sorted
 
-            sort_idx=sort_rank.argsort()
+            sort_idx = sort_rank.argsort()
             # sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
             # offset_h=wrap_angle(rel_heading-token_heading)
             #
@@ -273,70 +241,115 @@ class TokenProcessor(torch.nn.Module):
             # print(torch.max(shape[:,1]),torch.min(shape[:,1]))
 
             # print(torch.all(sort_idx==sort_idx1))
-            shape=tokenized_agent["shape"]
-            self.shape_grid=self.shape_grid.to(shape.device)
-
-            shape_token=torch.argmin(torch.linalg.norm(self.shape_grid[None]-shape[:,None,:2],dim=-1),dim=-1)
-
-            shape=self.shape_grid[shape_token]
-
-            tokenized_agent["shape"][:,:2]=shape[:,:2]
-            tokenized_agent["initial_pos_token"]=pos_token_idx[sort_idx]
-            tokenized_agent["initial_offset_token"]=offset_idx[sort_idx]
-            tokenized_agent["initial_heading_token"]=heading_token_idx[sort_idx]
-            tokenized_agent["initial_shape_token"]=shape_token[sort_idx]
-            tokenized_agent["initial_shape"]=shape[sort_idx]
-            tokenized_agent["token_initial_pos"]=token_initial_pos[sort_idx]
-            tokenized_agent["token_initial_heading"]=token_initial_heading[sort_idx]
-            tokenized_agent["initial_ego_mask"]=ego_mask[sort_idx]
-            tokenized_agent["initial_type"]=type[sort_idx]
+            shape = tokenized_agent["shape"]
 
             if self.token_initial:
-                tokenized_agent["gt_initial_pos"]=global_initial_pos
-                tokenized_agent["gt_initial_heading"]=global_initial_heading
 
-                tokenized_agent["global_initial_pos"]=global_initial_pos[sort_idx]
-                tokenized_agent["global_initial_heading"]=global_initial_heading[sort_idx]
-            else:
-                tokenized_agent["gt_initial_pos"]=initial_pos[:,None]
-                tokenized_agent["gt_initial_heading"]=initial_heading[:,None]
+                self.shape_grid = self.shape_grid.to(shape.device)
 
-                tokenized_agent["global_initial_pos"]=initial_pos[:,None]
-                tokenized_agent["global_initial_heading"]=initial_heading[:,None]
+                shape_token = torch.argmin(torch.linalg.norm(self.shape_grid[None] - shape[:, None, :2], dim=-1),
+                                           dim=-1)
 
+                shape = self.shape_grid[shape_token]
+
+                tokenized_agent["shape"][:, :2] = shape[:, :2]
+
+                tokenized_agent["initial_shape_token"] = shape_token[sort_idx]
+
+                tokenized_agent["initial_pos_token"] = pos_token_idx[sort_idx]
+                tokenized_agent["initial_offset_token"] = offset_idx[sort_idx]
+                tokenized_agent["initial_heading_token"] = heading_token_idx[sort_idx]
+                tokenized_agent["token_initial_pos"] = token_initial_pos[sort_idx]
+                tokenized_agent["token_initial_heading"] = token_initial_heading[sort_idx]
+
+            tokenized_agent["initial_shape"] = shape[sort_idx]
+            tokenized_agent["initial_ego_mask"] = ego_mask[sort_idx]
+            tokenized_agent["initial_type"] = type[sort_idx]
+
+            tokenized_agent["gt_initial_pos"] = global_initial_pos
+            tokenized_agent["gt_initial_heading"] = global_initial_heading
+
+            tokenized_agent["global_initial_pos"] = global_initial_pos[sort_idx]
+            tokenized_agent["global_initial_heading"] = global_initial_heading[sort_idx]
             if not self.training:
                 tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
 
         return tokenized_map, tokenized_agent
+
+    def compute_goal(self,tokenized_agent):
+        sampled_pos = tokenized_agent["sampled_pos"]
+        sampled_heading = tokenized_agent["sampled_heading"]
+        valid_mask = tokenized_agent["valid_mask"]
+
+        A, T, _ = sampled_pos.shape
+
+        # Convert heading → unit direction (XY)
+        dir_xy = torch.stack([torch.cos(sampled_heading), torch.sin(sampled_heading)], dim=-1)  # (A,T,2)
+
+        # Find index of last valid step for each agent
+        valid_mask = valid_mask.bool()
+        # We want *last* valid, not first
+        last_idx = (valid_mask.float() * torch.arange(T, device=sampled_pos.device).float()).max(dim=1).indices
+
+        # Gather last valid pos and heading
+        idx = last_idx.view(-1, 1, 1).expand(-1, 1, 2)  # shape (A,1,3)
+        last_pos = sampled_pos.gather(1, idx).squeeze(1)  # (A,3)
+        last_dir = dir_xy.gather(1, idx).squeeze(1)  # (A,2)
+
+        # Sample random extrapolation distances [0, max_extend)
+        goal_dist = torch.rand((A,), device=sampled_pos.device) * 50
+
+        goal_dist[np.random.random(A) < 0.5] = 0
+
+        # Compute goal position = last_pos + dist * direction
+        goal_pos = last_pos + goal_dist[:, None] * last_dir
+
+        tokenized_agent["goal_pos"] = goal_pos
+
+        batch_idx = tokenized_agent["batch"]
+
+        rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+
+        goal_mask = rand_idx[batch_idx] < 1
+
+        goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
+
+        tokenized_agent["goal_mask"] = goal_mask[:, 0]
 
     def tokenize_initial(self,initial_pos,initial_heading,ego_mask,batch):
 
         ego_position = initial_pos[ego_mask][batch]
         ego_heading = initial_heading[ego_mask][batch]
 
-        pos_token_idx, offset_xy = self.attr_tokenizer.encode_pos(initial_pos, ego_position, ego_heading)
+        if self.token_initial:
 
-        rel_heading = initial_heading - ego_heading
+            pos_token_idx, offset_xy = self.attr_tokenizer.encode_pos(initial_pos, ego_position, ego_heading)
 
-        heading_token_idx = self.attr_tokenizer.encode_heading(rel_heading)
+            rel_heading = initial_heading - ego_heading
 
-        token_initial_heading = self.attr_tokenizer.decode_heading(heading_token_idx)
+            heading_token_idx = self.attr_tokenizer.encode_heading(rel_heading)
 
-        token_initial_pos = self.attr_tokenizer.grid[pos_token_idx]
+            token_initial_heading = self.attr_tokenizer.decode_heading(heading_token_idx)
 
-        offset_idx, offset_offset_xy = self.offset_tokenizer.encode_pos(offset_xy, 0)
+            token_initial_pos = self.attr_tokenizer.grid[pos_token_idx]
 
-        # token_offset = self.offset_tokenizer.grid[offset_idx]
-        #
-        # token_initial_pos = token_initial_pos + token_offset
+            offset_idx, offset_offset_xy = self.offset_tokenizer.encode_pos(offset_xy, 0)
 
-        initial_pos, initial_heading = transform_to_global(
-            token_initial_pos[:, None],
-            token_initial_heading[:, None],
-            ego_position,
-            ego_heading,
+            # token_offset = self.offset_tokenizer.grid[offset_idx]
+            #
+            # token_initial_pos = token_initial_pos + token_offset
 
-        )
+            initial_pos, initial_heading = transform_to_global(
+                token_initial_pos[:, None],
+                token_initial_heading[:, None],
+                ego_position,
+                ego_heading,
+            )
+        else:
+            token_initial_pos, token_initial_heading=transform_to_local(initial_pos[:, None],initial_heading[:, None],ego_position,ego_heading)
+            token_initial_pos=token_initial_pos[:,0]
+            token_initial_heading=token_initial_heading[:,0]
+            pos_token_idx=heading_token_idx=offset_idx=None
 
         return token_initial_pos,token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos, initial_heading
 

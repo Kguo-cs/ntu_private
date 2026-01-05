@@ -212,8 +212,8 @@ class InitDecoder(nn.Module):
         if self.use_entry_former:
             pred_mask = tokenized_agent["initial_ego_mask"]
 
-            ego_position=tokenized_agent["initial_pos"][pred_mask][batch_pl]
-            ego_heading=tokenized_agent["initial_heading"][pred_mask][batch_pl]
+            ego_position=tokenized_agent["global_initial_pos"][pred_mask][batch_pl]
+            ego_heading=tokenized_agent["global_initial_heading"][pred_mask][batch_pl]
 
             pos_pl,orient_pl=transform_to_local(pos_pl[:,None],
                                orient_pl[:,None],
