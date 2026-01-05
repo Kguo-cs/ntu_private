@@ -214,6 +214,9 @@ class InitDecoder(nn.Module):
             ego_position=tokenized_agent["global_initial_pos"][pred_mask][:,0]
             ego_heading=tokenized_agent["global_initial_heading"][pred_mask][:,0]
 
+            # ego_p=tokenized_agent["initial_pos"][tokenized_agent["ego_mask"]]
+            # ego_h=tokenized_agent["initial_heading"][tokenized_agent["ego_mask"]]
+
 
             pos_pl,orient_pl=transform_to_local(pos_pl[:,None],
                                orient_pl[:,None],
@@ -367,8 +370,8 @@ class InitDecoder(nn.Module):
             #     print(1)
 
             if self.use_entry_former:
-                entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                                  heading_a_b, mask_a_b,
+                entry_feature = self.entry_former.cross_attention(feat_a_b, torch.zeros_like(pos_a_b),
+                                                                  torch.zeros_like(heading_a_b), mask_a_b,
                                                                   feat_map,
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
