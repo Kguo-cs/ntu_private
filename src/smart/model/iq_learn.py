@@ -116,11 +116,16 @@ class IQ_SoftQ(LightningModule):
         if pred["initial_logit"] is not None:
 
             if not self.token_processor.token_initial:
-                loss = pred["initial_logit"]
 
                 if self.global_step % 2 == 0:
+                    real_loss, fake_loss=pred["initial_logit"]
+                    loss=real_loss+fake_loss
+                    self.log("train/real_loss", real_loss.item(), on_step=True, batch_size=1)
+                    self.log("train/fake_loss", fake_loss.item(), on_step=True, batch_size=1)
                     self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
                 else:
+                    loss = pred["initial_logit"]
+
                     self.log("train/g_loss", loss.item(), on_step=True, batch_size=1)
 
                 action_nll = action_nll +loss
