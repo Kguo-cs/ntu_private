@@ -114,7 +114,7 @@ class InitGAN(nn.Module):
 
             real_shape=shape[non_ego]
 
-            if self.global_step%2==0:
+            if self.global_step%5==0:
                 real_loss = self.criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
                 fake_loss = self.criterion(self.D(map_features,fake_pos.detach(),fake_heading.detach(),fake_shape.detach(),tokenized_agent), fake_labels)
                 loss = (real_loss , fake_loss)

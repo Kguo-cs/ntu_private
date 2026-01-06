@@ -120,7 +120,7 @@ class IQ_SoftQ(LightningModule):
             if not self.token_processor.token_initial:
                 opt_G,opt_D=self.optimizers()
 
-                if self.global_step % 2 == 0:
+                if self.global_step % 5 == 0:
                     real_loss, fake_loss=pred["initial_logit"]
                     loss=real_loss+fake_loss
                     self.log("train/real_loss", real_loss.item(), on_step=True, batch_size=1)
