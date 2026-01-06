@@ -131,20 +131,22 @@ class InitGAN(nn.Module):
         real_shape = shape[non_ego]
 
         if self.training:
-            with torch.no_grad():
-                fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
 
-            real_labels = torch.ones(len(fake_pos), 1, device=fake_pos.device)
-            fake_labels = torch.zeros(len(fake_pos), 1, device=fake_pos.device)
+            real_labels = torch.ones(len(real_pos), 1, device=real_pos.device)
+            fake_labels = torch.zeros(len(real_pos), 1, device=real_pos.device)
 
 
-            if self.global_step%20==0:
-                real_loss = self.criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
+            if self.global_step%10==0:
+                with torch.no_grad():
+                    fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
+
+                real_loss = self.criterion(self.D(map_features, real_pos, real_heading, real_shape, tokenized_agent), real_labels)
                 fake_loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), fake_labels)
                 loss = (real_loss , fake_loss)
             else:
-                loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
+                fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
 
+                loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
                 rows, cols = [], []
 
                 for b in batch.unique():
