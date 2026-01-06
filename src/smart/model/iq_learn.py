@@ -66,6 +66,8 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
+        self.automatic_optimization=False
+
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
         action = tokenized_agent["sampled_idx"][:, self.start_step + 1:]
@@ -116,6 +118,7 @@ class IQ_SoftQ(LightningModule):
         if pred["initial_logit"] is not None:
 
             if not self.token_processor.token_initial:
+                opt_G,opt_D=self.optimizers()
 
                 if self.global_step % 2 == 0:
                     real_loss, fake_loss=pred["initial_logit"]
@@ -123,10 +126,19 @@ class IQ_SoftQ(LightningModule):
                     self.log("train/real_loss", real_loss.item(), on_step=True, batch_size=1)
                     self.log("train/fake_loss", fake_loss.item(), on_step=True, batch_size=1)
                     self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
+
+                    opt_D.zero_grad()
+                    loss.backward()
+                    opt_D.step()
+
                 else:
                     loss = pred["initial_logit"]
 
                     self.log("train/g_loss", loss.item(), on_step=True, batch_size=1)
+
+                    opt_G.zero_grad()
+                    loss.backward()
+                    opt_G.step()
 
                 action_nll = action_nll +loss
             else:

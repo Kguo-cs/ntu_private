@@ -93,13 +93,16 @@ class InitGAN(nn.Module):
 
         map_features=(pos_pl, orient_pl, feat_map, map_mask)
 
-        fake_pos,fake_heading,fake_shape = self.G(map_features, tokenized_agent)
-
         non_ego = ~ego_mask
         batch = tokenized_agent["batch"][non_ego]
         shape=tokenized_agent["initial_shape"]
 
+
+
         if self.training:
+            with torch.no_grad():
+                fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
+
             real_labels = torch.ones(len(fake_pos), 1, device=fake_pos.device)
             fake_labels = torch.zeros(len(fake_pos), 1, device=fake_pos.device)
 
@@ -121,6 +124,8 @@ class InitGAN(nn.Module):
             self.global_step+=1
             return loss
         else:
+            fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
+
             global_pos,global_heading=transform_to_global(
                 fake_pos,
                 fake_heading,

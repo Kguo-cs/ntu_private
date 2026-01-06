@@ -86,11 +86,14 @@ class SMART_IQ(IQ_SoftQ, SMART):
             return [optimizer], [lr_scheduler]
 
         else:
-            actor_optimizer = torch.optim.AdamW(list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
-            discriminator_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(), lr=self.lr)
-            # actor_optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
-            # lcf_optimizer = torch.optim.Adam(self.lcf_parameters.parameters(), lr=self.lr)
-            #list(self.encoder.map_encoder.parameters())+
+            # actor_optimizer = torch.optim.AdamW(list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
+            # discriminator_optimizer = torch.optim.AdamW(self.encoder.discriminator.parameters(), lr=self.lr)
+            # # actor_optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+            # # lcf_optimizer = torch.optim.Adam(self.lcf_parameters.parameters(), lr=self.lr)
+            # #list(self.encoder.map_encoder.parameters())+
+
+            actor_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.G.parameters(), lr=self.lr)
+            discriminator_optimizer=torch.optim.AdamW(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=self.lr)
 
             return [actor_optimizer, discriminator_optimizer]
 
