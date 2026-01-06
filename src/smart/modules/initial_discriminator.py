@@ -39,10 +39,10 @@ class InitDiscriminator(nn.Module):
         self.use_entry_former = True
 
         if self.use_entry_former:
-            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
+            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
                                               hist_len=self.entry_his_len)  # replace with gnn
 
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.1,
+        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
