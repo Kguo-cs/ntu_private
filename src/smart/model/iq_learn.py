@@ -66,7 +66,8 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        self.automatic_optimization=False
+        if self.encoder.agent_encoder.learn_init and not self.token_initial:
+            self.automatic_optimization=False
 
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
         valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
