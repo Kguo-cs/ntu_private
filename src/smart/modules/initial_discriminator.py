@@ -131,11 +131,11 @@ class InitGeneator(nn.Module):
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
 
-        self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                          hist_len=self.entry_his_len)  # replace with gnn
-
-        self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                         hist_len=self.entry_his_len)        # drop 01 is important
+        # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+        #                                   hist_len=self.entry_his_len)  # replace with gnn
+        #
+        # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+        #                                  hist_len=self.entry_his_len)        # drop 01 is important
 
         self.noise_embedding = MLPLayer(6 ,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
@@ -185,16 +185,16 @@ class InitGeneator(nn.Module):
         entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_causal=False)
 
 
-        entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-                                                          heading_a_b, mask_a_b,
-                                                          feat_map,
-                                                          pos_pl,
-                                                          orient_pl, map_mask)
+        # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
+        #                                                   heading_a_b, mask_a_b,
+        #                                                   feat_map,
+        #                                                   pos_pl,
+        #                                                   orient_pl, map_mask)
+        #
+        #
+        # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_causal=False)
 
-
-        attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_causal=False)
-
-        attr_feature = attr_feature[mask_a_b]
+        attr_feature = entry_feature[mask_a_b]
 
         pos = self.pos_decoder(attr_feature)
 
