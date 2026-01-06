@@ -42,7 +42,7 @@ class InitDiscriminator(nn.Module):
             self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                               hist_len=self.entry_his_len)  # replace with gnn
 
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.8,
+        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
         self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
@@ -124,13 +124,10 @@ class InitGeneator(nn.Module):
 
         self.entry_his_len = 1000000
 
-        self.use_entry_former = True
+        self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                          hist_len=self.entry_his_len)  # replace with gnn
 
-        if self.use_entry_former:
-            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                              hist_len=self.entry_his_len)  # replace with gnn
-
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.8,
+        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                          hist_len=self.entry_his_len)        # drop 01 is important
 
         self.noise_embedding = MLPLayer(6 ,hidden_dim, hidden_dim)
