@@ -144,7 +144,7 @@ class InitGAN(nn.Module):
                 fake_loss = self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
 
 
-                inputs=torch.cat([fake_pos, fake_heading[:,None], fake_shape],dim=-1)
+                inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
                 inputs.requires_grad_(True)  # IMPORTANT
 
                 logit = self.D(map_features, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
