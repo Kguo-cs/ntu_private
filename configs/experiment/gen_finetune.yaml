@@ -35,7 +35,7 @@ model:
 #    n_vis_scenario: 32
 #    n_vis_rollout: 1
 
-ckpt_path: './ckpts/bcgen56_tokenshape025_a_sim16_epoch=10-step=95667.ckpt'
+ckpt_path: './ckpts/bcgen56_featv1_gtsim648_epoch=14-step=130455.ckpt'
 
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen128_sort08_map100_max_01loss_nopos0_nooffset_epoch=31-step=121760.ckpt'
 

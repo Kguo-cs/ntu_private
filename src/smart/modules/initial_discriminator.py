@@ -51,7 +51,7 @@ class InitDiscriminator(nn.Module):
         self.offset_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
-        self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1 )
+        self.score_decoder = nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1 ),nn.Sigmoid())
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -81,9 +81,12 @@ class InitDiscriminator(nn.Module):
 
         pos_pl, orient_pl, feat_map, map_mask=map_features
 
-        type = tokenized_agent["initial_type"]
+        ego_mask=tokenized_agent["initial_ego_mask"]
 
-        batch=tokenized_agent["batch"]
+        non_ego=~ego_mask
+
+        batch=tokenized_agent["batch"][non_ego]
+        type = tokenized_agent["initial_type"][non_ego]
 
         batch_num=tokenized_agent["num_graphs"]
 
@@ -136,12 +139,12 @@ class InitGeneator(nn.Module):
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2 )
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim,1 )
-        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
+        self.shape_head_decoder = nn.Sequential( MLPLayer(hidden_dim, hidden_dim, 3),nn.ReLU())
 
     def forward(self,map_features, tokenized_agent):
         pos_pl, orient_pl, feat_map, map_mask=map_features
 
-        ego_mask=tokenized_agent["ego_mask"]
+        ego_mask=tokenized_agent["initial_ego_mask"]
 
         type = tokenized_agent["initial_type"]
 
@@ -165,8 +168,8 @@ class InitGeneator(nn.Module):
 
         mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
-        pos_a_b=torch.zeros(feature.shape[0],feature.shape[1], 2, device=type.device)
-        heading_a_b=torch.zeros(feature.shape[0],feature.shape[1],  device=type.device)
+        pos_a_b=torch.zeros(feat_a_b.shape[0],feat_a_b.shape[1], 2, device=type.device)
+        heading_a_b=torch.zeros(feat_a_b.shape[0],feat_a_b.shape[1],  device=type.device)
 
         entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
                                                           heading_a_b, mask_a_b,
@@ -182,7 +185,7 @@ class InitGeneator(nn.Module):
 
         pos = self.pos_decoder(attr_feature)
 
-        heading = self.head_decoder(attr_feature)
+        heading = self.head_decoder(attr_feature)[:,0]
 
         shape = self.shape_head_decoder(attr_feature)
 

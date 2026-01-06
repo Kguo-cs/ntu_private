@@ -44,6 +44,16 @@ class InitGAN(nn.Module):
 
         self.global_step=0
 
+        self.criterion = nn.BCELoss()
+
+    def padding(self,pos,heading,feature,batch,batch_num):
+        lengths = torch.bincount(batch,minlength=batch_num).tolist()
+
+        padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
+        padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
+        padding_features_a = padding(feature, lengths, padding_value=0)  # b, n, d
+
+        return padding_pos_a, padding_heading_a, padding_features_a
 
     def forward(self,map_feature, tokenized_agent):
 
@@ -51,23 +61,22 @@ class InitGAN(nn.Module):
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
-        batch=tokenized_agent["batch"]
 
         batch_num=tokenized_agent["num_graphs"]
 
-        pred_mask = tokenized_agent["initial_ego_mask"]
+        gt_initial_pos=tokenized_agent["global_initial_pos"][:,0]
+        gt_initial_heading=tokenized_agent["global_initial_heading"][:,0]
 
-        ego_position=tokenized_agent["initial_pos"][pred_mask]
-        ego_heading=tokenized_agent["initial_heading"][pred_mask]
+        ego_mask=tokenized_agent["initial_ego_mask"]
 
-        pos_pl,orient_pl=transform_to_local(pos_pl[:,None],
-                           orient_pl[:,None],
+        ego_position=gt_initial_pos[ego_mask]
+        ego_heading=gt_initial_heading[ego_mask]
+
+        pos_pl,orient_pl=transform_to_local(pos_pl,#[:,None],
+                           orient_pl,#[:,None],
                            ego_position[batch_pl],
                            ego_heading[batch_pl],
                            )
-
-        pos_pl=pos_pl[:,0]
-        orient_pl=orient_pl[:,0]
 
         ego_dist=torch.linalg.norm(pos_pl,dim=-1)
 
@@ -84,31 +93,52 @@ class InitGAN(nn.Module):
 
         map_features=(pos_pl, orient_pl, feat_map, map_mask)
 
-        criterion = nn.BCELoss()
+        fake_pos,fake_heading,fake_shape = self.G(map_features, tokenized_agent)
 
-        with torch.no_grad():
-            fake_pos,fake_heading,fake_shape = self.G(map_features, tokenized_agent)
+        non_ego = ~ego_mask
+        batch = tokenized_agent["batch"][non_ego]
+        shape=tokenized_agent["initial_shape"]
 
-        real_labels = torch.ones(len(fake_pos), 1, device=fake_pos.device)
-        fake_labels = torch.zeros(len(fake_pos), 1, device=fake_pos.device)
+        if self.training:
+            real_labels = torch.ones(len(fake_pos), 1, device=fake_pos.device)
+            fake_labels = torch.zeros(len(fake_pos), 1, device=fake_pos.device)
 
-        real_pos,real_heading=transform_to_local(tokenized_agent["gt_initial_pos"],
-                           tokenized_agent["gt_initial_pos"],
-                           ego_position,
-                           ego_heading,
-                           )
+            real_pos,real_heading=transform_to_local(gt_initial_pos[non_ego],
+                               gt_initial_heading[non_ego],
+                               ego_position[batch],
+                               ego_heading[batch],
+                               )
 
-        real_shape=tokenized_agent["shape"]
-        real_pos=real_pos[:,0]
-        real_heading=real_heading[:,0]
+            real_shape=shape[non_ego]
 
-        real_loss = criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
-        fake_loss = criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), fake_labels)
-        d_loss = real_loss + fake_loss
+            if self.global_step%2==0:
+                real_loss = self.criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
+                fake_loss = self.criterion(self.D(map_features,fake_pos.detach(),fake_heading.detach(),fake_shape.detach(),tokenized_agent), fake_labels)
+                loss = real_loss + fake_loss
+            else:
+                loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
 
-        g_loss = criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
+            self.global_step+=1
+            return loss
+        else:
+            global_pos,global_heading=transform_to_global(
+                fake_pos,
+                fake_heading,
+                ego_position[batch],
+                ego_heading[batch],
+            )
 
-        return entry_logit
+            gt_initial_pos[non_ego]=global_pos
+            gt_initial_heading[non_ego]=global_heading
+            shape[non_ego]=fake_shape
+
+            tokenized_agent["shape"]= shape
+            tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
+            tokenized_agent["type"] = tokenized_agent['initial_type']
+            tokenized_agent['id']=tokenized_agent['initial_id']
+
+            return gt_initial_pos[:,None], gt_initial_heading[:,None]
+
         # after interact with agent and map,  predict state and type and shape and tokenized position,
         # then refine predict head token and offset_xy ,
         # #then predict all agent motion

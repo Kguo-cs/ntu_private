@@ -99,7 +99,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        self.learn_init=False
+        self.learn_init=True
 
         self.token_initial=token_processor.token_initial
 
@@ -180,9 +180,6 @@ class SMARTAgentDecoder(nn.Module):
         next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
         entry_logit =None
-
-        #if self.training:
-           # feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
 
         if self.pred_entry:
             entry_logit= self.entry_decoder(feat_a_token[-len(feat_a):],mask_a,pos_a,head_a,tokenized_agent)

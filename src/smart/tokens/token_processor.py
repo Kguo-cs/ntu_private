@@ -68,8 +68,6 @@ class TokenProcessor(torch.nn.Module):
         self.exit_state= 3
         self.pred_init=pred_init
 
-
-
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
         self.init_map_token(os.path.join(module_dir, map_token_file))
@@ -603,9 +601,6 @@ class TokenProcessor(torch.nn.Module):
             heading=heading[:,10:]
 
             token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-
-            # print(torch.linalg.norm(initial_pos - pos[:, :1],dim=-1).max())
-            # print(wrap_angle(heading[:,:1]-initial_heading).max())
 
             pos[:, :1]=initial_pos
             heading[:, :1]=initial_heading

@@ -114,27 +114,38 @@ class IQ_SoftQ(LightningModule):
             action_nll=log_prob=0
 
         if pred["initial_logit"] is not None:
-            pos_logit, entry_head_logit, entry_offset, pred_shape=pred["initial_logit"]
 
-            non_ego_mask=~tokenized_agent["initial_ego_mask"]
-            initial_pos_token = tokenized_agent["initial_pos_token"][non_ego_mask]
-            initial_offset_token = tokenized_agent["initial_offset_token"][non_ego_mask]
-            initial_heading_token = tokenized_agent["initial_heading_token"][non_ego_mask]
-            initial_shape = tokenized_agent["initial_shape_token"][non_ego_mask]
+            if not self.token_processor.token_initial:
+                loss = pred["initial_logit"]
 
-            pos_nll=self.token_cls_loss(pos_logit, initial_pos_token)
-            head_nll=self.token_cls_loss(entry_head_logit, initial_heading_token)
-            offset_nll=self.token_cls_loss(entry_offset, initial_offset_token)
-            #offset_mse=self.token_cls_loss(entry_offset, initial_offset_token)
-            shape_nll=self.token_cls_loss(pred_shape, initial_shape)
+                if self.global_step % 2 == 0:
+                    self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
+                else:
+                    self.log("train/g_loss", loss.item(), on_step=True, batch_size=1)
 
-            self.log("train/pos_nll", pos_nll.item(), on_step=True, batch_size=1)
-            self.log("train/head_nll", head_nll.item(), on_step=True, batch_size=1)
-            self.log("train/offset_nll", offset_nll.item(), on_step=True, batch_size=1)
-            # self.log("train/offset_mse", offset_mse.item(), on_step=True, batch_size=1)
-            self.log("train/shape_nll", shape_nll.item(), on_step=True, batch_size=1)
+                action_nll = action_nll +loss
+            else:
+                pos_logit, entry_head_logit, entry_offset, pred_shape=pred["initial_logit"]
 
-            action_nll=action_nll+pos_nll+head_nll+0.1*shape_nll#+0.1*offset_nll
+                non_ego_mask=~tokenized_agent["initial_ego_mask"]
+                initial_pos_token = tokenized_agent["initial_pos_token"][non_ego_mask]
+                initial_offset_token = tokenized_agent["initial_offset_token"][non_ego_mask]
+                initial_heading_token = tokenized_agent["initial_heading_token"][non_ego_mask]
+                initial_shape = tokenized_agent["initial_shape_token"][non_ego_mask]
+
+                pos_nll=self.token_cls_loss(pos_logit, initial_pos_token)
+                head_nll=self.token_cls_loss(entry_head_logit, initial_heading_token)
+                offset_nll=self.token_cls_loss(entry_offset, initial_offset_token)
+                #offset_mse=self.token_cls_loss(entry_offset, initial_offset_token)
+                shape_nll=self.token_cls_loss(pred_shape, initial_shape)
+
+                self.log("train/pos_nll", pos_nll.item(), on_step=True, batch_size=1)
+                self.log("train/head_nll", head_nll.item(), on_step=True, batch_size=1)
+                self.log("train/offset_nll", offset_nll.item(), on_step=True, batch_size=1)
+                # self.log("train/offset_mse", offset_mse.item(), on_step=True, batch_size=1)
+                self.log("train/shape_nll", shape_nll.item(), on_step=True, batch_size=1)
+
+                action_nll=action_nll+pos_nll+head_nll+0.1*shape_nll#+0.1*offset_nll
 
         if pred["entry_logit"] is not None:
 
