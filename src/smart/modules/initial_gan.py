@@ -147,28 +147,28 @@ class InitGAN(nn.Module):
                 fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
 
                 loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
-                # rows, cols = [], []
-                #
-                # for b in batch.unique():
-                #     f_idx = (batch == b).nonzero(as_tuple=True)[0]
-                #
-                #     dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
-                #     cost = dist.cpu().detach().numpy()
-                #
-                #     row, col = linear_sum_assignment(cost)
-                #
-                #     rows.append(f_idx[row])
-                #     cols.append(f_idx[col])
-                #
-                # row = torch.cat(rows)
-                # col = torch.cat(cols)
-                #
-                # match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
-                #     fake_pos[row], fake_heading[row], fake_shape[row],
-                #     real_pos[col], real_heading[col], real_shape[col]
-                # )
+                rows, cols = [], []
 
-                match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
+                for b in batch.unique():
+                    f_idx = (batch == b).nonzero(as_tuple=True)[0]
+
+                    dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                    cost = dist.cpu().detach().numpy()
+
+                    row, col = linear_sum_assignment(cost)
+
+                    rows.append(f_idx[row])
+                    cols.append(f_idx[col])
+
+                row = torch.cat(rows)
+                col = torch.cat(cols)
+
+                match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
+                    fake_pos[row], fake_heading[row], fake_shape[row],
+                    real_pos[col], real_heading[col], real_shape[col]
+                )
+
+                #match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
                 loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
