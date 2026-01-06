@@ -34,10 +34,6 @@ class InitGAN(nn.Module):
         super(InitGAN, self).__init__()
         self.token_processor=token_processor
 
-        self.hidden_dim=hidden_dim
-
-        self.token_processor=token_processor
-
         self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         self.G=InitGeneator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -94,10 +90,10 @@ class InitGAN(nn.Module):
         map_features=(pos_pl, orient_pl, feat_map, map_mask)
 
         non_ego = ~ego_mask
+
         batch = tokenized_agent["batch"][non_ego]
+
         shape=tokenized_agent["initial_shape"]
-
-
 
         if self.training:
             with torch.no_grad():
@@ -116,7 +112,7 @@ class InitGAN(nn.Module):
 
             if self.global_step%5==0:
                 real_loss = self.criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
-                fake_loss = self.criterion(self.D(map_features,fake_pos.detach(),fake_heading.detach(),fake_shape.detach(),tokenized_agent), fake_labels)
+                fake_loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), fake_labels)
                 loss = (real_loss , fake_loss)
             else:
                 loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)

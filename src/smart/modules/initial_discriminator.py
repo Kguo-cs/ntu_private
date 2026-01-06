@@ -87,8 +87,9 @@ class InitDiscriminator(nn.Module):
 
         batch=tokenized_agent["batch"][non_ego]
         type = tokenized_agent["initial_type"][non_ego]
-
         batch_num=tokenized_agent["num_graphs"]
+
+        heading=wrap_angle(heading)
 
         pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos, heading, type, shape, batch, batch_num)
 
@@ -98,9 +99,7 @@ class InitDiscriminator(nn.Module):
                                                           pos_pl,
                                                           orient_pl, map_mask)
 
-        n_agent = feat_a_b.shape[1]
-
-        attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False)
+        attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0,  mask_a_b,use_time=False)
 
         attr_feature = attr_feature[mask_a_b]
 
