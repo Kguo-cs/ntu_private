@@ -117,6 +117,8 @@ class InitGAN(nn.Module):
             else:
                 loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
 
+                loss=(loss,0,0)
+
             self.global_step+=1
             return loss
         else:

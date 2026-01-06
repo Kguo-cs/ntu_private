@@ -132,7 +132,7 @@ class IQ_SoftQ(LightningModule):
                     opt_D.step()
 
                 else:
-                    loss = pred["initial_logit"]
+                    loss = pred["initial_logit"][0]
 
                     self.log("train/g_loss", loss.item(), on_step=True, batch_size=1)
 
