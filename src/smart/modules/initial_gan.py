@@ -145,8 +145,10 @@ class InitGAN(nn.Module):
                 loss = (real_loss , fake_loss)
             else:
                 fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
-
+                self.D.eval()
                 loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
+
+                self.D.train()
                 rows, cols = [], []
                 initial_type = tokenized_agent["initial_type"][non_ego]
 
