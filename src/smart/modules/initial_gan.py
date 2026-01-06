@@ -151,7 +151,7 @@ class InitGAN(nn.Module):
                 initial_type = tokenized_agent["initial_type"][non_ego]
 
                 for b in batch.unique():
-                    for type in initial_type.unique():
+                    for type in initial_type[batch == b].unique():
                         f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
 
                         dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
