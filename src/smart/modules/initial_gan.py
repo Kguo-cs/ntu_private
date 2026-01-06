@@ -140,13 +140,38 @@ class InitGAN(nn.Module):
                 with torch.no_grad():
                     fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
 
-                real_loss = self.criterion(self.D(map_features, real_pos, real_heading, real_shape, tokenized_agent), real_labels)
-                fake_loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), fake_labels)
-                loss = (real_loss , fake_loss)
+                real_loss = -self.D(map_features, real_pos, real_heading, real_shape, tokenized_agent).mean()
+                fake_loss = self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
+
+
+                inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+                inputs.requires_grad_(True)  # IMPORTANT
+
+                logit = self.D(map_features, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
+
+                disc_flat = logit.reshape(-1, 1)
+                grad_outputs = torch.ones_like(disc_flat)
+
+                # Compute gradients wrt interpolated inputs
+                grad_all = torch.autograd.grad(
+                    outputs=disc_flat,  # whatever you use
+                    inputs=inputs,
+                    grad_outputs=grad_outputs,
+                    create_graph=True,
+                    retain_graph=True,
+                    only_inputs=True,
+                )[0]
+
+                grad_norm = grad_all.norm(2, dim=1)  # [B]
+                gp_lambda = 1
+
+                gp = (grad_norm ** 2).mean() * gp_lambda / 2
+
+                loss = (real_loss , fake_loss,gp)
             else:
                 fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
                 self.D.eval()
-                loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
+                loss = -self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
 
                 self.D.train()
                 rows, cols = [], []

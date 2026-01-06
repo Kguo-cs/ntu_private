@@ -51,7 +51,7 @@ class InitDiscriminator(nn.Module):
         self.offset_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
-        self.score_decoder = nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 1 ),nn.Sigmoid())
+        self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1 )
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
