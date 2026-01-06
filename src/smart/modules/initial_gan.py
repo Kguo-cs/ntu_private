@@ -148,17 +148,19 @@ class InitGAN(nn.Module):
 
                 loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
                 rows, cols = [], []
+                initial_type = tokenized_agent["initial_type"][non_ego]
 
                 for b in batch.unique():
-                    f_idx = (batch == b).nonzero(as_tuple=True)[0]
+                    for type in initial_type.unique():
+                        f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
 
-                    dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
-                    cost = dist.cpu().detach().numpy()
+                        dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                        cost = dist.cpu().detach().numpy()
 
-                    row, col = linear_sum_assignment(cost)
+                        row, col = linear_sum_assignment(cost)
 
-                    rows.append(f_idx[row])
-                    cols.append(f_idx[col])
+                        rows.append(f_idx[row])
+                        cols.append(f_idx[col])
 
                 row = torch.cat(rows)
                 col = torch.cat(cols)
