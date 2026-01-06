@@ -132,14 +132,15 @@ class IQ_SoftQ(LightningModule):
                     opt_D.step()
 
                 else:
-                    g_loss,total_loss,pos_loss,heading_loss,shape_loss = pred["initial_logit"]
+                    g_loss,match_loss,pos_loss,heading_loss,shape_loss = pred["initial_logit"]
 
-                    loss=g_loss+total_loss
+                    loss=g_loss+match_loss
 
                     self.log("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
                     self.log("train/pos_loss", pos_loss.item(), on_step=True, batch_size=1)
                     self.log("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
                     self.log("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
+                    self.log("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
 
                     opt_G.zero_grad()
                     loss.backward()

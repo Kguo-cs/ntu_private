@@ -138,7 +138,7 @@ class InitGAN(nn.Module):
             fake_labels = torch.zeros(len(fake_pos), 1, device=fake_pos.device)
 
 
-            if self.global_step%10==0:
+            if self.global_step%20==0:
                 real_loss = self.criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
                 fake_loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), fake_labels)
                 loss = (real_loss , fake_loss)
@@ -161,12 +161,12 @@ class InitGAN(nn.Module):
                 row = torch.cat(rows)
                 col = torch.cat(cols)
 
-                total_loss,pos_loss,heading_loss,shape_loss = matching_loss(
+                match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
                     fake_pos[row], fake_heading[row], fake_shape[row],
                     real_pos[col], real_heading[col], real_shape[col]
                 )
 
-                loss=(loss,total_loss,pos_loss,heading_loss,shape_loss)
+                loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
             self.global_step+=1
             return loss
