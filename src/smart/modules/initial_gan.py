@@ -20,7 +20,34 @@ from src.smart.utils import (
 )
 
 from .initial_discriminator import InitDiscriminator,InitGeneator
+from scipy.optimize import linear_sum_assignment
+import torch.nn.functional as F
 
+def matching_loss(
+    fake_pos, fake_heading, fake_shape,
+    real_pos, real_heading, real_shape,
+    w_pos=1.0, w_heading=0.5, w_shape=0.1
+):
+    # Position: L1 or L2
+    pos_loss = F.l1_loss(fake_pos, real_pos)
+
+    # Heading: periodic-safe loss
+    heading_diff = torch.atan2(
+        torch.sin(fake_heading - real_heading),
+        torch.cos(fake_heading - real_heading)
+    )
+    heading_loss = heading_diff.abs().mean()
+
+    # Shape: L1
+    shape_loss = F.l1_loss(fake_shape, real_shape)
+
+    total_loss = (
+        w_pos * pos_loss +
+        w_heading * heading_loss +
+        w_shape * shape_loss
+    )
+
+    return total_loss,pos_loss,heading_loss,shape_loss
 
 class InitGAN(nn.Module):
     def __init__(
@@ -95,6 +122,14 @@ class InitGAN(nn.Module):
 
         shape=tokenized_agent["initial_shape"]
 
+        real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
+                                                    gt_initial_heading[non_ego],
+                                                    ego_position[batch],
+                                                    ego_heading[batch],
+                                                    )
+
+        real_shape = shape[non_ego]
+
         if self.training:
             with torch.no_grad():
                 fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
@@ -102,13 +137,6 @@ class InitGAN(nn.Module):
             real_labels = torch.ones(len(fake_pos), 1, device=fake_pos.device)
             fake_labels = torch.zeros(len(fake_pos), 1, device=fake_pos.device)
 
-            real_pos,real_heading=transform_to_local(gt_initial_pos[non_ego],
-                               gt_initial_heading[non_ego],
-                               ego_position[batch],
-                               ego_heading[batch],
-                               )
-
-            real_shape=shape[non_ego]
 
             if self.global_step%10==0:
                 real_loss = self.criterion(self.D(map_features,real_pos,real_heading,real_shape,tokenized_agent), real_labels)
@@ -117,7 +145,28 @@ class InitGAN(nn.Module):
             else:
                 loss = self.criterion(self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent), real_labels)
 
-                loss=(loss,0,0)
+                rows, cols = [], []
+
+                for b in batch.unique():
+                    f_idx = (batch == b).nonzero(as_tuple=True)[0]
+
+                    dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                    cost = dist.cpu().detach().numpy()
+
+                    row, col = linear_sum_assignment(cost)
+
+                    rows.append(f_idx[row])
+                    cols.append(f_idx[col])
+
+                row = torch.cat(rows)
+                col = torch.cat(cols)
+
+                total_loss,pos_loss,heading_loss,shape_loss = matching_loss(
+                    fake_pos[row], fake_heading[row], fake_shape[row],
+                    real_pos[col], real_heading[col], real_shape[col]
+                )
+
+                loss=(loss,total_loss,pos_loss,heading_loss,shape_loss)
 
             self.global_step+=1
             return loss
