@@ -178,7 +178,7 @@ class InitGeneator(nn.Module):
 
         n_agent = feat_a_b.shape[1]
 
-        attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b)
+        attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_causal=False)
 
         attr_feature = attr_feature[mask_a_b]
 

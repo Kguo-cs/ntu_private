@@ -455,7 +455,7 @@ class RoFormerBlock(nn.Module):
 
         return feature
 
-    def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask,n_agent=1,use_time=True):
+    def temporal_embed(self,feature, pos, heading, n_step, n_current,  mask,n_agent=1,use_time=True,use_causal=True):
 
         if use_time==False:
             time=None
@@ -472,7 +472,7 @@ class RoFormerBlock(nn.Module):
         else:
             sinusoidal_pos = None
 
-        if n_step>1:
+        if n_step>1 and use_causal:
             causal_mask = generate_limited_causal_mask(n_step, self.hist_len,n_agent, device=feature.device)
             if mask is not None:
                 causal_mask = causal_mask[None, None] | ~mask[:, None, None, :]
