@@ -34,7 +34,7 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim=hidden_dim
 
-        self.use_entry_former = False
+        self.use_entry_former = True
 
         if self.use_entry_former:
             self.entry_his_len = 1000000
@@ -286,7 +286,7 @@ class InitGeneator(nn.Module):
         #                                                   orient_pl, map_mask)
         #
         #
-        # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_causal=False)
+        # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
 
         attr_feature = entry_feature[mask_a_b]
 

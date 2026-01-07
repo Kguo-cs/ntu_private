@@ -32,11 +32,11 @@ def matching_loss(
     pos_loss = F.l1_loss(fake_pos, real_pos)
 
     # Heading: periodic-safe loss
-    heading_diff = torch.atan2(
-        torch.sin(fake_heading - real_heading),
-        torch.cos(fake_heading - real_heading)
-    )
-    heading_loss = heading_diff.abs().mean()
+    # heading_diff = torch.atan2(
+    #     torch.sin(fake_heading - real_heading),
+    #     torch.cos(fake_heading - real_heading)
+    # )
+    heading_loss = wrap_angle(fake_heading - real_heading).abs().mean()
 
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape, real_shape)
