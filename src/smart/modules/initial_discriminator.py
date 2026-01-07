@@ -322,7 +322,7 @@ class InitGeneator(nn.Module):
 
         pos = torch.tanh(self.pos_decoder(attr_feature)) * 80
 
-        heading = self.head_decoder(attr_feature)[:, 0]
+        heading = torch.tanh(self.head_decoder(attr_feature)[:, 0]) * torch.pi
 
         shape = self.shape_head_decoder(attr_feature)
 
