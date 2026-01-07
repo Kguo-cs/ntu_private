@@ -34,7 +34,7 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim=hidden_dim
 
-        self.use_entry_former = True
+        self.use_entry_former = False
 
         if self.use_entry_former:
             self.entry_his_len = 1000000
