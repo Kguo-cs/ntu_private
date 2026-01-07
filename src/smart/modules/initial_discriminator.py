@@ -34,21 +34,67 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim=hidden_dim
 
-        self.entry_his_len = 1000000
 
-        self.use_entry_former = True
+        self.use_entry_former = False
 
         if self.use_entry_former:
+            self.entry_his_len = 1000000
+
             self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
                                               hist_len=self.entry_his_len)  # replace with gnn
 
-        self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                         hist_len=self.entry_his_len)        # drop 01 is important
+            self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+            self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
+                                             hist_len=self.entry_his_len)        # drop 01 is important
 
-        self.pos_embedding = MLPLayer(2 ,hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1,hidden_dim, hidden_dim)
+        else:
+            self.edge_encoder = EdgeEncoder(hidden_dim,
+                                            num_freq_bands,
+                                            a2a=True,
+                                            share=False,
+                                            hist_drop_prob=0,
+                                            time_span=0,
+                                            shift=token_processor.shift,
+                                            discriminator=False,
+                                            use_bird=token_processor.use_bird,
+                                            use_cross=True
+                                            )
+
+            num_layers = 1
+
+            self.pt2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=hidden_dim // num_heads,
+                        dropout=0,
+                        bipartite=True,
+                        has_pos_emb=True,
+                        #  gated_attention=discriminator,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+
+            self.a2a_attn_layers = nn.ModuleList(
+                [
+                    AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=hidden_dim // num_heads,
+                        dropout=0,
+                        bipartite=True,
+                        has_pos_emb=True,
+                        #  gated_attention=discriminator,
+                    )
+                    for _ in range(num_layers)
+                ]
+            )
+
+
         self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
-        self.offset_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1 )
@@ -77,9 +123,8 @@ class InitDiscriminator(nn.Module):
         return pos_a_b, heading_a_b, feat_a_b,mask_a_b
 
 
-    def forward(self,map_features, pos, heading, shape,tokenized_agent ):
+    def forward(self,map_feature, pos_a, head_a, shape,tokenized_agent ):
 
-        pos_pl, orient_pl, feat_map, map_mask=map_features
 
         ego_mask=tokenized_agent["initial_ego_mask"]
 
@@ -89,19 +134,66 @@ class InitDiscriminator(nn.Module):
         type = tokenized_agent["initial_type"][non_ego]
         batch_num=tokenized_agent["num_graphs"]
 
-        heading=wrap_angle(heading)
+        if self.use_entry_former:
+            head_a=wrap_angle(head_a)
+            pos_pl, orient_pl, feat_map, map_mask=map_feature
 
-        pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos, heading, type, shape, batch, batch_num)
+            pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, batch_num)
 
-        entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                          heading_a_b, mask_a_b,
-                                                          feat_map,
-                                                          pos_pl,
-                                                          orient_pl, map_mask)
+            entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                                                              heading_a_b, mask_a_b,
+                                                              feat_map,
+                                                              pos_pl,
+                                                              orient_pl, map_mask)
 
-        attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0,  mask_a_b,use_time=False)
+            attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0,  mask_a_b,use_time=False)
 
-        attr_feature = attr_feature[mask_a_b]
+            attr_feature = attr_feature[mask_a_b]
+        else:
+            mask_a = None
+
+            pos_pl, orient_pl, batch_pl, feat_map=map_feature
+
+            head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+
+
+            edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                pos_pl=pos_pl,  # [n_pl, 2]
+                orient_pl=orient_pl,  # [n_pl]
+                pos_a=pos_a,  # [n_agent, n_step, 2]
+                head_a=head_a,  # [n_agent, n_step]
+                head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
+                mask=mask_a,  # [n_agent, n_step]
+                batch_s=batch,  # [n_agent,n_step]
+                batch_pl=batch_pl,  # [n_pl*n_step]
+                pl2a_radius=40,
+                max_num_neighbors=20,
+                agent_train_mask=None,
+                layer_num=1
+            )
+
+            edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
+                pos_s=pos_a,  # [n_agent, n_step, 2]
+                head_s=head_a,  # [n_agent, n_step]
+                head_vector_s=head_vector_a,  # [n_agent, n_step, 2]
+                batch_s=batch,  # [n_agent*n_step]
+                mask=mask_a,  # [n_agent, n_step]
+                max_radius=60,
+                max_num_neighbors=20,
+                agent_train_mask=None,
+                layer_num=1,
+                counter_feat_a=None
+            )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
+
+            type_embedding = self.type_embedding(type)
+            shape_embedding = self.shape_embedding(shape)
+
+            feat_a = type_embedding +  shape_embedding
+
+            feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
+
+            attr_feature = self.pt2a_attn_layers[0]((feat_map, feat_a), r_pl2a,
+                                              edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
         score = self.score_decoder(attr_feature)
 

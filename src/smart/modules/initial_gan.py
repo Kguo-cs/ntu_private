@@ -103,18 +103,20 @@ class InitGAN(nn.Module):
 
         ego_dist=torch.linalg.norm(pos_pl,dim=-1)
 
-        ego_dist_mask=ego_dist<100
+        ego_dist_mask=ego_dist<120
 
         pos_pl=pos_pl[ego_dist_mask]
         orient_pl=orient_pl[ego_dist_mask]
         batch_pl=batch_pl[ego_dist_mask]
         feat_map=feat_map[ego_dist_mask]
 
+        map_feature=(pos_pl,orient_pl,batch_pl,feat_map)
+
         pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
 
         map_mask = torch.any(feat_map != 0, dim=-1)
 
-        map_features=(pos_pl, orient_pl, feat_map, map_mask)
+        padding_map_features=(pos_pl, orient_pl, feat_map, map_mask)
 
         non_ego = ~ego_mask
 
@@ -130,24 +132,24 @@ class InitGAN(nn.Module):
 
         real_shape = shape[non_ego]
 
+        if self.D.use_entry_former:
+            map_feature = padding_map_features
+
         if self.training:
 
-            real_labels = torch.ones(len(real_pos), 1, device=real_pos.device)
-            fake_labels = torch.zeros(len(real_pos), 1, device=real_pos.device)
-
-
-            if self.global_step%10==11:
+            if self.global_step%10==0:
                 with torch.no_grad():
-                    fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
+                    fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
 
-                real_loss = -self.D(map_features, real_pos, real_heading, real_shape, tokenized_agent).mean()
-                fake_loss = self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
+
+                real_loss = -self.D(map_feature, real_pos, real_heading, real_shape, tokenized_agent).mean()
+                fake_loss = self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
 
 
                 inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
                 inputs.requires_grad_(True)  # IMPORTANT
 
-                logit = self.D(map_features, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
+                logit = self.D(map_feature, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
 
                 disc_flat = logit.reshape(-1, 1)
                 grad_outputs = torch.ones_like(disc_flat)
@@ -169,12 +171,12 @@ class InitGAN(nn.Module):
 
                 loss = (real_loss , fake_loss,gp)
             else:
-                fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
-                # self.D.eval()
-                # loss = -self.D(map_features,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
-                #
-                # self.D.train()
-                loss=torch.tensor(0.0, device=real_heading.device)
+                fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
+
+                self.D.eval()
+                loss = -self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
+                self.D.train()
+                #loss=torch.tensor(0.0, device=real_heading.device)
 
                 rows, cols = [], []
                 initial_type = tokenized_agent["initial_type"][non_ego]
@@ -206,7 +208,7 @@ class InitGAN(nn.Module):
             self.global_step+=1
             return loss
         else:
-            fake_pos, fake_heading, fake_shape = self.G(map_features, tokenized_agent)
+            fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
 
             global_pos,global_heading=transform_to_global(
                 fake_pos,

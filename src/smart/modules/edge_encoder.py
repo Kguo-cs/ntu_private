@@ -205,10 +205,12 @@ class EdgeEncoder(nn.Module):
             layer_num=1,
             counter_feat_a=None
         ):
-        pos_s = pos_s[mask]
-        head_s = head_s[mask]
-        head_vector_s = head_vector_s[mask]
-        batch_s = batch_s[mask]
+
+        if mask is not None:
+            pos_s = pos_s[mask]
+            head_s = head_s[mask]
+            head_vector_s = head_vector_s[mask]
+            batch_s = batch_s[mask]
 
         edge_index_a2a = radiusGraphNearest(x=pos_s,
                                             r=max_radius,
