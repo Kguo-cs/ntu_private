@@ -246,8 +246,8 @@ class InitGeneator(nn.Module):
         self.noise_embedding = MLPLayer(6 ,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        # self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        # self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.count_embedding=MLPLayer(1, hidden_dim, hidden_dim)
 
@@ -301,7 +301,7 @@ class InitGeneator(nn.Module):
         # heading_a_b=torch.zeros(feat_a_b.shape[0],feat_a_b.shape[1],  device=type.device)
         # n_agent = feat_a_b.shape[1]
 
-        feat_map=feat_map+self.pos_embedding(pos_pl)+self.head_embedding(orient_pl[:,:,None])
+        #feat_map=feat_map+self.pos_embedding(pos_pl)+self.head_embedding(orient_pl[:,:,None])
 
         entry_feature = self.transformer_decoder(
             tgt=feat_a_b,  # self-attention queries
