@@ -1,4 +1,4 @@
-export PBS_JOBID=117650.pbs111
+export PBS_JOBID=118447.pbs111
 
 rsync -avz   ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_light ./
 
