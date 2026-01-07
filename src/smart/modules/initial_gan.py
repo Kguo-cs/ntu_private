@@ -29,7 +29,11 @@ def matching_loss(
     w_pos=0.1, w_heading=0.5, w_shape=0.1
 ):
     # Position: L1 or L2
-    pos_loss = torch.linalg.norm(fake_pos-real_pos,dim=-1).mean()
+
+    dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
+
+    dist_mask=dist<10
+    pos_loss = dist[dist_mask].mean()
 
     # Heading: periodic-safe loss
     # heading_diff = torch.atan2(
@@ -37,10 +41,10 @@ def matching_loss(
     #     torch.cos(fake_heading - real_heading)
     # )
     heading_diff=wrap_angle(fake_heading - real_heading)
-    heading_loss = heading_diff.abs().mean()
+    heading_loss = heading_diff[dist_mask].abs().mean()
 
     # Shape: L1
-    shape_loss = F.l1_loss(fake_shape, real_shape)
+    shape_loss = F.l1_loss(fake_shape[dist_mask], real_shape[dist_mask])
 
     total_loss = (
         w_pos * pos_loss +
