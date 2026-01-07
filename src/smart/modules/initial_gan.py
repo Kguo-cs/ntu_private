@@ -87,10 +87,10 @@ class InitGAN(nn.Module):
 
         batch_num=tokenized_agent["num_graphs"]
 
-        gt_initial_pos=tokenized_agent["global_initial_pos"][:,0]
-        gt_initial_heading=tokenized_agent["global_initial_heading"][:,0]
+        gt_initial_pos=tokenized_agent["gt_initial_pos"][:,0]
+        gt_initial_heading=tokenized_agent["gt_initial_heading"][:,0]
 
-        ego_mask=tokenized_agent["initial_ego_mask"]
+        ego_mask=tokenized_agent["ego_mask"]
 
         ego_position=gt_initial_pos[ego_mask]
         ego_heading=gt_initial_heading[ego_mask]
@@ -122,15 +122,15 @@ class InitGAN(nn.Module):
 
         batch = tokenized_agent["batch"][non_ego]
 
-        shape=tokenized_agent["initial_shape"]
+        shape=tokenized_agent["shape"]
+
+        real_shape=shape[non_ego]
 
         real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
                                                     gt_initial_heading[non_ego],
                                                     ego_position[batch],
                                                     ego_heading[batch],
                                                     )
-
-        real_shape = shape[non_ego]
 
         if self.D.use_entry_former:
             map_feature = padding_map_features
@@ -180,7 +180,7 @@ class InitGAN(nn.Module):
                 #loss=torch.tensor(0.0, device=real_heading.device)
 
                 rows, cols = [], []
-                initial_type = tokenized_agent["initial_type"][non_ego]
+                initial_type = tokenized_agent["type"][non_ego]
 
                 for b in batch.unique():
                     for type in initial_type[batch == b].unique():
@@ -223,9 +223,9 @@ class InitGAN(nn.Module):
             shape[non_ego]=fake_shape
 
             tokenized_agent["shape"]= shape
-            tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
-            tokenized_agent["type"] = tokenized_agent['initial_type']
-            tokenized_agent['id']=tokenized_agent['initial_id']
+            # tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
+            # tokenized_agent["type"] = tokenized_agent['initial_type']
+            # tokenized_agent['id']=tokenized_agent['initial_id']
 
             return gt_initial_pos[:,None], gt_initial_heading[:,None]
 
