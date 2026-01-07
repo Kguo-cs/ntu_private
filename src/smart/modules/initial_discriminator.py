@@ -246,8 +246,8 @@ class InitGeneator(nn.Module):
         self.noise_embedding = MLPLayer(6 ,hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
-        # self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        # self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.count_embedding=MLPLayer(1, hidden_dim, hidden_dim)
 
