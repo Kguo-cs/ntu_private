@@ -309,6 +309,7 @@ class InitGeneator(nn.Module):
             tgt_key_padding_mask=~mask_a_b,
             memory_key_padding_mask=~map_mask
         )
+        print(torch.max(entry_feature))
 
         # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
         #                                                   heading_a_b, mask_a_b,
