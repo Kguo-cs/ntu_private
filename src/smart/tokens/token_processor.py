@@ -279,7 +279,6 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
                 tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
 
-
         return tokenized_map, tokenized_agent
 
     def compute_goal(self,tokenized_agent):

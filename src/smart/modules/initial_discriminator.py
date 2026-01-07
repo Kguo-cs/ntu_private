@@ -42,8 +42,6 @@ class InitDiscriminator(nn.Module):
             self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
                                               hist_len=self.entry_his_len)  # replace with gnn
 
-            self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-            self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
                                              hist_len=self.entry_his_len)        # drop 01 is important
 
@@ -95,6 +93,8 @@ class InitDiscriminator(nn.Module):
 
         self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
+        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1 )
 
@@ -132,9 +132,9 @@ class InitDiscriminator(nn.Module):
         batch=tokenized_agent["batch"][non_ego]
         type = tokenized_agent["type"][non_ego]
         batch_num=tokenized_agent["num_graphs"]
+        head_a = wrap_angle(head_a)
 
         if self.use_entry_former:
-            head_a=wrap_angle(head_a)
             pos_pl, orient_pl, feat_map, map_mask=map_feature
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, batch_num)
@@ -184,10 +184,13 @@ class InitDiscriminator(nn.Module):
                 counter_feat_a=None
             )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
+            pos_embedding = self.pos_embedding(pos_a)
+            heading_embedding = self.head_embedding(head_a[:, None])
+
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
-            feat_a = type_embedding +  shape_embedding
+            feat_a = type_embedding +  shape_embedding+pos_embedding+heading_embedding
 
             feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
 
