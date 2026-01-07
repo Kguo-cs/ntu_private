@@ -188,6 +188,8 @@ class InitGAN(nn.Module):
                         f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
 
                         dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+
+                        print(torch.max(dist))
                         cost = dist.cpu().detach().numpy()
 
                         row, col = linear_sum_assignment(cost)
