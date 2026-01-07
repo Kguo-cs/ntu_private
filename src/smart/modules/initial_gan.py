@@ -36,7 +36,8 @@ def matching_loss(
     #     torch.sin(fake_heading - real_heading),
     #     torch.cos(fake_heading - real_heading)
     # )
-    heading_loss = wrap_angle(fake_heading - real_heading).abs().mean()
+    heading_diff=wrap_angle(fake_heading - real_heading)
+    heading_loss = heading_diff.abs().mean()
 
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape, real_shape)
