@@ -163,7 +163,7 @@ class InitGAN(nn.Module):
                 )[0]
 
                 grad_norm = grad_all.norm(2, dim=1)  # [B]
-                gp_lambda = 1
+                gp_lambda = 10
 
                 gp = (grad_norm ** 2).mean() * gp_lambda / 2
 
