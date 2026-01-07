@@ -240,7 +240,7 @@ class InitGeneator(nn.Module):
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
-        #self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
@@ -282,7 +282,7 @@ class InitGeneator(nn.Module):
 
         value = value[mask_a_b]
 
-        feature = self.noise_embedding(z) + self.type_embedding(type) #+ self.count_embedding(value[:, None].to(z.dtype))
+        feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
 
         feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
 
