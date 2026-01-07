@@ -315,8 +315,8 @@ class InitGeneator(nn.Module):
         entry_feature = self.transformer_decoder(
             tgt=feat_a_b,  # self-attention queries
             memory=feat_map,  # cross-attention keys/values
-            tgt_key_padding_mask=mask_a_b,
-            memory_key_padding_mask=map_mask
+            tgt_key_padding_mask=~mask_a_b,
+            memory_key_padding_mask=~map_mask
         )
 
         # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
