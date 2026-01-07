@@ -331,7 +331,7 @@ class InitGeneator(nn.Module):
 
         attr_feature = entry_feature[mask_a_b]
 
-        pos = self.pos_decoder(attr_feature)
+        pos = torch.tanh(self.pos_decoder(attr_feature))*80
 
         heading = self.head_decoder(attr_feature)[:,0]
 
