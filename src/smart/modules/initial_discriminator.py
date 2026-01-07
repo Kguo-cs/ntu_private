@@ -249,6 +249,8 @@ class InitGeneator(nn.Module):
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
+        self.count_embedding=MLPLayer(1, hidden_dim, hidden_dim)
+
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2 )
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim,1 )
         self.shape_head_decoder = nn.Sequential( MLPLayer(hidden_dim, hidden_dim, 3),nn.ReLU())
@@ -273,38 +275,27 @@ class InitGeneator(nn.Module):
         z = torch.rand(agent_num, 6, device=type.device)#pos,heading and shape
 
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
-        #
-        # safe_type = padding(type, lengths, padding_value=3)
-        #
-        # sorted_type, sorted_idx = torch.sort(safe_type, dim=1)
-        #
-        # # detect new type boundaries
-        # diff = torch.ones_like(sorted_type)
-        # diff[:, 1:] = sorted_type[:, 1:] != sorted_type[:, :-1]
-        #
-        # # cumulative sum gives type indices
-        # type_idx_sorted = torch.cumsum(diff, dim=1) - 1
-        #
-        # # invalidate padding
-        # type_idx_sorted = torch.where(
-        #     sorted_type == 3,
-        #     torch.full_like(type_idx_sorted, -1),
-        #     type_idx_sorted
-        # )
-        #
-        # # scatter back to original order
-        # type_idx = torch.full_like(type_idx_sorted, -1)
-        # type_idx.scatter_(1, sorted_idx, type_idx_sorted)
 
+        padding_type = padding(type, lengths, padding_value=3)
 
+        mask_a_b = padding_type != 3
 
+        count=torch.arange(padding_type.shape[1],device=type.device)[None].repeat(padding_type.shape[0],1)
 
-        feature =self.noise_embedding(z)+self.type_embedding(type)#+self.count_embedding(type_idx)
+        sort_idx=torch.argsort(padding_type,dim=-1)
+
+        value = torch.zeros_like(count)
+
+        # Scatter count into value at sort_idx positions (row-wise)
+        value.scatter_(dim=1, index=sort_idx, src=count)
+
+        value=value[mask_a_b]
+
+        feature =self.noise_embedding(z)+self.type_embedding(type)+self.count_embedding(value[:,None].to(z.dtype))
 
 
         feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
 
-        mask_a_b = torch.any(feat_a_b != 0, dim=-1)
 
         # pos_a_b=torch.zeros(feat_a_b.shape[0],feat_a_b.shape[1], 2, device=type.device)
         # heading_a_b=torch.zeros(feat_a_b.shape[0],feat_a_b.shape[1],  device=type.device)
