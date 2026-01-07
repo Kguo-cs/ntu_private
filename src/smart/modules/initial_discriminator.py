@@ -309,14 +309,14 @@ class InitGeneator(nn.Module):
         entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
                                                         use_time=False, use_causal=False)  #
 
-        entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-                                                          heading_a_b, mask_a_b,
-                                                          feat_map,
-                                                          pos_pl,
-                                                          orient_pl, map_mask)
-
-
-        attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
+        # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
+        #                                                   heading_a_b, mask_a_b,
+        #                                                   feat_map,
+        #                                                   pos_pl,
+        #                                                   orient_pl, map_mask)
+        #
+        #
+        # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
 
         attr_feature = entry_feature[mask_a_b]
 
