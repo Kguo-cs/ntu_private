@@ -29,7 +29,7 @@ def matching_loss(
     w_pos=0.1, w_heading=0.5, w_shape=0.1
 ):
     # Position: L1 or L2
-    pos_loss = F.l1_loss(fake_pos, real_pos)
+    pos_loss = torch.linalg.norm(fake_pos-real_pos,dim=-1).mean()
 
     # Heading: periodic-safe loss
     # heading_diff = torch.atan2(
