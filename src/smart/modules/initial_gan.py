@@ -146,29 +146,29 @@ class InitGAN(nn.Module):
                 fake_loss = self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
 
 
-                # inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
-                # inputs.requires_grad_(True)  # IMPORTANT
-                #
-                # logit = self.D(map_feature, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
-                #
-                # disc_flat = logit.reshape(-1, 1)
-                # grad_outputs = torch.ones_like(disc_flat)
-                #
-                # # Compute gradients wrt interpolated inputs
-                # grad_all = torch.autograd.grad(
-                #     outputs=disc_flat,  # whatever you use
-                #     inputs=inputs,
-                #     grad_outputs=grad_outputs,
-                #     create_graph=True,
-                #     retain_graph=True,
-                #     only_inputs=True,
-                # )[0]
-                #
-                # grad_norm = grad_all.norm(2, dim=1)  # [B]
-                # gp_lambda = 10
-                #
-                # gp = (grad_norm ** 2).mean() * gp_lambda / 2
-                gp=torch.tensor(0.0, device=real_heading.device)
+                inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+                inputs.requires_grad_(True)  # IMPORTANT
+
+                logit = self.D(map_feature, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
+
+                disc_flat = logit.reshape(-1, 1)
+                grad_outputs = torch.ones_like(disc_flat)
+
+                # Compute gradients wrt interpolated inputs
+                grad_all = torch.autograd.grad(
+                    outputs=disc_flat,  # whatever you use
+                    inputs=inputs,
+                    grad_outputs=grad_outputs,
+                    create_graph=True,
+                    retain_graph=True,
+                    only_inputs=True,
+                )[0]
+
+                grad_norm = grad_all.norm(2, dim=1)  # [B]
+                gp_lambda = 1
+
+                gp = (grad_norm ** 2).mean() * gp_lambda / 2
+                #gp=torch.tensor(0.0, device=real_heading.device)
 
                 loss = (real_loss , fake_loss,gp)
             else:
