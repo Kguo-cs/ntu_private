@@ -103,7 +103,7 @@ class InitGAN(nn.Module):
 
         ego_dist=torch.linalg.norm(pos_pl,dim=-1)
 
-        ego_dist_mask=ego_dist<120
+        ego_dist_mask=ego_dist<100 #120
 
         pos_pl=pos_pl[ego_dist_mask]
         orient_pl=orient_pl[ego_dist_mask]
