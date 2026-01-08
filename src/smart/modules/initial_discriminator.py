@@ -99,9 +99,9 @@ class InitDiscriminator(nn.Module):
                 ]
             )
 
-        self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim,norm=False)
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim,norm=False)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim,norm=False)
+        self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
+        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1,norm=False)
