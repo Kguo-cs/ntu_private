@@ -21,21 +21,18 @@ simformer
 | Offroad Likelihood                    | 0.6178145  |
 | minADE                                | 0          |
 
-
-
-my
+/home/ke/code/sim/src/waymo_data/gen256_fakegan2_disdrop01evalmatchtype02_epoch=31-step=60896_0.64111.ckpt
 
 | Metric                                | Value      |
 | ------------------------------------- | ---------- |
-| Realism meta-metric                   | 0.5494112  |
-| Linear Speed Likelihood               | 0.30593494 |
-| Linear Acceleration Likelihood        | 0.46620414 |
-| Angular Speed Likelihood              | 0.567041   |
-| Angular Acceleration Likelihood       | 0.66190916 |
-| Distance To Nearest Object Likelihood | 0.2291617  |
-| Collision Likelihood                  | 0.6502053  |
-| Time To Collision Likelihood          | 0.8464664  |
-| Distance To Road Edge Likelihood      | 0.2258717  |
-| Offroad Likelihood                    | 0.47881484 |
+| Realism meta-metric                   | 0.62279016 |
+| Linear Speed Likelihood               | 0.3219646  |
+| Linear Acceleration Likelihood        | 0.42832804 |
+| Angular Speed Likelihood              | 0.5466537  |
+| Angular Acceleration Likelihood       | 0.6280193  |
+| Distance To Nearest Object Likelihood | 0.24810658 |
+| Collision Likelihood                  | 0.8542477  |
+| Time To Collision Likelihood          | 0.8443215  |
+| Distance To Road Edge Likelihood      | 0.27070937 |
+| Offroad Likelihood                    | 0.5712369  |
 | minADE                                | 0          |
-

@@ -32,7 +32,7 @@ def matching_loss(
 
     dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
 
-    dist_mask=dist<10
+    dist_mask=dist<1000
     pos_loss = dist[dist_mask].mean()
 
     # Heading: periodic-safe loss
