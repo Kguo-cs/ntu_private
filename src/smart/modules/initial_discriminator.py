@@ -375,9 +375,9 @@ class InitGeneator(nn.Module):
             #     False,
             # )
 
-            x = x + self._sa_block(
-                self.norm1(x), tgt_mask, tgt_key_padding_mask, tgt_is_causal
-            )
+            # x = x + self._sa_block(
+            #     self.norm1(x), tgt_mask, tgt_key_padding_mask, tgt_is_causal
+            # )
             entry_feature = x + self._ff_block(self.norm3(x))
 
         # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
