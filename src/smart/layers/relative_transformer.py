@@ -417,11 +417,16 @@ def padding(tensor,lengths,padding_value=0 ):
 
 
 class RoFormerBlock(nn.Module):
-    def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
+    def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False,norm=True):
         super().__init__()
-        self.norm1 = nn.LayerNorm(hidden_dim)
+
+        self.norm = norm
+
+        if norm:
+            self.norm1 = nn.LayerNorm(hidden_dim)
+            self.norm2 = nn.LayerNorm(hidden_dim)
+
         self.attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb,hist_len=hist_len)
-        self.norm2 = nn.LayerNorm(hidden_dim)
         self.attention_head_size=hidden_dim // num_heads
 
         self.mlp = nn.Sequential(
@@ -437,8 +442,12 @@ class RoFormerBlock(nn.Module):
         self.hist_len=hist_len
 
     def forward(self, x,attention_mask,sinusoidal_pos,y=None,y_sinusoidal_pos=None,pos_embeding=None,n_agent=1):
-        x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding,n_agent=n_agent)
-        x = x + self.mlp(self.norm2(x))
+        if self.norm:
+            x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding,n_agent=n_agent)
+            x = x + self.mlp(self.norm2(x))
+        else:
+            x = x + self.attn(x,attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding,n_agent=n_agent)
+            x = x + self.mlp(x)
 
         return x
 

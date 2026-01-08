@@ -21,6 +21,13 @@ from src.smart.utils import (
 from typing import Any, Callable, Optional, Union
 
 from torch import Tensor
+from torch.nn.modules.activation import MultiheadAttention
+from torch.nn.modules.container import ModuleList
+from torch.nn.modules.dropout import Dropout
+from torch.nn.modules.linear import Linear
+from torch.nn.modules.module import Module
+from torch.nn.modules.normalization import LayerNorm
+import torch.nn.functional as F
 
 class InitDiscriminator(nn.Module):
     def __init__(
@@ -42,10 +49,10 @@ class InitDiscriminator(nn.Module):
             self.entry_his_len = 1000000
 
             self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                              hist_len=self.entry_his_len)  # replace with gnn
+                                              hist_len=self.entry_his_len,norm=False)  # replace with gnn
 
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                             hist_len=self.entry_his_len)  # drop 01 is important
+                                             hist_len=self.entry_his_len,norm=False)  # drop 01 is important
 
         else:
             self.edge_encoder = EdgeEncoder(hidden_dim,
@@ -92,12 +99,12 @@ class InitDiscriminator(nn.Module):
                 ]
             )
 
-        self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
+        self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim,norm=False)
+        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim,norm=False)
+        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim,norm=False)
         self.type_embedding = nn.Embedding(3, hidden_dim)
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
-        self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
+        self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1,norm=False)
 
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
@@ -204,13 +211,7 @@ class InitDiscriminator(nn.Module):
 
         return score
 
-from torch.nn.modules.activation import MultiheadAttention
-from torch.nn.modules.container import ModuleList
-from torch.nn.modules.dropout import Dropout
-from torch.nn.modules.linear import Linear
-from torch.nn.modules.module import Module
-from torch.nn.modules.normalization import LayerNorm
-import torch.nn.functional as F
+
 
 class InitGeneator(nn.Module):
     def __init__(
