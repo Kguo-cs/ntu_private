@@ -294,7 +294,7 @@ class InitGeneator(nn.Module):
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
-        self.shape_head_decoder = nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 3), nn.ReLU())
+        self.shape_head_decoder = nn.Sequential(MLPLayer(hidden_dim, hidden_dim, 3), nn.Sigmoid())
 
     def forward(self, map_features, tokenized_agent):
         pos_pl, orient_pl, feat_map, map_mask = map_features
@@ -395,7 +395,7 @@ class InitGeneator(nn.Module):
 
         heading = torch.tanh(self.head_decoder(attr_feature)[:, 0]) * torch.pi
 
-        shape = self.shape_head_decoder(attr_feature)+0.2
+        shape = self.shape_head_decoder(attr_feature)*15
 
         return pos, heading, shape
 
