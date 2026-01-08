@@ -122,7 +122,11 @@ class InitDiscriminator(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b, mask_a_b
 
-    def forward(self, map_feature, pos_a, head_a, shape, tokenized_agent):
+    def forward(self,inputs, map_feature,  tokenized_agent):
+
+        pos_a=inputs[:,:2]
+        head_a=inputs[:,2]
+        shape=inputs[:,3:]
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -393,11 +397,13 @@ class InitGeneator(nn.Module):
 
         pos = torch.tanh(self.pos_decoder(attr_feature)) * 80
 
-        heading = torch.tanh(self.head_decoder(attr_feature)[:, 0]) * torch.pi
+        heading = torch.tanh(self.head_decoder(attr_feature)) * torch.pi
 
         shape = torch.sigmoid(self.shape_head_decoder(attr_feature))*15
 
-        return pos, heading, shape
+        res=torch.cat([pos, heading, shape], dim=1)
+
+        return res
 
   # self-attention block
     def _sa_block(

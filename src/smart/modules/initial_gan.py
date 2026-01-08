@@ -26,7 +26,7 @@ import torch.nn.functional as F
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.5
+    w_pos=0.1, w_heading=0.5, w_shape=0.1
 ):
     # Position: L1 or L2
 
@@ -140,49 +140,58 @@ class InitGAN(nn.Module):
         if self.D.use_entry_former:
             map_feature = padding_map_features
 
+        RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+
         if self.training:
 
             if self.global_step%10==0:
-                with torch.no_grad():
-                    fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
+                RealSamples = RealSamples.detach().requires_grad_(True)
+                FakeSamples = self.G(padding_map_features, tokenized_agent).detach().requires_grad_(True)
 
+                RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
+                FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
 
-                real_loss = -self.D(map_feature, real_pos, real_heading, real_shape, tokenized_agent).mean()
-                fake_loss = self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
+                Gamma = 1
 
+                R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+                R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
-                inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
-                inputs.requires_grad_(True)  # IMPORTANT
+                #RelativisticLogits = RealLogits - FakeLogits
+                # AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
 
-                logit = self.D(map_feature, inputs[:,:2], inputs[:,2], inputs[:,3:6], tokenized_agent)
+                # Gamma=1
+                #
+                # DiscriminatorLoss = AdversarialLoss + (Gamma / 2) * (R1Penalty + R2Penalty)
 
-                disc_flat = logit.reshape(-1, 1)
-                grad_outputs = torch.ones_like(disc_flat)
+                # with torch.no_grad():
+                #     fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
+                #
+                #
+                # real_loss = -self.D(map_feature, real_pos, real_heading, real_shape, tokenized_agent).mean()
+                # fake_loss = self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
+                #
+                #
+                # inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+                #
+                # r1=self.compute_gp(map_feature,inputs,tokenized_agent)
+                # inputs=torch.cat([fake_pos, fake_heading[:,None], fake_shape],dim=-1)
+                # r2=self.compute_gp(map_feature,inputs,tokenized_agent)
 
-                # Compute gradients wrt interpolated inputs
-                grad_all = torch.autograd.grad(
-                    outputs=disc_flat,  # whatever you use
-                    inputs=inputs,
-                    grad_outputs=grad_outputs,
-                    create_graph=True,
-                    retain_graph=True,
-                    only_inputs=True,
-                )[0]
+                # gp=r1+r2
 
-                grad_norm = grad_all.norm(2, dim=1)  # [B]
-                gp_lambda = 1
-
-                gp = (grad_norm ** 2).mean() * gp_lambda / 2
                 #gp=torch.tensor(0.0, device=real_heading.device)
 
-                loss = (real_loss , fake_loss,gp)
+                loss = (-RealLogits.mean() , FakeLogits.mean(),R1Penalty.mean()+R2Penalty.mean())#cosine schedule
             else:
-                fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
+                Fake_samples = self.G(padding_map_features, tokenized_agent)
 
                 self.D.eval()
-                loss = -self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
+                loss = -self.D(Fake_samples,map_feature,tokenized_agent).mean()
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
+                fake_pos = Fake_samples[:, :2]
+                fake_heading = Fake_samples[:, 2]
+                fake_shape = Fake_samples[:, 3:]
 
                 rows, cols = [], []
                 initial_type = tokenized_agent["type"][non_ego]
@@ -235,6 +244,34 @@ class InitGAN(nn.Module):
 
             return gt_initial_pos[:,None], gt_initial_heading[:,None]
 
+    def ZeroCenteredGradientPenalty(self,Samples, Critics):
+        Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
+        return Gradient.square().sum([-1])
+
+
+    def compute_gp(self,map_feature,inputs,tokenized_agent):
+        inputs.requires_grad_(True)  # IMPORTANT
+
+        logit = self.D(map_feature, inputs[:, :2], inputs[:, 2], inputs[:, 3:6], tokenized_agent)
+
+        disc_flat = logit.reshape(-1, 1)
+        grad_outputs = torch.ones_like(disc_flat)
+
+        # Compute gradients wrt interpolated inputs
+        grad_all = torch.autograd.grad(
+            outputs=disc_flat,  # whatever you use
+            inputs=inputs,
+            grad_outputs=grad_outputs,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+
+        grad_norm = grad_all.norm(2, dim=1)  # [B]
+        gp_lambda = 1
+
+        gp = (grad_norm ** 2).mean() * gp_lambda / 2
+        return gp
         # after interact with agent and map,  predict state and type and shape and tokenized position,
         # then refine predict head token and offset_xy ,
         # #then predict all agent motion
