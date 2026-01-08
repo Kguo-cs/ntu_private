@@ -244,7 +244,7 @@ class InitGeneator(nn.Module):
 
             self.transformer_decoder = nn.TransformerDecoder(
                 decoder_layer,
-                num_layers=2
+                num_layers=1
             )
             # d_model = self.hidden_dim
             # nhead=num_heads
@@ -395,7 +395,7 @@ class InitGeneator(nn.Module):
 
         heading = torch.tanh(self.head_decoder(attr_feature)[:, 0]) * torch.pi
 
-        shape = self.shape_head_decoder(attr_feature)
+        shape = self.shape_head_decoder(attr_feature)+0.2
 
         return pos, heading, shape
 

@@ -440,7 +440,6 @@ class RoFormerBlock(nn.Module):
         x = x + self.attn(self.norm1(x),attention_mask,sinusoidal_pos,y,y_sinusoidal_pos,pos_embeding,n_agent=n_agent)
         x = x + self.mlp(self.norm2(x))
 
-
         return x
 
     def cross_attention(self,src, src_pos, src_heading,src_mask,tgt, tgt_pos, tgt_heading,tgt_mask ):
