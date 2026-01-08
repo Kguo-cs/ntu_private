@@ -234,7 +234,7 @@ class InitGeneator(nn.Module):
 
             self.transformer_decoder = nn.TransformerDecoder(
                 decoder_layer,
-                num_layers=2
+                num_layers=1
             )
 
 
