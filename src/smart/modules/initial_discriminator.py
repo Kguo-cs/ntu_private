@@ -36,8 +36,9 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim = hidden_dim
 
-        self.use_entry_former = True
+        self.use_entry_former = False
         self.use_transformer=False
+        self.use_decompose = True
 
         if self.use_entry_former:
             self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
@@ -68,6 +69,7 @@ class InitDiscriminator(nn.Module):
                                                  hist_len=self.entry_his_len)  # drop 01 is important
 
         else:
+
             self.edge_encoder = EdgeEncoder(hidden_dim,
                                             num_freq_bands,
                                             a2a=True,
@@ -96,21 +98,26 @@ class InitDiscriminator(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
+            if self.use_decompose:
+                self.a2a_head= MLPLayer(
+                    input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=1
+                )
+            else:
 
-            self.a2a_attn_layers = nn.ModuleList(
-                [
-                    AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=hidden_dim // num_heads,
-                        dropout=0,
-                        bipartite=True,
-                        has_pos_emb=True,
-                        #  gated_attention=discriminator,
-                    )
-                    for _ in range(num_layers)
-                ]
-            )
+                self.a2a_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=hidden_dim // num_heads,
+                            dropout=0,
+                            bipartite=True,
+                            has_pos_emb=True,
+                            #  gated_attention=discriminator,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
 
         self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
@@ -226,12 +233,26 @@ class InitDiscriminator(nn.Module):
 
             feat_a = type_embedding + shape_embedding
 
-            feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
+            if self.use_decompose:
+                start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
+                end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
+
+                start_edge_feature = feat_a[start_index]
+                end_edge_feature = feat_a[end_index]
+
+                feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
+                interact_logits = self.a2a_head(feat_interact)
+
+            else:
+                feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
 
             attr_feature = self.pt2a_attn_layers[0]((feat_map, feat_a), r_pl2a,
                                                     edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
         score = self.score_decoder(attr_feature)
+
+        if self.use_decompose:
+            score=torch.cat([score, interact_logits], dim=0)
 
         return score
 

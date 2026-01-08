@@ -73,6 +73,8 @@ class InitGAN(nn.Module):
 
         self.criterion = nn.BCELoss()
 
+        self.use_Rp=False
+
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
@@ -159,8 +161,11 @@ class InitGAN(nn.Module):
                 R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
                 R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
-                RelativisticLogits = RealLogits - FakeLogits
-                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                if self.use_Rp:
+                    RelativisticLogits = RealLogits - FakeLogits
+                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
+                else:
+                    AdversarialLoss=FakeLogits.mean()-RealLogits.mean()
 
                 # Gamma=1
                 #
@@ -186,13 +191,17 @@ class InitGAN(nn.Module):
 
                 # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
-                loss = (AdversarialLoss.mean() ,w*R2Penalty.mean(),w*R1Penalty.mean())#cosine schedule
+                loss = (AdversarialLoss ,w*R2Penalty.mean(),w*R1Penalty.mean())#cosine schedule
             else:
                 self.D.eval()
-                RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
                 FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
-                RelativisticLogits = FakeLogits - RealLogits
-                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+
+                if self.use_Rp:
+                    RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
+                    RelativisticLogits = FakeLogits - RealLogits
+                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                else:
+                    AdversarialLoss=-FakeLogits
 
                 loss=AdversarialLoss.mean()
 
