@@ -141,12 +141,16 @@ class InitGAN(nn.Module):
             map_feature = padding_map_features
 
         RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+        FakeSamples = self.G(padding_map_features, tokenized_agent)
+        fake_pos = FakeSamples[:, :2]
+        fake_heading = FakeSamples[:, 2]
+        fake_shape = FakeSamples[:, 3:]
 
         if self.training:
 
             if self.global_step%10==0:
                 RealSamples = RealSamples.detach().requires_grad_(True)
-                FakeSamples = self.G(padding_map_features, tokenized_agent).detach().requires_grad_(True)
+                FakeSamples = FakeSamples.detach().requires_grad_(True)
 
                 RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
                 FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
@@ -183,15 +187,10 @@ class InitGAN(nn.Module):
 
                 loss = (-RealLogits.mean() , FakeLogits.mean(),R1Penalty.mean()+R2Penalty.mean())#cosine schedule
             else:
-                Fake_samples = self.G(padding_map_features, tokenized_agent)
-
                 self.D.eval()
-                loss = -self.D(Fake_samples,map_feature,tokenized_agent).mean()
+                loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
-                fake_pos = Fake_samples[:, :2]
-                fake_heading = Fake_samples[:, 2]
-                fake_shape = Fake_samples[:, 3:]
 
                 rows, cols = [], []
                 initial_type = tokenized_agent["type"][non_ego]
@@ -224,8 +223,6 @@ class InitGAN(nn.Module):
             self.global_step+=1
             return loss
         else:
-            fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
-
             global_pos,global_heading=transform_to_global(
                 fake_pos,
                 fake_heading,
