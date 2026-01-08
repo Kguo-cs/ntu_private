@@ -229,6 +229,7 @@ class InitGeneator(nn.Module):
                 nhead=num_heads,
                 dim_feedforward=self.hidden_dim*4,
                 dropout=0,
+                norm_first=True,
                 batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
             )
 
