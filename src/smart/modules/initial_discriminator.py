@@ -18,7 +18,9 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from typing import Any, Callable, Optional, Union
 
+from torch import Tensor
 
 class InitDiscriminator(nn.Module):
     def __init__(
@@ -198,6 +200,13 @@ class InitDiscriminator(nn.Module):
 
         return score
 
+from torch.nn.modules.activation import MultiheadAttention
+from torch.nn.modules.container import ModuleList
+from torch.nn.modules.dropout import Dropout
+from torch.nn.modules.linear import Linear
+from torch.nn.modules.module import Module
+from torch.nn.modules.normalization import LayerNorm
+import torch.nn.functional as F
 
 class InitGeneator(nn.Module):
     def __init__(
@@ -224,19 +233,55 @@ class InitGeneator(nn.Module):
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                              hist_len=self.entry_his_len)  # drop 01 is important
         else:
-            decoder_layer = nn.TransformerDecoderLayer(
-                d_model=self.hidden_dim,
-                nhead=num_heads,
-                dim_feedforward=self.hidden_dim*4,
-                dropout=0,
-                norm_first=True,
-                batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
-            )
+            # decoder_layer = nn.TransformerDecoderLayer(
+            #     d_model=self.hidden_dim,
+            #     nhead=num_heads,
+            #     dim_feedforward=self.hidden_dim*4,
+            #     dropout=0,
+            #     norm_first=True,
+            #     batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
+            # )
+            #
+            # self.transformer_decoder = nn.TransformerDecoder(
+            #     decoder_layer,
+            #     num_layers=1
+            # )
+            d_model = self.hidden_dim
+            nhead=num_heads
+            dropout=0
+            batch_first=True
+            bias=True
+            dim_feedforward=self.hidden_dim*4
 
-            self.transformer_decoder = nn.TransformerDecoder(
-                decoder_layer,
-                num_layers=1
+
+
+            self.self_attn = MultiheadAttention(
+                d_model,
+                nhead,
+                dropout=dropout,
+                batch_first=batch_first,
+                bias=bias
             )
+            self.multihead_attn = MultiheadAttention(
+                d_model,
+                nhead,
+                dropout=dropout,
+                batch_first=batch_first,
+                bias=bias
+            )
+            # Implementation of Feedforward model
+            self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
+            self.dropout = Dropout(dropout)
+            self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
+
+            self.norm1 = LayerNorm(d_model)
+            self.norm2 = LayerNorm(d_model)
+            self.norm3 = LayerNorm(d_model)
+            self.dropout1 = Dropout(dropout)
+            self.dropout2 = Dropout(dropout)
+            self.dropout3 = Dropout(dropout)
+
+            self.activation=F.relu
 
 
         self.noise_embedding = MLPLayer(6, hidden_dim, hidden_dim)
@@ -307,12 +352,33 @@ class InitGeneator(nn.Module):
             entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
                                                             use_time=False, use_causal=False)  #
         else:
-            entry_feature = self.transformer_decoder(
-                tgt=feat_a_b,  # self-attention queries
-                memory=feat_map,  # cross-attention keys/values
-                tgt_key_padding_mask=~mask_a_b,
-                memory_key_padding_mask=~map_mask
+            # entry_feature = self.transformer_decoder(
+            #     tgt=feat_a_b,  # self-attention queries
+            #     memory=feat_map,  # cross-attention keys/values
+            #     tgt_key_padding_mask=~mask_a_b,
+            #     memory_key_padding_mask=~map_mask
+            # )
+            x=feat_a_b
+            tgt_key_padding_mask=~mask_a_b
+            tgt_mask=None
+            tgt_is_causal=None
+            memory=feat_map
+            memory_mask=None
+            memory_key_padding_mask=None
+            memory_is_causal=None
+
+
+            x = x + self._sa_block(
+                self.norm1(x), tgt_mask, tgt_key_padding_mask, tgt_is_causal
             )
+            x = x + self._mha_block(
+                self.norm2(x),
+                memory,
+                memory_mask,
+                memory_key_padding_mask,
+                False,
+            )
+            entry_feature = x + self._ff_block(self.norm3(x))
 
         # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
         #                                                   heading_a_b, mask_a_b,
@@ -332,3 +398,47 @@ class InitGeneator(nn.Module):
         shape = self.shape_head_decoder(attr_feature)
 
         return pos, heading, shape
+
+  # self-attention block
+    def _sa_block(
+        self,
+        x: Tensor,
+        attn_mask: Optional[Tensor],
+        key_padding_mask: Optional[Tensor],
+        is_causal: bool = False,
+    ) -> Tensor:
+        x = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            is_causal=is_causal,
+            need_weights=False,
+        )[0]
+        return self.dropout1(x)
+
+    # multihead attention block
+    def _mha_block(
+        self,
+        x: Tensor,
+        mem: Tensor,
+        attn_mask: Optional[Tensor],
+        key_padding_mask: Optional[Tensor],
+        is_causal: bool = False,
+    ) -> Tensor:
+        x = self.multihead_attn(
+            x,
+            mem,
+            mem,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            is_causal=is_causal,
+            need_weights=False,
+        )[0]
+        return self.dropout2(x)
+
+    # feed forward block
+    def _ff_block(self, x: Tensor) -> Tensor:
+        x = self.linear2(self.dropout(self.activation(self.linear1(x))))
+        return self.dropout3(x)
