@@ -222,6 +222,8 @@ class InitGAN(nn.Module):
                     real_pos[col], real_heading[col], real_shape[col]
                 )
 
+                match_loss=(1-self.global_step/10000.0)*match_loss
+
                 #match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
                 loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
