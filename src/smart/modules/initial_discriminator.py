@@ -37,15 +37,32 @@ class InitDiscriminator(nn.Module):
         self.hidden_dim = hidden_dim
 
         self.use_entry_former = True
+        self.use_transformer=True
 
         if self.use_entry_former:
-            self.entry_his_len = 1000000
+            if self.use_transformer:
+                decoder_layer = nn.TransformerDecoderLayer(
+                    d_model=self.hidden_dim,
+                    nhead=num_heads,
+                    dim_feedforward=self.hidden_dim * 4,
+                    dropout=0,
+                    norm_first=True,
+                    batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
+                )
 
-            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                              hist_len=self.entry_his_len)  # replace with gnn
+                self.transformer_decoder = nn.TransformerDecoder(
+                    decoder_layer,
+                    num_layers=1
+                )
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                             hist_len=self.entry_his_len)  # drop 01 is important
+            else:
+                self.entry_his_len = 1000000
+
+                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
+                                                  hist_len=self.entry_his_len)  # replace with gnn
+
+                self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
+                                                 hist_len=self.entry_his_len)  # drop 01 is important
 
         else:
             self.edge_encoder = EdgeEncoder(hidden_dim,
@@ -142,14 +159,28 @@ class InitDiscriminator(nn.Module):
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, batch_num)
 
-            entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                              heading_a_b, mask_a_b,
-                                                              feat_map,
-                                                              pos_pl,
-                                                              orient_pl, map_mask)
+            if self.use_transformer:
+                feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+                with torch.backends.cuda.sdp_kernel(
+                        enable_mem_efficient=False,
+                ):
 
-            attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
-                                                           use_time=False)
+                    attr_feature = self.transformer_decoder(
+                        tgt=feat_a_b,  # self-attention queries
+                        memory=feat_map,  # cross-attention keys/values
+                        tgt_key_padding_mask=~mask_a_b,
+                        memory_key_padding_mask=~map_mask
+                    )
+            else:
+
+                entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                                                                  heading_a_b, mask_a_b,
+                                                                  feat_map,
+                                                                  pos_pl,
+                                                                  orient_pl, map_mask)
+
+                attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
+                                                               use_time=False)
 
             attr_feature = attr_feature[mask_a_b]
         else:
