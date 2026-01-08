@@ -160,8 +160,8 @@ class InitGAN(nn.Module):
                 R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
                 R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
-                #RelativisticLogits = RealLogits - FakeLogits
-                # AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                RelativisticLogits = RealLogits - FakeLogits
+                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
 
                 # Gamma=1
                 #
@@ -185,7 +185,7 @@ class InitGAN(nn.Module):
 
                 #gp=torch.tensor(0.0, device=real_heading.device)
 
-                loss = (-RealLogits.mean() , FakeLogits.mean(),R1Penalty.mean()+R2Penalty.mean())#cosine schedule
+                loss = (AdversarialLoss.mean() , R2Penalty.mean(),R1Penalty.mean())#cosine schedule
             else:
                 self.D.eval()
                 loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
