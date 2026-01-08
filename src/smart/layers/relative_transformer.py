@@ -431,7 +431,7 @@ class RoFormerBlock(nn.Module):
 
         self.mlp = nn.Sequential(
             nn.Linear(hidden_dim, int(hidden_dim * mlp_ratio)),
-            nn.GELU(),
+            nn.LeakyReLU(),
             nn.Dropout(dropout),
             nn.Linear(int(hidden_dim * mlp_ratio), hidden_dim),
             nn.Dropout(dropout)

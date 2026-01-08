@@ -49,10 +49,10 @@ class InitDiscriminator(nn.Module):
             self.entry_his_len = 1000000
 
             self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                              hist_len=self.entry_his_len,norm=False)  # replace with gnn
+                                              hist_len=self.entry_his_len)  # replace with gnn
 
             self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0.2,
-                                             hist_len=self.entry_his_len,norm=False)  # drop 01 is important
+                                             hist_len=self.entry_his_len)  # drop 01 is important
 
         else:
             self.edge_encoder = EdgeEncoder(hidden_dim,
@@ -104,7 +104,7 @@ class InitDiscriminator(nn.Module):
         self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
-        self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1,norm=False)
+        self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
@@ -244,7 +244,8 @@ class InitGeneator(nn.Module):
                 dim_feedforward=self.hidden_dim*4,
                 dropout=0,
                 norm_first=True,
-                batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
+                batch_first=True,  # nn.Transformer uses (seq_len, batch, dim)
+                activation=F.leaky_relu,
             )
 
             self.transformer_decoder = nn.TransformerDecoder(
