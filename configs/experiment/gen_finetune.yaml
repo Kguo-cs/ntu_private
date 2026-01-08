@@ -39,7 +39,7 @@ ckpt_path: './ckpts/bcgen56_featv1_gtsim648_epoch=14-step=130455.ckpt'
 
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen128_sort08_map100_max_01loss_nopos0_nooffset_epoch=31-step=121760.ckpt'
 
-task_name: gen256_realgan2_match100pos2_value80pi #valuetrans__dispos_ego_notime #angle_graphtime_graphreal_gp100_disdrop01eval2 #_l2 #_w10 #_match #_headmask08_map100_max_01loss_nooffset_ego
+task_name: gen256_real_matchpos2_trans_value80pi #100valuetrans__dispos_ego_notime #angle_graphtime_graphreal_gp100_disdrop01eval2 #_l2 #_w10 #_match #_headmask08_map100_max_01loss_nooffset_ego
 
 trainer:
   limit_train_batches: 1.0

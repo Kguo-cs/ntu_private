@@ -214,7 +214,7 @@ class InitGeneator(nn.Module):
 
         self.entry_his_len = 1000000
 
-        self.use_entry_former = True
+        self.use_entry_former = False
 
         if self.use_entry_former:
 
