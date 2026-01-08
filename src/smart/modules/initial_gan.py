@@ -188,7 +188,14 @@ class InitGAN(nn.Module):
                 loss = (AdversarialLoss.mean() , R2Penalty.mean(),R1Penalty.mean())#cosine schedule
             else:
                 self.D.eval()
-                loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
+                RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
+                FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
+                RelativisticLogits = FakeLogits - RealLogits
+                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+
+                loss=AdversarialLoss.mean()
+
+                # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
 
