@@ -75,6 +75,8 @@ class InitGAN(nn.Module):
 
         self.use_Rp=False
 
+        self.Gamma = 0
+
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
 
@@ -158,10 +160,13 @@ class InitGAN(nn.Module):
                 RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
                 FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
 
-                Gamma = 1
 
-                R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-                R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+                if self.Gamma>0:
+                    R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+                    R2Penalty =  (self.Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+                else:
+                    R2Penalty = R1Penalty = torch.tensor(0.0, device=real_heading.device)
+
 
                 if self.use_Rp:
                     RelativisticLogits = RealLogits - FakeLogits
