@@ -220,7 +220,7 @@ class InitDiscriminator(nn.Module):
                 head_vector_s=head_vector_a,  # [n_agent, n_step, 2]
                 batch_s=batch,  # [n_agent*n_step]
                 mask=mask_a,  # [n_agent, n_step]
-                max_radius=60,
+                max_radius=10,
                 max_num_neighbors=20,
                 agent_train_mask=None,
                 layer_num=1,
