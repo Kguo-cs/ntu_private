@@ -182,7 +182,7 @@ class InitGAN(nn.Module):
 
                 # gp=r1+r2#
 
-                w=0.1+(1-self.global_step/10000.0)
+                w=1#0.1+(1-self.global_step/10000.0)
 
                 # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 

@@ -40,6 +40,9 @@ class InitDiscriminator(nn.Module):
         self.use_transformer=False
 
         if self.use_entry_former:
+            self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+            self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+
             if self.use_transformer:
                 decoder_layer = nn.TransformerDecoderLayer(
                     d_model=self.hidden_dim,
@@ -111,8 +114,6 @@ class InitDiscriminator(nn.Module):
 
         self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
@@ -219,13 +220,11 @@ class InitDiscriminator(nn.Module):
                 counter_feat_a=None
             )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-            pos_embedding = self.pos_embedding(pos_a)
-            heading_embedding = self.head_embedding(head_a[:, None])
 
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
-            feat_a = type_embedding + shape_embedding + pos_embedding + heading_embedding
+            feat_a = type_embedding + shape_embedding
 
             feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
 
