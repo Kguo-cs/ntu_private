@@ -367,13 +367,13 @@ class InitGeneator(nn.Module):
             memory_key_padding_mask=None
             memory_is_causal=None
 
-            # x = x + self._mha_block(
-            #     self.norm2(x),
-            #     memory,
-            #     memory_mask,
-            #     memory_key_padding_mask,
-            #     False,
-            # )
+            x = x + self._mha_block(
+                self.norm2(x),
+                memory,
+                memory_mask,
+                memory_key_padding_mask,
+                False,
+            )
 
             # x = x + self._sa_block(
             #     self.norm1(x), tgt_mask, tgt_key_padding_mask, tgt_is_causal
