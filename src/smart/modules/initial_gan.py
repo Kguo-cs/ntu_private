@@ -32,8 +32,7 @@ def matching_loss(
 
     dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
 
-    dist_mask=dist<1000
-    pos_loss = dist[dist_mask].mean()
+    pos_loss = dist.mean()
 
     # Heading: periodic-safe loss
     # heading_diff = torch.atan2(
@@ -41,10 +40,10 @@ def matching_loss(
     #     torch.cos(fake_heading - real_heading)
     # )
     heading_diff=wrap_angle(fake_heading - real_heading)
-    heading_loss = heading_diff[dist_mask].abs().mean()
+    heading_loss = heading_diff.abs().mean()
 
     # Shape: L1
-    shape_loss = F.l1_loss(fake_shape[dist_mask], real_shape[dist_mask])
+    shape_loss = F.l1_loss(fake_shape, real_shape)
 
     total_loss = (
         w_pos * pos_loss +
@@ -52,7 +51,7 @@ def matching_loss(
         w_shape * shape_loss
     )
 
-    return total_loss,w_pos *pos_loss,w_heading *heading_loss,w_shape *shape_loss
+    return total_loss,pos_loss,heading_loss,shape_loss
 
 class InitGAN(nn.Module):
     def __init__(
@@ -149,16 +148,16 @@ class InitGAN(nn.Module):
         if self.training:
 
             if self.global_step%10==0:
-                #RealSamples = RealSamples.detach().requires_grad_(True)
-                FakeSamples = FakeSamples.detach()#.requires_grad_(True)
+                RealSamples = RealSamples.detach().requires_grad_(True)
+                FakeSamples = FakeSamples.detach().requires_grad_(True)
 
                 RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
                 FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
 
-                # Gamma = 1
-                #
-                # R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-                # R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+                Gamma = 1
+
+                R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+                R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
                 RelativisticLogits = RealLogits - FakeLogits
                 AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
@@ -183,7 +182,7 @@ class InitGAN(nn.Module):
 
                 # gp=r1+r2
 
-                R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
+                # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
                 loss = (AdversarialLoss.mean() , R2Penalty.mean(),R1Penalty.mean())#cosine schedule
             else:
@@ -199,31 +198,31 @@ class InitGAN(nn.Module):
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
 
-                rows, cols = [], []
-                initial_type = tokenized_agent["type"][non_ego]
+                # rows, cols = [], []
+                # initial_type = tokenized_agent["type"][non_ego]
+                #
+                # for b in batch.unique():
+                #     for type in initial_type[batch == b].unique():
+                #         f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
+                #
+                #         dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                #
+                #         cost = dist.cpu().detach().numpy()
+                #
+                #         row, col = linear_sum_assignment(cost)
+                #
+                #         rows.append(f_idx[row])
+                #         cols.append(f_idx[col])
+                #
+                # row = torch.cat(rows)
+                # col = torch.cat(cols)
+                #
+                # match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
+                #     fake_pos[row], fake_heading[row], fake_shape[row],
+                #     real_pos[col], real_heading[col], real_shape[col]
+                # )
 
-                for b in batch.unique():
-                    for type in initial_type[batch == b].unique():
-                        f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
-
-                        dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
-
-                        cost = dist.cpu().detach().numpy()
-
-                        row, col = linear_sum_assignment(cost)
-
-                        rows.append(f_idx[row])
-                        cols.append(f_idx[col])
-
-                row = torch.cat(rows)
-                col = torch.cat(cols)
-
-                match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
-                    fake_pos[row], fake_heading[row], fake_shape[row],
-                    real_pos[col], real_heading[col], real_shape[col]
-                )
-
-               # match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
+                match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
                 loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
