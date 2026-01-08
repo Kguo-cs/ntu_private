@@ -37,7 +37,7 @@ class InitDiscriminator(nn.Module):
         self.hidden_dim = hidden_dim
 
         self.use_entry_former = True
-        self.use_transformer=True
+        self.use_transformer=False
 
         if self.use_entry_former:
             if self.use_transformer:
@@ -159,8 +159,9 @@ class InitDiscriminator(nn.Module):
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, batch_num)
 
+            feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+
             if self.use_transformer:
-                feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
                 with torch.backends.cuda.sdp_kernel(
                         enable_mem_efficient=False,
                 ):
