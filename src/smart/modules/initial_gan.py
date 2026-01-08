@@ -149,16 +149,16 @@ class InitGAN(nn.Module):
         if self.training:
 
             if self.global_step%10==0:
-                RealSamples = RealSamples.detach().requires_grad_(True)
-                FakeSamples = FakeSamples.detach().requires_grad_(True)
+                #RealSamples = RealSamples.detach().requires_grad_(True)
+                FakeSamples = FakeSamples.detach()#.requires_grad_(True)
 
                 RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
                 FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
 
-                Gamma = 1
-
-                R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-                R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+                # Gamma = 1
+                #
+                # R1Penalty = (Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+                # R2Penalty =  (Gamma / 2) *self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
                 RelativisticLogits = RealLogits - FakeLogits
                 AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
@@ -183,7 +183,7 @@ class InitGAN(nn.Module):
 
                 # gp=r1+r2
 
-                #gp=torch.tensor(0.0, device=real_heading.device)
+                R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
                 loss = (AdversarialLoss.mean() , R2Penalty.mean(),R1Penalty.mean())#cosine schedule
             else:
