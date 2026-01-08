@@ -180,11 +180,13 @@ class InitGAN(nn.Module):
                 # inputs=torch.cat([fake_pos, fake_heading[:,None], fake_shape],dim=-1)
                 # r2=self.compute_gp(map_feature,inputs,tokenized_agent)
 
-                # gp=r1+r2#(1-self.global_step/10000.0)*
+                # gp=r1+r2#
+
+                w=0.1+(1-self.global_step/10000.0)
 
                 # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
-                loss = (AdversarialLoss.mean() ,R2Penalty.mean(),R1Penalty.mean())#cosine schedule
+                loss = (AdversarialLoss.mean() ,w*R2Penalty.mean(),w*R1Penalty.mean())#cosine schedule
             else:
                 self.D.eval()
                 RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
