@@ -300,7 +300,7 @@ class InitGeneator(nn.Module):
 
             self.transformer_decoder = nn.TransformerDecoder(
                 decoder_layer,
-                num_layers=1
+                num_layers=2
             )
             # d_model = self.hidden_dim
             # nhead=num_heads
