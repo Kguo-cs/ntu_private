@@ -71,12 +71,22 @@ def transform_to_global(
     rot_mat[:, 1, 0] = -sin
     rot_mat[:, 1, 1] = cos
 
-    pos_global = torch.bmm(pos_local, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
-    pos_global = pos_global + pos_now.unsqueeze(1)
+    if len(pos_local.shape) == 3:
+        pos_now=pos_now.unsqueeze(1)
+        head_now.unsqueeze(1)
+
+    if len(pos_local.shape) == 3:
+        pos_global = torch.bmm(pos_local, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
+    else:
+        pos_local = pos_local.unsqueeze(1)  # [n_agent, 1, 2]
+        pos_global = torch.bmm(pos_local, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
+        pos_global = pos_global.squeeze(1)  # [n_agent, 2]
+
+    pos_global = pos_global + pos_now
     if head_local is None:
         head_global = None
     else:
-        head_global = head_local + head_now.unsqueeze(1)
+        head_global = head_local + head_now
     return pos_global, head_global
 
 
@@ -93,12 +103,22 @@ def transform_to_local(
     rot_mat[:, 1, 0] = sin
     rot_mat[:, 1, 1] = cos
 
-    pos_local = pos_global - pos_now.unsqueeze(1)
-    pos_local = torch.bmm(pos_local, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
+    if len(pos_global.shape) == 3:
+        pos_now=pos_now.unsqueeze(1)
+        head_now.unsqueeze(1)
+
+    pos_local = pos_global - pos_now
+    if len(pos_global.shape) == 3:
+        pos_local = torch.bmm(pos_local, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]
+    else:
+        pos_local = pos_local.unsqueeze(1)  # [n_agent, 1, 2]
+        pos_local = torch.bmm(pos_local, rot_mat)  # [n_agent, 1, 2]
+        pos_local = pos_local.squeeze(1)  # [n_agent, 2]
+
     if head_global is None:
         head_local = None
     else:
-        head_local = head_global - head_now.unsqueeze(1)
+        head_local = head_global - head_now
     return pos_local, head_local
 
 def sample_next_token_traj(
