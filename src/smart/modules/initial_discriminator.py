@@ -300,7 +300,7 @@ class InitGeneator(nn.Module):
 
             self.transformer_decoder = nn.TransformerDecoder(
                 decoder_layer,
-                num_layers=2
+                num_layers=1
             )
             # d_model = self.hidden_dim
             # nhead=num_heads
@@ -447,56 +447,56 @@ class InitGeneator(nn.Module):
 
         attr_feature = entry_feature[mask_a_b]
 
-        pos = torch.tanh(self.pos_decoder(attr_feature)) * 80
+        pos = self.pos_decoder(attr_feature) #* 80
 
-        heading = torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
 
-        shape = torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
 
         res=torch.cat([pos, heading, shape], dim=1)
 
         return res
 
-  # self-attention block
-    def _sa_block(
-        self,
-        x: Tensor,
-        attn_mask: Optional[Tensor],
-        key_padding_mask: Optional[Tensor],
-        is_causal: bool = False,
-    ) -> Tensor:
-        x = self.self_attn(
-            x,
-            x,
-            x,
-            attn_mask=attn_mask,
-            key_padding_mask=key_padding_mask,
-            is_causal=is_causal,
-            need_weights=False,
-        )[0]
-        return self.dropout1(x)
-
-    # multihead attention block
-    def _mha_block(
-        self,
-        x: Tensor,
-        mem: Tensor,
-        attn_mask: Optional[Tensor],
-        key_padding_mask: Optional[Tensor],
-        is_causal: bool = False,
-    ) -> Tensor:
-        x = self.multihead_attn(
-            x,
-            mem,
-            mem,
-            attn_mask=attn_mask,
-            key_padding_mask=key_padding_mask,
-            is_causal=is_causal,
-            need_weights=False,
-        )[0]
-        return self.dropout2(x)
-
-    # feed forward block
-    def _ff_block(self, x: Tensor) -> Tensor:
-        x = self.linear2(self.dropout(self.activation(self.linear1(x))))
-        return self.dropout3(x)
+  # # self-attention block
+  #   def _sa_block(
+  #       self,
+  #       x: Tensor,
+  #       attn_mask: Optional[Tensor],
+  #       key_padding_mask: Optional[Tensor],
+  #       is_causal: bool = False,
+  #   ) -> Tensor:
+  #       x = self.self_attn(
+  #           x,
+  #           x,
+  #           x,
+  #           attn_mask=attn_mask,
+  #           key_padding_mask=key_padding_mask,
+  #           is_causal=is_causal,
+  #           need_weights=False,
+  #       )[0]
+  #       return self.dropout1(x)
+  #
+  #   # multihead attention block
+  #   def _mha_block(
+  #       self,
+  #       x: Tensor,
+  #       mem: Tensor,
+  #       attn_mask: Optional[Tensor],
+  #       key_padding_mask: Optional[Tensor],
+  #       is_causal: bool = False,
+  #   ) -> Tensor:
+  #       x = self.multihead_attn(
+  #           x,
+  #           mem,
+  #           mem,
+  #           attn_mask=attn_mask,
+  #           key_padding_mask=key_padding_mask,
+  #           is_causal=is_causal,
+  #           need_weights=False,
+  #       )[0]
+  #       return self.dropout2(x)
+  #
+  #   # feed forward block
+  #   def _ff_block(self, x: Tensor) -> Tensor:
+  #       x = self.linear2(self.dropout(self.activation(self.linear1(x))))
+  #       return self.dropout3(x)
