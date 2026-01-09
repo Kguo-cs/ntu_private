@@ -191,7 +191,7 @@ class InitDiscriminator(nn.Module):
                                                                   orient_pl, map_mask)
 
                 attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
-                                                               use_time=False)
+                                                               use_time=False,use_causal=False)
 
             attr_feature = attr_feature[mask_a_b]
         else:

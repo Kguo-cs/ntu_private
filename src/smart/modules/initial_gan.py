@@ -153,7 +153,7 @@ class InitGAN(nn.Module):
 
         if self.training:
 
-            if self.global_step%5==0:
+            if self.global_step%10==0:
                 RealSamples = RealSamples.detach().requires_grad_(True)
                 FakeSamples = FakeSamples.detach().requires_grad_(True)
 
