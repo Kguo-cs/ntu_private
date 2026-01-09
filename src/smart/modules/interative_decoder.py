@@ -136,11 +136,11 @@ class InterativeDecoder(nn.Module):
             #
 
         self.discriminator = discriminator
-        self.use_edge_feature=True
+        self.use_decompose=True
         self.use_full_feature=False
         self.use_airl=False
 
-        if not (discriminator and self.use_edge_feature and not self.use_full_feature):
+        if not (discriminator and self.use_decompose and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
@@ -171,10 +171,8 @@ class InterativeDecoder(nn.Module):
         self.a2a_neighbor = a2a_neighbor
         self.token_processor=token_processor
 
-
         if self.discriminator:
-
-            if self.use_edge_feature:
+            if self.use_decompose:
                 self.interact_head = MLPLayer(
                     input_dim=hidden_dim*3, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
@@ -212,7 +210,7 @@ class InterativeDecoder(nn.Module):
         #rank=topo_rank_among_edges(edge_index_a2a[1],dist)
 
         for layer_i in range(self.num_layers):
-            if (self.use_edge_feature and self.discriminator):
+            if (self.use_decompose and self.discriminator):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
 
@@ -310,7 +308,7 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             valid_ego_reward = next_token_logits[:, 0].detach()
 
-            if self.use_edge_feature:
+            if self.use_decompose:
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
