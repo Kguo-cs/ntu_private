@@ -38,7 +38,7 @@ model:
 
 ckpt_path: './ckpts/bcgen56_featv1_gtsim648_epoch=14-step=130455.ckpt'
 
-task_name: bcgen56_realshape2 #notoken_togethertokenshape025_a_sim #learnfirst_sim18_tokeninit_graphv1_angle1_shape25sim18 #648 #_sim16 #_onlytokenshapegtsim16 #sim648nolocal__angle1
+task_name: bcgen56 #notoken_realshape2_togethertokenshape025_a_sim #learnfirst_sim18_tokeninit_graphv1_angle1_shape25sim18 #648 #_sim16 #_onlytokenshapegtsim16 #sim648nolocal__angle1
 
 trainer:
   limit_train_batches: 1.0
