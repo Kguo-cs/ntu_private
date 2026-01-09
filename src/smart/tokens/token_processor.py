@@ -214,8 +214,8 @@ class TokenProcessor(torch.nn.Module):
 
 
 
-                tokenized_agent["extra_pos"]=initial_pos
-                tokenized_agent["extra_heading"]=initial_heading
+                tokenized_agent["gt_initial_pos"]=initial_pos[:,None]
+                tokenized_agent["gt_initial_heading"]=initial_heading[:,None]
 
 
             shape=tokenized_agent["shape"]
