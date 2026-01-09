@@ -237,3 +237,4 @@ agents.
 
 
 
+add spectral norm and softplus activation loss

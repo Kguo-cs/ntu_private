@@ -75,7 +75,7 @@ class InitGAN(nn.Module):
 
         self.use_Rp=True
 
-        self.Gamma = 1
+        self.Gamma =   1
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
