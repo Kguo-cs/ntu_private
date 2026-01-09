@@ -205,10 +205,12 @@ class EdgeEncoder(nn.Module):
             layer_num=1,
             counter_feat_a=None
         ):
-        pos_s = pos_s[mask]
-        head_s = head_s[mask]
-        head_vector_s = head_vector_s[mask]
-        batch_s = batch_s[mask]
+
+        if mask is not None:
+            pos_s = pos_s[mask]
+            head_s = head_s[mask]
+            head_vector_s = head_vector_s[mask]
+            batch_s = batch_s[mask]
 
         edge_index_a2a = radiusGraphNearest(x=pos_s,
                                             r=max_radius,
@@ -352,13 +354,19 @@ class EdgeEncoder(nn.Module):
         if agent_train_mask is not None and layer_num==1:
             mask = mask & agent_train_mask[:,None]
 
-        n_agent, n_step = mask.shape
+        if mask is not None:
+            n_agent, n_step = mask.shape
 
-        pos_s=pos_a[mask]
-        head_s=head_a[mask]
-        head_vector_s=head_vector_a[mask]
-        batch_s=batch_s[mask]
-
+            pos_s=pos_a[mask]
+            head_s=head_a[mask]
+            head_vector_s=head_vector_a[mask]
+            batch_s=batch_s[mask]
+        else:
+            pos_s=pos_a
+            head_s=head_a
+            head_vector_s=head_vector_a
+            batch_s=batch_s
+            n_step=1
 
         edge_index_pl2a = radiusGraphNearest2(x=pos_s,
                                               y=pos_pl,
@@ -466,3 +474,5 @@ def topo_rank_among_edges( dst, dist_3d):
     # 1-based rank (1 = nearest)
     topo_rank = pos_in_group_orig + 1
     return topo_rank
+
+
