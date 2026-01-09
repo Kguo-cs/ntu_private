@@ -93,7 +93,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
             # #list(self.encoder.map_encoder.parameters())+
 
             actor_optimizer=torch.optim.Adam(self.encoder.agent_encoder.init_decoder.G.parameters(), lr=self.lr)#,betas=(0.0,0.0)
-            discriminator_optimizer=torch.optim.Adam(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=1e-5)#,weight_decay=10
+            discriminator_optimizer=torch.optim.Adam(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=1e-4)#,weight_decay=10
 
             return [actor_optimizer, discriminator_optimizer]
 
