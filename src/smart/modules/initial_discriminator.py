@@ -41,8 +41,6 @@ class InitDiscriminator(nn.Module):
         self.use_decompose = False
 
         if self.use_entry_former:
-            self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-            self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
             if self.use_transformer:
                 decoder_layer = nn.TransformerDecoderLayer(
@@ -58,6 +56,8 @@ class InitDiscriminator(nn.Module):
                     decoder_layer,
                     num_layers=1
                 )
+                self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+                self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
             else:
                 self.entry_his_len = 1000000
