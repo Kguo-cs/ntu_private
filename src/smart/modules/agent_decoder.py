@@ -20,17 +20,19 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
-    weight_init
+)
+from src.smart.utils import (
+    transform_to_global,
+    weight_init,
 )
 from torch.distributions import Categorical
-from .build_edge import build_batch,insert_ego
+from .build_edge import build_batch
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
 import numpy as np
 from src.smart.modules.entry_encoder import EntryDecoder
 from src.smart.modules.inf_encoder import InfGenAgentDecoder
 from src.smart.modules.initial_decoder import InitDecoder
-from src.smart.modules.initial_gan import InitGAN
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -63,8 +65,6 @@ class SMARTAgentDecoder(nn.Module):
         self.num_historical_steps = num_historical_steps
         self.num_future_steps = num_future_steps
         self.time_span = time_span if time_span is not None else num_historical_steps
-        self.token_processor= token_processor
-        self.discriminator=discriminator
 
         self.shift = token_processor.shift
 
@@ -99,17 +99,11 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_entry:
             self.entry_decoder=EntryDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        self.learn_init=token_processor.learn_init
+        # if self.pred_init:
+        #     self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
 
-        self.token_initial=token_processor.token_initial
-
-        if self.pred_init and self.learn_init:
-
-            if self.token_initial:
-                self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
-            else:
-                self.init_decoder=InitGAN(hidden_dim,num_heads,num_freq_bands,token_processor)
-
+        self.token_processor= token_processor
+        self.discriminator=discriminator
         self.apply(weight_init)
 
 
@@ -145,25 +139,126 @@ class SMARTAgentDecoder(nn.Module):
                 ego_mask_step[:1]=False
             ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
             ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1).sum(1)   # (2, batch)#
-
+            #
             # batch_ego_feature=ego_feature[map_feature['batch']]
             #
             # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
 
             ego_feature=ego_feature[:,None]
+
+
             ego_pos = pos_a[:, 1:2][ego_mask]
             ego_heading = head_a[:, 1:2][ego_mask]
 
-            map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
+            # Map features
+            batch = map_feature['batch']  # (N,)
+            pt_token = map_feature['pt_token']  # (N, F)
+            position = map_feature['position']  # (N, D)
+            orientation = map_feature['orientation']  # (N, H)
 
-            if self.learn_init:
-                initial_logit = self.init_decoder(map_feature, tokenized_agent)
+            device = batch.device
+            B = ego_feature.size(0)
+            E = ego_feature.size(1)  # = 2
 
-                return None, None, None, None, None, initial_logit, None
-            else:
-                initial_logit=None
-        else:
-            initial_logit=None
+            # =========================
+            # 1. Count map elements per batch
+            # =========================
+            counts = torch.bincount(batch, minlength=B)  # (B,)
+
+            # =========================
+            # 2. Compute batch offsets (+E ego per batch)
+            # =========================
+            new_counts = counts + E
+            offsets = torch.cumsum(new_counts, dim=0) - new_counts  # (B,)
+
+            # =========================
+            # 3. Ego indices
+            # =========================
+            ego_indices = (
+                    offsets[:, None] +
+                    torch.arange(E, device=device)[None, :]
+            ).reshape(-1)  # (B*E,)
+
+            # =========================
+            # 4. Map indices (order-preserving)
+            # =========================
+            pos_in_batch = (
+                    torch.arange(batch.size(0), device=device)
+                    - torch.cumsum(counts, 0)[batch]
+                    + counts[batch]
+            )
+
+            map_indices = offsets[batch] + E + pos_in_batch
+
+            # =========================
+            # 5. Allocate outputs
+            # =========================
+            N_new = new_counts.sum().item()
+
+            pt_token_out = torch.empty(
+                (N_new, pt_token.size(1)),
+                device=device,
+                dtype=pt_token.dtype,
+            )
+
+            position_out = torch.empty(
+                (N_new, position.size(1)),
+                device=device,
+                dtype=position.dtype,
+            )
+
+            orientation_out = torch.empty(
+                (N_new),
+                device=device,
+                dtype=orientation.dtype,
+            )
+
+            batch_out = torch.empty(
+                (N_new,),
+                device=device,
+                dtype=batch.dtype,
+            )
+
+            # =========================
+            # 6. Scatter ego (flatten B×E → (B*E))
+            # =========================
+            pt_token_out[ego_indices] = ego_feature.reshape(-1, pt_token.size(1))
+            position_out[ego_indices] = ego_pos.reshape(-1, position.size(1))
+            orientation_out[ego_indices] = ego_heading.reshape(-1)
+            batch_out[ego_indices] = torch.repeat_interleave(
+                torch.arange(B, device=device),
+                E
+            )
+
+            # =========================
+            # 7. Scatter map features
+            # =========================
+            pt_token_out[map_indices] = pt_token
+            position_out[map_indices] = position
+            orientation_out[map_indices] = orientation
+            batch_out[map_indices] = batch
+
+            # =========================
+            # 8. Write back
+            # =========================
+            map_feature['pt_token'] = pt_token_out
+            map_feature['position'] = position_out
+            map_feature['orientation'] = orientation_out
+            map_feature['batch'] = batch_out
+
+        #
+        #     # feat_a_step = torch.zeros(
+        #     #     n_step, n_agent, self.hidden_dim,
+        #     #     device=feat_a_token.device
+        #     # )
+        #     # feat_a_step[mask_s] = feat_a_token
+        #     #
+        #     # # 只取前 2 step 的 ego
+        #     # ego_feature1 = feat_a_step[:2, tokenized_agent["ego_mask"]] .sum(0) # (2, num_ego, D)
+        #
+        #     initial_logit = self.init_decoder(map_feature, tokenized_agent)
+        # else:
+        initial_logit=None
 
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
@@ -180,6 +275,9 @@ class SMARTAgentDecoder(nn.Module):
         next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
         entry_logit =None
+
+        #if self.training:
+           # feat_a=feat_a+agent_token_emb[:,1+self.start_step:].transpose(0, 1).flatten(0, 1)[mask_a[:,self.start_step:].transpose(0, 1).flatten(0, 1)]
 
         if self.pred_entry:
             entry_logit= self.entry_decoder(feat_a_token[-len(feat_a):],mask_a,pos_a,head_a,tokenized_agent)
@@ -211,7 +309,7 @@ class SMARTAgentDecoder(nn.Module):
         return {
             "initial_logit":initial_logit,
             "entry_logit":entry_logit,
-            "next_token_logits": next_token_logits
+            "agent_q": next_token_logits
          }
 
     def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
@@ -237,14 +335,11 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_init:
             current_step=1
 
-            if self.learn_init:
-                pos_a, head_a=self.init_decoder(map_feature, tokenized_agent)
-                max_step=18
-            else:
-                pos_a=tokenized_agent["gt_initial_pos"]
-                head_a =tokenized_agent["gt_initial_heading"]
-                max_step=16
+            #pos_a, head_a=self.init_decoder(map_feature, tokenized_agent)
+            pos_a=tokenized_agent["extra_pos"][:,None]
+            head_a =tokenized_agent["extra_heading"][:,None]
 
+            max_step=16
             token_mask=torch.zeros_like(token_mask[:, :current_step])
             mask=torch.ones_like(mask[:, :current_step])
             sampled_idx=sampled_idx[:, :current_step]

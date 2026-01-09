@@ -1,3 +1,4 @@
+
 # Not a contribution
 # Changes made by NVIDIA CORPORATION & AFFILIATES enabling <CAT-K> or otherwise documented as
 # NVIDIA-proprietary are not a contribution and subject to the following terms and conditions:
@@ -88,8 +89,6 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_agent+=1
 
         self.use_infgen=False
-        self.learn_init=False
-        self.token_initial=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -214,8 +213,8 @@ class TokenProcessor(torch.nn.Module):
 
 
 
-                tokenized_agent["gt_initial_pos"]=initial_pos[:,None]
-                tokenized_agent["gt_initial_heading"]=initial_heading[:,None]
+                tokenized_agent["extra_pos"]=initial_pos
+                tokenized_agent["extra_heading"]=initial_heading
 
 
             shape=tokenized_agent["shape"]
