@@ -38,7 +38,7 @@ class InitDiscriminator(nn.Module):
 
         self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
         if self.use_entry_former:
             self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
@@ -77,7 +77,7 @@ class InitDiscriminator(nn.Module):
                                             hist_drop_prob=0,
                                             time_span=0,
                                             shift=token_processor.shift,
-                                            discriminator=False,
+                                            discriminator=True,
                                             use_bird=token_processor.use_bird,
                                             use_cross=True
                                             )
@@ -220,7 +220,7 @@ class InitDiscriminator(nn.Module):
                 head_vector_s=head_vector_a,  # [n_agent, n_step, 2]
                 batch_s=batch,  # [n_agent*n_step]
                 mask=mask_a,  # [n_agent, n_step]
-                max_radius=10,
+                max_radius=60,
                 max_num_neighbors=20,
                 agent_train_mask=None,
                 layer_num=1,

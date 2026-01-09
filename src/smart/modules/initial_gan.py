@@ -73,9 +73,9 @@ class InitGAN(nn.Module):
 
         self.criterion = nn.BCELoss()
 
-        self.use_Rp=False
+        self.use_Rp=True
 
-        self.Gamma = 0
+        self.Gamma = 1
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()

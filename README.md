@@ -18,6 +18,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bcgen128_sort08_map100_max_01lo
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/bcgen128_randsort04_map100_nooffset_max_01shape0offset/2026-01-04_04-14-39/bc/ry3j2eke/checkpoints/epoch=7-step=30440.ckpt ./
 
+rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
