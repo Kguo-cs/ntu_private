@@ -69,14 +69,14 @@ def get_scenario_rollouts(
                 else:
                     simulated_trajectories.append(
                         sim_agents_submission_pb2.SimulatedTrajectory(
-                            center_x=pred_traj[i_scenario][i_agent, i_rollout, :, 0],
-                            center_y=pred_traj[i_scenario][i_agent, i_rollout, :, 1],
-                            center_z=pred_z[i_scenario][i_agent, i_rollout],
-                            heading=pred_head[i_scenario][i_agent, i_rollout],
+                            center_x=pred_traj[i_scenario][i_agent, i_rollout, :2, 0],
+                            center_y=pred_traj[i_scenario][i_agent, i_rollout, :2, 1],
+                            center_z=pred_z[i_scenario][i_agent, i_rollout,:2],
+                            heading=pred_head[i_scenario][i_agent, i_rollout,:2],
                             object_id=agent_id[i_scenario][i_agent],
-                            length=pred_sizes[i_scenario][i_agent, i_rollout, :, 0],
-                            width=pred_sizes[i_scenario][i_agent, i_rollout, :, 1],
-                            height=pred_sizes[i_scenario][i_agent, i_rollout, :, 2],
+                            length=pred_sizes[i_scenario][i_agent, i_rollout, :2, 0],
+                            width=pred_sizes[i_scenario][i_agent, i_rollout, :2, 1],
+                            height=pred_sizes[i_scenario][i_agent, i_rollout, :2, 2],
                         )
                     )
 
