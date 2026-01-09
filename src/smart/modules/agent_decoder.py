@@ -101,7 +101,7 @@ class SMARTAgentDecoder(nn.Module):
 
         # if self.pred_init:
         #     self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor,self.start_step)
-
+        self.learn_init=False
         self.token_processor= token_processor
         self.discriminator=discriminator
         self.apply(weight_init)

@@ -35,9 +35,9 @@ from src.utils.wosac_utils import get_scenario_id_int_tensor, get_scenario_rollo
 from src.smart.plot.plot_bird.plot_bird import plot_bird_from_tensors
 from src.smart.metrics.bird_metrics import compute_bird_metrics,MetricDict
 from src.smart.plot.plot_rollout import plot_rollout_frames
-from waymo_open_dataset.utils.sim_agents import submission_specs
-_ChallengeType = submission_specs.ChallengeType
+from src.smart.metrics.wosac_metrics import WOSACMetrics
 import time
+from src.smart.modules.build_edge import insert_ego
 
 class SMART(LightningModule):
 
@@ -71,16 +71,31 @@ class SMART(LightningModule):
 
         if self.use_smart:
             set_model_for_finetuning(self.encoder, model_config.finetune)
+
+        if self.token_processor.pred_init and model_config.finetune:
+            for p in self.encoder.parameters():
+                p.requires_grad = False
+
+            for p in self.encoder.agent_encoder.init_decoder.parameters():
+                p.requires_grad = True
+
         # else:
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
-
-        # if self.token_processor.pred_init:
-        #     self.challenge_type=_ChallengeType.SCENARIO_GEN
-        #     self.para_num=4
-        # else:
-        self.challenge_type=_ChallengeType.SIM_AGENTS
-        self.para_num=32
+        self.n_rollout_closed_val = model_config.n_rollout_closed_val
+        self.n_vis_batch = model_config.n_vis_batch
+        self.n_vis_scenario = model_config.n_vis_scenario
+        self.n_vis_rollout = model_config.n_vis_rollout
+        self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
+        #
+        if self.token_processor.pred_init and self.encoder.agent_encoder.learn_init:
+            self.challenge_type=ChallengeType.SCENARIO_GEN
+            self.para_num=4
+            self.n_rollout_closed_val=1
+        else:
+            self.challenge_type=ChallengeType.SIM_AGENTS
+            self.para_num=32
+            self.n_rollout_closed_val=8
 
         self.minADE = minADE()
         self.TokenCls = TokenCls(max_guesses=5)
@@ -88,11 +103,6 @@ class SMART(LightningModule):
         self.wosac_submission = WOSACSubmission(**model_config.wosac_submission)
         self.training_loss = CrossEntropy(**model_config.training_loss)
 
-        self.n_rollout_closed_val = model_config.n_rollout_closed_val
-        self.n_vis_batch = model_config.n_vis_batch
-        self.n_vis_scenario = model_config.n_vis_scenario
-        self.n_vis_rollout = model_config.n_vis_rollout
-        self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
 
         self.video_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         self.video_dir = Path(self.video_dir) / "videos"
@@ -103,6 +113,9 @@ class SMART(LightningModule):
         # self.log("val_closed/wosac_likelihood/metametric", float("-inf"), prog_bar=False, on_epoch=True,
         #          rank_zero_only=True)
 
+        if self.wosac_submission.is_active:
+            self.n_rollout_closed_val=32
+
         self.all_time=0
         self.all_count=0
         self.minADE0=0
@@ -111,6 +124,7 @@ class SMART(LightningModule):
         self.all_data=[]
 
         self.metric_logger=MetricDict()
+
 
         #self.wosac_submission.save_sub_file()
 
@@ -168,30 +182,6 @@ class SMART(LightningModule):
             # relative_pos1=torch.zeros([len(index),10,4],device=attention_weight.device)
             self.all_data.append((attention_weight,edge_weight,edge_index_a2a,relative_pos,valid_mask,sampled_pos,pred["agent_q"]))
 
-            #self.all_data.append(data)
-            # loss = self.training_loss(
-            #     **pred,
-            #     token_agent_shape=tokenized_agent["token_agent_shape"],  # [n_agent, 2]
-            #     token_traj=tokenized_agent["token_traj"],  # [n_agent, n_token, 4, 2]
-            # )
-            #
-            # self.TokenCls.update(
-            #     # action that goes from [(10->15), ..., (85->90)]
-            #     pred=pred["next_token_logits"],  # [n_agent, 16, n_token]
-            #     pred_valid=pred["next_token_valid"],  # [n_agent, 16]
-            #     target=tokenized_agent["gt_idx"][:, 2:],
-            #     target_valid=tokenized_agent["valid_mask"][:, 2:],
-            # )
-            # self.log(
-            #     "val_open/acc",
-            #     self.TokenCls,
-            #     on_epoch=True,
-            #     sync_dist=True,
-            #     batch_size=1,
-            # )
-            # self.log("val_open/loss", loss, on_epoch=True, sync_dist=True, batch_size=1)
-
-
         # ! closed-loop vlidation
         if self.global_rank == 0 and self.val_closed_loop:
             pred_traj, pred_z, pred_head,new_agent,pred_sizes = [], [], [],[],[]
@@ -245,101 +235,7 @@ class SMART(LightningModule):
                 ego_pos=ego_pos[:,:1]
                 ego_heading=ego_heading[:,:1]
 
-                # # Map features
-                batch = map_feature['batch']  # (N,)
-                pt_token = map_feature['pt_token']  # (N, F)
-                position = map_feature['position']  # (N, D)
-                orientation = map_feature['orientation']  # (N, H)
-
-                device = batch.device
-                B = ego_feature.size(0)
-                E = ego_feature.size(1)  # = 2
-
-                # =========================
-                # 1. Count map elements per batch
-                # =========================
-                counts = torch.bincount(batch, minlength=B)  # (B,)
-
-                # =========================
-                # 2. Compute batch offsets (+E ego per batch)
-                # =========================
-                new_counts = counts + E
-                offsets = torch.cumsum(new_counts, dim=0) - new_counts  # (B,)
-
-                # =========================
-                # 3. Ego indices
-                # =========================
-                ego_indices = (
-                        offsets[:, None] +
-                        torch.arange(E, device=device)[None, :]
-                ).reshape(-1)  # (B*E,)
-
-                # =========================
-                # 4. Map indices (order-preserving)
-                # =========================
-                pos_in_batch = (
-                        torch.arange(batch.size(0), device=device)
-                        - torch.cumsum(counts, 0)[batch]
-                        + counts[batch]
-                )
-
-                map_indices = offsets[batch] + E + pos_in_batch
-
-                # =========================
-                # 5. Allocate outputs
-                # =========================
-                N_new = new_counts.sum().item()
-
-                pt_token_out = torch.empty(
-                    (N_new, pt_token.size(1)),
-                    device=device,
-                    dtype=pt_token.dtype,
-                )
-
-                position_out = torch.empty(
-                    (N_new, position.size(1)),
-                    device=device,
-                    dtype=position.dtype,
-                )
-
-                orientation_out = torch.empty(
-                    (N_new),
-                    device=device,
-                    dtype=orientation.dtype,
-                )
-
-                batch_out = torch.empty(
-                    (N_new,),
-                    device=device,
-                    dtype=batch.dtype,
-                )
-
-                # =========================
-                # 6. Scatter ego (flatten B×E → (B*E))
-                # =========================
-                pt_token_out[ego_indices] = ego_feature.reshape(-1, pt_token.size(1))
-                position_out[ego_indices] = ego_pos.reshape(-1, position.size(1))
-                orientation_out[ego_indices] = ego_heading.reshape(-1)
-                batch_out[ego_indices] = torch.repeat_interleave(
-                    torch.arange(B, device=device),
-                    E
-                )
-
-                # =========================
-                # 7. Scatter map features
-                # =========================
-                pt_token_out[map_indices] = pt_token
-                position_out[map_indices] = position
-                orientation_out[map_indices] = orientation
-                batch_out[map_indices] = batch
-
-                # =========================
-                # 8. Write back
-                # =========================
-                map_feature['pt_token'] = pt_token_out
-                map_feature['position'] = position_out
-                map_feature['orientation'] = orientation_out
-                map_feature['batch'] = batch_out
+                map_feature = insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
             for _ in range(self.n_rollout_closed_val):
 
@@ -355,7 +251,7 @@ class SMART(LightningModule):
                     if "new_agent" in pred.keys():
                         new_agent.append(pred["new_agent"])
 
-                if self.challenge_type == _ChallengeType.SCENARIO_GEN:
+                if self.challenge_type == ChallengeType.SCENARIO_GEN:
                     pred_sizes.append(pred["shape"])
 
 
@@ -367,7 +263,7 @@ class SMART(LightningModule):
                 if len(new_agent):
                     new_agent=torch.stack(new_agent, dim=1).cpu().numpy()
 
-            if self.challenge_type == _ChallengeType.SCENARIO_GEN:
+            if self.challenge_type == ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
             else:
                 pred_traj=pred_traj[:,:,-80:]
@@ -461,7 +357,7 @@ class SMART(LightningModule):
 
             else:  # ! compute metrics, disable if save WOSAC submission
 
-                if self.challenge_type != _ChallengeType.SCENARIO_GEN:
+                if self.challenge_type != ChallengeType.SCENARIO_GEN:
                     self.minADE.update(
                         pred=pred_traj,
                         target=data["agent"]["position"][
@@ -602,7 +498,7 @@ class SMART(LightningModule):
             if not self.wosac_submission.is_active:
                 epoch_wosac_metrics = self.wosac_metrics.compute()
 
-                if self.challenge_type!=_ChallengeType.SCENARIO_GEN:
+                if self.challenge_type!=ChallengeType.SCENARIO_GEN:
                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
 
