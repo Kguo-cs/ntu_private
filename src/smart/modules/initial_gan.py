@@ -26,7 +26,7 @@ import torch.nn.functional as F
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.5
+    w_pos=0.1, w_heading=0.5, w_shape=0.2
 ):
     # Position: L1 or L2
 
