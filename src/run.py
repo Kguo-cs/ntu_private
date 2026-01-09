@@ -122,7 +122,9 @@ def run(cfg: DictConfig) -> None:
     log.info(f"Resuming from ckpt: cfg.ckpt_path={cfg.ckpt_path}")
     if cfg.action == "fit":
         log.info("Starting training!")
-        trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
+        model.load_state_dict(torch.load(cfg.ckpt_path, weights_only=False)["state_dict"], strict=False)
+
+        trainer.fit(model=model, datamodule=datamodule)#, ckpt_path=cfg.get("ckpt_path")
     elif cfg.action == "finetune":
         log.info("Starting finetuning!")
         if cfg.ckpt_path is not None:
