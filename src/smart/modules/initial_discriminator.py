@@ -167,6 +167,8 @@ class InitDiscriminator(nn.Module):
 
             pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.embed_input(pos_a, head_a, type, shape, batch, batch_num)
 
+            feat_map=feat_map.detach()
+
             feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
             if self.use_transformer:
