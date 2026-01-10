@@ -387,7 +387,7 @@ class InitGeneator(nn.Module):
 
         agent_num = len(type)
 
-        z = torch.rand(agent_num, 6, device=type.device)  #pos,heading and shape
+        z = torch.randn(agent_num, 6, device=type.device)  #pos,heading and shape
 
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 
