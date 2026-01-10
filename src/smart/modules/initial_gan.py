@@ -130,20 +130,9 @@ class InitGAN(nn.Module):
 
         batch = tokenized_agent["batch"][non_ego]
 
-        shape=tokenized_agent["shape"]
-
-        real_shape=shape[non_ego]
-
-        real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
-                                                    gt_initial_heading[non_ego],
-                                                    ego_position[batch],
-                                                    ego_heading[batch],
-                                                    )
-
         if self.D.use_entry_former:
             map_feature = padding_map_features
 
-        RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
         FakeSamples = self.G(padding_map_features, tokenized_agent)
         fake_pos = FakeSamples[:, :2]
         fake_heading = FakeSamples[:, 2]
@@ -152,14 +141,24 @@ class InitGAN(nn.Module):
         agent_n=len(FakeSamples)
 
         if self.training:
+            shape = tokenized_agent["gt_initial_shape"]
 
-            if self.global_step%10==0:
+            real_shape = shape[non_ego]
+
+            real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
+                                                        gt_initial_heading[non_ego],
+                                                        ego_position[batch],
+                                                        ego_heading[batch],
+                                                        )
+
+            RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+
+            if self.global_step % 10 == 0:
                 RealSamples = RealSamples.detach().requires_grad_(True)
                 FakeSamples = FakeSamples.detach().requires_grad_(True)
 
                 RealLogits = self.D(RealSamples, map_feature,tokenized_agent)
                 FakeLogits = self.D(FakeSamples, map_feature,tokenized_agent)
-
 
                 if self.Gamma>0:
                     R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
@@ -176,26 +175,6 @@ class InitGAN(nn.Module):
                     RealLogits, real_interact_logits=RealLogits[:agent_n], RealLogits[agent_n:]
 
                     AdversarialLoss=FakeLogits.mean()-RealLogits.mean()+fake_interact_logits.mean()-real_interact_logits.mean()
-
-                # Gamma=1
-                #
-                # DiscriminatorLoss = AdversarialLoss + (Gamma / 2) * (R1Penalty + R2Penalty)
-
-                # with torch.no_grad():
-                #     fake_pos, fake_heading, fake_shape = self.G(padding_map_features, tokenized_agent)
-                #
-                #
-                # real_loss = -self.D(map_feature, real_pos, real_heading, real_shape, tokenized_agent).mean()
-                # fake_loss = self.D(map_feature,fake_pos,fake_heading,fake_shape,tokenized_agent).mean()
-                #
-                #
-                # inputs=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
-                #
-                # r1=self.compute_gp(map_feature,inputs,tokenized_agent)
-                # inputs=torch.cat([fake_pos, fake_heading[:,None], fake_shape],dim=-1)
-                # r2=self.compute_gp(map_feature,inputs,tokenized_agent)
-
-                # gp=r1+r2#
 
                 w=1#0.1+(1-self.global_step/10000.0)
 
@@ -253,6 +232,8 @@ class InitGAN(nn.Module):
             self.global_step+=1
             return loss
         else:
+            shape = tokenized_agent["shape"]
+
             global_pos,global_heading=transform_to_global(
                 fake_pos,
                 fake_heading,
@@ -262,14 +243,20 @@ class InitGAN(nn.Module):
 
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
-            shape[non_ego]=fake_shape
+            shape[non_ego]=fake_shape[:,:3]
 
             tokenized_agent["shape"]= shape
+
+            # if self.token_processor.pred_vel:
+            #     return gt_initial_pos[:, None], gt_initial_heading[:, None],token
+            # else:
+            return gt_initial_pos[:, None], gt_initial_heading[:, None],None
+
+
             # tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
             # tokenized_agent["type"] = tokenized_agent['initial_type']
             # tokenized_agent['id']=tokenized_agent['initial_id']
 
-            return gt_initial_pos[:,None], gt_initial_heading[:,None]
 
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)

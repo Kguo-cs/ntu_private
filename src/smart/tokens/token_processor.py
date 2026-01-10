@@ -68,11 +68,11 @@ class TokenProcessor(torch.nn.Module):
         self.exit_state= 3
         self.pred_init=pred_init
         self.pl2seed_radius=81
-
-        self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
-                                             grid_interval=3,
-                                             radius=self.pl2seed_radius,
-                                             angle_interval=3)
+        #
+        # self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
+        #                                      grid_interval=3,
+        #                                      radius=self.pl2seed_radius,
+        #                                      angle_interval=3)
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -133,7 +133,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.learn_init=True
+        self.learn_init=False
+
+        self.pred_vel=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -194,6 +196,18 @@ class TokenProcessor(torch.nn.Module):
             else:
                 initial_pos = tokenized_agent["sampled_pos"][:, 1]
                 initial_heading = tokenized_agent["sampled_heading"][:, 1]
+                initial_idx=tokenized_agent["sampled_idx"][:, 1]
+                tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
+                tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
+                tokenized_agent["gt_initial_idx"] = initial_idx[:,None]
+
+                if self.pred_vel:
+
+                    token_traj=tokenized_agent["token_traj"][torch.arange(len(initial_idx)),initial_idx]
+
+                    token_vel=torch.mean(token_traj,dim=-2)
+
+                    tokenized_agent["gt_initial_shape"]=torch.cat([tokenized_agent["shape"],token_vel],dim=-1)
 
             if self.training:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
@@ -202,7 +216,9 @@ class TokenProcessor(torch.nn.Module):
                     else:
                         tokenized_agent[key]=tokenized_agent[key][:,1:]
 
-                tokenized_agent["token_mask"][:,:1]=False
+                if not self.pred_vel:
+                    tokenized_agent["token_mask"][:,:1]=False
+
 
             else:
                 # valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
@@ -224,9 +240,8 @@ class TokenProcessor(torch.nn.Module):
                     for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
                         tokenized_agent[key]=tokenized_agent[key][:,2:]
 
-            ego_mask=tokenized_agent["ego_mask"]
-
             if self.token_initial:
+                ego_mask=tokenized_agent["ego_mask"]
 
                 token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx, global_initial_pos, global_initial_heading = self.tokenize_initial(
                     initial_pos, initial_heading, ego_mask, batch)
@@ -281,9 +296,6 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["global_initial_heading"] = global_initial_heading[sort_idx]
                 if not self.training:
                     tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
-            else:
-                tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
-                tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
 
         return tokenized_map, tokenized_agent
 
@@ -684,7 +696,7 @@ class TokenProcessor(torch.nn.Module):
         entry_shape_list=[]
 
         if not self.training:
-            n_step=11
+            n_step=11+10
 
         if self.pred_entry and not self.autoregressive_entry:
             out_dict["entry_idx"] = []

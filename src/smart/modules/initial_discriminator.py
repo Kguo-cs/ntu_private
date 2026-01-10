@@ -119,10 +119,14 @@ class InitDiscriminator(nn.Module):
                     ]
                 )
 
-        self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
+
+        if self.token_processor.pred_vel:
+            self.shape_embedding = MLPLayer(5, hidden_dim, hidden_dim)
+        else:
+            self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
 
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
@@ -368,7 +372,12 @@ class InitGeneator(nn.Module):
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
-        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
+
+        if self.token_processor.pred_vel:
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
+        else:
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
+
 
     def forward(self, map_features, tokenized_agent):
         pos_pl, orient_pl, feat_map, map_mask = map_features

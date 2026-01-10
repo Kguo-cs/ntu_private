@@ -240,16 +240,20 @@ class SMARTAgentDecoder(nn.Module):
             current_step=1
 
             if self.learn_init:
-                pos_a, head_a=self.init_decoder(map_feature, tokenized_agent)
+                pos_a, head_a,sampled_idx=self.init_decoder(map_feature, tokenized_agent)
                 max_step=18
             else:
-                pos_a=tokenized_agent["gt_initial_pos"]
-                head_a =tokenized_agent["gt_initial_heading"]
+                pos_a = tokenized_agent["gt_initial_pos"]
+                head_a= tokenized_agent["gt_initial_heading"]
+                sampled_idx=tokenized_agent["gt_initial_idx"]
+
                 max_step=16
 
-            token_mask=torch.zeros_like(token_mask[:, :current_step])
             mask=torch.ones_like(mask[:, :current_step])
-            sampled_idx=sampled_idx[:, :current_step]
+            if not self.token_processor.pred_vel:
+                token_mask=torch.zeros_like(token_mask[:, :current_step])
+            else:
+                token_mask=torch.ones_like(token_mask[:, :current_step])
 
         n_agent = sampled_idx.shape[0]
 
