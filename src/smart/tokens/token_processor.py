@@ -135,7 +135,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.learn_init=True
 
-        self.pred_vel=False
+        self.pred_vel=True
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
