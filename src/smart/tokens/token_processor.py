@@ -201,13 +201,11 @@ class TokenProcessor(torch.nn.Module):
                     if self.pred_vel:
                         token_traj = tokenized_agent["token_traj"][torch.arange(len(initial_idx)), initial_idx]
 
-                        token_vel = torch.mean(token_traj, dim=-2)#0.5
+                        token_vel = torch.mean(token_traj, dim=-2)#.norm(-1)[:,None]#0.5
 
                         tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], token_vel], dim=-1)
                     else:
                         tokenized_agent["gt_initial_shape"] =tokenized_agent["shape"]
-
-
                 else:
                     initial_heading = data["agent"]["heading"][:,0] # [n_agent, n_step]
                     initial_pos = data["agent"]["position"][...,0, :2].clone()  # [n_agent, n_step, 2]

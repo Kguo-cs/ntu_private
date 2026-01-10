@@ -296,7 +296,7 @@ class InitGeneator(nn.Module):
 
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
-            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
+            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(3)])
 
             # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
             #                                   hist_len=self.entry_his_len)  # replace with gnn
