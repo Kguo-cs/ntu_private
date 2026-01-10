@@ -362,7 +362,6 @@ class InitGeneator(nn.Module):
             # self.activation=F.relu
 
 
-        self.noise_embedding = MLPLayer(16, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
@@ -375,9 +374,14 @@ class InitGeneator(nn.Module):
 
         if self.token_processor.pred_vel:
             self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
+
+            self.noise_dim=8
         else:
             self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
+            self.noise_dim=6
+
+        self.noise_embedding = MLPLayer(self.noise_dim, hidden_dim, hidden_dim)
 
     def forward(self, map_features, tokenized_agent):
         pos_pl, orient_pl, feat_map, map_mask = map_features
@@ -396,7 +400,7 @@ class InitGeneator(nn.Module):
 
         agent_num = len(type)
 
-        z = torch.randn(agent_num, 16, device=type.device)  #pos,heading and shape
+        z = torch.randn(agent_num, self.noise_dim, device=type.device)  #pos,heading and shape
 
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 

@@ -133,9 +133,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.learn_init=False
+        self.learn_init=True
 
-        self.pred_vel=True
+        self.pred_vel=False
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -194,20 +194,39 @@ class TokenProcessor(torch.nn.Module):
                 initial_pos = tokenized_agent["initial_pos"]
                 initial_heading = tokenized_agent["initial_heading"]
             else:
-                initial_pos = tokenized_agent["sampled_pos"][:, 1]
-                initial_heading = tokenized_agent["sampled_heading"][:, 1]
-                initial_idx=tokenized_agent["sampled_idx"][:, 1]
+                if self.training or not self.learn_init:
+                    initial_pos = tokenized_agent["sampled_pos"][:, 1]
+                    initial_heading = tokenized_agent["sampled_heading"][:, 1]
+                    initial_idx=tokenized_agent["sampled_idx"][:, 1]
+                    if self.pred_vel:
+                        token_traj = tokenized_agent["token_traj"][torch.arange(len(initial_idx)), initial_idx]
+
+                        token_vel = torch.mean(token_traj, dim=-2)#0.5
+
+                        tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], token_vel], dim=-1)
+                    else:
+                        tokenized_agent["gt_initial_shape"] =tokenized_agent["shape"]
+
+
+                else:
+                    initial_heading = data["agent"]["heading"][:,0] # [n_agent, n_step]
+                    initial_pos = data["agent"]["position"][...,0, :2].clone()  # [n_agent, n_step, 2]
+                    vel = data["agent"]["velocity"][:,0].clone()  # [n_agent, n_step, 2]
+
+                    token_vel = tokenized_agent["token_traj"].mean(-2)
+
+                    local_pos=transform_to_local(
+                        initial_pos+ vel*0.5,
+                        None,
+                        initial_pos,
+                        initial_heading,
+                    )[0]
+
+                    initial_idx=torch.linalg.norm(token_vel-local_pos[:,None],dim=-1).argmin(-1)
+
                 tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
                 tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
                 tokenized_agent["gt_initial_idx"] = initial_idx[:,None]
-
-                if self.pred_vel:
-
-                    token_traj=tokenized_agent["token_traj"][torch.arange(len(initial_idx)),initial_idx]
-
-                    token_vel=torch.mean(token_traj,dim=-2)
-
-                    tokenized_agent["gt_initial_shape"]=torch.cat([tokenized_agent["shape"],token_vel],dim=-1)
 
             if self.training:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
