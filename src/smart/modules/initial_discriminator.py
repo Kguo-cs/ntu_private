@@ -362,12 +362,12 @@ class InitGeneator(nn.Module):
             # self.activation=F.relu
 
 
-        self.type_embedding = nn.Embedding(3, hidden_dim)
+       # self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
-        self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        #self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
@@ -381,7 +381,7 @@ class InitGeneator(nn.Module):
 
             self.noise_dim=6
 
-        self.noise_embedding = MLPLayer(self.noise_dim, hidden_dim, hidden_dim)
+        self.noise_embedding = MLPLayer(self.noise_dim+4, hidden_dim, hidden_dim)
 
     def forward(self, map_features, tokenized_agent):
         pos_pl, orient_pl, feat_map, map_mask = map_features
@@ -419,7 +419,13 @@ class InitGeneator(nn.Module):
 
         value = value[mask_a_b]
 
-        feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
+        one_hot = F.one_hot(type, num_classes=3)
+
+        z=torch.cat([z, one_hot,value[:,None]], dim=-1)
+
+        feature=self.noise_embedding(z)
+
+        # feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
 
         feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
 

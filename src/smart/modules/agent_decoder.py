@@ -250,10 +250,10 @@ class SMARTAgentDecoder(nn.Module):
                 max_step=16
 
             mask=torch.ones_like(mask[:, :current_step])
-            if not self.token_processor.pred_vel:
-                token_mask=torch.zeros_like(token_mask[:, :current_step])
-            else:
+            if self.token_processor.pred_vel:
                 token_mask=torch.ones_like(token_mask[:, :current_step])
+            else:
+                token_mask=torch.zeros_like(token_mask[:, :current_step])
 
         n_agent = sampled_idx.shape[0]
 
