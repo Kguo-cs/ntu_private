@@ -683,8 +683,8 @@ class TokenProcessor(torch.nn.Module):
         entry_type_list=[]
         entry_shape_list=[]
 
-        # if not self.training:
-        #     n_step=11+10
+        if not self.training:
+            n_step=11
 
         if self.pred_entry and not self.autoregressive_entry:
             out_dict["entry_idx"] = []

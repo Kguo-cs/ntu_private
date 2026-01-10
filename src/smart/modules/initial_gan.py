@@ -26,7 +26,7 @@ import torch.nn.functional as F
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2
+    w_pos=0.01, w_heading=0.5, w_shape=0.2
 ):
     # Position: L1 or L2
 
@@ -244,7 +244,7 @@ class InitGAN(nn.Module):
                     real_pos[col], real_heading[col], real_shape[col]
                 )
 
-                match_loss=(0.1+(1-self.global_step/20000.0))*match_loss
+                # match_loss=(0.1+(1-self.global_step/20000.0))*match_loss
                 #
                 # match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
