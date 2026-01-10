@@ -269,6 +269,7 @@ from torch.nn.modules.linear import Linear
 from torch.nn.modules.module import Module
 from torch.nn.modules.normalization import LayerNorm
 import torch.nn.functional as F
+import copy
 
 class InitGeneator(nn.Module):
     def __init__(
@@ -289,17 +290,21 @@ class InitGeneator(nn.Module):
 
         if self.use_entry_former:
 
-            self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                              hist_len=self.entry_his_len)  # replace with gnn
+            module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                                  hist_len=self.entry_his_len)  # replace with gnn
+            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
 
-            self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                             hist_len=self.entry_his_len)  # drop 01 is important
-
-            self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                              hist_len=self.entry_his_len)  # replace with gnn
-
-            self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                             hist_len=self.entry_his_len)  # drop 01 is important
+            # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                   hist_len=self.entry_his_len)  # replace with gnn
+            #
+            # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                  hist_len=self.entry_his_len)  # drop 01 is important
+            #
+            # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                   hist_len=self.entry_his_len)  # replace with gnn
+            #
+            # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                  hist_len=self.entry_his_len)  # drop 01 is important
 
         else:
             decoder_layer = nn.TransformerDecoderLayer(
@@ -411,27 +416,36 @@ class InitGeneator(nn.Module):
         if self.use_entry_former:
             pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
             heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
-            n_agent = feat_a_b.shape[1]
-            entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                              heading_a_b, mask_a_b,
-                                                              feat_map,
-                                                              pos_pl,
-                                                              orient_pl, map_mask)
 
-            entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-                                                            use_time=False, use_causal=False)  #
+            for mod in  self.entry_formers:
+                feat_a_b = mod(feat_a_b, pos_a_b,
+                              heading_a_b, mask_a_b,
+                              feat_map,
+                              pos_pl,
+                              orient_pl, map_mask
+                )
 
-            entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-                                                              heading_a_b, mask_a_b,
-                                                              feat_map,
-                                                              pos_pl,
-                                                              orient_pl, map_mask)
-
-            entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-                                                            use_time=False, use_causal=False)  #
+            # n_agent = feat_a_b.shape[1]
+            # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+            #                                                   heading_a_b, mask_a_b,
+            #                                                   feat_map,
+            #                                                   pos_pl,
+            #                                                   orient_pl, map_mask)
+            #
+            # entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
+            #                                                 use_time=False, use_causal=False)  #
+            #
+            # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
+            #                                                   heading_a_b, mask_a_b,
+            #                                                   feat_map,
+            #                                                   pos_pl,
+            #                                                   orient_pl, map_mask)
+            #
+            # entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
+            #                                                 use_time=False, use_causal=False)  #
 
         else:
-            entry_feature = self.transformer_decoder(
+            feat_a_b = self.transformer_decoder(
                 tgt=feat_a_b,  # self-attention queries
                 memory=feat_map,  # cross-attention keys/values
                 tgt_key_padding_mask=~mask_a_b,
@@ -468,7 +482,7 @@ class InitGeneator(nn.Module):
         #
         # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
 
-        attr_feature = entry_feature[mask_a_b]
+        attr_feature = feat_a_b[mask_a_b]
 
         pos = self.pos_decoder(attr_feature) #* 80
 
