@@ -23,6 +23,8 @@ simformer
 
 /home/ke/code/sim/src/waymo_data/gen256_fakegan2_disdrop01evalmatchtype02_epoch=31-step=60896_0.64111.ckpt
 
+lead to width 0
+
 | Metric                                | Value      |
 | ------------------------------------- | ---------- |
 | Realism meta-metric                   | 0.62279016 |
@@ -36,3 +38,6 @@ simformer
 | Distance To Road Edge Likelihood      | 0.27070937 |
 | Offroad Likelihood                    | 0.5712369  |
 | minADE                                | 0          |
+
+
+/home/ke/code/sim/src/waymo_data/gen128_gpgenr12_notantransdrop0_1e5_epoch=13-step=53270_0.63073.ckpt
