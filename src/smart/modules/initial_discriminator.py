@@ -10,7 +10,7 @@ from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer, CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder, topo_rank_among_edges
 from torch_scatter import scatter_max, scatter_mean, scatter_sum
-from src.smart.layers.relative_transformer import RoFormerBlock
+from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     cal_polygon_contour,
@@ -62,11 +62,11 @@ class InitDiscriminator(nn.Module):
             else:
                 self.entry_his_len = 1000000
 
-                self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                self.entry_former = RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
 
-                self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                 hist_len=self.entry_his_len)  # drop 01 is important
+                # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                #                                  hist_len=self.entry_his_len)  # drop 01 is important
 
         else:
 
@@ -184,14 +184,18 @@ class InitDiscriminator(nn.Module):
                     )
             else:
 
-                entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                                                                  heading_a_b, mask_a_b,
+                attr_feature =self.entry_former(feat_a_b, pos_a_b,  heading_a_b, mask_a_b,
                                                                   feat_map,
                                                                   pos_pl,
                                                                   orient_pl, map_mask)
-
-                attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
-                                                               use_time=False,use_causal=False)
+                # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                #                                                   heading_a_b, mask_a_b,
+                #                                                   feat_map,
+                #                                                   pos_pl,
+                #                                                   orient_pl, map_mask)
+                #
+                # attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
+                #                                                use_time=False,use_causal=False)
 
             attr_feature = attr_feature[mask_a_b]
         else:

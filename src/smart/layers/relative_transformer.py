@@ -416,6 +416,44 @@ def padding(tensor,lengths,padding_value=0 ):
     return padded_tensor
 
 
+class RoFormerDecoder(nn.Module):
+    def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
+        super().__init__()
+
+        self.self_attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb,hist_len=hist_len)
+
+        self.multihead_attn = RoFormerSelfAttention(hidden_dim, num_heads, dropout,pos_emb=pos_emb,hist_len=hist_len)
+
+        self.rotary_embedding = RoFormerSinusoidalPositionalEmbedding(hidden_dim=hidden_dim, num_heads=num_heads)
+
+        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.norm2 = nn.LayerNorm(hidden_dim)
+        self.norm3 = nn.LayerNorm(hidden_dim)
+
+
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_dim, int(hidden_dim * mlp_ratio)),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(int(hidden_dim * mlp_ratio), hidden_dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x,x_pos, x_heading,x_mask,y,y_pos, y_heading,y_mask):
+
+        tgt_mask = ~x_mask[:, None, None, :]
+        memory_mask = ~y_mask[:, None, None,:]
+
+        sinusoidal_pos = self.rotary_embedding(x_pos, x_heading, None)
+        y_sinusoidal_pos = self.rotary_embedding(y_pos, y_heading, None)
+
+
+        x = x + self.self_attn(self.norm1(x),tgt_mask,sinusoidal_pos,None,None)
+        x = x + self.multihead_attn(self.norm2(x),memory_mask,sinusoidal_pos,y,y_sinusoidal_pos)
+        x = x + self.mlp(self.norm3(x))
+
+        return x
+
 class RoFormerBlock(nn.Module):
     def __init__(self,  hidden_dim, hist_len=0,num_heads=8, mlp_ratio=4.0, dropout=0.1,pos_emb=False):
         super().__init__()
