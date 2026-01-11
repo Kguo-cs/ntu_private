@@ -439,26 +439,6 @@ class InitGeneator(nn.Module):
                               pos_pl,
                               orient_pl, map_mask
                 )
-
-            # n_agent = feat_a_b.shape[1]
-            # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-            #                                                   heading_a_b, mask_a_b,
-            #                                                   feat_map,
-            #                                                   pos_pl,
-            #                                                   orient_pl, map_mask)
-            #
-            # entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-            #                                                 use_time=False, use_causal=False)  #
-            #
-            # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-            #                                                   heading_a_b, mask_a_b,
-            #                                                   feat_map,
-            #                                                   pos_pl,
-            #                                                   orient_pl, map_mask)
-            #
-            # entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-            #                                                 use_time=False, use_causal=False)  #
-
         else:
             feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
@@ -468,7 +448,39 @@ class InitGeneator(nn.Module):
                 tgt_key_padding_mask=~mask_a_b,
                 memory_key_padding_mask=~map_mask
             )
-            # x=feat_a_b
+
+        attr_feature = feat_a_b[mask_a_b]
+
+        pos = self.pos_decoder(attr_feature) #* 80
+
+        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+
+        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+
+        res=torch.cat([pos, heading, shape], dim=1)
+
+        return res
+
+        # n_agent = feat_a_b.shape[1]
+        # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+        #                                                   heading_a_b, mask_a_b,
+        #                                                   feat_map,
+        #                                                   pos_pl,
+        #                                                   orient_pl, map_mask)
+        #
+        # entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
+        #                                                 use_time=False, use_causal=False)  #
+        #
+        # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
+        #                                                   heading_a_b, mask_a_b,
+        #                                                   feat_map,
+        #                                                   pos_pl,
+        #                                                   orient_pl, map_mask)
+        #
+        # entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
+        #                                                 use_time=False, use_causal=False)  #
+
+        # x=feat_a_b
             # tgt_key_padding_mask=~mask_a_b
             # tgt_mask=None
             # tgt_is_causal=None
@@ -498,18 +510,6 @@ class InitGeneator(nn.Module):
         #
         #
         # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
-
-        attr_feature = feat_a_b[mask_a_b]
-
-        pos = self.pos_decoder(attr_feature) #* 80
-
-        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-
-        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-
-        res=torch.cat([pos, heading, shape], dim=1)
-
-        return res
 
   # # self-attention block
   #   def _sa_block(

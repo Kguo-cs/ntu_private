@@ -133,7 +133,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.learn_init=False
+        self.learn_init=True
 
         self.pred_vel=True
 
