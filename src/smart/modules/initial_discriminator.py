@@ -296,7 +296,7 @@ class InitGeneator(nn.Module):
 
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
-            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(3)])
+            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
 
             # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
             #                                   hist_len=self.entry_his_len)  # replace with gnn
@@ -324,6 +324,10 @@ class InitGeneator(nn.Module):
                 decoder_layer,
                 num_layers=1
             )
+
+            self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+            self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+
             # d_model = self.hidden_dim
             # nhead=num_heads
             # dropout=0
@@ -361,13 +365,8 @@ class InitGeneator(nn.Module):
             #
             # self.activation=F.relu
 
-
-       # self.type_embedding = nn.Embedding(3, hidden_dim)
-
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-
-        #self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
@@ -381,7 +380,7 @@ class InitGeneator(nn.Module):
 
             self.noise_dim=6
 
-        self.noise_embedding = MLPLayer(self.noise_dim+4, hidden_dim, hidden_dim)
+        self.noise_embedding = MLPLayer(self.noise_dim, hidden_dim, hidden_dim)
 
     def forward(self, map_features, tokenized_agent):
         pos_pl, orient_pl, feat_map, map_mask = map_features
@@ -423,14 +422,11 @@ class InitGeneator(nn.Module):
 
         z=torch.cat([z, one_hot,value[:,None]], dim=-1)
 
-        feature=self.noise_embedding(z)
+        #feature=self.noise_embedding(z)
 
-        # feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
+        feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
 
         feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
-
-
-        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
         if self.use_entry_former:
             pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
@@ -464,6 +460,8 @@ class InitGeneator(nn.Module):
             #                                                 use_time=False, use_causal=False)  #
 
         else:
+            feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+
             feat_a_b = self.transformer_decoder(
                 tgt=feat_a_b,  # self-attention queries
                 memory=feat_map,  # cross-attention keys/values
