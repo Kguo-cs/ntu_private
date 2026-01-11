@@ -70,12 +70,9 @@ class InitDiscriminator(nn.Module):
             else:
                 self.entry_his_len = 1000000
 
-                self.entry_former = RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                  hist_len=self.entry_his_len)  # replace with gnn
-
-                # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                #                                  hist_len=self.entry_his_len)  # drop 01 is important
-
+                module = RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                         hist_len=self.entry_his_len)  # replace with gnn
+                self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
         else:
 
             self.edge_encoder = EdgeEncoder(hidden_dim,
@@ -188,7 +185,7 @@ class InitDiscriminator(nn.Module):
                         enable_mem_efficient=False,
                 ):
 
-                    attr_feature = self.transformer_decoder(
+                    feat_a_b = self.transformer_decoder(
                         tgt=feat_a_b,  # self-attention queries
                         memory=feat_map,  # cross-attention keys/values
                         tgt_key_padding_mask=~mask_a_b,
@@ -196,20 +193,14 @@ class InitDiscriminator(nn.Module):
                     )
             else:
 
-                attr_feature =self.entry_former(feat_a_b, pos_a_b,  heading_a_b, mask_a_b,
-                                                                  feat_map,
-                                                                  pos_pl,
-                                                                  orient_pl, map_mask)
-                # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-                #                                                   heading_a_b, mask_a_b,
-                #                                                   feat_map,
-                #                                                   pos_pl,
-                #                                                   orient_pl, map_mask)
-                #
-                # attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
-                #                                                use_time=False,use_causal=False)
-
-            attr_feature = attr_feature[mask_a_b]
+                for mod in self.entry_formers:
+                    feat_a_b = mod(feat_a_b, pos_a_b,
+                                   heading_a_b, mask_a_b,
+                                   feat_map,
+                                   pos_pl,
+                                   orient_pl, map_mask
+                                   )
+            attr_feature = feat_a_b[mask_a_b]
         else:
             mask_a = None
 
