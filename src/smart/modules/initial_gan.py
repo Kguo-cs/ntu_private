@@ -238,7 +238,7 @@ class InitGAN(nn.Module):
                         batch, initial_type,
                     )
 
-                    matching_loss_total=matching_loss_total+match_loss
+                    matching_loss_total=matching_loss_total+match_loss*0.5
 
                 # match_loss=(0.1+(1-self.global_step/20000.0))*match_loss
                 #
