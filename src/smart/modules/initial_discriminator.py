@@ -367,6 +367,8 @@ class InitGeneator(nn.Module):
 
         feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
 
+        state_list=[]
+
         if self.use_entry_former:
             pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
             heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
@@ -378,6 +380,20 @@ class InitGeneator(nn.Module):
                               pos_pl,
                               orient_pl, map_mask
                 )
+
+                if self.training:
+
+                    pos_a_b = self.pos_decoder(feat_a_b)  # * 80
+
+                    heading_a_b = self.head_decoder(feat_a_b) [:,:,0] # torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+
+                    shape = self.shape_head_decoder(feat_a_b)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+
+                    state = torch.cat([pos_a_b, heading_a_b[:,:,None] , shape], dim=-1)
+
+                    state_list.append(state[mask_a_b])
+
+
         else:
             feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
@@ -388,19 +404,30 @@ class InitGeneator(nn.Module):
                 memory_key_padding_mask=~map_mask
             )
 
-        attr_feature = feat_a_b[mask_a_b]
+        #attr_feature = feat_a_b[mask_a_b]
 
         #state=self.shape_head_decoder(attr_feature)
 
-        pos = self.pos_decoder(attr_feature) #* 80
+        # pos = self.pos_decoder(attr_feature) #* 80
+        #
+        # heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+        #
+        # shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+        #
+        # state=torch.cat([pos, heading, shape], dim=1)
+        if self.training:
+            state=state_list[-1]
+        else:
+            attr_feature = feat_a_b[mask_a_b]
+            pos = self.pos_decoder(attr_feature) #* 80
 
-        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+            heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
 
-        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+            shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
 
-        state=torch.cat([pos, heading, shape], dim=1)
+            state=torch.cat([pos, heading, shape], dim=1)
 
-        return state
+        return state,state_list
         # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
         #                                   hist_len=self.entry_his_len)  # replace with gnn
         #

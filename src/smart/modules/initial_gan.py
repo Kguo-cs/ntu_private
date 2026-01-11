@@ -26,9 +26,30 @@ import torch.nn.functional as F
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
+    batch,initial_type,
     w_pos=0.1, w_heading=0.5, w_shape=0.2
 ):
     # Position: L1 or L2
+    rows, cols = [], []
+
+    for b in batch.unique():
+        for type in initial_type[batch == b].unique():
+            f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
+
+            dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+
+            cost = dist.cpu().detach().numpy()
+
+            row, col = linear_sum_assignment(cost)
+
+            rows.append(f_idx[row])
+            cols.append(f_idx[col])
+
+    row = torch.cat(rows)
+    col = torch.cat(cols)
+
+    fake_pos, fake_heading, fake_shape=fake_pos[row], fake_heading[row], fake_shape[row],
+    real_pos, real_heading, real_shape=real_pos[col], real_heading[col], real_shape[col]
 
     dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
 
@@ -52,6 +73,8 @@ def matching_loss(
     )
 
     return total_loss,pos_loss,heading_loss,shape_loss
+
+
 
 class InitGAN(nn.Module):
     def __init__(
@@ -133,10 +156,10 @@ class InitGAN(nn.Module):
         if self.D.use_entry_former:
             map_feature = padding_map_features
 
-        FakeSamples = self.G(padding_map_features, tokenized_agent)
-        fake_pos = FakeSamples[:, :2]
-        fake_heading = FakeSamples[:, 2]
-        fake_shape = FakeSamples[:, 3:]
+        FakeSamples,state_list = self.G(padding_map_features, tokenized_agent)
+        fake_pos = FakeSamples[..., :2]
+        fake_heading = FakeSamples[..., 2]
+        fake_shape = FakeSamples[..., 3:]
 
         agent_n=len(FakeSamples)
 
@@ -154,6 +177,7 @@ class InitGAN(nn.Module):
             RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
 
             if self.global_step % 10 == 0:
+
                 RealSamples = RealSamples.detach().requires_grad_(True)
                 FakeSamples = FakeSamples.detach().requires_grad_(True)
 
@@ -199,35 +223,28 @@ class InitGAN(nn.Module):
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
 
-                rows, cols = [], []
                 initial_type = tokenized_agent["type"][non_ego]
 
-                for b in batch.unique():
-                    for type in initial_type[batch == b].unique():
-                        f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
+                matching_loss_total=0
 
-                        dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                for state in state_list:
+                    fake_pos = state[..., :2]
+                    fake_heading = state[..., 2]
+                    fake_shape = state[..., 3:]
 
-                        cost = dist.cpu().detach().numpy()
+                    match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
+                        fake_pos, fake_heading, fake_shape,
+                        real_pos, real_heading, real_shape,
+                        batch, initial_type,
+                    )
 
-                        row, col = linear_sum_assignment(cost)
-
-                        rows.append(f_idx[row])
-                        cols.append(f_idx[col])
-
-                row = torch.cat(rows)
-                col = torch.cat(cols)
-
-                match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
-                    fake_pos[row], fake_heading[row], fake_shape[row],
-                    real_pos[col], real_heading[col], real_shape[col]
-                )
+                    matching_loss_total=matching_loss_total+match_loss
 
                 # match_loss=(0.1+(1-self.global_step/20000.0))*match_loss
                 #
                 # match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
-                loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
+                loss=(loss,matching_loss_total,pos_loss,heading_loss,shape_loss)
 
             self.global_step+=1
             return loss
