@@ -19,6 +19,14 @@ from src.smart.utils import (
     wrap_angle,
 )
 from typing import Any, Callable, Optional, Union
+from torch.nn.modules.activation import MultiheadAttention
+from torch.nn.modules.container import ModuleList
+from torch.nn.modules.dropout import Dropout
+from torch.nn.modules.linear import Linear
+from torch.nn.modules.module import Module
+from torch.nn.modules.normalization import LayerNorm
+import torch.nn.functional as F
+import copy
 
 from torch import Tensor
 
@@ -124,7 +132,7 @@ class InitDiscriminator(nn.Module):
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
         if self.token_processor.pred_vel:
-            self.shape_embedding = MLPLayer(5, hidden_dim, hidden_dim)
+            self.shape_embedding = MLPLayer(4, hidden_dim, hidden_dim)
         else:
             self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
 
@@ -266,14 +274,6 @@ class InitDiscriminator(nn.Module):
 
         return score
 
-from torch.nn.modules.activation import MultiheadAttention
-from torch.nn.modules.container import ModuleList
-from torch.nn.modules.dropout import Dropout
-from torch.nn.modules.linear import Linear
-from torch.nn.modules.module import Module
-from torch.nn.modules.normalization import LayerNorm
-import torch.nn.functional as F
-import copy
 
 class InitGeneator(nn.Module):
     def __init__(
@@ -318,15 +318,15 @@ class InitGeneator(nn.Module):
         self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
-        # self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-        # self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
+        self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+        self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
         if self.token_processor.pred_vel:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 8)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 4)
 
             self.noise_dim=8
         else:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
             self.noise_dim=6
 
@@ -399,15 +399,15 @@ class InitGeneator(nn.Module):
 
         attr_feature = feat_a_b[mask_a_b]
 
-        state=self.shape_head_decoder(attr_feature)
+        #state=self.shape_head_decoder(attr_feature)
 
-        # pos = self.pos_decoder(attr_feature) #* 80
-        #
-        # heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-        #
-        # shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+        pos = self.pos_decoder(attr_feature) #* 80
 
-        #state=torch.cat([pos, heading, shape], dim=1)
+        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+
+        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+
+        state=torch.cat([pos, heading, shape], dim=1)
 
         return state
         # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
