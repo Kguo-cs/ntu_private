@@ -297,19 +297,6 @@ class InitGeneator(nn.Module):
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
             self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
-
-            # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                   hist_len=self.entry_his_len)  # replace with gnn
-            #
-            # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                  hist_len=self.entry_his_len)  # drop 01 is important
-            #
-            # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                   hist_len=self.entry_his_len)  # replace with gnn
-            #
-            # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                  hist_len=self.entry_his_len)  # drop 01 is important
-
         else:
             decoder_layer = nn.TransformerDecoderLayer(
                 d_model=self.hidden_dim,
@@ -327,43 +314,6 @@ class InitGeneator(nn.Module):
 
             self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
             self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-
-            # d_model = self.hidden_dim
-            # nhead=num_heads
-            # dropout=0
-            # batch_first=True
-            # bias=True
-            # dim_feedforward=self.hidden_dim*4
-            #
-            #
-            #
-            # self.self_attn = MultiheadAttention(
-            #     d_model,
-            #     nhead,
-            #     dropout=dropout,
-            #     batch_first=batch_first,
-            #     bias=bias
-            # )
-            # self.multihead_attn = MultiheadAttention(
-            #     d_model,
-            #     nhead,
-            #     dropout=dropout,
-            #     batch_first=batch_first,
-            #     bias=bias
-            # )
-            # # Implementation of Feedforward model
-            # self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
-            # self.dropout = Dropout(dropout)
-            # self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
-            #
-            # self.norm1 = LayerNorm(d_model)
-            # self.norm2 = LayerNorm(d_model)
-            # self.norm3 = LayerNorm(d_model)
-            # self.dropout1 = Dropout(dropout)
-            # self.dropout2 = Dropout(dropout)
-            # self.dropout3 = Dropout(dropout)
-            #
-            # self.activation=F.relu
 
         self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
@@ -458,6 +408,54 @@ class InitGeneator(nn.Module):
         res=torch.cat([pos, heading, shape], dim=1)
 
         return res
+        # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+        #                                   hist_len=self.entry_his_len)  # replace with gnn
+        #
+        # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+        #                                  hist_len=self.entry_his_len)  # drop 01 is important
+        #
+        # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+        #                                   hist_len=self.entry_his_len)  # replace with gnn
+        #
+        # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+        #                                  hist_len=self.entry_his_len)  # drop 01 is important
+
+        # d_model = self.hidden_dim
+        # nhead=num_heads
+        # dropout=0
+        # batch_first=True
+        # bias=True
+        # dim_feedforward=self.hidden_dim*4
+        #
+        #
+        #
+        # self.self_attn = MultiheadAttention(
+        #     d_model,
+        #     nhead,
+        #     dropout=dropout,
+        #     batch_first=batch_first,
+        #     bias=bias
+        # )
+        # self.multihead_attn = MultiheadAttention(
+        #     d_model,
+        #     nhead,
+        #     dropout=dropout,
+        #     batch_first=batch_first,
+        #     bias=bias
+        # )
+        # # Implementation of Feedforward model
+        # self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
+        # self.dropout = Dropout(dropout)
+        # self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
+        #
+        # self.norm1 = LayerNorm(d_model)
+        # self.norm2 = LayerNorm(d_model)
+        # self.norm3 = LayerNorm(d_model)
+        # self.dropout1 = Dropout(dropout)
+        # self.dropout2 = Dropout(dropout)
+        # self.dropout3 = Dropout(dropout)
+        #
+        # self.activation=F.relu
 
         # n_agent = feat_a_b.shape[1]
         # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
