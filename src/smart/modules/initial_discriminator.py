@@ -132,7 +132,7 @@ class InitDiscriminator(nn.Module):
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
         if self.token_processor.pred_vel:
-            self.shape_embedding = MLPLayer(4, hidden_dim, hidden_dim)
+            self.shape_embedding = MLPLayer(5, hidden_dim, hidden_dim)
         else:
             self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
 
