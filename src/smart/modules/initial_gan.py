@@ -254,7 +254,7 @@ class InitGAN(nn.Module):
 
                 center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
 
-                vel=torch.cat([vel,torch.zeros_like(vel)],dim=-1)
+                #vel=torch.cat([vel,torch.zeros_like(vel)],dim=-1)
 
                 gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
 

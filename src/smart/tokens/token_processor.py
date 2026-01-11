@@ -201,7 +201,7 @@ class TokenProcessor(torch.nn.Module):
                     if self.pred_vel:
                         token_traj = tokenized_agent["token_traj"][torch.arange(len(initial_idx)), initial_idx]
 
-                        token_vel = torch.mean(token_traj, dim=-2).norm(dim=-1)[:,None]#0.5
+                        token_vel = torch.mean(token_traj, dim=-2)#.norm(dim=-1)[:,None]#0.5
 
                         tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], token_vel], dim=-1)
                     else:

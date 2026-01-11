@@ -296,7 +296,7 @@ class InitGeneator(nn.Module):
 
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
-            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(4)])
+            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
         else:
             decoder_layer = nn.TransformerDecoderLayer(
                 d_model=self.hidden_dim,
@@ -322,7 +322,7 @@ class InitGeneator(nn.Module):
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
         if self.token_processor.pred_vel:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 4)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
 
             self.noise_dim=8
         else:
