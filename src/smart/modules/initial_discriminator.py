@@ -311,13 +311,13 @@ class InitGeneator(nn.Module):
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
+        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
         if self.token_processor.pred_vel:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
+            self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
 
             self.noise_dim=8
         else:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
             self.noise_dim=6
 
@@ -383,17 +383,17 @@ class InitGeneator(nn.Module):
                               orient_pl, map_mask
                 )
 
-                if self.training:
-
-                    pos_a_b = self.pos_decoder(feat_a_b)  # * 80
-
-                    heading_a_b = self.head_decoder(feat_a_b) [:,:,0] # torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-
-                    shape = self.shape_head_decoder(feat_a_b)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-
-                    state = torch.cat([pos_a_b, heading_a_b[:,:,None] , shape], dim=-1)
-
-                    state_list.append(state[mask_a_b])
+                # if self.training:
+                #
+                #     pos_a_b = self.pos_decoder(feat_a_b)  # * 80
+                #
+                #     heading_a_b = self.head_decoder(feat_a_b) [:,:,0] # torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+                #
+                #     shape = self.shape_head_decoder(feat_a_b)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+                #
+                #     state = torch.cat([pos_a_b, heading_a_b[:,:,None] , shape], dim=-1)
+                #
+                #     state_list.append(state[mask_a_b])
 
 
         else:
@@ -416,19 +416,24 @@ class InitGeneator(nn.Module):
         # shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
         #
         # state=torch.cat([pos, heading, shape], dim=1)
-        if self.training:
-            state=state_list[-1]
+        # if self.training:
+        #     state=state_list[-1]
+        # else:
+        attr_feature = feat_a_b[mask_a_b]
+        pos = self.pos_decoder(attr_feature) #* 80
+
+        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+
+        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+
+        if self.token_processor.pred_vel:
+            vel = self.vel_head_decoder(attr_feature)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+
+            state=torch.cat([pos, heading, shape,vel], dim=1)
         else:
-            attr_feature = feat_a_b[mask_a_b]
-            pos = self.pos_decoder(attr_feature) #* 80
-
-            heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-
-            shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-
             state=torch.cat([pos, heading, shape], dim=1)
 
-        return state,state_list[-1:]
+        return state,[state]
         # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
         #                                   hist_len=self.entry_his_len)  # replace with gnn
         #
