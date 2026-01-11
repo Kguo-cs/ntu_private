@@ -303,8 +303,8 @@ class InitGeneator(nn.Module):
                 num_layers=1
             )
 
-            self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-            self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
         self.type_embedding = nn.Embedding(3, hidden_dim)
@@ -369,6 +369,8 @@ class InitGeneator(nn.Module):
 
         state_list=[]
 
+        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
+
         if self.use_entry_former:
             pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
             heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
@@ -395,7 +397,6 @@ class InitGeneator(nn.Module):
 
 
         else:
-            feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
             feat_a_b = self.transformer_decoder(
                 tgt=feat_a_b,  # self-attention queries
@@ -427,7 +428,7 @@ class InitGeneator(nn.Module):
 
             state=torch.cat([pos, heading, shape], dim=1)
 
-        return state,state_list
+        return state,state_list[-1:]
         # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
         #                                   hist_len=self.entry_his_len)  # replace with gnn
         #
