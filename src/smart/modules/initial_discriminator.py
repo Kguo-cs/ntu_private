@@ -418,11 +418,9 @@ class InitGeneator(nn.Module):
 
         value = value[mask_a_b]
 
-        one_hot = F.one_hot(type, num_classes=3)
+        # one_hot = F.one_hot(type, num_classes=3)
 
-        z=torch.cat([z, one_hot,value[:,None]], dim=-1)
-
-        #feature=self.noise_embedding(z)
+        #feature=self.noise_embedding(torch.cat([z, one_hot,value[:,None]], dim=-1))
 
         feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
 
