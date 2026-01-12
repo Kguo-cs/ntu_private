@@ -251,9 +251,6 @@ class InitGAN(nn.Module):
                 # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
-
-                initial_type = tokenized_agent["type"][non_ego]
-
                 # matching_loss_total=0
                 #
                 # for state in state_list:
@@ -296,7 +293,7 @@ class InitGAN(nn.Module):
                 #
                 # match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
-                loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
+                loss=(loss,match_loss*10,pos_loss,heading_loss,shape_loss)
 
             self.global_step+=1
             return loss
