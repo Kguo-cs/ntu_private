@@ -185,7 +185,7 @@ class InitGAN(nn.Module):
         if self.D.use_entry_former:
             map_feature = padding_map_features
 
-        FakeSamples,state_list = self.G(padding_map_features, tokenized_agent)
+        FakeSamples = self.G(padding_map_features, tokenized_agent)
         fake_pos = FakeSamples[..., :2]
         fake_heading = FakeSamples[..., 2]
         fake_shape = FakeSamples[..., 3:]

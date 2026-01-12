@@ -19,14 +19,6 @@ from src.smart.utils import (
     wrap_angle,
 )
 from typing import Any, Callable, Optional, Union
-from torch.nn.modules.activation import MultiheadAttention
-from torch.nn.modules.container import ModuleList
-from torch.nn.modules.dropout import Dropout
-from torch.nn.modules.linear import Linear
-from torch.nn.modules.module import Module
-from torch.nn.modules.normalization import LayerNorm
-import torch.nn.functional as F
-import copy
 
 from torch import Tensor
 
@@ -70,9 +62,12 @@ class InitDiscriminator(nn.Module):
             else:
                 self.entry_his_len = 1000000
 
-                module = RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                         hist_len=self.entry_his_len)  # replace with gnn
-                self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(1)])
+                self.entry_former = RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                                  hist_len=self.entry_his_len)  # replace with gnn
+
+                # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                #                                  hist_len=self.entry_his_len)  # drop 01 is important
+
         else:
 
             self.edge_encoder = EdgeEncoder(hidden_dim,
@@ -185,7 +180,7 @@ class InitDiscriminator(nn.Module):
                         enable_mem_efficient=False,
                 ):
 
-                    feat_a_b = self.transformer_decoder(
+                    attr_feature = self.transformer_decoder(
                         tgt=feat_a_b,  # self-attention queries
                         memory=feat_map,  # cross-attention keys/values
                         tgt_key_padding_mask=~mask_a_b,
@@ -193,14 +188,20 @@ class InitDiscriminator(nn.Module):
                     )
             else:
 
-                for mod in self.entry_formers:
-                    feat_a_b = mod(feat_a_b, pos_a_b,
-                                   heading_a_b, mask_a_b,
-                                   feat_map,
-                                   pos_pl,
-                                   orient_pl, map_mask
-                                   )
-            attr_feature = feat_a_b[mask_a_b]
+                attr_feature =self.entry_former(feat_a_b, pos_a_b,  heading_a_b, mask_a_b,
+                                                                  feat_map,
+                                                                  pos_pl,
+                                                                  orient_pl, map_mask)
+                # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+                #                                                   heading_a_b, mask_a_b,
+                #                                                   feat_map,
+                #                                                   pos_pl,
+                #                                                   orient_pl, map_mask)
+                #
+                # attr_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, 0, 0, mask_a_b,
+                #                                                use_time=False,use_causal=False)
+
+            attr_feature = attr_feature[mask_a_b]
         else:
             mask_a = None
 
@@ -265,6 +266,14 @@ class InitDiscriminator(nn.Module):
 
         return score
 
+from torch.nn.modules.activation import MultiheadAttention
+from torch.nn.modules.container import ModuleList
+from torch.nn.modules.dropout import Dropout
+from torch.nn.modules.linear import Linear
+from torch.nn.modules.module import Module
+from torch.nn.modules.normalization import LayerNorm
+import torch.nn.functional as F
+import copy
 
 class InitGeneator(nn.Module):
     def __init__(
@@ -288,6 +297,19 @@ class InitGeneator(nn.Module):
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=self.entry_his_len)  # replace with gnn
             self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
+
+            # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                   hist_len=self.entry_his_len)  # replace with gnn
+            #
+            # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                  hist_len=self.entry_his_len)  # drop 01 is important
+            #
+            # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                   hist_len=self.entry_his_len)  # replace with gnn
+            #
+            # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+            #                                  hist_len=self.entry_his_len)  # drop 01 is important
+
         else:
             decoder_layer = nn.TransformerDecoderLayer(
                 d_model=self.hidden_dim,
@@ -302,23 +324,60 @@ class InitGeneator(nn.Module):
                 decoder_layer,
                 num_layers=1
             )
+            # d_model = self.hidden_dim
+            # nhead=num_heads
+            # dropout=0
+            # batch_first=True
+            # bias=True
+            # dim_feedforward=self.hidden_dim*4
+            #
+            #
+            #
+            # self.self_attn = MultiheadAttention(
+            #     d_model,
+            #     nhead,
+            #     dropout=dropout,
+            #     batch_first=batch_first,
+            #     bias=bias
+            # )
+            # self.multihead_attn = MultiheadAttention(
+            #     d_model,
+            #     nhead,
+            #     dropout=dropout,
+            #     batch_first=batch_first,
+            #     bias=bias
+            # )
+            # # Implementation of Feedforward model
+            # self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
+            # self.dropout = Dropout(dropout)
+            # self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
+            #
+            # self.norm1 = LayerNorm(d_model)
+            # self.norm2 = LayerNorm(d_model)
+            # self.norm3 = LayerNorm(d_model)
+            # self.dropout1 = Dropout(dropout)
+            # self.dropout2 = Dropout(dropout)
+            # self.dropout3 = Dropout(dropout)
+            #
+            # self.activation=F.relu
+
+
+        self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-        self.type_embedding = nn.Embedding(3, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
-        self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
         if self.token_processor.pred_vel:
-            #self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
             self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
 
             self.noise_dim=8
         else:
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
             self.noise_dim=6
 
@@ -360,15 +419,10 @@ class InitGeneator(nn.Module):
 
         value = value[mask_a_b]
 
-        # one_hot = F.one_hot(type, num_classes=3)
-
-        #feature=self.noise_embedding(torch.cat([z, one_hot,value[:,None]], dim=-1))
-
         feature = self.noise_embedding(z) + self.type_embedding(type) + self.count_embedding(value[:, None].to(z.dtype))
 
         feat_a_b = padding(feature, lengths, padding_value=0)  # b, n, d
 
-        state_list=[]
 
         feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
@@ -384,126 +438,33 @@ class InitGeneator(nn.Module):
                               orient_pl, map_mask
                 )
 
-                # if self.training:
-                #
-                #     pos_a_b = self.pos_decoder(feat_a_b)  # * 80
-                #
-                #     heading_a_b = self.head_decoder(feat_a_b) [:,:,0] # torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-                #
-                #     shape = self.shape_head_decoder(feat_a_b)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-                #
-                #     state = torch.cat([pos_a_b, heading_a_b[:,:,None] , shape], dim=-1)
-                #
-                #     state_list.append(state[mask_a_b])
-
+            # n_agent = feat_a_b.shape[1]
+            # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
+            #                                                   heading_a_b, mask_a_b,
+            #                                                   feat_map,
+            #                                                   pos_pl,
+            #                                                   orient_pl, map_mask)
+            #
+            # entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
+            #                                                 use_time=False, use_causal=False)  #
+            #
+            # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
+            #                                                   heading_a_b, mask_a_b,
+            #                                                   feat_map,
+            #                                                   pos_pl,
+            #                                                   orient_pl, map_mask)
+            #
+            # entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
+            #                                                 use_time=False, use_causal=False)  #
 
         else:
-
             feat_a_b = self.transformer_decoder(
                 tgt=feat_a_b,  # self-attention queries
                 memory=feat_map,  # cross-attention keys/values
                 tgt_key_padding_mask=~mask_a_b,
                 memory_key_padding_mask=~map_mask
             )
-
-        #attr_feature = feat_a_b[mask_a_b]
-
-        #state=self.shape_head_decoder(attr_feature)
-
-        # pos = self.pos_decoder(attr_feature) #* 80
-        #
-        # heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-        #
-        # shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-        #
-        # state=torch.cat([pos, heading, shape], dim=1)
-        # if self.training:
-        #     state=state_list[-1]
-        # else:
-        attr_feature = feat_a_b[mask_a_b]
-        pos = self.pos_decoder(attr_feature) #* 80
-
-        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
-
-        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-
-        # if self.token_processor.pred_vel:
-        #     vel = self.vel_head_decoder(attr_feature)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-        #
-        #     state=torch.cat([pos, heading, shape,vel], dim=1)
-        # else:
-        state=torch.cat([pos, heading, shape], dim=1)
-
-        return state,[state]
-        # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-        #                                   hist_len=self.entry_his_len)  # replace with gnn
-        #
-        # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-        #                                  hist_len=self.entry_his_len)  # drop 01 is important
-        #
-        # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-        #                                   hist_len=self.entry_his_len)  # replace with gnn
-        #
-        # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-        #                                  hist_len=self.entry_his_len)  # drop 01 is important
-
-        # d_model = self.hidden_dim
-        # nhead=num_heads
-        # dropout=0
-        # batch_first=True
-        # bias=True
-        # dim_feedforward=self.hidden_dim*4
-        #
-        #
-        #
-        # self.self_attn = MultiheadAttention(
-        #     d_model,
-        #     nhead,
-        #     dropout=dropout,
-        #     batch_first=batch_first,
-        #     bias=bias
-        # )
-        # self.multihead_attn = MultiheadAttention(
-        #     d_model,
-        #     nhead,
-        #     dropout=dropout,
-        #     batch_first=batch_first,
-        #     bias=bias
-        # )
-        # # Implementation of Feedforward model
-        # self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
-        # self.dropout = Dropout(dropout)
-        # self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
-        #
-        # self.norm1 = LayerNorm(d_model)
-        # self.norm2 = LayerNorm(d_model)
-        # self.norm3 = LayerNorm(d_model)
-        # self.dropout1 = Dropout(dropout)
-        # self.dropout2 = Dropout(dropout)
-        # self.dropout3 = Dropout(dropout)
-        #
-        # self.activation=F.relu
-
-        # n_agent = feat_a_b.shape[1]
-        # entry_feature = self.entry_former.cross_attention(feat_a_b, pos_a_b,
-        #                                                   heading_a_b, mask_a_b,
-        #                                                   feat_map,
-        #                                                   pos_pl,
-        #                                                   orient_pl, map_mask)
-        #
-        # entry_feature = self.attr_former.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-        #                                                 use_time=False, use_causal=False)  #
-        #
-        # entry_feature = self.entry_former1.cross_attention(entry_feature, pos_a_b,
-        #                                                   heading_a_b, mask_a_b,
-        #                                                   feat_map,
-        #                                                   pos_pl,
-        #                                                   orient_pl, map_mask)
-        #
-        # entry_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0, mask_a_b,
-        #                                                 use_time=False, use_causal=False)  #
-
-        # x=feat_a_b
+            # x=feat_a_b
             # tgt_key_padding_mask=~mask_a_b
             # tgt_mask=None
             # tgt_is_causal=None
@@ -533,6 +494,18 @@ class InitGeneator(nn.Module):
         #
         #
         # attr_feature = self.attr_former1.temporal_embed(entry_feature, pos_a_b, heading_a_b, n_agent, 0,  mask_a_b,use_time=False,use_causal=False)
+
+        attr_feature = feat_a_b[mask_a_b]
+
+        pos = self.pos_decoder(attr_feature) #* 80
+
+        heading =self.head_decoder(attr_feature) #torch.tanh(self.head_decoder(attr_feature)) * torch.pi
+
+        shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+
+        res=torch.cat([pos, heading, shape], dim=1)
+
+        return res
 
   # # self-attention block
   #   def _sa_block(
