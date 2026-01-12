@@ -296,7 +296,7 @@ class InitGAN(nn.Module):
                 #
                 # match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
-                loss=(loss,matching_loss_total,pos_loss,heading_loss,shape_loss)
+                loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
             self.global_step+=1
             return loss
