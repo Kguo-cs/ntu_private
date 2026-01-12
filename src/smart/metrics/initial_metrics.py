@@ -1,0 +1,291 @@
+import numpy as np
+from scipy.spatial import distance
+from tqdm import tqdm
+
+# unified format for computing metrics
+# [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+UNIFIED_FORMAT_INDICES = {
+    'pos_x': 0,
+    'pos_y': 1,
+    'speed': 2,
+    'cos_heading': 3,
+    'sin_heading': 4,
+    'length': 5,
+    'width': 6
+}
+
+def compute_vehicle_circles(xy_position, heading, length, width):
+    """ Computes the centroids and radii of circles around a vehicle based on its position, heading, length, and width."""
+    num_circles = 5
+    radius = width / 2
+    relative_x_positions = np.linspace(-length / 2 + radius, length / 2 - radius, num_circles)
+
+    # Compute the centroids of the circles
+    # First, create the (x, y) relative offsets based on heading
+    dx = np.cos(heading) * relative_x_positions
+    dy = np.sin(heading) * relative_x_positions
+
+    # Add these offsets to the vehicle's position to get the circle centroids
+    centroids = np.column_stack((xy_position[0] + dx, xy_position[1] + dy))
+
+    return centroids, np.array([radius]).repeat(num_circles)
+
+
+def compute_collision_rate(samples):
+    """ Computes the collision rate for the vehicles in the samples.
+    Collision rate is computed by testing for overlapping circles around vehicles (with some threshold)."""
+    print("Computing collision rate")
+    num_vehicles_all = 0
+    num_vehicles_in_collision_all = 0
+    for i in tqdm(range(len(samples))):
+        data = samples[i]
+        vehicles = data['vehicles']
+
+        centroids_all = []
+        radii_all = []
+        for vehicle in vehicles:
+            # vehicle: [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+            heading = np.arctan2(vehicle[UNIFIED_FORMAT_INDICES['sin_heading']],
+                                 vehicle[UNIFIED_FORMAT_INDICES['cos_heading']])
+            centroids, radii = compute_vehicle_circles(vehicle[:UNIFIED_FORMAT_INDICES['pos_y'] + 1],
+                                                       heading,
+                                                       vehicle[UNIFIED_FORMAT_INDICES['length']],
+                                                       vehicle[UNIFIED_FORMAT_INDICES['width']])
+            centroids_all.append(centroids)
+            radii_all.append(radii)
+        centroids_all = np.array(centroids_all)
+        radii_all = np.array(radii_all)
+
+        num_vehicles_in_collision = 0
+        for j in range(len(vehicles)):
+            is_in_collision = False
+            for k in range(len(vehicles)):
+                if j == k:
+                    continue
+
+                thresh = (vehicles[j, 6] + vehicles[k, 6]) / np.sqrt(3.8)
+                dist = np.linalg.norm(centroids_all[j, :, None] - centroids_all[k, None, :], axis=-1)
+                bad = dist < thresh
+                if bad.sum() >= 1:
+                    is_in_collision = True
+                    break
+
+            if is_in_collision:
+                num_vehicles_in_collision += 1
+
+        num_vehicles_in_collision_all += num_vehicles_in_collision
+        num_vehicles_all += len(vehicles)
+
+    return num_vehicles_in_collision_all / num_vehicles_all
+
+
+def get_onroad_vehicles(vehicles, lanes, tol=1.5):
+    """ Filters the vehicles that are on the road based on their distance to the lanes."""
+    lanes = lanes.reshape(-1, 2)
+
+    vehicle_road_dist = np.linalg.norm(
+        vehicles[:, np.newaxis, :UNIFIED_FORMAT_INDICES['pos_y'] + 1] - lanes[np.newaxis, :, :], axis=-1).min(1)
+    offroad_mask = vehicle_road_dist > tol  # following SceneControl
+    onroad_vehicles = np.where(~offroad_mask)[0]
+
+    return vehicles[onroad_vehicles]
+
+
+def get_nearest_dists(vehicles):
+    """ Computes the nearest distance between vehicles in the scene."""
+    vehicle_vehicle_dist = np.linalg.norm(vehicles[:, np.newaxis, :UNIFIED_FORMAT_INDICES['pos_y'] + 1] - vehicles[
+        np.newaxis, :, :UNIFIED_FORMAT_INDICES['pos_y'] + 1], axis=-1)
+    # set the distance to self to a large value to avoid self-distance
+    for i in range(len(vehicles)):
+        vehicle_vehicle_dist[i, i] = 1000
+
+    return vehicle_vehicle_dist.min(1)
+
+
+def get_lateral_devs(vehicles, lanes):
+    """ Computes the lateral deviations of vehicles from the nearest lane."""
+    agents_expanded = vehicles[:, np.newaxis, np.newaxis, :UNIFIED_FORMAT_INDICES['pos_y'] + 1]  # Shape (A, 1, 1, 2)
+    diffs = agents_expanded - lanes[np.newaxis, :, :, :]
+    dists_squared = np.sum(diffs ** 2, axis=-1)  # Shape (A, N, 20)
+    min_dists_squared = np.min(dists_squared, axis=(1, 2))
+
+    return np.sqrt(min_dists_squared)
+
+
+def get_angular_devs(vehicles, lanes):
+    """ Computes the angular deviations of vehicles from the nearest lane segment."""
+    agent_positions = vehicles[:, :UNIFIED_FORMAT_INDICES['pos_y'] + 1]  # Extract positions (x, y)
+    cos_theta = vehicles[:, UNIFIED_FORMAT_INDICES['cos_heading']]
+    sin_theta = vehicles[:, UNIFIED_FORMAT_INDICES['sin_heading']]
+    agent_headings = np.arctan2(sin_theta, cos_theta)
+
+    agents_expanded = agent_positions[:, np.newaxis, np.newaxis, :]
+    direction_vectors = lanes[:, 1:, :] - lanes[:, :-1, :]
+    centerline_headings = np.arctan2(direction_vectors[..., 1], direction_vectors[..., 0])  # Shape (N, 19)
+    diffs = agents_expanded - lanes[np.newaxis, :, :, :]  # Shape (A, N, 20, 2)
+    dists_squared = np.sum(diffs ** 2, axis=-1)  # Shape (A, N, 20)
+    # Find the indices of the nearest centerline point for each agent
+    nearest_flat_indices = np.argmin(dists_squared.reshape(dists_squared.shape[0], -1), axis=-1)
+    nearest_centerline_indices = nearest_flat_indices // dists_squared.shape[2]
+    nearest_point_indices = nearest_flat_indices % dists_squared.shape[2]
+
+    # Handle the case where nearest point is the first or last in the centerline
+    nearest_point_indices = np.clip(nearest_point_indices, 1, dists_squared.shape[-1] - 1)
+    # Get the corresponding headings of the nearest segments
+    nearest_centerline_headings = centerline_headings[nearest_centerline_indices, nearest_point_indices - 1]
+
+    # Compute the angular deviation in radians and convert to degrees
+    angular_deviation_radians = np.arctan2(np.sin(agent_headings - nearest_centerline_headings),
+                                           np.cos(
+                                               agent_headings - nearest_centerline_headings))  # Ensure correct angle difference
+    angular_deviation_degrees = np.degrees(angular_deviation_radians)
+
+    return angular_deviation_degrees
+
+
+def get_lengths(vehicles):
+    """ Returns the lengths of the vehicles in the scene."""
+    return vehicles[:, UNIFIED_FORMAT_INDICES['length']]
+
+
+def get_widths(vehicles):
+    """ Returns the widths of the vehicles in the scene."""
+    return vehicles[:, UNIFIED_FORMAT_INDICES['width']]
+
+
+def get_speeds(vehicles):
+    """ Returns the speeds of the vehicles in the scene."""
+    return vehicles[:, UNIFIED_FORMAT_INDICES['speed']]
+
+
+def jsd(sim, gt, clip_min, clip_max, bin_size):
+    """ Computes the Jensen-Shannon divergence (JSD) between generated (sim) and real (gt) distributions."""
+    # Clip the simulated and ground truth values
+    gt = np.clip(gt, clip_min, clip_max)
+    sim = np.clip(sim, clip_min, clip_max)
+
+    # Calculate bin edges based on the specified bin_size
+    bin_edges = np.arange(clip_min, clip_max + bin_size, bin_size)
+
+    # Compute the histograms and normalize to get probability distributions
+    P = np.histogram(sim, bins=bin_edges)[0] / len(sim)
+    Q = np.histogram(gt, bins=bin_edges)[0] / len(gt)
+
+    # Compute Jensen-Shannon divergence and square it
+    jsd_value = distance.jensenshannon(P, Q) ** 2  # Square to get the divergence
+    return jsd_value
+
+
+def resample_polyline(points, num_points=20):
+    """Resample a polyline to `num_points` equally spaced points along its arc-length."""
+    # Calculate the cumulative distances along the polyline
+    distances = np.sqrt(((points[1:] - points[:-1]) ** 2).sum(axis=1))
+    cumulative_distances = np.insert(np.cumsum(distances), 0, 0)
+
+    # Create an array of 20 evenly spaced distance values along the polyline
+    target_distances = np.linspace(0, cumulative_distances[-1], num=num_points)
+
+    # Interpolate to find x and y values at these target distances
+    x_new = np.interp(target_distances, cumulative_distances, points[:, 0])
+    y_new = np.interp(target_distances, cumulative_distances, points[:, 1])
+
+    # Combine x and y coordinates into a single array
+    new_points = np.stack((x_new, y_new), axis=-1)
+
+    return new_points
+
+
+def resample_lanes(lanes, num_points):
+    """Resample a list of lanes (each lane is a polyline) to have `num_points` equally spaced points along each lane's arc-length."""
+    lanes_resampled = []
+    for lane in lanes:
+        lanes_resampled.append(resample_polyline(lane, num_points=num_points))
+
+    return np.array(lanes_resampled)
+
+
+def compute_jsd_metrics(samples, gt_samples):
+    """ Computes the JSD agent metrics for the samples and ground truth samples."""
+    print("Computing agent jsd metrics")
+    nearest_dist_gen_all = []
+    lat_dev_gen_all = []
+    ang_dev_gen_all = []
+    length_gen_all = []
+    width_gen_all = []
+    speed_gen_all = []
+    nearest_dist_real_all = []
+    lat_dev_real_all = []
+    ang_dev_real_all = []
+    length_real_all = []
+    width_real_all = []
+    speed_real_all = []
+
+    for i in tqdm(range(len(samples))):
+        data_gen = samples[i]
+        vehicles_gen = data_gen['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+        # resample lanes to higher resolution
+        lanes_gen = resample_lanes(data_gen['lanes'], num_points=100)
+        onroad_vehicles_gen = get_onroad_vehicles(vehicles_gen, lanes_gen)
+
+        if len(vehicles_gen) > 1:
+            nearest_dist_gen_all.append(get_nearest_dists(vehicles_gen))
+        if len(onroad_vehicles_gen) > 0:
+            lat_dev_gen_all.append(get_lateral_devs(onroad_vehicles_gen, lanes_gen))
+            ang_dev_gen_all.append(get_angular_devs(onroad_vehicles_gen, lanes_gen))
+        length_gen_all.append(get_lengths(vehicles_gen))
+        width_gen_all.append(get_widths(vehicles_gen))
+        speed_gen_all.append(get_speeds(vehicles_gen))
+
+        data_real = gt_samples[i]
+        vehicles_real = data_real['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+
+        lanes_real = resample_lanes(data_real['lanes'], num_points=100)
+        onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
+
+        if len(vehicles_real) > 1:
+            nearest_dist_real_all.append(get_nearest_dists(vehicles_real))
+        if len(onroad_vehicles_real) > 0:
+            lat_dev_real_all.append(get_lateral_devs(onroad_vehicles_real, lanes_real))
+            ang_dev_real_all.append(get_angular_devs(onroad_vehicles_real, lanes_real))
+        length_real_all.append(get_lengths(vehicles_real))
+        width_real_all.append(get_widths(vehicles_real))
+        speed_real_all.append(get_speeds(vehicles_real))
+
+    nearest_dist_gen_all = np.concatenate(nearest_dist_gen_all, axis=0)
+    lat_dev_gen_all = np.concatenate(lat_dev_gen_all, axis=0)
+    ang_dev_gen_all = np.concatenate(ang_dev_gen_all, axis=0)
+    length_gen_all = np.concatenate(length_gen_all, axis=0)
+    width_gen_all = np.concatenate(width_gen_all, axis=0)
+    speed_gen_all = np.concatenate(speed_gen_all, axis=0)
+
+    nearest_dist_real_all = np.concatenate(nearest_dist_real_all, axis=0)
+    lat_dev_real_all = np.concatenate(lat_dev_real_all, axis=0)
+    ang_dev_real_all = np.concatenate(ang_dev_real_all, axis=0)
+    length_real_all = np.concatenate(length_real_all, axis=0)
+    width_real_all = np.concatenate(width_real_all, axis=0)
+    speed_real_all = np.concatenate(speed_real_all, axis=0)
+
+    nearest_dist_jsd = jsd(nearest_dist_gen_all, nearest_dist_real_all, clip_min=0, clip_max=50, bin_size=1) * 10
+    lat_dev_jsd = jsd(lat_dev_gen_all, lat_dev_real_all, clip_min=0, clip_max=1.5, bin_size=0.1) * 10
+    ang_dev_jsd = jsd(ang_dev_gen_all, ang_dev_real_all, clip_min=-200, clip_max=200, bin_size=5) * 100
+    length_jsd = jsd(length_gen_all, length_real_all, clip_min=0, clip_max=25, bin_size=0.1) * 100
+    width_jsd = jsd(width_gen_all, width_real_all, clip_min=0, clip_max=5, bin_size=0.1) * 100
+    speed_jsd = jsd(speed_gen_all, speed_real_all, clip_min=0, clip_max=50, bin_size=1) * 100
+
+    return nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd
+
+
+def compute_agent_metrics(samples, gt_samples):
+    """ Computes the agent metrics for the samples and ground truth samples."""
+    collision_rate = compute_collision_rate(samples)
+    nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples)
+
+    return {
+        'nearest_dist_jsd': nearest_dist_jsd,
+        'lat_dev_jsd': lat_dev_jsd,
+        'ang_dev_jsd': ang_dev_jsd,
+        'length_jsd': length_jsd,
+        'width_jsd': width_jsd,
+        'speed_jsd': speed_jsd,
+        'collision_rate': collision_rate * 100
+    }

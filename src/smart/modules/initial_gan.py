@@ -249,18 +249,17 @@ class InitGAN(nn.Module):
 
             gt_initial_idx=tokenized_agent["gt_initial_idx"][:,0]
 
+            gt_initial_speed=tokenized_agent["gt_initial_speed"]
+
             if self.token_processor.pred_vel:
                 vel=fake_shape[:,3:]
 
                 center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
 
                 gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
+                gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
 
-
-            # if self.token_processor.pred_vel:
-            #     return gt_initial_pos[:, None], gt_initial_heading[:, None],token
-            # else:
-            return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None]
+            return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
 
             # tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]

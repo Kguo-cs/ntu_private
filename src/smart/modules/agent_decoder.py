@@ -240,7 +240,7 @@ class SMARTAgentDecoder(nn.Module):
             current_step=1
 
             if self.learn_init:
-                pos_a, head_a,sampled_idx=self.init_decoder(map_feature, tokenized_agent)
+                pos_a, head_a,sampled_idx,initial_speed=self.init_decoder(map_feature, tokenized_agent)
                 max_step=18
             else:
                 pos_a = tokenized_agent["gt_initial_pos"]
@@ -382,6 +382,7 @@ class SMARTAgentDecoder(nn.Module):
             if self.pred_init:
                 out_dict["pred_traj_10hz"] = torch.cat([pos_a[:,:1],out_dict["pred_traj_10hz"]], dim=1)
                 out_dict["pred_head_10hz"] = torch.cat([head_a[:,:1],out_dict["pred_head_10hz"]], dim=1)
+                out_dict["initial_speed"]=initial_speed
 
             out_dict["pred_z_10hz"] = tokenized_agent["gt_z_raw"].unsqueeze(1) .expand(-1, out_dict["pred_traj_10hz"].shape[1])
 
