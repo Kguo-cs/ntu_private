@@ -37,7 +37,7 @@ def compute_collision_rate(samples):
     print("Computing collision rate")
     num_vehicles_all = 0
     num_vehicles_in_collision_all = 0
-    for i in tqdm(range(len(samples))):
+    for i in range(len(samples)):
         data = samples[i]
         vehicles = data['vehicles']
 
@@ -220,7 +220,7 @@ def compute_jsd_metrics(samples, gt_samples):
     width_real_all = []
     speed_real_all = []
 
-    for i in tqdm(range(len(samples))):
+    for i in range(len(samples)):
         data_gen = samples[i]
         vehicles_gen = data_gen['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
         # resample lanes to higher resolution

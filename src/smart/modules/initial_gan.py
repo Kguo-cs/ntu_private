@@ -174,7 +174,9 @@ class InitGAN(nn.Module):
                     FakeLogits, fake_interact_logits=FakeLogits[:agent_n], FakeLogits[agent_n:]
                     RealLogits, real_interact_logits=RealLogits[:agent_n], RealLogits[agent_n:]
 
-                    AdversarialLoss=FakeLogits.mean()-RealLogits.mean()+fake_interact_logits.mean()-real_interact_logits.mean()
+                    AdversarialLoss=FakeLogits.mean()-RealLogits.mean()
+                    if len(fake_interact_logits)>0:
+                        AdversarialLoss=AdversarialLoss+fake_interact_logits.mean()-real_interact_logits.mean()
 
                 w=1#0.1+(1-self.global_step/10000.0)
 
@@ -193,7 +195,9 @@ class InitGAN(nn.Module):
 
                 else:
                     FakeLogits, fake_interact_logits=FakeLogits[:agent_n], FakeLogits[agent_n:]
-                    loss=-FakeLogits.mean()-fake_interact_logits.mean()
+                    loss=-FakeLogits.mean()
+                    if len(fake_interact_logits)>0:
+                        loss=loss-fake_interact_logits.mean()
 
                 # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                 self.D.train()
