@@ -23,58 +23,6 @@ from .initial_discriminator import InitDiscriminator,InitGeneator
 from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 
-# def matching_loss(
-#     fake_pos, fake_heading, fake_shape,
-#     real_pos, real_heading, real_shape,
-#     batch,initial_type,
-#     w_pos=0.1, w_heading=0.5, w_shape=0.2
-# ):
-#     # Position: L1 or L2
-#     rows, cols = [], []
-#
-#     for b in batch.unique():
-#         for type in initial_type[batch == b].unique():
-#             f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
-#
-#             dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
-#
-#             cost = dist.cpu().detach().numpy()
-#
-#             row, col = linear_sum_assignment(cost)
-#
-#             rows.append(f_idx[row])
-#             cols.append(f_idx[col])
-#
-#     row = torch.cat(rows)
-#     col = torch.cat(cols)
-#
-#     fake_pos, fake_heading, fake_shape=fake_pos[row], fake_heading[row], fake_shape[row],
-#     real_pos, real_heading, real_shape=real_pos[col], real_heading[col], real_shape[col]
-#
-#     dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
-#
-#     pos_loss = dist.mean()
-#
-#     # Heading: periodic-safe loss
-#     # heading_diff = torch.atan2(
-#     #     torch.sin(fake_heading - real_heading),
-#     #     torch.cos(fake_heading - real_heading)
-#     # )
-#     heading_diff=wrap_angle(fake_heading - real_heading)
-#     heading_loss = heading_diff.abs().mean()
-#
-#     # Shape: L1
-#     shape_loss = F.l1_loss(fake_shape, real_shape)
-#
-#     total_loss = (
-#         w_pos * pos_loss +
-#         w_heading * heading_loss +
-#         w_shape * shape_loss
-#     )
-#
-#     return total_loss,pos_loss,heading_loss,shape_loss
-
-
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
@@ -186,9 +134,9 @@ class InitGAN(nn.Module):
             map_feature = padding_map_features
 
         FakeSamples = self.G(padding_map_features, tokenized_agent)
-        fake_pos = FakeSamples[..., :2]
-        fake_heading = FakeSamples[..., 2]
-        fake_shape = FakeSamples[..., 3:]
+        fake_pos = FakeSamples[:, :2]
+        fake_heading = FakeSamples[:, 2]
+        fake_shape = FakeSamples[:, 3:]
 
         agent_n=len(FakeSamples)
 
@@ -206,7 +154,6 @@ class InitGAN(nn.Module):
             RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
 
             if self.global_step % 10 == 0:
-
                 RealSamples = RealSamples.detach().requires_grad_(True)
                 FakeSamples = FakeSamples.detach().requires_grad_(True)
 
@@ -251,20 +198,7 @@ class InitGAN(nn.Module):
                 # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
-                # matching_loss_total=0
-                #
-                # for state in state_list:
-                #     fake_pos = state[..., :2]
-                #     fake_heading = state[..., 2]
-                #     fake_shape = state[..., 3:]
-                #
-                #     match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
-                #         fake_pos, fake_heading, fake_shape,
-                #         real_pos, real_heading, real_shape,
-                #         batch, initial_type,
-                #     )
-                #
-                #     matching_loss_total=matching_loss_total+match_loss*0.5
+
                 rows, cols = [], []
                 initial_type = tokenized_agent["type"][non_ego]
 
@@ -293,7 +227,7 @@ class InitGAN(nn.Module):
                 #
                 # match_loss=pos_loss=heading_loss=shape_loss=torch.tensor(0.0, device=real_heading.device)
 
-                loss=(loss,match_loss*10,pos_loss,heading_loss,shape_loss)
+                loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
             self.global_step+=1
             return loss
@@ -319,8 +253,6 @@ class InitGAN(nn.Module):
                 vel=fake_shape[:,3:]
 
                 center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
-
-                #vel=torch.cat([vel,torch.zeros_like(vel)],dim=-1)
 
                 gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
 
