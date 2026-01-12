@@ -66,7 +66,7 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        if self.encoder.agent_encoder.learn_init and not self.encoder.agent_encoder.token_initial:
+        if self.encoder.agent_encoder.learn_init and self.encoder.agent_encoder.use_gan:
             self.automatic_optimization=False
 
     def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
@@ -119,34 +119,54 @@ class IQ_SoftQ(LightningModule):
         if pred["initial_logit"] is not None:
 
             if not self.token_processor.token_initial:
-                opt_G,opt_D=self.optimizers()
 
-                if len(pred["initial_logit"]) == 3:
-                    real_loss, fake_loss,gp=pred["initial_logit"]
-                    loss=real_loss+fake_loss+gp
-                    self.log("train/real_loss", real_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/fake_loss", fake_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
-                    self.log("train/gp", gp.item(), on_step=True, batch_size=1)
+                if  self.encoder.agent_encoder.use_gan:
+                    opt_G,opt_D=self.optimizers()
 
-                    opt_D.zero_grad()
-                    loss.backward()
-                    opt_D.step()
+                    if len(pred["initial_logit"]) == 3:
+                        real_loss, fake_loss,gp=pred["initial_logit"]
+                        loss=real_loss+fake_loss+gp
+                        self.log("train/real_loss", real_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/fake_loss", fake_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
+                        self.log("train/gp", gp.item(), on_step=True, batch_size=1)
 
+                        opt_D.zero_grad()
+                        loss.backward()
+                        opt_D.step()
+
+                    else:
+                        g_loss,match_loss,pos_loss,heading_loss,shape_loss = pred["initial_logit"]
+
+                        loss=g_loss+match_loss+action_nll
+
+                        self.log("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/pos_loss", pos_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
+
+                        opt_G.zero_grad()
+                        loss.backward()
+                        opt_G.step()
                 else:
-                    g_loss,match_loss,pos_loss,heading_loss,shape_loss = pred["initial_logit"]
+                    loss,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed=pred["initial_logit"]
+                    self.log('train/loss_diff_init', loss, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
 
-                    loss=g_loss+match_loss+action_nll
+                    self.log('train/loss_diff_trans', loss_diff_trans, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
+                    self.log('train/loss_diff_theta', loss_diff_theta, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
+                    self.log('train/loss_diff_speed', loss_diff_speed, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
 
-                    self.log("train/g_loss", g_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/pos_loss", pos_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
-                    self.log("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
-
-                    opt_G.zero_grad()
-                    loss.backward()
-                    opt_G.step()
+                    self.log('train/trans_loss', loss_trans, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
+                    self.log('train/rot_loss2', loss_rot2, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
+                    self.log('train/speed_loss', loss_speed, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
+                             sync_dist=True)
 
                 action_nll = action_nll +loss
             else:

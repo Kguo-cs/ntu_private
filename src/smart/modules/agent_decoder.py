@@ -31,6 +31,7 @@ from src.smart.modules.entry_encoder import EntryDecoder
 from src.smart.modules.inf_encoder import InfGenAgentDecoder
 from src.smart.modules.initial_decoder import InitDecoder
 from src.smart.modules.initial_gan import InitGAN
+from src.smart.modules.initial_diffusion import PDInit
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -105,12 +106,17 @@ class SMARTAgentDecoder(nn.Module):
 
         self.token_initial=token_processor.token_initial
 
+        self.use_gan=False
+
         if self.pred_init and self.learn_init:
 
             if self.token_initial:
                 self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
             else:
-                self.init_decoder=InitGAN(hidden_dim,num_heads,num_freq_bands,token_processor)
+                if self.use_gan:
+                    self.init_decoder=InitGAN(hidden_dim,num_heads,num_freq_bands,token_processor)
+                else:
+                    self.init_decoder=PDInit()
 
         self.apply(weight_init)
 

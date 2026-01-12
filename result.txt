@@ -41,3 +41,6 @@ lead to width 0
 
 
 /home/ke/code/sim/src/waymo_data/gen128_gpgenr12_notantransdrop0_1e5_epoch=13-step=53270_0.63073.ckpt
+
+
+python train_diffnet_tb.py --root <Path to dataset> --train_batch_size 32 --val_batch_size 32 --test_batch_size 32 --dataset argoverse_v2 --init_timestep 50 --pl2pl_radius 150 --devices 1 --num_workers 16 --num_denoiser_layers 3 --num_diffusion_steps 100 --max_epochs 30 --lr 0.001 --beta_1 0.0001 --beta_T 0.05 --diff_type vd --sampling ddpm --sampling_stride 10 --num_eval_samples 1 --check_val_every_n_epoch 1 --stage init
