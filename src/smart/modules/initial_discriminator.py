@@ -314,7 +314,8 @@ class InitGeneator(nn.Module):
         self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
 
         if self.token_processor.pred_vel:
-            self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            #self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
 
             self.noise_dim=8
         else:
@@ -426,12 +427,12 @@ class InitGeneator(nn.Module):
 
         shape =self.shape_head_decoder(attr_feature) #torch.sigmoid(self.shape_head_decoder(attr_feature))*15
 
-        if self.token_processor.pred_vel:
-            vel = self.vel_head_decoder(attr_feature)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
-
-            state=torch.cat([pos, heading, shape,vel], dim=1)
-        else:
-            state=torch.cat([pos, heading, shape], dim=1)
+        # if self.token_processor.pred_vel:
+        #     vel = self.vel_head_decoder(attr_feature)  # torch.sigmoid(self.shape_head_decoder(attr_feature))*15
+        #
+        #     state=torch.cat([pos, heading, shape,vel], dim=1)
+        # else:
+        state=torch.cat([pos, heading, shape], dim=1)
 
         return state,[state]
         # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
