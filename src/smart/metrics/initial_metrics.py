@@ -277,8 +277,8 @@ def compute_jsd_metrics(samples, gt_samples):
 
 def compute_agent_metrics(samples, gt_samples):
     """ Computes the agent metrics for the samples and ground truth samples."""
-    collision_rate = compute_collision_rate(samples)
     nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples)
+    collision_rate = compute_collision_rate(samples)
 
     return {
         'nearest_dist_jsd': nearest_dist_jsd,

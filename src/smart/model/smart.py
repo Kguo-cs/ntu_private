@@ -310,7 +310,7 @@ class SMART(LightningModule):
                 gt_cos = torch.cos(data["agent"]["heading"][:,10])
                 gt_sin=torch.sin(data["agent"]["heading"][:,10])
                 gt_shape=data["agent"]["shape"]
-                gt_pos=data["agent"]["position"][:,10]
+                gt_pos=data["agent"]["position"][:,10,:2]
 
                 real_state=torch.cat([gt_pos,gt_speed[:,None],gt_cos[:,None],gt_sin[:,None],gt_shape[:,:2]],dim=-1) # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
 
@@ -398,7 +398,6 @@ class SMART(LightningModule):
                     gt_samples.append(unified_data)
                     gt_samples.append(unified_data)
                 self.result=compute_agent_metrics(samples=samples, gt_samples=gt_samples)
-
 
             else:
                 pred_traj=pred_traj[:,:,-80:]
