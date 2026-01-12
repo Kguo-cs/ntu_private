@@ -84,22 +84,20 @@ class InitDiffusion(nn.Module):
                  diff_input,
                  tokenized_agent: HeteroData,
                  scene_enc: Mapping[str, torch.Tensor],
+                 eval_mask,
                  num_samples=1) -> Dict[str, torch.Tensor]:
 
-        return self.get_loss_vd(diff_input, tokenized_agent, scene_enc, num_samples, )
+        return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples, )
 
     def get_loss_vd(self,
                     m_init,
                     tokenized_agent: HeteroData,
                     scene_enc: Mapping[str, torch.Tensor],
+                    eval_mask,
                     num_samples=1, ) -> Dict[str, torch.Tensor]:
         # m: [num_agents, d_latent]
 
-        ego_mask = tokenized_agent["ego_mask"]
-
-        non_ego = ~ego_mask
-
-        agent_batch = tokenized_agent["batch"][non_ego]
+        agent_batch = tokenized_agent["batch"][eval_mask]
         num_scenes = tokenized_agent["num_graphs"]
 
         x_init_0 = m_init.unsqueeze(1).repeat(1, num_samples, 1)
@@ -117,7 +115,7 @@ class InitDiffusion(nn.Module):
         x_init_t = c0[agent_batch] * x_init_0 + c1[agent_batch] * e_init_rand
         mode = self.B_dist.sample()
         # now delta_rot_pred is angle! add the ego initial angle, then we can get the heading relative to its own
-        g_init_theta = self.net(copy.deepcopy(x_init_t), beta, tokenized_agent, scene_enc, num_samples=num_samples, mode=mode)
+        g_init_theta = self.net(copy.deepcopy(x_init_t), beta, tokenized_agent, scene_enc, num_samples=num_samples, eval_mask=eval_mask,mode=mode)
 
         loss_init = ((e_init_rand - g_init_theta) ** 2)  # .mean()
 
@@ -141,7 +139,6 @@ class InitDiffusion(nn.Module):
                clean_data=None,
                ) -> Dict[str, torch.Tensor]:
         if self.guid_sampling == 'guid':
-
             return self.sample_guide(num_samples, data, scene_enc,
                                      if_output_diffusion_process, start_data, reverse_steps,
                                      eval_mask, sampling, stride, grad_guid, guid_param=guid_param)
@@ -168,7 +165,7 @@ class InitDiffusion(nn.Module):
         if reverse_steps is None:
             reverse_steps = self.var_sched.num_steps
 
-        device = scene_enc['x_pt'].device
+        device = scene_enc[0].device
 
         num_agents = eval_mask.sum()
 
@@ -433,17 +430,14 @@ class InitDenoiser(nn.Module):
                 tokenized_agent: HeteroData,
                 scene_enc: Mapping[str, torch.Tensor],
                 num_samples: int,
+                eval_mask=None,
                 mode=0
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device
 
-        ego_mask = tokenized_agent["ego_mask"]
-
-        non_ego = ~ego_mask
-
-        agent_batch_list = tokenized_agent["batch"][non_ego]
-        type = tokenized_agent["type"][non_ego]
+        agent_batch_list = tokenized_agent["batch"][eval_mask]
+        type = tokenized_agent["type"][eval_mask]
         batch_size = tokenized_agent["num_graphs"]
 
         self.num_samples = num_samples
