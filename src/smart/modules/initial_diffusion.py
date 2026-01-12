@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-import pytorch_lightning as pl
-import numpy as np
+from src.smart.layers import MLPLayer
 
 import torch
 import torch.nn as nn
@@ -77,14 +75,18 @@ class PDInit(nn.Module):
 
         self.joint_diffusion = InitDiffusion(args=args)
 
+        hidden_dim=args.hidden_dim
+
+        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+
+
     def forward(self, map_feature, tokenized_agent,map_range=100):
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
-
-        batch_num = tokenized_agent["num_graphs"]
 
         gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
         gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
@@ -108,6 +110,8 @@ class PDInit(nn.Module):
         orient_pl = orient_pl[ego_dist_mask]
         batch_pl = batch_pl[ego_dist_mask]
         feat_map = feat_map[ego_dist_mask]
+
+        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:, :, None])
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
         non_ego = ~ego_mask
