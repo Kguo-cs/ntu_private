@@ -169,7 +169,7 @@ class InitDiffusion(nn.Module):
 
         num_agents = eval_mask.sum()
 
-        e_init_rand = torch.randn([num_agents, num_samples, 5]).to(device)
+        e_init_rand = torch.randn([num_agents, num_samples, 5+3]).to(device)
 
         if start_data == None:
             x_init_T = e_init_rand
@@ -390,7 +390,7 @@ class InitDenoiser(nn.Module):
         self.diff_type = diff_type
         self.m_dim = m_dim
 
-        m_delta_dim = 5
+        m_delta_dim = 5+3
 
         self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
 
