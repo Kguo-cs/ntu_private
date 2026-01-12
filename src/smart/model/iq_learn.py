@@ -151,22 +151,13 @@ class IQ_SoftQ(LightningModule):
                         opt_G.step()
                 else:
                     loss,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed=pred["initial_logit"]
-                    self.log('train/loss_diff_init', loss, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
-
-                    self.log('train/loss_diff_trans', loss_diff_trans, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
-                    self.log('train/loss_diff_theta', loss_diff_theta, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
-                    self.log('train/loss_diff_speed', loss_diff_speed, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
-
-                    self.log('train/trans_loss', loss_trans, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
-                    self.log('train/rot_loss2', loss_rot2, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
-                    self.log('train/speed_loss', loss_speed, prog_bar=False, on_step=True, on_epoch=True, batch_size=1,
-                             sync_dist=True)
+                    self.log('train/loss_diff_init', loss, on_step=True,  batch_size=1  )
+                    self.log('train/loss_diff_trans', loss_diff_trans,  on_step=True, batch_size=1)
+                    self.log('train/loss_diff_theta', loss_diff_theta,  on_step=True,  batch_size=1)
+                    self.log('train/loss_diff_speed', loss_diff_speed,  on_step=True,  batch_size=1)
+                    self.log('train/trans_loss', loss_trans,  on_step=True,  batch_size=1)
+                    self.log('train/rot_loss2', loss_rot2,  on_step=True,  batch_size=1)
+                    self.log('train/speed_loss', loss_speed,  on_step=True, batch_size=1)
 
                 action_nll = action_nll +loss
             else:

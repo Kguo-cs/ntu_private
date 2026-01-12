@@ -113,7 +113,7 @@ class PDInit(nn.Module):
         non_ego = ~ego_mask
 
         batch = tokenized_agent["batch"][non_ego]
-        normal_scale = torch.tensor([map_range, map_range, 0.5, 0.5, 12.5, 2.5, 2.5, 25],device=non_ego.device)
+        normal_scale = torch.tensor([map_range, map_range, 0.5, 0.5, 12.5, 2.5, 2.5, 16],device=non_ego.device)
 
         if self.training:
             shape = tokenized_agent["gt_initial_shape"]
@@ -135,7 +135,7 @@ class PDInit(nn.Module):
 
             initial_shape=real_shape[:,:3]
 
-            init_speed =real_shape[:,-2:].norm(dim=-1)
+            init_speed =real_shape[:,-2:].norm(dim=-1)/0.5
 
             m_init = torch.cat([init_trans, init_angle, initial_shape,init_speed[:,None]], dim=-1)
 
