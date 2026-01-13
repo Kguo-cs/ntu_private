@@ -80,6 +80,14 @@ class InitDiffusion(nn.Module):
 
         self.flow_matching=True
 
+        self.x_pred=False
+
+        self.t_eps=5e-2
+
+        self.P_std=0.8
+
+        self.P_mean=0.8
+
 
     def get_loss(self,
                  diff_input,
@@ -93,6 +101,11 @@ class InitDiffusion(nn.Module):
         else:
             return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples)
 
+
+    def sample_t(self, n: int, device=None):
+        z = torch.randn(n, device=device) * self.P_std + self.P_mean
+        return torch.sigmoid(z)
+
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
         """
         x1: target samples, shape [B, 2]
@@ -100,21 +113,32 @@ class InitDiffusion(nn.Module):
         device = x1.device
         num_scenes = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["batch"][eval_mask]
+        mode = self.B_dist.sample()
 
         x1=x1.unsqueeze(1).repeat(1, num_samples, 1)
 
         x0 = torch.randn_like(x1)  # base distribution N(0, I)
 
-        t = torch.rand(num_scenes, device=device)[:, None].to(device)[agent_batch]  # t ~ U[0,1]
+        t = self.sample_t(num_scenes, device=device)[:, None].to(device)[agent_batch]  # t ~ U[0,1]
 
-        x_t = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1
-        v_target = x1 - x0
+        z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1
 
-        mode = self.B_dist.sample()
+        if self.x_pred:
+            v_target = (x1 - z) / (1 - t).clamp_min(self.t_eps)
 
-        v_pred = self.net(copy.deepcopy(x_t), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+            x_pred = self.net(copy.deepcopy(z), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
+                              mode=mode)
 
-        x_init_0_reconstructed =x0+v_pred
+            v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
+
+            x_init_0_reconstructed = x_pred  # x0+v_pred
+
+        else:
+            v_target =x1 - x0
+
+            v_pred = self.net(copy.deepcopy(z), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+
+            x_init_0_reconstructed =x0+v_pred
 
         return ((v_pred - v_target) ** 2),x_init_0_reconstructed
 
@@ -123,15 +147,21 @@ class InitDiffusion(nn.Module):
 
         num_agents = eval_mask.sum()
 
-        x = torch.randn(num_agents,num_samples, 8, device=device)
+        z = torch.randn(num_agents,num_samples, 8, device=device)
         dt = 1.0 / steps
 
         for i in range(steps):
             t = torch.full((num_agents,num_samples), i / steps, device=device)
-            v=self.net(x, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-            x = x + v * dt
+            if self.x_pred:
+                x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
-        return x
+                v_pred = (x_pred - z) / (1 - t).clamp_min(self.t_eps)
+            else:
+                v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+
+            z = z + v_pred * dt
+
+        return z
 
     def get_loss_vd(self,
                     m_init,

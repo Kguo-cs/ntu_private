@@ -37,6 +37,7 @@ def compute_collision_rate(samples):
     print("Computing collision rate")
     num_vehicles_all = 0
     num_vehicles_in_collision_all = 0
+    collision=[]
     for i in range(len(samples)):
         data = samples[i]
         vehicles = data['vehicles']
@@ -72,11 +73,14 @@ def compute_collision_rate(samples):
 
             if is_in_collision:
                 num_vehicles_in_collision += 1
+                collision.append(True)
+            else:
+                collision.append(False)
 
         num_vehicles_in_collision_all += num_vehicles_in_collision
         num_vehicles_all += len(vehicles)
 
-    return num_vehicles_in_collision_all / num_vehicles_all
+    return num_vehicles_in_collision_all / num_vehicles_all,np.stack(collision, axis=0)
 
 
 def get_onroad_vehicles(vehicles, lanes, tol=1.5):
@@ -277,8 +281,13 @@ def compute_jsd_metrics(samples, gt_samples):
 
 def compute_agent_metrics(samples, gt_samples):
     """ Computes the agent metrics for the samples and ground truth samples."""
+    collision_rate,collision = compute_collision_rate(samples)
+
+    gt_collision_rate,gt_collision= compute_collision_rate(gt_samples)
+
+    collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
+
     nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples)
-    collision_rate = compute_collision_rate(samples)
 
     return {
         'nearest_dist_jsd': nearest_dist_jsd,
@@ -287,5 +296,6 @@ def compute_agent_metrics(samples, gt_samples):
         'length_jsd': length_jsd,
         'width_jsd': width_jsd,
         'speed_jsd': speed_jsd,
+        "collision_jsd":collision_jsd,
         'collision_rate': collision_rate * 100
     }
