@@ -45,6 +45,7 @@ class TokenProcessor(torch.nn.Module):
         agent_token_sampling: DictConfig,
         pred_entry=False,
         pred_init=False,
+        learn_init=False,
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -133,7 +134,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.learn_init=False
+        self.learn_init=learn_init
 
         self.pred_vel=True
 

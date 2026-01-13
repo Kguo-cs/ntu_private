@@ -117,7 +117,7 @@ class PDInit(nn.Module):
         non_ego = ~ego_mask
 
         batch = tokenized_agent["batch"][non_ego]
-        normal_scale = torch.tensor([80, 80, 0.5, 0.5, 12.5, 2.5, 2.5, 16],device=non_ego.device)
+        normal_scale = torch.tensor([map_range, map_range, 1, 1, 12.5, 4, 2.5, 16],device=non_ego.device)
 
         if self.training:
             shape = tokenized_agent["gt_initial_shape"]
@@ -135,7 +135,7 @@ class PDInit(nn.Module):
 
             delta_rot = real_heading.unsqueeze(-1)
 
-            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)
+            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)+1 #[0,2]
 
             initial_shape=real_shape[:,:3]
 
@@ -151,7 +151,7 @@ class PDInit(nn.Module):
 
             pred_init=(pred_init+1)*normal_scale
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2]-map_range, pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
+            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2]-map_range, pred_init[..., 2:4]-1,pred_init[..., 4:7], pred_init[..., -1]
 
             target_origin = init_trans.unsqueeze(1).repeat(1, num_samples, 1)
             target_theta = init_angle.unsqueeze(1).repeat(1, num_samples,1)
@@ -178,7 +178,7 @@ class PDInit(nn.Module):
                                                     reverse_steps=reverse_steps)
             pred_init=(pred_init[:,0]+1)*normal_scale
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2]-map_range, pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
+            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2]-map_range, pred_init[..., 2:4]-1,pred_init[..., 4:7], pred_init[..., -1]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
             global_pos,global_heading=transform_to_global(

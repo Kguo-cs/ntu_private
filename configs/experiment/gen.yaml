@@ -17,6 +17,7 @@ model:
         temp: 1.0
       pred_entry: False
       pred_init: True
+      learn_init: False
 
 
     training_rollout_sampling:
