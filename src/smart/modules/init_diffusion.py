@@ -174,7 +174,6 @@ class InitDiffusion(nn.Module):
         torch.cuda.empty_cache()
 
         for t in range(reverse_steps, 0, -stride):
-            z_init = torch.randn_like(x_init_T) if t > 1 else torch.zeros_like(x_init_T)
 
             beta = self.var_sched.betas[t]
 
@@ -188,6 +187,9 @@ class InitDiffusion(nn.Module):
                                         eval_mask=eval_mask, mode=1)
 
             if sampling == 'ddpm':
+
+                z_init = torch.randn_like(x_init_T) if t > 1 else torch.zeros_like(x_init_T)
+
                 alpha = self.var_sched.alphas[t]
 
                 c0 = 1 / torch.sqrt(alpha)

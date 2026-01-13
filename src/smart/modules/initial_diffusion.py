@@ -150,18 +150,18 @@ class PDInit(nn.Module):
 
             m_init=(m_init-normal_mean)/normal_scale #[-1,1]
 
-            dist =  (init_trans[:, 0]+100)*200+init_trans[:, 1]#+200#torch.norm(init_trans, dim=-1)
+            # dist =  (init_trans[:, 0]+100)*200+init_trans[:, 1]#+200#torch.norm(init_trans, dim=-1)
+            #
+            # dist_max = dist.max() + 1
+            #
+            # sort_rank = batch.to(torch.float64) * dist_max * 3 + initial_type.to(torch.float64) * dist_max + dist.to(
+            #     torch.float64)  # -ego_mask.float()#+dist#dist sorted
+            #
+            # sort_idx = sort_rank.argsort()
 
-            dist_max = dist.max() + 1
+            #m_init=m_init[sort_idx]
 
-            sort_rank = batch.to(torch.float64) * dist_max * 3 + initial_type.to(torch.float64) * dist_max + dist.to(
-                torch.float64)  # -ego_mask.float()#+dist#dist sorted
-
-            sort_idx = sort_rank.argsort()
-
-            m_init=m_init[sort_idx]
-
-            tokenized_agent['initial_type']=initial_type[sort_idx]
+            tokenized_agent['initial_type']=initial_type#[sort_idx]
 
             num_samples=1
 
@@ -171,9 +171,9 @@ class PDInit(nn.Module):
 
             pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
 
-            target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
-            target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
-            target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
+            target_origin = init_trans.unsqueeze(1).repeat(1, num_samples, 1)
+            target_theta = init_angle.unsqueeze(1).repeat(1, num_samples,1)
+            target_speed = init_speed.unsqueeze(1).repeat(1, num_samples)
 
             loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
             loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
@@ -182,7 +182,9 @@ class PDInit(nn.Module):
             loss_diff_trans = loss_diff_init[..., :2].mean()
             loss_diff_theta = loss_diff_init[..., 2:4].mean()
             loss_diff_speed = loss_diff_init[..., -1].mean()
-            loss_diff_init = loss_diff_init.mean()
+
+            weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
+            loss_diff_init = (loss_diff_init*weight).mean()
 
             return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
         else:
@@ -190,7 +192,7 @@ class PDInit(nn.Module):
 
             sort_idx = sort_rank.argsort()
 
-            tokenized_agent['initial_type']= initial_type[sort_idx]
+            tokenized_agent['initial_type']= initial_type#[sort_idx]
 
             num_samples = 1
             pred_init = self.joint_diffusion.sample(num_samples, data=tokenized_agent, scene_enc=map_feature,
