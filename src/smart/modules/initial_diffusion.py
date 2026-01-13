@@ -106,7 +106,7 @@ class PDInit(nn.Module):
 
         ego_dist_mask = ego_dist < map_range
 
-        pos_pl = pos_pl[ego_dist_mask]/map_range
+        pos_pl = pos_pl[ego_dist_mask]
         orient_pl = orient_pl[ego_dist_mask]
         batch_pl = batch_pl[ego_dist_mask]
         feat_map = feat_map[ego_dist_mask]
@@ -117,7 +117,8 @@ class PDInit(nn.Module):
         non_ego = ~ego_mask
 
         batch = tokenized_agent["batch"][non_ego]
-        normal_scale = torch.tensor([map_range, map_range, 1, 1, 12.5, 4, 2.5, 16],device=non_ego.device)
+        normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
+        normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
 
         if self.training:
             shape = tokenized_agent["gt_initial_shape"]
@@ -131,11 +132,11 @@ class PDInit(nn.Module):
                                                         )
 
 
-            init_trans = real_pos[:, :2]+map_range
+            init_trans = real_pos[:, :2]
 
             delta_rot = real_heading.unsqueeze(-1)
 
-            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)+1 #[0,2]
+            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)#[0,2]
 
             initial_shape=real_shape[:,:3]
 
@@ -143,15 +144,15 @@ class PDInit(nn.Module):
 
             m_init = torch.cat([init_trans, init_angle, initial_shape,init_speed[:,None]], dim=-1)
 
-            m_init=m_init/normal_scale-1 #[-1,1]
+            m_init=(m_init-normal_mean)/normal_scale #[-1,1]
 
             num_samples=1
 
             loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
-            pred_init=(pred_init+1)*normal_scale
+            pred_init=pred_init*normal_scale+normal_mean
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2]-map_range, pred_init[..., 2:4]-1,pred_init[..., 4:7], pred_init[..., -1]
+            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
 
             target_origin = init_trans.unsqueeze(1).repeat(1, num_samples, 1)
             target_theta = init_angle.unsqueeze(1).repeat(1, num_samples,1)
@@ -169,16 +170,15 @@ class PDInit(nn.Module):
             return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
         else:
             num_samples = 1
-
-            reverse_steps = None
             pred_init = self.joint_diffusion.sample(num_samples, data=tokenized_agent, scene_enc=map_feature,
                                                     sampling='ddim',
                                                     stride=10, eval_mask=non_ego,
                                                     if_output_diffusion_process=False,
-                                                    reverse_steps=reverse_steps)
-            pred_init=(pred_init[:,0]+1)*normal_scale
+                                                    reverse_steps=None)[:,0]
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2]-map_range, pred_init[..., 2:4]-1,pred_init[..., 4:7], pred_init[..., -1]
+            pred_init=pred_init*normal_scale+normal_mean
+
+            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
             global_pos,global_heading=transform_to_global(
