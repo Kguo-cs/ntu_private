@@ -36,9 +36,9 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim = hidden_dim
 
-        self.use_entry_former = False
+        self.use_entry_former = True
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
         if self.use_entry_former:
 

@@ -150,7 +150,7 @@ class PDInit(nn.Module):
 
             m_init=(m_init-normal_mean)/normal_scale #[-1,1]
 
-            dist = torch.norm(init_trans, dim=-1)
+            dist =  init_trans[:, 0]+init_trans[:, 1]+200#torch.norm(init_trans, dim=-1)
 
             dist_max = dist.max() + 1
 

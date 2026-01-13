@@ -106,7 +106,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.token_initial=token_processor.token_initial
 
-        self.use_gan=False
+        self.use_gan=True
 
         if self.pred_init and self.learn_init:
 

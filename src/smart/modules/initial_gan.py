@@ -73,7 +73,7 @@ class InitGAN(nn.Module):
 
         self.criterion = nn.BCELoss()
 
-        self.use_Rp=False
+        self.use_Rp=True
 
         self.Gamma =   1
 

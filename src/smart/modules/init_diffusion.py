@@ -156,7 +156,7 @@ class InitDiffusion(nn.Module):
         if reverse_steps is None:
             reverse_steps = self.var_sched.num_steps
 
-        device = scene_enc[0].device
+        device = eval_mask.device
 
         num_agents = eval_mask.sum()
 
@@ -178,12 +178,7 @@ class InitDiffusion(nn.Module):
 
             beta = self.var_sched.betas[t]
 
-            alpha = self.var_sched.alphas[t]
             alpha_bar = self.var_sched.alpha_bars[t]
-            alpha_bar_next = self.var_sched.alpha_bars[t - stride]
-            c0 = 1 / torch.sqrt(alpha)
-            c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
-            sigma = self.var_sched.get_sigmas(t, 0)
 
             x_init_t = x_init_t_list[-1]
 
@@ -193,9 +188,16 @@ class InitDiffusion(nn.Module):
                                         eval_mask=eval_mask, mode=1)
 
             if sampling == 'ddpm':
+                alpha = self.var_sched.alphas[t]
+
+                c0 = 1 / torch.sqrt(alpha)
+                c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
+                sigma = self.var_sched.get_sigmas(t, 0)
+
                 x_init_next = c0 * (x_init_t - c1 * g_init_theta) + sigma * z_init
 
             elif sampling == 'ddim':
+                alpha_bar_next = self.var_sched.alpha_bars[t - stride]
 
                 x0_init_t = (x_init_t - g_init_theta * (1 - alpha_bar).sqrt()) / alpha_bar.sqrt()
                 x_init_next = alpha_bar_next.sqrt() * x0_init_t + (1 - alpha_bar_next).sqrt() * g_init_theta
