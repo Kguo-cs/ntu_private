@@ -291,7 +291,7 @@ class InitDenoiser(nn.Module):
         device = m_delta.device
 
         agent_batch_list = tokenized_agent["batch"][eval_mask]
-        type = tokenized_agent["type"][eval_mask]
+        type = tokenized_agent["initial_type"]
         batch_size = tokenized_agent["num_graphs"]
 
         self.num_samples = num_samples
