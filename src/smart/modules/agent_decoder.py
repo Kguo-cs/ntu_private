@@ -252,6 +252,7 @@ class SMARTAgentDecoder(nn.Module):
                 pos_a = tokenized_agent["gt_initial_pos"]
                 head_a= tokenized_agent["gt_initial_heading"]
                 sampled_idx=tokenized_agent["gt_initial_idx"]
+                initial_speed=tokenized_agent["gt_initial_idx"]
 
                 max_step=16
 
