@@ -37,7 +37,7 @@ model:
 #    n_vis_scenario: 32
 #    n_vis_rollout: 1
 
-#ckpt_path: './ckpts/bcgen56_vel_epoch=25-step=226122_0.78389.ckpt'
+ckpt_path: './ckpts/bcgen56_vel_epoch=25-step=226122_0.78389.ckpt'
 
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen128_sort08_map100_max_01loss_nopos0_nooffset_epoch=31-step=121760.ckpt'
 
