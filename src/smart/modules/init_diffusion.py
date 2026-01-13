@@ -138,17 +138,8 @@ class InitDiffusion(nn.Module):
                uc=None,
                clean_data=None,
                ) -> Dict[str, torch.Tensor]:
-        if self.guid_sampling == 'guid':
-            return self.sample_guide(num_samples, data, scene_enc,
-                                     if_output_diffusion_process, start_data, reverse_steps,
-                                     eval_mask, sampling, stride, grad_guid, guid_param=guid_param)
-        else:
-            return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
-                                  eval_mask, sampling, stride)
-
-    def lat2traj(self, latent, V_k, s_mean, num_samples):
-        return torch.matmul(latent, V_k.unsqueeze(0).repeat(num_samples, 1, 1)) + s_mean.unsqueeze(0)
-
+        return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
+                              eval_mask, sampling, stride)
 
     def sample_vd(self,
                   num_samples: int,
