@@ -50,7 +50,7 @@ trainer:
   #val_check_interval: 0.1
   #val_check_interval: 0.0000002
   max_epochs: 32
-  #gradient_clip_val: 0.0
+  gradient_clip_val: 0.0
 
 model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
