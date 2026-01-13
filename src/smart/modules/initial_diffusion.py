@@ -120,8 +120,11 @@ class PDInit(nn.Module):
         # normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
         # normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
 
-        normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
-        normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
+        # normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
+        # normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
+
+        normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
+        normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
 
         initial_type = tokenized_agent["type"][non_ego]
 
@@ -138,19 +141,22 @@ class PDInit(nn.Module):
 
             init_trans = real_pos[:, :2]
 
+            initial_shape=real_shape[:,:3]
+
+            initial_contour=cal_polygon_contour(init_trans[:,None,None],real_heading[:,None,None],real_shape[:,None,None,:2])
+
             delta_rot = real_heading.unsqueeze(-1)
 
-            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)#[0,2]
+            #init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)#[0,2]
 
-            initial_shape=real_shape[:,:3]
 
             init_speed =real_shape[:,-2:].norm(dim=-1)/0.5
 
-            m_init = torch.cat([init_trans, init_angle, initial_shape,init_speed[:,None]], dim=-1)
+            m_init = torch.cat([initial_contour[:,0,0,:3].flatten(1,2), initial_shape[:,-1:],init_speed[:,None]], dim=-1)
 
             m_init=(m_init-normal_mean)/normal_scale #[-1,1]
 
-            dist =  (init_trans[:, 0]+100)*200+init_trans[:, 1]#+200#torch.norm(init_trans, dim=-1)
+            dist =  init_trans[:, 0]+init_trans[:, 1]#+200#torch.norm(init_trans, dim=-1)
 
             dist_max = dist.max() + 1
 
@@ -167,24 +173,28 @@ class PDInit(nn.Module):
 
             loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
-            pred_init=pred_init*normal_scale+normal_mean
+            #pred_init=pred_init*normal_scale+normal_mean
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
 
-            target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
-            target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
-            target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
 
-            loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
-            loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
-            loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
+            # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
 
-            loss_diff_trans = loss_diff_init[..., :2].mean()
-            loss_diff_theta = loss_diff_init[..., 2:4].mean()
-            loss_diff_speed = loss_diff_init[..., -1].mean()
+            # target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
+            # target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
+            # target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
+            #
+            # loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
+            # loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
+            # loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
+            #
+            # loss_diff_trans = loss_diff_init[..., :2].mean()
+            # loss_diff_theta = loss_diff_init[..., 2:4].mean()
+            # loss_diff_speed = loss_diff_init[..., -1].mean()
 
-            weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
-            loss_diff_init = (loss_diff_init*weight).mean()
+            #weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
+            loss_diff_init = loss_diff_init.mean()
+
+            loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
 
             return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
         else:
@@ -203,8 +213,24 @@ class PDInit(nn.Module):
 
             pred_init=pred_init*normal_scale+normal_mean
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
-            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+            # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
+            # pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+            pred_count=pred_init[..., :6].reshape(-1,3,2)
+
+            # center (diagonal midpoint)
+            pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
+
+            diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
+
+            # width & length
+            width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
+            length = torch.norm(diff_xy_next,dim=-1)
+
+            pred_head = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+
+            pred_speed=pred_init[..., -1]
+
+            pred_shape=torch.stack([length,width,pred_init[..., 6]], dim=-1)
 
             global_pos,global_heading=transform_to_global(
                 pred_trans,
