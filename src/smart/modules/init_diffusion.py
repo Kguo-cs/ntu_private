@@ -86,7 +86,7 @@ class InitDiffusion(nn.Module):
 
         self.P_std=0.8
 
-        self.P_mean=0.8
+        self.P_mean=-0.8
 
 
     def get_loss(self,
