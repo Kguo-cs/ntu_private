@@ -103,8 +103,10 @@ class InitDiffusion(nn.Module):
 
 
     def sample_t(self, n: int, device=None):
-        z = torch.randn(n, device=device) * self.P_std + self.P_mean
-        return torch.sigmoid(z)
+        # z = torch.randn(n, device=device) * self.P_std + self.P_mean
+        # z=torch.sigmoid(z)
+        z=torch.rand(n, device=device)
+        return z
 
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
         """
@@ -124,7 +126,7 @@ class InitDiffusion(nn.Module):
         z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1
 
         if self.x_pred:
-            v_target = (x1 - z) / (1 - t).clamp_min(self.t_eps)
+            v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
             x_pred = self.net(copy.deepcopy(z), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
                               mode=mode)
@@ -155,7 +157,7 @@ class InitDiffusion(nn.Module):
             if self.x_pred:
                 x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
-                v_pred = (x_pred - z) / (1 - t).clamp_min(self.t_eps)
+                v_pred = (x_pred - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
             else:
                 v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
@@ -345,7 +347,6 @@ class InitDenoiser(nn.Module):
         self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
                                           num_freq_bands=num_freq_bands)
         self.type_a_emb = nn.Embedding(3, hidden_dim)
-        ########
 
         self.interact_pt2m = nn.ModuleList(
             [TransformerDecoderLayerDiff(
