@@ -74,11 +74,12 @@ class InitDiffusion(nn.Module):
         )
         self.infer_time_per_step = []
         self.GPU_incre_memory = []
-        # self.t_std = []
-        # self.t_mean = []
-
         probs = torch.tensor([0.5])
         self.B_dist = Bernoulli(probs=probs)
+
+
+        self.flow_matching=True
+
 
     def get_loss(self,
                  diff_input,
@@ -87,7 +88,50 @@ class InitDiffusion(nn.Module):
                  eval_mask,
                  num_samples=1) -> Dict[str, torch.Tensor]:
 
-        return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples, )
+        if self.flow_matching:
+            return self.flow_matching_loss(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples )
+        else:
+            return self.get_loss_vd(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples)
+
+    def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
+        """
+        x1: target samples, shape [B, 2]
+        """
+        device = x1.device
+        num_scenes = tokenized_agent["num_graphs"]
+        agent_batch = tokenized_agent["batch"][eval_mask]
+
+        x1=x1.unsqueeze(1).repeat(1, num_samples, 1)
+
+        x0 = torch.randn_like(x1)  # base distribution N(0, I)
+
+        t = torch.rand(num_scenes, device=device)[:, None].to(device)[agent_batch]  # t ~ U[0,1]
+
+        x_t = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1
+        v_target = x1 - x0
+
+        mode = self.B_dist.sample()
+
+        v_pred = self.net(copy.deepcopy(x_t), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+
+        x_init_0_reconstructed =x0+v_pred
+
+        return ((v_pred - v_target) ** 2),x_init_0_reconstructed
+
+    @torch.no_grad()
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
+
+        num_agents = eval_mask.sum()
+
+        x = torch.randn(num_agents,num_samples, 8, device=device)
+        dt = 1.0 / steps
+
+        for i in range(steps):
+            t = torch.full((num_agents,num_samples), i / steps, device=device)
+            v=self.net(x, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+            x = x + v * dt
+
+        return x
 
     def get_loss_vd(self,
                     m_init,
@@ -138,8 +182,12 @@ class InitDiffusion(nn.Module):
                uc=None,
                clean_data=None,
                ) -> Dict[str, torch.Tensor]:
-        return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
-                              eval_mask, sampling, stride)
+        if self.flow_matching:
+            return self.sample_flow(num_samples, data, scene_enc,    eval_mask)
+
+        else:
+            return self.sample_vd(num_samples, data, scene_enc, if_output_diffusion_process, start_data, reverse_steps,
+                                  eval_mask, sampling, stride)
 
     def sample_vd(self,
                   num_samples: int,
