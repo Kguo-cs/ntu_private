@@ -14,7 +14,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyu
 
 rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/gen128_gpgenr12_1e5_vel_olddis_pre/2026-01-12_12-51-51/bc/8rbcr1e5/checkpoints/epoch=8-step=34245.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/gen256_val256_weightsort_xpredflow_tsample_coun/2026-01-13_19-55-37/bc/jaqswvze/checkpoints/epoch=1-step=3806.ckpt ./
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/gen128_gpgenr12_notantransdrop0_1e5/2026-01-09_12-30-38/bc/2w24b1zj/checkpoints/epoch=13-step=53270.ckpt ./
 
