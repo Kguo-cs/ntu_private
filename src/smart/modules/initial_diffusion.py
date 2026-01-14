@@ -107,7 +107,7 @@ class PDInit(nn.Module):
         batch_pl = batch_pl[ego_dist_mask]
         feat_map = feat_map[ego_dist_mask]
 
-        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(orient_pl[:,  None])
+        feat_map = feat_map + self.pos_embedding(pos_pl/80) + self.head_embedding(orient_pl[:,  None])
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
         non_ego = ~ego_mask
