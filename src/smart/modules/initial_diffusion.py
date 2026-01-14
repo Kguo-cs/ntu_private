@@ -60,7 +60,7 @@ class PDInit(nn.Module):
         hidden_dim=args.hidden_dim
 
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+        self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
         self.latent_diffusion=False
 
@@ -107,7 +107,9 @@ class PDInit(nn.Module):
         batch_pl = batch_pl[ego_dist_mask]
         feat_map = feat_map[ego_dist_mask]
 
-        feat_map = feat_map + self.pos_embedding(pos_pl/80) + self.head_embedding(orient_pl[:,  None])
+        init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
+
+        feat_map = feat_map + self.pos_embedding(pos_pl/80) + self.head_embedding(init_angle)
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
         non_ego = ~ego_mask
