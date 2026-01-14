@@ -69,7 +69,7 @@ class ScenarioDreamerEncoder(nn.Module):
             l2a_edge_index: torch.Tensor,
             l2l_edge_index: torch.Tensor,
     ):
-        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+sinusoidal_embedding(agent_pos_idx,self.hidden_dim)
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding#+sinusoidal_embedding(agent_pos_idx,self.hidden_dim)
 
         for l in range(self.num_encoder_blocks):
             agent_embeddings, lane_embeddings, lane_conn_embeddings = self.encoder_transformer_blocks[l](
@@ -165,7 +165,7 @@ class ScenarioDreamerDecoder(nn.Module):
         """
 
         # ----------- latent -> hidden-dim projections -------------------- #
-        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+sinusoidal_embedding(agent_pos_idx,self.hidden_dim)
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding #+sinusoidal_embedding(agent_pos_idx,self.hidden_dim)
 
         lane_conn_embeddings=None
 
