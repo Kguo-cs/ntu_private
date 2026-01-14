@@ -150,14 +150,20 @@ class IQ_SoftQ(LightningModule):
                         loss.backward()
                         opt_G.step()
                 else:
-                    loss,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed=pred["initial_logit"]
-                    self.log('train/loss_diff_init', loss, on_step=True,  batch_size=1  )
-                    self.log('train/loss_diff_trans', loss_diff_trans,  on_step=True, batch_size=1)
-                    self.log('train/loss_diff_theta', loss_diff_theta,  on_step=True,  batch_size=1)
-                    self.log('train/loss_diff_speed', loss_diff_speed,  on_step=True,  batch_size=1)
-                    self.log('train/trans_loss', loss_trans,  on_step=True,  batch_size=1)
-                    self.log('train/rot_loss2', loss_rot2,  on_step=True,  batch_size=1)
-                    self.log('train/speed_loss', loss_speed,  on_step=True, batch_size=1)
+                    if self.encoder.agent_encoder.init_decoder.latent_diffusion:
+                        loss,agent_loss,kl_loss=pred["initial_logit"]
+                        self.log('train/loss_diff_init', loss, on_step=True,  batch_size=1  )
+                        self.log('train/agent_loss', agent_loss,  on_step=True, batch_size=1)
+                        self.log('train/kl_loss', kl_loss,  on_step=True,  batch_size=1)
+                    else:
+                        loss,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed=pred["initial_logit"]
+                        self.log('train/loss_diff_init', loss, on_step=True,  batch_size=1  )
+                        self.log('train/loss_diff_trans', loss_diff_trans,  on_step=True, batch_size=1)
+                        self.log('train/loss_diff_theta', loss_diff_theta,  on_step=True,  batch_size=1)
+                        self.log('train/loss_diff_speed', loss_diff_speed,  on_step=True,  batch_size=1)
+                        self.log('train/trans_loss', loss_trans,  on_step=True,  batch_size=1)
+                        self.log('train/rot_loss2', loss_rot2,  on_step=True,  batch_size=1)
+                        self.log('train/speed_loss', loss_speed,  on_step=True, batch_size=1)
 
                 action_nll = action_nll +loss
             else:

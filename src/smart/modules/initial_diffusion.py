@@ -62,7 +62,7 @@ class PDInit(nn.Module):
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
-        self.latent_diffusion=False
+        self.latent_diffusion=True
 
         if self.latent_diffusion:
 
@@ -117,8 +117,17 @@ class PDInit(nn.Module):
         batch = tokenized_agent["batch"][non_ego]
 
 
-        normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
-        normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
+        normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
+        normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
+
+        # normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
+        # normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
+        # min_speed: 0
+        # max_speed: 114.088
+        # min_length: -0.098
+        # max_length: 22.929
+        # min_width: 0.096
+        # max_width: 12.527
 
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
@@ -170,32 +179,34 @@ class PDInit(nn.Module):
             tokenized_agent['initial_type']=initial_type[sort_idx]
 
             if self.latent_diffusion:
-                self.autoencoder.loss(m_init, feat_map,batch,batch_pl)
+                loss_dict =self.autoencoder.loss(m_init,tokenized_agent['initial_type'], feat_map,batch,batch_pl)
+
+                return loss_dict
             else:
                 loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
-            #pred_init=pred_init*normal_scale+normal_mean
-            # num_samples=1
-            # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
+                #pred_init=pred_init*normal_scale+normal_mean
+                # num_samples=1
+                # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
 
-            # target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
-            # target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
-            # target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
-            #
-            # loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
-            # loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
-            # loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
-            #
-            # loss_diff_trans = loss_diff_init[..., :2].mean()
-            # loss_diff_theta = loss_diff_init[..., 2:4].mean()
-            # loss_diff_speed = loss_diff_init[..., -1].mean()
+                # target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
+                # target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
+                # target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
+                #
+                # loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
+                # loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
+                # loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
+                #
+                # loss_diff_trans = loss_diff_init[..., :2].mean()
+                # loss_diff_theta = loss_diff_init[..., 2:4].mean()
+                # loss_diff_speed = loss_diff_init[..., -1].mean()
 
-            #weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
-            loss_diff_init = loss_diff_init.mean()
+                #weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
+                loss_diff_init = loss_diff_init.mean()
 
-            loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
+                loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
 
-            return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
+                return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
         else:
             sort_rank = batch.to(torch.float64)  * 3 + initial_type.to(torch.float64)
 

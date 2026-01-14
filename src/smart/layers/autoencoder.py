@@ -15,6 +15,7 @@ class ScenarioDreamerEncoder(nn.Module):
         super(ScenarioDreamerEncoder, self).__init__()
         self.num_encoder_blocks=num_encoder_blocks
         self.agent_mlp = ResidualMLP(input_dim=8,   hidden_dim=hidden_dim)
+        self.type_a_emb = nn.Embedding(3, hidden_dim)
 
         # Factorised attention encoder blocks
         self.encoder_transformer_blocks = []
@@ -40,14 +41,14 @@ class ScenarioDreamerEncoder(nn.Module):
     def forward(
             self,
             x_agent: torch.Tensor,
+            agent_types:torch.Tensor,
             lane_embeddings: torch.Tensor,
             lane_conn_embeddings,
             a2a_edge_index: torch.Tensor,
             l2a_edge_index: torch.Tensor,
             l2l_edge_index: torch.Tensor,
     ):
-        agent_embeddings = self.agent_mlp(x_agent)
-
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)
 
         for l in range(self.num_encoder_blocks):
             agent_embeddings, lane_embeddings, lane_conn_embeddings = self.encoder_transformer_blocks[l](
@@ -74,6 +75,7 @@ class ScenarioDreamerDecoder(nn.Module):
         self.num_decoder_blocks = num_decoder_blocks
 
         self.agent_mlp = nn.Linear(latent_dim, hidden_dim)
+        self.type_a_emb = nn.Embedding(3, hidden_dim)
 
         # ------------------- factorized attention decoder blocks ---------------------- #
         self.decoder_transformer_blocks = []
@@ -101,7 +103,8 @@ class ScenarioDreamerDecoder(nn.Module):
     def forward(
             self,
             x_agent: torch.Tensor,
-            x_lane: torch.Tensor,
+            agent_types: torch.Tensor,
+            lane_embeddings: torch.Tensor,
             a2a_edge_index: torch.Tensor,
             l2l_edge_index: torch.Tensor,
             l2a_edge_index: torch.Tensor
@@ -138,14 +141,9 @@ class ScenarioDreamerDecoder(nn.Module):
         """
 
         # ----------- latent -> hidden-dim projections -------------------- #
-        agent_embeddings = self.agent_mlp(x_agent)
-        lane_embeddings = self.lane_mlp(x_lane)
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)
 
-        # ----------- build lane-connection embeddings -------------------- #
-        lane_embeddings_downsampled = self.downsample_lane_mlp(lane_embeddings)
-        src_lane_conn_embedding = lane_embeddings_downsampled[l2l_edge_index[0]]
-        dst_lane_conn_embedding = lane_embeddings_downsampled[l2l_edge_index[1]]
-        lane_conn_embeddings = self.lane_conn_mlp(torch.cat([src_lane_conn_embedding, dst_lane_conn_embedding], dim=-1))
+        lane_conn_embeddings=None
 
         # ----------- factorized attention processing ------------------------ #
         for l in range(self.num_decoder_blocks):
@@ -160,25 +158,8 @@ class ScenarioDreamerDecoder(nn.Module):
 
         # ----------- prediction heads ------------------------------------ #
         agent_states_pred = self.pred_agent_states(agent_embeddings)
-        lane_states_pred = self.pred_lane_states(lane_embeddings).reshape(x_lane.shape[0], self.cfg.num_points_per_lane,
-                                                                          self.cfg.lane_attr)
 
-        agent_types_logits = self.pred_agent_types(agent_embeddings)
-        agent_types_pred = torch.argmax(agent_types_logits, dim=1)
-
-        if self.cfg.num_lane_types > 0:
-            lane_types_logits = self.pred_lane_types(lane_embeddings)
-            lane_types_pred = torch.argmax(lane_types_logits, dim=1)
-        else:
-            lane_types_logits = None
-            lane_types_pred = None
-
-        lane_conn_logits = self.pred_lane_conn(lane_conn_embeddings)
-        lane_conn_pred = torch.argmax(lane_conn_logits, dim=1)
-        lane_conn_pred = F.one_hot(lane_conn_pred, num_classes=self.cfg.lane_conn_attr)
-
-        return agent_states_pred, agent_types_logits, agent_types_pred, lane_states_pred, lane_types_logits, lane_types_pred, lane_conn_logits, lane_conn_pred
-
+        return agent_states_pred
 
 class AutoEncoder(nn.Module):
     """Scenario Dreamer AutoEncoder."""
@@ -198,7 +179,7 @@ class AutoEncoder(nn.Module):
         self.kl_loss_fn = GeometricLosses['kl']()
         self.apply(weight_init)
 
-    def loss(self, x_agent,lane_embeddings,batch,batch_pl,lane_conn_embeddings=None,l2l_edge_index=None):
+    def loss(self, x_agent,agent_types,lane_embeddings,batch,batch_pl,lane_conn_embeddings=None,l2l_edge_index=None):
 
         n_agent=x_agent.shape[0]
 
@@ -206,7 +187,7 @@ class AutoEncoder(nn.Module):
 
         src, dst = mask.nonzero(as_tuple=True)
 
-        a2a_edge_index_encoder=torch.stack([src, dst], dim=0)
+        a2a_edge_index=torch.stack([src, dst], dim=0)
 
         same_batch = batch_pl[:, None] == batch[None, :]
 
@@ -214,44 +195,36 @@ class AutoEncoder(nn.Module):
 
         a_dst = a_dst + len(lane_embeddings)  # shift polyline indices
 
-        l2a_edge_index_encoder=torch.stack([pl_src, a_dst], dim=0)#src, dst
-
+        l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
+            agent_types,
             lane_embeddings,
             lane_conn_embeddings,
-            a2a_edge_index_encoder,
-            l2a_edge_index_encoder,
+            a2a_edge_index,
+            l2a_edge_index,
             l2l_edge_index
             )
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
 
-        agent_states_pred, agent_types_logits, agent_types_pred = self.decoder(
+        agent_states_pred = self.decoder(
             agent_latents,
+            agent_types,
             lane_embeddings,
             a2a_edge_index,
             l2l_edge_index,
             l2a_edge_index)
 
         # agent vector regression loss
-        agent_loss = self.agent_loss_fn(agent_states_pred, x_agent_states, agent_batch)
-        # agent type classification loss
-        agent_type_loss = self.agent_type_loss_fn(agent_types_logits, x_agent_types, agent_batch)
-        agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, agent_batch)
+        agent_loss = self.agent_loss_fn(agent_states_pred, x_agent, batch)
+        agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        loss = agent_loss +self.cfg.kl_weight * kl_loss
+        loss = agent_loss +1e-2 * kl_loss
 
-        loss_dict = {
-            'loss': loss.mean(),
-            'agent_loss': agent_loss.mean().detach(),
-            'agent_type_loss': agent_type_loss.mean().detach(),
-            'kl_loss': kl_loss.mean().detach(),
-        }
-
-        return loss_dict
+        return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 
     def forward_encoder(self, data, return_stats=False, return_lane_embeddings=False):
         """forward pass through the encoder."""
