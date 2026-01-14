@@ -179,10 +179,7 @@ class AutoEncoder(nn.Module):
         self.kl_loss_fn = GeometricLosses['kl']()
         self.apply(weight_init)
 
-    def loss(self, x_agent,agent_types,lane_embeddings,batch,batch_pl,lane_conn_embeddings=None,l2l_edge_index=None):
-
-        n_agent=x_agent.shape[0]
-
+    def get_edgeindex(self,batch,batch_pl):
         mask = batch[:, None] == batch[None, :]
 
         src, dst = mask.nonzero(as_tuple=True)
@@ -193,9 +190,18 @@ class AutoEncoder(nn.Module):
 
         pl_src, a_dst = same_batch.nonzero(as_tuple=True)
 
-        a_dst = a_dst + len(lane_embeddings)  # shift polyline indices
+        a_dst = a_dst + len(batch_pl)  # shift polyline indices
 
         l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
+
+        return a2a_edge_index, l2a_edge_index
+
+
+    def loss(self, data,lane_conn_embeddings=None,l2l_edge_index=None):
+
+        x_agent, agent_types, lane_embeddings, batch, batch_pl=data
+
+        a2a_edge_index, l2a_edge_index=self.get_edgeindex(batch,batch_pl)
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
@@ -227,51 +233,52 @@ class AutoEncoder(nn.Module):
         return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 
     def forward_encoder(self, data, return_stats=False, return_lane_embeddings=False):
-        """forward pass through the encoder."""
-        agent_batch, lane_batch, lane_conn_batch = get_batches(data)
-        x_agent, x_agent_states, x_agent_types, x_lane, x_lane_states, x_lane_types, x_lane_conn = get_features(data)
-        a2a_edge_index_encoder, l2l_edge_index_encoder, l2a_edge_index_encoder, l2q_edge_index_encoder, x_lane_conn_encoder = get_encoder_edge_indices(
-            data)
+
+        x_agent, agent_types, lane_embeddings, batch, batch_pl=data
+
+        a2a_edge_index, l2a_edge_index=self.get_edgeindex(batch,batch_pl)
+
+        lane_conn_embeddings = None
+        l2l_edge_index = None
 
         encoder_output = self.encoder(
             x_agent,
-            x_lane,
-            x_lane_conn_encoder,
-            a2a_edge_index_encoder,
-            l2l_edge_index_encoder,
-            l2a_edge_index_encoder,
-            l2q_edge_index_encoder,
-            agent_batch,
-            return_lane_embeddings)
-
+            agent_types,
+            lane_embeddings,
+            lane_conn_embeddings,
+            a2a_edge_index,
+            l2a_edge_index,
+            l2l_edge_index
+            )
         if return_lane_embeddings:
             return encoder_output
         else:
-            agent_mu, lane_mu, agent_log_var, lane_log_var, lane_cond_dis_logits, lane_cond_dis_prob = encoder_output
+            agent_mu, agent_log_var = encoder_output
 
         if return_stats:
-            return agent_mu, lane_mu, agent_log_var, lane_log_var
+            return agent_mu, agent_log_var
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
-        lane_latents = reparameterize(lane_mu, lane_log_var)
 
-        return agent_latents, lane_latents, lane_cond_dis_prob
+        return agent_latents
 
-    def forward_decoder(self, agent_latents, lane_latents, data):
-        """forward pass through the decoder."""
-        a2a_edge_index, l2l_edge_index, l2a_edge_index = get_edge_indices(data)
-        agent_states_pred, agent_types_logits, agent_types_pred, lane_states_pred, lane_types_logits, lane_types_pred, lane_conn_logits, lane_conn_pred = self.decoder(
+    def forward_decoder(self, agent_latents, agent_types, lane_embeddings,batch, batch_pl):
+
+        a2a_edge_index, l2a_edge_index=self.get_edgeindex(batch,batch_pl)
+        l2l_edge_index=None
+
+        agent_states_pred = self.decoder(
             agent_latents,
-            lane_latents,
+            agent_types,
+            lane_embeddings,
             a2a_edge_index,
             l2l_edge_index,
             l2a_edge_index)
 
-        return agent_states_pred, lane_states_pred, agent_types_pred, lane_types_pred, lane_conn_pred
+        return agent_states_pred
 
     def forward(self, data, return_latents=False, return_lane_embeddings=False):
-        encoder_output = self.forward_encoder(data, return_stats=return_latents,
-                                              return_lane_embeddings=return_lane_embeddings)
+        encoder_output = self.forward_encoder(data, return_stats=return_latents,  return_lane_embeddings=return_lane_embeddings)
 
         if return_latents or return_lane_embeddings:
             return encoder_output

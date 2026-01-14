@@ -17,6 +17,7 @@ from src.smart.utils import (
 )
 from src.smart.layers.autoencoder import AutoEncoder
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
+from src.smart.layers.autoencoder_utils import reparameterize
 
 
 class PDInit(nn.Module):
@@ -63,6 +64,7 @@ class PDInit(nn.Module):
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
         self.latent_diffusion=True
+        self.learn_autoencoder = True
 
         if self.latent_diffusion:
 
@@ -70,7 +72,6 @@ class PDInit(nn.Module):
             num_decoder_blocks=2
             latent_dim=8
             num_heads=8
-
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
@@ -178,11 +179,22 @@ class PDInit(nn.Module):
 
             tokenized_agent['initial_type']=initial_type[sort_idx]
 
-            if self.latent_diffusion:
-                loss_dict =self.autoencoder.loss(m_init,tokenized_agent['initial_type'], feat_map,batch,batch_pl)
+            data=m_init,tokenized_agent['initial_type'], feat_map,batch,batch_pl
+
+            if self.learn_autoencoder:
+                loss_dict =self.autoencoder.loss(data)
 
                 return loss_dict
             else:
+                if self.latent_diffusion:
+                    with torch.no_grad():
+                        agent_mu, agent_log_var = self.autoencoder.forward(data,return_latents=True)
+                        m_init = reparameterize(agent_mu, agent_log_var)
+
+                    # agent_latents_mean=0
+                    # agent_latents_std=1
+                    # m_init = (agent_latents - agent_latents_mean) / agent_latents_std
+
                 loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
                 #pred_init=pred_init*normal_scale+normal_mean
@@ -220,6 +232,9 @@ class PDInit(nn.Module):
                                                     stride=10, eval_mask=non_ego,
                                                     if_output_diffusion_process=False,
                                                     reverse_steps=None)[:,0]
+
+            if self.latent_diffusion:
+                pred_init = self.autoencoder.forward_decoder(   pred_init,   tokenized_agent['initial_type'], feat_map,batch,batch_pl)
 
             pred_init=pred_init*normal_scale+normal_mean
 

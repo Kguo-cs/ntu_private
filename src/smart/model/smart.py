@@ -108,6 +108,9 @@ class SMART(LightningModule):
             for p in self.encoder.agent_encoder.init_decoder.parameters():
                 p.requires_grad = True
 
+            if not self.encoder.agent_encoder.use_gan and self.encoder.agent_encoder.init_decoder.latent_diffusion and not self.encoder.agent_encoder.init_decoder.learn_autoencoder:
+                for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
+                    p.requires_grad = False
         # else:
         #     for p in self.encoder.map_encoder.parameters():
         #             p.requires_grad = False
@@ -183,6 +186,8 @@ class SMART(LightningModule):
         # torch.random.manual_seed(1)
         # if batch_idx not in [1819]:#[28,109,164,242,402,729,842,1819]: #3500
         #     return
+        if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
+            return
 
         tokenized_map, tokenized_agent = self.token_processor(data)
 
@@ -625,6 +630,9 @@ class SMART(LightningModule):
 
 
     def on_validation_epoch_end(self):
+        if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
+            return
+
         if self.val_open_loop:
 
             torch.save(self.all_data,"all_data.pt")

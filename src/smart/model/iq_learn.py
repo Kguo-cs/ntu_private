@@ -150,7 +150,7 @@ class IQ_SoftQ(LightningModule):
                         loss.backward()
                         opt_G.step()
                 else:
-                    if self.encoder.agent_encoder.init_decoder.latent_diffusion:
+                    if self.encoder.agent_encoder.init_decoder.learn_autoencoder:
                         loss,agent_loss,kl_loss=pred["initial_logit"]
                         self.log('train/loss_diff_init', loss, on_step=True,  batch_size=1  )
                         self.log('train/agent_loss', agent_loss,  on_step=True, batch_size=1)
