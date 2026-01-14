@@ -79,8 +79,8 @@ class PDInit(nn.Module):
         # self.normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]])
 
 
-        #self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
-        #self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
+        # self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
+        # self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
         # min_speed: 0
         # max_speed: 114.088
         # min_length: -0.098
@@ -116,7 +116,7 @@ class PDInit(nn.Module):
 
         init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
 
-        init_speed = real_shape[:, -2:].norm(dim=-1) / 0.5
+        init_speed = real_shape[:, -2:].norm(dim=-1)
 
         m_init = torch.cat([init_trans, init_angle, initial_shape, init_speed[:, None]], dim=-1)
 
@@ -230,7 +230,7 @@ class PDInit(nn.Module):
                 data = (m_init, tokenized_agent['initial_type'], feat_map, batch, batch_pl)
 
                 agent_mu, agent_log_var = self.autoencoder.forward(data, return_latents=True)
-                pred_init = reparameterize(agent_mu, agent_log_var)
+                pred_init =reparameterize(agent_mu, agent_log_var)
 
             else:
                 sort_rank = batch.to(torch.float64)  * 3 + initial_type.to(torch.float64)

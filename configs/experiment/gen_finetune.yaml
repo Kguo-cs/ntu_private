@@ -41,7 +41,7 @@ ckpt_path: './ckpts/bcgen56_vel_epoch=25-step=226122_0.78389.ckpt'
 
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen128_sort08_map100_max_01loss_nopos0_nooffset_epoch=31-step=121760.ckpt'
 
-task_name: gen256_auto_std #_newrange #val256_sort_xpredflow_newrange #_tsample08 #weight_coun #auto__diff_meanstdsortsum1_gpgenr12_1e5_vel_pre #_diff_meanstd_val256_sortsum #gpgenr12_1e5_vel_pre_decomp #norp_shapehead0 #_olddis_match10 #05 #_d2pre__rodecoder216pre #_catnocausa_decaymatch  #_notantransdrop0_all #_graphpla_match02trans2decompmean_ar10 #_decayshape05 #r12_graphdisdecay_adam0value80pi__nomatch #r1r2shape15 #_matchpos2100valuetrans__dispos_ego_notime #angle_graphtime_graphreal_gp100_disdrop01eval2 #_l2 #_w10 #_match #_headmask08_map100_max_01loss_nooffset_ego
+task_name: gen256_auto_std_pos_train10_test10 #_mu #_std #_newrange #val256_sort_xpredflow_newrange #_tsample08 #weight_coun #auto__diff_meanstdsortsum1_gpgenr12_1e5_vel_pre #_diff_meanstd_val256_sortsum #gpgenr12_1e5_vel_pre_decomp #norp_shapehead0 #_olddis_match10 #05 #_d2pre__rodecoder216pre #_catnocausa_decaymatch  #_notantransdrop0_all #_graphpla_match02trans2decompmean_ar10 #_decayshape05 #r12_graphdisdecay_adam0value80pi__nomatch #r1r2shape15 #_matchpos2100valuetrans__dispos_ego_notime #angle_graphtime_graphreal_gp100_disdrop01eval2 #_l2 #_w10 #_match #_headmask08_map100_max_01loss_nooffset_ego
 
 trainer:
   limit_train_batches: 1.0

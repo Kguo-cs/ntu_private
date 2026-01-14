@@ -198,14 +198,14 @@ class TokenProcessor(torch.nn.Module):
                 initial_pos = tokenized_agent["initial_pos"]
                 initial_heading = tokenized_agent["initial_heading"]
             else:
-                if self.training or not self.learn_init:
+                if self.training and not self.learn_init:
                     initial_pos = tokenized_agent["sampled_pos"][:, 1]
                     initial_heading = tokenized_agent["sampled_heading"][:, 1]
                     initial_idx=tokenized_agent["sampled_idx"][:, 1]
                     if self.pred_vel:
                         token_traj = tokenized_agent["token_traj"][torch.arange(len(initial_idx)), initial_idx]
 
-                        token_vel = torch.mean(token_traj, dim=-2)#.norm(dim=-1)[:,None]#0.5
+                        token_vel = torch.mean(token_traj, dim=-2)/0.5#.norm(dim=-1)[:,None]#0.5
 
                         tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], token_vel], dim=-1)
                     else:
@@ -230,7 +230,7 @@ class TokenProcessor(torch.nn.Module):
 
                     initial_idx=torch.linalg.norm(all_token_vel-local_pos[:,None],dim=-1).argmin(-1)
 
-                    tokenized_agent["gt_initial_speed"] =initial_vel.norm(dim=-1)
+                    tokenized_agent["gt_initial_speed"] = initial_vel.norm(dim=-1)
                     tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
 
                 tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
@@ -264,7 +264,7 @@ class TokenProcessor(torch.nn.Module):
                 #
                 # initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
 
-                if not self.learn_init:
+                if not self.learn_init or self.learn_autoencoder:
                     for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
                         tokenized_agent[key]=tokenized_agent[key][:,2:]
 
@@ -723,8 +723,8 @@ class TokenProcessor(torch.nn.Module):
         entry_type_list=[]
         entry_shape_list=[]
 
-        if not self.training:
-            n_step=11+10
+        if self.learn_init:
+            n_step=11+10+5
 
         if self.pred_entry and not self.autoregressive_entry:
             out_dict["entry_idx"] = []
