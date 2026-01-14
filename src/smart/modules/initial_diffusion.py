@@ -63,8 +63,8 @@ class PDInit(nn.Module):
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
-        self.latent_diffusion=False
-        self.learn_autoencoder = False
+        self.latent_diffusion=True
+        self.learn_autoencoder = True
 
         if self.latent_diffusion:
 
@@ -75,8 +75,68 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
+        # normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
+        # normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
+
+        self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
+        self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
+        # min_speed: 0
+        # max_speed: 114.088
+        # min_length: -0.098
+        # max_length: 22.929
+        # min_width: 0.096
+        # max_width: 12.527
+
+        # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
+        # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
+        # normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
+        # normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
+
         self.apply(weight_init)
 
+    def get_data(self,tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
+        shape = tokenized_agent["gt_initial_shape"]
+
+        real_shape = shape[non_ego]
+
+        real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
+                                                    gt_initial_heading[non_ego],
+                                                    ego_position[batch],
+                                                    ego_heading[batch],
+                                                    )
+
+        init_trans = real_pos[:, :2]
+
+        initial_shape = real_shape[:, :3]
+
+        # initial_contour=cal_polygon_contour(init_trans[:,None,None],real_heading[:,None,None],real_shape[:,None,None,:2])
+
+        delta_rot = real_heading.unsqueeze(-1)
+
+        init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
+
+        init_speed = real_shape[:, -2:].norm(dim=-1) / 0.5
+
+        m_init = torch.cat([init_trans, init_angle, initial_shape, init_speed[:, None]], dim=-1)
+
+        # m_init = torch.cat([initial_contour[:,0,0,:3].flatten(1,2), initial_shape[:,-1:],init_speed[:,None]], dim=-1)
+
+        m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
+
+        dist = init_trans[:, 0] + init_trans[:, 1]  # +200#torch.norm(init_trans, dim=-1)
+
+        dist_max = dist.max() + 1
+
+        sort_rank = batch.to(torch.float64) * dist_max * 3 + initial_type.to(torch.float64) * dist_max + dist.to(
+            torch.float64)  # -ego_mask.float()#+dist#dist sorted
+
+        sort_idx = sort_rank.argsort()
+
+        m_init = m_init[sort_idx]
+
+        tokenized_agent['initial_type'] = initial_type[sort_idx]
+
+        return m_init
 
     def forward(self, map_feature, tokenized_agent,map_range=100):
 
@@ -118,68 +178,11 @@ class PDInit(nn.Module):
         batch = tokenized_agent["batch"][non_ego]
 
 
-        normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
-        normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
-
-        # normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
-        # normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
-        # min_speed: 0
-        # max_speed: 114.088
-        # min_length: -0.098
-        # max_length: 22.929
-        # min_width: 0.096
-        # max_width: 12.527
-
-        # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
-        # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
-        # normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
-        # normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
-
         initial_type = tokenized_agent["type"][non_ego]
 
         if self.training:
-            shape = tokenized_agent["gt_initial_shape"]
-
-            real_shape = shape[non_ego]
-
-            real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
-                                                        gt_initial_heading[non_ego],
-                                                        ego_position[batch],
-                                                        ego_heading[batch],
-                                                        )
-
-            init_trans = real_pos[:, :2]
-
-            initial_shape=real_shape[:,:3]
-
-            #initial_contour=cal_polygon_contour(init_trans[:,None,None],real_heading[:,None,None],real_shape[:,None,None,:2])
-
-            delta_rot = real_heading.unsqueeze(-1)
-
-            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)#[0,2]
-
-            init_speed =real_shape[:,-2:].norm(dim=-1)/0.5
-
-            m_init = torch.cat([init_trans, init_angle, initial_shape,init_speed[:,None]], dim=-1)
-
-            # m_init = torch.cat([initial_contour[:,0,0,:3].flatten(1,2), initial_shape[:,-1:],init_speed[:,None]], dim=-1)
-
-            m_init=(m_init-normal_mean)/normal_scale #[-1,1]
-
-            dist =  init_trans[:, 0]+init_trans[:, 1]#+200#torch.norm(init_trans, dim=-1)
-
-            dist_max = dist.max() + 1
-
-            sort_rank = batch.to(torch.float64) * dist_max * 3 + initial_type.to(torch.float64) * dist_max + dist.to(
-                torch.float64)  # -ego_mask.float()#+dist#dist sorted
-
-            sort_idx = sort_rank.argsort()
-
-            m_init=m_init[sort_idx]
-
-            tokenized_agent['initial_type']=initial_type[sort_idx]
-
-            data=m_init,tokenized_agent['initial_type'], feat_map,batch,batch_pl
+            m_init=self.get_data(tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
+            data = (m_init, tokenized_agent['initial_type'], feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
                 loss_dict =self.autoencoder.loss(data)
@@ -227,16 +230,28 @@ class PDInit(nn.Module):
             tokenized_agent['initial_type']= initial_type[sort_idx]
 
             num_samples = 1
-            pred_init = self.joint_diffusion.sample(num_samples, data=tokenized_agent, scene_enc=map_feature,
-                                                    sampling='ddim',
-                                                    stride=10, eval_mask=non_ego,
-                                                    if_output_diffusion_process=False,
-                                                    reverse_steps=None)[:,0]
+
+            if self.learn_autoencoder:
+                m_init = self.get_data(tokenized_agent, non_ego, batch, initial_type, gt_initial_pos,
+                                       gt_initial_heading, ego_position, ego_heading)
+
+                data = (m_init, tokenized_agent['initial_type'], feat_map, batch, batch_pl)
+
+                agent_mu, agent_log_var = self.autoencoder.forward(data, return_latents=True)
+                pred_init = reparameterize(agent_mu, agent_log_var)
+
+            else:
+
+                pred_init = self.joint_diffusion.sample(num_samples, data=tokenized_agent, scene_enc=map_feature,
+                                                        sampling='ddim',
+                                                        stride=10, eval_mask=non_ego,
+                                                        if_output_diffusion_process=False,
+                                                        reverse_steps=None)[:,0]
 
             if self.latent_diffusion:
-                pred_init = self.autoencoder.forward_decoder(   pred_init,   tokenized_agent['initial_type'], feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['initial_type'], feat_map,batch,batch_pl)
 
-            pred_init=pred_init*normal_scale+normal_mean
+            pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
             pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
