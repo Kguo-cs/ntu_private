@@ -75,12 +75,12 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
-        self.normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]])
-        self.normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]])
+        # self.normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]])
+        # self.normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]])
 
 
-        # self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
-        # self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
+        #self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
+        #self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
         # min_speed: 0
         # max_speed: 114.088
         # min_length: -0.098
@@ -90,8 +90,8 @@ class PDInit(nn.Module):
 
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
-        # normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
-        # normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
+        self.normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]])
+        self.normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]])
 
         self.apply(weight_init)
 
