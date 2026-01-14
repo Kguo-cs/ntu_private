@@ -248,7 +248,7 @@ class PDInit(nn.Module):
             if self.latent_diffusion:
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['initial_type'], feat_map,batch,batch_pl)
 
-            pred_init=m_init
+            #pred_init=m_init
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
             pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
