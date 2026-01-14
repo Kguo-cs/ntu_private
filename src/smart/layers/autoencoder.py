@@ -200,20 +200,26 @@ class AutoEncoder(nn.Module):
 
     def loss(self, x_agent,lane_embeddings,batch,batch_pl,lane_conn_embeddings=None,l2l_edge_index=None):
 
-        agent_size=x_agent.shape[0]
+        n_agent=x_agent.shape[0]
 
-        a2a_edge_index_encoder = torch.cartesian_prod(torch.arange(agent_size, dtype=torch.long),
-                                          torch.arange(agent_size, dtype=torch.long)).t()
+        mask = batch[:, None] == batch[None, :]
 
-        l2a_edge_index_encoder = torch.cartesian_prod(torch.arange(x_lane, dtype=torch.long),
-                                          torch.arange(x_lane, dtype=torch.long)).t()
+        src, dst = mask.nonzero(as_tuple=True)
 
+        a2a_edge_index_encoder=torch.stack([src, dst], dim=0)
+
+        same_batch = batch_pl[:, None] == batch[None, :]
+
+        pl_src, a_dst = same_batch.nonzero(as_tuple=True)
+
+        a_dst = a_dst + len(lane_embeddings)  # shift polyline indices
+
+        l2a_edge_index_encoder=torch.stack([pl_src, a_dst], dim=0)#src, dst
 
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
             lane_embeddings,
-            lane_conn_embeddings,
             lane_conn_embeddings,
             a2a_edge_index_encoder,
             l2a_edge_index_encoder,
@@ -222,64 +228,27 @@ class AutoEncoder(nn.Module):
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
 
-        agent_states_pred, agent_types_logits, agent_types_pred, lane_states_pred, lane_types_logits, lane_types_pred, lane_conn_logits, lane_conn_pred = self.decoder(
+        agent_states_pred, agent_types_logits, agent_types_pred = self.decoder(
             agent_latents,
-            x_lane,
+            lane_embeddings,
             a2a_edge_index,
             l2l_edge_index,
             l2a_edge_index)
 
-        lg_type = data['lg_type']  # partitioned (1) or non-partitioned (0)
-        lane_cond_dis = data['num_lanes_after_origin']  # gt num lanes after partition
-
-        ### Loss computation
-        # conditional lane distribution predictor loss
-        ce_loss = nn.CrossEntropyLoss(reduction='none')
-        lane_cond_dis_loss = ce_loss(lane_cond_dis_logits, lane_cond_dis)
-        # we only evaluate lane conditional distribution loss on partitioned scenes
-        partition_mask = lg_type == NON_PARTITIONED
-        assert torch.all(lane_cond_dis[partition_mask] == 0)
-        lane_cond_dis_loss[partition_mask] = 0
         # agent vector regression loss
         agent_loss = self.agent_loss_fn(agent_states_pred, x_agent_states, agent_batch)
-        # lane vector regression loss
-        lane_loss = self.lane_loss_fn(lane_states_pred, x_lane_states, lane_batch)
-
-        if self.cfg.num_lane_types > 0:
-            lane_type_loss = self.lane_type_loss_fn(lane_types_logits, x_lane_types, lane_batch)
-        else:
-            lane_type_loss = torch.tensor(0.0, device=agent_types_logits.device, dtype=agent_types_logits.dtype)
-
         # agent type classification loss
         agent_type_loss = self.agent_type_loss_fn(agent_types_logits, x_agent_types, agent_batch)
-        # lane connection type classification loss
-        lane_conn_loss = self.lane_conn_loss_fn(lane_conn_logits, x_lane_conn, lane_conn_batch)
-        # kl divergence losses
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, agent_batch)
-        lane_kl_loss = self.kl_loss_fn(lane_mu, lane_log_var, lane_batch)
-        kl_loss = agent_kl_loss + lane_kl_loss
+        kl_loss = agent_kl_loss
 
-        loss = agent_loss + self.cfg.lane_weight * lane_loss + agent_type_loss + lane_type_loss + self.cfg.lane_conn_weight * lane_conn_loss + self.cfg.kl_weight * kl_loss
-        lane_conn_loss = lane_conn_loss.mean().detach()
-
-        loss = loss + self.cfg.cond_dis_weight * lane_cond_dis_loss
-        lane_cond_dis_loss = lane_cond_dis_loss[~partition_mask].mean().detach()
-
-        # compute accuracy of lane conditional distribution predictor
-        lane_cond_dis_pred_filtered = torch.argmax(lane_cond_dis_prob[~partition_mask], dim=-1)
-        lane_cond_dis_acc = (
-                    torch.abs(lane_cond_dis_pred_filtered - lane_cond_dis[~partition_mask]) <= 3).float().mean()
+        loss = agent_loss +self.cfg.kl_weight * kl_loss
 
         loss_dict = {
             'loss': loss.mean(),
             'agent_loss': agent_loss.mean().detach(),
-            'lane_loss': lane_loss.mean().detach(),
             'agent_type_loss': agent_type_loss.mean().detach(),
-            'lane_type_loss': lane_type_loss.mean().detach(),
-            'lane_conn_loss': lane_conn_loss,
             'kl_loss': kl_loss.mean().detach(),
-            'lane_cond_dis_loss': lane_cond_dis_loss,
-            'lane_cond_dis_acc': lane_cond_dis_acc
         }
 
         return loss_dict
