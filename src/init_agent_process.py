@@ -37,7 +37,7 @@ token_processor.eval()
 
 agent_data_directory = "./waymo_data/full/training_map2_a_light"
 # map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_init_light"
+ouput_data_directory = "./waymo_data/full/training_map2_init10_light"
 
 pred_init=True
 
@@ -60,7 +60,12 @@ def process_file(filename):
 
     # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
     #
-    # av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+    av_index = torch.where(data["agent"]["role"][:, 0])[0].item()
+
+    if av_index != len(data["agent"]["role"]) - 1:
+        print(av_index,len(data["agent"]["role"]) - 1)
+
+
     # distance = torch.norm(pos - pos[av_index], dim=-1)
     #
     # # we do not believe the perception out of range of 150 meters
@@ -98,14 +103,18 @@ def process_file(filename):
     # data["tokenized_map"]=tokenized_map
     # data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
 
+    start_idx=10
+
     agent = data1["agent"]
 
-    valid = agent["valid_mask"][:,0]  # [n_agent, n_step]
-    heading = agent["heading"] [:,0]  ## [n_agent, n_step]
-    pos = agent["position"][..., :2].contiguous()  [:,0]# # [n_agent, n_step, 2]
-    vel = agent["velocity"]  [:,0] ## [n_agent, n_step, 2]
+    valid = agent["valid_mask"][:,start_idx]  # [n_agent, n_step]
+    heading = agent["heading"] [:,start_idx]  ## [n_agent, n_step]
+    pos = agent["position"][..., :2] [:,start_idx]# # [n_agent, n_step, 2]
+    vel = agent["velocity"]  [:,start_idx] ## [n_agent, n_step, 2]
     shape = agent["shape"]
     type = agent["type"]
+
+    ego_traj=agent["position"][av_index,start_idx+1:start_idx+11, :2].contiguous()
 
     tokenized_agent={}
 
@@ -114,6 +123,7 @@ def process_file(filename):
     tokenized_agent["initial_vel"] = vel[valid]  # [n_agent, n_step, 2]
     tokenized_agent["initial_shape"]= shape[valid]
     tokenized_agent["initial_type"] = type[valid]
+    tokenized_agent["ego_traj"] = ego_traj
 
     for key in tokenized_agent.keys():
         tokenized_agent[key] = tokenized_agent[key].cpu()

@@ -140,6 +140,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.learn_autoencoder = True
 
+        if not self.learn_init:
+            self.learn_autoencoder=False
+
 
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -149,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent = self.tokenize_agent(data,extrapolate)
 
-            if self.learn_init:
+            if self.learn_autoencoder:
                 agent=data["agent"]
                 valid = agent["valid_mask"][:, 10]  # [n_agent, n_step]
                 heading = agent["heading"][:, 10]  ## [n_agent, n_step]
@@ -166,6 +169,8 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["gt_initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
                 tokenized_agent["gt_initial_idx"]=  tokenized_agent["initial_type"] [:,None]
 
+                tokenized_agent["ego_traj"] = agent["position"][:, 11:21, :2][tokenized_agent["ego_mask"]]
+
             tokenized_agent["type"] = tokenized_agent["type"].long()
 
         else:
@@ -178,7 +183,6 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_agent["goal_pos"]=None
             tokenized_agent["goal_mask"]=None
-
 
         if not self.training and self.pred_entry:
             batch = tokenized_agent["batch"].clone()
@@ -209,6 +213,18 @@ class TokenProcessor(torch.nn.Module):
             ego_mask = torch.ones_like(batch)
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
+
+        if self.pred_init and not self.learn_autoencoder:
+            if self.training:
+                for key in ["sampled_idx", "token_mask", "valid_mask", "sampled_pos", "sampled_heading"]:
+                    if self.token_initial:
+                        tokenized_agent[key] = torch.cat([tokenized_agent[key][:, :1], tokenized_agent[key]], dim=1)
+                    else:
+                        tokenized_agent[key] = tokenized_agent[key][:, 1:]
+            else:
+                tokenized_agent["gt_initial_pos"] = tokenized_agent["sampled_pos"][:, 1][:, None]
+                tokenized_agent["gt_initial_heading"] = tokenized_agent["sampled_heading"][:, 1][:, None]
+                tokenized_agent["gt_initial_idx"] = tokenized_agent["sampled_idx"][:, 1][:, None]
 
         return tokenized_map, tokenized_agent
 
@@ -1211,7 +1227,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent=self.tokenize_agent(data)
         else:
             if self.learn_init:
-                for key in ["initial_heading", "initial_pos", "initial_vel", "initial_shape", "initial_type","batch"]:
+                for key in ["initial_heading", "initial_pos", "initial_vel", "initial_shape", "initial_type","batch","ego_traj"]:
                     tokenized_agent[key] = agent[key]  # [agent_mask]
                 tokenized_agent['initial_type'] = tokenized_agent['initial_type'].long()
 

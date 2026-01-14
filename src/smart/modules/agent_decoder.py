@@ -106,6 +106,8 @@ class SMARTAgentDecoder(nn.Module):
 
         self.token_initial=token_processor.token_initial
 
+        self.learn_autoencoder=token_processor.learn_autoencoder
+
         self.use_gan=False
 
         if self.pred_init and self.learn_init:
@@ -171,7 +173,7 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) :
-        if self.pred_init and self.training:
+        if self.learn_autoencoder:
             # mask_s=mask_a.transpose(0, 1)
             # ego_mask=tokenized_agent["ego_mask"]
             # ego_mask_step = ego_mask[None, :].repeat(n_step, 1)  # (num_step, num_agent)

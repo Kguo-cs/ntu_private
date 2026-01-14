@@ -63,6 +63,8 @@ class PDInit(nn.Module):
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
+        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
+
         self.latent_diffusion=True
         self.learn_autoencoder = token_processor.learn_autoencoder
 
@@ -153,6 +155,12 @@ class PDInit(nn.Module):
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
 
+        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+
+        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
+
+        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
+
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
                                                ego_position[batch_pl],
@@ -181,7 +189,7 @@ class PDInit(nn.Module):
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
-            data = (m_init, tokenized_agent['initial_type'], feat_map, batch, batch_pl)
+            data = (m_init, tokenized_agent['initial_type'], ego_embedding[batch],feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
                 loss_dict =self.autoencoder.loss(data)
@@ -226,7 +234,7 @@ class PDInit(nn.Module):
                 m_init = self.get_data(tokenized_agent, non_ego, batch, initial_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
 
-                data = (m_init, tokenized_agent['initial_type'], feat_map, batch, batch_pl)
+                data = (m_init, tokenized_agent['initial_type'], ego_embedding[batch],feat_map, batch, batch_pl)
 
                 agent_mu, agent_log_var = self.autoencoder.forward(data, return_latents=True)
                 pred_init =reparameterize(agent_mu, agent_log_var)
@@ -245,7 +253,7 @@ class PDInit(nn.Module):
                                                         reverse_steps=None)[:,0]
 
             if self.latent_diffusion:
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['initial_type'], feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['initial_type'], ego_embedding[batch],feat_map,batch,batch_pl)
 
             #pred_init=m_init
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
@@ -310,9 +318,6 @@ class PDInit(nn.Module):
             # gt_initial_speed=tokenized_agent["gt_initial_speed"]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
-
-
-
 
     @staticmethod
     def add_model_specific_args(parent_parser):

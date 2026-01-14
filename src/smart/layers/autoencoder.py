@@ -62,13 +62,14 @@ class ScenarioDreamerEncoder(nn.Module):
             x_agent: torch.Tensor,
             agent_types:torch.Tensor,
             agent_pos_idx: torch.Tensor,
+            ego_embedding,
             lane_embeddings: torch.Tensor,
             lane_conn_embeddings,
             a2a_edge_index: torch.Tensor,
             l2a_edge_index: torch.Tensor,
             l2l_edge_index: torch.Tensor,
     ):
-        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+sinusoidal_embedding(agent_pos_idx,self.hidden_dim)
+        agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+sinusoidal_embedding(agent_pos_idx,self.hidden_dim)+ego_embedding
 
         for l in range(self.num_encoder_blocks):
             agent_embeddings, lane_embeddings, lane_conn_embeddings = self.encoder_transformer_blocks[l](
@@ -126,6 +127,7 @@ class ScenarioDreamerDecoder(nn.Module):
             x_agent: torch.Tensor,
             agent_types: torch.Tensor,
             agent_pos_idx:torch.Tensor,
+            ego_embedding,
             lane_embeddings: torch.Tensor,
             a2a_edge_index: torch.Tensor,
             l2l_edge_index: torch.Tensor,
@@ -225,7 +227,7 @@ class AutoEncoder(nn.Module):
 
     def loss(self, data,lane_conn_embeddings=None,l2l_edge_index=None):
 
-        x_agent, agent_types, lane_embeddings, batch, batch_pl=data
+        x_agent, agent_types, ego_embedding,lane_embeddings, batch, batch_pl=data
 
         a2a_edge_index, l2a_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
 
@@ -233,6 +235,7 @@ class AutoEncoder(nn.Module):
             x_agent,
             agent_types,
             pos_idx,
+            ego_embedding,
             lane_embeddings,
             lane_conn_embeddings,
             a2a_edge_index,
@@ -246,6 +249,7 @@ class AutoEncoder(nn.Module):
             agent_latents,
             agent_types,
             pos_idx,
+            ego_embedding,
             lane_embeddings,
             a2a_edge_index,
             l2l_edge_index,
@@ -262,7 +266,7 @@ class AutoEncoder(nn.Module):
 
     def forward_encoder(self, data, return_stats=False, return_lane_embeddings=False):
 
-        x_agent, agent_types, lane_embeddings, batch, batch_pl=data
+        x_agent, agent_types,ego_embedding, lane_embeddings, batch, batch_pl=data
 
         a2a_edge_index, l2a_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
 
@@ -273,6 +277,7 @@ class AutoEncoder(nn.Module):
             x_agent,
             agent_types,
             pos_idx,
+            ego_embedding,
             lane_embeddings,
             lane_conn_embeddings,
             a2a_edge_index,
@@ -291,7 +296,7 @@ class AutoEncoder(nn.Module):
 
         return agent_latents
 
-    def forward_decoder(self, agent_latents, agent_types, lane_embeddings,batch, batch_pl):
+    def forward_decoder(self, agent_latents, agent_types, ego_embedding,lane_embeddings,batch, batch_pl):
 
         a2a_edge_index, l2a_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
         l2l_edge_index=None
@@ -300,6 +305,7 @@ class AutoEncoder(nn.Module):
             agent_latents,
             agent_types,
             pos_idx,
+            ego_embedding,
             lane_embeddings,
             a2a_edge_index,
             l2l_edge_index,
