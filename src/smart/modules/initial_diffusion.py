@@ -306,9 +306,9 @@ class PDInit(nn.Module):
             #
             #     gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
             #     gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
-            gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
-            gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
-            gt_initial_speed=tokenized_agent["gt_initial_speed"]
+            # gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
+            # gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
+            # gt_initial_speed=tokenized_agent["gt_initial_speed"]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
