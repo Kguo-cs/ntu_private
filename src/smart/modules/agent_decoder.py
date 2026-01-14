@@ -116,7 +116,7 @@ class SMARTAgentDecoder(nn.Module):
                 if self.use_gan:
                     self.init_decoder=InitGAN(hidden_dim,num_heads,num_freq_bands,token_processor)
                 else:
-                    self.init_decoder=PDInit()
+                    self.init_decoder=PDInit(token_processor)
 
         self.apply(weight_init)
 

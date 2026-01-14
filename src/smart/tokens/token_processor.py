@@ -138,6 +138,9 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_vel=True
 
+        self.learn_autoencoder = True
+
+
     @torch.no_grad()
     def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
@@ -208,9 +211,13 @@ class TokenProcessor(torch.nn.Module):
                     else:
                         tokenized_agent["gt_initial_shape"] =tokenized_agent["shape"]
                 else:
-                    initial_heading = data["agent"]["heading"][:,0] # [n_agent, n_step]
-                    initial_pos = data["agent"]["position"][...,0, :2].clone()  # [n_agent, n_step, 2]
-                    initial_vel = data["agent"]["velocity"][:,0].clone()  # [n_agent, n_step, 2]
+                    if self.learn_autoencoder:
+                        idx=10
+                    else:
+                        idx=0
+                    initial_heading = data["agent"]["heading"][:,idx].clone() # [n_agent, n_step]
+                    initial_pos = data["agent"]["position"][...,idx, :2].clone()  # [n_agent, n_step, 2]
+                    initial_vel = data["agent"]["velocity"][:,idx].clone()  # [n_agent, n_step, 2]
 
                     all_token_vel = tokenized_agent["token_traj"].mean(-2)
 

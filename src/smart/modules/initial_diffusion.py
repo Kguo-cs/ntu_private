@@ -22,7 +22,7 @@ from src.smart.layers.autoencoder_utils import reparameterize
 
 class PDInit(nn.Module):
 
-    def __init__(self) -> None:
+    def __init__(self,token_processor) -> None:
         super(PDInit, self).__init__()
 
         parser = ArgumentParser()
@@ -64,7 +64,7 @@ class PDInit(nn.Module):
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
         self.latent_diffusion=True
-        self.learn_autoencoder = True
+        self.learn_autoencoder = token_processor.learn_autoencoder
 
         if self.latent_diffusion:
 
@@ -75,11 +75,12 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
-        # normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
-        # normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]],device=non_ego.device)
+        self.normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]])
+        self.normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]])
 
-        self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
-        self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
+
+        # self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
+        # self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
         # min_speed: 0
         # max_speed: 114.088
         # min_length: -0.098
@@ -95,7 +96,7 @@ class PDInit(nn.Module):
         self.apply(weight_init)
 
     def get_data(self,tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
-        shape = tokenized_agent["gt_initial_shape"]
+        shape = tokenized_agent["gt_initial_shape"].clone()
 
         real_shape = shape[non_ego]
 
@@ -145,10 +146,10 @@ class PDInit(nn.Module):
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
 
-        gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
-        gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
+        gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0].clone()
+        gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0].clone()
 
-        ego_mask = tokenized_agent["ego_mask"]
+        ego_mask = tokenized_agent["ego_mask"].clone()
 
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
@@ -175,10 +176,9 @@ class PDInit(nn.Module):
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
         non_ego = ~ego_mask
 
-        batch = tokenized_agent["batch"][non_ego]
+        batch = tokenized_agent["batch"][non_ego].clone()
 
-
-        initial_type = tokenized_agent["type"][non_ego]
+        initial_type = tokenized_agent["type"][non_ego].clone()
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
@@ -223,14 +223,6 @@ class PDInit(nn.Module):
 
                 return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
         else:
-            sort_rank = batch.to(torch.float64)  * 3 + initial_type.to(torch.float64)
-
-            sort_idx = sort_rank.argsort()
-
-            tokenized_agent['initial_type']= initial_type[sort_idx]
-
-            num_samples = 1
-
             if self.learn_autoencoder:
                 m_init = self.get_data(tokenized_agent, non_ego, batch, initial_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
@@ -241,8 +233,13 @@ class PDInit(nn.Module):
                 pred_init = reparameterize(agent_mu, agent_log_var)
 
             else:
+                sort_rank = batch.to(torch.float64)  * 3 + initial_type.to(torch.float64)
 
-                pred_init = self.joint_diffusion.sample(num_samples, data=tokenized_agent, scene_enc=map_feature,
+                sort_idx = sort_rank.argsort()
+
+                tokenized_agent['initial_type']= initial_type[sort_idx]
+
+                pred_init = self.joint_diffusion.sample(num_samples = 1, data=tokenized_agent, scene_enc=map_feature,
                                                         sampling='ddim',
                                                         stride=10, eval_mask=non_ego,
                                                         if_output_diffusion_process=False,
@@ -251,6 +248,7 @@ class PDInit(nn.Module):
             if self.latent_diffusion:
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['initial_type'], feat_map,batch,batch_pl)
 
+            pred_init=m_init
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
             pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
@@ -282,19 +280,19 @@ class PDInit(nn.Module):
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
 
-            gt_initial_speed=tokenized_agent["gt_initial_speed"]
+            gt_initial_speed=tokenized_agent["gt_initial_speed"].clone()
 
             gt_initial_speed[non_ego] =pred_speed
 
-            shape=tokenized_agent["shape"]
+            shape=tokenized_agent["shape"].clone()
 
             shape[non_ego]=pred_shape[:,:3]
 
             tokenized_agent["shape"]= shape
 
-            gt_initial_idx=tokenized_agent["gt_initial_idx"][:,0]
+            gt_initial_idx=tokenized_agent["gt_initial_idx"][:,0].clone()
 
-            type=tokenized_agent["type"]
+            type=tokenized_agent["type"].clone()
 
             type[non_ego]= tokenized_agent['initial_type']
 
@@ -308,6 +306,9 @@ class PDInit(nn.Module):
             #
             #     gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
             #     gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
+            gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
+            gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
+            gt_initial_speed=tokenized_agent["gt_initial_speed"]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
