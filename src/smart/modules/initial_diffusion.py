@@ -1,16 +1,3 @@
-# Copyright (c) 2023, Zikang Zhou. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 from src.smart.layers import MLPLayer
 
@@ -28,6 +15,9 @@ from src.smart.utils import (
     transform_to_local,
     wrap_angle,
 )
+from src.smart.layers.autoencoder import AutoEncoder
+from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
+
 
 class PDInit(nn.Module):
 
@@ -35,14 +25,6 @@ class PDInit(nn.Module):
         super(PDInit, self).__init__()
 
         parser = ArgumentParser()
-        # parser.add_argument('--root', type=str, required=True)
-        # parser.add_argument('--train_batch_size', type=int, required=True)
-        # parser.add_argument('--val_batch_size', type=int, required=True)
-        # parser.add_argument('--test_batch_size', type=int, required=True)
-        # parser.add_argument('--shuffle', type=bool, default=True)
-        # parser.add_argument('--num_workers', type=int, default=8)
-        # parser.add_argument('--pin_memory', type=bool, default=True)
-        # parser.add_argument('--persistent_workers', type=bool, default=True)
         parser.add_argument('--train_raw_dir', type=str, default=None)
         parser.add_argument('--val_raw_dir', type=str, default=None)
         parser.add_argument('--test_raw_dir', type=str, default=None)
@@ -79,6 +61,20 @@ class PDInit(nn.Module):
 
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+
+        self.latent_diffusion=False
+
+        if self.latent_diffusion:
+
+            num_encoder_blocks=2
+            num_decoder_blocks=2
+            latent_dim=8
+            num_heads=8
+
+
+            self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
+
+        self.apply(weight_init)
 
 
     def forward(self, map_feature, tokenized_agent,map_range=100):
@@ -117,14 +113,15 @@ class PDInit(nn.Module):
         non_ego = ~ego_mask
 
         batch = tokenized_agent["batch"][non_ego]
-        # normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
-        # normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
 
-        normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
-        normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
+
+        normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]],device=non_ego.device)
+        normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]],device=non_ego.device)
 
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
+        # normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]],device=non_ego.device)
+        # normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]],device=non_ego.device)
 
         initial_type = tokenized_agent["type"][non_ego]
 
@@ -170,7 +167,10 @@ class PDInit(nn.Module):
 
             tokenized_agent['initial_type']=initial_type[sort_idx]
 
-            loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
+            if self.latent_diffusion:
+                self.autoencoder.loss(m_init, feat_map,batch,batch_pl)
+            else:
+                loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
             #pred_init=pred_init*normal_scale+normal_mean
             # num_samples=1
