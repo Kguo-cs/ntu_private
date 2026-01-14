@@ -143,36 +143,6 @@ class SMARTAgentDecoder(nn.Module):
         )
 
         pos_a = pos_a[:, -n_step:]
-
-        if self.pred_init and self.training:
-            mask_s=mask_a.transpose(0, 1)
-            ego_mask=tokenized_agent["ego_mask"]
-            ego_mask_step = ego_mask[None, :].repeat(n_step, 1)  # (num_step, num_agent)
-            if self.training:
-                ego_mask_step[3:]=False
-                ego_mask_step[:1]=False
-            ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
-            ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1).sum(1)   # (2, batch)#
-
-            # batch_ego_feature=ego_feature[map_feature['batch']]
-            #
-            # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
-
-            ego_feature=ego_feature[:,None]
-            ego_pos = pos_a[:, 1:2][ego_mask]
-            ego_heading = head_a[:, 1:2][ego_mask]
-
-            map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
-
-            if self.learn_init:
-                initial_logit = self.init_decoder(map_feature, tokenized_agent)
-                if len(initial_logit)==3 or self.learn_init_only:
-                   return None, None, None, None, None, initial_logit, None
-            else:
-                initial_logit=None
-        else:
-            initial_logit=None
-
         batch_a=tokenized_agent["batch"]
         batch_s_repeat = batch_a.unsqueeze(1).repeat(1, n_step)
 
@@ -191,6 +161,7 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_entry:
             entry_logit= self.entry_decoder(feat_a_token[-len(feat_a):],mask_a,pos_a,head_a,tokenized_agent)
+        initial_logit=None
 
         return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,initial_logit,feat_a
 
@@ -200,21 +171,43 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) :
+        if self.pred_init and self.training:
+            # mask_s=mask_a.transpose(0, 1)
+            # ego_mask=tokenized_agent["ego_mask"]
+            # ego_mask_step = ego_mask[None, :].repeat(n_step, 1)  # (num_step, num_agent)
+            # if self.training:
+            #     ego_mask_step[3:]=False
+            #     ego_mask_step[:1]=False
+            # ego_mask_flat = ego_mask_step[mask_s]  # (N_valid,)
+            # ego_feature = feat_a_token[ego_mask_flat].reshape(2,-1,self.hidden_dim).transpose(0,1).sum(1)   # (2, batch)#
+            #
+            # # batch_ego_feature=ego_feature[map_feature['batch']]
+            # #
+            # # map_feature["pt_token"] = map_feature["pt_token"] + batch_ego_feature
+            #
+            # ego_feature=ego_feature[:,None]
+            # ego_pos = pos_a[:, 1:2][ego_mask]
+            # ego_heading = head_a[:, 1:2][ego_mask]
+            #
+            # map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
-        next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,initial_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
-                                                                                tokenized_agent["token_mask"][:,:-1],
-                                                                                tokenized_agent["valid_mask"][:,:-1],
-                                                                                tokenized_agent["sampled_pos"][:,:-1],
-                                                                                tokenized_agent["sampled_heading"][:,:-1] ,
-                                                                                tokenized_agent,
-                                                                                map_feature,
-                                                                                abs_time=tokenized_agent["abs_time"][:,:-1]
-                                                                                                     )
+            initial_logit = self.init_decoder(map_feature, tokenized_agent)
+            entry_logit=next_token_logits=None
+        else:
+            next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,initial_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
+                                                                                    tokenized_agent["token_mask"][:,:-1],
+                                                                                    tokenized_agent["valid_mask"][:,:-1],
+                                                                                    tokenized_agent["sampled_pos"][:,:-1],
+                                                                                    tokenized_agent["sampled_heading"][:,:-1] ,
+                                                                                    tokenized_agent,
+                                                                                    map_feature,
+                                                                                    abs_time=tokenized_agent["abs_time"][:,:-1]
+                                                                                                         )
 
-        tokenized_agent["next_token_logits"] = next_token_logits
-        tokenized_agent["entry_logit"] = entry_logit
-        tokenized_agent["initial_logit"] = initial_logit
-        tokenized_agent["feat_a"] = feat_a
+            tokenized_agent["next_token_logits"] = next_token_logits
+            tokenized_agent["entry_logit"] = entry_logit
+            tokenized_agent["initial_logit"] = initial_logit
+            tokenized_agent["feat_a"] = feat_a
 
         return {
             "initial_logit":initial_logit,

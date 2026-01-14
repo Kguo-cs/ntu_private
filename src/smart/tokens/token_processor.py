@@ -148,6 +148,26 @@ class TokenProcessor(torch.nn.Module):
             tokenized_map = self.tokenize_map(data)
 
             tokenized_agent = self.tokenize_agent(data,extrapolate)
+
+            if self.learn_init:
+                agent=data["agent"]
+                valid = agent["valid_mask"][:, 10]  # [n_agent, n_step]
+                heading = agent["heading"][:, 10]  ## [n_agent, n_step]
+                pos = agent["position"][..., :2].contiguous()[:, 10]  # # [n_agent, n_step, 2]
+                vel = agent["velocity"][:, 10]  ## [n_agent, n_step, 2]
+                shape = agent["shape"]
+                type = agent["type"]
+
+                tokenized_agent["initial_heading"] = heading[valid]  # [n_agent, n_step]
+                tokenized_agent["initial_pos"] = pos[valid]  # [n_agent, n_step, 2]
+                tokenized_agent["initial_vel"] = vel[valid]  # [n_agent, n_step, 2]
+                tokenized_agent["initial_shape"] = shape[valid]
+                tokenized_agent["initial_type"] = type[valid].long()
+                tokenized_agent["gt_initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
+                tokenized_agent["gt_initial_idx"]=  tokenized_agent["initial_type"] [:,None]
+
+            tokenized_agent["type"] = tokenized_agent["type"].long()
+
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
@@ -159,7 +179,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["goal_pos"]=None
             tokenized_agent["goal_mask"]=None
 
-        tokenized_agent['type']=tokenized_agent['type'].long()
 
         if not self.training and self.pred_entry:
             batch = tokenized_agent["batch"].clone()
@@ -191,141 +210,141 @@ class TokenProcessor(torch.nn.Module):
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
 
-        if self.pred_init:
-            type = tokenized_agent["type"]
+        return tokenized_map, tokenized_agent
 
-            if self.token_initial:
-                initial_pos = tokenized_agent["initial_pos"]
-                initial_heading = tokenized_agent["initial_heading"]
-            else:
-                if self.training and not self.learn_init:
-                    initial_pos = tokenized_agent["sampled_pos"][:, 1]
-                    initial_heading = tokenized_agent["sampled_heading"][:, 1]
-                    initial_idx=tokenized_agent["sampled_idx"][:, 1]
-                    if self.pred_vel:
-                        token_traj = tokenized_agent["token_traj"][torch.arange(len(initial_idx)), initial_idx]
+    def compute_initial(self):
+        type = tokenized_agent["type"]
 
-                        token_vel = torch.mean(token_traj, dim=-2)/0.5#.norm(dim=-1)[:,None]#0.5
+        if self.token_initial:
+            initial_pos = tokenized_agent["initial_pos"]
+            initial_heading = tokenized_agent["initial_heading"]
+        else:
+            if self.training and not self.learn_init:
+                initial_pos = tokenized_agent["sampled_pos"][:, 1]
+                initial_heading = tokenized_agent["sampled_heading"][:, 1]
+                initial_idx=tokenized_agent["sampled_idx"][:, 1]
+                if self.pred_vel:
+                    token_traj = tokenized_agent["token_traj"][torch.arange(len(initial_idx)), initial_idx]
 
-                        tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], token_vel], dim=-1)
-                    else:
-                        tokenized_agent["gt_initial_shape"] =tokenized_agent["shape"]
+                    token_vel = torch.mean(token_traj, dim=-2)/0.5#.norm(dim=-1)[:,None]#0.5
+
+                    tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], token_vel], dim=-1)
                 else:
-                    if self.learn_autoencoder:
-                        idx=10
-                    else:
-                        idx=0
-                    initial_heading = data["agent"]["heading"][:,idx].clone() # [n_agent, n_step]
-                    initial_pos = data["agent"]["position"][...,idx, :2].clone()  # [n_agent, n_step, 2]
-                    initial_vel = data["agent"]["velocity"][:,idx].clone()  # [n_agent, n_step, 2]
+                    tokenized_agent["gt_initial_shape"] =tokenized_agent["shape"]
+            else:
+                idx = 10
 
-                    all_token_vel = tokenized_agent["token_traj"].mean(-2)
+                valid=data["agent"]["heading"][:,idx]
 
-                    local_pos=transform_to_local(
-                        initial_pos+ initial_vel*0.5,
-                        None,
-                        initial_pos,
-                        initial_heading,
+                initial_heading = data["agent"]["heading"][:,idx] # [n_agent, n_step]
+                initial_pos = data["agent"]["position"][...,idx, :2]  # [n_agent, n_step, 2]
+                initial_vel = data["agent"]["velocity"][:,idx] # [n_agent, n_step, 2]
+
+
+                all_token_vel = tokenized_agent["token_traj"].mean(-2)
+
+                local_pos=transform_to_local(
+                    initial_pos+ initial_vel*0.5,
+                    None,
+                    initial_pos,
+                    initial_heading,
                     )[0]
 
-                    initial_idx=torch.linalg.norm(all_token_vel-local_pos[:,None],dim=-1).argmin(-1)
+                initial_idx=torch.linalg.norm(all_token_vel-local_pos[:,None],dim=-1).argmin(-1)
 
-                    tokenized_agent["gt_initial_speed"] = initial_vel.norm(dim=-1)
-                    tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
+                tokenized_agent["gt_initial_speed"] = initial_vel.norm(dim=-1)
+                tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
 
-                tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
-                tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
-                tokenized_agent["gt_initial_idx"] = initial_idx[:,None]
+            tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
+            tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
+            tokenized_agent["gt_initial_idx"] = initial_idx[:,None]
 
-            if self.training:
+        if self.training:
+            for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
+                if self.token_initial:
+                    tokenized_agent[key] = torch.cat([tokenized_agent[key][:, :1], tokenized_agent[key]], dim=1)
+                else:
+                    tokenized_agent[key]=tokenized_agent[key][:,1:]
+
+            if not self.pred_vel:
+                tokenized_agent["token_mask"][:,:1]=False
+        else:
+            # valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
+            # heading = data["agent"]["heading"]  # [n_agent, n_step]
+            # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
+            # vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
+            #
+            # first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
+            #
+            # agent_idx = torch.arange(valid.shape[0], device=valid.device)
+            # first_vel = vel[agent_idx, first_valid_step]
+            # first_pos = pos[agent_idx, first_valid_step]
+            #
+            # initial_heading = heading[agent_idx, first_valid_step]
+            #
+            # initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
+
+            if not self.learn_init or self.learn_autoencoder:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                    if self.token_initial:
-                        tokenized_agent[key] = torch.cat([tokenized_agent[key][:, :1], tokenized_agent[key]], dim=1)
-                    else:
-                        tokenized_agent[key]=tokenized_agent[key][:,1:]
+                    tokenized_agent[key]=tokenized_agent[key][:,2:]
 
-                if not self.pred_vel:
-                    tokenized_agent["token_mask"][:,:1]=False
+        if self.token_initial:
+            ego_mask=tokenized_agent["ego_mask"]
 
+            token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx, global_initial_pos, global_initial_heading = self.tokenize_initial(
+                initial_pos, initial_heading, ego_mask, batch)
 
-            else:
-                # valid = data["agent"]["valid_mask"]  # [n_agent, n_step]
-                # heading = data["agent"]["heading"]  # [n_agent, n_step]
-                # pos = data["agent"]["position"][..., :2].contiguous()  # [n_agent, n_step, 2]
-                # vel = data["agent"]["velocity"]  # [n_agent, n_step, 2]
-                #
-                # first_valid_step = valid.float().argmax(dim=1)  # [n_agent]
-                #
-                # agent_idx = torch.arange(valid.shape[0], device=valid.device)
-                # first_vel = vel[agent_idx, first_valid_step]
-                # first_pos = pos[agent_idx, first_valid_step]
-                #
-                # initial_heading = heading[agent_idx, first_valid_step]
-                #
-                # initial_pos = first_pos - first_vel * first_valid_step.unsqueeze(-1) *  0.1
+            dist = torch.norm(token_initial_pos, dim=-1)
 
-                if not self.learn_init or self.learn_autoencoder:
-                    for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
-                        tokenized_agent[key]=tokenized_agent[key][:,2:]
+            dist = torch.rand_like(dist)
 
-            if self.token_initial:
-                ego_mask=tokenized_agent["ego_mask"]
+            dist[ego_mask] = 0
 
-                token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx, global_initial_pos, global_initial_heading = self.tokenize_initial(
-                    initial_pos, initial_heading, ego_mask, batch)
+            dist_max = dist.max() + 1
 
-                dist = torch.norm(token_initial_pos, dim=-1)
+            sort_rank = batch.to(torch.float64) * dist_max * 3 + type.to(torch.float64) * dist_max + dist.to(
+                torch.float64)  # -ego_mask.float()#+dist#dist sorted
 
-                dist = torch.rand_like(dist)
+            sort_idx = sort_rank.argsort()
+            # sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
+            # offset_h=wrap_angle(rel_heading-token_heading)
+            #
+            # offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
+            # print(torch.max(shape[:,0]),torch.min(shape[:,0]))
+            # print(torch.max(shape[:,1]),torch.min(shape[:,1]))
 
-                dist[ego_mask] = 0
+            # print(torch.all(sort_idx==sort_idx1))
+            shape = tokenized_agent["shape"]
 
-                dist_max = dist.max() + 1
+            self.shape_grid = self.shape_grid.to(shape.device)
 
-                sort_rank = batch.to(torch.float64) * dist_max * 3 + type.to(torch.float64) * dist_max + dist.to(
-                    torch.float64)  # -ego_mask.float()#+dist#dist sorted
+            shape_token = torch.argmin(torch.linalg.norm(self.shape_grid[None] - shape[:, None, :2], dim=-1),
+                                       dim=-1)
 
-                sort_idx = sort_rank.argsort()
-                # sort_idx=self.batched_nn_chain(initial_pos,batch,type,ego_mask,data.num_graphs)
-                # offset_h=wrap_angle(rel_heading-token_heading)
-                #
-                # offset_xyh=torch.cat((offset_xy,offset_h[:,None]),dim=-1)
-                # print(torch.max(shape[:,0]),torch.min(shape[:,0]))
-                # print(torch.max(shape[:,1]),torch.min(shape[:,1]))
+            shape = self.shape_grid[shape_token]
 
-                # print(torch.all(sort_idx==sort_idx1))
-                shape = tokenized_agent["shape"]
+            tokenized_agent["shape"][:, :2] = shape[:, :2]
 
-                self.shape_grid = self.shape_grid.to(shape.device)
+            tokenized_agent["initial_shape_token"] = shape_token[sort_idx]
 
-                shape_token = torch.argmin(torch.linalg.norm(self.shape_grid[None] - shape[:, None, :2], dim=-1),
-                                           dim=-1)
+            tokenized_agent["initial_pos_token"] = pos_token_idx[sort_idx]
+            tokenized_agent["initial_offset_token"] = offset_idx[sort_idx]
+            tokenized_agent["initial_heading_token"] = heading_token_idx[sort_idx]
+            tokenized_agent["token_initial_pos"] = token_initial_pos[sort_idx]
+            tokenized_agent["token_initial_heading"] = token_initial_heading[sort_idx]
 
-                shape = self.shape_grid[shape_token]
+            tokenized_agent["initial_shape"] = shape[sort_idx]
+            tokenized_agent["initial_ego_mask"] = ego_mask[sort_idx]
+            tokenized_agent["initial_type"] = type[sort_idx]
 
-                tokenized_agent["shape"][:, :2] = shape[:, :2]
+            tokenized_agent["gt_initial_pos"] = global_initial_pos
+            tokenized_agent["gt_initial_heading"] = global_initial_heading
 
-                tokenized_agent["initial_shape_token"] = shape_token[sort_idx]
+            tokenized_agent["global_initial_pos"] = global_initial_pos[sort_idx]
+            tokenized_agent["global_initial_heading"] = global_initial_heading[sort_idx]
+            if not self.training:
+                tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
 
-                tokenized_agent["initial_pos_token"] = pos_token_idx[sort_idx]
-                tokenized_agent["initial_offset_token"] = offset_idx[sort_idx]
-                tokenized_agent["initial_heading_token"] = heading_token_idx[sort_idx]
-                tokenized_agent["token_initial_pos"] = token_initial_pos[sort_idx]
-                tokenized_agent["token_initial_heading"] = token_initial_heading[sort_idx]
-
-                tokenized_agent["initial_shape"] = shape[sort_idx]
-                tokenized_agent["initial_ego_mask"] = ego_mask[sort_idx]
-                tokenized_agent["initial_type"] = type[sort_idx]
-
-                tokenized_agent["gt_initial_pos"] = global_initial_pos
-                tokenized_agent["gt_initial_heading"] = global_initial_heading
-
-                tokenized_agent["global_initial_pos"] = global_initial_pos[sort_idx]
-                tokenized_agent["global_initial_heading"] = global_initial_heading[sort_idx]
-                if not self.training:
-                    tokenized_agent['initial_id'] = tokenized_agent['id'][sort_idx]
-
-        return tokenized_map, tokenized_agent
 
     def compute_goal(self,tokenized_agent):
         sampled_pos = tokenized_agent["sampled_pos"]
@@ -367,7 +386,7 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["goal_mask"] = goal_mask[:, 0]
 
-    def tokenize_initial(self,initial_pos,initial_heading,ego_mask,batch):
+    def tokenize_initial(self, initial_pos, initial_heading, ego_mask, batch):
 
         ego_position = initial_pos[ego_mask][batch]
         ego_heading = initial_heading[ego_mask][batch]
@@ -397,14 +416,16 @@ class TokenProcessor(torch.nn.Module):
                 ego_heading,
             )
         else:
-            token_initial_pos, token_initial_heading=transform_to_local(initial_pos[:, None],initial_heading[:, None],ego_position,ego_heading)
-            token_initial_pos=token_initial_pos[:,0]
-            token_initial_heading=token_initial_heading[:,0]
-            pos_token_idx=heading_token_idx=offset_idx=None
-            initial_pos=initial_pos[:,None]
-            initial_heading=initial_heading[:,None]
+            token_initial_pos, token_initial_heading = transform_to_local(initial_pos[:, None],
+                                                                          initial_heading[:, None], ego_position,
+                                                                          ego_heading)
+            token_initial_pos = token_initial_pos[:, 0]
+            token_initial_heading = token_initial_heading[:, 0]
+            pos_token_idx = heading_token_idx = offset_idx = None
+            initial_pos = initial_pos[:, None]
+            initial_heading = initial_heading[:, None]
 
-        return token_initial_pos,token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos, initial_heading
+        return token_initial_pos, token_initial_heading, pos_token_idx, heading_token_idx, offset_idx, initial_pos, initial_heading
 
     def init_map_token(self, map_token_traj_path, argmin_sample_len=3) -> None:
         map_token_traj = pickle.load(open(map_token_traj_path, "rb"))["traj_src"]
@@ -427,25 +448,25 @@ class TokenProcessor(torch.nn.Module):
     def init_agent_token(self, agent_token_path) -> None:
         agent_token_data = pickle.load(open(agent_token_path, "rb"))
 
-        all_token_local_traj=[]
+        all_token_local_traj = []
         for k, v in agent_token_data["token_all"].items():
-            v = torch.tensor(v, dtype=torch.float32)[:,1:self.shift+1]
+            v = torch.tensor(v, dtype=torch.float32)[:, 1:self.shift + 1]
             # [n_token, 6, 4, 2], countour, 10 hz
             self.register_buffer(f"agent_token_all_{k}", v, persistent=False)
 
             pred_pos = v.mean(2)
-            diff_xy = v[:, :, 0] - v[:, :,  3]
-            pred_head = torch.arctan2(diff_xy[:, :,1], diff_xy[:, :,0])
-            token_local_traj = torch.cat([pred_pos, pred_head[:, :,  None]], dim=-1)
+            diff_xy = v[:, :, 0] - v[:, :, 3]
+            pred_head = torch.arctan2(diff_xy[:, :, 1], diff_xy[:, :, 0])
+            token_local_traj = torch.cat([pred_pos, pred_head[:, :, None]], dim=-1)
             all_token_local_traj.append(token_local_traj)
 
-        all_token_local_traj=torch.stack(all_token_local_traj)
+        all_token_local_traj = torch.stack(all_token_local_traj)
         self.register_buffer(f"all_token_local_traj", all_token_local_traj, persistent=False)
 
         if "max_diff" in agent_token_data.keys():
-            self.register_buffer(f"max_diff", 0.01*agent_token_data["max_diff"], persistent=False)
+            self.register_buffer(f"max_diff", 0.01 * agent_token_data["max_diff"], persistent=False)
         else:
-            self.max_diff=None
+            self.max_diff = None
 
         self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
@@ -460,23 +481,22 @@ class TokenProcessor(torch.nn.Module):
             self.n_token_entry = self.entry_pos_token.shape[0]
             if self.token_offset:
                 module_dir = os.path.dirname(__file__)
-                offset_token=os.path.join(module_dir, 'offset512.pkl')
+                offset_token = os.path.join(module_dir, 'offset512.pkl')
 
                 offset_token = pickle.load(open(offset_token, "rb"))
                 self.register_buffer(f"offset_token", offset_token, persistent=False)
                 self.n_token_offset = self.offset_token.shape[0]
             else:
-                self.n_token_offset=4
+                self.n_token_offset = 4
         else:
             entry_token = os.path.join(module_dir, 'entry512.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
             self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
             self.n_token_entry = self.entry_pos_token.shape[0]
-            self.n_token_entry=3
+            self.n_token_entry = 3
 
-
-    def decode_head(self,entry_head_idx):
+    def decode_head(self, entry_head_idx):
         return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
@@ -1190,62 +1210,69 @@ class TokenProcessor(torch.nn.Module):
         if len(agent) == 0:
             tokenized_agent=self.tokenize_agent(data)
         else:
-            agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(  agent['type'] )
-
-            tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
-            tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
-            tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
-
-            if "col_mask" in agent.keys():
-                tokenized_agent["col_mask"] = agent["col_mask"]
-
-            if "pred_mask" in agent.keys():
-                tokenized_agent["pred_mask"] = agent["pred_mask"]
-
-            if "initial_pos" in agent.keys():
-                tokenized_agent["initial_pos"] = agent["initial_pos"]
-                tokenized_agent["initial_heading"] = agent["initial_heading"]
-
-
-            if "gt_valid_raw" in data.keys():
-                for key in ["type", "batch", "shape"]:
-                    tokenized_agent[key] = agent[key]
-
-                if "gt_speed_raw" in agent.keys():
-                    speed=agent["gt_speed_raw"]
-                else:
-                    speed=None
-
-                token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
-                                                            agent["gt_head_raw"],
-                                                            agent_shape, token_traj,
-                                                             speed,
-                                                                )
-                tokenized_agent.update(token_dict)
-
-                tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
-                tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
-                tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
+            if self.learn_init:
+                for key in ["initial_heading", "initial_pos", "initial_vel", "initial_shape", "initial_type","batch"]:
+                    tokenized_agent[key] = agent[key]  # [agent_mask]
+                tokenized_agent['initial_type'] = tokenized_agent['initial_type'].long()
 
             else:
+                agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(  agent['type'] )
 
-                for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
-                    tokenized_agent[key] = agent[key]#[agent_mask]
+                tokenized_agent["token_agent_shape"] = agent_shape  # [n_token, 2]
+                tokenized_agent["token_traj"] = token_traj  # [n_token, 2]
+                tokenized_agent["token_traj_all"] = token_traj_all  # [n_token, 6, 4, 2]
 
-                tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
+                if "col_mask" in agent.keys():
+                    tokenized_agent["col_mask"] = agent["col_mask"]
 
-                if 'token_mask' in agent.keys():
-                    tokenized_agent['token_mask'] = agent['token_mask']#[agent_mask]
-                else:
-                    tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
+                if "pred_mask" in agent.keys():
+                    tokenized_agent["pred_mask"] = agent["pred_mask"]
+
+                if "initial_pos" in agent.keys():
+                    tokenized_agent["initial_pos"] = agent["initial_pos"]
+                    tokenized_agent["initial_heading"] = agent["initial_heading"]
 
 
-                if "gt_pos_raw" in agent.keys():
-
-                    for key in ["gt_pos_raw", "gt_head_raw"]:
+                if "gt_valid_raw" in data.keys():
+                    for key in ["type", "batch", "shape"]:
                         tokenized_agent[key] = agent[key]
-                    tokenized_agent['gt_valid_raw'] = agent["valid_mask"]
-                    tokenized_agent['train_mask_ce'] = agent["train_mask"]
+
+                    if "gt_speed_raw" in agent.keys():
+                        speed=agent["gt_speed_raw"]
+                    else:
+                        speed=None
+
+                    token_dict = self._match_agent_token(agent["gt_valid_raw"], agent["gt_pos_raw"],
+                                                                agent["gt_head_raw"],
+                                                                agent_shape, token_traj,
+                                                                 speed,
+                                                                    )
+                    tokenized_agent.update(token_dict)
+
+                    tokenized_agent["gt_pos_raw"]= agent["gt_pos_raw"][:,5::5]
+                    tokenized_agent["gt_head_raw"]= agent["gt_head_raw"][:,5::5]
+                    tokenized_agent["gt_valid_raw"]= agent["gt_valid_raw"][:,5::5]
+
+                else:
+
+                    for key in ["sampled_pos", "sampled_heading", "type", "batch", "shape", "valid_mask"]:
+                        tokenized_agent[key] = agent[key]#[agent_mask]
+
+                    tokenized_agent["sampled_idx"]=agent["sampled_idx"].long()#[agent_mask]
+                    tokenized_agent['type'] = tokenized_agent['type'].long()
+
+                    if 'token_mask' in agent.keys():
+                        tokenized_agent['token_mask'] = agent['token_mask']#[agent_mask]
+                    else:
+                        tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
+
+
+                    if "gt_pos_raw" in agent.keys():
+
+                        for key in ["gt_pos_raw", "gt_head_raw"]:
+                            tokenized_agent[key] = agent[key]
+                        tokenized_agent['gt_valid_raw'] = agent["valid_mask"]
+                        tokenized_agent['train_mask_ce'] = agent["train_mask"]
 
 
         tokenized_map["token_traj_src"]= self.map_token_traj_src
@@ -1255,9 +1282,9 @@ class TokenProcessor(torch.nn.Module):
                 self, f"agent_token_all_{k}"
             )[:, -1].flatten(1, 2)
 
-        tokenized_agent["gt_idx"]=tokenized_agent["sampled_idx"]
-        tokenized_agent["gt_pos"]=tokenized_agent["sampled_pos"]
-        tokenized_agent["gt_heading"]=tokenized_agent["sampled_heading"]
+        # tokenized_agent["gt_idx"]=tokenized_agent["sampled_idx"]
+        # tokenized_agent["gt_pos"]=tokenized_agent["sampled_pos"]
+        # tokenized_agent["gt_heading"]=tokenized_agent["sampled_heading"]
 
         return tokenized_map, tokenized_agent
 

@@ -69,13 +69,16 @@ class IQ_SoftQ(LightningModule):
         if self.encoder.agent_encoder.learn_init and self.encoder.agent_encoder.use_gan:
             self.automatic_optimization=False
 
-    def get_QV(self, tokenized_map, tokenized_agent, train_mask, key='expert'):
-        valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
-        action = tokenized_agent["sampled_idx"][:, self.start_step + 1:]
+    def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
         if pred["next_token_logits"] is not None:
+            valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
+            action = tokenized_agent["sampled_idx"][:, self.start_step + 1:]
+
+            train_mask = get_train_mask(tokenized_agent, self.start_step, self.token_processor.pred_exit)  # t,a
+
             if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
                 agent_train_mask=tokenized_agent["train_mask"]
                 valid_mask=valid_mask[agent_train_mask]
@@ -408,7 +411,6 @@ class IQ_SoftQ(LightningModule):
 
     def iq_update(self, tokenized_map, tokenized_agent):
 
-        expert_train_mask= get_train_mask(tokenized_agent,self.start_step,self.token_processor.pred_exit)#t,a
 
         if self.use_kl_penalty:
             expert_nll= 0
@@ -416,7 +418,7 @@ class IQ_SoftQ(LightningModule):
             tokenized_agent["map_feature"] = map_feature
             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
         else:
-            expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent, expert_train_mask)
+            expert_nll, expert_log_prob= self.get_QV(tokenized_map, tokenized_agent)
 
         if not self.gail:
             return expert_nll

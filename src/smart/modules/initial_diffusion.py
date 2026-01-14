@@ -96,9 +96,10 @@ class PDInit(nn.Module):
         self.apply(weight_init)
 
     def get_data(self,tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
-        shape = tokenized_agent["gt_initial_shape"].clone()
 
-        real_shape = shape[non_ego]
+        initial_vel=tokenized_agent["initial_vel"][non_ego]
+
+        initial_shape = tokenized_agent["initial_shape"][non_ego]
 
         real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
                                                     gt_initial_heading[non_ego],
@@ -108,15 +109,13 @@ class PDInit(nn.Module):
 
         init_trans = real_pos[:, :2]
 
-        initial_shape = real_shape[:, :3]
-
         # initial_contour=cal_polygon_contour(init_trans[:,None,None],real_heading[:,None,None],real_shape[:,None,None,:2])
 
         delta_rot = real_heading.unsqueeze(-1)
 
         init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
 
-        init_speed = real_shape[:, -2:].norm(dim=-1)
+        init_speed = initial_vel.norm(dim=-1)
 
         m_init = torch.cat([init_trans, init_angle, initial_shape, init_speed[:, None]], dim=-1)
 
@@ -146,10 +145,10 @@ class PDInit(nn.Module):
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
 
-        gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0].clone()
-        gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0].clone()
+        gt_initial_pos = tokenized_agent["initial_pos"]
+        gt_initial_heading = tokenized_agent["initial_heading"]
 
-        ego_mask = tokenized_agent["ego_mask"].clone()
+        ego_mask = tokenized_agent["ego_mask"]
 
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
@@ -178,7 +177,7 @@ class PDInit(nn.Module):
 
         batch = tokenized_agent["batch"][non_ego].clone()
 
-        initial_type = tokenized_agent["type"][non_ego].clone()
+        initial_type = tokenized_agent["initial_type"][non_ego].clone()
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
