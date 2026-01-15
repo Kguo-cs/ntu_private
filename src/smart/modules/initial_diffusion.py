@@ -135,7 +135,7 @@ class PDInit(nn.Module):
 
         m_init = m_init[sort_idx]
 
-        tokenized_agent['initial_type'] = initial_type[sort_idx]
+        tokenized_agent['nonego_type'] = initial_type[sort_idx]
 
         return m_init
 
@@ -178,11 +178,11 @@ class PDInit(nn.Module):
 
         batch = tokenized_agent["batch"][non_ego].clone()
 
-        initial_type = tokenized_agent["type"][non_ego].clone()
+        initial_type = tokenized_agent["initial_type"][non_ego].clone()
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
-            data = (m_init, tokenized_agent['initial_type'],0, feat_map, batch, batch_pl)
+            data = (m_init, tokenized_agent['nonego_type'],0, feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
                 loss_dict =self.autoencoder.loss(data)
@@ -227,7 +227,7 @@ class PDInit(nn.Module):
                 m_init = self.get_data(tokenized_agent, non_ego, batch, initial_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
 
-                data = (m_init, tokenized_agent['initial_type'],0, feat_map, batch, batch_pl)
+                data = (m_init, tokenized_agent['nonego_type'],0, feat_map, batch, batch_pl)
 
                 agent_mu, agent_log_var = self.autoencoder.forward(data, return_latents=True)
                 pred_init =reparameterize(agent_mu, agent_log_var)
@@ -237,7 +237,7 @@ class PDInit(nn.Module):
 
                 sort_idx = sort_rank.argsort()
 
-                tokenized_agent['initial_type']= initial_type[sort_idx]
+                tokenized_agent['nonego_type']= initial_type[sort_idx]
 
                 pred_init = self.joint_diffusion.sample(num_samples = 1, data=tokenized_agent, scene_enc=map_feature,
                                                         sampling='ddim',
@@ -246,7 +246,7 @@ class PDInit(nn.Module):
                                                         reverse_steps=None)[:,0]
 
             if self.latent_diffusion:
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['initial_type'],0, feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type'],0, feat_map,batch,batch_pl)
 
             #pred_init=m_init
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
@@ -294,7 +294,7 @@ class PDInit(nn.Module):
 
             type=tokenized_agent["type"].clone()
 
-            type[non_ego]= tokenized_agent['initial_type']
+            type[non_ego]= tokenized_agent['nonego_type']
 
             tokenized_agent["type"]= type
 

@@ -191,6 +191,8 @@ class TokenProcessor(torch.nn.Module):
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
 
+        tokenized_agent["initial_type"]=tokenized_agent["type"].clone()
+
         if self.pred_init:
             type = tokenized_agent["type"]
 
