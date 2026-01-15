@@ -18,7 +18,7 @@ def sinusoidal_embedding(position, D):
     Returns:
         Tensor of shape [N, D]
     """
-    return 0
+   # return 0
     div_term = torch.exp(torch.arange(0, D, 2,device=position.device) * (-math.log(10000.0) / D))  # shape [D/2]
 
     pe = torch.zeros(len(position), D,device=position.device)
