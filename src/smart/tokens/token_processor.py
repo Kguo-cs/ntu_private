@@ -138,7 +138,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_vel=True
 
-        self.learn_autoencoder = False
+        self.learn_autoencoder = True
 
         if not self.learn_init:
             self.learn_autoencoder=False
@@ -166,8 +166,8 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_vel"] = vel[valid]  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape[valid]
                 tokenized_agent["initial_type"] = type[valid].long()
-                tokenized_agent["gt_initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
-                tokenized_agent["gt_initial_idx"]=  tokenized_agent["initial_type"] [:,None]
+                tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
+                tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"] [:,None]
 
                 tokenized_agent["ego_traj"] = agent["position"][:, 11:21, :2][tokenized_agent["ego_mask"]]
 
