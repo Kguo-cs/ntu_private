@@ -231,7 +231,7 @@ class TokenProcessor(torch.nn.Module):
                     initial_idx=torch.linalg.norm(all_token_vel-local_pos[:,None],dim=-1).argmin(-1)
 
                     tokenized_agent["initial_speed"] = initial_vel.norm(dim=-1)
-                    tokenized_agent["initial_shape"] = tokenized_agent["shape"]#torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
+                    tokenized_agent["initial_shape"] = torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
 
                 tokenized_agent["initial_pos"] = initial_pos#[:,None]
                 tokenized_agent["initial_heading"] = initial_heading#[:,None]
