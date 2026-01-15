@@ -299,7 +299,7 @@ class GeometricLoss(nn.Module):
         count_per_sample = count_per_sample.scatter_add_(0, batch.type(torch.int64), torch.ones(batch_size, device=loss.device, dtype=loss.dtype))
 
         # Compute mean loss for each sample
-        loss_batch = loss_per_sample / count_per_sample
+        loss_batch = loss_per_sample / (count_per_sample+1e-10)
 
         # Return the overall mean of the mean losses
         return loss_batch

@@ -265,6 +265,8 @@ class AutoEncoder(nn.Module):
         kl_loss = agent_kl_loss
 
         loss = agent_loss +1e-2 * kl_loss
+        if torch.isnan(loss).any():
+            print(agent_loss.mean())
 
         return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 
