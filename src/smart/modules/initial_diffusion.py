@@ -116,7 +116,7 @@ class PDInit(nn.Module):
 
         init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
 
-        init_speed = real_shape[:, -2:].norm(dim=-1)
+        init_speed = tokenized_agent["initial_vel"][non_ego].norm(dim=-1)
 
         m_init = torch.cat([init_trans, init_angle, initial_shape, init_speed[:, None]], dim=-1)
 
@@ -178,7 +178,7 @@ class PDInit(nn.Module):
 
         batch = tokenized_agent["batch"][non_ego].clone()
 
-        initial_type = tokenized_agent["type"][non_ego].clone()
+        initial_type = tokenized_agent["initial_type"][non_ego].clone()
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,initial_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
