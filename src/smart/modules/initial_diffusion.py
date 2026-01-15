@@ -92,13 +92,8 @@ class PDInit(nn.Module):
 
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
-        # self.normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]])
-        # self.normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]])
-
-        self.normal_scale = torch.tensor([[34.020, 28.672,  0.787,  0.603,  1.232,  0.381,  4.065,  3.988]])
-        self.normal_mean = torch.tensor([[4.730e+00,  2.584e+00,  1.356e-01, -4.865e-03,  4.504e+00,  2.021e+00,
-        -1.284e-03, -5.234e-02]])
-
+        self.normal_scale = torch.tensor([[35.003, 30.584,  0.769,  0.627,  1.239,  0.380,  0.279,  5.282]])
+        self.normal_mean = torch.tensor([[3.539,  4.872,  0.125, -0.002,  4.499,  2.018, 1.736,  2.799]])
 
         self.apply(weight_init)
 
@@ -106,7 +101,7 @@ class PDInit(nn.Module):
 
         initial_vel=tokenized_agent["initial_vel"][non_ego]
 
-        initial_shape = tokenized_agent["initial_shape"][non_ego][:,:2]
+        initial_shape = tokenized_agent["initial_shape"][non_ego]
 
         real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
                                                     gt_initial_heading[non_ego],
@@ -122,9 +117,9 @@ class PDInit(nn.Module):
 
         init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
 
-        init_speed = initial_vel #.norm(dim=-1)[:, None]
+        init_speed = initial_vel.norm(dim=-1)
 
-        m_init = torch.cat([init_trans, init_angle, initial_shape, init_speed], dim=-1)
+        m_init = torch.cat([init_trans, init_angle, initial_shape, init_speed[:, None]], dim=-1)
 
         # m_init = torch.cat([initial_contour[:,0,0,:3].flatten(1,2), initial_shape[:,-1:],init_speed[:,None]], dim=-1)
 
@@ -263,7 +258,7 @@ class PDInit(nn.Module):
             #pred_init=m_init
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
             # pred_count=pred_init[..., :6].reshape(-1,3,2)
             #
@@ -282,8 +277,6 @@ class PDInit(nn.Module):
             #
             # pred_shape=torch.stack([length,width,pred_init[..., 6]], dim=-1)
 
-            pred_speed=pred_speed.norm(dim=-1)
-
             global_pos,global_heading=transform_to_global(
                 pred_trans,
                 pred_head,
@@ -300,7 +293,7 @@ class PDInit(nn.Module):
 
             shape=tokenized_agent["shape"].clone()
 
-            shape[non_ego,:2]=pred_shape[:,:2]
+            shape[non_ego]=pred_shape[:,:3]
 
             tokenized_agent["shape"]= shape
 
