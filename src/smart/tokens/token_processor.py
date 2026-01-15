@@ -138,7 +138,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_vel=True
 
-        self.learn_autoencoder = False
+        self.learn_autoencoder = True
 
         if not self.learn_init:
             self.learn_autoencoder=False
