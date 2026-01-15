@@ -386,11 +386,11 @@ class SMART(LightningModule):
                         }
                         samples.append(unified_data)
 
-                        unified_data = {
-                            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-                            'vehicles': vehicles[:,1]
-                        }
-                        samples.append(unified_data)
+                        # unified_data = {
+                        #     'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+                        #     'vehicles': vehicles[:,1]
+                        # }
+                        # samples.append(unified_data)
 
                         real_vehicles=real_state[(batch==b) & (type==0)].cpu().numpy()
 
@@ -400,7 +400,7 @@ class SMART(LightningModule):
                         }
 
                         gt_samples.append(unified_data)
-                        gt_samples.append(unified_data)
+                        #gt_samples.append(unified_data)
                     self.result=compute_agent_metrics(samples=samples, gt_samples=gt_samples)
 
             else:
