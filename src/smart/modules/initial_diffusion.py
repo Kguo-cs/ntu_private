@@ -3,10 +3,7 @@ from src.smart.layers import MLPLayer
 
 import torch
 import torch.nn as nn
-from torch_geometric.data import Batch
-from torch_geometric.data import HeteroData
-import os
-from .init_diffusion import InitDiffusion
+from src.smart.layers.init_diffusion import InitDiffusion
 from argparse import ArgumentParser
 
 from src.smart.utils import (

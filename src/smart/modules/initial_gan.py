@@ -19,7 +19,7 @@ from src.smart.utils import (
     wrap_angle,
 )
 
-from .initial_discriminator import InitDiscriminator,InitGeneator
+from src.smart.layers.initial_discriminator import InitDiscriminator,InitGeneator
 from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 

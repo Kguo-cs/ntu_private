@@ -134,11 +134,11 @@ class TokenProcessor(torch.nn.Module):
 
         self.use_infgen=False
 
-        self.learn_init=learn_init
+        self.learn_init=learn_init #True
 
         self.pred_vel=True
 
-        self.learn_autoencoder = True
+        self.learn_autoencoder = False
 
         if not self.learn_init:
             self.learn_autoencoder=False
@@ -152,7 +152,7 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent = self.tokenize_agent(data,extrapolate)
 
-            if self.learn_autoencoder:
+            if self.learn_init:
                 agent=data["agent"]
                 valid = agent["valid_mask"][:, 10]  # [n_agent, n_step]
                 heading = agent["heading"][:, 10]  ## [n_agent, n_step]
@@ -214,7 +214,7 @@ class TokenProcessor(torch.nn.Module):
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
 
-        if self.pred_init and not self.learn_autoencoder:
+        if self.pred_init and not self.learn_init:
             if self.training:
                 for key in ["sampled_idx", "token_mask", "valid_mask", "sampled_pos", "sampled_heading"]:
                     if self.token_initial:
