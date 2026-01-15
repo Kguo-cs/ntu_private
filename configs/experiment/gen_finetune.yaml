@@ -39,7 +39,7 @@ model:
 
 #ckpt_path: './ckpts/bcgen56_vel_epoch=25-step=226122_0.78389.ckpt'
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/gen256_val512_auto_std_nopos_train0+epoch=31-step=60896.ckpt'
+ckpt_path: './logs/gen256_val512_auto_std_nopos_train0/2026-01-14_15-16-48/bc/f92s2zj0/checkpoints/epoch=31-step=60896.ckpt'
 
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen128_sort08_map100_max_01loss_nopos0_nooffset_epoch=31-step=121760.ckpt'
 
