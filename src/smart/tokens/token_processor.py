@@ -230,15 +230,12 @@ class TokenProcessor(torch.nn.Module):
 
                     initial_idx=torch.linalg.norm(all_token_vel-local_pos[:,None],dim=-1).argmin(-1)
 
-                    tokenized_agent["initial_speed"] = initial_vel.norm(dim=-1)
-                    tokenized_agent["initial_shape"] = tokenized_agent["shape"]#torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
+                    tokenized_agent["gt_initial_speed"] = initial_vel.norm(dim=-1)
+                    tokenized_agent["gt_initial_shape"] = torch.cat([tokenized_agent["shape"], initial_vel], dim=-1)
 
-                tokenized_agent["initial_pos"] = initial_pos#[:,None]
-                tokenized_agent["initial_heading"] = initial_heading#[:,None]
-                tokenized_agent["initial_idx"] = initial_idx#[:,None]
-                tokenized_agent["initial_type"] = tokenized_agent['type']
-                tokenized_agent["initial_vel"]=initial_vel
-                tokenized_agent["ego_traj"] =data["agent"]["position"][...,11:21, :2][tokenized_agent["ego_mask"]]
+                tokenized_agent["gt_initial_pos"] = initial_pos[:,None]
+                tokenized_agent["gt_initial_heading"] = initial_heading[:,None]
+                tokenized_agent["gt_initial_idx"] = initial_idx[:,None]
 
             if self.training:
                 for key in ["sampled_idx","token_mask","valid_mask","sampled_pos","sampled_heading"]:
