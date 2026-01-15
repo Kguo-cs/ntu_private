@@ -175,6 +175,7 @@ class TokenProcessor(torch.nn.Module):
 
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
+        tokenized_agent["type"] = tokenized_agent["initial_type"]
 
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 
