@@ -40,8 +40,19 @@ lead to width 0
 | minADE                                | 0          |
 
 
-/home/ke/code/sim/src/waymo_data/gen128_gpgenr12_notantransdrop0_1e5_epoch=13-step=53270_0.63073.ckpt
+/home/ke/code/sim/src/waymo_data/gen128_gpgenr12_1e5_vel_mappos_pre_epoch=24-step=95125_0.6288.ckpt
 
-python val_diffnet.py --root <Path to dataset> --ckpt_path <Path to diffusion network checkpoint> --devices '1' --batch_size 8 --sampling ddim --sampling_stride 10 --num_eval_samples 128 --network_mode 'val'
 
-python train_diffnet_tb.py --root <Path to dataset> --train_batch_size 32 --val_batch_size 32 --test_batch_size 32 --dataset argoverse_v2 --init_timestep 50 --pl2pl_radius 150 --devices 1 --num_workers 16 --num_denoiser_layers 3 --num_diffusion_steps 100 --max_epochs 30 --lr 0.001 --beta_1 0.0001 --beta_T 0.05 --diff_type vd --sampling ddpm --sampling_stride 10 --num_eval_samples 1 --check_val_every_n_epoch 1 --stage init
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.6145485  |
+| Linear Speed Likelihood               | 0.33572048 |
+| Linear Acceleration Likelihood        | 0.4921063  |
+| Angular Speed Likelihood              | 0.5610384  |
+| Angular Acceleration Likelihood       | 0.6549026  |
+| Distance To Nearest Object Likelihood | 0.24486539 |
+| Collision Likelihood                  | 0.78982353 |
+| Time To Collision Likelihood          | 0.85147285 |
+| Distance To Road Edge Likelihood      | 0.28162867 |
+| Offroad Likelihood                    | 0.5717825  |
+| minADE                                | 0          |
