@@ -13,6 +13,48 @@ from src.smart.utils import (
 
 from src.smart.loss.iq_loss import padding
 
+
+def compute_goal( tokenized_agent):
+    sampled_pos = tokenized_agent["sampled_pos"]
+    sampled_heading = tokenized_agent["sampled_heading"]
+    valid_mask = tokenized_agent["valid_mask"]
+
+    A, T, _ = sampled_pos.shape
+
+    # Convert heading → unit direction (XY)
+    dir_xy = torch.stack([torch.cos(sampled_heading), torch.sin(sampled_heading)], dim=-1)  # (A,T,2)
+
+    # Find index of last valid step for each agent
+    valid_mask = valid_mask.bool()
+    # We want *last* valid, not first
+    last_idx = (valid_mask.float() * torch.arange(T, device=sampled_pos.device).float()).max(dim=1).indices
+
+    # Gather last valid pos and heading
+    idx = last_idx.view(-1, 1, 1).expand(-1, 1, 2)  # shape (A,1,3)
+    last_pos = sampled_pos.gather(1, idx).squeeze(1)  # (A,3)
+    last_dir = dir_xy.gather(1, idx).squeeze(1)  # (A,2)
+
+    # Sample random extrapolation distances [0, max_extend)
+    goal_dist = torch.rand((A,), device=sampled_pos.device) * 50
+
+    goal_dist[np.random.random(A) < 0.5] = 0
+
+    # Compute goal position = last_pos + dist * direction
+    goal_pos = last_pos + goal_dist[:, None] * last_dir
+
+    tokenized_agent["goal_pos"] = goal_pos
+
+    batch_idx = tokenized_agent["batch"]
+
+    rand_idx = torch.randint(low=0, high=2, size=(max(batch_idx) + 1, 1), device=batch_idx.device)
+
+    goal_mask = rand_idx[batch_idx] < 1
+
+    goal_mask[np.random.random(len(goal_mask)) < 0.5] = True
+
+    tokenized_agent["goal_mask"] = goal_mask[:, 0]
+
+
 class Attr_Tokenizer(nn.Module):
 
     def __init__(self, grid_range, grid_interval, radius, angle_interval):
