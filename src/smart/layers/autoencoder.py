@@ -317,11 +317,13 @@ class AutoEncoder(nn.Module):
             l2a_edge_index)
 
         # agent vector regression loss
-        agent_loss = self.agent_loss_fn(agent_states_pred, x_agent, batch)
-        agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
+        agent_loss = F.l1_loss(agent_states_pred,x_agent)#self.agent_loss_fn(agent_states_pred, x_agent, batch)
+
+        agent_kl_loss = -0.5 * (1 + agent_log_var - agent_mu ** 2 - agent_log_var.exp())
+        #agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        loss = agent_loss +1e-2 * kl_loss
+        loss = agent_loss +1e-3 * kl_loss
 
         return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 
