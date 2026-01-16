@@ -55,7 +55,7 @@ class ScenarioDreamerEncoder(nn.Module):
                 d_model=self.hidden_dim,
                 nhead=num_heads,
                 dim_feedforward=self.hidden_dim*4,
-                dropout=0.1,
+                dropout=0,
                 norm_first=True,
                 batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
             )
@@ -78,7 +78,7 @@ class ScenarioDreamerEncoder(nn.Module):
                     agent_feedforward_dim=hidden_dim*4,
                     agent_num_heads=num_heads,
                     lane_conn_hidden_dim=hidden_dim,
-                    dropout=0.1)
+                    dropout=0)
 
                 self.encoder_transformer_blocks.append(encoder_transformer_block)
             self.encoder_transformer_blocks = nn.ModuleList(self.encoder_transformer_blocks)
@@ -149,7 +149,7 @@ class ScenarioDreamerDecoder(nn.Module):
                 d_model=self.hidden_dim,
                 nhead=num_heads,
                 dim_feedforward=self.hidden_dim*4,
-                dropout=0.1,
+                dropout=0,
                 norm_first=True,
                 batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
             )
@@ -170,7 +170,7 @@ class ScenarioDreamerDecoder(nn.Module):
                     agent_feedforward_dim=hidden_dim*4,
                     agent_num_heads=num_heads,
                     lane_conn_hidden_dim=hidden_dim,
-                    dropout=0.1)
+                    dropout=0)
                 self.decoder_transformer_blocks.append(decoder_transformer_block)
             self.decoder_transformer_blocks = nn.ModuleList(self.decoder_transformer_blocks)
 
