@@ -76,17 +76,8 @@ class PDInit(nn.Module):
 
         # self.normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]])
         # self.normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]])
-
-
         # self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
         # self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
-        # min_speed: 0
-        # max_speed: 114.088
-        # min_length: -0.098
-        # max_length: 22.929
-        # min_width: 0.096
-        # max_width: 12.527
-
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
         self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
@@ -162,12 +153,6 @@ class PDInit(nn.Module):
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
 
-        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
-
-        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
-
-        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
-
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
                                                ego_position[batch_pl],
@@ -194,9 +179,15 @@ class PDInit(nn.Module):
 
         nonego_type = tokenized_agent["initial_type"][non_ego].clone()
 
+        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+
+        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
+
+        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))[batch]
+
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
-            data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding[batch],feat_map, batch, batch_pl)
+            data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
                 loss_dict =self.autoencoder.loss(data)
@@ -225,11 +216,9 @@ class PDInit(nn.Module):
                 m_init = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
 
-                data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding[batch],feat_map, batch, batch_pl)
+                data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding,feat_map, batch, batch_pl)
 
-                agent_mu, agent_log_var = self.autoencoder.forward(data, return_latents=True)
-                pred_init =reparameterize(agent_mu, agent_log_var)
-
+                pred_init = self.autoencoder.forward_encoder(data)
             else:
                 sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
 

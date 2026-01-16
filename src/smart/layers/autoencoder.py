@@ -237,6 +237,8 @@ class AutoEncoder(nn.Module):
 
         self.hidden_dim=hidden_dim
 
+        latent_dim=16
+
         self.use_transformer=False
 
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
@@ -323,7 +325,7 @@ class AutoEncoder(nn.Module):
 
         return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 
-    def forward_encoder(self, data, return_stats=False, return_lane_embeddings=False):
+    def forward_encoder(self, data, return_latents=False, return_lane_embeddings=False):
 
         x_agent, agent_types,num_graphs,ego_embedding, lane_embeddings, batch, batch_pl=data
 
@@ -343,12 +345,9 @@ class AutoEncoder(nn.Module):
             l2a_edge_index,
             l2l_edge_index
             )
-        if return_lane_embeddings:
-            return encoder_output
-        else:
-            agent_mu, agent_log_var = encoder_output
+        agent_mu, agent_log_var = encoder_output
 
-        if return_stats:
+        if return_latents:
             return agent_mu, agent_log_var
 
         agent_latents = reparameterize(agent_mu, agent_log_var)
