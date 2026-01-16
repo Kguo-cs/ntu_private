@@ -62,7 +62,7 @@ class ScenarioDreamerEncoder(nn.Module):
 
             self.transformer_decoder = nn.TransformerDecoder(
                 decoder_layer,
-                num_layers=1
+                num_layers=2
             )
 
         else:
@@ -156,7 +156,7 @@ class ScenarioDreamerDecoder(nn.Module):
 
             self.transformer_decoder = nn.TransformerDecoder(
                 decoder_layer,
-                num_layers=1
+                num_layers=2
             )
         else:
             # ------------------- factorized attention decoder blocks ---------------------- #
