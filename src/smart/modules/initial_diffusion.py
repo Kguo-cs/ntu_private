@@ -141,7 +141,7 @@ class PDInit(nn.Module):
 
         m_init = m_init[sort_idx]
 
-        tokenized_agent['nonego_type'] = nonego_type[sort_idx]
+        tokenized_agent['nonego_type_sorted'] = nonego_type[sort_idx]
 
         return m_init
 
@@ -154,6 +154,8 @@ class PDInit(nn.Module):
 
         gt_initial_pos = tokenized_agent["initial_pos"]
         gt_initial_heading = tokenized_agent["initial_heading"]
+
+        num_graphs=tokenized_agent["num_graphs"]
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -194,7 +196,7 @@ class PDInit(nn.Module):
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
-            data = (m_init, tokenized_agent['nonego_type'], ego_embedding[batch],feat_map, batch, batch_pl)
+            data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding[batch],feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
                 loss_dict =self.autoencoder.loss(data)
@@ -212,23 +214,7 @@ class PDInit(nn.Module):
 
                 loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
-                #pred_init=pred_init*normal_scale+normal_mean
-                # num_samples=1
-                # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
 
-                # target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
-                # target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
-                # target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
-                #
-                # loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
-                # loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
-                # loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
-                #
-                # loss_diff_trans = loss_diff_init[..., :2].mean()
-                # loss_diff_theta = loss_diff_init[..., 2:4].mean()
-                # loss_diff_speed = loss_diff_init[..., -1].mean()
-
-                #weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
                 loss_diff_init = loss_diff_init.mean()
 
                 loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
@@ -239,7 +225,7 @@ class PDInit(nn.Module):
                 m_init = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
 
-                data = (m_init, tokenized_agent['nonego_type'], ego_embedding[batch],feat_map, batch, batch_pl)
+                data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding[batch],feat_map, batch, batch_pl)
 
                 agent_mu, agent_log_var = self.autoencoder.forward(data, return_latents=True)
                 pred_init =reparameterize(agent_mu, agent_log_var)
@@ -249,7 +235,7 @@ class PDInit(nn.Module):
 
                 sort_idx = sort_rank.argsort()
 
-                tokenized_agent['nonego_type']= nonego_type[sort_idx]
+                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
 
                 pred_init = self.joint_diffusion.sample(num_samples = 1, data=tokenized_agent, scene_enc=map_feature,
                                                         sampling='ddim',
@@ -258,28 +244,12 @@ class PDInit(nn.Module):
                                                         reverse_steps=None)[:,0]
 
             if self.latent_diffusion:
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type'], ego_embedding[batch],feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type'], num_graphs,ego_embedding[batch],feat_map,batch,batch_pl)
 
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
             pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-            # pred_count=pred_init[..., :6].reshape(-1,3,2)
-            #
-            # # center (diagonal midpoint)
-            # pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
-            #
-            # diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
-            #
-            # # width & length
-            # width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
-            # length = torch.norm(diff_xy_next,dim=-1)
-            #
-            # pred_head = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
-            #
-            # pred_speed=pred_init[..., -1]
-            #
-            # pred_shape=torch.stack([length,width,pred_init[..., 6]], dim=-1)
 
             global_pos,global_heading=transform_to_global(
                 pred_trans,
@@ -305,21 +275,9 @@ class PDInit(nn.Module):
 
             type=tokenized_agent["type"]
 
-            type[non_ego]= tokenized_agent['nonego_type']
+            type[non_ego]= tokenized_agent['nonego_type_sorted']
 
             tokenized_agent["type"]= type
-
-
-            # if self.token_processor.pred_vel:
-            #     vel=fake_shape[:,3:]
-            #
-            #     center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
-            #
-            #     gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
-            #     gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
-            # gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
-            # gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
-            # gt_initial_speed=tokenized_agent["gt_initial_speed"]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
@@ -358,3 +316,47 @@ class PDInit(nn.Module):
         parser.add_argument('--m_dim', type = int,default = 10)
 
         return parent_parser
+    # pred_init=pred_init*normal_scale+normal_mean
+    # num_samples=1
+    # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
+
+    # target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
+    # target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
+    # target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
+    #
+    # loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
+    # loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
+    # loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
+    #
+    # loss_diff_trans = loss_diff_init[..., :2].mean()
+    # loss_diff_theta = loss_diff_init[..., 2:4].mean()
+    # loss_diff_speed = loss_diff_init[..., -1].mean()
+
+    # weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
+    # pred_count=pred_init[..., :6].reshape(-1,3,2)
+    #
+    # # center (diagonal midpoint)
+    # pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
+    #
+    # diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
+    #
+    # # width & length
+    # width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
+    # length = torch.norm(diff_xy_next,dim=-1)
+    #
+    # pred_head = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+    #
+    # pred_speed=pred_init[..., -1]
+    #
+    # pred_shape=torch.stack([length,width,pred_init[..., 6]], dim=-1)
+
+# if self.token_processor.pred_vel:
+#     vel=fake_shape[:,3:]
+#
+#     center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
+#
+#     gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
+#     gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
+# gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
+# gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
+# gt_initial_speed=tokenized_agent["gt_initial_speed"]

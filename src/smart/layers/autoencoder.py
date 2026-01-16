@@ -55,7 +55,7 @@ class ScenarioDreamerEncoder(nn.Module):
                 d_model=self.hidden_dim,
                 nhead=num_heads,
                 dim_feedforward=self.hidden_dim*4,
-                dropout=0,
+                dropout=0.1,
                 norm_first=True,
                 batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
             )
@@ -149,7 +149,7 @@ class ScenarioDreamerDecoder(nn.Module):
                 d_model=self.hidden_dim,
                 nhead=num_heads,
                 dim_feedforward=self.hidden_dim*4,
-                dropout=0,
+                dropout=0.1,
                 norm_first=True,
                 batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
             )
@@ -193,36 +193,6 @@ class ScenarioDreamerDecoder(nn.Module):
             l2l_edge_index: torch.Tensor,
             l2a_edge_index: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Decode latent embeddings into vectorized driving scenes.
-
-        Args:
-            x_agent: Tensor *(N_agents, agent_latent_dim)* - latent agent
-                embeddings sampled from the encoder.
-            x_lane: Tensor *(N_lanes, lane_latent_dim)* - latent lane
-                embeddings.
-            a2a_edge_index: COO index *(2, E_agent)* for agent-to-agent edges.
-            l2l_edge_index: COO index *(2, E_lane)* for lane-to-lane edges.
-            l2a_edge_index: COO index *(2, E_cross)* for lane-to-agent edges.
-
-        Returns:
-            Tuple containing, in order:
-
-            * **agent_states_pred** - *(N_agents, state_dim)* agent state predictions
-            * **agent_types_logits** - *(N_agents, num_agent_types)* logits for
-              categorical agent type prediction.
-            * **agent_types_pred** - *(N_agents,)* predictions for
-              categorical agent type prediction.
-            * **lane_states_pred** - *(N_lanes, num_points_per_lane,
-              lane_attr)* predicted lane vectors
-            * **lane_types_logits** - *(N_lanes, num_lane_types) or None* logits for
-              categorical lane type prediction.
-            * **lane_types_pred** - *(N_lanes,) or None* predictions for
-              categorical lane type prediction.
-            * **lane_conn_logits** - *(E_lane, lane_conn_attr)* logits for lane
-              connectivity classification.
-            * **lane_conn_pred** - *(E_lane, 6)* predictions for lane
-              connectivity classification as one-hot vectors.
-        """
 
         # ----------- latent -> hidden-dim projections -------------------- #
         agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+agent_pos_idx
@@ -279,7 +249,7 @@ class AutoEncoder(nn.Module):
         self.kl_loss_fn = GeometricLosses['kl']()
         self.apply(weight_init)
 
-    def get_edgeindex(self,batch,batch_pl):
+    def get_edgeindex(self,batch,batch_pl,num_graphs):
         # mask = batch[:, None] == batch[None, :]
         #
         # src, dst = mask.nonzero(as_tuple=True)
@@ -295,7 +265,7 @@ class AutoEncoder(nn.Module):
         # l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
         a2a_edge_index=batch
         l2a_edge_index=batch_pl
-        l2l_edge_index=max(batch.max(),batch_pl.max())
+        l2l_edge_index=num_graphs
 
         counts = torch.bincount(batch)
 
@@ -306,9 +276,9 @@ class AutoEncoder(nn.Module):
 
     def loss(self, data,lane_conn_embeddings=None):
 
-        x_agent, agent_types, ego_embedding,lane_embeddings, batch, batch_pl=data
+        x_agent, agent_types,num_graphs, ego_embedding,lane_embeddings, batch, batch_pl=data
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl,num_graphs)
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_mu, agent_log_var = self.encoder(
@@ -346,9 +316,9 @@ class AutoEncoder(nn.Module):
 
     def forward_encoder(self, data, return_stats=False, return_lane_embeddings=False):
 
-        x_agent, agent_types,ego_embedding, lane_embeddings, batch, batch_pl=data
+        x_agent, agent_types,num_graphs,ego_embedding, lane_embeddings, batch, batch_pl=data
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl,num_graphs)
 
         lane_conn_embeddings = None
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
@@ -376,9 +346,9 @@ class AutoEncoder(nn.Module):
 
         return agent_latents
 
-    def forward_decoder(self, agent_latents, agent_types, ego_embedding,lane_embeddings,batch, batch_pl):
+    def forward_decoder(self, agent_latents, agent_types,num_graphs, ego_embedding,lane_embeddings,batch, batch_pl):
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl,num_graphs)
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_states_pred = self.decoder(
@@ -396,15 +366,7 @@ class AutoEncoder(nn.Module):
     def forward(self, data, return_latents=False, return_lane_embeddings=False):
         encoder_output = self.forward_encoder(data, return_stats=return_latents,  return_lane_embeddings=return_lane_embeddings)
 
-        if return_latents or return_lane_embeddings:
-            return encoder_output
-        else:
-            agent_latents, lane_latents, lane_cond_dis_prob = encoder_output
-
-        agent_states_pred, lane_states_pred, agent_types_pred, lane_types_pred, lane_conn_pred = self.forward_decoder(
-            agent_latents, lane_latents, data)
-
-        return agent_states_pred, lane_states_pred, agent_types_pred, lane_types_pred, lane_conn_pred, lane_cond_dis_prob
+        return encoder_output
 
 
 
