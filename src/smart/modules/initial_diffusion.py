@@ -84,6 +84,9 @@ class PDInit(nn.Module):
         self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
          5.619e-01, -1.836e-02]])
 
+        self.agent_latents_scale=torch.tensor([[1.265, 1.039, 1.343, 0.966, 1.186, 1.206, 1.275, 1.160]])
+        self.agent_latents_mean=torch.tensor([[-0.139,  0.005,  0.096, -0.014,  0.092,  0.039,  0.019, -0.107]])
+
         self.apply(weight_init)
 
     def get_data(self,tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
@@ -198,9 +201,7 @@ class PDInit(nn.Module):
                     with torch.no_grad():
                         m_init = self.autoencoder.forward_encoder(data)
 
-                    # agent_latents_mean=0
-                    # agent_latents_std=1
-                    # m_init = (agent_latents - agent_latents_mean) / agent_latents_std
+                    m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
                 loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
@@ -229,6 +230,8 @@ class PDInit(nn.Module):
                                                         stride=10, eval_mask=non_ego,
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
+
+                pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
 
             if self.latent_diffusion:
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding[batch],feat_map,batch,batch_pl)
