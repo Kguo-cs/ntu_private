@@ -183,7 +183,7 @@ class PDInit(nn.Module):
 
         init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
 
-        feat_map = feat_map + self.pos_embedding(pos_pl/80) + self.head_embedding(init_angle)
+        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(init_angle)
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
         non_ego = ~ego_mask
