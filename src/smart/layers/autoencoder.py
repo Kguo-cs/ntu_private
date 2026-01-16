@@ -41,14 +41,14 @@ def padding_f( feature, batch, batch_num):
 class ScenarioDreamerEncoder(nn.Module):
     """Encoder of the Scenario Dreamer AutoEncoder."""
 
-    def __init__(self, num_encoder_blocks,hidden_dim,latent_dim,num_heads):
+    def __init__(self, num_encoder_blocks,hidden_dim,latent_dim,num_heads,use_transformer):
         super(ScenarioDreamerEncoder, self).__init__()
         self.num_encoder_blocks=num_encoder_blocks
         self.agent_mlp = ResidualMLP(input_dim=8,   hidden_dim=hidden_dim)
         self.type_a_emb = nn.Embedding(3, hidden_dim)
         self.hidden_dim=hidden_dim
 
-        self.use_transformer = True
+        self.use_transformer = use_transformer
 
         if self.use_transformer:
             decoder_layer = nn.TransformerDecoderLayer(
@@ -135,7 +135,7 @@ class ScenarioDreamerEncoder(nn.Module):
 class ScenarioDreamerDecoder(nn.Module):
     """Decoder of the Scenario Dreamer AutoEncoder."""
 
-    def __init__(self, num_decoder_blocks,hidden_dim,latent_dim,num_heads):
+    def __init__(self, num_decoder_blocks,hidden_dim,latent_dim,num_heads,use_transformer):
         super(ScenarioDreamerDecoder, self).__init__()
         self.num_decoder_blocks = num_decoder_blocks
         self.hidden_dim=hidden_dim
@@ -143,7 +143,7 @@ class ScenarioDreamerDecoder(nn.Module):
         self.agent_mlp = nn.Linear(latent_dim, hidden_dim)
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        self.use_transformer=True
+        self.use_transformer=use_transformer
         if self.use_transformer:
             decoder_layer = nn.TransformerDecoderLayer(
                 d_model=self.hidden_dim,
@@ -237,8 +237,10 @@ class AutoEncoder(nn.Module):
 
         self.hidden_dim=hidden_dim
 
-        self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads)
-        self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads)
+        self.use_transformer=False
+
+        self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
+        self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
 
         # loss functions for training variational autoencoder
         self.agent_loss_fn = GeometricLosses['l1']()
@@ -250,22 +252,29 @@ class AutoEncoder(nn.Module):
         self.apply(weight_init)
 
     def get_edgeindex(self,batch,batch_pl,num_graphs):
-        # mask = batch[:, None] == batch[None, :]
-        #
-        # src, dst = mask.nonzero(as_tuple=True)
-        #
-        # a2a_edge_index=torch.stack([src, dst], dim=0)
-        #
-        # same_batch = batch_pl[:, None] == batch[None, :]
-        #
-        # pl_src, a_dst = same_batch.nonzero(as_tuple=True)
-        #
-        # a_dst = a_dst + len(batch_pl)  # shift polyline indices
-        #
-        # l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
-        a2a_edge_index=batch
-        l2a_edge_index=batch_pl
-        l2l_edge_index=num_graphs
+
+        if self.use_transformer:
+            a2a_edge_index = batch
+            l2a_edge_index = batch_pl
+            l2l_edge_index = num_graphs
+        else:
+
+            mask = batch[:, None] == batch[None, :]
+
+            src, dst = mask.nonzero(as_tuple=True)
+
+            a2a_edge_index=torch.stack([src, dst], dim=0)
+
+            same_batch = batch_pl[:, None] == batch[None, :]
+
+            pl_src, a_dst = same_batch.nonzero(as_tuple=True)
+
+            a_dst = a_dst + len(batch_pl)  # shift polyline indices
+
+            l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
+
+            l2l_edge_index=None
+
 
         counts = torch.bincount(batch)
 
