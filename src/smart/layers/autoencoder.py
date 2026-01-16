@@ -237,9 +237,9 @@ class AutoEncoder(nn.Module):
 
         self.hidden_dim=hidden_dim
 
-        latent_dim=16
+        latent_dim=8
 
-        self.use_transformer=False
+        self.use_transformer=True
 
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
         self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
