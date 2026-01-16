@@ -8,7 +8,7 @@ from torch_geometric.data import HeteroData
 import numpy as np
 
 
-data_directory = "../waymo_data/full/training_map2_03_light/"
+data_directory = "../waymo_data/full/training_map2_init10_light/"
 raw_data= "../waymo_data/agent/validation/"
 
 # output_path = "../waymo_data/full/training_map2_a/"
@@ -25,7 +25,7 @@ data_dict = {}
 
 # os.makedirs(output_path, exist_ok=True)
 
-for filename in tqdm(files[298525:]):
+for filename in tqdm(files[351809:]):
     print(filename)
 
     input_path = os.path.join(data_directory, filename)

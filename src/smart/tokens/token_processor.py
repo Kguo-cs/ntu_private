@@ -171,11 +171,10 @@ class TokenProcessor(torch.nn.Module):
 
                 tokenized_agent["ego_traj"] = agent["position"][:, 11:21, :2][tokenized_agent["ego_mask"]]
 
-            tokenized_agent["type"] = tokenized_agent["type"].long()
+            tokenized_agent["type"] = tokenized_agent["type"].long().clone()
 
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
-        tokenized_agent["type"] = tokenized_agent["initial_type"]
 
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 
