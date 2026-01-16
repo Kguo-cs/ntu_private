@@ -12,7 +12,7 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/gen256_val256_std_
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:~/keguo/sim/src/logs/bc40_apt30_tokenexit_14679/2025-11-16_07-22-43/bc/baftp2xu/checkpoints/epoch=62-step=767025.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=31-step=60896.ckpt ./
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/gen256_val256_std_w2_no80_kl03/2026-01-16_14-04-22/bc/dsbh2sgr/checkpoints/epoch=31-step=60896.ckpt ./
 
