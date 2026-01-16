@@ -1,12 +1,12 @@
 export PBS_JOBID=118609.pbs111
 
-rsync -avz   ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_03_light ./
+rsync -avz   ke@10.87.114.128:~/keguo/sim/srcc/waymo_data/full/training_map2_03_light ./
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init10_light ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/   
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/training_map2_init10_light ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/validation_tfrecords_splitted ./
 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/full/training_map2_init10_light guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/ 
 
@@ -67,6 +67,7 @@ nohup python run.py >  bc32_bothnoise_14679_random.log 2>&1 &
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
 pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
+pip install -r install/requirements.txt
 
 wsl -d Ubuntu
 

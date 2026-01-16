@@ -145,7 +145,7 @@ class TokenProcessor(torch.nn.Module):
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
-            tokenized_agent = self.tokenize_agent(data,extrapolate)
+            tokenized_agent = self.tokenize_agent(data)
 
             if self.learn_init:
                 agent=data["agent"]
