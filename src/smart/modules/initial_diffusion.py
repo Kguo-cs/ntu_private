@@ -293,7 +293,7 @@ class PDInit(nn.Module):
 
             gt_initial_speed=tokenized_agent["initial_speed"]
 
-            gt_initial_speed[non_ego] =pred_speed
+            gt_initial_speed[non_ego] =pred_speed.norm(dim=-1)
 
             shape=tokenized_agent["shape"]
 
