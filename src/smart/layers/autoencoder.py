@@ -239,7 +239,7 @@ class AutoEncoder(nn.Module):
 
         latent_dim=8
 
-        self.use_transformer=True
+        self.use_transformer=False
 
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
         self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
@@ -321,7 +321,7 @@ class AutoEncoder(nn.Module):
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        loss = agent_loss +1e-2 * kl_loss
+        loss = agent_loss +1e-3 * kl_loss
 
         return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 

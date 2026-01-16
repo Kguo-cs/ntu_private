@@ -56,3 +56,18 @@ lead to width 0
 | Distance To Road Edge Likelihood      | 0.28162867 |
 | Offroad Likelihood                    | 0.5717825  |
 | minADE                                | 0          |
+
+
+both structured and unstructured spaces
+
+SLAM systems for long-term outdoor localization and mapping
+
+location and mapping is relative to ego current position ,query to get the information
+
+点云地图
+
+栅格地图（Occupancy Grid）
+
+稀疏/稠密三维地图
+
+世界模型补全未观测区域
