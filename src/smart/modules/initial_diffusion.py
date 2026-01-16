@@ -205,7 +205,6 @@ class PDInit(nn.Module):
 
                 loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
 
-
                 loss_diff_init = loss_diff_init.mean()
 
                 loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
@@ -233,7 +232,7 @@ class PDInit(nn.Module):
                                                         reverse_steps=None)[:,0]
 
             if self.latent_diffusion:
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type'], num_graphs,ego_embedding[batch],feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding[batch],feat_map,batch,batch_pl)
 
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
