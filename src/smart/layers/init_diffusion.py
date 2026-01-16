@@ -94,7 +94,7 @@ class InitDiffusion(nn.Module):
                  tokenized_agent: HeteroData,
                  scene_enc: Mapping[str, torch.Tensor],
                  eval_mask,
-                 num_samples=1) -> Dict[str, torch.Tensor]:
+                 num_samples=1) :
 
         if self.flow_matching:
             return self.flow_matching_loss(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples )
@@ -374,7 +374,7 @@ class InitDenoiser(nn.Module):
         device = m_delta.device
 
         agent_batch_list = tokenized_agent["batch"][eval_mask]
-        type = tokenized_agent["initial_type"]
+        type = tokenized_agent["nonego_type_sorted"]
         batch_size = tokenized_agent["num_graphs"]
 
         self.num_samples = num_samples

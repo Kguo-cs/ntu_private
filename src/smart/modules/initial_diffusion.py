@@ -196,8 +196,7 @@ class PDInit(nn.Module):
             else:
                 if self.latent_diffusion:
                     with torch.no_grad():
-                        agent_mu, agent_log_var = self.autoencoder.forward(data,return_latents=True)
-                        m_init = reparameterize(agent_mu, agent_log_var)
+                        m_init = self.autoencoder.forward_encoder(data)
 
                     # agent_latents_mean=0
                     # agent_latents_std=1
