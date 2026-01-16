@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from .autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 import math
+from src.smart.layers.relative_transformer import RoFormerBlock, padding
 
 def sinusoidal_embedding(position, D):
     """
@@ -27,6 +28,16 @@ def sinusoidal_embedding(position, D):
 
     return pe
 
+
+def padding_f( feature, batch, batch_num):
+    lengths = torch.bincount(batch, minlength=batch_num).tolist()
+
+    padding_features_a = padding(feature, lengths, padding_value=0)  # b, n, d
+    mask_a_b = torch.any(padding_features_a != 0, dim=-1)
+
+    return  padding_features_a,mask_a_b
+
+
 class ScenarioDreamerEncoder(nn.Module):
     """Encoder of the Scenario Dreamer AutoEncoder."""
 
@@ -37,21 +48,40 @@ class ScenarioDreamerEncoder(nn.Module):
         self.type_a_emb = nn.Embedding(3, hidden_dim)
         self.hidden_dim=hidden_dim
 
-        # Factorised attention encoder blocks
-        self.encoder_transformer_blocks = []
-        for l in range(self.num_encoder_blocks):
-            encoder_transformer_block = AutoEncoderFactorizedAttentionBlock(
-                lane_hidden_dim=hidden_dim,
-                lane_feedforward_dim=hidden_dim*4,
-                lane_num_heads=num_heads,
-                agent_hidden_dim=hidden_dim,
-                agent_feedforward_dim=hidden_dim*4,
-                agent_num_heads=num_heads,
-                lane_conn_hidden_dim=hidden_dim,
-                dropout=0.1)
+        self.use_transformer = True
 
-            self.encoder_transformer_blocks.append(encoder_transformer_block)
-        self.encoder_transformer_blocks = nn.ModuleList(self.encoder_transformer_blocks)
+        if self.use_transformer:
+            decoder_layer = nn.TransformerDecoderLayer(
+                d_model=self.hidden_dim,
+                nhead=num_heads,
+                dim_feedforward=self.hidden_dim*4,
+                dropout=0,
+                norm_first=True,
+                batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
+            )
+
+            self.transformer_decoder = nn.TransformerDecoder(
+                decoder_layer,
+                num_layers=1
+            )
+
+        else:
+
+            # Factorised attention encoder blocks
+            self.encoder_transformer_blocks = []
+            for l in range(self.num_encoder_blocks):
+                encoder_transformer_block = AutoEncoderFactorizedAttentionBlock(
+                    lane_hidden_dim=hidden_dim,
+                    lane_feedforward_dim=hidden_dim*4,
+                    lane_num_heads=num_heads,
+                    agent_hidden_dim=hidden_dim,
+                    agent_feedforward_dim=hidden_dim*4,
+                    agent_num_heads=num_heads,
+                    lane_conn_hidden_dim=hidden_dim,
+                    dropout=0.1)
+
+                self.encoder_transformer_blocks.append(encoder_transformer_block)
+            self.encoder_transformer_blocks = nn.ModuleList(self.encoder_transformer_blocks)
 
         # Gaussian latent variable heads
         self.agent_mu = nn.Linear(hidden_dim, latent_dim)
@@ -72,15 +102,28 @@ class ScenarioDreamerEncoder(nn.Module):
     ):
         agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+agent_pos_idx
 
-        for l in range(self.num_encoder_blocks):
-            agent_embeddings, lane_embeddings, lane_conn_embeddings = self.encoder_transformer_blocks[l](
-                agent_embeddings,
-                lane_embeddings,
-                lane_conn_embeddings,
-                lane_conn_embeddings,
-                a2a_edge_index,
-                l2l_edge_index,
-                l2a_edge_index)
+        if self.use_transformer:
+
+            feat_a_b,mask_a_b=padding_f(agent_embeddings,a2a_edge_index,l2l_edge_index)
+            feat_map,map_mask=padding_f(lane_embeddings,l2a_edge_index,l2l_edge_index)
+
+            agent_embeddings = self.transformer_decoder(
+                tgt=feat_a_b,  # self-attention queries
+                memory=feat_map,  # cross-attention keys/values
+                tgt_key_padding_mask=~mask_a_b,
+                memory_key_padding_mask=~map_mask
+            )[mask_a_b]
+
+        else:
+            for l in range(self.num_encoder_blocks):
+                agent_embeddings, lane_embeddings, lane_conn_embeddings = self.encoder_transformer_blocks[l](
+                    agent_embeddings,
+                    lane_embeddings,
+                    lane_conn_embeddings,
+                    lane_conn_embeddings,
+                    a2a_edge_index,
+                    l2l_edge_index,
+                    l2a_edge_index)
 
 
         agent_mu = self.agent_mu(agent_embeddings)
@@ -100,20 +143,36 @@ class ScenarioDreamerDecoder(nn.Module):
         self.agent_mlp = nn.Linear(latent_dim, hidden_dim)
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        # ------------------- factorized attention decoder blocks ---------------------- #
-        self.decoder_transformer_blocks = []
-        for l in range(self.num_decoder_blocks):
-            decoder_transformer_block = AutoEncoderFactorizedAttentionBlock(
-                lane_hidden_dim=hidden_dim,
-                lane_feedforward_dim=hidden_dim*4,
-                lane_num_heads=num_heads,
-                agent_hidden_dim=hidden_dim,
-                agent_feedforward_dim=hidden_dim*4,
-                agent_num_heads=num_heads,
-                lane_conn_hidden_dim=hidden_dim,
-                dropout=0.1)
-            self.decoder_transformer_blocks.append(decoder_transformer_block)
-        self.decoder_transformer_blocks = nn.ModuleList(self.decoder_transformer_blocks)
+        self.use_transformer=True
+        if self.use_transformer:
+            decoder_layer = nn.TransformerDecoderLayer(
+                d_model=self.hidden_dim,
+                nhead=num_heads,
+                dim_feedforward=self.hidden_dim*4,
+                dropout=0,
+                norm_first=True,
+                batch_first=True  # nn.Transformer uses (seq_len, batch, dim)
+            )
+
+            self.transformer_decoder = nn.TransformerDecoder(
+                decoder_layer,
+                num_layers=1
+            )
+        else:
+            # ------------------- factorized attention decoder blocks ---------------------- #
+            self.decoder_transformer_blocks = []
+            for l in range(self.num_decoder_blocks):
+                decoder_transformer_block = AutoEncoderFactorizedAttentionBlock(
+                    lane_hidden_dim=hidden_dim,
+                    lane_feedforward_dim=hidden_dim*4,
+                    lane_num_heads=num_heads,
+                    agent_hidden_dim=hidden_dim,
+                    agent_feedforward_dim=hidden_dim*4,
+                    agent_num_heads=num_heads,
+                    lane_conn_hidden_dim=hidden_dim,
+                    dropout=0.1)
+                self.decoder_transformer_blocks.append(decoder_transformer_block)
+            self.decoder_transformer_blocks = nn.ModuleList(self.decoder_transformer_blocks)
 
         # ------------------- output heads -------------------------------- #
         self.pred_agent_states = ResidualMLP(input_dim=hidden_dim,
@@ -168,18 +227,32 @@ class ScenarioDreamerDecoder(nn.Module):
         # ----------- latent -> hidden-dim projections -------------------- #
         agent_embeddings = self.agent_mlp(x_agent)+self.type_a_emb(agent_types)+ego_embedding+agent_pos_idx
 
-        lane_conn_embeddings=None
+        if self.use_transformer:
 
-        # ----------- factorized attention processing ------------------------ #
-        for l in range(self.num_decoder_blocks):
-            agent_embeddings, lane_embeddings, lane_conn_embeddings = self.decoder_transformer_blocks[l](
-                agent_embeddings,
-                lane_embeddings,
-                lane_conn_embeddings,
-                lane_conn_embeddings,
-                a2a_edge_index,
-                l2l_edge_index,
-                l2a_edge_index)
+            feat_a_b,mask_a_b=padding_f(agent_embeddings,a2a_edge_index,l2l_edge_index)
+            feat_map,map_mask=padding_f(lane_embeddings,l2a_edge_index,l2l_edge_index)
+
+            agent_embeddings = self.transformer_decoder(
+                tgt=feat_a_b,  # self-attention queries
+                memory=feat_map,  # cross-attention keys/values
+                tgt_key_padding_mask=~mask_a_b,
+                memory_key_padding_mask=~map_mask
+            )[mask_a_b]
+
+        else:
+
+            lane_conn_embeddings=None
+
+            # ----------- factorized attention processing ------------------------ #
+            for l in range(self.num_decoder_blocks):
+                agent_embeddings, lane_embeddings, lane_conn_embeddings = self.decoder_transformer_blocks[l](
+                    agent_embeddings,
+                    lane_embeddings,
+                    lane_conn_embeddings,
+                    lane_conn_embeddings,
+                    a2a_edge_index,
+                    l2l_edge_index,
+                    l2a_edge_index)
 
         # ----------- prediction heads ------------------------------------ #
         agent_states_pred = self.pred_agent_states(agent_embeddings)
@@ -207,32 +280,35 @@ class AutoEncoder(nn.Module):
         self.apply(weight_init)
 
     def get_edgeindex(self,batch,batch_pl):
-        mask = batch[:, None] == batch[None, :]
-
-        src, dst = mask.nonzero(as_tuple=True)
-
-        a2a_edge_index=torch.stack([src, dst], dim=0)
-
-        same_batch = batch_pl[:, None] == batch[None, :]
-
-        pl_src, a_dst = same_batch.nonzero(as_tuple=True)
-
-        a_dst = a_dst + len(batch_pl)  # shift polyline indices
-
-        l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
+        # mask = batch[:, None] == batch[None, :]
+        #
+        # src, dst = mask.nonzero(as_tuple=True)
+        #
+        # a2a_edge_index=torch.stack([src, dst], dim=0)
+        #
+        # same_batch = batch_pl[:, None] == batch[None, :]
+        #
+        # pl_src, a_dst = same_batch.nonzero(as_tuple=True)
+        #
+        # a_dst = a_dst + len(batch_pl)  # shift polyline indices
+        #
+        # l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
+        a2a_edge_index=batch
+        l2a_edge_index=batch_pl
+        l2l_edge_index=max(batch.max(),batch_pl.max())
 
         counts = torch.bincount(batch)
 
         pos_idx=torch.arange(batch.size(0), device=batch.device) -  torch.repeat_interleave(torch.cumsum(counts, 0) - counts, counts)
 
-        return a2a_edge_index, l2a_edge_index,pos_idx[:,None]+1
+        return a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx[:,None]+1
 
 
-    def loss(self, data,lane_conn_embeddings=None,l2l_edge_index=None):
+    def loss(self, data,lane_conn_embeddings=None):
 
         x_agent, agent_types, ego_embedding,lane_embeddings, batch, batch_pl=data
 
-        a2a_edge_index, l2a_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_mu, agent_log_var = self.encoder(
@@ -272,10 +348,9 @@ class AutoEncoder(nn.Module):
 
         x_agent, agent_types,ego_embedding, lane_embeddings, batch, batch_pl=data
 
-        a2a_edge_index, l2a_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
 
         lane_conn_embeddings = None
-        l2l_edge_index = None
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         encoder_output = self.encoder(
@@ -303,8 +378,7 @@ class AutoEncoder(nn.Module):
 
     def forward_decoder(self, agent_latents, agent_types, ego_embedding,lane_embeddings,batch, batch_pl):
 
-        a2a_edge_index, l2a_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
-        l2l_edge_index=None
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl)
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_states_pred = self.decoder(
