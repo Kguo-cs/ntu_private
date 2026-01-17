@@ -107,64 +107,8 @@ git pull
 nohup python run.py >  1.log 2>&1 &
 
 
-
-
-
-
-
-
-137977
-
-
-
-
-# bc20_pt8_share_map_tv diverge
-
-# bc20_pt8_share_map_reward05x2 diverge
-
-# bc20_pt8_share_map_05mixx2_nodone diverge 
-
-# bc20_pt8_share_map_05mixx2_sa diverge 
-
-
 #to do : continous action, joint distribution by copula , continuous map point,  semi-gradient, IV-learn, interval 0.1 ,, 2048 unknown token
 
-#pos, heading quantize 
-
-#road edge inter 1 
-#no speed bump
-
-#use continous  
-#more bin 
-#no bc 
-#AdamW 
-#continuous map point
-
-#discriminator sa 
-
-
-#a parameter to disappear  other cannot see it ,it can see other
-#discount 0.97 − 0.99
-#t is best to use as large as possible replay buffers for sampling negative examples
-
-#less agent:  bad 
-#token : train
-#temporal full discrimiantor
-#noise to input to discriminator
-#c-gail: discriminator constrain to 1/2
-
-#not done
-
-#dropout 0.5 input and 0.75 hidden 
-#airl , other reward learning method
-#other tokenize
-#goal prediction and conditioned
-
-
-#bc+ finetune 
-
-#bc+iq learn
-#finetune less learning rate 
 
 # value network to reject sampling
 #counterfact 
