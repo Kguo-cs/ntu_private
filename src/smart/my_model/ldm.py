@@ -217,8 +217,9 @@ class LDM(nn.Module):
         device=non_ego.device
 
         x_agent = torch.randn([num_agents,  5+3]).to(device)
+        nonego_type_sorted = tokenized_agent["nonego_type_sorted"]
 
-        data=(agent_batch, lane_batch,batch_size)
+        data=(agent_batch, lane_batch,batch_size,nonego_type_sorted)
 
         for i in reversed(range(0, self.n_timesteps)):
             timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
