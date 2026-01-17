@@ -96,6 +96,13 @@ CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
 
 
 
+ssh zs@10.87.225.106
+source "/home/zs/miniconda3/bin/activate"
+cd /home/zs/code/sim/src
+conda activate sim
+git pull
+
+
 
 ssh 10.87.114.128
 ulimit -n 65535
@@ -184,7 +191,7 @@ agents.
 
 add spectral norm and softplus activation loss
 
-ssh zs@10.87.225.106
+
 
 sudo apt install nvidia-driver-580-open
 
