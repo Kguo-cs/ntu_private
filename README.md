@@ -239,3 +239,30 @@ agents.
 
 
 add spectral norm and softplus activation loss
+
+ssh zs@10.87.225.106
+
+sudo apt install nvidia-driver-580-open
+
+wget https://developer.download.nvidia.com/compute/cuda/12.8.0/local_installers/cuda_12.8.0_570.86.10_linux.run
+
+mkdir -p ~/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+rm ~/miniconda3/miniconda.sh
+source ~/miniconda3/bin/activate
+conda init --all
+sudo sh cuda_12.8.0_570.86.10_linux.run
+
+git clone https://github.com/Kguo-cs/ntu_private.git
+
+
+conda create -y -n sim python=3.11.9
+conda activate sim
+conda install -y -c conda-forge ffmpeg=4.3.2
+pip install torch_geometric==2.6.1
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0+cu128.html
+pip install -r install/requirements.txt
+pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
+pip install shapely==2.1.1

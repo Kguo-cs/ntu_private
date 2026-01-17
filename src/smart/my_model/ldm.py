@@ -10,22 +10,19 @@ from .dit import DiT
 
 
 class LDM(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self):
         super(LDM, self).__init__()
 
-        self.cfg = cfg
-        self.cfg_model = self.cfg.model
-        self.cfg_dataset = self.cfg.dataset
-        self.model = DiT(cfg)
+        self.model = DiT()
 
-        n_timesteps = self.cfg_model.n_diffusion_timesteps
+        n_timesteps = 100
         betas = cosine_beta_schedule(n_timesteps)
         alphas = 1. - betas
         alphas_cumprod = torch.cumprod(alphas, axis=0)
         alphas_cumprod_prev = torch.cat([torch.ones(1), alphas_cumprod[:-1]])
 
         self.n_timesteps = int(n_timesteps)
-        self.lane_sampling_temperature = self.cfg_model.lane_sampling_temperature
+        self.lane_sampling_temperature = 0.75
 
         self.register_buffer('betas', betas)
         self.register_buffer('alphas_cumprod', alphas_cumprod)
@@ -51,7 +48,7 @@ class LDM(nn.Module):
         self.register_buffer('posterior_mean_coef2',
                              (1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod))
 
-        loss_type = self.cfg.train.loss_type
+        loss_type = 'l2'
         self.lane_loss_fn = GeometricLosses[loss_type]((1, 2))
         self.agent_loss_fn = GeometricLosses[loss_type]((1, 2))
 
@@ -79,9 +76,9 @@ class LDM(nn.Module):
         unconditional_epsilon_agent, unconditional_epsilon_lane = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                              unconditional=True)
         # classifier-free guidance
-        epsilon_agent = unconditional_epsilon_agent + self.cfg.train.guidance_scale * (
+        epsilon_agent = unconditional_epsilon_agent + 4.0 * (
                     conditional_epsilon_agent - unconditional_epsilon_agent)
-        epsilon_lane = unconditional_epsilon_lane + self.cfg.train.guidance_scale * (
+        epsilon_lane = unconditional_epsilon_lane + 4.0 * (
                     conditional_epsilon_lane - unconditional_epsilon_lane)
 
         t_agent = t_agent.detach().to(torch.int64)
@@ -172,12 +169,12 @@ class LDM(nn.Module):
 
             x_agent, x_lane = self.p_sample(x_agent, x_lane, data, t_agent, t_lane)
 
-            x_agent = torch.clip(x_agent, -self.cfg_model.diffusion_clip, self.cfg_model.diffusion_clip)
+            x_agent = torch.clip(x_agent, -5, 5)
             if mode == 'lane_conditioned':
                 x_lane = data['lane'].latents[:, np.newaxis, :].to(device)
             else:
                 # clip outputs to avoid degenerate samples
-                x_lane = torch.clip(x_lane, -self.cfg_model.diffusion_clip, self.cfg_model.diffusion_clip)
+                x_lane = torch.clip(x_lane, -5, 5)
 
             if mode == 'inpainting':
                 cond_lane_mask = data['lane'].mask
@@ -226,57 +223,29 @@ class LDM(nn.Module):
             self,
             x_agent,
             x_lane,
-            data,
-            t_agent,
-            t_lane):
+            agent_batch,
+            lane_batch,
+            t_agent):
         """ Compute the loss for the diffusion model."""
 
         # generate noised latents for training
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
-        lane_noise = torch.randn_like(x_lane)
-        x_lane_noisy = self.q_sample(x_start=x_lane, t=t_lane, noise=lane_noise)
 
-        # for the partitioned scenes, condition on noiseless latents before partition
-        agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
-        x_agent_noisy[agent_mask] = x_agent[agent_mask]
-        lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
-        x_lane_noisy[lane_mask] = x_lane[lane_mask]
+        agent_noise_pred = self.model(x_agent_noisy, x_lane, agent_batch,lane_batch, t_agent)
+        agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, agent_batch)
+        return agent_loss
 
-        agent_noise_pred, lane_noise_pred = self.model(x_agent_noisy, x_lane_noisy, data, t_agent, t_lane)
-
-        assert agent_noise.shape == agent_noise_pred.shape
-        assert lane_noise.shape == lane_noise_pred.shape
-
-        # if lg_type == PARTITIONED and latent correspond to element BEFORE_PARTITION, no noise is added
-        # TODO: probably better to add mask to remove supervision of latents before partition (which by definition get 0 loss)
-        agent_mask = data['agent'].partition_mask == BEFORE_PARTITION
-        agent_noise[agent_mask] = 0.
-        agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data['agent'].batch)
-        lane_mask = data['lane'].partition_mask == BEFORE_PARTITION
-        lane_noise[lane_mask] = 0.
-        lane_batch = data['lane'].batch
-        lane_loss = self.lane_loss_fn(lane_noise_pred, lane_noise, lane_batch)
-
-        loss = agent_loss + self.cfg.train.lane_weight * lane_loss
-        return loss, agent_loss, lane_loss
-
-    def loss(self, data):
+    def loss(self, x_agent,agent_batch,x_lane,lane_batch,batch_size):
         """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
         # batch of agent and lane latents
-        x_agent = data['agent'].latents.unsqueeze(1)
-        x_lane = data['lane'].latents.unsqueeze(1)
 
-        agent_batch = data['agent'].batch
-        lane_batch = data['lane'].batch
-        batch_size = data.batch_size
 
         # batch of random timesteps
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x_agent.device).long()
         t_agent = t[agent_batch]
-        t_lane = t[lane_batch]
 
-        loss, agent_loss, lane_loss = self.p_losses(x_agent, x_lane, data, t_agent, t_lane)
+        loss, agent_loss, lane_loss = self.p_losses(x_agent, x_lane, agent_batch, lane_batch,t_agent)
 
         loss_dict = {
             'loss': loss.mean(),

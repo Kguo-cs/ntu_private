@@ -8,14 +8,14 @@ from .diffusion_helpers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, Ti
 
 class DiT(nn.Module):
 
-    def __init__(self, cfg):
+    def __init__(self):
         super(DiT, self).__init__()
         # self.cfg = cfg
         # self.cfg_model = self.cfg.model
         # self.cfg_dataset = self.cfg.dataset
         hidden_dim=128
         self.agent_hidden_dim=hidden_dim
-        self.dropout=0.1
+        self.dropout=0
         self.num_heads=8
         self.agent_num_heads=8
         self.num_l2l_blocks=1
@@ -122,14 +122,14 @@ class DiT(nn.Module):
     def forward(self,
                 x_agent,
                 x_lane,
-                data,
+                agent_batch,
+                lane_batch,
                 agent_timestep,
-                lane_timestep,
                 unconditional=False):
         """ Forward pass of the DiT model."""
 
-        lane_idx_batch = get_indices_within_scene(data['lane'].batch)
-        agent_idx_batch = get_indices_within_scene(data['agent'].batch)
+        lane_idx_batch = get_indices_within_scene(lane_batch)
+        agent_idx_batch = get_indices_within_scene(agent_batch)
 
         # add positional embeddings
         #pos_emb_lane = self.pos_emb_lane[lane_idx_batch]
@@ -137,31 +137,31 @@ class DiT(nn.Module):
         # x_lane = self.lane_embedder(x_lane[:, 0]) + pos_emb_lane
         x_agent = self.agent_embedder(x_agent[:, 0]) + pos_emb_agent
 
-        scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
-        scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
-                                              force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)
-
-        agent_batch = data['agent'].batch
-        lane_batch = data['lane'].batch
-        agent_scene_type = scene_type[agent_batch]
-        lane_scene_type = scene_type[lane_batch]
-
-        num_agents = data['num_agents'].long()
-        num_lanes = data['num_lanes'].long()
-        num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
-        num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
+        # scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
+        # scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
+        #                                       force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)
+        #
+        # agent_batch = data['agent'].batch
+        # lane_batch = data['lane'].batch
+        # agent_scene_type = scene_type[agent_batch]
+        # lane_scene_type = scene_type[lane_batch]
+        #
+        # num_agents = data['num_agents'].long()
+        # num_lanes = data['num_lanes'].long()
+        # num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
+        # num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
 
         # embedding of timestep
-        t = self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
+        t =lane_batch #self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
         # embedding of number of agents and lanes
-        n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
-        # embedding of scene type
-        y = torch.cat([lane_scene_type, agent_scene_type], dim=0)
+        # n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
+        # # embedding of scene type
+        # y = torch.cat([lane_scene_type, agent_scene_type], dim=0)
 
-        l2l_edge_index = data['lane', 'to', 'lane'].edge_index
-        a2a_edge_index = data['agent', 'to', 'agent'].edge_index
-        l2a_edge_index = data['lane', 'to', 'agent'].edge_index.clone()
-        l2a_edge_index[1] = l2a_edge_index[1] + x_lane.shape[0]
+        # l2l_edge_index = data['lane', 'to', 'lane'].edge_index
+        # a2a_edge_index = data['agent', 'to', 'agent'].edge_index
+        # l2a_edge_index = data['lane', 'to', 'agent'].edge_index.clone()
+        # l2a_edge_index[1] = l2a_edge_index[1] + x_lane.shape[0]
 
         # conditioning vector for DiT block
         c = t + y + n

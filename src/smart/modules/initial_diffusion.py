@@ -52,14 +52,11 @@ class PDInit(nn.Module):
         self.add_model_specific_args(parser)
 
         args = parser.parse_args()
-
-        self.joint_diffusion = InitDiffusion(args=args)
-
         hidden_dim=args.hidden_dim
 
+        self.joint_diffusion = InitDiffusion(args=args)
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-
         self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
         self.latent_diffusion=True
