@@ -37,6 +37,38 @@ def padding_f( feature, batch, batch_num):
 
     return  padding_features_a,mask_a_b
 
+def get_edgeindex(batch,batch_pl,num_graphs,use_transformer=False):
+
+    if use_transformer:
+        a2a_edge_index = batch
+        l2a_edge_index = batch_pl
+        l2l_edge_index = num_graphs
+    else:
+
+        mask = batch[:, None] == batch[None, :]
+
+        src, dst = mask.nonzero(as_tuple=True)
+
+        a2a_edge_index=torch.stack([src, dst], dim=0)
+
+        same_batch = batch_pl[:, None] == batch[None, :]
+
+        pl_src, a_dst = same_batch.nonzero(as_tuple=True)
+
+        a_dst = a_dst + len(batch_pl)  # shift polyline indices
+
+        l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
+
+        l2l_edge_index=None
+
+
+    counts = torch.bincount(batch)
+
+    pos_idx=torch.arange(batch.size(0), device=batch.device) -  torch.repeat_interleave(torch.cumsum(counts, 0) - counts, counts)
+
+    return a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx[:,None]+1
+
+
 
 class ScenarioDreamerEncoder(nn.Module):
     """Encoder of the Scenario Dreamer AutoEncoder."""
@@ -253,43 +285,13 @@ class AutoEncoder(nn.Module):
         self.kl_loss_fn = GeometricLosses['kl']()
         self.apply(weight_init)
 
-    def get_edgeindex(self,batch,batch_pl,num_graphs):
-
-        if self.use_transformer:
-            a2a_edge_index = batch
-            l2a_edge_index = batch_pl
-            l2l_edge_index = num_graphs
-        else:
-
-            mask = batch[:, None] == batch[None, :]
-
-            src, dst = mask.nonzero(as_tuple=True)
-
-            a2a_edge_index=torch.stack([src, dst], dim=0)
-
-            same_batch = batch_pl[:, None] == batch[None, :]
-
-            pl_src, a_dst = same_batch.nonzero(as_tuple=True)
-
-            a_dst = a_dst + len(batch_pl)  # shift polyline indices
-
-            l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
-
-            l2l_edge_index=None
-
-
-        counts = torch.bincount(batch)
-
-        pos_idx=torch.arange(batch.size(0), device=batch.device) -  torch.repeat_interleave(torch.cumsum(counts, 0) - counts, counts)
-
-        return a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx[:,None]+1
 
 
     def loss(self, data,lane_conn_embeddings=None):
 
         x_agent, agent_types,num_graphs, ego_embedding,lane_embeddings, batch, batch_pl=data
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl,num_graphs)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_mu, agent_log_var = self.encoder(
@@ -331,7 +333,7 @@ class AutoEncoder(nn.Module):
 
         x_agent, agent_types,num_graphs,ego_embedding, lane_embeddings, batch, batch_pl=data
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl,num_graphs)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
 
         lane_conn_embeddings = None
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
@@ -358,7 +360,7 @@ class AutoEncoder(nn.Module):
 
     def forward_decoder(self, agent_latents, agent_types,num_graphs, ego_embedding,lane_embeddings,batch, batch_pl):
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=self.get_edgeindex(batch,batch_pl,num_graphs)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
         pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_states_pred = self.decoder(

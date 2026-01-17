@@ -120,7 +120,6 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     self.init_decoder=PDInit(token_processor)
 
-        self.apply(weight_init)
 
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0,abs_time=None):

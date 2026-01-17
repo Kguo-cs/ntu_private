@@ -22,6 +22,7 @@ from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.layers.relative_transformer import RoFormerBlock
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 
+from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 
 
 
@@ -191,6 +192,9 @@ class InterativeDecoder(nn.Module):
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
+
+        self.apply(weight_init)
+
 
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,

@@ -3,8 +3,8 @@ import torch.nn as nn
 
 import numpy as np
 from .diffusion_helpers import FactorizedDiTBlock, FinalLayer, LabelEmbedder, TimestepEmbedder, \
-    get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP,get_indices_within_scene
-
+    get_1d_sincos_pos_embed_from_grid, TwoLayerResMLP,get_indices_within_scene,weight_init
+from src.smart.layers.autoencoder import get_edgeindex
 
 class DiT(nn.Module):
 
@@ -18,8 +18,9 @@ class DiT(nn.Module):
         self.dropout=0
         self.num_heads=8
         self.agent_num_heads=8
-        self.num_l2l_blocks=1
+        self.num_l2l_blocks=0
         self.num_factorized_dit_blocks=1
+        self.agent_latent_dim=8
         
 
         self.emb_drop = nn.Dropout(self.dropout)
@@ -34,7 +35,7 @@ class DiT(nn.Module):
         # Diffusion timestep embedding
         self.t_embedder = TimestepEmbedder(hidden_dim)
         # Used because agent embedding is smaller than lane embedding
-        # self.downsample_c = nn.Linear(hidden_dim, self.agent_hidden_dim)
+        self.downsample_c = nn.Linear(hidden_dim, self.agent_hidden_dim)
 
         # Embed agent and lane latents
         # self.lane_embedder = TwoLayerResMLP(self.cfg_model.lane_latent_dim, hidden_dim)
@@ -98,15 +99,15 @@ class DiT(nn.Module):
 
         # Zero-out adaLN modulation layers in DiT blocks:
         for block in self.blocks:
-            for l2l_block in block.l2l_blocks:
-                nn.init.constant_(l2l_block.adaLN_modulation[-1].weight, 0)
-                nn.init.constant_(l2l_block.adaLN_modulation[-1].bias, 0)
+            # for l2l_block in block.l2l_blocks:
+            #     nn.init.constant_(l2l_block.adaLN_modulation[-1].weight, 0)
+            #     nn.init.constant_(l2l_block.adaLN_modulation[-1].bias, 0)
             nn.init.constant_(block.a2a_block.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(block.a2a_block.adaLN_modulation[-1].bias, 0)
             nn.init.constant_(block.l2a_block.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(block.l2a_block.adaLN_modulation[-1].bias, 0)
-            nn.init.constant_(block.a2l_block.adaLN_modulation[-1].weight, 0)
-            nn.init.constant_(block.a2l_block.adaLN_modulation[-1].bias, 0)
+            # nn.init.constant_(block.a2l_block.adaLN_modulation[-1].weight, 0)
+            # nn.init.constant_(block.a2l_block.adaLN_modulation[-1].bias, 0)
 
         # Zero-out output layers:
         nn.init.constant_(self.pred_agent_noise.adaLN_modulation[-1].weight, 0)
@@ -114,28 +115,31 @@ class DiT(nn.Module):
         nn.init.constant_(self.pred_agent_noise.linear.weight, 0)
         nn.init.constant_(self.pred_agent_noise.linear.bias, 0)
 
-        nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].weight, 0)
-        nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].bias, 0)
-        nn.init.constant_(self.pred_lane_noise.linear.weight, 0)
-        nn.init.constant_(self.pred_lane_noise.linear.bias, 0)
+        # nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].weight, 0)
+        # nn.init.constant_(self.pred_lane_noise.adaLN_modulation[-1].bias, 0)
+        # nn.init.constant_(self.pred_lane_noise.linear.weight, 0)
+        # nn.init.constant_(self.pred_lane_noise.linear.bias, 0)
 
     def forward(self,
                 x_agent,
                 x_lane,
-                agent_batch,
-                lane_batch,
+                data,
                 agent_timestep,
+                lane_timestep,
                 unconditional=False):
         """ Forward pass of the DiT model."""
+        agent_batch, lane_batch,batch_size=data
 
-        lane_idx_batch = get_indices_within_scene(lane_batch)
-        agent_idx_batch = get_indices_within_scene(agent_batch)
+        # lane_idx_batch = get_indices_within_scene(lane_batch)
+        # agent_idx_batch = get_indices_within_scene(agent_batch)
 
         # add positional embeddings
         #pos_emb_lane = self.pos_emb_lane[lane_idx_batch]
-        pos_emb_agent = self.pos_emb_agent[agent_idx_batch]
+        #pos_emb_agent = self.pos_emb_agent[agent_idx_batch]
         # x_lane = self.lane_embedder(x_lane[:, 0]) + pos_emb_lane
-        x_agent = self.agent_embedder(x_agent[:, 0]) + pos_emb_agent
+        #x_agent = self.agent_embedder(x_agent[:, 0]) #+ pos_emb_agent
+
+        x_agent = self.agent_embedder(x_agent)
 
         # scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         # scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
@@ -152,7 +156,7 @@ class DiT(nn.Module):
         # num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
 
         # embedding of timestep
-        t =lane_batch #self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
+        t =self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
         # embedding of number of agents and lanes
         # n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
         # # embedding of scene type
@@ -164,13 +168,15 @@ class DiT(nn.Module):
         # l2a_edge_index[1] = l2a_edge_index[1] + x_lane.shape[0]
 
         # conditioning vector for DiT block
-        c = t + y + n
-        # necessary for A2A and L2A attention
+        c = t #+ y + n
+        # # necessary for A2A and L2A attention
         c_small = self.downsample_c(c)
 
         # apply dropout
-        x_lane = self.emb_drop(x_lane)
+        #x_lane = self.emb_drop(x_lane)
         x_agent = self.emb_drop(x_agent)
+
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False)
 
         # factorized dit block processing
         for block in self.blocks:
@@ -187,6 +193,6 @@ class DiT(nn.Module):
         #c_lane = c[:x_lane.shape[0]]
         c_agent = c_small[x_lane.shape[0]:]
         #x_lane = self.pred_lane_noise(x_lane, c_lane).unsqueeze(1)
-        x_agent = self.pred_agent_noise(x_agent, c_agent).unsqueeze(1)
+        x_agent = self.pred_agent_noise(x_agent, c_agent)#.unsqueeze(1)
 
-        return x_agent, x_lane
+        return x_agent

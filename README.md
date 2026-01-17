@@ -95,13 +95,17 @@ CUDA_VISIBLE_DEVICES=2 setsid nohup python run2.py > 2.log 2>&1 &
 #0,2,3 1,2,3  -> 0,1, 2
 
 
-
 ssh zs@10.87.225.106
 source "/home/zs/miniconda3/bin/activate"
 cd /home/zs/code/sim/src
 conda activate sim
 git pull
 
+ssh ke@10.87.216.98
+source "/home/ke/miniconda3/bin/activate"
+cd /home/ke/code/sim/src
+conda activate sim
+git pull
 
 
 ssh 10.87.114.128
@@ -143,10 +147,6 @@ centric discriminator: AIRL64_value0001_disexpertvalidcentric
 
 AIRL64_value0001noclip_distr402060a5_expertvalid influence of range 
 
-
-#to do 
-
-#progressive diffusion discretiezed
 
 
 

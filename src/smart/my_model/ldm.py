@@ -50,7 +50,7 @@ class LDM(nn.Module):
 
         loss_type = 'l2'
         self.lane_loss_fn = GeometricLosses[loss_type]((1, 2))
-        self.agent_loss_fn = GeometricLosses[loss_type]((1, 2))
+        self.agent_loss_fn = GeometricLosses[loss_type]((1))#((1, 2))
 
     def predict_start_from_noise(self, x_t, t, noise):
         """ Predict the start of the diffusion chain from the noised sample x_t and noise."""
@@ -71,28 +71,29 @@ class LDM(nn.Module):
     def p_mean_variance(self, x_agent, x_lane, data, t_agent, t_lane):
         """ Predict the mean and log variance of the posterior distribution p(x_{t-1} | x_t, x_0)."""
         # noise prediction
-        conditional_epsilon_agent, conditional_epsilon_lane = self.model(x_agent, x_lane, data, t_agent, t_lane,
+        conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                          unconditional=False)
-        unconditional_epsilon_agent, unconditional_epsilon_lane = self.model(x_agent, x_lane, data, t_agent, t_lane,
-                                                                             unconditional=True)
+        # unconditional_epsilon_agent, unconditional_epsilon_lane = self.model(x_agent, x_lane, data, t_agent, t_lane,
+        #                                                                      unconditional=True)
         # classifier-free guidance
-        epsilon_agent = unconditional_epsilon_agent + 4.0 * (
-                    conditional_epsilon_agent - unconditional_epsilon_agent)
-        epsilon_lane = unconditional_epsilon_lane + 4.0 * (
-                    conditional_epsilon_lane - unconditional_epsilon_lane)
+        # epsilon_agent = unconditional_epsilon_agent + 4.0 * (
+        #             conditional_epsilon_agent - unconditional_epsilon_agent)
+        # epsilon_lane = unconditional_epsilon_lane + 4.0 * (
+        #             conditional_epsilon_lane - unconditional_epsilon_lane)
+        epsilon_agent=conditional_epsilon_agent
 
         t_agent = t_agent.detach().to(torch.int64)
         t_lane = t_lane.detach().to(torch.int64)
 
         # given the noise and timestep, predict the start of the diffusion chain
         x_agent_recon = self.predict_start_from_noise(x_agent, t=t_agent, noise=epsilon_agent)
-        x_lane_recon = self.predict_start_from_noise(x_lane, t=t_lane, noise=epsilon_lane)
+        #x_lane_recon = self.predict_start_from_noise(x_lane, t=t_lane, noise=epsilon_lane)
 
         # mean, log_var of the posterior distribution q(x_t-1 | x_t, x_0)
         model_mean_agent, posterior_log_variance_agent = self.q_posterior(x_start=x_agent_recon, x_t=x_agent, t=t_agent)
-        model_mean_lane, posterior_log_variance_lane = self.q_posterior(x_start=x_lane_recon, x_t=x_lane, t=t_lane)
+        #model_mean_lane, posterior_log_variance_lane = self.q_posterior(x_start=x_lane_recon, x_t=x_lane, t=t_lane)
 
-        return model_mean_agent, posterior_log_variance_agent, model_mean_lane, posterior_log_variance_lane
+        return model_mean_agent, posterior_log_variance_agent#, model_mean_lane, posterior_log_variance_lane
 
     @torch.no_grad()
     def p_sample(self, x_agent, x_lane, data, t_agent, t_lane):
@@ -100,7 +101,7 @@ class LDM(nn.Module):
         b_agent = t_agent.shape[0]
         b_lane = t_lane.shape[0]
 
-        model_mean_agent, model_log_variance_agent, model_mean_lane, model_log_variance_lane = self.p_mean_variance(
+        model_mean_agent, model_log_variance_agent = self.p_mean_variance(
             x_agent,
             x_lane,
             data,
@@ -108,18 +109,18 @@ class LDM(nn.Module):
             t_lane)
 
         noise_agent = torch.randn_like(x_agent)
-        noise_lane = torch.randn_like(x_lane)
+        #noise_lane = torch.randn_like(x_lane)
 
         # no noise when t == 0
         nonzero_mask_agent = (1 - (t_agent == 0).float()).reshape(b_agent, *((1,) * (len(x_agent.shape) - 1)))
-        nonzero_mask_lane = (1 - (t_lane == 0).float()).reshape(b_lane, *((1,) * (len(x_lane.shape) - 1)))
+        # nonzero_mask_lane = (1 - (t_lane == 0).float()).reshape(b_lane, *((1,) * (len(x_lane.shape) - 1)))
 
         # sample from the posterior distribution using reparametrization trick
         next_x_agent = model_mean_agent + nonzero_mask_agent * (model_log_variance_agent).exp().sqrt() * noise_agent
-        next_x_lane = model_mean_lane + nonzero_mask_lane * (
-            model_log_variance_lane).exp().sqrt() * noise_lane * self.lane_sampling_temperature
-
-        return next_x_agent, next_x_lane
+        # next_x_lane = model_mean_lane + nonzero_mask_lane * (
+        #     model_log_variance_lane).exp().sqrt() * noise_lane * self.lane_sampling_temperature
+        #
+        return next_x_agent#, next_x_lane
 
     @torch.no_grad()
     def p_sample_loop(
@@ -195,6 +196,41 @@ class LDM(nn.Module):
         else:
             return x_agent[:, 0], x_lane[:, 0]
 
+    def sample(self,
+               tokenized_agent,
+               map_feature,
+               non_ego,
+               num_samples: int,
+               start_data=None,
+               reverse_steps=None,
+               sampling="ddpm",
+               stride=20,
+               if_output_diffusion_process=False,
+               ):
+        (pos_pl, orient_pl, lane_batch, x_lane)=map_feature
+
+        batch_size=tokenized_agent["num_graphs"]
+        agent_batch = tokenized_agent["batch"][non_ego].clone()
+
+        num_agents = non_ego.sum()
+
+        device=non_ego.device
+
+        x_agent = torch.randn([num_agents,  5+3]).to(device)
+
+        data=(agent_batch, lane_batch,batch_size)
+
+        for i in reversed(range(0, self.n_timesteps)):
+            timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
+            t_agent = timesteps[agent_batch]
+            t_lane = timesteps[lane_batch]
+
+            x_agent = self.p_sample(x_agent, x_lane,data, t_agent, t_lane)
+
+            x_agent = torch.clip(x_agent, -5, 5)
+
+        return x_agent[:,None]#[:, 0]
+
     @torch.no_grad()
     def forward(self, data, mode='initial_scene'):
         """generate samples from the diffusion model"""
@@ -223,34 +259,38 @@ class LDM(nn.Module):
             self,
             x_agent,
             x_lane,
-            agent_batch,
-            lane_batch,
-            t_agent):
+            data,
+            t_agent,
+            t_lane
+    ):
         """ Compute the loss for the diffusion model."""
 
         # generate noised latents for training
         agent_noise = torch.randn_like(x_agent)
         x_agent_noisy = self.q_sample(x_start=x_agent, t=t_agent, noise=agent_noise)
 
-        agent_noise_pred = self.model(x_agent_noisy, x_lane, agent_batch,lane_batch, t_agent)
-        agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, agent_batch)
+        agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
+        agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
         return agent_loss
 
-    def loss(self, x_agent,agent_batch,x_lane,lane_batch,batch_size):
+    def get_loss(self, x_agent,tokenized_agent,map_feature,non_ego):
         """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
         # batch of agent and lane latents
+        # m_init, tokenized_agent, map_feature, eval_mask = non_ego=
+        #x_agent,agent_batch,x_lane,lane_batch,batch_size
 
+        (pos_pl, orient_pl, lane_batch, x_lane)=map_feature
+
+        batch_size=tokenized_agent["num_graphs"]
+        agent_batch = tokenized_agent["batch"][non_ego].clone()
 
         # batch of random timesteps
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x_agent.device).long()
         t_agent = t[agent_batch]
+        t_lane = t[lane_batch]
 
-        loss, agent_loss, lane_loss = self.p_losses(x_agent, x_lane, agent_batch, lane_batch,t_agent)
+        data=(agent_batch, lane_batch,batch_size)
 
-        loss_dict = {
-            'loss': loss.mean(),
-            'agent_loss': agent_loss.mean().detach(),
-            'lane_loss': lane_loss.mean().detach()
-        }
+        loss = self.p_losses(x_agent, x_lane, data,t_agent,t_lane)
 
-        return loss_dict
+        return loss

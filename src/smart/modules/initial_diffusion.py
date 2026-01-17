@@ -14,8 +14,7 @@ from src.smart.utils import (
 )
 from src.smart.layers.autoencoder import AutoEncoder
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
-from src.smart.layers.autoencoder_utils import reparameterize
-
+from src.smart.my_model.ldm import LDM
 
 class PDInit(nn.Module):
 
@@ -54,7 +53,7 @@ class PDInit(nn.Module):
         args = parser.parse_args()
         hidden_dim=args.hidden_dim
 
-        self.joint_diffusion = InitDiffusion(args=args)
+
         self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
@@ -87,7 +86,12 @@ class PDInit(nn.Module):
         self.agent_latents_scale=torch.tensor([[0.959, 1.041, 1.039, 0.991, 0.985, 1.046, 0.959, 0.951]])
         self.agent_latents_mean=torch.tensor([[-0.205,  0.022,  0.032,  0.005, -0.007, -0.051, -0.004,  0.007]])
 
-        self.apply(weight_init)
+        self.use_dit=True
+
+        if self.use_dit:
+            self.joint_diffusion= LDM()
+        else:
+            self.joint_diffusion = InitDiffusion(args=args)
 
     def get_data(self,tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
 
@@ -203,9 +207,7 @@ class PDInit(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init, pred_init = self.joint_diffusion.get_loss(m_init,tokenized_agent,map_feature,eval_mask=non_ego)
-
-                loss_diff_init = loss_diff_init.mean()
+                loss_diff_init = self.joint_diffusion.get_loss(m_init, tokenized_agent, map_feature,non_ego).mean()
 
                 loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
 
@@ -225,9 +227,9 @@ class PDInit(nn.Module):
 
                 tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
 
-                pred_init = self.joint_diffusion.sample(num_samples = 1, data=tokenized_agent, scene_enc=map_feature,
+                pred_init = self.joint_diffusion.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
-                                                        stride=10, eval_mask=non_ego,
+                                                        stride=10,
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
 

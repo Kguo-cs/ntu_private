@@ -27,10 +27,79 @@ from itertools import repeat
 import collections.abc
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.utils import softmax
-from utils.train_helpers import weight_init
 import math
 import numpy as np
 
+
+
+
+def weight_init(m):
+    """Initialize weights of PyTorch modules. Inspired by QCNET: https://github.com/ZikangZhou/QCNet"""
+    if isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+    elif isinstance(m, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+        fan_in = m.in_channels / m.groups
+        fan_out = m.out_channels / m.groups
+        bound = (6.0 / (fan_in + fan_out)) ** 0.5
+        nn.init.uniform_(m.weight, -bound, bound)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.Embedding):
+        nn.init.normal_(m.weight, mean=0.0, std=0.02)
+    elif isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
+        nn.init.ones_(m.weight)
+        nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.LayerNorm):
+        nn.init.ones_(m.weight)
+        nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.MultiheadAttention):
+        if m.in_proj_weight is not None:
+            fan_in = m.embed_dim
+            fan_out = m.embed_dim
+            bound = (6.0 / (fan_in + fan_out)) ** 0.5
+            nn.init.uniform_(m.in_proj_weight, -bound, bound)
+        else:
+            nn.init.xavier_uniform_(m.q_proj_weight)
+            nn.init.xavier_uniform_(m.k_proj_weight)
+            nn.init.xavier_uniform_(m.v_proj_weight)
+        if m.in_proj_bias is not None:
+            nn.init.zeros_(m.in_proj_bias)
+        nn.init.xavier_uniform_(m.out_proj.weight)
+        if m.out_proj.bias is not None:
+            nn.init.zeros_(m.out_proj.bias)
+        if m.bias_k is not None:
+            nn.init.normal_(m.bias_k, mean=0.0, std=0.02)
+        if m.bias_v is not None:
+            nn.init.normal_(m.bias_v, mean=0.0, std=0.02)
+    elif isinstance(m, (nn.LSTM, nn.LSTMCell)):
+        for name, param in m.named_parameters():
+            if 'weight_ih' in name:
+                for ih in param.chunk(4, 0):
+                    nn.init.xavier_uniform_(ih)
+            elif 'weight_hh' in name:
+                for hh in param.chunk(4, 0):
+                    nn.init.orthogonal_(hh)
+            elif 'weight_hr' in name:
+                nn.init.xavier_uniform_(param)
+            elif 'bias_ih' in name:
+                nn.init.zeros_(param)
+            elif 'bias_hh' in name:
+                nn.init.zeros_(param)
+                nn.init.ones_(param.chunk(4, 0)[1])
+    elif isinstance(m, (nn.GRU, nn.GRUCell)):
+        for name, param in m.named_parameters():
+            if 'weight_ih' in name:
+                for ih in param.chunk(3, 0):
+                    nn.init.xavier_uniform_(ih)
+            elif 'weight_hh' in name:
+                for hh in param.chunk(3, 0):
+                    nn.init.orthogonal_(hh)
+            elif 'bias_ih' in name:
+                nn.init.zeros_(param)
+            elif 'bias_hh' in name:
+                nn.init.zeros_(param)
 
 def modulate(x, shift, scale):
     return x * (1 + scale) + shift
@@ -295,12 +364,18 @@ class FactorizedDiTBlock(nn.Module):
         super().__init__()
         self.num_l2l_blocks = num_l2l_blocks
 
-        # l2l
-        # we stack several l2l blocks to give more capacity for lane modeling
-        self.l2l_blocks = []
-        for _ in range(num_l2l_blocks):
-            self.l2l_blocks.append(DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio))
-        self.l2l_blocks = nn.ModuleList(self.l2l_blocks)
+        if self.num_l2l_blocks >0:
+
+            # l2l
+            # we stack several l2l blocks to give more capacity for lane modeling
+            self.l2l_blocks = []
+            for _ in range(num_l2l_blocks):
+                self.l2l_blocks.append(DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio))
+            self.l2l_blocks = nn.ModuleList(self.l2l_blocks)
+
+            # a2l
+            self.upsample_x_agent = nn.Linear(hidden_dim_agent, hidden_dim)
+            self.a2l_block = DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio)
 
         # a2a
         self.a2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
@@ -309,9 +384,6 @@ class FactorizedDiTBlock(nn.Module):
         self.downsample_x_lane = nn.Linear(hidden_dim, hidden_dim_agent)
         self.l2a_block = DiTBlock(hidden_dim_agent, num_heads_agent, dropout, mlp_ratio)
 
-        # a2l
-        self.upsample_x_agent = nn.Linear(hidden_dim_agent, hidden_dim)
-        self.a2l_block = DiTBlock(hidden_dim, num_heads, dropout, mlp_ratio)
 
     def forward(
             self,
@@ -323,14 +395,16 @@ class FactorizedDiTBlock(nn.Module):
             a2a_edge_index,
             l2a_edge_index):
 
-        # a2l
-        x_lane_agent = torch.cat([x_lane, self.upsample_x_agent(x_agent)], dim=0)
-        x_lane_agent = self.a2l_block(x_lane_agent, c, l2a_edge_index[[1, 0], :])
-        x_lane = x_lane_agent[:x_lane.shape[0]]
+        if self.num_l2l_blocks >0:
 
-        # l2l
-        for i in range(self.num_l2l_blocks):
-            x_lane = self.l2l_blocks[i](x_lane, c[:x_lane.shape[0]], l2l_edge_index)
+            # a2l
+            x_lane_agent = torch.cat([x_lane, self.upsample_x_agent(x_agent)], dim=0)
+            x_lane_agent = self.a2l_block(x_lane_agent, c, l2a_edge_index[[1, 0], :])
+            x_lane = x_lane_agent[:x_lane.shape[0]]
+
+            # l2l
+            for i in range(self.num_l2l_blocks):
+                x_lane = self.l2l_blocks[i](x_lane, c[:x_lane.shape[0]], l2l_edge_index)
 
         # l2a
         x_lane_agent = torch.cat([self.downsample_x_lane(x_lane), x_agent], dim=0)

@@ -8,6 +8,7 @@ from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.utils import (
     angle_between_2d_vectors,
 )
+from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 
 class AgentTokenEncoder(nn.Module):
     def __init__(
@@ -92,6 +93,9 @@ class AgentTokenEncoder(nn.Module):
             self.fusion_emb = MLPEmbedding(
                 input_dim=hidden_dim * 2, hidden_dim=self.hidden_dim
             )
+
+        self.apply(weight_init)
+
 
     def get_embedding(self,agent_token_index,agent_type,token_mask):
 

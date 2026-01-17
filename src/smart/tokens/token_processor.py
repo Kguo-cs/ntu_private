@@ -133,14 +133,14 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_vel=True
 
-        self.learn_autoencoder = True
+        self.learn_autoencoder = False
 
         if not self.learn_init:
             self.learn_autoencoder=False
 
 
     @torch.no_grad()
-    def forward(self, data: HeteroData,extrapolate=True) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
 
         if not self.training:
             tokenized_map = self.tokenize_map(data)

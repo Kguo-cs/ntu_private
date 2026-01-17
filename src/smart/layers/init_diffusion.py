@@ -87,6 +87,7 @@ class InitDiffusion(nn.Module):
         self.P_std=0.8
 
         self.P_mean=-0.8
+        self.apply(weight_init)
 
 
     def get_loss(self,
@@ -199,15 +200,15 @@ class InitDiffusion(nn.Module):
         return loss_init, x_init_0_reconstructed
 
     def sample(self,
-               num_samples: int,
                data: HeteroData,
                scene_enc: Mapping[str, torch.Tensor],
-               if_output_diffusion_process=False,
+               eval_mask,
+               num_samples: int,
                start_data=None,
                reverse_steps=None,
-               eval_mask=None,
                sampling="ddpm",
                stride=20,
+               if_output_diffusion_process=False,
                grad_guid=None,
                cond_gen=None,
                guid_param=None,
