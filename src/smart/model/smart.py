@@ -120,8 +120,8 @@ class SMART(LightningModule):
                     p.requires_grad = False
                 for p in self.encoder.agent_encoder.init_decoder.ego_embedding.parameters():
                     p.requires_grad = False
-                # for p in self.encoder.map_encoder.parameters():
-                #     p.requires_grad = False
+                for p in self.encoder.map_encoder.parameters():
+                    p.requires_grad = False
 
         # else:
         #     for p in self.encoder.map_encoder.parameters():
