@@ -235,7 +235,7 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
             # self.update_edge_embeddings = EdgeFeatureUpdate(node_hidden_dim=self.agent_hidden_dim,
             #                                                 # downsampled lane hidden_dim
             #                                                 edge_hidden_dim=self.lane_conn_hidden_dim)
-            self.downsample_lane_emb = nn.Linear(self.lane_hidden_dim, self.agent_hidden_dim)
+            #self.downsample_lane_emb = nn.Linear(self.lane_hidden_dim, self.agent_hidden_dim)
 
 
         self.l2a_transformer_layer = AttentionLayer(hidden_dim=self.agent_hidden_dim,
@@ -259,8 +259,8 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
         if self.use_l2l:
 
             lane_embeddings = self.l2l_transformer_layer(lane_embeddings, lane_conn_embeddings, l2l_edge_index)
-            lane_embeddings_downsampled = self.downsample_lane_emb(lane_embeddings)
-            agent_dim_embeddings = torch.cat([lane_embeddings_downsampled, agent_embeddings], dim=0)
+            #lane_embeddings = self.downsample_lane_emb(lane_embeddings)
+            agent_dim_embeddings = torch.cat([lane_embeddings, agent_embeddings], dim=0)
         else:
             agent_dim_embeddings= torch.cat([lane_embeddings, agent_embeddings], dim=0)
 
