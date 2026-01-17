@@ -195,6 +195,8 @@ class PDInit(nn.Module):
       #   feat_map=feat_map+ego_embedding[batch_pl]
       #   ego_embedding=0
 
+        tokenized_agent["ego_embedding"]=ego_embedding
+
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
             data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)

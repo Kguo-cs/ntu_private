@@ -19,7 +19,7 @@ class DiT(nn.Module):
         self.num_heads=8
         self.agent_num_heads=8
         self.num_l2l_blocks=1
-        self.num_factorized_dit_blocks=2
+        self.num_factorized_dit_blocks=1
         self.agent_latent_dim=8
         
 
@@ -130,7 +130,7 @@ class DiT(nn.Module):
                 unconditional=False):
         """ Forward pass of the DiT model."""
 
-        agent_batch, lane_batch,batch_size,nonego_type_sorted=data
+        agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False)
 
         # lane_idx_batch = get_indices_within_scene(lane_batch)
@@ -168,7 +168,7 @@ class DiT(nn.Module):
         # embedding of number of agents and lanes
         n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
         # embedding of scene type
-        y = torch.cat([torch.zeros_like(num_lanes_emb), agent_scene_type], dim=0)
+        y = torch.cat([torch.zeros_like(num_lanes_emb), agent_scene_type+ego_embedding], dim=0)
 
         # l2l_edge_index = data['lane', 'to', 'lane'].edge_index
         # a2a_edge_index = data['agent', 'to', 'agent'].edge_index
