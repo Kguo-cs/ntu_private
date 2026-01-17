@@ -26,7 +26,8 @@ class DiT(nn.Module):
         self.emb_drop = nn.Dropout(self.dropout)
         # # Condition on scene type
         # self.scene_type_embedder = LabelEmbedder(self.cfg_dataset.num_map_ids * 2, hidden_dim,
-        #                                          self.cfg_model.label_dropout)
+        #                                          self.cfg_model.label_dropout) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
+        self.scene_type_embedder = LabelEmbedder(3, hidden_dim,  0.1) ## 2type: either nocturne_compatible (1) or not (0) used for sampling GPU-Drive compatible scenes
 
         # Condition on number of agents and lanes
         self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
@@ -87,7 +88,7 @@ class DiT(nn.Module):
         # self.pos_emb_agent.data.copy_(torch.from_numpy(pos_emb_agent).float())
 
         # Initialize label embedding table:
-        # nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
+        nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
 
         # Initialize num lane and num agent embedding tables:
         nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
@@ -146,7 +147,8 @@ class DiT(nn.Module):
         # scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         # scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
         #                                       force_drop_ids=torch.ones_like(scene_idx) if unconditional else None)
-        #
+        agent_scene_type = self.scene_type_embedder(nonego_type_sorted, train=self.training,
+                                              force_drop_ids=torch.ones_like(nonego_type_sorted) if unconditional else None)
         # agent_batch = data['agent'].batch
         # lane_batch = data['lane'].batch
         # agent_scene_type = scene_type[agent_batch]
@@ -166,7 +168,7 @@ class DiT(nn.Module):
         # embedding of number of agents and lanes
         n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
         # embedding of scene type
-        #y = torch.cat([lane_scene_type, agent_scene_type], dim=0)
+        y = torch.cat([torch.zeros_like(num_lanes_emb), agent_scene_type], dim=0)
 
         # l2l_edge_index = data['lane', 'to', 'lane'].edge_index
         # a2a_edge_index = data['agent', 'to', 'agent'].edge_index
@@ -174,7 +176,7 @@ class DiT(nn.Module):
         # l2a_edge_index[1] = l2a_edge_index[1] + x_lane.shape[0]
 
         # conditioning vector for DiT block
-        c = t + n#+ y
+        c = t + n+ y
         # # necessary for A2A and L2A attention
         c_small = self.downsample_c(c)
 
