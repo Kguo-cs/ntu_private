@@ -191,7 +191,7 @@ class EdgeFeatureUpdate(MessagePassing):
 
 
 class AutoEncoderFactorizedAttentionBlock(nn.Module):
-    """Factorized Transformer block for autoencoder.yaml architecture"""
+    """Factorized Transformer block for auto.yaml architecture"""
 
     def __init__(self,
                  lane_hidden_dim,
