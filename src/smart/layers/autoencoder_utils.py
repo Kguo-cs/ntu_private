@@ -212,7 +212,7 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
         self.lane_conn_hidden_dim = lane_conn_hidden_dim
         self.dropout = dropout
 
-        self.use_l2l=True
+        self.use_l2l=False
 
         self.a2a_transformer_layer = AttentionLayer(hidden_dim=self.agent_hidden_dim,
                                                     num_heads=self.agent_num_heads,
@@ -232,9 +232,9 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
                                                         bipartite=False,
                                                         has_pos_emb=True,
                                                         pos_emb_hidden_dim=self.lane_conn_hidden_dim)
-            # self.update_edge_embeddings = EdgeFeatureUpdate(node_hidden_dim=self.agent_hidden_dim,
-            #                                                 # downsampled lane hidden_dim
-            #                                                 edge_hidden_dim=self.lane_conn_hidden_dim)
+            self.update_edge_embeddings = EdgeFeatureUpdate(node_hidden_dim=self.agent_hidden_dim,
+                                                            # downsampled lane hidden_dim
+                                                            edge_hidden_dim=self.lane_conn_hidden_dim)
             self.downsample_lane_emb = nn.Linear(self.lane_hidden_dim, self.agent_hidden_dim)
 
 
@@ -268,9 +268,9 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
         agent_embeddings = agent_dim_embeddings[len(lane_embeddings):]
         agent_embeddings = self.a2a_transformer_layer(agent_embeddings, None, a2a_edge_index)
 
-        # if self.use_l2l:
-        #     lane_conn_embeddings = self.update_edge_embeddings(lane_embeddings_downsampled, l2l_edge_index,
-        #                                                        lane_conn_embeddings)
+        if self.use_l2l:
+            lane_conn_embeddings = self.update_edge_embeddings(lane_embeddings_downsampled, l2l_edge_index,
+                                                               lane_conn_embeddings)
         return agent_embeddings, lane_embeddings, lane_conn_embeddings
 
 
