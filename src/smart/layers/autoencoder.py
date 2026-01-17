@@ -249,7 +249,7 @@ class ScenarioDreamerDecoder(nn.Module):
 
         else:
 
-            lane_conn_embeddings = lane_embeddings[l2l_edge_index[0]] + lane_embeddings[l2l_edge_index[1]]
+            lane_conn_embeddings =None #lane_embeddings[l2l_edge_index[0]] + lane_embeddings[l2l_edge_index[1]]
 
             # ----------- factorized attention processing ------------------------ #
             for l in range(self.num_decoder_blocks):
@@ -298,7 +298,7 @@ class AutoEncoder(nn.Module):
         x_agent, agent_types,num_graphs, ego_embedding,lane_embeddings, batch, batch_pl=data
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
-        lane_conn_embeddings = lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
+        lane_conn_embeddings =None #lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
@@ -341,7 +341,7 @@ class AutoEncoder(nn.Module):
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
 
-        lane_conn_embeddings = lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
+        lane_conn_embeddings = None#lane_embeddings[l2l_edge_index[0]]+lane_embeddings[l2l_edge_index[1]]
 
         encoder_output = self.encoder(
             x_agent,
