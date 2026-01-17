@@ -235,8 +235,8 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
             # self.update_edge_embeddings = EdgeFeatureUpdate(node_hidden_dim=self.agent_hidden_dim,
             #                                                 # downsampled lane hidden_dim
             #                                                 edge_hidden_dim=self.lane_conn_hidden_dim)
-            # self.downsample_lane_emb = nn.Linear(self.lane_hidden_dim, self.agent_hidden_dim)
-            #
+            self.downsample_lane_emb = nn.Linear(self.lane_hidden_dim, self.agent_hidden_dim)
+
 
         self.l2a_transformer_layer = AttentionLayer(hidden_dim=self.agent_hidden_dim,
                                                     num_heads=self.agent_num_heads,
