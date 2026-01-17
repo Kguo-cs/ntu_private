@@ -30,7 +30,7 @@ class DiT(nn.Module):
 
         # Condition on number of agents and lanes
         self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
-        self.num_lanes_embedder = LabelEmbedder(400, hidden_dim, 0)
+        self.num_lanes_embedder = LabelEmbedder(450, hidden_dim, 0)
 
         # Diffusion timestep embedding
         self.t_embedder = TimestepEmbedder(hidden_dim)
