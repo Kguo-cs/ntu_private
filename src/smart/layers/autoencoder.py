@@ -37,7 +37,7 @@ def padding_f( feature, batch, batch_num):
 
     return  padding_features_a,mask_a_b
 
-def get_edgeindex(batch,batch_pl,num_graphs,use_transformer=False):
+def get_edgeindex(batch,batch_pl,num_graphs,use_transformer=False,hidden_dim=128):
 
     if use_transformer:
         a2a_edge_index = batch
@@ -62,11 +62,13 @@ def get_edgeindex(batch,batch_pl,num_graphs,use_transformer=False):
         l2l_edge_index=None
 
 
-    counts = torch.bincount(batch)
+    counts = torch.bincount(batch, minlength=num_graphs)
 
     pos_idx=torch.arange(batch.size(0), device=batch.device) -  torch.repeat_interleave(torch.cumsum(counts, 0) - counts, counts)
 
-    return a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx[:,None]+1
+    pos_idx = sinusoidal_embedding(pos_idx[:,None]+1, hidden_dim)
+
+    return a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx
 
 
 
@@ -292,7 +294,6 @@ class AutoEncoder(nn.Module):
         x_agent, agent_types,num_graphs, ego_embedding,lane_embeddings, batch, batch_pl=data
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
-        pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_mu, agent_log_var = self.encoder(
             x_agent,
@@ -336,7 +337,6 @@ class AutoEncoder(nn.Module):
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
 
         lane_conn_embeddings = None
-        pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         encoder_output = self.encoder(
             x_agent,
@@ -361,7 +361,6 @@ class AutoEncoder(nn.Module):
     def forward_decoder(self, agent_latents, agent_types,num_graphs, ego_embedding,lane_embeddings,batch, batch_pl):
 
         a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(batch,batch_pl,num_graphs)
-        pos_idx=sinusoidal_embedding(pos_idx, self.hidden_dim)
 
         agent_states_pred = self.decoder(
             agent_latents,

@@ -29,8 +29,8 @@ class DiT(nn.Module):
         #                                          self.cfg_model.label_dropout)
 
         # Condition on number of agents and lanes
-        # self.num_agents_embedder = LabelEmbedder(self.cfg_dataset.max_num_agents + 1, hidden_dim, 0)
-        # self.num_lanes_embedder = LabelEmbedder(self.cfg_dataset.max_num_lanes + 1, hidden_dim, 0)
+        self.num_agents_embedder = LabelEmbedder(350, hidden_dim, 0)
+        self.num_lanes_embedder = LabelEmbedder(400, hidden_dim, 0)
 
         # Diffusion timestep embedding
         self.t_embedder = TimestepEmbedder(hidden_dim)
@@ -90,8 +90,8 @@ class DiT(nn.Module):
         # nn.init.normal_(self.scene_type_embedder.embedding_table.weight, std=0.02)
 
         # Initialize num lane and num agent embedding tables:
-        # nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
-        # nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
+        nn.init.normal_(self.num_agents_embedder.embedding_table.weight, std=0.02)
+        nn.init.normal_(self.num_lanes_embedder.embedding_table.weight, std=0.02)
 
         # Initialize timestep embedding MLP:
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
@@ -128,7 +128,9 @@ class DiT(nn.Module):
                 lane_timestep,
                 unconditional=False):
         """ Forward pass of the DiT model."""
-        agent_batch, lane_batch,batch_size=data
+
+        agent_batch, lane_batch,batch_size,nonego_type_sorted=data
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False)
 
         # lane_idx_batch = get_indices_within_scene(lane_batch)
         # agent_idx_batch = get_indices_within_scene(agent_batch)
@@ -139,7 +141,7 @@ class DiT(nn.Module):
         # x_lane = self.lane_embedder(x_lane[:, 0]) + pos_emb_lane
         #x_agent = self.agent_embedder(x_agent[:, 0]) #+ pos_emb_agent
 
-        x_agent = self.agent_embedder(x_agent)
+        x_agent = self.agent_embedder(x_agent)+pos_emb_agent
 
         # scene_idx = self.cfg_dataset.num_map_ids * data['lg_type'].long() + data['map_id'].long()
         # scene_type = self.scene_type_embedder(scene_idx.long(), train=self.training,
@@ -149,18 +151,22 @@ class DiT(nn.Module):
         # lane_batch = data['lane'].batch
         # agent_scene_type = scene_type[agent_batch]
         # lane_scene_type = scene_type[lane_batch]
-        #
+        num_agents = torch.bincount(agent_batch, minlength=batch_size)
+        num_lanes = torch.bincount(lane_batch, minlength=batch_size)
+
+       # print(num_lanes.max(),num_agents.max())
+
         # num_agents = data['num_agents'].long()
         # num_lanes = data['num_lanes'].long()
-        # num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
-        # num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
+        num_agents_emb = self.num_agents_embedder(num_agents, train=self.training)[agent_batch]
+        num_lanes_emb = self.num_lanes_embedder(num_lanes, train=self.training)[lane_batch]
 
         # embedding of timestep
         t =self.t_embedder(torch.cat([lane_timestep, agent_timestep], dim=-1))
         # embedding of number of agents and lanes
-        # n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
-        # # embedding of scene type
-        # y = torch.cat([lane_scene_type, agent_scene_type], dim=0)
+        n = torch.cat([num_lanes_emb, num_agents_emb], dim=0)
+        # embedding of scene type
+        #y = torch.cat([lane_scene_type, agent_scene_type], dim=0)
 
         # l2l_edge_index = data['lane', 'to', 'lane'].edge_index
         # a2a_edge_index = data['agent', 'to', 'agent'].edge_index
@@ -168,7 +174,7 @@ class DiT(nn.Module):
         # l2a_edge_index[1] = l2a_edge_index[1] + x_lane.shape[0]
 
         # conditioning vector for DiT block
-        c = t #+ y + n
+        c = t + n#+ y
         # # necessary for A2A and L2A attention
         c_small = self.downsample_c(c)
 
@@ -176,7 +182,6 @@ class DiT(nn.Module):
         #x_lane = self.emb_drop(x_lane)
         x_agent = self.emb_drop(x_agent)
 
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_idx=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False)
 
         # factorized dit block processing
         for block in self.blocks:
