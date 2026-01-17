@@ -59,7 +59,11 @@ def get_edgeindex(batch,batch_pl,num_graphs,use_transformer=False,hidden_dim=128
 
         l2a_edge_index=torch.stack([pl_src, a_dst], dim=0)#src, dst
 
-        l2l_edge_index=None
+        mask = batch_pl[:, None] == batch_pl[None, :]
+
+        src, dst = mask.nonzero(as_tuple=True)
+
+        l2l_edge_index=torch.stack([src, dst], dim=0)
 
 
     counts = torch.bincount(batch, minlength=num_graphs)
@@ -326,7 +330,7 @@ class AutoEncoder(nn.Module):
         agent_kl_loss = self.kl_loss_fn(agent_mu, agent_log_var, batch)
         kl_loss = agent_kl_loss
 
-        loss = agent_loss +1e-3 * kl_loss
+        loss = agent_loss +1e-2 * kl_loss
 
         return (loss.mean(),agent_loss.mean().detach(),kl_loss.mean().detach())
 
