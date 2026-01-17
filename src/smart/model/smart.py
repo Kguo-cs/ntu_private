@@ -168,7 +168,8 @@ class SMART(LightningModule):
         self.all_data=[]
 
         self.metric_logger=MetricDict()
-
+        self.samples = []
+        self.gt_samples = []
 
         #self.wosac_submission.save_sub_file()
 
@@ -213,16 +214,6 @@ class SMART(LightningModule):
             sampled_pos=tokenized_agent["sampled_pos"]
 
             valid_mask=tokenized_agent["valid_mask"]
-
-            #index=mask_a[:,1:].sum()
-
-            #src,dst=edge_index_a2a
-
-            # unique_dst=torch.unique(dst)
-            #
-            # attention_weight1=torch.zeros([len(index),10,8],device=attention_weight.device)
-            #
-            # relative_pos1=torch.zeros([len(index),10,4],device=attention_weight.device)
             self.all_data.append((attention_weight,edge_weight,edge_index_a2a,relative_pos,valid_mask,sampled_pos,pred["agent_q"]))
 
         # ! closed-loop vlidation
@@ -313,8 +304,6 @@ class SMART(LightningModule):
                 if self.n_vis_batch==0:
                     pred_speeds=torch.stack(pred_speeds, dim=1)
 
-                    samples=[]
-                    gt_samples=[]
                     batch=tokenized_agent["batch"]
                     cos = torch.cos(pred_head[:,:,0])
                     sin=torch.sin(pred_head[:,:,0])
@@ -396,13 +385,13 @@ class SMART(LightningModule):
                             'lanes': compact_centerlines,  # [num_lanes, 20, 2]
                             'vehicles': vehicles[:,0]
                         }
-                        samples.append(unified_data)
+                        self.samples.append(unified_data)
 
                         unified_data = {
                             'lanes': compact_centerlines,  # [num_lanes, 20, 2]
                             'vehicles': vehicles[:,1]
                         }
-                        samples.append(unified_data)
+                        self.samples.append(unified_data)
 
                         real_vehicles=real_state[(batch==b) & (type==0)].cpu().numpy()
 
@@ -411,15 +400,13 @@ class SMART(LightningModule):
                             'vehicles': real_vehicles
                         }
 
-                        gt_samples.append(unified_data)
-                        gt_samples.append(unified_data)
-                    self.result=compute_agent_metrics(samples=samples, gt_samples=gt_samples)
+                        self.gt_samples.append(unified_data)
+                        self.gt_samples.append(unified_data)
 
             else:
                 pred_traj=pred_traj[:,:,-80:]
                 pred_z=pred_z[:,:,-80:]
                 pred_head=pred_head[:,:,-80:]
-
 
             if self.token_processor.use_bird :
                 save_path = self.video_dir / f"step_{self.global_step}_batch_{batch_idx:02d}"
@@ -506,7 +493,6 @@ class SMART(LightningModule):
                 self.wosac_submission.reset()
 
             else:  # ! compute metrics, disable if save WOSAC submission
-
                 if self.challenge_type != ChallengeType.SCENARIO_GEN:
                     self.minADE.update(
                         pred=pred_traj,
@@ -533,8 +519,6 @@ class SMART(LightningModule):
                         pred_sizes=pred_sizes,
                     )
                     print('start metric evaluation')
-                    time1=time.time()
-
                     if self.n_vis_batch==0:
 
                         if len(scenario_rollouts) > self.para_num:
@@ -543,10 +527,6 @@ class SMART(LightningModule):
                                                           scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
                         else:
                             self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
-                    # #
-                    # print('end metric evaluation',time.time()-time1)
-                    #322.7260935306549/4  #end metric evaluation 54.91072988510132 para4->end metric evaluation 280.7700307369232
-                    #sim end metric evaluation para32->124.54043221473694  para64->
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
@@ -653,6 +633,8 @@ class SMART(LightningModule):
                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
                 else:
+                    self.result=compute_agent_metrics(samples=self.samples, gt_samples=self.gt_samples)
+
                     for key, value in self.result.items():
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True,
                                  rank_zero_only=True)
