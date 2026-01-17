@@ -73,14 +73,14 @@ class LDM(nn.Module):
         # noise prediction
         conditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
                                                                          unconditional=False)
-        unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
-                                                                             unconditional=True)
-        # # classifier-free guidance
-        epsilon_agent = unconditional_epsilon_agent + 4.0 * (
-                    conditional_epsilon_agent - unconditional_epsilon_agent)
+        # unconditional_epsilon_agent = self.model(x_agent, x_lane, data, t_agent, t_lane,
+        #                                                                      unconditional=True)
+        # # # classifier-free guidance
+        # epsilon_agent = unconditional_epsilon_agent + 4.0 * (
+        #             conditional_epsilon_agent - unconditional_epsilon_agent)
         # epsilon_lane = unconditional_epsilon_lane + 4.0 * (
         #             conditional_epsilon_lane - unconditional_epsilon_lane)
-        #epsilon_agent=conditional_epsilon_agent
+        epsilon_agent=conditional_epsilon_agent
 
         t_agent = t_agent.detach().to(torch.int64)
         #t_lane = t_lane.detach().to(torch.int64)

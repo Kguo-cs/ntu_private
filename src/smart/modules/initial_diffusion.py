@@ -191,9 +191,9 @@ class PDInit(nn.Module):
         ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
 
         ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
-      #  ego_embedding=ego_embedding[batch]
-        feat_map=feat_map+ego_embedding[batch_pl]
-        ego_embedding=0
+        ego_embedding=ego_embedding[batch]
+      #   feat_map=feat_map+ego_embedding[batch_pl]
+      #   ego_embedding=0
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
