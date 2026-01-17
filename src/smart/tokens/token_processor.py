@@ -46,6 +46,7 @@ class TokenProcessor(torch.nn.Module):
         pred_entry=False,
         pred_init=False,
         learn_init=False,
+        learn_autoencoder=False
     ) -> None:
         super(TokenProcessor, self).__init__()
         self.map_token_sampling = map_token_sampling
@@ -133,11 +134,7 @@ class TokenProcessor(torch.nn.Module):
 
         self.pred_vel=True
 
-        self.learn_autoencoder = True
-
-        if not self.learn_init:
-            self.learn_autoencoder=False
-
+        self.learn_autoencoder = learn_autoencoder
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:

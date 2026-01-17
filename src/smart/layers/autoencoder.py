@@ -282,7 +282,7 @@ class AutoEncoder(nn.Module):
         self.encoder = ScenarioDreamerEncoder(num_encoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
         self.decoder = ScenarioDreamerDecoder(num_decoder_blocks,hidden_dim,latent_dim,num_heads,self.use_transformer)
 
-        # loss functions for training variational autoencoder
+        # loss functions for training variational autoencoder.yaml
         self.agent_loss_fn = GeometricLosses['l1']()
         self.lane_loss_fn = GeometricLosses['l1']((1, 2))
         self.agent_type_loss_fn = GeometricLosses['cross_entropy'](apply_mean=False)

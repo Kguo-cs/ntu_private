@@ -190,7 +190,10 @@ class PDInit(nn.Module):
 
         ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
 
-        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))[batch]
+        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
+        #feat_map=feat_map+ego_embedding[batch_pl]
+
+        ego_embedding=ego_embedding[batch]
 
         if self.training:
             m_init=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
@@ -236,7 +239,7 @@ class PDInit(nn.Module):
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
 
             if self.latent_diffusion:
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding[batch],feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,batch,batch_pl)
 
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
