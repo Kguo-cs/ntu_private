@@ -397,6 +397,8 @@ class SMART(LightningModule):
                             for i in range(len(scenario_rollouts) // self.para_num):  # 64
                                 self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
                                                           scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
+                                if i==7:
+                                    break
                         else:
                             self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
 
