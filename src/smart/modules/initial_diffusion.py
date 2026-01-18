@@ -76,9 +76,15 @@ class PDInit(nn.Module):
         # self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
-        self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
-        self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
-         5.619e-01, -1.836e-02]])
+        # self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
+        # self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
+        #  5.619e-01, -1.836e-02]])
+        # self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
+        # self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
+        #  5.619e-01, -1.836e-02]])
+        self.normal_scale = torch.tensor([[35.013, 30.234,  0.764,  0.638,  1.326,  0.417,  4.860,  0.230]])
+        self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
+        2.447e+00, 1.321e-03]])
 
         self.agent_latents_scale=torch.tensor([[0.959, 1.041, 1.039, 0.991, 0.985, 1.046, 0.959, 0.951]])
         self.agent_latents_mean=torch.tensor([[-0.205,  0.022,  0.032,  0.005, -0.007, -0.051, -0.004,  0.007]])
@@ -100,17 +106,20 @@ class PDInit(nn.Module):
 
         initial_shape = tokenized_agent["initial_shape"][non_ego]
 
-        real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
-                                                    gt_initial_heading[non_ego],
+        non_ego_pos=gt_initial_pos[non_ego]
+        non_ego_head=gt_initial_heading[non_ego]
+
+        real_pos, real_heading = transform_to_local(non_ego_pos,
+                                                    non_ego_head,
                                                     ego_position[batch],
                                                     ego_heading[batch],
                                                     )
 
-        real_vel = transform_to_local(gt_initial_pos[non_ego]+initial_vel,
+        real_vel = transform_to_local(non_ego_pos+initial_vel,
                                         None,
-                                        ego_position[batch],
-                                        ego_heading[batch],
-                                        )[0]-real_pos
+                                        non_ego_pos,
+                                        non_ego_head,
+                                        )[0]
 
 
         init_trans = real_pos[:, :2]
@@ -246,7 +255,7 @@ class PDInit(nn.Module):
 
             pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
 
-            pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
             global_pos,global_heading=transform_to_global(
@@ -261,7 +270,7 @@ class PDInit(nn.Module):
 
             gt_initial_speed=tokenized_agent["initial_speed"]
 
-            gt_initial_speed[non_ego] =pred_speed.norm(dim=-1)
+            gt_initial_speed[non_ego] =pred_vel.norm(dim=-1)
 
             shape=tokenized_agent["shape"]
 
@@ -269,7 +278,20 @@ class PDInit(nn.Module):
 
             tokenized_agent["shape"]= shape
 
-            gt_initial_idx=tokenized_agent["initial_idx"].clone()
+            initial_vel=tokenized_agent["initial_vel"]
+
+            local_vel=transform_to_local(
+                gt_initial_pos+initial_vel,
+                None,
+                gt_initial_pos,
+                gt_initial_heading,
+            )[0]
+
+            local_vel[non_ego]=pred_vel
+
+            center_token_traj = tokenized_agent["token_traj"].mean(-2)
+
+            gt_initial_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
 
             tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
 

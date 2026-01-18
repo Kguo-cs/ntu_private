@@ -153,13 +153,16 @@ class TokenProcessor(torch.nn.Module):
                 shape = agent["shape"]
                 type = agent["type"]
 
+
                 tokenized_agent["initial_heading"] = heading[valid]  # [n_agent, n_step]
                 tokenized_agent["initial_pos"] = pos[valid]  # [n_agent, n_step, 2]
                 tokenized_agent["initial_vel"] = vel[valid]  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape[valid]
                 tokenized_agent["initial_type"] = type[valid].long()
                 tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
-                tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
+                # tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
+
+
 
                 tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
 
