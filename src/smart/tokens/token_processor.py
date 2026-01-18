@@ -161,7 +161,9 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
                 tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
 
-                tokenized_agent["ego_traj"] = agent["position"][:, 11:21, :2][tokenized_agent["ego_mask"]]
+                tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
+
+                # tokenized_agent["ego_traj"] = agent["position"][:, 11:21, :2][tokenized_agent["ego_mask"]]
 
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
 
