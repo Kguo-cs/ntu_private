@@ -146,7 +146,7 @@ class InitDiffusion(nn.Module):
         return ((v_pred - v_target) ** 2) #,x_init_0_reconstructed
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=100, device="cuda"):
 
         num_agents = eval_mask.sum()
 
