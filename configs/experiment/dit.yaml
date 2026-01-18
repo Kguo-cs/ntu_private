@@ -33,7 +33,7 @@ model:
     #val_closed_loop: False
     finetune: true
     smart: false
-    n_batch_wosac_metric: 0
+   # n_batch_wosac_metric: 0
 #    n_vis_batch: 1
 #    n_vis_scenario: 32
 #    n_vis_rollout: 1
@@ -51,7 +51,7 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.1
-  #val_check_interval: 0.0000002
+  val_check_interval: 0.0000002
   max_epochs: 32
   #gradient_clip_val: 0.0
 

@@ -391,14 +391,12 @@ class SMART(LightningModule):
                         pred_z=pred_z,
                         pred_head=pred_head,
                         pred_sizes=pred_sizes,
-                    )
+                    )[:32]
                     if self.n_vis_batch==0:
                         if len(scenario_rollouts) > self.para_num:
                             for i in range(len(scenario_rollouts) // self.para_num):  # 64
                                 self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
                                                           scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
-                                if i==7:
-                                    break
                         else:
                             self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
 
