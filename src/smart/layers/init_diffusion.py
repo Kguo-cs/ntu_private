@@ -86,7 +86,7 @@ class InitDiffusion(nn.Module):
 
         self.P_std=1
 
-        self.P_mean=-1
+        self.P_mean=1
         self.apply(weight_init)
 
 
