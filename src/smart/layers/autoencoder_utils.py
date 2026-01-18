@@ -212,7 +212,7 @@ class AutoEncoderFactorizedAttentionBlock(nn.Module):
         self.lane_conn_hidden_dim = lane_conn_hidden_dim
         self.dropout = dropout
 
-        self.use_l2l=True
+        self.use_l2l=False
 
         self.a2a_transformer_layer = AttentionLayer(hidden_dim=self.agent_hidden_dim,
                                                     num_heads=self.agent_num_heads,
