@@ -87,7 +87,7 @@ class PDInit(nn.Module):
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
         #
 
-        self.use_dit=False
+        self.use_dit=True
 
         if self.use_dit:
             self.joint_diffusion= LDM()
