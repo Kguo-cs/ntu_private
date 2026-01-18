@@ -413,14 +413,10 @@ def compute_jsd_metrics(samples, gt_samples):
     return nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd
 
 
-import numpy as np
-from shapely.geometry import Polygon
-from shapely.affinity import rotate, translate
 
-
-import numpy as np
-from shapely.geometry import Polygon
-from shapely.affinity import rotate, translate
+# import numpy as np
+# from shapely.geometry import Polygon
+# from shapely.affinity import rotate, translate
 
 
 def state_to_polygon(state):

@@ -80,7 +80,7 @@ class InitDiffusion(nn.Module):
 
         self.flow_matching=True
 
-        self.x_pred=True
+        self.x_pred=False
 
         self.t_eps=5e-2
 
