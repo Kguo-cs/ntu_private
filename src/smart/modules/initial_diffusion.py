@@ -210,7 +210,7 @@ class PDInit(nn.Module):
                     with torch.no_grad():
                         m_init = self.autoencoder.forward_encoder(data)
 
-                    m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
+                    #m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
                 loss_diff_init = self.joint_diffusion.get_loss(m_init, tokenized_agent, map_feature,non_ego).mean()
 
@@ -238,7 +238,7 @@ class PDInit(nn.Module):
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
 
-                pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
+                #pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
 
             if self.latent_diffusion:
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,batch,batch_pl)
