@@ -81,8 +81,8 @@ class SMART(LightningModule):
             for p in self.encoder.agent_encoder.init_decoder.parameters():
                 p.requires_grad = True
 
-            for p in self.encoder.map_encoder.parameters():
-                p.requires_grad = True
+            # for p in self.encoder.map_encoder.parameters():
+            #     p.requires_grad = True
 
             if not self.encoder.agent_encoder.use_gan and self.encoder.agent_encoder.init_decoder.latent_diffusion and not self.encoder.agent_encoder.init_decoder.learn_autoencoder:
                 for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
@@ -93,8 +93,8 @@ class SMART(LightningModule):
                     p.requires_grad = False
                 for p in self.encoder.agent_encoder.init_decoder.ego_embedding.parameters():
                     p.requires_grad = False
-                for p in self.encoder.map_encoder.parameters():
-                    p.requires_grad = False
+                # for p in self.encoder.map_encoder.parameters():
+                #     p.requires_grad = False
 
         # else:
         #     for p in self.encoder.map_encoder.parameters():

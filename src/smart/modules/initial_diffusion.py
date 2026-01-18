@@ -58,7 +58,7 @@ class PDInit(nn.Module):
         self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
         self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
-        self.latent_diffusion=True
+        self.latent_diffusion=False
         self.learn_autoencoder = token_processor.learn_autoencoder
 
         if self.latent_diffusion:

@@ -78,7 +78,7 @@ class InitDiffusion(nn.Module):
         self.B_dist = Bernoulli(probs=probs)
 
 
-        self.flow_matching=True
+        self.flow_matching=False
 
         self.x_pred=False
 
@@ -196,8 +196,8 @@ class InitDiffusion(nn.Module):
 
         loss_init = ((e_init_rand - g_init_theta) ** 2)  # .mean()
 
-        x_init_0_reconstructed = (x_init_t - c1[agent_batch] * g_init_theta) / c0[agent_batch]
-        return loss_init, x_init_0_reconstructed
+      #  x_init_0_reconstructed = (x_init_t - c1[agent_batch] * g_init_theta) / c0[agent_batch]
+        return loss_init#, x_init_0_reconstructed
 
     def sample(self,
                data: HeteroData,
