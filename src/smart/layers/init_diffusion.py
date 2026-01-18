@@ -78,9 +78,9 @@ class InitDiffusion(nn.Module):
         self.B_dist = Bernoulli(probs=probs)
 
 
-        self.flow_matching=False
+        self.flow_matching=True
 
-        self.x_pred=False
+        self.x_pred=True
 
         self.t_eps=5e-2
 
