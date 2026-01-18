@@ -235,7 +235,7 @@ class PDInit(nn.Module):
 
                 pred_init = self.joint_diffusion.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
-                                                        stride=10,
+                                                        stride=2,
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
 
