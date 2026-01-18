@@ -4,7 +4,7 @@ rsync -avz   ke@10.87.114.128:~/keguo/sim/srcc/waymo_data/full/training_map2_03_
 
 rsync -avz /home/ke/code/catk/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/full/  
 
-rsync -avz /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_no80_kl03_epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/   
+rsync -avz /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_drop0_kl02epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/   
 
 rsync -avz ke@10.87.114.128:~/wifi_auto_reconnect.sh ./
 
