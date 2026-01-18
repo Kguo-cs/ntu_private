@@ -1,6 +1,140 @@
 import numpy as np
 from scipy.spatial import distance
-from tqdm import tqdm
+import torch
+import numpy as np
+from waymo_open_dataset.protos import (
+    scenario_pb2,
+    sim_agents_metrics_pb2,
+    sim_agents_submission_pb2,
+)
+from data_preprocess import  decode_map_features_from_proto
+import tensorflow as tf
+
+
+def resample_polyline(points, num_points=20):
+    """Resample a polyline to `num_points` equally spaced points along its arc-length."""
+    # Calculate the cumulative distances along the polyline
+    distances = np.sqrt(((points[1:] - points[:-1]) ** 2).sum(axis=1))
+    cumulative_distances = np.insert(np.cumsum(distances), 0, 0)
+
+    # Create an array of 20 evenly spaced distance values along the polyline
+    target_distances = np.linspace(0, cumulative_distances[-1], num=num_points)
+
+    # Interpolate to find x and y values at these target distances
+    x_new = np.interp(target_distances, cumulative_distances, points[:, 0])
+    y_new = np.interp(target_distances, cumulative_distances, points[:, 1])
+
+    # Combine x and y coordinates into a single array
+    new_points = np.stack((x_new, y_new), axis=-1)
+
+    return new_points
+
+
+
+def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pred_sizes,samples,gt_samples):
+    pred_speeds = torch.stack(pred_speeds, dim=1)
+
+    batch = tokenized_agent["batch"]
+    cos = torch.cos(pred_head[:, :, 0])
+    sin = torch.sin(pred_head[:, :, 0])
+
+    state = torch.cat(
+        [pred_traj[:, :, 0], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, 0, :2]],
+        dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+    type = tokenized_agent["type"]
+
+    gt_speed = data["agent"]["velocity"][:, 10].norm(dim=-1)
+    gt_cos = torch.cos(data["agent"]["heading"][:, 10])
+    gt_sin = torch.sin(data["agent"]["heading"][:, 10])
+    gt_shape = data["agent"]["shape"]
+    gt_pos = data["agent"]["position"][:, 10, :2]
+
+    real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2]],
+                           dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+
+    for b in range(data.num_graphs):
+        vehicles = state[(batch == b) & (type == 0)].cpu().numpy()
+
+        scenario_file = data["tfrecord_path"][b]
+
+        scenario = scenario_pb2.Scenario()
+        for data_b in tf.data.TFRecordDataset([scenario_file], compression_type=""):
+            scenario.ParseFromString(bytes(data_b.numpy()))
+
+        map_infos = decode_map_features_from_proto(scenario.map_features)
+        all_polylines = map_infos["all_polylines"]
+        compact_centerlines = []
+
+        for lane in map_infos["lane"]:
+            lane_type = lane['type']
+            polyline_index = lane['polyline_index']
+            if lane_type == 3:  # lane_type == 0 or
+                continue
+
+            lane_point = all_polylines[polyline_index[0]:polyline_index[1]]
+
+            resampled_lane = resample_polyline(lane_point, num_points=20)
+            compact_centerlines.append(resampled_lane)
+
+        compact_centerlines = np.stack(compact_centerlines, axis=0)
+
+        # centerlines = data['road_points']
+        # lanes = {}
+
+        # for lane_id in data['road_info']['lane']:
+        #     lane_type = data['road_info']['lane'][lane_id]['type']
+        #     if lane_type == 'TYPE_UNDEFINED' or lane_type == 'TYPE_BIKE_LANE':
+        #         continue
+        #
+        #     my_lane = data['road_info']['lane'][lane_id]['polyline']
+        #     lanes[int(lane_id)] = my_lane[:, :2]
+        #
+        # compact_lane.append(data['lane_graph']['lanes'][lane_id])
+        #
+        # compact_lane_graph_scene = self.normalize_compact_lane_graph(copy.deepcopy(compact_lane_graph),
+        #                                                              normalize_dict)
+        # compact_lane_graph = self.get_lane_graph_within_fov(compact_lane_graph_scene)
+
+        # resampled_lanes = []
+        # idx_to_id = {}
+        # id_to_idx = {}
+        # i = 0
+        #
+        # for lane_id in compact_lane_graph['lanes']:
+        #     lane = compact_lane_graph['lanes'][lane_id]
+        #     resampled_lane = resample_polyline(lane, num_points=self.cfg.num_points_per_lane)
+        #     resampled_lanes.append(resampled_lane)
+        #
+        # resampled_lanes = np.array(resampled_lanes)
+        # num_lanes = min(len(resampled_lanes), self.cfg.max_num_lanes)
+        # dist_to_origin = np.linalg.norm(resampled_lanes, axis=-1).min(1)
+        # closest_lane_ids = np.argsort(dist_to_origin)[:num_lanes]
+        # road_points = resampled_lanes[closest_lane_ids]
+        # remove_offroad vehicle, fov: 64*64 in metres, max 30 agent
+
+        # 20 point each
+
+        unified_data = {
+            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+            'vehicles': vehicles[:, 0]
+        }
+        samples.append(unified_data)
+
+        unified_data = {
+            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+            'vehicles': vehicles[:, 1]
+        }
+        samples.append(unified_data)
+
+        real_vehicles = real_state[(batch == b) & (type == 0)].cpu().numpy()
+
+        unified_data = {
+            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+            'vehicles': real_vehicles
+        }
+
+        gt_samples.append(unified_data)
+        gt_samples.append(unified_data)
 
 # unified format for computing metrics
 # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
@@ -279,13 +413,133 @@ def compute_jsd_metrics(samples, gt_samples):
     return nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd
 
 
+import numpy as np
+from shapely.geometry import Polygon
+from shapely.affinity import rotate, translate
+
+
+import numpy as np
+from shapely.geometry import Polygon
+from shapely.affinity import rotate, translate
+
+
+def state_to_polygon(state):
+    """
+    state: (..., 7)
+    return: shapely Polygon
+    """
+    x, y = state[0], state[1]
+    cos_h, sin_h = state[3], state[4]
+    length, width = state[5], state[6]
+
+    heading = np.arctan2(sin_h, cos_h)
+
+    l = length / 2
+    w = width / 2
+
+    rect = Polygon([
+        ( l,  w),
+        ( l, -w),
+        (-l, -w),
+        (-l,  w),
+    ])
+
+    rect = rotate(rect, heading, use_radians=True)
+    rect = translate(rect, x, y)
+
+    return rect
+
+
+def collision_rate_from_state(states_list, count_touch=True):
+    """
+    states: (N,7)
+    count_touch: 是否把“刚好接触”算作碰撞
+    """
+
+    collided_list = []
+    for states in states_list:
+        states=states['vehicles']
+        n = len(states)
+        polys = [state_to_polygon(states[i]) for i in range(n)]
+
+        collided = np.zeros(n, dtype=bool)
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                if count_touch:
+                    hit = polys[i].intersects(polys[j])
+                else:
+                    hit = polys[i].intersection(polys[j]).area > 0
+
+                if hit:
+                    collided[i] = True
+                    collided[j] = True
+        collided_list.append(collided)
+
+    collided=np.concatenate(collided_list)
+
+    return collided.mean(), collided
+
+def collision_rate_from_state1(states_list, count_touch=True):
+    """
+    states: (N,7)
+    count_touch: 是否把“刚好接触”算作碰撞
+    """
+
+    collided_list = []
+    for states in states_list:
+        states=states['vehicles']
+        n = states.shape[0]
+
+        pos = states[:, 0:2]
+        length = states[:, 5]
+        width = states[:, 6]
+
+        # 外接圆半径
+        radius = 0.5 * np.sqrt(length ** 2 + width ** 2)
+
+        polys = [state_to_polygon(states[i]) for i in range(n)]
+        collided = np.zeros(n, dtype=bool)
+
+        for i in range(n):
+            # if collided[i]:
+            #     continue
+
+            d = np.linalg.norm(pos[i + 1:] - pos[i], axis=1)
+            thresh = radius[i] + radius[i + 1:]
+
+            candidates = np.where(d < thresh)[0] + i + 1
+
+            for j in candidates:
+                if count_touch:
+                    hit = polys[i].intersects(polys[j])
+                else:
+                    hit = polys[i].intersection(polys[j]).area > 0
+
+                if hit:
+                    collided[i] = True
+                    collided[j] = True
+        collided_list.append(collided)
+
+    collided=np.concatenate(collided_list)
+
+    return collided.mean(), collided
+
+
+
 def compute_agent_metrics(samples, gt_samples):
     """ Computes the agent metrics for the samples and ground truth samples."""
-    collision_rate,collision = compute_collision_rate(samples)
+    # collision_rate,collision = compute_collision_rate(samples)
 
-    gt_collision_rate,gt_collision= compute_collision_rate(gt_samples)
+    #collision_rate1,collision1 = collision_rate_from_state(samples)
+    collision_rate,collision = collision_rate_from_state1(samples)
 
-    collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
+    #gt_collision_rate,gt_collision= compute_collision_rate(gt_samples)
+
+    #gt_collision_rate,gt_collision = collision_rate_from_state1(gt_samples)
+
+
+    #collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
 
     nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples)
 
@@ -296,6 +550,6 @@ def compute_agent_metrics(samples, gt_samples):
         'length_jsd': length_jsd,
         'width_jsd': width_jsd,
         'speed_jsd': speed_jsd,
-        "collision_jsd":collision_jsd,
+        #"collision_jsd":collision_jsd,
         'collision_rate': collision_rate * 100
     }

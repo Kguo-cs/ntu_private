@@ -141,7 +141,7 @@ class PDInit(nn.Module):
 
         tokenized_agent['nonego_type_sorted'] = nonego_type[sort_idx]
 
-        return m_init
+        return m_init,sort_idx
 
     def forward(self, map_feature, tokenized_agent,map_range=100):
 
@@ -198,7 +198,7 @@ class PDInit(nn.Module):
         tokenized_agent["ego_embedding"]=ego_embedding
 
         if self.training:
-            m_init=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
+            m_init,sort_idx=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
             data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
@@ -219,7 +219,7 @@ class PDInit(nn.Module):
                 return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
         else:
             if self.learn_autoencoder:
-                m_init = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                m_init,sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
 
                 data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding,feat_map, batch, batch_pl)
@@ -270,11 +270,11 @@ class PDInit(nn.Module):
 
             gt_initial_idx=tokenized_agent["initial_idx"].clone()
 
-            type=tokenized_agent["type"]
+            tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
 
-            type[non_ego]= tokenized_agent['nonego_type_sorted']
+            sorted_id=tokenized_agent['id'][non_ego][sort_idx]
 
-            tokenized_agent["type"]= type
+            tokenized_agent['id'][non_ego]=sorted_id
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
