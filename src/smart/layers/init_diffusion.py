@@ -104,9 +104,9 @@ class InitDiffusion(nn.Module):
 
 
     def sample_t(self, n: int, device=None):
-        z = torch.randn(n, device=device) * self.P_std + self.P_mean
-        z=torch.sigmoid(z)
-        # z=torch.rand(n, device=device)
+        #z = torch.randn(n, device=device) * self.P_std + self.P_mean
+       # z=torch.sigmoid(z)
+        z=torch.rand(n, device=device)
         return z
 
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
@@ -146,7 +146,7 @@ class InitDiffusion(nn.Module):
         return ((v_pred - v_target) ** 2) #,x_init_0_reconstructed
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=100, device="cuda"):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
 
         num_agents = eval_mask.sum()
 
