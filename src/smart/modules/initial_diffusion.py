@@ -80,13 +80,14 @@ class PDInit(nn.Module):
         self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
          5.619e-01, -1.836e-02]])
 
-        # self.agent_latents_scale=torch.tensor([[1.265, 1.039, 1.343, 0.966, 1.186, 1.206, 1.275, 1.160]])
-        # self.agent_latents_mean=torch.tensor([[-0.139,  0.005,  0.096, -0.014,  0.092,  0.039,  0.019, -0.107]])
-
         self.agent_latents_scale=torch.tensor([[0.959, 1.041, 1.039, 0.991, 0.985, 1.046, 0.959, 0.951]])
         self.agent_latents_mean=torch.tensor([[-0.205,  0.022,  0.032,  0.005, -0.007, -0.051, -0.004,  0.007]])
 
-        self.use_dit=True
+        # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
+        # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
+        #
+
+        self.use_dit=False
 
         if self.use_dit:
             self.joint_diffusion= LDM()

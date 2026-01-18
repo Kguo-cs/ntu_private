@@ -134,16 +134,16 @@ class InitDiffusion(nn.Module):
 
             v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
 
-            x_init_0_reconstructed = x_pred  # x0+v_pred
+           # x_init_0_reconstructed = x_pred  # x0+v_pred
 
         else:
             v_target =x1 - x0
 
             v_pred = self.net(copy.deepcopy(z), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
 
-            x_init_0_reconstructed =x0+v_pred
+           # x_init_0_reconstructed =x0+v_pred
 
-        return ((v_pred - v_target) ** 2),x_init_0_reconstructed
+        return ((v_pred - v_target) ** 2) #,x_init_0_reconstructed
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
@@ -377,6 +377,7 @@ class InitDenoiser(nn.Module):
         agent_batch_list = tokenized_agent["batch"][eval_mask]
         type = tokenized_agent["nonego_type_sorted"]
         batch_size = tokenized_agent["num_graphs"]
+        ego_embedding = tokenized_agent["ego_embedding"]
 
         self.num_samples = num_samples
 
@@ -398,7 +399,7 @@ class InitDenoiser(nn.Module):
         ]
 
         m_delta = self.proj_in_m_delta(m_delta).view(-1, self.hidden_dim)
-        m_delta = m_delta + categorical_embs_m[0]
+        m_delta = m_delta + categorical_embs_m[0]+ego_embedding
         m_delta = self.proj_in_m_delta_2(m_delta)
 
         agent_cnt_per_batch = agent_batch_list.bincount(minlength=batch_size)

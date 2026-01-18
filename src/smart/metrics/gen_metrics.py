@@ -529,10 +529,10 @@ def collision_rate_from_state1(states_list, count_touch=True):
 
 def compute_agent_metrics(samples, gt_samples):
     """ Computes the agent metrics for the samples and ground truth samples."""
-    # collision_rate,collision = compute_collision_rate(samples)
+    collision_rate,collision = compute_collision_rate(samples)
 
     #collision_rate1,collision1 = collision_rate_from_state(samples)
-    collision_rate,collision = collision_rate_from_state1(samples)
+    #collision_rate,collision = collision_rate_from_state1(samples)
 
     #gt_collision_rate,gt_collision= compute_collision_rate(gt_samples)
 
