@@ -107,7 +107,7 @@ class SMART(LightningModule):
         #
         if self.token_processor.pred_init and self.encoder.agent_encoder.learn_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
-            self.para_num=8
+            self.para_num=9
             self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
@@ -353,7 +353,7 @@ class SMART(LightningModule):
                             for i in range(len(scenario_rollouts) // self.para_num):  # 64
                                 self.wosac_metrics.update(tfrecord_path[self.para_num * i:self.para_num * (i + 1)],
                                                           scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
-                                if i==3:
+                                if i==2:
                                     break
                         else:
                             self.wosac_metrics.update(tfrecord_path,   scenario_rollouts)
