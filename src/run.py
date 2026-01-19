@@ -129,7 +129,7 @@ def run(cfg: DictConfig) -> None:
                 model.bc_net.load_state_dict(model.encoder.agent_encoder.state_dict())
                 if model.bc_map_net is not None:
                     model.bc_map_net.load_state_dict(model.encoder.map_encoder.state_dict())
-        trainer.fit(model=model, datamodule=datamodule,ckpt_path='/home/ke/code/sim/src/logs/gan128_ego/2026-01-19_16-17-00/bc/ymnzbp65/checkpoints/epoch=2-step=11415.ckpt')
+        trainer.fit(model=model, datamodule=datamodule)
     elif cfg.action == "validate":
         log.info("Starting validating!")
         trainer.validate(
