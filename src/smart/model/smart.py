@@ -343,18 +343,20 @@ class SMART(LightningModule):
                         pred_head=pred_head,
                         pred_sizes=pred_sizes,
                     )
-                    mask=torch.bincount(tokenized_agent['batch'])<20
+                    mask=torch.bincount(tokenized_agent['batch'])<30
                     valid_eval=torch.nonzero(mask)[:,0]
                     scenario_rollouts = [scenario_rollouts[i] for i in valid_eval.tolist()]
+                    tfrecord_path=[ data["tfrecord_path"][i] for i in valid_eval.tolist()]
+
                     if self.n_vis_batch==0:
                         if len(scenario_rollouts) > self.para_num:
                             for i in range(len(scenario_rollouts) // self.para_num):  # 64
-                                self.wosac_metrics.update(data["tfrecord_path"][self.para_num * i:self.para_num * (i + 1)],
+                                self.wosac_metrics.update(tfrecord_path[self.para_num * i:self.para_num * (i + 1)],
                                                           scenario_rollouts[self.para_num * i:self.para_num * (i + 1)])
                                 if i==7:
                                     break
                         else:
-                            self.wosac_metrics.update(data["tfrecord_path"],   scenario_rollouts)
+                            self.wosac_metrics.update(tfrecord_path,   scenario_rollouts)
 
             # ! visualization
             if self.global_rank == 0 and batch_idx < self.n_vis_batch:
