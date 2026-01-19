@@ -154,15 +154,9 @@ class InitGAN(nn.Module):
 
             initial_vel=tokenized_agent["initial_vel"]
 
-            real_vel=transform_to_local(gt_initial_pos+initial_vel,
-                                        None,
-                                        gt_initial_pos,
-                                        gt_initial_heading,
-                                        )[0][non_ego]
-
             real_shape = shape[non_ego][:,:2]
 
-            real_shape=torch.cat([real_vel,real_shape],dim=-1)
+            real_shape=torch.cat([real_shape,initial_vel],dim=-1)
 
             real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
                                                         gt_initial_heading[non_ego],
