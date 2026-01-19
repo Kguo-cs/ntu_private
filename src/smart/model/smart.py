@@ -107,7 +107,7 @@ class SMART(LightningModule):
         #
         if self.token_processor.pred_init and self.encoder.agent_encoder.learn_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
-            self.para_num=4
+            self.para_num=8
             self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
@@ -343,7 +343,7 @@ class SMART(LightningModule):
                         pred_head=pred_head,
                         pred_sizes=pred_sizes,
                     )
-                    mask=torch.bincount(tokenized_agent['batch'])<30
+                    mask=torch.bincount(tokenized_agent['batch'])<40
                     valid_eval=torch.nonzero(mask)[:,0]
                     scenario_rollouts = [scenario_rollouts[i] for i in valid_eval.tolist()]
                     tfrecord_path=[ data["tfrecord_path"][i] for i in valid_eval.tolist()]
