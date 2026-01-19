@@ -98,7 +98,7 @@ class InitDiffusion(nn.Module):
 
         self.P_std=1
 
-        self.P_mean=2
+        self.P_mean=3
         self.apply(weight_init)
 
 
@@ -452,8 +452,8 @@ class InitDenoiser(nn.Module):
 
             feat_a_b=feat_a_b+pos_emb
 
-            pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
-            heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
+           # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
+            #heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
 
             for mod in self.entry_formers:
                 feat_a_b = mod(feat_a_b, pos_a_b,
