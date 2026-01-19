@@ -369,6 +369,11 @@ class InitDenoiser(nn.Module):
             self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
             self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
             self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+
+            self.normal_scale = torch.tensor([[35.013, 30.234, 0.764, 0.638, 1.326, 0.417, 4.860, 0.230]])
+            self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
+                                              2.447e+00, 1.321e-03]])
+
         else:
             m_delta_dim = 5+3
 
@@ -432,6 +437,8 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             pos_pl, orient_pl, batch_pl, feat_map=scene_enc
             m_delta=m_delta[:,0]
+
+            m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
 
             feature = self.noise_embedding(beta) + self.type_a_emb(type) +ego_embedding+self.proj_in_m_delta(m_delta)
 
