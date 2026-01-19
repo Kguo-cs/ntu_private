@@ -93,7 +93,7 @@ class InitDiffusion(nn.Module):
 
         self.P_std=1
 
-        self.P_mean=2
+        self.P_mean=3
         self.apply(weight_init)
 
 
@@ -162,9 +162,9 @@ class InitDiffusion(nn.Module):
 
         z = torch.randn(num_agents,num_samples, 8, device=device)
         #dt = 1.0 / steps
-        # ts = cosine_schedule(steps, z.device)
+        ts = cosine_schedule(steps, z.device)
 
-        ts = power_schedule(steps, z.device, alpha=2)
+        #ts = power_schedule(steps, z.device, alpha=2)
         ts[0] = 1e-4
 
         for i in range(steps):
