@@ -98,7 +98,7 @@ class InitDiffusion(nn.Module):
 
         self.P_std=1
 
-        self.P_mean=3
+        self.P_mean=2
         self.apply(weight_init)
 
 
@@ -352,7 +352,7 @@ class InitDenoiser(nn.Module):
         self.m_dim = m_dim
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        self.use_roformer=True
+        self.use_roformer=False
 
         if self.use_roformer:
 
