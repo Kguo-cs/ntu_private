@@ -166,18 +166,18 @@ class InitDiffusion(nn.Module):
         num_agents = eval_mask.sum()
 
         z = torch.randn(num_agents,num_samples, 8, device=device)
-        #dt = 1.0 / steps
+        dt = 1.0 / steps
         #ts = cosine_schedule(steps, z.device)
-        ts=torch.linspace(0,1,steps+1,device=device)
+        #ts=torch.linspace(0,1,steps+1,device=device)
 
         #ts = power_schedule(steps, z.device, alpha=2)
-        ts[0] = 1e-4
+        #ts[0] = 1e-4
 
         for i in range(steps):
-            t = ts[i].expand(z.shape[0],z.shape[1])
-            dt = ts[i + 1] - ts[i]
+           # t = ts[i].expand(z.shape[0],z.shape[1])
+           # dt = ts[i + 1] - ts[i]
 
-            # t = torch.full((num_agents,num_samples), i / steps, device=device)
+            t = torch.full((num_agents,num_samples), i / steps, device=device)
             if self.x_pred:
                 x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
