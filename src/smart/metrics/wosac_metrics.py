@@ -125,6 +125,8 @@ class WOSACMetrics(Metric):
                     )
                 )
 
+                print(len(self.pool_scenario_metrics))
+
         print("finished computing scenario metrics")
 
         for scenario_metrics in self.pool_scenario_metrics:
