@@ -343,7 +343,7 @@ class SMART(LightningModule):
                         pred_head=pred_head,
                         pred_sizes=pred_sizes,
                     )
-                    mask=torch.bincount(tokenized_agent['batch'])<40
+                    mask=torch.bincount(tokenized_agent['batch'])<30
                     valid_eval=torch.nonzero(mask)[:,0]
                     scenario_rollouts = [scenario_rollouts[i] for i in valid_eval.tolist()]
                     tfrecord_path=[ data["tfrecord_path"][i] for i in valid_eval.tolist()]
