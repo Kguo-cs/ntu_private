@@ -39,6 +39,11 @@ from src.smart.utils import (
     weight_init
 )
 import warnings
+from torch.nn.modules.container import ModuleList
+import copy
+from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
+from src.smart.layers import MLPLayer
+from src.smart.layers.relative_transformer import RoFormerBlock, padding
 
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
@@ -93,7 +98,7 @@ class InitDiffusion(nn.Module):
 
         self.P_std=1
 
-        self.P_mean=3
+        self.P_mean=2
         self.apply(weight_init)
 
 
@@ -345,39 +350,68 @@ class InitDenoiser(nn.Module):
         self.dropout = dropout
         self.diff_type = diff_type
         self.m_dim = m_dim
-
-        m_delta_dim = 5+3
-
-        self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
-
-        self.proj_in_m_delta_2 = nn.Sequential(
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, hidden_dim),
-        )
-
-        self.proj_out_m_delta = nn.Sequential(
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(self.hidden_dim, m_delta_dim),
-        )
-
-        noise_dim = 1
-        self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
-                                          num_freq_bands=num_freq_bands)
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        self.interact_pt2m = nn.ModuleList(
-            [TransformerDecoderLayerDiff(
-                n_embd=hidden_dim,
-                n_head=num_heads,
-                ff_dim=4 * hidden_dim,
-                dropout=dropout,
-                layer_id=i,
-            ) for i in range(num_layers)])
+        self.use_roformer=True
 
-        self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
+        if self.use_roformer:
+
+            module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                                  hist_len=1000000)  # replace with gnn
+            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
+
+            self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+            m_delta_dim = 5+3
+
+            self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
+
+            self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+        else:
+            m_delta_dim = 5+3
+
+            self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
+
+            self.proj_in_m_delta_2 = nn.Sequential(
+                nn.LayerNorm(hidden_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+
+            self.proj_out_m_delta = nn.Sequential(
+                nn.LayerNorm(hidden_dim),
+                nn.Linear(self.hidden_dim, m_delta_dim),
+            )
+
+            noise_dim = 1
+            self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
+                                              num_freq_bands=num_freq_bands)
+
+            self.interact_pt2m = nn.ModuleList(
+                [TransformerDecoderLayerDiff(
+                    n_embd=hidden_dim,
+                    n_head=num_heads,
+                    ff_dim=4 * hidden_dim,
+                    dropout=dropout,
+                    layer_id=i,
+                ) for i in range(num_layers)])
+
+            self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
         self.apply(weight_init)
+
+    def padding(self, pos, heading, feature, batch, batch_num):
+        lengths = torch.bincount(batch, minlength=batch_num).tolist()
+
+        padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
+        padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
+        padding_features_a = padding(feature, lengths, padding_value=0)  # b, n, d
+
+        mask = torch.any(padding_features_a != 0, dim=-1)
+
+        return padding_pos_a, padding_heading_a, padding_features_a,mask
 
     def forward(self,
                 m_delta,
@@ -390,95 +424,133 @@ class InitDenoiser(nn.Module):
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device
-
-        agent_batch_list = tokenized_agent["batch"][eval_mask]
+        batch = tokenized_agent["batch"][eval_mask]
         type = tokenized_agent["nonego_type_sorted"]
         batch_size = tokenized_agent["num_graphs"]
         ego_embedding = tokenized_agent["ego_embedding"]
 
-        self.num_samples = num_samples
+        if self.use_roformer:
+            pos_pl, orient_pl, batch_pl, feat_map=scene_enc
+            m_delta=m_delta[:,0]
 
-        pos_pl, orient_pl, batch_pl, feat_map=scene_enc
+            feature = self.noise_embedding(beta) + self.type_a_emb(type) +ego_embedding+self.proj_in_m_delta(m_delta)
 
-        x_pt = feat_map.repeat(self.num_samples, 1)
-        map_batch_list = batch_pl
+            pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
 
-        poly_cnt_per_batch = map_batch_list.bincount(minlength=batch_size)
-        map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
+            pos_a_b,heading_a_b,feat_a_b,mask_a_b = self.padding(m_delta[:,:2], m_delta[:,2], feature, batch, batch_size)  # b, n, d
 
-        map_emb = pad_sequence(map_emb_batch, batch_first=True, padding_value=0)
+            pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
 
-        beta_emb = self.noise_emb(beta)
+            feat_a_b=feat_a_b+pos_emb
 
-        # num_agents x 128
-        categorical_embs_m = [
-            self.type_a_emb(type),
-        ]
+            pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
+            heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
 
-        m_delta = self.proj_in_m_delta(m_delta).view(-1, self.hidden_dim)
-        m_delta = m_delta + categorical_embs_m[0]+ego_embedding
-        m_delta = self.proj_in_m_delta_2(m_delta)
+            for mod in self.entry_formers:
+                feat_a_b = mod(feat_a_b, pos_a_b,
+                               heading_a_b, mask_a_b,
+                               feat_map,
+                               pos_pl,
+                               orient_pl, map_mask
+                               )
 
-        agent_cnt_per_batch = agent_batch_list.bincount(minlength=batch_size)
-        agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
-        m_delta = pad_sequence(agent_emb_batch, batch_first=True, padding_value=0)
-        pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
-        m_delta += pos_emb
+            attr_feature = feat_a_b[mask_a_b]
 
-        beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
-        beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
+            pos = self.pos_decoder(attr_feature)  # * 80
 
-        mask_map_layers = []
-        mask_agent_layers = []
+            heading = self.head_decoder(attr_feature)
 
-        attn_mask_map_layers = []
-        attn_mask_agent_layers = []
+            shape = self.shape_head_decoder(attr_feature)
 
-        B, N, D = m_delta.shape
-        B, N_map, _ = map_emb.shape
+            vel = self.vel_head_decoder(attr_feature)
 
-        for i in range(batch_size):
-            mask_attn_map_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
-            mask_attn_map_agent_i = mask_attn_map_agent_i.unsqueeze(-1).expand(-1, N_map)
-            mask_attn_map_pt_i = torch.arange(N_map).to(m_delta.device) < poly_cnt_per_batch[i]
-            attn_mask_map_layers.append(mask_attn_map_pt_i)
-            mask_attn_map_pt_i = mask_attn_map_pt_i.unsqueeze(0).expand(N, -1)
+            res = torch.cat([pos, heading, shape,vel], dim=1)[:,None]
 
-            mask_attn_i = mask_attn_map_agent_i & mask_attn_map_pt_i
-            mask_map_layers.append(mask_attn_i)
+        else:
 
-            mask_attn_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
-            attn_mask_agent_layers.append(mask_attn_agent_i)
-            mask_attn_agent_i = mask_attn_agent_i.unsqueeze(-1).expand(-1, N)
-            mask_attn_i = mask_attn_agent_i & mask_attn_agent_i.t()
-            mask_agent_layers.append(mask_attn_i)
+            self.num_samples = num_samples
 
-        attn_mask_agent_layers = ~torch.stack(attn_mask_agent_layers)
-        attn_mask_map_layers = ~torch.stack(attn_mask_map_layers)
+            pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
-        attn_mask_agent_layers = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)
-        attn_mask_map_layers = attn_mask_map_layers.view(B, 1, 1, N_map). \
-            expand(-1, self.num_heads * 2, N, -1)
+            x_pt = feat_map.repeat(self.num_samples, 1)
+            map_batch_list = batch_pl
 
-        # 0: don't attend others
-        if mode == 0:
-            attn_mask_agent_layers = attn_mask_agent_layers + ~torch.eye(N).to(torch.bool).unsqueeze(0).to(
-                m_delta.device)
+            poly_cnt_per_batch = map_batch_list.bincount(minlength=batch_size)
+            map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
 
-        for i in range(self.num_layers):
-            m_delta = m_delta + beta_emb_m
-            m_delta = self.interact_pt2m[i](x=m_delta, map_enc=map_emb,
-                                            mask=attn_mask_agent_layers,
-                                            map_mask=attn_mask_map_layers)
+            map_emb = pad_sequence(map_emb_batch, batch_first=True, padding_value=0)
 
-        mask = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
-        mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
-        m_out_delta = m_delta[mask_agent].view(-1, D)  # [sum(agent_cnt_per_batch), D]
+            beta_emb = self.noise_emb(beta)
 
-        out_m_delta = self.to_out_m_delta(m_out_delta)
-        out_m_delta = out_m_delta.view(-1, self.num_samples, self.hidden_dim)
+            # num_agents x 128
+            categorical_embs_m = [
+                self.type_a_emb(type),
+            ]
 
-        return self.proj_out_m_delta(out_m_delta)
+            m_delta = self.proj_in_m_delta(m_delta).view(-1, self.hidden_dim)
+            m_delta = m_delta + categorical_embs_m[0]+ego_embedding
+            m_delta = self.proj_in_m_delta_2(m_delta)
+
+            agent_cnt_per_batch = batch.bincount(minlength=batch_size)
+            agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
+            m_delta = pad_sequence(agent_emb_batch, batch_first=True, padding_value=0)
+            pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
+            m_delta += pos_emb
+
+            beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
+            beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
+
+            mask_map_layers = []
+            mask_agent_layers = []
+
+            attn_mask_map_layers = []
+            attn_mask_agent_layers = []
+
+            B, N, D = m_delta.shape
+            B, N_map, _ = map_emb.shape
+
+            for i in range(batch_size):
+                mask_attn_map_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
+                mask_attn_map_agent_i = mask_attn_map_agent_i.unsqueeze(-1).expand(-1, N_map)
+                mask_attn_map_pt_i = torch.arange(N_map).to(m_delta.device) < poly_cnt_per_batch[i]
+                attn_mask_map_layers.append(mask_attn_map_pt_i)
+                mask_attn_map_pt_i = mask_attn_map_pt_i.unsqueeze(0).expand(N, -1)
+
+                mask_attn_i = mask_attn_map_agent_i & mask_attn_map_pt_i
+                mask_map_layers.append(mask_attn_i)
+
+                mask_attn_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
+                attn_mask_agent_layers.append(mask_attn_agent_i)
+                mask_attn_agent_i = mask_attn_agent_i.unsqueeze(-1).expand(-1, N)
+                mask_attn_i = mask_attn_agent_i & mask_attn_agent_i.t()
+                mask_agent_layers.append(mask_attn_i)
+
+            attn_mask_agent_layers = ~torch.stack(attn_mask_agent_layers)
+            attn_mask_map_layers = ~torch.stack(attn_mask_map_layers)
+
+            attn_mask_agent_layers = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)
+            attn_mask_map_layers = attn_mask_map_layers.view(B, 1, 1, N_map). \
+                expand(-1, self.num_heads * 2, N, -1)
+
+            # 0: don't attend others
+            if mode == 0:
+                attn_mask_agent_layers = attn_mask_agent_layers + ~torch.eye(N).to(torch.bool).unsqueeze(0).to(
+                    m_delta.device)
+
+            for i in range(self.num_layers):
+                m_delta = m_delta + beta_emb_m
+                m_delta = self.interact_pt2m[i](x=m_delta, map_enc=map_emb,
+                                                mask=attn_mask_agent_layers,
+                                                map_mask=attn_mask_map_layers)
+
+            mask = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
+            mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
+            m_out_delta = m_delta[mask_agent].view(-1, D)  # [sum(agent_cnt_per_batch), D]
+
+            out_m_delta = self.to_out_m_delta(m_out_delta)
+            out_m_delta = out_m_delta.view(-1, self.num_samples, self.hidden_dim)
+            res=self.proj_out_m_delta(out_m_delta)
+        return res
 
 
 class VarianceSchedule(nn.Module):

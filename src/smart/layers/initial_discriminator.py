@@ -19,7 +19,14 @@ from src.smart.utils import (
     wrap_angle,
 )
 from typing import Any, Callable, Optional, Union
-
+from torch.nn.modules.activation import MultiheadAttention
+from torch.nn.modules.container import ModuleList
+from torch.nn.modules.dropout import Dropout
+from torch.nn.modules.linear import Linear
+from torch.nn.modules.module import Module
+from torch.nn.modules.normalization import LayerNorm
+import torch.nn.functional as F
+import copy
 from torch import Tensor
 
 class InitDiscriminator(nn.Module):
@@ -266,14 +273,7 @@ class InitDiscriminator(nn.Module):
 
         return score
 
-from torch.nn.modules.activation import MultiheadAttention
-from torch.nn.modules.container import ModuleList
-from torch.nn.modules.dropout import Dropout
-from torch.nn.modules.linear import Linear
-from torch.nn.modules.module import Module
-from torch.nn.modules.normalization import LayerNorm
-import torch.nn.functional as F
-import copy
+
 
 class InitGeneator(nn.Module):
     def __init__(
@@ -288,28 +288,13 @@ class InitGeneator(nn.Module):
 
         self.hidden_dim = hidden_dim
 
-        self.entry_his_len = 1000000
-
         self.use_entry_former = True
 
         if self.use_entry_former:
 
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                  hist_len=self.entry_his_len)  # replace with gnn
+                                                  hist_len=1000000)  # replace with gnn
             self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(2)])
-
-            # self.entry_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                   hist_len=self.entry_his_len)  # replace with gnn
-            #
-            # self.attr_former = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                  hist_len=self.entry_his_len)  # drop 01 is important
-            #
-            # self.entry_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                   hist_len=self.entry_his_len)  # replace with gnn
-            #
-            # self.attr_former1 = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-            #                                  hist_len=self.entry_his_len)  # drop 01 is important
-
         else:
             decoder_layer = nn.TransformerDecoderLayer(
                 d_model=self.hidden_dim,
@@ -324,43 +309,6 @@ class InitGeneator(nn.Module):
                 decoder_layer,
                 num_layers=1
             )
-            # d_model = self.hidden_dim
-            # nhead=num_heads
-            # dropout=0
-            # batch_first=True
-            # bias=True
-            # dim_feedforward=self.hidden_dim*4
-            #
-            #
-            #
-            # self.self_attn = MultiheadAttention(
-            #     d_model,
-            #     nhead,
-            #     dropout=dropout,
-            #     batch_first=batch_first,
-            #     bias=bias
-            # )
-            # self.multihead_attn = MultiheadAttention(
-            #     d_model,
-            #     nhead,
-            #     dropout=dropout,
-            #     batch_first=batch_first,
-            #     bias=bias
-            # )
-            # # Implementation of Feedforward model
-            # self.linear1 = Linear(d_model, dim_feedforward, bias=bias)
-            # self.dropout = Dropout(dropout)
-            # self.linear2 = Linear(dim_feedforward, d_model, bias=bias)
-            #
-            # self.norm1 = LayerNorm(d_model)
-            # self.norm2 = LayerNorm(d_model)
-            # self.norm3 = LayerNorm(d_model)
-            # self.dropout1 = Dropout(dropout)
-            # self.dropout2 = Dropout(dropout)
-            # self.dropout3 = Dropout(dropout)
-            #
-            # self.activation=F.relu
-
 
         self.type_embedding = nn.Embedding(3, hidden_dim)
 
