@@ -108,7 +108,7 @@ class SMARTAgentDecoder(nn.Module):
 
         self.learn_autoencoder=token_processor.learn_autoencoder
 
-        self.use_gan=True
+        self.use_gan=False
 
         if self.pred_init and self.learn_init:
 
