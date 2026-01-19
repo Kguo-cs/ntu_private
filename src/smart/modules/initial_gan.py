@@ -95,8 +95,8 @@ class InitGAN(nn.Module):
 
         batch_num=tokenized_agent["num_graphs"]
 
-        gt_initial_pos=tokenized_agent["gt_initial_pos"][:,0]
-        gt_initial_heading=tokenized_agent["gt_initial_heading"][:,0]
+        gt_initial_pos=tokenized_agent["initial_pos"]
+        gt_initial_heading=tokenized_agent["initial_heading"]
 
         ego_mask=tokenized_agent["ego_mask"]
 
@@ -141,9 +141,19 @@ class InitGAN(nn.Module):
         agent_n=len(FakeSamples)
 
         if self.training:
-            shape = tokenized_agent["gt_initial_shape"]
+            shape = tokenized_agent["initial_shape"]
 
-            real_shape = shape[non_ego]
+            initial_vel=tokenized_agent["initial_vel"]
+
+            real_vel=transform_to_local(gt_initial_pos+initial_vel,
+                                        None,
+                                        gt_initial_pos,
+                                        gt_initial_heading,
+                                        )[0][non_ego]
+
+            real_shape = shape[non_ego][:,:2]
+
+            real_shape=torch.cat([real_vel,real_shape],dim=-1)
 
             real_pos, real_heading = transform_to_local(gt_initial_pos[non_ego],
                                                         gt_initial_heading[non_ego],
@@ -204,7 +214,7 @@ class InitGAN(nn.Module):
                 #loss=torch.tensor(0.0, device=real_heading.device)
 
                 rows, cols = [], []
-                initial_type = tokenized_agent["type"][non_ego]
+                initial_type = tokenized_agent["initial_type"][non_ego]
 
                 for b in batch.unique():
                     for type in initial_type[batch == b].unique():
@@ -247,21 +257,20 @@ class InitGAN(nn.Module):
 
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
-            shape[non_ego]=fake_shape[:,:3]
+            shape[non_ego][:,:2]=fake_shape[:,:2]
 
             tokenized_agent["shape"]= shape
 
-            gt_initial_idx=tokenized_agent["gt_initial_idx"][:,0]
-
-            gt_initial_speed=tokenized_agent["gt_initial_speed"]
+            gt_initial_speed=tokenized_agent["initial_speed"]
 
             if self.token_processor.pred_vel:
-                vel=fake_shape[:,3:]
+                initial_vel = tokenized_agent["initial_vel"]
 
-                center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
+                initial_vel[non_ego] = fake_shape[:,-2:]
 
-                gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
-                gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
+                center_token_traj = tokenized_agent["token_traj"].mean(-2)
+
+                gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None] * 0.5, dim=-1).argmin(-1)
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 

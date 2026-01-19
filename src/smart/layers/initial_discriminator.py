@@ -131,9 +131,9 @@ class InitDiscriminator(nn.Module):
         self.score_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
         if self.token_processor.pred_vel:
-            self.shape_embedding = MLPLayer(5, hidden_dim, hidden_dim)
+            self.shape_embedding = MLPLayer(4, hidden_dim, hidden_dim)
         else:
-            self.shape_embedding = MLPLayer(3, hidden_dim, hidden_dim)
+            self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
@@ -169,7 +169,7 @@ class InitDiscriminator(nn.Module):
         non_ego = ~ego_mask
 
         batch = tokenized_agent["batch"][non_ego]
-        type = tokenized_agent["type"][non_ego]
+        type = tokenized_agent["initial_type"][non_ego]
         batch_num = tokenized_agent["num_graphs"]
         head_a = wrap_angle(head_a)
 
@@ -321,11 +321,11 @@ class InitGeneator(nn.Module):
         self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
 
         if self.token_processor.pred_vel:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 5)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 4)
 
             self.noise_dim=8
         else:
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 3)
+            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
 
             self.noise_dim=6
 
@@ -336,7 +336,7 @@ class InitGeneator(nn.Module):
 
         ego_mask = tokenized_agent["ego_mask"]
 
-        type = tokenized_agent["type"]
+        type = tokenized_agent["initial_type"]
 
         batch = tokenized_agent["batch"]
 

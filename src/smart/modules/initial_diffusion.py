@@ -102,7 +102,7 @@ class PDInit(nn.Module):
 
     def get_data(self,tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
 
-        initial_vel=tokenized_agent["initial_vel"][non_ego]
+        real_vel=tokenized_agent["initial_vel"][non_ego]
 
         initial_shape = tokenized_agent["initial_shape"][non_ego]
 
@@ -114,13 +114,6 @@ class PDInit(nn.Module):
                                                     ego_position[batch],
                                                     ego_heading[batch],
                                                     )
-
-        real_vel = transform_to_local(non_ego_pos+initial_vel,
-                                        None,
-                                        non_ego_pos,
-                                        non_ego_head,
-                                        )[0]
-
 
         init_trans = real_pos[:, :2]
 
@@ -280,18 +273,11 @@ class PDInit(nn.Module):
 
             initial_vel=tokenized_agent["initial_vel"]
 
-            local_vel=transform_to_local(
-                gt_initial_pos+initial_vel,
-                None,
-                gt_initial_pos,
-                gt_initial_heading,
-            )[0]
-
-            local_vel[non_ego]=pred_vel
+            initial_vel[non_ego]=pred_vel
 
             center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-            gt_initial_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
+            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None]*0.5, dim=-1).argmin(-1)
 
             tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
 

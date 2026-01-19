@@ -162,7 +162,12 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
                 # tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
 
-
+                tokenized_agent["initial_vel"] = transform_to_local(
+                    tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
+                    None,
+                    tokenized_agent["initial_pos"],
+                    tokenized_agent["initial_heading"],
+                )[0]
 
                 tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
 
