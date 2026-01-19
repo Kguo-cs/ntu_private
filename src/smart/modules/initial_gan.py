@@ -76,6 +76,7 @@ class InitGAN(nn.Module):
         self.use_Rp=True
 
         self.Gamma =   1
+        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -119,6 +120,14 @@ class InitGAN(nn.Module):
         feat_map=feat_map[ego_dist_mask]
 
         map_feature=(pos_pl,orient_pl,batch_pl,feat_map)
+
+        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+
+        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
+
+        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
+
+        feat_map = feat_map + ego_embedding[batch_pl]
 
         pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl,batch_num)
 
@@ -246,7 +255,6 @@ class InitGAN(nn.Module):
             self.global_step+=1
             return loss
         else:
-            shape = tokenized_agent["shape"]
 
             global_pos,global_heading=transform_to_global(
                 fake_pos,
@@ -257,28 +265,24 @@ class InitGAN(nn.Module):
 
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
-            shape[non_ego][:,:2]=fake_shape[:,:2]
+
+            shape=tokenized_agent["shape"]
+
+            shape[non_ego,:2]=fake_shape[:,:2]
 
             tokenized_agent["shape"]= shape
 
-            gt_initial_speed=tokenized_agent["initial_speed"]
+            initial_vel = tokenized_agent["initial_vel"]
 
-            if self.token_processor.pred_vel:
-                initial_vel = tokenized_agent["initial_vel"]
+            initial_vel[non_ego] = fake_shape[:, -2:]
 
-                initial_vel[non_ego] = fake_shape[:,-2:]
+            center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-                center_token_traj = tokenized_agent["token_traj"].mean(-2)
+            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None] * 0.5, dim=-1).argmin(-1)
 
-                gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None] * 0.5, dim=-1).argmin(-1)
+            gt_initial_speed=initial_vel.norm(dim=-1)
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
-
-
-            # tokenized_agent["ego_mask"] = tokenized_agent["initial_ego_mask"]
-            # tokenized_agent["type"] = tokenized_agent['initial_type']
-            # tokenized_agent['id']=tokenized_agent['initial_id']
-
 
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
