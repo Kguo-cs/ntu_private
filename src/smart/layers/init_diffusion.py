@@ -42,6 +42,9 @@ import warnings
 
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
+def power_schedule(steps, device, alpha=2.0):
+    t = torch.linspace(0., 1., steps + 1, device=device)
+    return t ** alpha
 
 class InitDiffusion(nn.Module):
 
@@ -86,8 +89,11 @@ class InitDiffusion(nn.Module):
 
         self.P_std=3
 
-        self.P_mean=1
+        self.P_mean=2
         self.apply(weight_init)
+
+
+        #increase mean
 
 
     def get_loss(self,
@@ -104,9 +110,9 @@ class InitDiffusion(nn.Module):
 
 
     def sample_t(self, n: int, device=None):
-        z = torch.randn(n, device=device) * self.P_std + self.P_mean
-        z=torch.sigmoid(z)
-        #z=torch.rand(n, device=device)
+       # z = torch.randn(n, device=device) * self.P_std + self.P_mean
+       # z=torch.sigmoid(z)
+        z=torch.rand(n, device=device)
         return z
 
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
@@ -124,7 +130,7 @@ class InitDiffusion(nn.Module):
 
         t = self.sample_t(num_scenes, device=device)[:, None].to(device)[agent_batch]  # t ~ U[0,1]
 
-        z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1
+        z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
 
         if self.x_pred:
             v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
@@ -146,15 +152,20 @@ class InitDiffusion(nn.Module):
         return ((v_pred - v_target) ** 2) #,x_init_0_reconstructed
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=100, device="cuda"):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
 
         num_agents = eval_mask.sum()
 
         z = torch.randn(num_agents,num_samples, 8, device=device)
-        dt = 1.0 / steps
+        #dt = 1.0 / steps
+        ts = power_schedule(steps, z.device, alpha=2)
+        ts[0] = 1e-4
 
         for i in range(steps):
-            t = torch.full((num_agents,num_samples), i / steps, device=device)
+            t = ts[i].expand(z.shape[0],z.shape[1])
+            dt = ts[i + 1] - ts[i]
+
+            # t = torch.full((num_agents,num_samples), i / steps, device=device)
             if self.x_pred:
                 x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
