@@ -152,7 +152,7 @@ class InitGAN(nn.Module):
         if self.training:
             shape = tokenized_agent["initial_shape"]
 
-            initial_vel=tokenized_agent["initial_vel"]
+            initial_vel=tokenized_agent["initial_vel"][non_ego]
 
             real_shape = shape[non_ego][:,:2]
 
