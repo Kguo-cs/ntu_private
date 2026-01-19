@@ -162,12 +162,6 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
                 # tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
 
-                tokenized_agent["initial_vel"] = transform_to_local(
-                    tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
-                    None,
-                    tokenized_agent["initial_pos"],
-                    tokenized_agent["initial_heading"],
-                )[0]
 
                 tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
 
@@ -179,6 +173,12 @@ class TokenProcessor(torch.nn.Module):
             tokenized_map, tokenized_agent=self.process_data(data)
 
         tokenized_agent["abs_time"]=torch.zeros([0,18])
+        tokenized_agent["initial_vel"] = transform_to_local(
+            tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
+            None,
+            tokenized_agent["initial_pos"],
+            tokenized_agent["initial_heading"],
+        )[0]
 
         if self.use_goal and self.training:
             self.compute_goal(tokenized_agent)
