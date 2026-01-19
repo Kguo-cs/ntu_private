@@ -444,14 +444,16 @@ class InitDenoiser(nn.Module):
 
             pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
 
-            pos_a_b,heading_a_b,feat_a_b,mask_a_b = self.padding(m_delta[:,:2], m_delta[:,2], feature, batch, batch_size)  # b, n, d
+            theta=torch.atan2(m_delta[:,3],m_delta[:,2])
+
+            pos_a_b,heading_a_b,feat_a_b,mask_a_b = self.padding(m_delta[:,:2], theta, feature, batch, batch_size)  # b, n, d
 
             pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
 
             feat_a_b=feat_a_b+pos_emb
 
-            # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
-            # heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
+            pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
+            heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
 
             for mod in self.entry_formers:
                 feat_a_b = mod(feat_a_b, pos_a_b,
