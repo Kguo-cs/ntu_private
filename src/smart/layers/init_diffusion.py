@@ -168,7 +168,7 @@ class InitDiffusion(nn.Module):
         z = torch.randn(num_agents,num_samples, 8, device=device)
         #dt = 1.0 / steps
         #ts = cosine_schedule(steps, z.device)
-        ts=torch.linspace(0,1,steps,device=device)
+        ts=torch.linspace(0,1,steps+1,device=device)
 
         #ts = power_schedule(steps, z.device, alpha=2)
         ts[0] = 1e-4
