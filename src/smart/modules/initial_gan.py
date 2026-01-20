@@ -174,7 +174,7 @@ class InitGAN(nn.Module):
                 #loss=torch.tensor(0.0, device=real_heading.device)
                 initial_type = tokenized_agent["initial_type"][non_ego]
 
-                match_loss,pos_loss,heading_loss,shape_loss=get_matching_loss(initial_type, batch, fake_pos,fake_heading,fake_shape,real_pos,real_heading,real_shape)
+                match_loss,pos_loss,heading_loss,shape_loss=get_matching_loss(initial_type, batch, FakeSamples,RealSamples,1,0)
 
                 loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
