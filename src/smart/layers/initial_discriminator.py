@@ -161,7 +161,7 @@ class InitDiscriminator(nn.Module):
     def forward(self,inputs, map_feature,  tokenized_agent):
 
         pos_a=inputs[:,:2]
-        head_a=inputs[:,2]#torch.atan2(inputs[:,3],inputs[:,2])#
+        head_a=torch.atan2(inputs[:,3],inputs[:,2])#inputs[:,2]#
         shape=inputs[:,-4:]
 
         batch = tokenized_agent["nonego_batch"]
