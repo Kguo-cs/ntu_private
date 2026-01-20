@@ -243,22 +243,22 @@ class PDInit(nn.Module):
 
                     low_noise_mask=t[:,0]>0.5
 
-                    RealSamples = m_init[low_noise_mask] * normal_scale + normal_mean
-                    FakeSamples = x_pred[low_noise_mask] * normal_scale + normal_mean
+                    RealSamples = m_init * normal_scale + normal_mean
+                    FakeSamples = x_pred * normal_scale + normal_mean
 
-                    low_noise_map_mask = t_batch[:,0]>0.5
-
-                    map_feature=(pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask], map_mask[low_noise_map_mask])
-
-                    tokenized_agent["num_graphs"]=low_noise_map_mask.sum()
-                    old_batch = tokenized_agent["batch"][non_ego][low_noise_mask]
+                    # low_noise_map_mask = t_batch[:,0]>0.5
+                    #
+                    map_feature=(pos_pl, orient_pl, feat_map, map_mask)
+                    #
+                    # tokenized_agent["num_graphs"]=low_noise_map_mask.sum()
+                    old_batch = tokenized_agent["batch"][non_ego]#[low_noise_mask]
 
                     _, new_batch = torch.unique(old_batch, sorted=True, return_inverse=True)
 
                     tokenized_agent["nonego_batch"] = new_batch
-                    tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][low_noise_mask]
+                    #tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][low_noise_mask]
 
-                    if self.global_step %5 == 0:
+                    if self.global_step %10 == 0:
                         RealSamples[:, 2] = torch.atan2(RealSamples[:, 3], RealSamples[:, 2])  #
                         FakeSamples[:, 2] = torch.atan2(FakeSamples[:, 3], FakeSamples[:, 2])  #
 
