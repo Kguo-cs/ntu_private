@@ -46,8 +46,11 @@ def matching_loss(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state
+    initial_type, batch, x_pred,m_init,normal_scale,normal_mean
     ):
+    real_state = m_init * normal_scale + normal_mean
+    fake_state = x_pred * normal_scale + normal_mean
+
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[   :, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[ :, 4:]
 
@@ -73,6 +76,8 @@ def get_matching_loss(
         fake_pos[row], fake_heading[row], fake_shape[row],
         real_pos[col], real_heading[col], real_shape[col]
     )
+
+    match_loss=((x_pred[row] - m_init[col]) ** 2)
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss
 

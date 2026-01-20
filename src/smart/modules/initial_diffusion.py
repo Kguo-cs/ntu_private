@@ -214,10 +214,11 @@ class PDInit(nn.Module):
 
                 loss_diff_init,x_pred = self.joint_diffusion.get_loss(m_init, tokenized_agent, map_feature,non_ego)
 
-                real_state = m_init * self.normal_scale.to(non_ego.device) + self.normal_mean.to(non_ego.device)
-                fake_state = x_pred[:,0] * self.normal_scale.to(non_ego.device) + self.normal_mean.to(non_ego.device)
 
-                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, fake_state,real_state)
+                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, x_pred[:, 0],m_init,
+                                                                                       self.normal_scale.to(non_ego.device),
+                                                                                       self.normal_mean.to(non_ego.device),
+                                                                                       )
 
                 loss_diff_init=loss_diff_init.mean()
 
