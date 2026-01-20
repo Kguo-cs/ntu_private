@@ -95,7 +95,8 @@ class PDInit(nn.Module):
 
         self.use_gan=False
 
-        self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
+        if self.use_gan:
+            self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         self.use_dit=False
         self.global_step=0
