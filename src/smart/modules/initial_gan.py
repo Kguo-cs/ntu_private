@@ -148,7 +148,7 @@ class InitGAN(nn.Module):
                     if len(fake_interact_logits)>0:
                         AdversarialLoss=AdversarialLoss+fake_interact_logits.mean()-real_interact_logits.mean()
 
-                w=0.1#0.1+(1-self.global_step/10000.0)
+                w=1#0.1+(1-self.global_step/10000.0)
 
                 # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
