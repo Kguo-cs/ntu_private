@@ -159,14 +159,12 @@ class IQ_SoftQ(LightningModule):
                         self.log('train/agent_loss', agent_loss,  on_step=True, batch_size=1)
                         self.log('train/kl_loss', kl_loss,  on_step=True,  batch_size=1)
                     else:
-                        loss,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed=pred["initial_logit"]
-                        self.log('train/loss_diff_init', loss, on_step=True,  batch_size=1  )
-                        self.log('train/loss_diff_trans', loss_diff_trans,  on_step=True, batch_size=1)
-                        self.log('train/loss_diff_theta', loss_diff_theta,  on_step=True,  batch_size=1)
-                        self.log('train/loss_diff_speed', loss_diff_speed,  on_step=True,  batch_size=1)
-                        self.log('train/trans_loss', loss_trans,  on_step=True,  batch_size=1)
-                        self.log('train/rot_loss2', loss_rot2,  on_step=True,  batch_size=1)
-                        self.log('train/speed_loss', loss_speed,  on_step=True, batch_size=1)
+                        loss,loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss=pred["initial_logit"]
+                        self.log('train/loss_diff_init', loss_diff_init,  on_step=True, batch_size=1)
+                        self.log('train/match_loss', match_loss,  on_step=True,  batch_size=1)
+                        self.log('train/pos_loss', pos_loss,  on_step=True,  batch_size=1)
+                        self.log('train/heading_loss', heading_loss,  on_step=True,  batch_size=1)
+                        self.log('train/shape_loss', shape_loss,  on_step=True,  batch_size=1)
 
                 action_nll = action_nll +loss
             else:

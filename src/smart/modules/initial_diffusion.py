@@ -15,6 +15,7 @@ from src.smart.utils import (
 from src.smart.layers.autoencoder import AutoEncoder
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from src.smart.my_model.ldm import LDM
+from src.smart.utils.earth_match import get_matching_loss
 
 class PDInit(nn.Module):
 
@@ -70,10 +71,6 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
-        # self.normal_scale = torch.tensor([[80, 80, 1, 1, 22.929/2, 12.527/2, 3, 114.088/2]])
-        # self.normal_mean = torch.tensor([[0, 0, 0, 0, 22.929/2, 12.527/2, 3, 114.088/2]])
-        # self.normal_scale = torch.tensor([[80, 80, 1, 1, 9, 4, 3, 16]])
-        # self.normal_mean = torch.tensor([[0, 0, 0, 0, 9, 4, 3, 16]])
         # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
         # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
         # self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
@@ -215,11 +212,21 @@ class PDInit(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init = self.joint_diffusion.get_loss(m_init, tokenized_agent, map_feature,non_ego).mean()
+                loss_diff_init,x_pred = self.joint_diffusion.get_loss(m_init, tokenized_agent, map_feature,non_ego)
 
-                loss_trans=loss_rot2=loss_speed=loss_diff_trans=loss_diff_theta=loss_diff_speed=loss_diff_init
+                real_state = m_init * self.normal_scale.to(non_ego.device) + self.normal_mean.to(non_ego.device)
+                fake_state = x_pred[:,0] * self.normal_scale.to(non_ego.device) + self.normal_mean.to(non_ego.device)
 
-                return loss_diff_init,loss_trans,loss_rot2,loss_speed,loss_diff_trans,loss_diff_theta,loss_diff_speed
+                fake_pos, fake_heading, fake_shape=fake_state[:,:2],torch.atan2(fake_state[:,3],fake_state[:,2]),fake_state[:,4:]
+                real_pos, real_heading, real_shape=real_state[:,:2],torch.atan2(real_state[:,3],real_state[:,2]),real_state[:,4:]
+
+                match_loss,pos_loss,heading_loss,shape_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, fake_pos,fake_heading,fake_shape,real_pos,real_heading,real_shape)
+
+                loss_diff_init=loss_diff_init.mean()
+
+                loss=loss_diff_init+match_loss
+
+                return loss,loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss
         else:
             if self.learn_autoencoder:
                 m_init,sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,

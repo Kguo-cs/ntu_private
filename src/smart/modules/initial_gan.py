@@ -3,55 +3,13 @@ import torch.nn as nn
 
 from smart.utils import transform_to_global
 from src.smart.layers import MLPLayer
-from src.smart.layers.relative_transformer import RoFormerBlock, padding
-from torch.distributions import Categorical
-
-from src.smart.layers import MLPLayer
-from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
-from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
-from torch_scatter import scatter_max,scatter_mean,scatter_sum
-from src.smart.layers.relative_transformer import RoFormerBlock
-from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
+from src.smart.layers.relative_transformer import padding
+from smart.utils.earth_match import get_matching_loss
 from src.smart.utils import (
-    cal_polygon_contour,
     transform_to_local,
-    transform_to_local,
-    wrap_angle,
 )
 
 from src.smart.layers.initial_discriminator import InitDiscriminator,InitGeneator
-from scipy.optimize import linear_sum_assignment
-import torch.nn.functional as F
-
-def matching_loss(
-    fake_pos, fake_heading, fake_shape,
-    real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2
-):
-    # Position: L1 or L2
-
-    dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
-
-    pos_loss = dist.mean()
-
-    # Heading: periodic-safe loss
-    # heading_diff = torch.atan2(
-    #     torch.sin(fake_heading - real_heading),
-    #     torch.cos(fake_heading - real_heading)
-    # )
-    heading_diff=wrap_angle(fake_heading - real_heading)
-    heading_loss = heading_diff.abs().mean()
-
-    # Shape: L1
-    shape_loss = F.l1_loss(fake_shape, real_shape)
-
-    total_loss = (
-        w_pos * pos_loss +
-        w_heading * heading_loss +
-        w_shape * shape_loss
-    )
-
-    return total_loss,pos_loss,heading_loss,shape_loss
 
 class InitGAN(nn.Module):
     def __init__(
@@ -215,30 +173,9 @@ class InitGAN(nn.Module):
                 # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                 self.D.train()
                 #loss=torch.tensor(0.0, device=real_heading.device)
-
-                rows, cols = [], []
                 initial_type = tokenized_agent["initial_type"][non_ego]
 
-                for b in batch.unique():
-                    for type in initial_type[batch == b].unique():
-                        f_idx = ((batch == b) & (initial_type==type)).nonzero(as_tuple=True)[0]
-
-                        dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
-
-                        cost = dist.cpu().detach().numpy()
-
-                        row, col = linear_sum_assignment(cost)
-
-                        rows.append(f_idx[row])
-                        cols.append(f_idx[col])
-
-                row = torch.cat(rows)
-                col = torch.cat(cols)
-
-                match_loss,pos_loss,heading_loss,shape_loss = matching_loss(
-                    fake_pos[row], fake_heading[row], fake_shape[row],
-                    real_pos[col], real_heading[col], real_shape[col]
-                )
+                match_loss,pos_loss,heading_loss,shape_loss=get_matching_loss(initial_type, batch, fake_pos,fake_heading,fake_shape,real_pos,real_heading,real_shape)
 
                 loss=(loss,match_loss,pos_loss,heading_loss,shape_loss)
 
