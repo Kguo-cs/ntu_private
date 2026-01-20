@@ -220,13 +220,13 @@ class PDInit(nn.Module):
                 fake_pos, fake_heading, fake_shape=fake_state[:,:2],torch.atan2(fake_state[:,3],fake_state[:,2]),fake_state[:,4:]
                 real_pos, real_heading, real_shape=real_state[:,:2],torch.atan2(real_state[:,3],real_state[:,2]),real_state[:,4:]
 
-                match_loss,pos_loss,heading_loss,shape_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, fake_pos,fake_heading,fake_shape,real_pos,real_heading,real_shape)
+                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, fake_pos,fake_heading,fake_shape,real_pos,real_heading,real_shape)
 
                 loss_diff_init=loss_diff_init.mean()
 
                 loss=loss_diff_init+match_loss
 
-                return loss,loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss
+                return loss,loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
         else:
             if self.learn_autoencoder:
                 m_init,sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,

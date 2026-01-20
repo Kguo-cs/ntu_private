@@ -12,7 +12,7 @@ from src.smart.utils import (
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2
+    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.1
 ):
     # Position: L1 or L2
 
@@ -31,13 +31,16 @@ def matching_loss(
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape, real_shape)
 
+    vel_loss = F.l1_loss(fake_shape, real_shape)
+
     total_loss = (
         w_pos * pos_loss +
         w_heading * heading_loss +
-        w_shape * shape_loss
+        w_shape * shape_loss+
+        w_vel*vel_loss
     )
 
-    return total_loss,pos_loss,heading_loss,shape_loss
+    return total_loss,pos_loss,heading_loss,shape_loss,vel_loss
 
 
 def get_matching_loss(
