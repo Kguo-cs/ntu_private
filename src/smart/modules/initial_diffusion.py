@@ -224,7 +224,7 @@ class PDInit(nn.Module):
 
                 loss_diff_init=loss_diff_init.mean()
 
-                loss=loss_diff_init+match_loss
+                loss=match_loss
 
                 return loss,loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
         else:
