@@ -274,7 +274,7 @@ class PDInit(nn.Module):
                         RelativisticLogits = RealLogits - FakeLogits
                         AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
 
-                        w = 0.1  # 0.1+(1-self.global_step/10000.0)
+                        w = 1  # 0.1+(1-self.global_step/10000.0)
 
                         # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
@@ -291,18 +291,16 @@ class PDInit(nn.Module):
                         # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                         self.D.train()
                         # loss=torch.tensor(0.0, device=real_heading.device)
-                        #initial_type = tokenized_agent["initial_type"][non_ego]
 
-                        # match_loss, pos_loss, heading_loss, shape_loss = get_matching_loss(initial_type, batch, fake_pos,
-                        #                                                                    fake_heading, fake_shape,
-                        #                                                                    real_pos, real_heading,
-                        #                                                                    real_shape)
-                        #
-                        # loss = (loss, match_loss, pos_loss, heading_loss, shape_loss)
+                        match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], tokenized_agent["nonego_batch"],
+                                                                                               FakeSamples,RealSamples,
+                                                                                               self.normal_scale.to(non_ego.device),
+                                                                                               self.normal_mean.to(non_ego.device),
+                                                                                               )
+                        loss=loss+loss_diff_init.mean()+match_loss
 
-                        loss=loss+loss_diff_init.mean()
 
-                        match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
+                        # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
 
                         loss= (loss, match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
                         #loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
