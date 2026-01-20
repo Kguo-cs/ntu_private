@@ -65,10 +65,10 @@ def get_matching_loss(
     row = torch.cat(rows)
     col = torch.cat(cols)
 
-    match_loss, pos_loss, heading_loss, shape_loss = matching_loss(
+    match_loss, pos_loss, heading_loss, shape_loss,vel_loss = matching_loss(
         fake_pos[row], fake_heading[row], fake_shape[row],
         real_pos[col], real_heading[col], real_shape[col]
     )
 
-    return match_loss,pos_loss,heading_loss,shape_loss
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss
 
