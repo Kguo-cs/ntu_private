@@ -26,7 +26,7 @@ import torch.nn.functional as F
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.02
+    w_pos=0.1, w_heading=0.5, w_shape=0.2
 ):
     # Position: L1 or L2
 
@@ -191,7 +191,7 @@ class InitGAN(nn.Module):
                     if len(fake_interact_logits)>0:
                         AdversarialLoss=AdversarialLoss+fake_interact_logits.mean()-real_interact_logits.mean()
 
-                w=1#0.1+(1-self.global_step/10000.0)
+                w=0.1#0.1+(1-self.global_step/10000.0)
 
                 # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
 
