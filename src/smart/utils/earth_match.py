@@ -29,9 +29,9 @@ def matching_loss(
     heading_loss = heading_diff.abs().mean()
 
     # Shape: L1
-    shape_loss = F.l1_loss(fake_shape, real_shape)
+    shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
 
-    vel_loss = F.l1_loss(fake_shape, real_shape)
+    vel_loss = F.l1_loss(fake_shape[:,2:], real_shape[:,2:])
 
     total_loss = (
         w_pos * pos_loss +
