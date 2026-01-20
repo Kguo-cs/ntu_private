@@ -141,7 +141,9 @@ class InitDiffusion(nn.Module):
 
         x0 = torch.randn_like(x1)  # base distribution N(0, I)
 
-        t = self.sample_t(num_scenes, device=device)[:, None].to(device)[agent_batch]  # t ~ U[0,1]
+        t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+
+        t=t_batch[agent_batch]
 
         z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
 
@@ -162,7 +164,7 @@ class InitDiffusion(nn.Module):
 
             x_init_0_reconstructed =x0+v_pred
 
-        return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed[:,0]
+        return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):

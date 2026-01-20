@@ -124,6 +124,7 @@ class InitGAN(nn.Module):
             RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
 
             if self.global_step % 10 == 0:
+
                 RealSamples = RealSamples.detach().requires_grad_(True)
                 FakeSamples = FakeSamples.detach().requires_grad_(True)
 

@@ -161,15 +161,11 @@ class InitDiscriminator(nn.Module):
     def forward(self,inputs, map_feature,  tokenized_agent):
 
         pos_a=inputs[:,:2]
-        head_a=inputs[:,2]#torch.atan2(inputs[:,3],inputs[:,2])
+        head_a=inputs[:,2]#torch.atan2(inputs[:,3],inputs[:,2])#
         shape=inputs[:,-4:]
 
-        ego_mask = tokenized_agent["ego_mask"]
-
-        non_ego = ~ego_mask
-
-        batch = tokenized_agent["batch"][non_ego]
-        type = tokenized_agent["initial_type"][non_ego]
+        batch = tokenized_agent["nonego_batch"]
+        type = tokenized_agent["nonego_type_sorted"]
         batch_num = tokenized_agent["num_graphs"]
         head_a = wrap_angle(head_a)
 
