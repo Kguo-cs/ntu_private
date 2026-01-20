@@ -16,10 +16,17 @@ from src.smart.layers.autoencoder import AutoEncoder
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from src.smart.my_model.ldm import LDM
 from src.smart.utils.earth_match import get_matching_loss
+from src.smart.layers.initial_discriminator import InitDiscriminator,InitGeneator
+from src.smart.layers.relative_transformer import padding
 
 class PDInit(nn.Module):
 
-    def __init__(self,token_processor) -> None:
+    def __init__(self,
+                 hidden_dim: int,
+                num_heads: int,
+                num_freq_bands,
+                token_processor,
+        ) -> None:
         super(PDInit, self).__init__()
 
         parser = ArgumentParser()
@@ -55,9 +62,6 @@ class PDInit(nn.Module):
         hidden_dim=args.hidden_dim
 
 
-        self.pos_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.head_embedding = MLPLayer(2, hidden_dim, hidden_dim)
-        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
         self.latent_diffusion=False
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -88,14 +92,28 @@ class PDInit(nn.Module):
 
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
-        #
+
+        self.use_gan=True
+
+        self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         self.use_dit=False
+        self.global_step=0
+        self.Gamma=1
 
         if self.use_dit:
-            self.joint_diffusion= LDM()
+            self.G = LDM()
         else:
-            self.joint_diffusion = InitDiffusion(args=args)
+            self.G = InitDiffusion(args=args)
+
+    def padding(self,pos,heading,feature,batch,batch_num):
+        lengths = torch.bincount(batch,minlength=batch_num).tolist()
+
+        padding_pos_a = padding(pos, lengths, padding_value=0)  # b, n, d
+        padding_heading_a = padding(heading, lengths, padding_value=0)  # b, n, d
+        padding_features_a = padding(feature, lengths, padding_value=0)  # b, n, d
+
+        return padding_pos_a, padding_heading_a, padding_features_a
 
     def get_data(self,tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
 
@@ -177,7 +195,7 @@ class PDInit(nn.Module):
 
         init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
 
-        feat_map = feat_map + self.pos_embedding(pos_pl) + self.head_embedding(init_angle)
+        feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
         non_ego = ~ego_mask
@@ -190,12 +208,15 @@ class PDInit(nn.Module):
 
         ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
 
-        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
+        ego_embedding=self.G.ego_embedding(ego_local_traj.flatten(1,2))
         ego_embedding=ego_embedding[batch]
         # feat_map=feat_map+ego_embedding[batch_pl]
         # ego_embedding=0
 
         tokenized_agent["ego_embedding"]=ego_embedding
+
+        normal_scale=self.normal_scale.to(non_ego.device)
+        normal_mean=self.normal_mean.to(non_ego.device)
 
         if self.training:
             m_init,sort_idx=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
@@ -212,19 +233,78 @@ class PDInit(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init,x_pred = self.joint_diffusion.get_loss(m_init, tokenized_agent, map_feature,non_ego)
+                loss_diff_init,x_pred = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
 
+                pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
 
-                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, x_pred[:, 0],m_init,
-                                                                                       self.normal_scale.to(non_ego.device),
-                                                                                       self.normal_mean.to(non_ego.device),
-                                                                                       )
+                map_mask = torch.any(feat_map != 0, dim=-1)
 
-                loss_diff_init=loss_diff_init.mean()
+                padding_map_features = (pos_pl, orient_pl, feat_map, map_mask)
 
-                loss=match_loss
+                if self.D.use_entry_former:
+                    map_feature = padding_map_features
 
-                return loss,loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
+                RealSamples = m_init * normal_scale + normal_mean
+                FakeSamples = x_pred * normal_scale + normal_mean
+
+                if self.global_step % 10 == 0:
+
+                    RealSamples = RealSamples.detach().requires_grad_(True)
+                    FakeSamples = FakeSamples.detach().requires_grad_(True)
+
+                    RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
+                    FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
+
+                    R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+                    R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+
+                    RelativisticLogits = RealLogits - FakeLogits
+                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
+
+                    w = 0.1  # 0.1+(1-self.global_step/10000.0)
+
+                    # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
+
+                    loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
+                else:
+                    self.D.eval()
+                    FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
+
+                    RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
+                    RelativisticLogits = FakeLogits - RealLogits
+                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                    loss = AdversarialLoss.mean()
+
+                    # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
+                    self.D.train()
+                    # loss=torch.tensor(0.0, device=real_heading.device)
+                    #initial_type = tokenized_agent["initial_type"][non_ego]
+
+                    # match_loss, pos_loss, heading_loss, shape_loss = get_matching_loss(initial_type, batch, fake_pos,
+                    #                                                                    fake_heading, fake_shape,
+                    #                                                                    real_pos, real_heading,
+                    #                                                                    real_shape)
+                    #
+                    # loss = (loss, match_loss, pos_loss, heading_loss, shape_loss)
+
+                    loss=loss+loss_diff_init.mean()
+
+                    match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
+
+                    loss= (loss, match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
+                    #loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
+
+                # match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, x_pred[:, 0],m_init,
+                #                                                                        self.normal_scale.to(non_ego.device),
+                #                                                                        self.normal_mean.to(non_ego.device),
+                #                                                                        )
+                #
+                # loss_diff_init=loss_diff_init.mean()
+                #
+                # loss=match_loss
+                self.global_step += 1
+
+                return loss
         else:
             if self.learn_autoencoder:
                 m_init,sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
@@ -240,7 +320,7 @@ class PDInit(nn.Module):
 
                 tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
 
-                pred_init = self.joint_diffusion.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
+                pred_init = self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
                                                         stride=1,
                                                         if_output_diffusion_process=False,
@@ -327,6 +407,11 @@ class PDInit(nn.Module):
         parser.add_argument('--m_dim', type = int,default = 10)
 
         return parent_parser
+
+    def ZeroCenteredGradientPenalty(self,Samples, Critics):
+        Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
+        return Gradient.square().sum([-1])
+
     # pred_init=pred_init*normal_scale+normal_mean
     # num_samples=1
     # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]

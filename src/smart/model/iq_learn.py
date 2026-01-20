@@ -66,7 +66,7 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        if self.encoder.agent_encoder.learn_init and self.encoder.agent_encoder.use_gan:
+        if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
             self.automatic_optimization=False
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
@@ -123,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
             if not self.token_processor.token_initial:
 
-                if  self.encoder.agent_encoder.use_gan:
+                if  self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan:
                     opt_G,opt_D=self.optimizers()
 
                     if len(pred["initial_logit"]) == 3:
@@ -139,7 +139,7 @@ class IQ_SoftQ(LightningModule):
                         opt_D.step()
 
                     else:
-                        g_loss,match_loss,pos_loss,heading_loss,shape_loss = pred["initial_logit"]
+                        g_loss, match_loss,pos_loss,heading_loss,shape_loss,vel_loss = pred["initial_logit"]
 
                         loss=g_loss+match_loss+action_nll
 
@@ -148,6 +148,7 @@ class IQ_SoftQ(LightningModule):
                         self.log("train/heading_loss", heading_loss.item(), on_step=True, batch_size=1)
                         self.log("train/shape_loss", shape_loss.item(), on_step=True, batch_size=1)
                         self.log("train/match_loss", match_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/vel_loss", vel_loss.item(), on_step=True, batch_size=1)
 
                         opt_G.zero_grad()
                         loss.backward()

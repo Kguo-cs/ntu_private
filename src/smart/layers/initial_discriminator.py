@@ -161,8 +161,8 @@ class InitDiscriminator(nn.Module):
     def forward(self,inputs, map_feature,  tokenized_agent):
 
         pos_a=inputs[:,:2]
-        head_a=inputs[:,2]
-        shape=inputs[:,3:]
+        head_a=torch.atan2(inputs[:,3],inputs[:,2])
+        shape=inputs[:,4:]
 
         ego_mask = tokenized_agent["ego_mask"]
 
@@ -289,6 +289,7 @@ class InitGeneator(nn.Module):
         self.hidden_dim = hidden_dim
 
         self.use_entry_former = True
+        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
         if self.use_entry_former:
 

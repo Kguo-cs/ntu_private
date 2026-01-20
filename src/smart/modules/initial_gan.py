@@ -34,7 +34,6 @@ class InitGAN(nn.Module):
         self.use_Rp=True
 
         self.Gamma =   1
-        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -83,7 +82,7 @@ class InitGAN(nn.Module):
 
         ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
 
-        ego_embedding=self.ego_embedding(ego_local_traj.flatten(1,2))
+        ego_embedding=self.G.ego_embedding(ego_local_traj.flatten(1,2))
 
         feat_map = feat_map + ego_embedding[batch_pl]
 

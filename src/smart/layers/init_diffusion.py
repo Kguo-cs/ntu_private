@@ -62,6 +62,10 @@ class InitDiffusion(nn.Module):
         self.diff_type = args.diff_type
         self.guid_sampling = args.guid_sampling
 
+        self.pos_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
+        self.head_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
+        self.ego_embedding = MLPLayer(20, args.hidden_dim, args.hidden_dim)
+
         self.net = InitDenoiser(
             dataset=args.dataset,
             input_dim=args.input_dim,
@@ -158,7 +162,7 @@ class InitDiffusion(nn.Module):
 
             x_init_0_reconstructed =x0+v_pred
 
-        return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed
+        return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed[:,0]
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
