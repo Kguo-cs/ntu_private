@@ -25,8 +25,10 @@ def matching_loss(
     #     torch.sin(fake_heading - real_heading),
     #     torch.cos(fake_heading - real_heading)
     # )
-    heading_diff=wrap_angle(fake_heading - real_heading)
-    heading_loss = heading_diff.abs().mean()
+    # heading_diff=wrap_angle(fake_heading - real_heading)
+    # heading_loss = heading_diff.abs().mean()
+
+    heading_loss= F.l1_loss(fake_heading, real_heading)
 
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
@@ -44,9 +46,11 @@ def matching_loss(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_pos,fake_heading,fake_shape,
-    real_pos,real_heading,real_shape
+    initial_type, batch, fake_state,real_state
     ):
+    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[   :, 4:]
+    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[ :, 4:]
+
     rows, cols = [], []
 
     for b in batch.unique():

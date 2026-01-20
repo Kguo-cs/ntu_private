@@ -217,10 +217,7 @@ class PDInit(nn.Module):
                 real_state = m_init * self.normal_scale.to(non_ego.device) + self.normal_mean.to(non_ego.device)
                 fake_state = x_pred[:,0] * self.normal_scale.to(non_ego.device) + self.normal_mean.to(non_ego.device)
 
-                fake_pos, fake_heading, fake_shape=fake_state[:,:2],torch.atan2(fake_state[:,3],fake_state[:,2]),fake_state[:,4:]
-                real_pos, real_heading, real_shape=real_state[:,:2],torch.atan2(real_state[:,3],real_state[:,2]),real_state[:,4:]
-
-                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, fake_pos,fake_heading,fake_shape,real_pos,real_heading,real_shape)
+                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], batch, fake_state,real_state)
 
                 loss_diff_init=loss_diff_init.mean()
 
