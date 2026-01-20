@@ -247,7 +247,7 @@ class PDInit(nn.Module):
                 RealSamples = m_init * normal_scale + normal_mean
                 FakeSamples = x_pred * normal_scale + normal_mean
 
-                if self.global_step % 10 == 0:
+                if self.global_step %5 == 0:
 
                     RealSamples = RealSamples.detach().requires_grad_(True)
                     FakeSamples = FakeSamples.detach().requires_grad_(True)
