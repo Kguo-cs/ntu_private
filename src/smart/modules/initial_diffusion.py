@@ -223,11 +223,12 @@ class PDInit(nn.Module):
                     map_feature=(pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask], map_mask[low_noise_map_mask])
 
                     tokenized_agent["num_graphs"]=low_noise_map_mask.sum()
-                    old_batch = tokenized_agent["batch"][non_ego][low_noise_mask]
+                    old_batch = tokenized_agent["batch"][non_ego]
 
-                    _, new_batch = torch.unique(old_batch, sorted=True, return_inverse=True)
+                    _, new_batch = torch.unique(old_batch[low_noise_mask], sorted=True, return_inverse=True)
 
                     tokenized_agent["nonego_batch"] = new_batch
+                    old_nonego_type_sorted=tokenized_agent["nonego_type_sorted"].clone()
                     tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][low_noise_mask]
 
                     if self.global_step %10 == 0:
@@ -262,13 +263,13 @@ class PDInit(nn.Module):
                         self.D.train()
                         # loss=torch.tensor(0.0, device=real_heading.device)
 
-                        match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], tokenized_agent["nonego_batch"],
-                                                                                               FakeSamples,RealSamples
+                        match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(old_nonego_type_sorted, old_batch,
+                                                                                               x_pred * normal_scale + normal_mean,m_init * normal_scale + normal_mean
                                                                                                )
 
                         # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
 
-                        loss= (loss+loss_diff_init.mean(), match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
+                        loss= (loss, match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
                         #loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
                     self.global_step += 1
                 else:
