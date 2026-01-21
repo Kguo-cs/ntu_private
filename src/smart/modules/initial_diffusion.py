@@ -63,7 +63,7 @@ class PDInit(nn.Module):
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
 
-        self.use_gan=True
+        self.use_gan=False
 
         if self.use_gan:
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -205,6 +205,8 @@ class PDInit(nn.Module):
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
                 loss_diff_init,x_pred ,t_batch,t = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
+                old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
+                old_batch = tokenized_agent["batch"][non_ego]
 
                 if self.use_gan:
                     pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
@@ -223,12 +225,10 @@ class PDInit(nn.Module):
                     map_feature=(pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask], map_mask[low_noise_map_mask])
 
                     tokenized_agent["num_graphs"]=low_noise_map_mask.sum()
-                    old_batch = tokenized_agent["batch"][non_ego]
 
                     _, new_batch = torch.unique(old_batch[low_noise_mask], sorted=True, return_inverse=True)
 
                     tokenized_agent["nonego_batch"] = new_batch
-                    old_nonego_type_sorted=tokenized_agent["nonego_type_sorted"].clone()
                     tokenized_agent["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][low_noise_mask]
 
                     if self.global_step %10 == 0:
@@ -273,9 +273,12 @@ class PDInit(nn.Module):
                         #loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
                     self.global_step += 1
                 else:
-                    match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
-                                                                                                device=non_ego.device)
-                    loss = (loss_diff_init.mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
+                                                                                                 old_batch,
+                                                                                                 x_pred * normal_scale + normal_mean,
+                                                                                                 m_init * normal_scale + normal_mean
+                                                                                                 )
+                    loss = (match_loss,loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
