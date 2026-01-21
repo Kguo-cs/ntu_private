@@ -106,7 +106,7 @@ class InitGAN(nn.Module):
         FakeSamples = self.G(padding_map_features, tokenized_agent)
         fake_pos = FakeSamples[:, :2]
         fake_heading = torch.atan2(FakeSamples[:,3],FakeSamples[:,2])
-        fake_shape = FakeSamples[:, 3:]
+        fake_shape = FakeSamples[:, -4:]
 
         agent_n=len(FakeSamples)
 
