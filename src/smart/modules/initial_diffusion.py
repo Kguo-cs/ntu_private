@@ -288,17 +288,21 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                # sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                #
+                # sort_idx = sort_rank.argsort()
+                #
+                # tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
+                m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                                                 gt_initial_heading, ego_position, ego_heading)
 
-                sort_idx = sort_rank.argsort()
+                loss_diff_init,pred_init ,t_batch,t = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
 
-                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
-
-                pred_init = self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
-                                                        sampling='ddim',
-                                                        stride=1,
-                                                        if_output_diffusion_process=False,
-                                                        reverse_steps=None)[:,0]
+                # pred_init = self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
+                #                                         sampling='ddim',
+                #                                         stride=1,
+                #                                         if_output_diffusion_process=False,
+                #                                         reverse_steps=None)[:,0]
 
             if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
@@ -307,15 +311,12 @@ class PDInit(nn.Module):
 
             pred_init=pred_init*normal_scale+normal_mean
 
-            # pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
-            # pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-            fake_pos = pred_init[:, :2]
-            fake_heading = torch.atan2(pred_init[:, 3], pred_init[:, 2])
-            fake_shape = pred_init[:, -4:]
+            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
             global_pos,global_heading=transform_to_global(
-                fake_pos,
-                fake_heading,
+                pred_trans,
+                pred_head,
                 ego_position[batch],
                 ego_heading[batch],
             )
@@ -323,21 +324,27 @@ class PDInit(nn.Module):
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
 
+            gt_initial_speed=tokenized_agent["initial_speed"]
+
+            gt_initial_speed[non_ego] =pred_vel.norm(dim=-1)
+
             shape=tokenized_agent["shape"]
 
-            shape[non_ego,:2]=fake_shape[:,:2]
+            shape[non_ego,:2]=pred_shape[:,:2]
 
             tokenized_agent["shape"]= shape
 
-            initial_vel = tokenized_agent["initial_vel"]
+            initial_vel=tokenized_agent["initial_vel"]
 
-            initial_vel[non_ego] = fake_shape[:, -2:]
+            initial_vel[non_ego]=pred_vel
 
             center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None] * 0.5, dim=-1).argmin(-1)
+            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None]*0.5, dim=-1).argmin(-1)
 
-            gt_initial_speed=initial_vel.norm(dim=-1)
+            tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
+
+            tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
