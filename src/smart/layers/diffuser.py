@@ -103,6 +103,9 @@ class InitDiffusion(nn.Module):
         self.P_std=1
 
         self.P_mean=2
+
+        self.steps=50
+
         self.apply(weight_init)
 
     def get_loss(self,
@@ -139,7 +142,8 @@ class InitDiffusion(nn.Module):
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
 
-        t_batch=torch.zeros_like(t_batch)
+        if self.steps==1:
+            t_batch=torch.zeros_like(t_batch)
 
         t=t_batch[agent_batch]
 
@@ -165,11 +169,13 @@ class InitDiffusion(nn.Module):
         return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=1, device="cuda"):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
+
+        steps=self.steps
 
         num_agents = eval_mask.sum()
 
-        z = torch.randn(num_agents,num_samples, 8, device=device)
+        z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
 
         dt = 1.0 / steps
         #ts = cosine_schedule(steps, z.device)
@@ -182,7 +188,7 @@ class InitDiffusion(nn.Module):
            # t = ts[i].expand(z.shape[0],z.shape[1])
            # dt = ts[i + 1] - ts[i]
 
-            t = torch.full((num_agents,num_samples), i / steps, device=device)
+            t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
             if self.x_pred:
                 x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
