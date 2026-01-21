@@ -135,7 +135,7 @@ class InitDiffusion(nn.Module):
         device = x1.device
         num_scenes = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["batch"][eval_mask]
-        mode = self.B_dist.sample()
+        mode =self.B_dist.sample()
 
         x1=x1.unsqueeze(1).repeat(1, num_samples, 1)
 
@@ -174,6 +174,7 @@ class InitDiffusion(nn.Module):
         num_agents = eval_mask.sum()
 
         z = torch.randn(num_agents,num_samples, 8, device=device)
+
         dt = 1.0 / steps
         #ts = cosine_schedule(steps, z.device)
         #ts=torch.linspace(0,1,steps+1,device=device)
@@ -361,7 +362,7 @@ class InitDenoiser(nn.Module):
         self.m_dim = m_dim
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        self.use_roformer=False
+        self.use_roformer=True
 
         if self.use_roformer:
 
@@ -461,8 +462,8 @@ class InitDenoiser(nn.Module):
 
             feat_a_b=feat_a_b+pos_emb
 
-           # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
-            #heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
+            pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
+            heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
 
             for mod in self.entry_formers:
                 feat_a_b = mod(feat_a_b, pos_a_b,
