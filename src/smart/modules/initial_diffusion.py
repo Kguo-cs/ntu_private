@@ -348,7 +348,7 @@ class PDInit(nn.Module):
             if self.latent_diffusion:
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,batch,batch_pl)
 
-            pred_init=pred_init*self.normal_scale.to(non_ego.device)+self.normal_mean.to(non_ego.device)
+            pred_init=pred_init*normal_scale+normal_mean
 
             pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
