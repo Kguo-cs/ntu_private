@@ -63,7 +63,7 @@ class PDInit(nn.Module):
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
 
-        self.use_gan=True
+        self.use_gan=False
 
         if self.use_gan:
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -278,7 +278,7 @@ class PDInit(nn.Module):
                                                                                                  x_pred * normal_scale + normal_mean,
                                                                                                  m_init * normal_scale + normal_mean
                                                                                                  )
-                    loss = (match_loss,loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = (match_loss+loss_diff_init.mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
