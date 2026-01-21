@@ -241,12 +241,14 @@ class PDInit(nn.Module):
 
                     map_mask = torch.any(feat_map != 0, dim=-1)
 
-                    low_noise_mask=t[:,0]>0.9
+                    gap=0.5
+
+                    low_noise_mask=t[:,0]<gap
 
                     RealSamples = m_init[low_noise_mask] * normal_scale + normal_mean
                     FakeSamples = x_pred[low_noise_mask] * normal_scale + normal_mean
 
-                    low_noise_map_mask = t_batch[:,0]<0.1
+                    low_noise_map_mask = t_batch[:,0]<gap
 
                     map_feature=(pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask], map_mask[low_noise_map_mask])
 
