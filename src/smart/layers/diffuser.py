@@ -104,7 +104,7 @@ class InitDiffusion(nn.Module):
 
         self.P_mean=2
 
-        self.steps=50
+        self.steps=1
 
         self.apply(weight_init)
 
@@ -364,7 +364,7 @@ class InitDenoiser(nn.Module):
         self.m_dim = m_dim
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        self.use_roformer=True
+        self.use_roformer=False
 
         if self.use_roformer:
 
@@ -411,7 +411,7 @@ class InitDenoiser(nn.Module):
                     n_embd=hidden_dim,
                     n_head=num_heads,
                     ff_dim=4 * hidden_dim,
-                    dropout=dropout,
+                    dropout=0,
                     layer_id=i,
                 ) for i in range(num_layers)])
 
