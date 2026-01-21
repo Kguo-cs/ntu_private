@@ -211,7 +211,7 @@ class PDInit(nn.Module):
 
                     map_mask = torch.any(feat_map != 0, dim=-1)
 
-                    gap=0
+                    gap=-1
 
                     low_noise_mask=t[:,0]>gap
 
