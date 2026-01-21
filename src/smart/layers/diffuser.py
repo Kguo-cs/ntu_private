@@ -105,10 +105,6 @@ class InitDiffusion(nn.Module):
         self.P_mean=2
         self.apply(weight_init)
 
-
-        #increase mean
-
-
     def get_loss(self,
                  diff_input,
                  tokenized_agent: HeteroData,
@@ -362,7 +358,7 @@ class InitDenoiser(nn.Module):
         self.m_dim = m_dim
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
-        self.use_roformer=False
+        self.use_roformer=True
 
         if self.use_roformer:
 
