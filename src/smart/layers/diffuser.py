@@ -135,7 +135,7 @@ class InitDiffusion(nn.Module):
         device = x1.device
         num_scenes = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["batch"][eval_mask]
-        mode =self.B_dist.sample()
+        mode =1#self.B_dist.sample()
 
         x1=x1.unsqueeze(1).repeat(1, num_samples, 1)
 
