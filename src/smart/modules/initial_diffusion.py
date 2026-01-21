@@ -262,7 +262,7 @@ class PDInit(nn.Module):
                     # RealSamples[:, 2] = torch.atan2(RealSamples[:, 3], RealSamples[:, 2])  #
                     # FakeSamples[:, 2] = torch.atan2(FakeSamples[:, 3], FakeSamples[:, 2])  #
 
-                    if self.global_step %10 == 0:
+                    if self.global_step %5 == 0:
 
                         RealSamples = RealSamples.detach().requires_grad_(True)
                         FakeSamples = FakeSamples.detach().requires_grad_(True)
