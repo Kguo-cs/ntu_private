@@ -267,8 +267,6 @@ class PDInit(nn.Module):
                         match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], tokenized_agent["nonego_batch"],
                                                                                                FakeSamples,RealSamples
                                                                                                )
-                        loss=loss+match_loss+loss_diff_init.mean()
-
 
                         # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
 
