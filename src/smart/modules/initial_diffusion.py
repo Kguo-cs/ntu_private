@@ -307,12 +307,15 @@ class PDInit(nn.Module):
 
             pred_init=pred_init*normal_scale+normal_mean
 
-            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
-            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+            # pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+            # pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+            fake_pos = pred_init[:, :2]
+            fake_heading = torch.atan2(pred_init[:, 3], pred_init[:, 2])
+            fake_shape = pred_init[:, -4:]
 
             global_pos,global_heading=transform_to_global(
-                pred_trans,
-                pred_head,
+                fake_pos,
+                fake_heading,
                 ego_position[batch],
                 ego_heading[batch],
             )
@@ -320,27 +323,21 @@ class PDInit(nn.Module):
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
 
-            gt_initial_speed=tokenized_agent["initial_speed"]
-
-            gt_initial_speed[non_ego] =pred_vel.norm(dim=-1)
-
             shape=tokenized_agent["shape"]
 
-            shape[non_ego,:2]=pred_shape[:,:2]
+            shape[non_ego,:2]=fake_shape[:,:2]
 
             tokenized_agent["shape"]= shape
 
-            initial_vel=tokenized_agent["initial_vel"]
+            initial_vel = tokenized_agent["initial_vel"]
 
-            initial_vel[non_ego]=pred_vel
+            initial_vel[non_ego] = fake_shape[:, -2:]
 
             center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None]*0.5, dim=-1).argmin(-1)
+            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None] * 0.5, dim=-1).argmin(-1)
 
-            tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
-
-            tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
+            gt_initial_speed=initial_vel.norm(dim=-1)
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
