@@ -246,7 +246,7 @@ class PDInit(nn.Module):
                     RealSamples = m_init[low_noise_mask] * normal_scale + normal_mean
                     FakeSamples = x_pred[low_noise_mask] * normal_scale + normal_mean
 
-                    low_noise_map_mask = t_batch[:,0]<0.9
+                    low_noise_map_mask = t_batch[:,0]<0.1
 
                     map_feature=(pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask], map_mask[low_noise_map_mask])
 
