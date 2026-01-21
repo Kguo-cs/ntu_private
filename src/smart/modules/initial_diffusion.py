@@ -63,7 +63,7 @@ class PDInit(nn.Module):
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
 
-        self.use_gan=False
+        self.use_gan=True
 
         if self.use_gan:
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -211,7 +211,7 @@ class PDInit(nn.Module):
 
                     map_mask = torch.any(feat_map != 0, dim=-1)
 
-                    gap=-1
+                    gap=0.5
 
                     low_noise_mask=t[:,0]>gap
 

@@ -44,7 +44,7 @@ ckpt_path: './ckpts/bcgen56_vel2_epoch=31-step=278304_0.78179.ckpt'
 #ckpt_path: './logs/gen128_val256_automap_kl02/2026-01-17_10-19-56/bc/vpblv7bo/checkpoints/epoch=31-step=121760.ckpt'
 #ckpt_path: './logs/auto64_val256_l2l_kl02_egomap_nodownsmaple/2026-01-17_22-01-40/bc/rke1kj6i/checkpoints/epoch=31-step=243520.ckpt'
 
-task_name: dit128_roformer1 #_gan50_t05 #roformer50 #drop0 #roformerPosmode1step50gangan1big05_step50 #rofromer_gan_step15e4_inter5 #loss09_inter5 #_clip #gan128_ego_shape0 #_ #p01_shape002 #dit128_gan #_inter5_gp01  #noclip_match #_n3 #headv05only # #dit128_noclip21_n20 #ego_eval27
+task_name: dit128_roformer1_gan50_t05 #roformer50 #drop0 #roformerPosmode1step50gangan1big05_step50 #rofromer_gan_step15e4_inter5 #loss09_inter5 #_clip #gan128_ego_shape0 #_ #p01_shape002 #dit128_gan #_inter5_gp01  #noclip_match #_n3 #headv05only # #dit128_noclip21_n20 #ego_eval27
 
 trainer:
   limit_train_batches: 1.0
