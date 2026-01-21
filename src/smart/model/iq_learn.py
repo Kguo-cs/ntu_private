@@ -168,7 +168,7 @@ class IQ_SoftQ(LightningModule):
                         self.log('train/shape_loss', shape_loss,  on_step=True,  batch_size=1)
                         self.log('train/vel_loss', vel_loss,  on_step=True,  batch_size=1)
 
-                action_nll = action_nll +loss
+                    action_nll = action_nll +loss
             else:
                 pos_logit, entry_head_logit, entry_offset, pred_shape=pred["initial_logit"]
 
