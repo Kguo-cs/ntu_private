@@ -246,7 +246,7 @@ class PDInit(nn.Module):
                     RealSamples = m_init[low_noise_mask] * normal_scale + normal_mean
                     FakeSamples = x_pred[low_noise_mask] * normal_scale + normal_mean
 
-                    low_noise_map_mask = t_batch[:,0]>0.5
+                    low_noise_map_mask = t_batch[:,0]<0.5
 
                     map_feature=(pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask], map_mask[low_noise_map_mask])
 
@@ -297,7 +297,7 @@ class PDInit(nn.Module):
                                                                                                self.normal_scale.to(non_ego.device),
                                                                                                self.normal_mean.to(non_ego.device),
                                                                                                )
-                        loss=loss*0.1+loss_diff_init.mean()+match_loss*0.1
+                        loss=loss+loss_diff_init.mean()+match_loss
 
 
                         # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
