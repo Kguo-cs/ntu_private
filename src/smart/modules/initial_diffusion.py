@@ -3,7 +3,7 @@ from src.smart.layers import MLPLayer
 
 import torch
 import torch.nn as nn
-from src.smart.layers.init_diffusion import InitDiffusion
+from src.smart.layers.diffuser import InitDiffusion
 from argparse import ArgumentParser
 
 from src.smart.utils import (
@@ -16,7 +16,7 @@ from src.smart.layers.autoencoder import AutoEncoder
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from src.smart.my_model.ldm import LDM
 from src.smart.utils.earth_match import get_matching_loss
-from src.smart.layers.initial_discriminator import InitDiscriminator,InitGeneator
+from src.smart.layers.discriminator import InitDiscriminator,InitGeneator
 from src.smart.layers.relative_transformer import padding
 
 class PDInit(nn.Module):
@@ -30,38 +30,8 @@ class PDInit(nn.Module):
         super(PDInit, self).__init__()
 
         parser = ArgumentParser()
-        parser.add_argument('--train_raw_dir', type=str, default=None)
-        parser.add_argument('--val_raw_dir', type=str, default=None)
-        parser.add_argument('--test_raw_dir', type=str, default=None)
-        parser.add_argument('--train_processed_dir', type=str, default=None)
-        parser.add_argument('--val_processed_dir', type=str, default=None)
-        parser.add_argument('--test_processed_dir', type=str, default=None)
-        parser.add_argument('--accelerator', type=str, default='auto')
-        parser.add_argument('--devices', type=str, default="1")
-        parser.add_argument('--max_epochs', type=int, default=64)
-        parser.add_argument('--check_val_every_n_epoch', type=int, default=1)
-
-        parser.add_argument('--guid_sampling', choices=['no_guid', 'guid'], default='no_guid')
-        parser.add_argument('--guid_task',
-                            choices=['none', 'goal', 'target_vel', 'target_vego', 'rand_goal_rand', 'rand_goal_rand_o'],
-                            default='none')
-        parser.add_argument('--guid_method', choices=['none', 'ECM', 'ECMR'], default='none')
-        parser.add_argument('--guid_plot', choices=['no_plot', 'plot'], default='no_plot')
-        parser.add_argument('--plot', choices=['no_plot', 'plot'], default='no_plot')
-        parser.add_argument('--path_pca_V_k', type=str, default='none')
-
-        parser.add_argument('--cond_norm', type=int, default=0)
-        parser.add_argument('--cost_param_costl', type=float, default=1.0)
-        parser.add_argument('--cost_param_threl', type=float, default=1.0)
-
-        parser.add_argument('--stage', type=str, default='init', choices=['init', 'traj'])
-
         self.add_model_specific_args(parser)
-
         args = parser.parse_args()
-        hidden_dim=args.hidden_dim
-
-
 
         self.latent_diffusion=False
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -262,7 +232,7 @@ class PDInit(nn.Module):
                     # RealSamples[:, 2] = torch.atan2(RealSamples[:, 3], RealSamples[:, 2])  #
                     # FakeSamples[:, 2] = torch.atan2(FakeSamples[:, 3], FakeSamples[:, 2])  #
 
-                    if self.global_step %5 == 0:
+                    if self.global_step %10 == 0:
 
                         RealSamples = RealSamples.detach().requires_grad_(True)
                         FakeSamples = FakeSamples.detach().requires_grad_(True)
@@ -295,9 +265,7 @@ class PDInit(nn.Module):
                         # loss=torch.tensor(0.0, device=real_heading.device)
 
                         match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent['nonego_type_sorted'], tokenized_agent["nonego_batch"],
-                                                                                               FakeSamples,RealSamples,
-                                                                                               self.normal_scale.to(non_ego.device),
-                                                                                               self.normal_mean.to(non_ego.device),
+                                                                                               FakeSamples,RealSamples
                                                                                                )
                         loss=loss+match_loss#+loss_diff_init.mean()
 
@@ -419,6 +387,32 @@ class PDInit(nn.Module):
         parser.add_argument('--sampling_stride', type=int, default=10)
         parser.add_argument('--num_eval_samples', type=int, default=6)
         parser.add_argument('--train_agent', choices=['all', 'eval'], default='all')
+
+        parser.add_argument('--train_raw_dir', type=str, default=None)
+        parser.add_argument('--val_raw_dir', type=str, default=None)
+        parser.add_argument('--test_raw_dir', type=str, default=None)
+        parser.add_argument('--train_processed_dir', type=str, default=None)
+        parser.add_argument('--val_processed_dir', type=str, default=None)
+        parser.add_argument('--test_processed_dir', type=str, default=None)
+        parser.add_argument('--accelerator', type=str, default='auto')
+        parser.add_argument('--devices', type=str, default="1")
+        parser.add_argument('--max_epochs', type=int, default=64)
+        parser.add_argument('--check_val_every_n_epoch', type=int, default=1)
+
+        parser.add_argument('--guid_sampling', choices=['no_guid', 'guid'], default='no_guid')
+        parser.add_argument('--guid_task',
+                            choices=['none', 'goal', 'target_vel', 'target_vego', 'rand_goal_rand', 'rand_goal_rand_o'],
+                            default='none')
+        parser.add_argument('--guid_method', choices=['none', 'ECM', 'ECMR'], default='none')
+        parser.add_argument('--guid_plot', choices=['no_plot', 'plot'], default='no_plot')
+        parser.add_argument('--plot', choices=['no_plot', 'plot'], default='no_plot')
+        parser.add_argument('--path_pca_V_k', type=str, default='none')
+
+        parser.add_argument('--cond_norm', type=int, default=0)
+        parser.add_argument('--cost_param_costl', type=float, default=1.0)
+        parser.add_argument('--cost_param_threl', type=float, default=1.0)
+
+        parser.add_argument('--stage', type=str, default='init', choices=['init', 'traj'])
 
 
         parser.add_argument('--m_dim', type = int,default = 10)

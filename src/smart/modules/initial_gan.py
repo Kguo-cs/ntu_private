@@ -9,7 +9,7 @@ from src.smart.utils import (
     transform_to_local,
 )
 
-from src.smart.layers.initial_discriminator import InitDiscriminator,InitGeneator
+from src.smart.layers.discriminator import InitDiscriminator,InitGeneator
 
 class InitGAN(nn.Module):
     def __init__(
