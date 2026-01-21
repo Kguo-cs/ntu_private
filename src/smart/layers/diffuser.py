@@ -143,7 +143,7 @@ class InitDiffusion(nn.Module):
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
 
-        t_batch=torch.zeros_like(t_batch)
+       # t_batch=torch.zeros_like(t_batch)
 
         t=t_batch[agent_batch]
 
@@ -169,7 +169,7 @@ class InitDiffusion(nn.Module):
         return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5
 
     @torch.no_grad()
-    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=1, device="cuda"):
+    def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask, steps=50, device="cuda"):
 
         num_agents = eval_mask.sum()
 
