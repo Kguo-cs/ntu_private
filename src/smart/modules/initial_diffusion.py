@@ -241,7 +241,7 @@ class PDInit(nn.Module):
 
                     map_mask = torch.any(feat_map != 0, dim=-1)
 
-                    gap=0.9
+                    gap=1
 
                     low_noise_mask=t[:,0]<gap
 
@@ -299,7 +299,7 @@ class PDInit(nn.Module):
                                                                                                self.normal_scale.to(non_ego.device),
                                                                                                self.normal_mean.to(non_ego.device),
                                                                                                )
-                        loss=loss+loss_diff_init.mean()+match_loss
+                        loss=loss+match_loss#+loss_diff_init.mean()
 
 
                         # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
