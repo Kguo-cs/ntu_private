@@ -309,9 +309,9 @@ class PDInit(nn.Module):
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
 
+            if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
 
-            if self.latent_diffusion:
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,batch,batch_pl)
 
             pred_init=pred_init*normal_scale+normal_mean
@@ -349,9 +349,7 @@ class PDInit(nn.Module):
 
             tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
 
-            sorted_id=tokenized_agent['id'][non_ego][sort_idx]
-
-            tokenized_agent['id'][non_ego]=sorted_id
+            tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
 
