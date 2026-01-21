@@ -315,7 +315,7 @@ class InitGeneator(nn.Module):
         self.count_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
         self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-        self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 1)
+        self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
 
         if self.token_processor.pred_vel:
             self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 4)

@@ -94,14 +94,18 @@ class InitGAN(nn.Module):
 
         non_ego = ~ego_mask
 
-        batch = tokenized_agent["batch"][non_ego]
+        batch=tokenized_agent["batch"][non_ego]
+
+        tokenized_agent["nonego_batch"] = batch
+
+        tokenized_agent["nonego_type_sorted"]=tokenized_agent["initial_type"][non_ego]
 
         if self.D.use_entry_former:
             map_feature = padding_map_features
 
         FakeSamples = self.G(padding_map_features, tokenized_agent)
         fake_pos = FakeSamples[:, :2]
-        fake_heading = FakeSamples[:, 2]
+        fake_heading = torch.atan2(FakeSamples[:,3],FakeSamples[:,2])
         fake_shape = FakeSamples[:, 3:]
 
         agent_n=len(FakeSamples)
@@ -121,7 +125,9 @@ class InitGAN(nn.Module):
                                                         ego_heading[batch],
                                                         )
 
-            RealSamples=torch.cat([real_pos, real_heading[:,None], real_shape],dim=-1)
+            init_angle = torch.stack([real_heading.cos(), real_heading.sin()], dim=-1)  # [0,2]
+
+            RealSamples=torch.cat([real_pos, init_angle, real_shape],dim=-1)
 
             if self.global_step % 10 == 0:
 
@@ -175,7 +181,7 @@ class InitGAN(nn.Module):
                 #loss=torch.tensor(0.0, device=real_heading.device)
                 initial_type = tokenized_agent["initial_type"][non_ego]
 
-                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(initial_type, batch, FakeSamples,RealSamples,1,0)
+                match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(initial_type, batch, FakeSamples,RealSamples)
 
                 loss=(loss,match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
 
