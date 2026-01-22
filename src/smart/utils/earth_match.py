@@ -77,7 +77,7 @@ def get_matching_loss(
         real_pos[col], real_heading[col], real_shape[col]
     )
 
-    match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
+    # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss
 
