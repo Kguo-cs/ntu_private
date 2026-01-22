@@ -282,7 +282,7 @@ class PDInit(nn.Module):
                    # match_loss=(match_loss/normal_scale).mean()
                     # match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
                     #                                                                             device=non_ego.device)
-                    loss = (match_loss+loss_diff_init.mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = (match_loss,loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
