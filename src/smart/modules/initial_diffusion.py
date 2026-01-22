@@ -274,7 +274,7 @@ class PDInit(nn.Module):
 
                         # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
 
-                        loss= (loss*0.1, match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
+                        loss= (loss, match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
                         #loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
                     self.global_step += 1
                 else:
