@@ -166,7 +166,7 @@ class InitDiffusion(nn.Module):
 
             x_init_0_reconstructed =x0+v_pred
 
-        return ((v_pred - v_target) ** 2) ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5
+        return F.l1_loss(v_pred , v_target) ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
