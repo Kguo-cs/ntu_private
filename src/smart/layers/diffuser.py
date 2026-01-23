@@ -100,7 +100,7 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.t_eps=5e-5
+        self.t_eps=5e-2
 
         self.P_std=1
 
@@ -173,6 +173,37 @@ class InitDiffusion(nn.Module):
         return F.mse_loss(v_pred , v_target,reduction="none") ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5 #F.l1_loss(x_init_0_reconstructed , x1,reduction="none")
 
     @torch.no_grad()
+    def _euler_step(self, z, t, t_next, labels):
+        v_pred = self._forward_sample(z, t, labels)
+        z_next = z + (t_next - t) * v_pred
+        return z_next
+
+    @torch.no_grad()
+    def _heun_step(self, z, t, t_next, labels):
+        v_pred_t = self._forward_sample(z, t, labels)
+
+        z_next_euler = z + (t_next - t) * v_pred_t
+        v_pred_t_next = self._forward_sample(z_next_euler, t_next, labels)
+
+        v_pred = 0.5 * (v_pred_t + v_pred_t_next)
+        z_next = z + (t_next - t) * v_pred
+        return z_next
+
+    @torch.no_grad()
+    def _forward_sample(self, z, t, labels):
+
+        tokenized_agent, scene_enc, eval_mask=labels
+        num_agents = eval_mask.sum()
+
+        t_n=torch.full((num_agents,1), t, device=eval_mask.device)
+
+        # conditional
+        x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+        v_cond = (x_cond - z) / (1.0 - t).clamp_min(self.t_eps)
+
+        return v_cond
+
+    @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
 
         steps=self.steps
@@ -181,27 +212,34 @@ class InitDiffusion(nn.Module):
 
         z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
 
-        dt = 1.0 / steps
+        #dt = 1.0 / steps
         #ts = cosine_schedule(steps, z.device)
-        #ts=torch.linspace(0,1,steps+1,device=device)
+        timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
 
         #ts = power_schedule(steps, z.device, alpha=2)
-        #ts[0] = 1e-4
+       # ts[0] = 1e-4
        # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
+        # ode
+        for i in range(self.steps - 1):
+            t = timesteps[i]
+            t_next = timesteps[i + 1]
+            z =  self._heun_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+        # last step euler
+        z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
 
-        for i in range(steps):
-               # t = ts[i].expand(z.shape[0],z.shape[1])
-               # dt = ts[i + 1] - ts[i]
-
-            t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
-            if self.x_pred:
-                x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-
-                v_pred = (x_pred - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
-            else:
-                v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-
-            z = z + v_pred * dt
+        # for i in range(steps):
+        #        # t = ts[i].expand(z.shape[0],z.shape[1])
+        #        # dt = ts[i + 1] - ts[i]
+        #
+        #     t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
+        #     if self.x_pred:
+        #         x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+        #
+        #         v_pred = (x_pred - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
+        #     else:
+        #         v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+        #
+        #     z = z + v_pred * dt
 
             #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
