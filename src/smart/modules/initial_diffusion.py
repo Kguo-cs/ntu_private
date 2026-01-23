@@ -298,11 +298,15 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                # sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                #
+                # sort_idx = sort_rank.argsort()
+                #
+                # tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
+                m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                                                 gt_initial_heading, ego_position, ego_heading)
 
-                sort_idx = sort_rank.argsort()
-
-                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
+                tokenized_agent["m_init"]=m_init
 
                 pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',

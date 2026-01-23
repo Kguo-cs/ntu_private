@@ -187,8 +187,9 @@ class InitDiffusion(nn.Module):
         #ts[0] = 1e-4
 
         for i in range(steps):
-           # t = ts[i].expand(z.shape[0],z.shape[1])
-           # dt = ts[i + 1] - ts[i]
+               # t = ts[i].expand(z.shape[0],z.shape[1])
+               # dt = ts[i + 1] - ts[i]
+            z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
             t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
             if self.x_pred:
@@ -199,6 +200,7 @@ class InitDiffusion(nn.Module):
                 v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
             z = z + v_pred * dt
+
 
         return z
 
