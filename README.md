@@ -109,7 +109,6 @@ git pull
 
 
 ssh 10.87.114.128
-ulimit -n 65535
 source "/home/ke/miniconda3/bin/activate"
 cd /home/ke/keguo/sim/src
 conda activate sim
