@@ -137,6 +137,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pre
         gt_samples.append(unified_data)
         gt_samples.append(unified_data)
 
+
 # unified format for computing metrics
 # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
 UNIFIED_FORMAT_INDICES = {
@@ -380,6 +381,9 @@ def compute_jsd_metrics(samples, gt_samples):
 
         lanes_real = resample_lanes(data_real['lanes'], num_points=100)
         onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
+
+        # if len(onroad_vehicles_real)!=len(onroad_vehicles_gen):
+        #     print('error')
 
         if len(vehicles_real) > 1:
             nearest_dist_real_all.append(get_nearest_dists(vehicles_real))

@@ -116,14 +116,14 @@ class PDInit(nn.Module):
 
         dist = init_trans[:, 0] + init_trans[:, 1]  # +200#torch.norm(init_trans, dim=-1)
 
-        dist_max = dist.max().abs() +dist.min().abs()
+        dist_max = dist.max().abs() +dist.min().abs()+1
 
         sort_rank = batch.to(torch.float64) * dist_max * 3 + nonego_type.to(torch.float64) * dist_max + dist.to(
             torch.float64)  # -ego_mask.float()#+dist#dist sorted
 
         sort_idx = sort_rank.argsort()
 
-       # sort_idx=torch.arange(len(sort_idx))
+        sort_idx=torch.arange(len(sort_idx))
         #sort_idx = torch.arange(len(sort_idx), device=non_ego.device)
 
         m_init = m_init[sort_idx]
@@ -301,21 +301,23 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
-                #                                  gt_initial_heading, ego_position, ego_heading)
+                m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                                                 gt_initial_heading, ego_position, ego_heading)
+
+                tokenized_agent["m_init"]=m_init
+                # sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
                 #
-                # tokenized_agent["m_init"]=m_init
-                sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
-
-                sort_idx = sort_rank.argsort()
-
-                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
+                # sort_idx = sort_rank.argsort()
+                #
+                # tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
 
                 pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
                                                         stride=1,
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
+
+                # pred_init=m_init
 
                 #pred_init[...,2:]=m_init[...,2:]
 
@@ -446,53 +448,3 @@ class PDInit(nn.Module):
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
-
-    # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
-    #                                  gt_initial_heading, ego_position, ego_heading)
-    #
-    # loss_diff_init,pred_init ,t_batch,t = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
-
-    # pred_init=pred_init*normal_scale+normal_mean
-    # num_samples=1
-    # pred_trans, pred_head,pred_shape, pred_speed = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:7], pred_init[..., -1]
-
-    # target_origin = init_trans[sort_idx].unsqueeze(1).repeat(1, num_samples, 1)
-    # target_theta = init_angle[sort_idx].unsqueeze(1).repeat(1, num_samples,1)
-    # target_speed = init_speed[sort_idx].unsqueeze(1).repeat(1, num_samples)
-    #
-    # loss_trans = torch.nn.HuberLoss()(pred_trans, target_origin)
-    # loss_rot2 = torch.nn.HuberLoss()(pred_head, target_theta)
-    # loss_speed = torch.nn.HuberLoss()(pred_speed,target_speed)
-    #
-    # loss_diff_trans = loss_diff_init[..., :2].mean()
-    # loss_diff_theta = loss_diff_init[..., 2:4].mean()
-    # loss_diff_speed = loss_diff_init[..., -1].mean()
-
-    # weight=torch.tensor([[1,  1,  1, 1,  0.1,  0.1, 0.1,  1]],device=non_ego.device)
-    # pred_count=pred_init[..., :6].reshape(-1,3,2)
-    #
-    # # center (diagonal midpoint)
-    # pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
-    #
-    # diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
-    #
-    # # width & length
-    # width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
-    # length = torch.norm(diff_xy_next,dim=-1)
-    #
-    # pred_head = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
-    #
-    # pred_speed=pred_init[..., -1]
-    #
-    # pred_shape=torch.stack([length,width,pred_init[..., 6]], dim=-1)
-
-# if self.token_processor.pred_vel:
-#     vel=fake_shape[:,3:]
-#
-#     center_token_traj=tokenized_agent["token_traj"][non_ego].mean(-2)
-#
-#     gt_initial_idx[non_ego]=torch.linalg.norm(center_token_traj-vel[:,None],dim=-1).argmin(-1)
-#     gt_initial_speed[non_ego]=vel.norm(dim=-1)/0.5
-# gt_initial_pos = tokenized_agent["gt_initial_pos"][:, 0]
-# gt_initial_heading = tokenized_agent["gt_initial_heading"][:, 0]
-# gt_initial_speed=tokenized_agent["gt_initial_speed"]
