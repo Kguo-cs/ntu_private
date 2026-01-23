@@ -104,7 +104,7 @@ class InitDiffusion(nn.Module):
 
         self.P_mean=2
 
-        self.steps=50
+        self.steps=1
 
         self.apply(weight_init)
 
