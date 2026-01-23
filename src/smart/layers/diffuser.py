@@ -100,13 +100,13 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.t_eps=5e-2
+        self.t_eps=5e-5
 
         self.P_std=1
 
         self.P_mean=2
 
-        self.steps=1
+        self.steps=50
 
         self.apply(weight_init)
 
@@ -156,7 +156,7 @@ class InitDiffusion(nn.Module):
         if self.x_pred:
             v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
-            x_pred = self.net(copy.deepcopy(z), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
+            x_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
                               mode=mode)
 
             v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
@@ -166,7 +166,7 @@ class InitDiffusion(nn.Module):
         else:
             v_target =x1 - x0
 
-            v_pred = self.net(copy.deepcopy(z), t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+            v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
 
             x_init_0_reconstructed =x0+v_pred
 
