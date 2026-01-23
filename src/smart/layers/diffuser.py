@@ -185,11 +185,11 @@ class InitDiffusion(nn.Module):
 
         #ts = power_schedule(steps, z.device, alpha=2)
         #ts[0] = 1e-4
+        z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
 
         for i in range(steps):
                # t = ts[i].expand(z.shape[0],z.shape[1])
                # dt = ts[i + 1] - ts[i]
-            z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
             t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
             if self.x_pred:
@@ -201,6 +201,7 @@ class InitDiffusion(nn.Module):
 
             z = z + v_pred * dt
 
+            z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
         return z
 

@@ -116,12 +116,14 @@ class PDInit(nn.Module):
 
         dist = init_trans[:, 0] + init_trans[:, 1]  # +200#torch.norm(init_trans, dim=-1)
 
-        dist_max = dist.max() + 1
+        dist_max = dist.max().abs() +dist.min().abs()
 
         sort_rank = batch.to(torch.float64) * dist_max * 3 + nonego_type.to(torch.float64) * dist_max + dist.to(
             torch.float64)  # -ego_mask.float()#+dist#dist sorted
 
         sort_idx = sort_rank.argsort()
+
+        #sort_idx=torch.arange(len(sort_idx))
 
         m_init = m_init[sort_idx]
 
