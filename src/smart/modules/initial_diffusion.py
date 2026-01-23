@@ -283,9 +283,9 @@ class PDInit(nn.Module):
                    # match_loss=(match_loss/normal_scale).mean()
                     match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
                                                                                                 device=non_ego.device)
-                    #weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)#*weight
+                    weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)*normal_mean[None]
 
-                    loss = ((loss_diff_init).mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = ((loss_diff_init*weight).mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
