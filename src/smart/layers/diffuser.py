@@ -149,7 +149,7 @@ class InitDiffusion(nn.Module):
 
         z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
 
-        z[...,2:]=x1[...,2:]
+       # z[...,2:]=x1[...,2:]
 
         if self.x_pred:
             v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
@@ -185,7 +185,7 @@ class InitDiffusion(nn.Module):
 
         #ts = power_schedule(steps, z.device, alpha=2)
         #ts[0] = 1e-4
-        z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
+       # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
 
         for i in range(steps):
                # t = ts[i].expand(z.shape[0],z.shape[1])
@@ -201,7 +201,7 @@ class InitDiffusion(nn.Module):
 
             z = z + v_pred * dt
 
-            z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
+            #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
         return z
 

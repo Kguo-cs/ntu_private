@@ -123,8 +123,6 @@ class PDInit(nn.Module):
 
         sort_idx = sort_rank.argsort()
 
-        #sort_idx=torch.arange(len(sort_idx))
-
         m_init = m_init[sort_idx]
 
         tokenized_agent['nonego_type_sorted'] = nonego_type[sort_idx]
@@ -288,7 +286,7 @@ class PDInit(nn.Module):
                     #weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)*normal_mean[None]
                     weight=1
 
-                    loss = ((loss_diff_init[...,:2]*weight).mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = ((loss_diff_init*weight).mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
@@ -300,15 +298,15 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                # sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
-                #
-                # sort_idx = sort_rank.argsort()
-                #
-                # tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
-                m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
-                                                 gt_initial_heading, ego_position, ego_heading)
+                sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
 
-                tokenized_agent["m_init"]=m_init
+                sort_idx = sort_rank.argsort()
+
+                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
+                # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                #                                  gt_initial_heading, ego_position, ego_heading)
+                #
+                # tokenized_agent["m_init"]=m_init
 
                 pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
