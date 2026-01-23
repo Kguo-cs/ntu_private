@@ -114,7 +114,7 @@ class PDInit(nn.Module):
 
         m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
 
-        dist = init_trans[:, 0] + init_trans[:, 1]  # +200#torch.norm(init_trans, dim=-1)
+        dist = torch.norm(init_trans, dim=-1)#init_trans[:, 0] + init_trans[:, 1]  # +200#
 
         dist_max = dist.max().abs() +dist.min().abs()+1
 
@@ -123,7 +123,7 @@ class PDInit(nn.Module):
 
         sort_idx = sort_rank.argsort()
 
-        sort_idx=torch.arange(len(sort_idx))
+        #sort_idx=torch.arange(len(sort_idx))
         #sort_idx = torch.arange(len(sort_idx), device=non_ego.device)
 
         m_init = m_init[sort_idx]
@@ -139,12 +139,13 @@ class PDInit(nn.Module):
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
 
-        gt_initial_pos = tokenized_agent["initial_pos"]
-        gt_initial_heading = tokenized_agent["initial_heading"]
+        gt_initial_pos = tokenized_agent["initial_pos"].clone()
+        gt_initial_heading = tokenized_agent["initial_heading"].clone()
 
         num_graphs=tokenized_agent["num_graphs"]
 
         ego_mask = tokenized_agent["ego_mask"]
+        non_ego = ~ego_mask
 
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
@@ -169,7 +170,6 @@ class PDInit(nn.Module):
         feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
-        non_ego = ~ego_mask
 
         batch = tokenized_agent["batch"][non_ego].clone()
 
@@ -301,15 +301,15 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
-                                                 gt_initial_heading, ego_position, ego_heading)
+                # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                #                                  gt_initial_heading, ego_position, ego_heading)
+                #
+                # tokenized_agent["m_init"]=m_init
+                sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
 
-                tokenized_agent["m_init"]=m_init
-                # sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
-                #
-                # sort_idx = sort_rank.argsort()
-                #
-                # tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
+                sort_idx = sort_rank.argsort()
+
+                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
 
                 pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
@@ -359,17 +359,17 @@ class PDInit(nn.Module):
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
 
-            gt_initial_speed=tokenized_agent["initial_speed"]
+            gt_initial_speed=tokenized_agent["initial_speed"].clone()
 
             gt_initial_speed[non_ego] =pred_vel.norm(dim=-1)
 
-            shape=tokenized_agent["shape"]
+            shape=tokenized_agent["initial_shape"].clone()
 
             shape[non_ego,:2]=pred_shape[:,:2]
 
             tokenized_agent["shape"]= shape
 
-            initial_vel=tokenized_agent["initial_vel"]
+            initial_vel=tokenized_agent["initial_vel"].clone()
 
             initial_vel[non_ego]=pred_vel
 

@@ -117,15 +117,15 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pre
 
         unified_data = {
             'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-            'vehicles': vehicles[:, 0]
+            'vehicles': vehicles
         }
         samples.append(unified_data)
 
-        unified_data = {
-            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-            'vehicles': vehicles[:, 1]
-        }
-        samples.append(unified_data)
+        # unified_data = {
+        #     'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+        #     'vehicles': vehicles[:, 1]
+        # }
+        # samples.append(unified_data)
 
         real_vehicles = real_state[(batch == b) & (gt_type == 0)].cpu().numpy()
 
@@ -135,7 +135,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pre
         }
 
         gt_samples.append(unified_data)
-        gt_samples.append(unified_data)
+        #gt_samples.append(unified_data)
 
 
 # unified format for computing metrics
@@ -176,47 +176,51 @@ def compute_collision_rate(samples):
     collision=[]
     for i in range(len(samples)):
         data = samples[i]
-        vehicles = data['vehicles']
 
-        centroids_all = []
-        radii_all = []
-        for vehicle in vehicles:
-            # vehicle: [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-            heading = np.arctan2(vehicle[UNIFIED_FORMAT_INDICES['sin_heading']],
-                                 vehicle[UNIFIED_FORMAT_INDICES['cos_heading']])
-            centroids, radii = compute_vehicle_circles(vehicle[:UNIFIED_FORMAT_INDICES['pos_y'] + 1],
-                                                       heading,
-                                                       vehicle[UNIFIED_FORMAT_INDICES['length']],
-                                                       vehicle[UNIFIED_FORMAT_INDICES['width']])
-            centroids_all.append(centroids)
-            radii_all.append(radii)
-        centroids_all = np.array(centroids_all)
-        radii_all = np.array(radii_all)
+        for j in range(data['vehicles'].shape[1]):
+            vehicles = data['vehicles'][:,j]
 
-        num_vehicles_in_collision = 0
-        for j in range(len(vehicles)):
-            is_in_collision = False
-            for k in range(len(vehicles)):
-                if j == k:
-                    continue
+            centroids_all = []
+            #radii_all = []
+            for vehicle in vehicles:
+                # vehicle: [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+                heading = np.arctan2(vehicle[UNIFIED_FORMAT_INDICES['sin_heading']],
+                                     vehicle[UNIFIED_FORMAT_INDICES['cos_heading']])
+                centroids, radii = compute_vehicle_circles(vehicle[:UNIFIED_FORMAT_INDICES['pos_y'] + 1],
+                                                           heading,
+                                                           vehicle[UNIFIED_FORMAT_INDICES['length']],
+                                                           vehicle[UNIFIED_FORMAT_INDICES['width']])
+                centroids_all.append(centroids)
+               # radii_all.append(radii)
+            centroids_all = np.array(centroids_all)
+            #radii_all = np.array(radii_all)
 
-                thresh = (vehicles[j, 6] + vehicles[k, 6]) / np.sqrt(3.8)
-                dist = np.linalg.norm(centroids_all[j, :, None] - centroids_all[k, None, :], axis=-1)
-                bad = dist < thresh
-                if bad.sum() >= 1:
-                    is_in_collision = True
-                    break
+            num_vehicles_in_collision = 0
+            for j in range(len(vehicles)):
+                is_in_collision = False
+                for k in range(len(vehicles)):
+                    if j == k:
+                        continue
 
-            if is_in_collision:
-                num_vehicles_in_collision += 1
-                collision.append(True)
-            else:
-                collision.append(False)
+                    thresh = (vehicles[j, 6] + vehicles[k, 6]) / np.sqrt(3.8)
+                    dist = np.linalg.norm(centroids_all[j, :, None] - centroids_all[k, None, :], axis=-1)
+                    bad = dist < thresh
+                    if bad.sum() >= 1:
+                        is_in_collision = True
+                        break
 
-        num_vehicles_in_collision_all += num_vehicles_in_collision
-        num_vehicles_all += len(vehicles)
+                if is_in_collision:
+                    num_vehicles_in_collision += 1
+                    collision.append(True)
+                else:
+                    collision.append(False)
+
+            num_vehicles_in_collision_all += num_vehicles_in_collision
+            num_vehicles_all += len(vehicles)
 
     return num_vehicles_in_collision_all / num_vehicles_all,np.stack(collision, axis=0)
+
+#nearest_dist_jsd=0.000, lat_dev_jsd=0.000, ang_dev_jsd=0.000, length_jsd=0.000, width_jsd=0.000, speed_jsd=0.000, collision_rate=0.332
 
 
 def get_onroad_vehicles(vehicles, lanes, tol=1.5):
@@ -362,19 +366,20 @@ def compute_jsd_metrics(samples, gt_samples):
 
     for i in range(len(samples)):
         data_gen = samples[i]
-        vehicles_gen = data_gen['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-        # resample lanes to higher resolution
-        lanes_gen = resample_lanes(data_gen['lanes'], num_points=100)
-        onroad_vehicles_gen = get_onroad_vehicles(vehicles_gen, lanes_gen)
+        for j in range(data_gen['vehicles'].shape[1]):
+            vehicles_gen = data_gen['vehicles'][:,j] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+            # resample lanes to higher resolution
+            lanes_gen = resample_lanes(data_gen['lanes'], num_points=100)
+            onroad_vehicles_gen = get_onroad_vehicles(vehicles_gen, lanes_gen)
 
-        if len(vehicles_gen) > 1:
-            nearest_dist_gen_all.append(get_nearest_dists(vehicles_gen))
-        if len(onroad_vehicles_gen) > 0:
-            lat_dev_gen_all.append(get_lateral_devs(onroad_vehicles_gen, lanes_gen))
-            ang_dev_gen_all.append(get_angular_devs(onroad_vehicles_gen, lanes_gen))
-        length_gen_all.append(get_lengths(vehicles_gen))
-        width_gen_all.append(get_widths(vehicles_gen))
-        speed_gen_all.append(get_speeds(vehicles_gen))
+            if len(vehicles_gen) > 1:
+                nearest_dist_gen_all.append(get_nearest_dists(vehicles_gen))
+            if len(onroad_vehicles_gen) > 0:
+                lat_dev_gen_all.append(get_lateral_devs(onroad_vehicles_gen, lanes_gen))
+                ang_dev_gen_all.append(get_angular_devs(onroad_vehicles_gen, lanes_gen))
+            length_gen_all.append(get_lengths(vehicles_gen))
+            width_gen_all.append(get_widths(vehicles_gen))
+            speed_gen_all.append(get_speeds(vehicles_gen))
 
         data_real = gt_samples[i]
         vehicles_real = data_real['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
