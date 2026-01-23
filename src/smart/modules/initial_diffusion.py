@@ -277,19 +277,19 @@ class PDInit(nn.Module):
                         loss= (loss, match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
                     self.global_step += 1
                 else:
-                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
-                    #                                                                              old_batch,
-                    #                                                                              x_pred * normal_scale + normal_mean,
-                    #                                                                              m_init * normal_scale + normal_mean,
-                    #                                                                              )
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
+                                                                                                 old_batch,
+                                                                                                 x_pred * normal_scale + normal_mean,
+                                                                                                 m_init * normal_scale + normal_mean,
+                                                                                                 )
 
                    # match_loss=(match_loss/normal_scale).mean()
-                    match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
-                                                                                                device=non_ego.device)
+                   #  match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
+                   #                                                                              device=non_ego.device)
                    #  #weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)*normal_mean[None]
                    #  weight=1
 
-                    loss = (loss_diff_init.mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = (match_loss,loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
