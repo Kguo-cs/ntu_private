@@ -45,7 +45,7 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
-        self.use_count=True
+        self.use_count=False
 
         if self.use_count:
             self.normal_scale = torch.tensor([[35.105, 29.893, 35.130, 30.152, 35.201, 30.277,  5.155,  0.281]])
@@ -283,7 +283,9 @@ class PDInit(nn.Module):
                    # match_loss=(match_loss/normal_scale).mean()
                     match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
                                                                                                 device=non_ego.device)
-                    loss = (loss_diff_init.mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)
+
+                    loss = ((loss_diff_init*weight).mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
