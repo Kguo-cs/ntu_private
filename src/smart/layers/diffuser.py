@@ -149,6 +149,8 @@ class InitDiffusion(nn.Module):
 
         z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
 
+        z[...,2:]=x1[...,2:]
+
         if self.x_pred:
             v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
@@ -166,7 +168,7 @@ class InitDiffusion(nn.Module):
 
             x_init_0_reconstructed =x0+v_pred
 
-        return F.l1_loss(x_init_0_reconstructed , x1,reduction="none") ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5
+        return F.l1_loss(v_pred , v_target,reduction="none") ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5 #F.l1_loss(x_init_0_reconstructed , x1,reduction="none")
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
