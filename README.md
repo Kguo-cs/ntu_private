@@ -217,3 +217,10 @@ pip install torch_scatter torch_cluster -f  https://data.pyg.org/whl/torch-2.7.0
 pip install -r install/requirements.txt
 pip install --no-cache-dir --no-deps waymo-open-dataset-tf-2-12-0==1.6.5
 pip install shapely==2.1.1
+
+
+crontab -e
+* * * * * /home/ke/wifi_auto_reconnect.sh >> /home/ke/wifi.log 2>&1
+sudo visudo
+ke ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/systemctl
+
