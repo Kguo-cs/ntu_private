@@ -45,17 +45,18 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
-        # normal_scale = torch.tensor([[35.015, 30.428, 35.051, 30.752, 35.069, 30.859,  0.279,  5.282]],device=non_ego.device)
-        # normal_mean = torch.tensor([[3.678, 5.166, 3.667, 4.573, 3.401, 4.577, 1.736,  2.799]],device=non_ego.device)
-        # self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
-        # self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
-        #  5.619e-01, -1.836e-02]])
-        # self.normal_scale = torch.tensor([[34.502, 30.074,  0.757,  0.646,  1.388,  0.424,  5.213,  2.228]])
-        # self.normal_mean = torch.tensor([[1.219e+00,  3.798e+00,  1.010e-01,  1.835e-03,  4.400e+00,  1.986e+00,
-        #  5.619e-01, -1.836e-02]])
-        self.normal_scale = torch.tensor([[35.013, 30.234,  0.764,  0.638,  1.326,  0.417,  4.860,  0.230]])
-        self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
-        2.447e+00, 1.321e-03]])
+        self.use_count=True
+
+        if self.use_count:
+            self.normal_scale = torch.tensor([[35.105, 29.893, 35.130, 30.152, 35.201, 30.277,  5.155,  0.281]])
+            self.normal_mean = torch.tensor([[2.797e+00,  1.178e+00,  2.839e+00,  6.951e-01,  2.621e+00,  6.769e-01,
+         2.648e+00, -1.963e-03]])
+
+        else:
+
+            self.normal_scale = torch.tensor([[35.013, 30.234, 0.764, 0.638, 1.326, 0.417, 4.860, 0.230]])
+            self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
+                                              2.447e+00, 1.321e-03]])
 
         self.agent_latents_scale=torch.tensor([[0.959, 1.041, 1.039, 0.991, 0.985, 1.046, 0.959, 0.951]])
         self.agent_latents_mean=torch.tensor([[-0.205,  0.022,  0.032,  0.005, -0.007, -0.051, -0.004,  0.007]])
@@ -63,7 +64,7 @@ class PDInit(nn.Module):
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
 
-        self.use_gan=True
+        self.use_gan=False
 
         if self.use_gan:
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -95,25 +96,21 @@ class PDInit(nn.Module):
         non_ego_pos=gt_initial_pos[non_ego]
         non_ego_head=gt_initial_heading[non_ego]
 
-        real_pos, real_heading = transform_to_local(non_ego_pos,
+        init_trans, real_heading = transform_to_local(non_ego_pos,
                                                     non_ego_head,
                                                     ego_position[batch],
                                                     ego_heading[batch],
                                                     )
 
-        init_trans = real_pos[:, :2]
+        if self.use_count:
+            initial_contour=cal_polygon_contour(init_trans[:,None,None],real_heading[:,None,None],initial_shape[:,None,None,:2])
+            m_init = torch.cat([initial_contour[:, 0, 0, :3].flatten(1, 2), real_vel], dim=-1)
+        else:
+            delta_rot = real_heading.unsqueeze(-1)
 
-        # initial_contour=cal_polygon_contour(init_trans[:,None,None],real_heading[:,None,None],real_shape[:,None,None,:2])
+            init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
 
-        delta_rot = real_heading.unsqueeze(-1)
-
-        init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
-
-        #init_speed = initial_vel.norm(dim=-1)
-
-        m_init = torch.cat([init_trans, init_angle, initial_shape[:,:2], real_vel], dim=-1)
-
-        # m_init = torch.cat([initial_contour[:,0,0,:3].flatten(1,2), initial_shape[:,-1:],init_speed[:,None]], dim=-1)
+            m_init = torch.cat([init_trans, init_angle, initial_shape[:,:2], real_vel], dim=-1)
 
         m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
 
@@ -275,19 +272,18 @@ class PDInit(nn.Module):
                         match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
 
                         loss= (loss+loss_diff_init.mean(), match_loss,pos_loss,heading_loss,shape_loss,vel_loss)
-                        #loss_diff_init,match_loss,pos_loss,heading_loss,shape_loss,vel_loss
                     self.global_step += 1
                 else:
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
-                                                                                                 old_batch,
-                                                                                                 x_pred * normal_scale + normal_mean,
-                                                                                                 m_init * normal_scale + normal_mean,
-                                                                                                 )
-
+                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
+                    #                                                                              old_batch,
+                    #                                                                              x_pred * normal_scale + normal_mean,
+                    #                                                                              m_init * normal_scale + normal_mean,
+                    #                                                                              )
+                    #
                    # match_loss=(match_loss/normal_scale).mean()
-                    # match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
-                    #                                                                             device=non_ego.device)
-                    loss = (match_loss,loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
+                                                                                                device=non_ego.device)
+                    loss = (loss_diff_init.mean(),loss_diff_init.mean(), match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
@@ -304,10 +300,6 @@ class PDInit(nn.Module):
                 sort_idx = sort_rank.argsort()
 
                 tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
-                # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
-                #                                  gt_initial_heading, ego_position, ego_heading)
-                #
-                # loss_diff_init,pred_init ,t_batch,t = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
 
                 pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
@@ -322,8 +314,26 @@ class PDInit(nn.Module):
 
             pred_init=pred_init*normal_scale+normal_mean
 
-            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
-            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+            if self.use_count:
+                pred_count = pred_init[..., :6].reshape(-1, 3, 2)
+
+                pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
+
+                diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
+
+                # width & length
+                width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
+                length = torch.norm(diff_xy_next,dim=-1)
+
+                pred_head = torch.atan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+
+                pred_vel=pred_init[..., -2:]
+
+                pred_shape = torch.stack([length, width], dim=-1)
+
+            else:
+                pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+                pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
 
             global_pos,global_heading=transform_to_global(
                 pred_trans,
@@ -424,6 +434,11 @@ class PDInit(nn.Module):
     def ZeroCenteredGradientPenalty(self,Samples, Critics):
         Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
         return Gradient.square().sum([-1])
+
+    # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+    #                                  gt_initial_heading, ego_position, ego_heading)
+    #
+    # loss_diff_init,pred_init ,t_batch,t = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
 
     # pred_init=pred_init*normal_scale+normal_mean
     # num_samples=1

@@ -104,7 +104,7 @@ class InitDiffusion(nn.Module):
 
         self.P_mean=2
 
-        self.steps=10
+        self.steps=50
 
         self.apply(weight_init)
 
@@ -243,11 +243,6 @@ class InitDiffusion(nn.Module):
                sampling="ddpm",
                stride=20,
                if_output_diffusion_process=False,
-               grad_guid=None,
-               cond_gen=None,
-               guid_param=None,
-               uc=None,
-               clean_data=None,
                ) -> Dict[str, torch.Tensor]:
         if self.flow_matching:
             return self.sample_flow(num_samples, data, scene_enc,    eval_mask)
