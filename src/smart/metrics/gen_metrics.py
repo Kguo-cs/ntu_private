@@ -48,6 +48,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pre
     gt_sin = torch.sin(data["agent"]["heading"][:, 10])
     gt_shape = data["agent"]["shape"]
     gt_pos = data["agent"]["position"][:, 10, :2]
+    gt_type= data["agent"]["type"]
 
     real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2]],
                            dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
@@ -126,7 +127,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pre
         }
         samples.append(unified_data)
 
-        real_vehicles = real_state[(batch == b) & (type == 0)].cpu().numpy()
+        real_vehicles = real_state[(batch == b) & (gt_type == 0)].cpu().numpy()
 
         unified_data = {
             'lanes': compact_centerlines,  # [num_lanes, 20, 2]

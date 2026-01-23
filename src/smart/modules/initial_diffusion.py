@@ -64,7 +64,7 @@ class PDInit(nn.Module):
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
 
-        self.use_gan=True
+        self.use_gan=False
 
         if self.use_gan:
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
@@ -122,6 +122,9 @@ class PDInit(nn.Module):
             torch.float64)  # -ego_mask.float()#+dist#dist sorted
 
         sort_idx = sort_rank.argsort()
+
+       # sort_idx=torch.arange(len(sort_idx))
+        #sort_idx = torch.arange(len(sort_idx), device=non_ego.device)
 
         m_init = m_init[sort_idx]
 
@@ -298,21 +301,23 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
+                # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                #                                  gt_initial_heading, ego_position, ego_heading)
+                #
+                # tokenized_agent["m_init"]=m_init
                 sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
 
                 sort_idx = sort_rank.argsort()
 
                 tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
-                # m_init, sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
-                #                                  gt_initial_heading, ego_position, ego_heading)
-                #
-                # tokenized_agent["m_init"]=m_init
 
                 pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
                                                         stride=1,
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
+
+                #pred_init[...,2:]=m_init[...,2:]
 
             if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
