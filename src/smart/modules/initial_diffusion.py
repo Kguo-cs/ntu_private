@@ -317,7 +317,7 @@ class PDInit(nn.Module):
                                                         if_output_diffusion_process=False,
                                                         reverse_steps=None)[:,0]
 
-                # pred_init=m_init
+                #pred_init=m_init
 
                 #pred_init[...,2:]=m_init[...,2:]
 
