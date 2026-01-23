@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Name of your Wi-Fi interface (usually wlan0 or similar)
-WIFI_INTERFACE="wlo1"
+WIFI_INTERFACE="wlp100s0"
 
 # Your Wi-Fi SSID
 SSID="NTUSECURE"
