@@ -168,6 +168,7 @@ class PDInit(nn.Module):
         init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
 
         feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
+       # feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 
@@ -388,7 +389,7 @@ class PDInit(nn.Module):
         parser = parent_parser.add_argument_group('QCNet')
         parser.add_argument('--dataset', type=str, default='argoverse_v2')
         parser.add_argument('--input_dim', type=int, default=2)
-        parser.add_argument('--hidden_dim', type=int, default=128)
+        parser.add_argument('--hidden_dim', type=int, default=256)
         parser.add_argument('--output_dim', type=int, default=2)
         parser.add_argument('--output_head', action='store_true')
         parser.add_argument('--init_timestep', type=int, default=50)
