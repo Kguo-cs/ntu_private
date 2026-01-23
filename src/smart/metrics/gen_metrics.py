@@ -220,9 +220,6 @@ def compute_collision_rate(samples):
 
     return num_vehicles_in_collision_all / num_vehicles_all,np.stack(collision, axis=0)
 
-#nearest_dist_jsd=0.000, lat_dev_jsd=0.000, ang_dev_jsd=0.000, length_jsd=0.000, width_jsd=0.000, speed_jsd=0.000, collision_rate=0.332
-
-
 def get_onroad_vehicles(vehicles, lanes, tol=1.5):
     """ Filters the vehicles that are on the road based on their distance to the lanes."""
     lanes = lanes.reshape(-1, 2)
