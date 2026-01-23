@@ -48,8 +48,7 @@ from src.smart.layers.relative_transformer import RoFormerBlock, padding
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
 def power_schedule(steps, device, alpha=2.0):
-    t = torch.linspace(0., 1., steps + 1, device=device)
-    return t ** alpha
+    return  1 - (1 - torch.linspace(0, 1, steps, device=device)) **alpha
 
 def cosine_schedule(steps, device):
     i = torch.arange(steps + 1, device=device)
@@ -100,7 +99,7 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.t_eps=5e-2
+        self.t_eps=5e-5
 
         self.P_std=1
 
@@ -126,7 +125,9 @@ class InitDiffusion(nn.Module):
     def sample_t(self, n: int, device=None):
         # z = torch.randn(n, device=device) * self.P_std + self.P_mean
         # z = torch.sigmoid(z)
-        z=torch.rand(n, device=device)#torch.randint(low=0,high=self.steps,size=(n,),device=device)/self.steps#
+        timesteps = power_schedule(self.steps+1, device, alpha=2)
+
+        z=timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#torch.rand(n, device=device)#
         return z
 
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
@@ -157,7 +158,7 @@ class InitDiffusion(nn.Module):
             v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
             x_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
-                              mode=mode)
+                              mode=mode) #t=0 ,0.1
 
             v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
 
@@ -214,9 +215,9 @@ class InitDiffusion(nn.Module):
 
         #dt = 1.0 / steps
         #ts = cosine_schedule(steps, z.device)
-        timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
+        #timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
 
-        #ts = power_schedule(steps, z.device, alpha=2)
+        timesteps = power_schedule(steps+1, z.device, alpha=2)
        # ts[0] = 1e-4
        # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
         # ode
