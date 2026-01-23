@@ -29,7 +29,102 @@ def resample_polyline(points, num_points=20):
 
     return new_points
 
+def compute_vehicle_bounds(vehicles_real, vehicles_gen, margin=5.0):
+    """
+    vehicles_*: [N, 7] arrays
+    margin: extra meters around vehicles
+    """
+    all_vehicles = np.concatenate([vehicles_real, vehicles_gen], axis=0)
 
+    xs = all_vehicles[:, 0]
+    ys = all_vehicles[:, 1]
+
+    x_min, x_max = xs.min(), xs.max()
+    y_min, y_max = ys.min(), ys.max()
+
+    return (
+        x_min - margin,
+        x_max + margin,
+        y_min - margin,
+        y_max + margin
+    )
+
+def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    from matplotlib.transforms import Affine2D
+
+    def draw_vehicle(ax, vehicle, color='r', alpha=0.8, label=None):
+        """
+        vehicle: [x, y, speed, cos_h, sin_h, length, width]
+        """
+        x, y, _, cos_h, sin_h, length, width = vehicle
+        heading = np.arctan2(sin_h, cos_h)
+
+        # rectangle centered at origin
+        rect = Rectangle(
+            (-length / 2, -width / 2),
+            length,
+            width,
+            linewidth=1.5,
+            edgecolor=color,
+            facecolor='none',
+            alpha=alpha,
+            label=label
+        )
+
+        transform = (
+                Affine2D()
+                .rotate(heading)
+                .translate(x, y)
+                + ax.transData
+        )
+
+        rect.set_transform(transform)
+        ax.add_patch(rect)
+
+    def draw_lanes(ax, lanes, color='k', linewidth=1.0, alpha=0.7):
+        """
+        lanes: list of [N, 2] arrays
+        """
+        for lane in lanes:
+            lane = np.asarray(lane)
+            ax.plot(lane[:, 0], lane[:, 1],
+                    color=color, linewidth=linewidth, alpha=alpha)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    # lanes
+    draw_lanes(ax, lanes, color='black', linewidth=1.5, alpha=0.6)
+
+    # real vehicles (blue)
+    for k, v in enumerate(vehicles_real):
+        draw_vehicle(
+            ax, v, color='blue',
+            label='Real' if k == 0 else None
+        )
+
+    # generated vehicles (red)
+    for k, v in enumerate(vehicles_gen):
+        draw_vehicle(
+            ax, v, color='red',
+            label='Generated' if k == 0 else None
+        )
+    x_min, x_max, y_min, y_max = compute_vehicle_bounds(
+        vehicles_real, vehicles_gen, margin=5.0
+    )
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+
+    ax.set_aspect('equal')
+    ax.set_xlabel('X (m)')
+    ax.set_ylabel('Y (m)')
+    ax.grid(True, linestyle='--', alpha=0.4)
+
+
+    ax.legend()
+    plt.savefig(title+'.png')
 
 def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pred_sizes,samples,gt_samples):
     pred_speeds = torch.stack(pred_speeds, dim=1)
@@ -74,7 +169,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pre
 
             lane_point = all_polylines[polyline_index[0]:polyline_index[1]]
 
-            resampled_lane = resample_polyline(lane_point, num_points=20)
+            resampled_lane = resample_polyline(lane_point, num_points=100)
             compact_centerlines.append(resampled_lane)
 
         compact_centerlines = np.stack(compact_centerlines, axis=0)
@@ -177,8 +272,8 @@ def compute_collision_rate(samples):
     for i in range(len(samples)):
         data = samples[i]
 
-        for j in range(data['vehicles'].shape[1]):
-            vehicles = data['vehicles'][:,j]
+        for v in range(data['vehicles'].shape[1]):
+            vehicles = data['vehicles'][:,v]
 
             centroids_all = []
             #radii_all = []
@@ -345,6 +440,37 @@ def resample_lanes(lanes, num_points):
     return np.array(lanes_resampled)
 
 
+
+def plot_gen_real_distribution(
+    gen,
+    real,
+    title,
+    clip_min,
+    clip_max,
+    bin_size
+):
+    import matplotlib.pyplot as plt
+
+    # 与 JSD 完全一致的 clipping
+    gen = np.clip(gen, clip_min, clip_max)
+    real = np.clip(real, clip_min, clip_max)
+
+    bins = np.arange(clip_min, clip_max + bin_size, bin_size)
+
+    # 关键：weights 让 histogram 变成 probability mass
+    gen_weights = np.ones_like(gen) / len(gen)
+    real_weights = np.ones_like(real) / len(real)
+
+    plt.figure()
+    plt.hist(gen, bins=bins, weights=gen_weights, alpha=0.5, label="Generated")
+    plt.hist(real, bins=bins, weights=real_weights, alpha=0.5, label="Real")
+    plt.legend()
+    plt.title(title)
+    plt.xlabel("Value")
+    plt.ylabel("Probability")
+    plt.tight_layout()
+    plt.show()
+
 def compute_jsd_metrics(samples, gt_samples):
     """ Computes the JSD agent metrics for the samples and ground truth samples."""
     print("Computing agent jsd metrics")
@@ -363,10 +489,17 @@ def compute_jsd_metrics(samples, gt_samples):
 
     for i in range(len(samples)):
         data_gen = samples[i]
+        lanes_gen=lanes_real=data_gen['lanes']
+        data_real = gt_samples[i]
+        vehicles_real = data_real['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+
+        #lanes_real = resample_lanes(data_real['lanes'], num_points=100)
+        onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
+
         for j in range(data_gen['vehicles'].shape[1]):
             vehicles_gen = data_gen['vehicles'][:,j] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
             # resample lanes to higher resolution
-            lanes_gen = resample_lanes(data_gen['lanes'], num_points=100)
+            #lanes_gen = resample_lanes(data_gen['lanes'], num_points=100)
             onroad_vehicles_gen = get_onroad_vehicles(vehicles_gen, lanes_gen)
 
             if len(vehicles_gen) > 1:
@@ -378,15 +511,16 @@ def compute_jsd_metrics(samples, gt_samples):
             width_gen_all.append(get_widths(vehicles_gen))
             speed_gen_all.append(get_speeds(vehicles_gen))
 
-        data_real = gt_samples[i]
-        vehicles_real = data_real['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
-
-        lanes_real = resample_lanes(data_real['lanes'], num_points=100)
-        onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
-
-        # if len(onroad_vehicles_real)!=len(onroad_vehicles_gen):
-        #     print('error')
-
+            #
+            # plot_scene(
+            #     lanes_real,
+            #     vehicles_real,
+            #     vehicles_gen,
+            #     title=f"Frame_{i}, Sample_{j}"
+            # )
+            #
+            # print(j)
+            #
         if len(vehicles_real) > 1:
             nearest_dist_real_all.append(get_nearest_dists(vehicles_real))
         if len(onroad_vehicles_real) > 0:
@@ -417,9 +551,63 @@ def compute_jsd_metrics(samples, gt_samples):
     width_jsd = jsd(width_gen_all, width_real_all, clip_min=0, clip_max=5, bin_size=0.1) * 100
     speed_jsd = jsd(speed_gen_all, speed_real_all, clip_min=0, clip_max=50, bin_size=1) * 100
 
+    # plot_gen_real_distribution(
+    #     nearest_dist_gen_all,
+    #     nearest_dist_real_all,
+    #     "Nearest Distance",
+    #     clip_min=0,
+    #     clip_max=50,
+    #     bin_size=1
+    # )
+    #
+    # plot_gen_real_distribution(
+    #     lat_dev_gen_all,
+    #     lat_dev_real_all,
+    #     "Lateral Deviation",
+    #     clip_min=0,
+    #     clip_max=1.5,
+    #     bin_size=0.1
+    # )
+    #
+    # plot_gen_real_distribution(
+    #     ang_dev_gen_all,
+    #     ang_dev_real_all,
+    #     "Angular Deviation",
+    #     clip_min=-200,
+    #     clip_max=200,
+    #     bin_size=5
+    # )
+    #
+    # plot_gen_real_distribution(
+    #     length_gen_all,
+    #     length_real_all,
+    #     "Length",
+    #     clip_min=0,
+    #     clip_max=25,
+    #     bin_size=0.1
+    # )
+    #
+    # plot_gen_real_distribution(
+    #     width_gen_all,
+    #     width_real_all,
+    #     "Width",
+    #     clip_min=0,
+    #     clip_max=5,
+    #     bin_size=0.1
+    # )
+    #
+    # plot_gen_real_distribution(
+    #     speed_gen_all,
+    #     speed_real_all,
+    #     "Speed",
+    #     clip_min=0,
+    #     clip_max=50,
+    #     bin_size=1
+    # )
+
     return nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd
 
-
+#(0.44205092401097407, 0.893392520955104, 14.291746007068648, 1.2888893233756689, 0.5276743398450541, 0.2849639251475777)
 
 # import numpy as np
 # from shapely.geometry import Polygon
@@ -532,8 +720,6 @@ def collision_rate_from_state1(states_list, count_touch=True):
 
 def compute_agent_metrics(samples, gt_samples):
     """ Computes the agent metrics for the samples and ground truth samples."""
-    collision_rate,collision = compute_collision_rate(samples)
-
     #collision_rate1,collision1 = collision_rate_from_state(samples)
     #collision_rate,collision = collision_rate_from_state1(samples)
 
@@ -545,6 +731,8 @@ def compute_agent_metrics(samples, gt_samples):
     #collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
 
     nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples)
+    collision_rate,collision = compute_collision_rate(samples)
+#22
 
     return {
         'nearest_dist_jsd': nearest_dist_jsd,
