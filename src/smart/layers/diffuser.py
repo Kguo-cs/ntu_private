@@ -125,9 +125,9 @@ class InitDiffusion(nn.Module):
     def sample_t(self, n: int, device=None):
         # z = torch.randn(n, device=device) * self.P_std + self.P_mean
         # z = torch.sigmoid(z)
-        timesteps = power_schedule(self.steps+1, device, alpha=3)
+        timesteps = power_schedule(self.steps+1, device, alpha=2)
 
-        z=timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#torch.rand(n, device=device)#
+        z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
 
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
@@ -217,7 +217,7 @@ class InitDiffusion(nn.Module):
         #ts = cosine_schedule(steps, z.device)
         #timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
 
-        timesteps = power_schedule(steps+1, z.device, alpha=3)
+        timesteps = power_schedule(steps+1, z.device, alpha=2)
        # ts[0] = 1e-4
        # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
         # ode
