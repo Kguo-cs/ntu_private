@@ -33,7 +33,7 @@ class PDInit(nn.Module):
         self.add_model_specific_args(parser)
         args = parser.parse_args()
 
-        self.latent_diffusion=True
+        self.latent_diffusion=False
         self.use_gan = False
 
 
@@ -291,7 +291,7 @@ class PDInit(nn.Module):
                                                                                                  old_batch,
                                                                                                  x_pred * normal_scale + normal_mean,
                                                                                                  m_init * normal_scale + normal_mean,
-                                                                                                 latent=self.latent_diffusion
+                                                                                                 latent=True
                                                                                                  )
 
 
