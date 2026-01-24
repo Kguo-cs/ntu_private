@@ -1,3 +1,4 @@
+
 from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 import math
@@ -48,7 +49,7 @@ def matching_loss(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state
+    initial_type, batch, fake_state,real_state,latent=False
     ):
     # real_state = m_init * normal_scale + normal_mean
     # fake_state = x_pred * normal_scale + normal_mean
@@ -62,7 +63,10 @@ def get_matching_loss(
         for type in initial_type[batch == b].unique():
             f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
 
-            dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+            if latent:
+                dist = torch.linalg.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],dim=-1)
+            else:
+                dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
 
             cost = dist.cpu().detach().numpy()
 
@@ -74,10 +78,16 @@ def get_matching_loss(
     row = torch.cat(rows)
     col = torch.cat(cols)
 
-    match_loss, pos_loss, heading_loss, shape_loss,vel_loss = matching_loss(
-        fake_pos[row], fake_heading[row], fake_shape[row],
-        real_pos[col], real_heading[col], real_shape[col]
-    )
+    if latent:
+        match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
+                                                                                    device=fake_state.device)
+
+        match_loss = torch.linalg.norm(fake_state[row] - real_state[col],dim=-1).mean()
+    else:
+        match_loss, pos_loss, heading_loss, shape_loss,vel_loss = matching_loss(
+            fake_pos[row], fake_heading[row], fake_shape[row],
+            real_pos[col], real_heading[col], real_shape[col]
+        )
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
