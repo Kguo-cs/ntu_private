@@ -16,6 +16,9 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit128_roformer1_mse_sort/2026-01-23_16-32-17/bc/2lbnkdm4/checkpoints/epoch=5-step=22830.ckpt ./
 
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/auto64_val256_kl02/2026-01-24_09-23-22/bc/kuuoedsr/checkpoints/epoch=31-step=243520.ckpt ./
+
+
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/gen256_val256_std_w2_drop0_kl04/2026-01-16_08-16-12/bc/yiqzq1e6/checkpoints/epoch=31-step=60896.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./

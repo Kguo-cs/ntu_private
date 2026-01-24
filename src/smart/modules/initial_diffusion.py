@@ -33,8 +33,8 @@ class PDInit(nn.Module):
         self.add_model_specific_args(parser)
         args = parser.parse_args()
 
-        self.latent_diffusion=False
-        self.use_gan = True
+        self.latent_diffusion=True
+        self.use_gan = False
 
 
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -64,8 +64,9 @@ class PDInit(nn.Module):
             self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
                                               2.447e+00, 1.321e-03]])
 
-        self.agent_latents_scale=torch.tensor([[0.959, 1.041, 1.039, 0.991, 0.985, 1.046, 0.959, 0.951]])
-        self.agent_latents_mean=torch.tensor([[-0.205,  0.022,  0.032,  0.005, -0.007, -0.051, -0.004,  0.007]])
+        if self.latent_diffusion:
+            self.agent_latents_scale=torch.tensor([[0.981, 0.982, 0.992, 1.012, 0.979, 0.950, 0.977, 0.975]])
+            self.agent_latents_mean=torch.tensor([[0.026,  0.015,  0.001,  0.061,  0.010,  0.030, -0.021,  0.035]])
 
         # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
         # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
