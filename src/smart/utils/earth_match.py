@@ -64,7 +64,7 @@ def get_matching_loss(
             f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
 
             if latent:
-                dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],p=2,dim=-1).square()
+                dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],p=1,dim=-1)#.square()
             else:
                 dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
 
@@ -82,7 +82,7 @@ def get_matching_loss(
         match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
                                                                                     device=fake_state.device)
 
-        match_loss = torch.norm(fake_state[row] - real_state[col],p=2,dim=-1).square().mean()
+        match_loss = torch.norm(fake_state[row] - real_state[col],p=1,dim=-1).mean()#.square()
     else:
         match_loss, pos_loss, heading_loss, shape_loss,vel_loss = matching_loss(
             fake_pos[row], fake_heading[row], fake_shape[row],
