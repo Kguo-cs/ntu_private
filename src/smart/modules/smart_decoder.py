@@ -56,6 +56,7 @@ class SMARTDecoder(nn.Module):
         self.pt2a_neighbor = pt2a_neighbor
 
         self.use_smart=token_processor.use_smart
+        self.pred_init=token_processor.pred_init
 
         self.use_lcf=reward_weight!=0
         self.use_value=True
@@ -108,6 +109,19 @@ class SMARTDecoder(nn.Module):
                 pt2pt_neighbor=pt2pt_neighbor,
                 token_processor=token_processor
             )
+
+            self.map_encoder1 = SMARTMapDecoder(
+                hidden_dim=hidden_dim,
+                pl2pl_radius=pl2pl_radius,
+                num_freq_bands=num_freq_bands,
+                num_layers=num_map_layers,
+                num_heads=num_heads,
+                head_dim=head_dim,
+                dropout=dropout,
+                pt2pt_neighbor=pt2pt_neighbor,
+                token_processor=token_processor
+            )
+
 
             self.agent_encoder = SMARTAgentDecoder(
                 hidden_dim=hidden_dim,
@@ -185,7 +199,12 @@ class SMARTDecoder(nn.Module):
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
         else:
-            map_feature = self.map_encoder(tokenized_map)
+            if self.pred_init:
+                map_feature = self.map_encoder1(tokenized_map)
+                tokenized_agent["initial_map_feature"] = map_feature
+
+            else:
+                map_feature = self.map_encoder(tokenized_map)
 
             if self.gail:
                 if map_feature is not None:

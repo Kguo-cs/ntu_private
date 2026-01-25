@@ -192,7 +192,7 @@ class SMARTAgentDecoder(nn.Module):
             #
             # map_feature=insert_ego(map_feature, ego_feature, ego_pos, ego_heading)
 
-            initial_logit = self.init_decoder(map_feature, tokenized_agent)
+            initial_logit = self.init_decoder( tokenized_agent)
             entry_logit=next_token_logits=None
         else:
             next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,initial_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
@@ -240,7 +240,7 @@ class SMARTAgentDecoder(nn.Module):
             current_step=1
 
             if self.learn_init:
-                pos_a, head_a,sampled_idx,initial_speed=self.init_decoder(map_feature, tokenized_agent)
+                pos_a, head_a,sampled_idx,initial_speed=self.init_decoder( tokenized_agent)
                 max_step=18
             else:
                 pos_a = tokenized_agent["gt_initial_pos"]

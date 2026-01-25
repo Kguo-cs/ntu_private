@@ -139,7 +139,9 @@ class PDInit(nn.Module):
 
         return m_init,sort_idx
 
-    def forward(self, map_feature, tokenized_agent,map_range=100):
+    def forward(self,  tokenized_agent,map_range=100):
+
+        map_feature=tokenized_agent["initial_map_feature"]
 
         batch_pl = map_feature["batch"]
         pos_pl = map_feature["position"]
