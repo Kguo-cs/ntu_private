@@ -200,7 +200,7 @@ class SMARTDecoder(nn.Module):
             map_feature = tokenized_agent["map_feature"]
         else:
             if self.pred_init:
-                map_feature = self.map_encoder1(tokenized_map,edge_mask=False)
+                map_feature = self.map_encoder1(tokenized_map,edge_mask=True)
                 tokenized_agent["initial_map_feature"] = map_feature
 
             else:
