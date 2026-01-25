@@ -157,7 +157,8 @@ class InitDiffusion(nn.Module):
         if self.x_pred:
             v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
-            x_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
+            x_pred = self.net(z
+                              , t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
                               mode=mode) #t=0 ,0.1
 
             v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)

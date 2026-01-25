@@ -81,8 +81,10 @@ class SMART(LightningModule):
             for p in self.encoder.agent_encoder.init_decoder.parameters():
                 p.requires_grad = True
 
-            for p in self.encoder.map_encoder1.parameters():
-                p.requires_grad = True
+            if self.encoder.sep_map:
+
+                for p in self.encoder.map_encoder1.parameters():
+                    p.requires_grad = True
 
             if not self.encoder.agent_encoder.use_gan and self.encoder.agent_encoder.init_decoder.latent_diffusion and not self.encoder.agent_encoder.init_decoder.learn_autoencoder:
                 for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
@@ -192,8 +194,12 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head,new_agent,pred_sizes,pred_speeds = [], [], [],[],[],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
-            map_feature1 = self.encoder.map_encoder1(tokenized_map)
-            tokenized_agent["initial_map_feature"]=map_feature1
+            if self.encoder.sep_map:
+                map_feature1 = self.encoder.map_encoder1(tokenized_map)
+                tokenized_agent["initial_map_feature"]=map_feature1
+            else:
+                tokenized_agent["initial_map_feature"]=map_feature
+
 
             for _ in range(self.n_rollout_closed_val):
 
