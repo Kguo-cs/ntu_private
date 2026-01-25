@@ -40,7 +40,7 @@ class PDInit(nn.Module):
 
         self.learn_autoencoder = token_processor.learn_autoencoder
         if self.learn_autoencoder:
-            # self.use_gan = False
+            self.use_gan = False
             self.latent_diffusion = True
 
         if self.latent_diffusion:
@@ -353,7 +353,7 @@ class PDInit(nn.Module):
                                                                                                  old_batch,
                                                                                                  x_pred * normal_scale + normal_mean,
                                                                                                  m_init * normal_scale + normal_mean,
-                                                                                                 latent=True
+                                                                                                 latent=False
                                                                                                  )
 
 

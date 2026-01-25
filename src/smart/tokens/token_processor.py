@@ -145,11 +145,16 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent = self.tokenize_agent(data)
 
             if self.learn_init:
+                if self.learn_autoencoder:
+                    idx=10
+                else:
+                    idx=0
+
                 agent=data["agent"]
-                valid = agent["valid_mask"][:, 10]  # [n_agent, n_step]
-                heading = agent["heading"][:, 10]  ## [n_agent, n_step]
-                pos = agent["position"][..., :2].contiguous()[:, 10]  # # [n_agent, n_step, 2]
-                vel = agent["velocity"][:, 10]  ## [n_agent, n_step, 2]
+                valid = agent["valid_mask"][:, idx]  # [n_agent, n_step]
+                heading = agent["heading"][:, idx]  ## [n_agent, n_step]
+                pos = agent["position"][..., :2].contiguous()[:, idx]  # # [n_agent, n_step, 2]
+                vel = agent["velocity"][:, idx]  ## [n_agent, n_step, 2]
                 shape = agent["shape"]
                 type = agent["type"]
 
@@ -165,7 +170,7 @@ class TokenProcessor(torch.nn.Module):
 
                 #tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
 
-                tokenized_agent["ego_traj"] = agent["position"][:, 11:21, :2][tokenized_agent["ego_mask"]]
+                tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
 
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
 
