@@ -99,7 +99,7 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.t_eps=5e-5
+        self.t_eps=5e-2
 
         self.P_std=1
 

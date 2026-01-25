@@ -60,7 +60,8 @@ class TokenProcessor(torch.nn.Module):
         self.use_token=True
         self.use_time=False
         self.use_goal=False
-        self.pred_exit=True
+        self.pred_exit = False
+        self.token_initial = False
         self.pred_map_token = False
         self.match_all=False
         self.token_offset=False
@@ -83,8 +84,6 @@ class TokenProcessor(torch.nn.Module):
         self.n_token_map = self.map_token_traj_src.shape[0]
 
         if self.pred_init:
-            self.pred_exit=False
-            self.token_initial = False
 
             if self.token_initial:
                 self.pl2seed_radius = 80
@@ -178,12 +177,14 @@ class TokenProcessor(torch.nn.Module):
             tokenized_map, tokenized_agent=self.process_data(data)
 
         tokenized_agent["abs_time"]=torch.zeros([0,18])
-        tokenized_agent["initial_vel"] = transform_to_local(
-            tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
-            None,
-            tokenized_agent["initial_pos"],
-            tokenized_agent["initial_heading"],
-        )[0]
+
+        if self.pred_init:
+            tokenized_agent["initial_vel"] = transform_to_local(
+                tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
+                None,
+                tokenized_agent["initial_pos"],
+                tokenized_agent["initial_heading"],
+            )[0]
 
         if self.use_goal and self.training:
             self.compute_goal(tokenized_agent)
@@ -535,8 +536,10 @@ class TokenProcessor(torch.nn.Module):
         entry_type_list=[]
         entry_shape_list=[]
 
-        if self.learn_init:
-            n_step=11+10+5
+        # if self.learn_init:
+        #     n_step=11+10+5
+
+        n_step = 11
 
         if self.pred_entry and not self.autoregressive_entry:
             out_dict["entry_idx"] = []
