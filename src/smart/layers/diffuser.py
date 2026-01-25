@@ -126,10 +126,10 @@ class InitDiffusion(nn.Module):
         # z = torch.randn(n, device=device) * self.P_std + self.P_mean
         # z = torch.sigmoid(z)
         #timesteps = power_schedule(self.steps+1, device, alpha=2)
-        dist = torch.distributions.Beta(0.3, 0.7)
-        z = dist.sample((n,)).to(device)
+        # dist = torch.distributions.Beta(0.3, 0.7)
+        # z = dist.sample((n,)).to(device)
 
-        #z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
+        z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
 
     def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
