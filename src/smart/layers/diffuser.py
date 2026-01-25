@@ -224,7 +224,7 @@ class InitDiffusion(nn.Module):
         for i in range(self.steps - 1):
             t = timesteps[i]
             t_next = timesteps[i + 1]
-            z =  self._heun_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+            z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
         # last step euler
         z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
 
