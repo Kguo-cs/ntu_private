@@ -101,7 +101,7 @@ class SMARTMapDecoder(nn.Module):
 
             self.apply(weight_init)
 
-    def forward(self, tokenized_map: Dict):
+    def forward(self, tokenized_map: Dict,edge_mask=True):
 
         if self.token_processor.use_bird:
 
@@ -140,7 +140,10 @@ class SMARTMapDecoder(nn.Module):
         light_type=tokenized_map["light_type"].long()
         #map_type=map_type[mask]
 
-        mask =(map_type==4) | (map_type==5)#| (map_type==6) | (map_type==7) | (map_type==9)| (map_type==1)#  |#|   (map_type==4) | # | (map_type==7) #(map_type == 4) | (map_type == 5)
+        if edge_mask:
+            mask =(map_type==4) | (map_type==5)#| (map_type==6) | (map_type==7) | (map_type==9)| (map_type==1)#  |#|   (map_type==4) | # | (map_type==7) #(map_type == 4) | (map_type == 5)
+        else:
+            mask=torch.ones_like(map_type).to(torch.bool)
 
         if self.pred_offroad:
 
