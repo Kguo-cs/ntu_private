@@ -349,19 +349,19 @@ class PDInit(nn.Module):
                     match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
                                                                                                 device=non_ego.device)
 
-                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
-                    #                                                                              old_batch,
-                    #                                                                              x_pred * normal_scale + normal_mean,
-                    #                                                                              m_init * normal_scale + normal_mean,
-                    #                                                                              latent=False
-                    #                                                                              )
-
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                                                                                                  old_batch,
-                                                                                                 x_pred ,
-                                                                                                 m_init,
-                                                                                                 latent=True
+                                                                                                 x_pred * normal_scale + normal_mean,
+                                                                                                 m_init * normal_scale + normal_mean,
+                                                                                                 latent=False
                                                                                                  )
+
+                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
+                    #                                                                              old_batch,
+                    #                                                                              x_pred ,
+                    #                                                                              m_init,
+                    #                                                                              latent=True
+                    #                                                                              )
 
 
                    # match_loss=(match_loss/normal_scale).mean()
