@@ -83,45 +83,43 @@ class TokenProcessor(torch.nn.Module):
         self.n_token_agent = self.agent_token_all_veh.shape[0]
         self.n_token_map = self.map_token_traj_src.shape[0]
 
-        if self.pred_init:
+        if  self.token_initial:
+            self.pl2seed_radius = 80
+            self.grid_interval = 2.5
+            self.offset_interval = 0.05
+            self.angle_interval = 0.25
+            self.attr_tokenizer = Attr_Tokenizer(grid_range=self.pl2seed_radius * 2,
+                                                 grid_interval=self.grid_interval,
+                                                 radius=self.pl2seed_radius,
+                                                 angle_interval=self.angle_interval)
 
-            if self.token_initial:
-                self.pl2seed_radius = 80
-                self.grid_interval = 2.5
-                self.offset_interval = 0.05
-                self.angle_interval = 0.25
-                self.attr_tokenizer = Attr_Tokenizer(grid_range=self.pl2seed_radius * 2,
-                                                     grid_interval=self.grid_interval,
-                                                     radius=self.pl2seed_radius,
-                                                     angle_interval=self.angle_interval)
+            self.offset_tokenizer = Attr_Tokenizer(grid_range=self.grid_interval,
+                                                   grid_interval=self.offset_interval,
+                                                   radius=100,
+                                                   angle_interval=3)
 
-                self.offset_tokenizer = Attr_Tokenizer(grid_range=self.grid_interval,
-                                                       grid_interval=self.offset_interval,
-                                                       radius=100,
-                                                       angle_interval=3)
+            res = 0.25
 
-                res = 0.25
+            res1 = 0.25
 
-                res1 = 0.25
+            length, width = 12.25, 3.25
 
-                length, width = 12.25, 3.25
+            # number of tokens
+            nx = int(length / res)
+            ny = int(width / res1)
 
-                # number of tokens
-                nx = int(length / res)
-                ny = int(width / res1)
+            # grid coordinates (centered)
+            x = torch.arange(1, nx + 1) * res
+            y = torch.arange(1, ny + 1) * res1
 
-                # grid coordinates (centered)
-                x = torch.arange(1, nx + 1) * res
-                y = torch.arange(1, ny + 1) * res1
+            # meshgrid
+            yy, xx = torch.meshgrid(y, x, indexing="ij")
 
-                # meshgrid
-                yy, xx = torch.meshgrid(y, x, indexing="ij")
+            self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
 
-                self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
-
-                self.n_token_entry_head = self.attr_tokenizer.angle_size
-                self.n_token_entry_head2 = self.n_token_entry_head // 2
-                self.n_token_entry=self.attr_tokenizer.grid_size
+            self.n_token_entry_head = self.attr_tokenizer.angle_size
+            self.n_token_entry_head2 = self.n_token_entry_head // 2
+            self.n_token_entry=self.attr_tokenizer.grid_size
 
 
         if self.pred_exit:
@@ -178,7 +176,7 @@ class TokenProcessor(torch.nn.Module):
 
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 
-        if self.pred_init:
+        if self.learn_init:
             tokenized_agent["initial_vel"] = transform_to_local(
                 tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
                 None,
