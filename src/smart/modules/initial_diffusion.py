@@ -437,12 +437,19 @@ class PDInit(nn.Module):
                 ego_heading[batch],
             )
 
+            global_pred_vel=transform_to_global(
+                pred_vel,
+                None,
+                global_pos,
+                global_heading,
+            )[0]-global_pos
+
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
 
-            gt_initial_speed=tokenized_agent["initial_speed"].clone()
+            gt_initial_vel=tokenized_agent["initial_vel"].clone()
 
-            gt_initial_speed[non_ego] =pred_vel.norm(dim=-1)
+            gt_initial_vel[non_ego] =global_pred_vel
 
             shape=tokenized_agent["initial_shape"].clone()
 
@@ -450,19 +457,19 @@ class PDInit(nn.Module):
 
             tokenized_agent["shape"]= shape
 
-            initial_vel=tokenized_agent["initial_vel"].clone()
+            local_vel=tokenized_agent["local_vel"].clone()
 
-            initial_vel[non_ego]=pred_vel
+            local_vel[non_ego]=pred_vel
 
             center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-            gt_initial_idx = torch.linalg.norm(center_token_traj - initial_vel[:, None]*0.5, dim=-1).argmin(-1)
+            gt_initial_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
 
             tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
 
             tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
 
-            return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_speed
+            return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_vel
 
     @staticmethod
     def add_model_specific_args(parent_parser):

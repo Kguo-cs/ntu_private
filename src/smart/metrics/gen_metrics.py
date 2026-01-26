@@ -55,14 +55,14 @@ def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
     from matplotlib.patches import Rectangle
     from matplotlib.transforms import Affine2D
 
-    def draw_vehicle(ax, vehicle, color='r', alpha=0.8, label=None):
+    def draw_vehicle(ax, vehicle, color='r', alpha=0.8, label=None, draw_velocity=True, vel_scale=1.0):
         """
-        vehicle: [x, y, speed, cos_h, sin_h, length, width]
+        vehicle: [x, y, speed, cos_h, sin_h, length, width, vx, vy]
         """
-        x, y, _, cos_h, sin_h, length, width = vehicle
+        x, y, _, cos_h, sin_h, length, width, vx, vy = vehicle
         heading = np.arctan2(sin_h, cos_h)
 
-        # rectangle centered at origin
+        # vehicle rectangle
         rect = Rectangle(
             (-length / 2, -width / 2),
             length,
@@ -80,9 +80,21 @@ def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
                 .translate(x, y)
                 + ax.transData
         )
-
         rect.set_transform(transform)
         ax.add_patch(rect)
+
+        # velocity vector
+        if draw_velocity:
+            ax.arrow(
+                x, y,
+                vx * vel_scale, vy * vel_scale,
+                head_width=0.4,
+                head_length=0.6,
+                fc=color,
+                ec=color,
+                alpha=alpha,
+                length_includes_head=True
+            )
 
     def draw_lanes(ax, lanes, color='k', linewidth=1.0, alpha=0.7):
         """
@@ -99,7 +111,7 @@ def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
     draw_lanes(ax, lanes, color='black', linewidth=1.5, alpha=0.6)
 
     # real vehicles (blue)
-    for k, v in enumerate(vehicles_real):
+    for k, v in enumerate(vehicles_real): # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width,vx,xy]
         draw_vehicle(
             ax, v, color='blue',
             label='Real' if k == 0 else None
@@ -124,28 +136,31 @@ def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
 
 
     ax.legend()
-    plt.savefig(title+'.png')
+    plt.savefig('/home/ke/code/sim/src/logs/'+title+'.png')
 
-def compute_gen_samples(data,tokenized_agent,pred_traj,pred_speeds,pred_head,pred_sizes,samples,gt_samples):
-    pred_speeds = torch.stack(pred_speeds, dim=1)
+def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_sizes,samples,gt_samples):
+    pred_vel = torch.stack(pred_vel, dim=1)
+
+    pred_speeds=pred_vel.norm(dim=-1)
 
     batch = tokenized_agent["batch"]
     cos = torch.cos(pred_head[:, :, 0])
     sin = torch.sin(pred_head[:, :, 0])
 
     state = torch.cat(
-        [pred_traj[:, :, 0], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, 0, :2]],
+        [pred_traj[:, :, 0], pred_speeds[:, :, None], cos[:, :, None], sin[:, :, None], pred_sizes[:, :, 0, :2],pred_vel],
         dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
     type = tokenized_agent["type"]
 
-    gt_speed = data["agent"]["velocity"][:, 10].norm(dim=-1)
+    gt_vel =data["agent"]["velocity"][:, 10]
+    gt_speed = gt_vel.norm(dim=-1)
     gt_cos = torch.cos(data["agent"]["heading"][:, 10])
     gt_sin = torch.sin(data["agent"]["heading"][:, 10])
     gt_shape = data["agent"]["shape"]
     gt_pos = data["agent"]["position"][:, 10, :2]
     gt_type= data["agent"]["type"]
 
-    real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2]],
+    real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
                            dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
 
     for b in range(data.num_graphs):
@@ -471,7 +486,7 @@ def plot_gen_real_distribution(
     plt.tight_layout()
     plt.show()
 
-def compute_jsd_metrics(samples, gt_samples):
+def compute_jsd_metrics(samples, gt_samples,vis):
     """ Computes the JSD agent metrics for the samples and ground truth samples."""
     print("Computing agent jsd metrics")
     nearest_dist_gen_all = []
@@ -491,7 +506,7 @@ def compute_jsd_metrics(samples, gt_samples):
         data_gen = samples[i]
         lanes_gen=lanes_real=data_gen['lanes']
         data_real = gt_samples[i]
-        vehicles_real = data_real['vehicles'] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+        vehicles_real = data_real['vehicles']
 
         #lanes_real = resample_lanes(data_real['lanes'], num_points=100)
         onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
@@ -511,16 +526,15 @@ def compute_jsd_metrics(samples, gt_samples):
             width_gen_all.append(get_widths(vehicles_gen))
             speed_gen_all.append(get_speeds(vehicles_gen))
 
-            #
-            # plot_scene(
-            #     lanes_real,
-            #     vehicles_real,
-            #     vehicles_gen,
-            #     title=f"Frame_{i}, Sample_{j}"
-            # )
-            #
-            # print(j)
-            #
+            if vis:
+                plot_scene(
+                    lanes_real,
+                    vehicles_real,
+                    vehicles_gen,
+                    title=f"Frame_{i}, Sample_{j}"
+                )
+
+
         if len(vehicles_real) > 1:
             nearest_dist_real_all.append(get_nearest_dists(vehicles_real))
         if len(onroad_vehicles_real) > 0:
@@ -718,7 +732,7 @@ def collision_rate_from_state1(states_list, count_touch=True):
 
 
 
-def compute_agent_metrics(samples, gt_samples):
+def compute_agent_metrics(samples, gt_samples,vis=True):
     """ Computes the agent metrics for the samples and ground truth samples."""
     #collision_rate1,collision1 = collision_rate_from_state(samples)
     #collision_rate,collision = collision_rate_from_state1(samples)
@@ -730,9 +744,8 @@ def compute_agent_metrics(samples, gt_samples):
 
     #collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
 
-    nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples)
+    nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples,vis)
     collision_rate,collision = compute_collision_rate(samples)
-#22
 
     return {
         'nearest_dist_jsd': nearest_dist_jsd,

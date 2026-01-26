@@ -161,7 +161,7 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape
                 tokenized_agent["initial_type"] = type.long()
-                tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
+                #tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
                 # tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
 
 
@@ -177,7 +177,7 @@ class TokenProcessor(torch.nn.Module):
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 
         if self.learn_init:
-            tokenized_agent["initial_vel"] = transform_to_local(
+            tokenized_agent["local_vel"] = transform_to_local(
                 tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
                 None,
                 tokenized_agent["initial_pos"],

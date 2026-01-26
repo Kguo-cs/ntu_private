@@ -104,11 +104,11 @@ class SMART(LightningModule):
         self.n_vis_scenario = model_config.n_vis_scenario
         self.n_vis_rollout = model_config.n_vis_rollout
         self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
-        #
+
         if self.token_processor.pred_init and self.encoder.agent_encoder.learn_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
-            self.para_num=4
-            self.n_rollout_closed_val=1
+            self.para_num=2
+            self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
             self.para_num=32
@@ -469,7 +469,7 @@ class SMART(LightningModule):
                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
                 else:
-                    self.result=compute_agent_metrics(samples=self.samples, gt_samples=self.gt_samples)
+                    self.result=compute_agent_metrics(samples=self.samples, gt_samples=self.gt_samples,vis=False)
 
                     for key, value in self.result.items():
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True,
