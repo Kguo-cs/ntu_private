@@ -313,7 +313,6 @@ class IQ_SoftQ(LightningModule):
 
                     action_nll=action_nll+0.01*entry_type_nll+0.01*shape_l1
 
-
         return action_nll,log_prob
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
@@ -418,7 +417,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
+        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
         expert_dis_loss,expert_dis_loss1,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 

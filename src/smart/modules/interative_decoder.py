@@ -218,7 +218,6 @@ class InterativeDecoder(nn.Module):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
 
-
                 start_edge_feature = feat_a[start_index]
 
                 if token_embeding is not None:
@@ -248,8 +247,6 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
-                #a2a_mask_i= (rank>layer_i*7) & (rank<(layer_i+1)*7)
-
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 if  agent_train_mask is not None and self.num_layers==1:
@@ -262,7 +259,6 @@ class InterativeDecoder(nn.Module):
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
 
-        #if self.discriminator or self.token_processor.use_bird:
         feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
 
         feat_a_t[mask_ta] = feat_a
@@ -479,7 +475,6 @@ class InterativeDecoder(nn.Module):
             next_token_logits=(next_token_logits[0],next_token_logits_counter[0])
 
             rewards=(rewards[0]-rewards_counter[0],rewards[1],rewards[2],rewards[3])
-
 
         if not self.discriminator and self.pred_exit and pred_mask is not None:
             next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
