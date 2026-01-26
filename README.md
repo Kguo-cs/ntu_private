@@ -38,8 +38,6 @@ qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-zhangshu
 ssh zhangshu@aspire2antu.nscc.sg
 Gk@140286
 
-ssh shanhelo@aspire2pntu.nscc.sg
-Spyder1@
 ssh lyuchen@aspire2pntu.nscc.sg
 automan2018!!
 
