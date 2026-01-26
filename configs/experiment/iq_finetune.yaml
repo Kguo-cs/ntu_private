@@ -27,6 +27,7 @@ model:
     #val_closed_loop: False
     finetune: true
     smart : false
+    n_rollout_closed_val: 8
     decoder:
       hist_drop_prob: 0 #0.1 #0.1
 
@@ -72,7 +73,7 @@ trainer:
 
 data:
   train_batch_size: 80
-  val_batch_size: 40
+  val_batch_size: 64
   test_batch_size: 10
   num_workers: 8
 
