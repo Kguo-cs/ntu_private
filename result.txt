@@ -71,3 +71,20 @@ location and mapping is relative to ego current position ,query to get the infor
 稀疏/稠密三维地图
 
 世界模型补全未观测区域
+
+
+./ckpts/bcgen56_vel2_epoch=31-step=278304_0.78179.ckpt
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.78245735 |
+| Linear Speed Likelihood               | 0.3783009  |
+| Linear Acceleration Likelihood        | 0.408975   |
+| Angular Speed Likelihood              | 0.51637185 |
+| Angular Acceleration Likelihood       | 0.6612305  |
+| Distance To Nearest Object Likelihood | 0.3888765  |
+| Collision Likelihood                  | 0.9698322  |
+| Time To Collision Likelihood          | 0.8306178  |
+| Distance To Road Edge Likelihood      | 0.67775667 |
+| Offroad Likelihood                    | 0.9475511  |
+| minADE                                | 1.4530121  |

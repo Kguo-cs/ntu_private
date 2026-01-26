@@ -126,7 +126,7 @@ class InitDiffusion(nn.Module):
         # z = torch.randn(n, device=device) * self.P_std + self.P_mean
         # z = torch.sigmoid(z)
         #timesteps = power_schedule(self.steps+1, device, alpha=2)
-        dist = torch.distributions.Beta(0.3, 0.7)
+        dist = torch.distributions.Beta(0.5, 1)
         z = dist.sample((n,)).to(device)
 
         #z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
