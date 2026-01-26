@@ -325,7 +325,6 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent,
                                                             tokenized_agent["detach_map_feature"])
 
-
         ego_logits, interact_logits = disc_out[0]
 
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
@@ -392,7 +391,7 @@ class IQ_SoftQ(LightningModule):
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
         else:
-            interact_bce_loss=None
+            interact_bce_loss=0
 
         disc_val = torch.sigmoid(ego_logits)
 
@@ -405,7 +404,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss,interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
+        return bce_loss+interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
         if self.use_kl_penalty:
@@ -421,7 +420,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
-        expert_dis_loss,expert_dis_loss1,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        expert_dis_loss,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
@@ -433,7 +432,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        agent_dis_loss,agent_dis_loss1, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
         feat_a = tokenized_agent_rollout["feat_a"]
 
@@ -452,7 +451,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages = advantages[agent_train_mask]#t,a  # only train at expert valid
 
-        self.return_meanstd.update(advantages)
+        self.return_meanstd.update(advantages.detach())
 
         advantages = self.return_meanstd.normalize(advantages)
 

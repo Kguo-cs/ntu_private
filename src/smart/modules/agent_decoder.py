@@ -197,7 +197,7 @@ class SMARTAgentDecoder(nn.Module):
             "next_token_logits": next_token_logits
          }
 
-    def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step,post_sampling):
+    def autoregressive_agent(self, tokenized_agent, map_feature,current_step,max_step):
         gt_pos=tokenized_agent["sampled_pos"].clone()
         gt_head=tokenized_agent["sampled_heading"].clone()
         gt_valid=tokenized_agent["valid_mask"].clone()
@@ -400,7 +400,7 @@ class SMARTAgentDecoder(nn.Module):
         n_step_future_2hz = n_step_future_10hz // self.shift  # 16
         step_current_2hz = step_current_10hz // self.shift  # 2
 
-        out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz,post_sampling)
+        out_dict=self.autoregressive_agent(tokenized_agent, map_feature,step_current_2hz, n_step_future_2hz)
 
         return out_dict
 
