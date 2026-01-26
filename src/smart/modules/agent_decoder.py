@@ -347,7 +347,8 @@ class SMARTAgentDecoder(nn.Module):
                 if self.token_processor.pred_exit:
                     next_mask = next_mask & ~exit_mask
 
-            pred_traj_10hz.append(pred_traj)
+            if "gt_z_raw" in tokenized_agent.keys():
+                pred_traj_10hz.append(pred_traj)
 
             next_token_mask = mask[:, -1] & next_mask
 

@@ -65,7 +65,7 @@ class AgentTokenEncoder(nn.Module):
         )
 
         self.discriminator=discriminator
-        self.use_state_action=True
+        self.use_state_action=False
         self.use_counterfactual=False
 
         if self.discriminator:
@@ -129,7 +129,7 @@ class AgentTokenEncoder(nn.Module):
         else:
             if self.use_state_action:
                 agent_token_emb = torch.zeros(
-                    (n_agent, n_step-1, self.hidden_dim), device=_device, dtype=pos_a.dtype
+                    (n_agent, n_step-1, self.hidden_dim), device=_device, dtype=agent_token_index.dtype
                 )
 
                 veh_mask =agent_type == 0
@@ -144,10 +144,7 @@ class AgentTokenEncoder(nn.Module):
             else:
                 agent_token_emb = None
 
-
         return agent_token_emb
-
-
 
     def forward(
             self,
@@ -255,7 +252,8 @@ class AgentTokenEncoder(nn.Module):
             mask_s=mask_a.transpose(0, 1)
 
             feature_a=feature_a.transpose(0, 1)[mask_s]
-            agent_token_emb=agent_token_emb.transpose(0, 1)[mask_s]
+            if agent_token_emb is not None:
+                agent_token_emb=agent_token_emb.transpose(0, 1)[mask_s]
             categorical_embs=categorical_embs[mask_s]
         else:
             feature_a=feature_a.view(-1, feature_a.size(-1))

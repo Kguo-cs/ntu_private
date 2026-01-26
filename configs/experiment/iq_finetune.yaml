@@ -38,7 +38,9 @@ model:
       reward_weight: 0
       reward_decay: 2.5
 
-ckpt_path : './ckpts/bc40_apt30_tokenexit_14679_epoch=62-step=767025_0.78659.ckpt'
+#ckpt_path : './ckpts/bc40_apt30_tokenexit_14679_epoch=62-step=767025_0.78659.ckpt'
+
+ckpt_path: './ckpts/bcgen56_vel2_epoch=31-step=278304_0.78179.ckpt'
 
 logger:
   wandb:
@@ -69,7 +71,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 1
+  train_batch_size: 80
   val_batch_size: 40
   test_batch_size: 10
   num_workers: 8

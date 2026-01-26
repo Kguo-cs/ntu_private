@@ -153,7 +153,7 @@ class SMARTDecoder(nn.Module):
 
         if self.gail:
             self.discriminator = SMARTAgentDecoder(
-                hidden_dim=hidden_dim//2,
+                hidden_dim=hidden_dim,#//2
                 num_historical_steps=num_historical_steps,
                 num_future_steps=num_future_steps,
                 time_span=10,
@@ -162,7 +162,7 @@ class SMARTDecoder(nn.Module):
                 num_freq_bands=num_freq_bands,
                 num_layers=1,
                 num_heads=num_heads,
-                head_dim=head_dim//2,
+                head_dim=head_dim,#//2
                 dropout=0,
                 hist_drop_prob=0,
                 n_token_agent=1,

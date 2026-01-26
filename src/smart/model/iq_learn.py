@@ -324,8 +324,8 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent["sampled_pos"] ,
                                                             tokenized_agent["sampled_heading"],
                                                             tokenized_agent,
-                                                            tokenized_agent["detach_map_feature"],
-                                                            abs_time=tokenized_agent["abs_time"]  )
+                                                            tokenized_agent["detach_map_feature"])
+
 
         ego_logits, interact_logits = disc_out[0]
 
@@ -410,8 +410,6 @@ class IQ_SoftQ(LightningModule):
         return bce_loss,interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
-
-
         if self.use_kl_penalty:
             expert_nll= 0
             map_feature = self.encoder.map_encoder(tokenized_map)
@@ -423,7 +421,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& expert_train_mask.all(0)
+        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
         expert_dis_loss,expert_dis_loss1,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 
@@ -433,7 +431,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
-        agent_nll, agent_log_prob,agent_entry_nll,agent_entry_head_nll = self.get_QV(tokenized_map, tokenized_agent_rollout, agent_train_mask, key='agent')
+        agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
