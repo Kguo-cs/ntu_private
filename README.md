@@ -1,13 +1,13 @@
 export PBS_JOBID=118609.pbs111
 
-rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/full/training_map2_03_light ./
+rsync -avz   ke@10.87.67.68:~/code/sim/src/waymo_data/full/training_map2_03_light ./
 
 rsync -avz /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_drop0_kl02epoch=31-step=60896.ckpt ke@10.87.216.98:~/code/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_drop0_kl02epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/   
 
 rsync -avz ke@10.87.114.128:~/wifi_auto_reconnect.sh ./
-
+ 10.87.67.68 
 rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_drop0_kl02epoch=31-step=60896.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
