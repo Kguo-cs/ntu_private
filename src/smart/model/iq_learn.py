@@ -346,7 +346,7 @@ class IQ_SoftQ(LightningModule):
 
         #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
 
-        print(torch.all(mask_s))
+       # print(torch.all(mask_s))
 
         exit_mask = ~mask_s & (after_any >0)
         present_mask = exit_mask | mask_s
