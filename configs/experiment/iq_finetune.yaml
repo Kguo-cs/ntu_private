@@ -60,7 +60,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL48_allvalidpred
+task_name: AIRL48_pred #allvalid
 
 trainer:
   limit_train_batches: 1.0

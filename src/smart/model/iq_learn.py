@@ -381,12 +381,12 @@ class IQ_SoftQ(LightningModule):
 
         ego_logits=ego_logits[dis_mask]
 
-        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='none')
+        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='mean')
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
             interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='none')
+                                                         weight=weight, reduction='mean')
 
             # bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
             #                                              weight=weight, reduction='sum') /dis_mask.sum()
@@ -421,7 +421,7 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] & tokenized_agent["token_mask"][:,self.start_step:].all(1)
+        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
         expert_dis_loss,expert_dis_loss1,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
 
@@ -458,30 +458,7 @@ class IQ_SoftQ(LightningModule):
 
         advantages = self.return_meanstd.normalize(advantages)
 
-        ppo_loss = -(agent_log_prob * advantages)
-
-        if dist.is_initialized():
-
-            ppo_loss = get_reduce_loss(ppo_loss)
-
-            value_loss = get_reduce_loss(value_loss)
-
-            expert_nll = get_reduce_loss(expert_nll)
-
-            expert_dis_loss=get_reduce_loss(expert_dis_loss,expert_dis_loss1)
-
-            agent_dis_loss = get_reduce_loss(agent_dis_loss,agent_dis_loss1)
-        else:
-            #print(ppo_loss.numel(),value_loss.numel(),expert_nll.numel(),expert_dis_loss.numel(),agent_dis_loss.numel())
-            ppo_loss = ppo_loss.mean()
-            value_loss = value_loss.mean()
-            expert_nll = expert_nll.mean()
-            if expert_dis_loss1 is not None:
-                expert_dis_loss=expert_dis_loss1.sum()/len(expert_dis_loss)+ expert_dis_loss.mean()
-                agent_dis_loss=agent_dis_loss1.sum()/len(agent_dis_loss)+agent_dis_loss.mean()
-            else:
-                expert_dis_loss = expert_dis_loss.mean()
-                agent_dis_loss = agent_dis_loss.mean()
+        ppo_loss = -(agent_log_prob * advantages).mean()
 
         critic_loss = expert_dis_loss + agent_dis_loss + agent_gp
 
