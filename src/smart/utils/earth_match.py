@@ -47,6 +47,83 @@ def matching_loss(
 
     return total_loss,pos_loss,heading_loss,shape_loss,vel_loss
 
+def box_projection_radius(length, width, axis_x, axis_y, cos_h, sin_h):
+    """
+    Projection radius of a rotated rectangle onto an axis
+    """
+    # box local axes
+    ux_x, ux_y = cos_h, sin_h
+    uy_x, uy_y = -sin_h, cos_h
+
+    r = (
+        0.5 * length * torch.abs(axis_x * ux_x + axis_y * ux_y) +
+        0.5 * width  * torch.abs(axis_x * uy_x + axis_y * uy_y)
+    )
+    return r
+
+def collision_loss(
+    fake_pos,        # (N, 2)
+    fake_heading,    # (N, 2) -> (cos, sin)
+    fake_shape,      # (N, 2) -> (length, width)
+    batch,
+    margin=0.0,
+    reduction="mean"
+):
+    device = fake_pos.device
+    total_loss = 0.0
+    total_pairs = 0
+
+    for b in batch.unique():
+        idx = (batch == b).nonzero(as_tuple=True)[0]
+        if idx.numel() <= 1:
+            continue
+
+        pos = fake_pos[idx]          # (M, 2)
+        heading = fake_heading[idx]  # (M, 2)
+        shape = fake_shape[idx]      # (M, 2)
+
+        M = pos.shape[0]
+
+        # pairwise differences
+        delta = pos[:, None, :] - pos[None, :, :]      # (M, M, 2)
+        dist = torch.norm(delta + 1e-6, dim=-1)        # (M, M)
+
+        # unit direction vectors
+        axis = delta / (dist[..., None] + 1e-6)
+        axis_x, axis_y = axis[..., 0], axis[..., 1]
+
+        # projection radii
+        r_i = box_projection_radius(
+            shape[:, 0][:, None], shape[:, 1][:, None],
+            axis_x, axis_y,
+            heading[:, 0][:, None], heading[:, 1][:, None]
+        )
+
+        r_j = box_projection_radius(
+            shape[:, 0][None], shape[:, 1][None],
+            axis_x, axis_y,
+            heading[:, 0][None], heading[:, 1][None]
+        )
+
+        # penetration depth
+        penetration = r_i + r_j - dist + margin
+
+        # mask self-collision
+        mask = ~torch.eye(M, dtype=torch.bool, device=device)
+
+        collision = torch.relu(penetration)[mask]
+
+        total_loss += collision.sum()
+        total_pairs += collision.numel()
+
+    if total_pairs == 0:
+        return torch.tensor(0.0, device=device)
+
+    if reduction == "mean":
+        return total_loss / total_pairs
+    else:
+        return total_loss
+
 
 def get_matching_loss(
     initial_type, batch, fake_state,real_state,latent=False
@@ -88,18 +165,20 @@ def get_matching_loss(
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
-    radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
+    # radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
+    #
+    # dist = torch.cdist(fake_pos, fake_pos)
+    # penetration = radius[:, None] + radius[None, :] - dist
+    # same_batch = batch[:, None] == batch[None, :]
+    #
+    # # remove self-collision
+    # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+    #
+    # mask = same_batch & not_self
+    #
+    # col_loss = torch.relu(penetration)[mask].mean()
 
-    dist = torch.cdist(fake_pos, fake_pos)
-    penetration = radius[:, None] + radius[None, :] - dist
-    same_batch = batch[:, None] == batch[None, :]
+    col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )
 
-    # remove self-collision
-    not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
-
-    mask = same_batch & not_self
-
-    collision_loss = torch.relu(penetration)[mask].mean()
-
-    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,collision_loss
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
