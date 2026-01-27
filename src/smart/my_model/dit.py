@@ -8,12 +8,12 @@ from src.smart.layers.autoencoder import get_edgeindex
 
 class DiT(nn.Module):
 
-    def __init__(self):
+    def __init__(self,hidden_dim):
         super(DiT, self).__init__()
         # self.cfg = cfg
         # self.cfg_model = self.cfg.model
         # self.cfg_dataset = self.cfg.dataset
-        hidden_dim=128
+
         self.agent_hidden_dim=hidden_dim
         self.dropout=0
         self.num_heads=8
@@ -131,7 +131,7 @@ class DiT(nn.Module):
         """ Forward pass of the DiT model."""
 
         agent_batch, lane_batch,batch_size,nonego_type_sorted,ego_embedding=data
-        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False)
+        a2a_edge_index, l2a_edge_index,l2l_edge_index,pos_emb_agent=get_edgeindex(agent_batch,lane_batch,batch_size,use_transformer=False,hidden_dim=self.agent_hidden_dim)
 
         # lane_idx_batch = get_indices_within_scene(lane_batch)
         # agent_idx_batch = get_indices_within_scene(agent_batch)

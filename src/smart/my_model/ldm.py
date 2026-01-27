@@ -8,12 +8,16 @@ from .diffusion_helpers import (
 from src.smart.layers.autoencoder_utils import ResidualMLP, AttentionLayer, AutoEncoderFactorizedAttentionBlock,GeometricLosses,reparameterize
 from .dit import DiT
 
+from src.smart.layers import MLPLayer
 
 class LDM(nn.Module):
     def __init__(self):
         super(LDM, self).__init__()
+        hidden_dim=512
 
-        self.model = DiT()
+        self.model = DiT(hidden_dim)
+        self.pose_embedding= MLPLayer(128+2+2, hidden_dim, hidden_dim)
+        self.ego_embedding = MLPLayer(20, hidden_dim, hidden_dim)
 
         n_timesteps = 100
         betas = cosine_beta_schedule(n_timesteps)
