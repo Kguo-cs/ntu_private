@@ -264,5 +264,5 @@ def get_matching_loss(
     col_loss=multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
     # [03:08<13:55,  3.71it/s, v_num=4e1b]
 
-    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,(col_loss).expm1()*2
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,(col_loss*2).expm1()
 
