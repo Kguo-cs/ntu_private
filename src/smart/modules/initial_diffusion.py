@@ -96,7 +96,7 @@ class PDInit(nn.Module):
 
     def get_data(self,tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
 
-        real_vel=tokenized_agent["initial_vel"][non_ego]
+        real_vel=tokenized_agent["local_vel"][non_ego]
 
         initial_shape = tokenized_agent["initial_shape"][non_ego]
 
