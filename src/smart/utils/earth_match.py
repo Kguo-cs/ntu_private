@@ -181,6 +181,11 @@ def multi_circle_collision_loss_mem_efficient(
             cj = centers[:, j]       # (N, 2)
             d = torch.cdist(ci, cj)  # (N, N)
             min_dist = torch.minimum(min_dist, d)
+        # diff = ci[:, None, None, :] - centers[None, :, :, :]
+        # dist = torch.norm(diff, dim=-1)   # (N, N, C)
+        #
+        # # min over j circles
+        # min_dist = torch.minimum(min_dist, dist.amin(dim=-1))
 
     thresh = (width[:, None] + width[None, :]) / torch.sqrt(
         torch.tensor(3.8, device=device)
@@ -241,24 +246,23 @@ def get_matching_loss(
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
-    radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
+    # radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
+    #
+    # dist = torch.cdist(fake_pos, fake_pos)
+    # penetration = radius[:, None] + radius[None, :] - dist
+    # same_batch = batch[:, None] == batch[None, :]
+    #
+    # # remove self-collision
+    # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+    #
+    # mask = same_batch & not_self
+    #
+    # col_loss = torch.relu(penetration)[mask].mean()# [02:20<09:00,  5.59it/s, v_num=05jo]
 
-    dist = torch.cdist(fake_pos, fake_pos)
+    #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )#[00:28<19:45,  3.13it/s, v_num=oc9q]
+    #col_loss=torch.zeros_like(match_loss)#
+    col_loss=multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
+    # [03:08<13:55,  3.71it/s, v_num=4e1b]
 
-
-
-    penetration = radius[:, None] + radius[None, :] - dist
-    same_batch = batch[:, None] == batch[None, :]
-
-    # remove self-collision
-    not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
-
-    mask = same_batch & not_self
-
-    col_loss = 10*torch.relu(penetration)[mask].mean()
-
-    #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )
-    #col_loss=torch.zeros_like(match_loss)#multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
-
-    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss.expm1()
 
