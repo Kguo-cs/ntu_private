@@ -51,9 +51,6 @@ def matching_loss(
 def get_matching_loss(
     initial_type, batch, fake_state,real_state,latent=False
     ):
-    # real_state = m_init * normal_scale + normal_mean
-    # fake_state = x_pred * normal_scale + normal_mean
-
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[   :, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[ :, 4:]
 
@@ -91,5 +88,18 @@ def get_matching_loss(
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
-    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss
+    radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
+
+    dist = torch.cdist(fake_pos, fake_pos)
+    penetration = radius[:, None] + radius[None, :] - dist
+    same_batch = batch[:, None] == batch[None, :]
+
+    # remove self-collision
+    not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+
+    mask = same_batch & not_self
+
+    collision_loss = torch.relu(penetration)[mask].mean()
+
+    return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,collision_loss
 
