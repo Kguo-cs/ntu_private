@@ -107,7 +107,7 @@ class SMART(LightningModule):
 
         if self.token_processor.pred_init and self.encoder.agent_encoder.learn_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
-            self.para_num=3
+            self.para_num=2
             self.n_rollout_closed_val=2
         else:
             self.challenge_type=ChallengeType.SIM_AGENTS
