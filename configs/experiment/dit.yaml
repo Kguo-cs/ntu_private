@@ -53,7 +53,7 @@ trainer:
   limit_val_batches: 4
   check_val_every_n_epoch: 1
   #val_check_interval: 0.1
-  #val_check_interval: 0.0000002
+  val_check_interval: 0.0000002
   max_epochs: 32
   gradient_clip_val: 0.0
 
