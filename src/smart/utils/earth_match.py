@@ -160,46 +160,44 @@ def compute_vehicle_circles_torch(
 
     return centers, radii
 
-def multi_circle_collision_loss(
-    pos,        # (N, 2)
-    heading,    # (N,)
-    length,     # (N,)
-    width,      # (N,)
-    batch,      # (N,)
+def multi_circle_collision_loss_mem_efficient(
+    pos, heading, length, width, batch,
     num_circles=5,
     reduction="mean"
 ):
     device = pos.device
+    N = pos.shape[0]
 
-    centers, radii = compute_vehicle_circles_torch(
+    centers, _ = compute_vehicle_circles_torch(
         pos, heading, length, width, num_circles
-    )  # (N, C, 2), (N, C)
+    )  # (N, C, 2)
 
-    # pairwise center distances
-    diff = centers[:, None, :, None, :] - centers[None, :, None, :, :]
-    dist = torch.norm(diff, dim=-1)  # (N, N, C, C)
+    # 初始化为 +inf
+    min_dist = torch.full((N, N), float("inf"), device=device)
 
-    # threshold (same as numpy version)
+    for i in range(num_circles):
+        ci = centers[:, i]           # (N, 2)
+        for j in range(num_circles):
+            cj = centers[:, j]       # (N, 2)
+            d = torch.cdist(ci, cj)  # (N, N)
+            min_dist = torch.minimum(min_dist, d)
+
     thresh = (width[:, None] + width[None, :]) / torch.sqrt(
         torch.tensor(3.8, device=device)
     )
 
-    penetration = thresh[:, :, None, None] - dist
+    penetration = thresh - min_dist
 
-    # batch mask
     same_batch = batch[:, None] == batch[None, :]
+    not_self = ~torch.eye(N, dtype=torch.bool, device=device)
 
-    # remove self-collision
-    not_self = ~torch.eye(len(pos), dtype=torch.bool, device=device)
-
-    mask = same_batch & not_self
-
-    loss = torch.relu(penetration)[mask]
+    loss = torch.relu(penetration)[same_batch & not_self]
 
     if loss.numel() == 0:
         return torch.tensor(0.0, device=device)
 
     return loss.mean() if reduction == "mean" else loss.sum()
+
 
 
 
@@ -257,7 +255,7 @@ def get_matching_loss(
     # col_loss = torch.relu(penetration)[mask].mean()
 
     #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )
-    col_loss=multi_circle_collision_loss(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
+    col_loss=multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 

@@ -105,7 +105,7 @@ git pull
 ssh ke@10.87.216.98
 source "/home/ke/miniconda3/bin/activate"
 cd /home/ke/code/sim/src
-conda activate sim
+conda activate catk
 git pull
 
 
