@@ -277,7 +277,7 @@ class LDM(nn.Module):
 
         agent_noise_pred = self.model(x_agent_noisy, x_lane, data, t_agent,t_lane)
         agent_loss = self.agent_loss_fn(agent_noise_pred, agent_noise, data[0])
-        return agent_loss
+        return agent_loss,agent_noise_pred,t_agent,t_agent
 
     def get_loss(self, x_agent,tokenized_agent,map_feature,non_ego):
         """ Sample diffusion timesteps for training and compute the loss for the diffusion model."""
