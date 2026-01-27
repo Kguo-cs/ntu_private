@@ -125,6 +125,84 @@ def collision_loss(
         return total_loss
 
 
+def compute_vehicle_circles_torch(
+    pos,        # (N, 2)
+    heading,    # (N,)
+    length,     # (N,)
+    width,      # (N,)
+    num_circles=5
+):
+    """
+    Returns:
+        centers: (N, C, 2)
+        radii:   (N, C)
+    """
+    device = pos.device
+    C = num_circles
+
+    radius = width / 2.0                         # (N,)
+    rel_x = torch.linspace(
+        -0.5, 0.5, C, device=device
+    )[None] * (length[:, None] - 2 * radius[:, None])
+
+    cos_h = torch.cos(heading)
+    sin_h = torch.sin(heading)
+
+    dx = cos_h[:, None] * rel_x
+    dy = sin_h[:, None] * rel_x
+
+    centers = torch.stack([
+        pos[:, 0][:, None] + dx,
+        pos[:, 1][:, None] + dy
+    ], dim=-1)
+
+    radii = radius[:, None].expand(-1, C)
+
+    return centers, radii
+
+def multi_circle_collision_loss(
+    pos,        # (N, 2)
+    heading,    # (N,)
+    length,     # (N,)
+    width,      # (N,)
+    batch,      # (N,)
+    num_circles=5,
+    reduction="mean"
+):
+    device = pos.device
+
+    centers, radii = compute_vehicle_circles_torch(
+        pos, heading, length, width, num_circles
+    )  # (N, C, 2), (N, C)
+
+    # pairwise center distances
+    diff = centers[:, None, :, None, :] - centers[None, :, None, :, :]
+    dist = torch.norm(diff, dim=-1)  # (N, N, C, C)
+
+    # threshold (same as numpy version)
+    thresh = (width[:, None] + width[None, :]) / torch.sqrt(
+        torch.tensor(3.8, device=device)
+    )
+
+    penetration = thresh[:, :, None, None] - dist
+
+    # batch mask
+    same_batch = batch[:, None] == batch[None, :]
+
+    # remove self-collision
+    not_self = ~torch.eye(len(pos), dtype=torch.bool, device=device)
+
+    mask = same_batch & not_self
+
+    loss = torch.relu(penetration)[mask]
+
+    if loss.numel() == 0:
+        return torch.tensor(0.0, device=device)
+
+    return loss.mean() if reduction == "mean" else loss.sum()
+
+
+
 def get_matching_loss(
     initial_type, batch, fake_state,real_state,latent=False
     ):
@@ -178,7 +256,8 @@ def get_matching_loss(
     #
     # col_loss = torch.relu(penetration)[mask].mean()
 
-    col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )
+    #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )
+    col_loss=multi_circle_collision_loss(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
