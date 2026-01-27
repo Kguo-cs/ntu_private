@@ -241,21 +241,24 @@ def get_matching_loss(
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
-    # radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
-    #
-    # dist = torch.cdist(fake_pos, fake_pos)
-    # penetration = radius[:, None] + radius[None, :] - dist
-    # same_batch = batch[:, None] == batch[None, :]
-    #
-    # # remove self-collision
-    # not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
-    #
-    # mask = same_batch & not_self
-    #
-    # col_loss = torch.relu(penetration)[mask].mean()
+    radius = 0.5 * torch.norm(fake_shape, dim=-1)  # circumscribed circle
+
+    dist = torch.cdist(fake_pos, fake_pos)
+
+
+
+    penetration = radius[:, None] + radius[None, :] - dist
+    same_batch = batch[:, None] == batch[None, :]
+
+    # remove self-collision
+    not_self = ~torch.eye(len(batch), dtype=torch.bool, device=batch.device)
+
+    mask = same_batch & not_self
+
+    col_loss = torch.relu(penetration)[mask].mean()
 
     #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )
-    col_loss=torch.zeros_like(match_loss)#multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
+    #col_loss=torch.zeros_like(match_loss)#multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,col_loss
 
