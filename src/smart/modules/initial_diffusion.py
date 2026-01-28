@@ -330,7 +330,7 @@ class PDInit(nn.Module):
                         loss = AdversarialLoss.mean()
                         #
                         # # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
-                        # self.D.train()
+                        self.D.train()
                         #loss=torch.tensor(0.0, device=batch.device)
 
                         # match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent["nonego_type_sorted"], new_batch,
