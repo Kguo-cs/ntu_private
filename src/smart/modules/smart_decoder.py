@@ -61,7 +61,7 @@ class SMARTDecoder(nn.Module):
         self.use_lcf=reward_weight!=0
         self.use_value=True
         self.use_kl_penalty=False
-        self.gail=hist_drop_prob==0
+        self.gail=dis_a2a_radius>0
 
         if self.use_smart:
             self.alpha = 1
