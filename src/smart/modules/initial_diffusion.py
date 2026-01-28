@@ -225,7 +225,7 @@ class PDInit(nn.Module):
 
             loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
         else:
-            if self.global_step>-1:
+            if self.global_step>1000000:
                 self.D.eval()
                 FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
 
