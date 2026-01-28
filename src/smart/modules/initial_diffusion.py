@@ -35,7 +35,7 @@ class PDInit(nn.Module):
         args = parser.parse_args()
 
         self.latent_diffusion=False
-        self.use_gan = False
+        self.use_gan = True
 
 
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -322,21 +322,21 @@ class PDInit(nn.Module):
 
                         loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
                     else:
-                        self.D.eval()
-                        FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
-                        RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
-                        RelativisticLogits = FakeLogits - RealLogits
-                        AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-                        loss = AdversarialLoss.mean()
-
-                        # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
-                        self.D.train()
-                        # loss=torch.tensor(0.0, device=real_heading.device)
+                        # self.D.eval()
+                        # FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
+                        # RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
+                        # RelativisticLogits = FakeLogits - RealLogits
+                        # AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                        # loss = AdversarialLoss.mean()
+                        #
+                        # # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
+                        # self.D.train()
+                        loss=torch.tensor(0.0, device=batch.device)
 
                         # match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent["nonego_type_sorted"], new_batch,
                         #                                                                        FakeSamples,RealSamples
                         #                                                                        )
-                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(
+                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss ,collision_loss= get_matching_loss(
                             old_nonego_type_sorted,
                             old_batch,
                             x_pred * normal_scale + normal_mean,
