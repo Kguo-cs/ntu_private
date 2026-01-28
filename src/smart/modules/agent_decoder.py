@@ -120,8 +120,6 @@ class SMARTAgentDecoder(nn.Module):
                 else:
                     self.init_decoder=PDInit(hidden_dim,num_heads,num_freq_bands,token_processor)
 
-
-
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0,abs_time=None):
 
         n_agent, n_step = head_a.shape

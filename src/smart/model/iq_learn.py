@@ -16,6 +16,8 @@ import torch.distributed as dist
 from src.smart.utils import wrap_angle
 
 
+
+
 class IQ_SoftQ(LightningModule):
 
     def __init__(self, model_config) -> None:
@@ -431,7 +433,17 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
+        for m in self.encoder.agent_encoder.interative_decoder.t_attn_layers.modules():
+            if isinstance(m, nn.Dropout):
+                m.p = 0.0
+        self.encoder.agent_encoder.interative_decoder.edge_encoder.hist_drop_prob = 0
+
         agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
+
+        for m in self.encoder.agent_encoder.interative_decoder.t_attn_layers.modules():
+            if isinstance(m, nn.Dropout):
+                m.p = 0.1
+        self.encoder.agent_encoder.interative_decoder.edge_encoder.hist_drop_prob = 0.1
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
