@@ -43,9 +43,9 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim = hidden_dim
 
-        self.use_entry_former = True
+        self.use_entry_former = False
         self.use_transformer=False
-        self.use_decompose = False
+        self.use_decompose = True
 
         if self.use_entry_former:
 
@@ -206,8 +206,6 @@ class InitDiscriminator(nn.Module):
 
             attr_feature = attr_feature[mask_a_b]
         else:
-            mask_a = None
-
             pos_pl, orient_pl, batch_pl, feat_map = map_feature
 
             head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -218,11 +216,11 @@ class InitDiscriminator(nn.Module):
                 pos_a=pos_a,  # [n_agent, n_step, 2]
                 head_a=head_a,  # [n_agent, n_step]
                 head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-                mask=mask_a,  # [n_agent, n_step]
+                mask=None,  # [n_agent, n_step]
                 batch_s=batch,  # [n_agent,n_step]
                 batch_pl=batch_pl,  # [n_pl*n_step]
-                pl2a_radius=40,
-                max_num_neighbors=20,
+                pl2a_radius=10,
+                max_num_neighbors=10,
                 agent_train_mask=None,
                 layer_num=1
             )
@@ -232,9 +230,9 @@ class InitDiscriminator(nn.Module):
                 head_s=head_a,  # [n_agent, n_step]
                 head_vector_s=head_vector_a,  # [n_agent, n_step, 2]
                 batch_s=batch,  # [n_agent*n_step]
-                mask=mask_a,  # [n_agent, n_step]
+                mask=None,  # [n_agent, n_step]
                 max_radius=10,
-                max_num_neighbors=20,
+                max_num_neighbors=10,
                 agent_train_mask=None,
                 layer_num=1,
                 counter_feat_a=None
@@ -255,7 +253,6 @@ class InitDiscriminator(nn.Module):
 
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.a2a_head(feat_interact)
-
             else:
                 feat_a = self.a2a_attn_layers[0](feat_a, r_a2a, edge_index_a2a)
 

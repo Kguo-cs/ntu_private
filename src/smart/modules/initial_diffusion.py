@@ -141,18 +141,18 @@ class PDInit(nn.Module):
         return m_init,sort_idx
 
     def get_gan_loss(self,m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego,rec_loss=None,t=None,t_batch=None):
-        pos_pl, orient_pl, batch_pl, feat_map=map_feature
+        if self.D.use_entry_former:
+            pos_pl, orient_pl, batch_pl, feat_map=map_feature
+            num_graphs=tokenized_agent["num_graphs"]
 
-        num_graphs=tokenized_agent["num_graphs"]
-        old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
-        old_batch = tokenized_agent["batch"][non_ego]
+            pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
 
-        pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
-
-        map_mask = torch.any(feat_map != 0, dim=-1)
+            map_mask = torch.any(feat_map != 0, dim=-1)
 
         RealSamples = m_init * normal_scale + normal_mean
         FakeSamples = x_pred * normal_scale + normal_mean
+        old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
+        old_batch = tokenized_agent["batch"][non_ego]
 
         if t is not None:
             gap = -1
@@ -170,7 +170,8 @@ class PDInit(nn.Module):
             FakeSamples=FakeSamples[low_noise_mask]
         else:
             tokenized_agent["nonego_batch"] = old_batch
-            map_feature = (pos_pl, orient_pl, feat_map, map_mask)
+            if self.D.use_entry_former:
+                map_feature = (pos_pl, orient_pl, feat_map, map_mask)
 
         agent_n=len(FakeSamples)
 
@@ -201,21 +202,23 @@ class PDInit(nn.Module):
 
             loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
         else:
-            self.D.eval()
-            FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
+            if self.global_step>2000:
+                self.D.eval()
+                FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
 
-            if self.use_Rp:
-                RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
-                RelativisticLogits = FakeLogits - RealLogits
-                AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-                loss = AdversarialLoss.mean()
+                if self.use_Rp:
+                    RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
+                    RelativisticLogits = FakeLogits - RealLogits
+                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                    loss = AdversarialLoss.mean()
+                else:
+                    FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+                    loss = -FakeLogits.mean()
+                    if len(fake_interact_logits) > 0:
+                        loss = loss - fake_interact_logits.sum()/agent_n
+                self.D.train()
             else:
-                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-                loss = -FakeLogits.mean()
-                if len(fake_interact_logits) > 0:
-                    loss = loss - fake_interact_logits.sum()/agent_n
-            self.D.train()
-            # loss=torch.tensor(0.0, device=batch.device)
+                loss=torch.tensor(0.0, device=FakeSamples.device)
 
             # match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent["nonego_type_sorted"], new_batch,
             #                                                                        FakeSamples,RealSamples

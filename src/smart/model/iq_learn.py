@@ -127,12 +127,12 @@ class IQ_SoftQ(LightningModule):
                     opt_G,opt_D=self.optimizers()
 
                     if len(pred["initial_logit"]) == 3:
-                        real_loss, fake_loss,gp=pred["initial_logit"]
-                        loss=real_loss+fake_loss+gp
-                        self.log("train/real_loss", real_loss.item(), on_step=True, batch_size=1)
-                        self.log("train/fake_loss", fake_loss.item(), on_step=True, batch_size=1)
+                        dis_loss, r1,r2=pred["initial_logit"]
+                        loss=dis_loss+r1+r2
+                        self.log("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
+                        self.log("train/r1", r1.item(), on_step=True, batch_size=1)
+                        self.log("train/r2", r2.item(), on_step=True, batch_size=1)
                         self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
-                        self.log("train/gp", gp.item(), on_step=True, batch_size=1)
 
                         opt_D.zero_grad()
                         loss.backward()
