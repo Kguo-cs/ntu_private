@@ -184,8 +184,8 @@ class PDInit(nn.Module):
             RealLogits,real_weight = self.D(RealSamples, map_feature, tokenized_agent,return_weight=True)
             FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
 
-            #R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-            #R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+            R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+            R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
             if self.use_Rp:
                 RelativisticLogits = RealLogits - FakeLogits
@@ -221,7 +221,7 @@ class PDInit(nn.Module):
 
             w = 1  # 0.1+(1-self.global_step/10000.0)
 
-            R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
+            #R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
 
             loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
         else:
