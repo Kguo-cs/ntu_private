@@ -310,28 +310,28 @@ class PDInit(nn.Module):
                         RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
                         FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
 
-                        R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-                        R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+                        # R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+                        # R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
                         RelativisticLogits = RealLogits - FakeLogits
                         AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
 
                         w = 1  # 0.1+(1-self.global_step/10000.0)
 
-                        # R2Penalty=R1Penalty=torch.tensor(0.0, device=real_heading.device)
+                        R2Penalty=R1Penalty=torch.tensor(0.0, device=RealLogits.device)
 
                         loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
                     else:
-                        # self.D.eval()
-                        # FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
-                        # RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
-                        # RelativisticLogits = FakeLogits - RealLogits
-                        # AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
-                        # loss = AdversarialLoss.mean()
+                        self.D.eval()
+                        FakeLogits = self.D(FakeSamples, map_feature, tokenized_agent)
+                        RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
+                        RelativisticLogits = FakeLogits - RealLogits
+                        AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                        loss = AdversarialLoss.mean()
                         #
                         # # loss = -self.D(FakeSamples,map_feature,tokenized_agent).mean()
                         # self.D.train()
-                        loss=torch.tensor(0.0, device=batch.device)
+                        #loss=torch.tensor(0.0, device=batch.device)
 
                         # match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent["nonego_type_sorted"], new_batch,
                         #                                                                        FakeSamples,RealSamples
