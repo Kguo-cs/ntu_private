@@ -161,7 +161,7 @@ class InitDiscriminator(nn.Module):
 
         return pos_a_b, heading_a_b, feat_a_b, mask_a_b
 
-    def forward(self,inputs, map_feature,  tokenized_agent):
+    def forward(self,inputs, map_feature,  tokenized_agent,return_weight=False):
 
         pos_a=inputs[:,:2]
         head_a=torch.atan2(inputs[:,3],inputs[:,2])#inputs[:,2]#
@@ -266,9 +266,13 @@ class InitDiscriminator(nn.Module):
         score = self.score_decoder(attr_feature)
 
         if self.use_decompose:
+
+            score=torch.cat([score, interact_logits], dim=0)
+
+        if return_weight:
             weight = torch.exp(-dist[:,None] / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
 
-            score=torch.cat([score, weight*interact_logits], dim=0)
+            return score, weight.detach()
 
 
         return score
