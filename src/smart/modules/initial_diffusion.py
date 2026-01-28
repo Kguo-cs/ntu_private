@@ -201,21 +201,21 @@ class PDInit(nn.Module):
                 AdversarialLoss =fake_bce_loss+real_bce_loss
                 # AdversarialLoss = FakeLogits.mean() - RealLogits.mean()
                 if len(fake_interact_logits) > 0:
-                    loss = F.binary_cross_entropy_with_logits(
+                    fake_loss = F.binary_cross_entropy_with_logits(
                         fake_interact_logits,
                         torch.zeros_like(fake_interact_logits),
                         reduction='none'
                     )
 
-                    fake_interact_bce_loss = (loss * fake_weight).sum() / agent_n
+                    fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
 
-                    loss = F.binary_cross_entropy_with_logits(
+                    real_loss = F.binary_cross_entropy_with_logits(
                         real_interact_logits,
                         torch.ones_like(real_interact_logits),
                         reduction='none'
                     )
 
-                    real_interact_bce_loss= (loss * real_weight).sum() / agent_n
+                    real_interact_bce_loss= (real_loss * real_weight).sum() / agent_n
 
                     AdversarialLoss =  AdversarialLoss +fake_interact_bce_loss +real_interact_bce_loss#
 
@@ -241,13 +241,13 @@ class PDInit(nn.Module):
 
                     loss=-fake_bce_loss
                     if len(fake_interact_logits) > 0:
-                        loss = F.binary_cross_entropy_with_logits(
+                        fake_loss = F.binary_cross_entropy_with_logits(
                             fake_interact_logits,
                             torch.zeros_like(fake_interact_logits),
                             reduction='none'
                         )
 
-                        fake_interact_bce_loss = (loss * fake_weight).sum() / agent_n
+                        fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
 
                         loss=loss-fake_interact_bce_loss
                 self.D.train()

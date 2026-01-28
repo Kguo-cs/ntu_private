@@ -384,7 +384,7 @@ class IQ_SoftQ(LightningModule):
         if len(interact_logits)==len(ego_logits):
             interact_logits=interact_logits[dis_mask]
 
-        ego_logits=ego_logits[dis_mask]
+        ego_logits=ego_logits[dis_mask]#valid ego logit
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='mean')
         if len(interact_logits) > 0:
