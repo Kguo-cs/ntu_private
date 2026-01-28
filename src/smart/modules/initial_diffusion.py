@@ -184,8 +184,9 @@ class PDInit(nn.Module):
             RealLogits,real_weight = self.D(RealSamples, map_feature, tokenized_agent,return_weight=True)
             FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
 
-            # R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-            # R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+            R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+            R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+
             if self.use_Rp:
                 RelativisticLogits = RealLogits - FakeLogits
                 AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
@@ -214,7 +215,7 @@ class PDInit(nn.Module):
 
             w = 1  # 0.1+(1-self.global_step/10000.0)
 
-            R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
+            #R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
 
             loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
         else:
@@ -231,13 +232,15 @@ class PDInit(nn.Module):
                     FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
                     fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
                                                                        reduction='mean')
+
+                    loss=-fake_bce_loss
                     if len(fake_interact_logits) > 0:
                         fake_interact_bce_loss = F.binary_cross_entropy_with_logits(fake_interact_logits,
                                                                                     torch.zeros_like(
                                                                                         fake_interact_logits),
                                                                                     weight=fake_weight,
                                                                                     reduction='sum') / agent_n
-                        loss=-fake_bce_loss-fake_interact_bce_loss
+                        loss=loss-fake_interact_bce_loss
                 self.D.train()
             else:
                 loss=torch.tensor(0.0, device=FakeSamples.device)

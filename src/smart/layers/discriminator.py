@@ -43,11 +43,11 @@ class InitDiscriminator(nn.Module):
 
         self.hidden_dim = hidden_dim
 
-        self.use_entry_former = False
+        self.use_entry_former = True
         self.use_transformer=False
-        self.use_decompose = True
+        self.use_decompose = False
 
-        self.dis_weight=10
+        self.dis_weight=1
         self.dist_decay=2.5
 
         if self.use_entry_former:
@@ -241,8 +241,6 @@ class InitDiscriminator(nn.Module):
                 counter_feat_a=None
             )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-
-
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
@@ -269,11 +267,14 @@ class InitDiscriminator(nn.Module):
 
             score=torch.cat([score, interact_logits], dim=0)
 
-        if return_weight:
-            weight = torch.exp(-dist[:,None] / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
 
-            return score, weight.detach()
+        if return_weight :
+            if self.use_decompose:
+                weight = torch.exp(-dist[:,None].detach() / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
+            else:
+                weight = None
 
+            return score, weight
 
         return score
 
