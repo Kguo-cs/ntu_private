@@ -270,7 +270,7 @@ class InitDiscriminator(nn.Module):
 
         if return_weight :
             if self.use_decompose:
-                weight = torch.exp(-dist[:,None].detach() / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
+                weight = torch.exp(-dist[:,None]/ self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
             else:
                 weight = None
 

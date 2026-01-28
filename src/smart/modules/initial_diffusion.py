@@ -201,15 +201,21 @@ class PDInit(nn.Module):
                 AdversarialLoss =fake_bce_loss+real_bce_loss
                 # AdversarialLoss = FakeLogits.mean() - RealLogits.mean()
                 if len(fake_interact_logits) > 0:
-                    fake_interact_bce_loss = F.binary_cross_entropy_with_logits(fake_interact_logits,
-                                                                           torch.zeros_like(fake_interact_logits) ,
-                                                                           weight=fake_weight,
-                                                                           reduction='sum') / agent_n
+                    loss = F.binary_cross_entropy_with_logits(
+                        fake_interact_logits,
+                        torch.zeros_like(fake_interact_logits),
+                        reduction='none'
+                    )
 
-                    real_interact_bce_loss = F.binary_cross_entropy_with_logits(real_interact_logits,
-                                                                           torch.ones_like(real_interact_logits) ,
-                                                                           weight=real_weight,
-                                                                           reduction='sum') / agent_n
+                    fake_interact_bce_loss = (loss * fake_weight).sum() / agent_n
+
+                    loss = F.binary_cross_entropy_with_logits(
+                        real_interact_logits,
+                        torch.ones_like(real_interact_logits),
+                        reduction='none'
+                    )
+
+                    real_interact_bce_loss= (loss * real_weight).sum() / agent_n
 
                     AdversarialLoss =  fake_interact_bce_loss +real_interact_bce_loss#AdversarialLoss +
 
@@ -235,11 +241,14 @@ class PDInit(nn.Module):
 
                     loss=-fake_bce_loss
                     if len(fake_interact_logits) > 0:
-                        fake_interact_bce_loss = F.binary_cross_entropy_with_logits(fake_interact_logits,
-                                                                                    torch.zeros_like(
-                                                                                        fake_interact_logits),
-                                                                                    weight=fake_weight,
-                                                                                    reduction='sum') / agent_n
+                        loss = F.binary_cross_entropy_with_logits(
+                            fake_interact_logits,
+                            torch.zeros_like(fake_interact_logits),
+                            reduction='none'
+                        )
+
+                        fake_interact_bce_loss = (loss * fake_weight).sum() / agent_n
+
                         loss=-fake_interact_bce_loss
                 self.D.train()
             else:
