@@ -217,7 +217,7 @@ class PDInit(nn.Module):
 
                     real_interact_bce_loss= (loss * real_weight).sum() / agent_n
 
-                    AdversarialLoss =  fake_interact_bce_loss +real_interact_bce_loss#AdversarialLoss +
+                    AdversarialLoss =  AdversarialLoss +fake_interact_bce_loss +real_interact_bce_loss#
 
             w = 1  # 0.1+(1-self.global_step/10000.0)
 
@@ -249,7 +249,7 @@ class PDInit(nn.Module):
 
                         fake_interact_bce_loss = (loss * fake_weight).sum() / agent_n
 
-                        loss=-fake_interact_bce_loss
+                        loss=loss-fake_interact_bce_loss
                 self.D.train()
             else:
                 loss=torch.tensor(0.0, device=FakeSamples.device)
