@@ -47,6 +47,9 @@ class InitDiscriminator(nn.Module):
         self.use_transformer=False
         self.use_decompose = True
 
+        self.dis_weight=10
+        self.dist_decay=2.5
+
         if self.use_entry_former:
 
             if self.use_transformer:
@@ -239,6 +242,7 @@ class InitDiscriminator(nn.Module):
             )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
 
+
             type_embedding = self.type_embedding(type)
             shape_embedding = self.shape_embedding(shape)
 
@@ -262,7 +266,10 @@ class InitDiscriminator(nn.Module):
         score = self.score_decoder(attr_feature)
 
         if self.use_decompose:
-            score=torch.cat([score, interact_logits], dim=0)
+            weight = torch.exp(-dist[:,None] / self.dist_decay) * self.dis_weight  # torch.ones_like(dist) #=
+
+            score=torch.cat([score, weight*interact_logits], dim=0)
+
 
         return score
 
