@@ -19,7 +19,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bcgen56_vel2/2026-01-14_22-46-0
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/auto64_val256_kl02/2026-01-24_09-23-22/bc/kuuoedsr/checkpoints/epoch=31-step=243520.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit128_val0_match_5e2_beta05/2026-01-25_14-21-35/bc/n5m146zx/checkpoints/epoch=16-step=64685.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit128_val0_match_5e2_colcircleexp10/2026-01-27_14-41-23/bc/c7ao1tup/checkpoints/epoch=24-step=95125.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
@@ -90,7 +90,7 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=0 setsid nohup python run.py > 0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=3 setsid nohup python run3.py > 3.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2

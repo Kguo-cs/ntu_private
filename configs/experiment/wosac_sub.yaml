@@ -41,7 +41,11 @@ model:
     finetune: true
     smart : false
     decoder:
-      hist_drop_prob: 0.1 #0.1 #0.1
+      #hist_drop_prob: 0.1 #0.1 #0.1
+
+      dis_a2a_radius: 60
+      dis_a2a_neighbor: 20
+
 #      hidden_dim: 64
 #      num_freq_bands: 32
 #      num_heads: 8
@@ -49,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen56_vel2_epoch=28-step=252213_0.78445.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=10-step=133925.ckpt'
 
 trainer:
   limit_train_batches: 1.0

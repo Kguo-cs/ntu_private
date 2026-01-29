@@ -30,7 +30,7 @@ model:
     n_rollout_closed_val: 8
     decoder:
       #hist_drop_prob: 0 #0.1 #0.1
-      dropout: 0.1
+     # dropout: 0.1
 
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL40_ep10_pred_drop01all_dis
+task_name: AIRL40_ep10_pred_histdrop01_dis
 
 trainer:
   limit_train_batches: 1.0
