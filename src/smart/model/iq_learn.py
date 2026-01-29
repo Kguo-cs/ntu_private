@@ -129,12 +129,20 @@ class IQ_SoftQ(LightningModule):
                     opt_G,opt_D=self.optimizers()
 
                     if len(pred["initial_logit"]) == 3:
-                        dis_loss, r1,r2=pred["initial_logit"]
+                        dis_loss, r1,r2,FakeLogits,RealLogits=pred["initial_logit"]
                         loss=dis_loss+r1+r2
                         self.log("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
                         self.log("train/r1", r1.item(), on_step=True, batch_size=1)
                         self.log("train/r2", r2.item(), on_step=True, batch_size=1)
                         self.log("train/d_loss", loss.item(), on_step=True, batch_size=1)
+                        disc_val = torch.sigmoid(FakeLogits)
+
+                        self.log("train/agent_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+                        self.log("train/agent_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+                        disc_val = torch.sigmoid(RealLogits)
+
+                        self.log("train/expert_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+                        self.log("train/expert_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
                         opt_D.zero_grad()
                         loss.backward()

@@ -181,8 +181,8 @@ class PDInit(nn.Module):
 
         if self.global_step % 10 == 0:
 
-            RealSamples = RealSamples.detach().requires_grad_(True)
-            FakeSamples = FakeSamples.detach().requires_grad_(True)
+            #RealSamples = RealSamples.detach().requires_grad_(True)
+            #FakeSamples = FakeSamples.detach().requires_grad_(True)
 
             RealLogits,real_weight = self.D(RealSamples, map_feature, tokenized_agent,return_weight=True)
             FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
@@ -226,7 +226,7 @@ class PDInit(nn.Module):
 
             R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
 
-            loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
+            loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean(),FakeLogits,RealLogits)  # cosine schedule
         else:
             if self.global_step>-1:
                 self.D.eval()
