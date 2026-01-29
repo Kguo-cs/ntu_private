@@ -32,9 +32,10 @@ model:
 
     token_processor:
       pred_init: True
+      learn_init: True
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/bcgen128_sort08_map100_max_01loss_nopos0_nooffset_epoch=31-step=121760.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/dit128_val0_match_5e2_colcircleexp10_epoch=24-step=95125_0.6339.ckpt'
 
 trainer:
   limit_train_batches: 1.0
