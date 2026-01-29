@@ -20,6 +20,7 @@ from src.smart.utils.earth_match import get_matching_loss
 from src.smart.layers.discriminator import InitDiscriminator,InitGeneator
 from src.smart.layers.relative_transformer import padding
 import torch.nn.functional as F
+from torch_geometric.nn.pool import knn_graph,knn
 
 class PDInit(nn.Module):
 
@@ -81,6 +82,8 @@ class PDInit(nn.Module):
         self.global_step=0
         self.Gamma=1
         self.use_Rp=False
+
+        self.density_conditioned=True
 
         if self.use_dit:
             self.G = LDM()
@@ -290,6 +293,20 @@ class PDInit(nn.Module):
 
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
+        batch = tokenized_agent["batch"][non_ego].clone()
+
+        nonego_type = tokenized_agent["initial_type"][non_ego].clone()
+
+        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
+
+        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
+
+        ego_embedding=self.G.ego_embedding(ego_local_traj.flatten(1,2))
+        ego_embedding=ego_embedding[batch]
+        # feat_map=feat_map+ego_embedding[batch_pl]
+        # ego_embedding=0
+
+        tokenized_agent["ego_embedding"]=ego_embedding
 
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
@@ -308,25 +325,31 @@ class PDInit(nn.Module):
 
         init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
 
+        if self.density_conditioned:
+            non_ego_pos = gt_initial_pos[non_ego]
+
+            init_trans = transform_to_local(non_ego_pos,
+                                          None,
+                                          ego_position[batch],
+                                          ego_heading[batch],
+                                          )[0]
+
+            edge_index = knn(pos_pl, init_trans,  1, batch_x=batch_pl,
+                             batch_y=batch)  # for each object in y, the nearest point in x
+
+            src, dst = edge_index #src is y , dst is x
+
+            map_agent_count = torch.bincount(
+                dst,
+                minlength=pos_pl.size(0)
+            )
+
+
         #feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
-        feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))
+        feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle,map_agent_count[:,None]], dim=-1))
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 
-        batch = tokenized_agent["batch"][non_ego].clone()
-
-        nonego_type = tokenized_agent["initial_type"][non_ego].clone()
-
-        ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
-
-        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
-
-        ego_embedding=self.G.ego_embedding(ego_local_traj.flatten(1,2))
-        ego_embedding=ego_embedding[batch]
-        # feat_map=feat_map+ego_embedding[batch_pl]
-        # ego_embedding=0
-
-        tokenized_agent["ego_embedding"]=ego_embedding
 
         normal_scale=self.normal_scale.to(non_ego.device)
         normal_mean=self.normal_mean.to(non_ego.device)
