@@ -128,7 +128,7 @@ class IQ_SoftQ(LightningModule):
                 if  self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan:
                     opt_G,opt_D=self.optimizers()
 
-                    if len(pred["initial_logit"]) == 3:
+                    if len(pred["initial_logit"]) == 5:
                         dis_loss, r1,r2,FakeLogits,RealLogits=pred["initial_logit"]
                         loss=dis_loss+r1+r2
                         self.log("train/dis_los", dis_loss.item(), on_step=True, batch_size=1)
