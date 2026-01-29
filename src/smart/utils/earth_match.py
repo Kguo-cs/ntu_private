@@ -207,7 +207,7 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state,latent=False
+    initial_type, batch, fake_state,real_state,latent=False,use_col=True
     ):
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[   :, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[ :, 4:]
@@ -261,7 +261,10 @@ def get_matching_loss(
 
     #col_loss=collision_loss(fake_pos, fake_heading, fake_shape,batch )#[00:28<19:45,  3.13it/s, v_num=oc9q]
     #col_loss=torch.zeros_like(match_loss)#
-    col_loss=multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
+    if use_col:
+        col_loss=multi_circle_collision_loss_mem_efficient(fake_pos, torch.atan2(fake_heading[:,1],fake_heading[:,0]), fake_shape[:,0],fake_shape[:,1],batch )
+    else:
+        col_loss = torch.zeros_like(match_loss)  #
     # [03:08<13:55,  3.71it/s, v_num=4e1b]
 
     return match_loss,pos_loss,heading_loss,shape_loss,vel_loss,(col_loss).expm1()*10

@@ -37,7 +37,7 @@ class PDInit(nn.Module):
         args = parser.parse_args()
 
         self.latent_diffusion=False
-        self.use_gan = False
+        self.use_gan = True
 
 
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -83,7 +83,7 @@ class PDInit(nn.Module):
         self.Gamma=1
         self.use_Rp=False
 
-        self.density_conditioned=True
+        self.density_conditioned=False
 
         if self.use_dit:
             self.G = LDM()
@@ -187,8 +187,8 @@ class PDInit(nn.Module):
             RealLogits,real_weight = self.D(RealSamples, map_feature, tokenized_agent,return_weight=True)
             FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
 
-            R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
-            R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+            # R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+            # R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
 
             if self.use_Rp:
                 RelativisticLogits = RealLogits - FakeLogits
@@ -224,11 +224,11 @@ class PDInit(nn.Module):
 
             w = 1  # 0.1+(1-self.global_step/10000.0)
 
-            #R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
+            R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
 
             loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean())  # cosine schedule
         else:
-            if self.global_step>1000000:
+            if self.global_step>-1:
                 self.D.eval()
                 FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
 
@@ -258,6 +258,7 @@ class PDInit(nn.Module):
                 old_batch,
                 x_pred * normal_scale + normal_mean,
                 m_init * normal_scale + normal_mean,
+                use_col=False
             )
 
             # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
@@ -318,28 +319,28 @@ class PDInit(nn.Module):
 
         init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
 
-        if self.density_conditioned:
-            non_ego_pos = gt_initial_pos[non_ego]
-
-            init_trans = transform_to_local(non_ego_pos,
-                                          None,
-                                          ego_position[batch],
-                                          ego_heading[batch],
-                                          )[0]
-
-            edge_index = knn(pos_pl, init_trans,  1, batch_x=batch_pl,
-                             batch_y=batch)  # for each object in y, the nearest point in x
-
-            src, dst = edge_index #src is y , dst is x
-
-            map_agent_count = torch.bincount(
-                dst,
-                minlength=pos_pl.size(0)
-            )
+        # if self.density_conditioned:
+        #     non_ego_pos = gt_initial_pos[non_ego]
+        #
+        #     init_trans = transform_to_local(non_ego_pos,
+        #                                   None,
+        #                                   ego_position[batch],
+        #                                   ego_heading[batch],
+        #                                   )[0]
+        #
+        #     edge_index = knn(pos_pl, init_trans,  1, batch_x=batch_pl,
+        #                      batch_y=batch)  # for each object in y, the nearest point in x
+        #
+        #     src, dst = edge_index #src is y , dst is x
+        #
+        #     map_agent_count = torch.bincount(
+        #         dst,
+        #         minlength=pos_pl.size(0)
+        #     )
 
 
         #feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
-        feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle,map_agent_count[:,None]], dim=-1))
+        feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))#,map_agent_count[:,None]
 
         map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 

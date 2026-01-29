@@ -65,7 +65,7 @@ class InitDiffusion(nn.Module):
         # self.head_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
         self.ego_embedding = MLPLayer(20, args.hidden_dim, args.hidden_dim)
 
-        self.pose_embedding= MLPLayer(128+2+2+1, args.hidden_dim, args.hidden_dim)
+        self.pose_embedding= MLPLayer(128+2+2, args.hidden_dim, args.hidden_dim)
 
         self.net = InitDenoiser(
             dataset=args.dataset,
