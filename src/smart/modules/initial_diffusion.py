@@ -37,7 +37,7 @@ class PDInit(nn.Module):
         args = parser.parse_args()
 
         self.latent_diffusion=False
-        self.use_gan = True
+        self.use_gan = False
 
 
         self.learn_autoencoder = token_processor.learn_autoencoder
@@ -239,11 +239,17 @@ class PDInit(nn.Module):
                     loss = AdversarialLoss.mean()
                 else:
                     FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
-                    fake_bce_loss = FakeLogits
+                    fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+                                                              reduction='mean')
                     loss=-fake_bce_loss.mean()
                     if len(fake_interact_logits) > 0:
+                        fake_loss = F.binary_cross_entropy_with_logits(
+                            fake_interact_logits,
+                            torch.zeros_like(fake_interact_logits),
+                            reduction='none'
+                        )
 
-                        fake_interact_bce_loss = (fake_interact_logits * fake_weight).sum() / agent_n
+                        fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
 
                         loss=loss-fake_interact_bce_loss
                 self.D.train()

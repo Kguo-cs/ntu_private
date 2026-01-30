@@ -105,3 +105,20 @@ location and mapping is relative to ego current position ,query to get the infor
 | Distance To Road Edge Likelihood      | 0.6777185  |
 | Offroad Likelihood                    | 0.9472486  |
 | minADE                                | 1.452296   |
+
+
+/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=10-step=133925.ckpt
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.7851935  |
+| Linear Speed Likelihood               | 0.37051338 |
+| Linear Acceleration Likelihood        | 0.40856853 |
+| Angular Speed Likelihood              | 0.5153117  |
+| Angular Acceleration Likelihood       | 0.66095793 |
+| Distance To Nearest Object Likelihood | 0.3857387  |
+| Collision Likelihood                  | 0.9808031  |
+| Time To Collision Likelihood          | 0.8246224  |
+| Distance To Road Edge Likelihood      | 0.67964613 |
+| Offroad Likelihood                    | 0.9528255  |
+| minADE                                | 1.5244122  |
