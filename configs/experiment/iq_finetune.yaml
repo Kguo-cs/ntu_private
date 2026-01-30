@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL40_ep10_pred_histdrop01_t60_nosepcial
+task_name: AIRL40_ep10_pred_hist01_t60_noclip_nosepcial
 
 trainer:
   limit_train_batches: 1.0
@@ -70,7 +70,7 @@ trainer:
  # val_check_interval: 0.5
   #val_check_interval: 0.000002
   max_epochs: 10
-  gradient_clip_val: 0.0
+  #gradient_clip_val: 0.0
 
 data:
   train_batch_size: 40
