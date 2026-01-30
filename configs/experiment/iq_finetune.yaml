@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL40_ep10_pred_histdrop01_dis_nosepcial
+task_name: AIRL40_ep10_pred_histdrop01_t60_nosepcial
 
 trainer:
   limit_train_batches: 1.0
