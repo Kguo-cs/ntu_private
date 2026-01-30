@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=10-step=133925.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=9-step=121750_0.78724.ckpt'
 
 trainer:
   limit_train_batches: 1.0
