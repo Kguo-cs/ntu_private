@@ -39,14 +39,14 @@ class AgentTokenEncoder(nn.Module):
             # if self.token_processor.token_initial:
             #self.shape_dim = 2
             # else:
-            self.shape_dim = 2
+            self.shape_dim = 3
 
             self.type_a_emb = nn.Embedding(3, hidden_dim)
             self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
             input_dim_x_a=2
 
 
-          #  self.ego_embed =nn.Embedding(2, hidden_dim)
+            self.ego_embed =nn.Embedding(2, hidden_dim)
 
         self.use_goal = self.token_processor.use_goal & ((not discriminator) | self.token_processor.use_bird)
         self.use_bird=token_processor.use_bird
@@ -239,7 +239,7 @@ class AgentTokenEncoder(nn.Module):
             #     v .repeat_interleave(repeats=n_step, dim=0) for v in categorical_embs
             # ]
 
-            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape[...,:self.shape_dim])#+ self.ego_embed(ego_mask.long())
+            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape[...,:self.shape_dim])+ self.ego_embed(ego_mask.long())
 
             categorical_embs=categorical_embs[None].repeat(n_step,1,1)
         else:
