@@ -64,7 +64,7 @@ class AgentTokenEncoder(nn.Module):
             share=False #self.token_processor.use_bird
         )
 
-        self.discriminator=discriminator
+        self.discriminator=False
         self.use_state_action=False
         self.use_counterfactual=False
 
@@ -282,5 +282,8 @@ class AgentTokenEncoder(nn.Module):
                 if self.use_state_action:
                     counter_feat_a=counter_feat_a[:,:-1]
 
-        return feat_a, agent_token_emb,counter_feat_a  # [n_agent, n_step, hidden_dim]
+        if not self.use_state_action:
+            agent_token_emb=None
+
+        return feat_a, agent_token_emb,counter_feat_a  # [n_agent, n_step, hidden_dim] #1258
 
