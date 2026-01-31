@@ -135,9 +135,6 @@ def run(cfg: DictConfig) -> None:
         trainer.validate(
             model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
         )
-        trainer.validate(
-            model=model, datamodule=datamodule, ckpt_path='/home/ke/code/sim/src/waymo_data/AIRL40_pred_drop01all_epoch=6-step=85225_0.78927.ckpt'
-        )
     elif cfg.action == "test":
         log.info("Starting testing!")
         trainer.test(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
