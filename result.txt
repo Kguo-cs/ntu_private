@@ -125,7 +125,7 @@ location and mapping is relative to ego current position ,query to get the infor
 
 
 
-/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=9-step=121750_0.78724.ckpt
+
 
 
 
@@ -168,3 +168,5 @@ location and mapping is relative to ego current position ,query to get the infor
 
 
 /home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_t60_nosepcial_epoch=9-step=121750_0.7842.ckpt
+
+/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=9-step=121750_0.78724.ckpt

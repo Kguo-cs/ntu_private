@@ -32,6 +32,8 @@ from src.smart.modules.inf_encoder import InfGenAgentDecoder
 from src.smart.modules.initial_decoder import InitDecoder
 from src.smart.modules.initial_gan import InitGAN
 from src.smart.modules.initial_diffusion import PDInit
+import math
+import random
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -154,7 +156,7 @@ class SMARTAgentDecoder(nn.Module):
 
         all_features=[pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
 
-        next_token_logits,feat_a,rewards,weight,edge_index_a2a=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
+        next_token_logits,feat_a,rewards,weight,a2a_feature=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
 
         entry_logit =None
 
@@ -162,7 +164,7 @@ class SMARTAgentDecoder(nn.Module):
             entry_logit= self.entry_decoder(feat_a_token[-len(feat_a):],mask_a,pos_a,head_a,tokenized_agent)
         initial_logit=None
 
-        return next_token_logits,edge_index_a2a,rewards,weight,entry_logit,initial_logit,feat_a
+        return next_token_logits,a2a_feature,rewards,weight,entry_logit,initial_logit,feat_a
 
     def forward(
             self,
@@ -170,11 +172,13 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) :
+        entry_logit = next_token_logits = mask_token_logit=action_mask = None
+
         if self.learn_init:
             initial_logit = self.init_decoder( tokenized_agent)
-            entry_logit=next_token_logits=None
+            entry_logit=next_token_logits=mask_token_logit=None
         else:
-            next_token_logits,edge_index_a2a,rewards,agent_token_emb,entry_logit,initial_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
+            next_token_logits,a2a_feature,rewards,agent_token_emb,entry_logit,initial_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
                                                                                     tokenized_agent["token_mask"][:,:-1],
                                                                                     tokenized_agent["valid_mask"][:,:-1],
                                                                                     tokenized_agent["sampled_pos"][:,:-1],
@@ -189,7 +193,47 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent["initial_logit"] = initial_logit
             tokenized_agent["feat_a"] = feat_a
 
+            if self.interative_decoder.mask_pred:
+                action=tokenized_agent["sampled_idx"][:,1:].clone()
+                action_mask=tokenized_agent["token_mask"][:,1:]
+                state_mask=tokenized_agent["valid_mask"][:,:-1]
+
+                action=action[state_mask]
+                action_mask=action_mask[state_mask]
+
+                n_tokens = len(action)
+                p_mask = random.random()
+
+                # compute the number of tokens to mask out
+                n_tokens_mask = math.ceil(n_tokens * p_mask)
+
+                # randomly select the indices of the tokens to mask out
+                # we should be masking out different tokens from all the tokens in the batch
+                idx_to_mask_si = torch.multinomial(
+                    torch.ones(n_tokens), n_tokens_mask, replacement=False
+                ).to(action.device)
+
+                action_mask[idx_to_mask_si] =False
+
+                action[~action_mask]=self.interative_decoder.n_token_agent
+
+                edge_index_a2a, r_a2a, relative_pos=a2a_feature
+
+                action_feature=self.interative_decoder.action_embed(action)
+
+                feat_a=feat_a+action_feature
+
+                feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+
+                target_valid = tokenized_agent["token_mask"][:, 1:][tokenized_agent["valid_mask"][:, :-1]]
+
+                pred_valid = target_valid & ~action_mask
+
+                mask_token_logit=self.interative_decoder.action_predict_head(feat_a_all[pred_valid])
+
         return {
+            "pred_action_mask":action_mask,
+            "mask_token_logit":mask_token_logit,
             "initial_logit":initial_logit,
             "entry_logit":entry_logit,
             "next_token_logits": next_token_logits

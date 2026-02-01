@@ -193,6 +193,23 @@ class InterativeDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
 
+        self.mask_pred=True
+
+        if self.mask_pred:
+            self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
+
+            self.a2a_inter =AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+            self.action_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+            )
+
         self.apply(weight_init)
 
 
@@ -288,6 +305,7 @@ class InterativeDecoder(nn.Module):
             #each step entry agent allow attend to current agent feature
 
         if self.discriminator:
+            feat_a_pred=feat_a
             if token_embeding is not None :
                 if self.use_airl:
                     feat_sa=feat_a[:-n_agent]+token_embeding
@@ -295,9 +313,9 @@ class InterativeDecoder(nn.Module):
                     feat_a=feat_a+token_embeding
         else:
             current_len = inference_mask.sum()
-            feat_a = feat_a[-current_len:]
+            feat_a_pred = feat_a[-current_len:]
 
-        next_token_logits = self.token_predict_head(feat_a)
+        next_token_logits = self.token_predict_head(feat_a_pred)
 
         if self.discriminator and self.use_airl:
             next_token_logits1 = self.token_predict_head1(feat_sa)
