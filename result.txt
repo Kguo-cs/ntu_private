@@ -163,3 +163,8 @@ location and mapping is relative to ego current position ,query to get the infor
 
 0.7819
 
+/home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_dis_nosepcial_epoch=9-step=121750._0.7831ckpt
+
+
+
+/home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_t60_nosepcial_epoch=9-step=121750_0.7842.ckpt

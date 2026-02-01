@@ -64,7 +64,7 @@ class AgentTokenEncoder(nn.Module):
             share=False #self.token_processor.use_bird
         )
 
-        self.discriminator=False
+        self.discriminator=discriminator
         self.use_state_action=False
         self.use_counterfactual=False
 
