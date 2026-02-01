@@ -43,7 +43,7 @@ model:
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
 
-      dis_a2a_radius: 0
+      dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
 #      hidden_dim: 64
@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/bc56_t60_light_clone_shape2_epoch=31-step=278304_0.7759.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_dis_nosepcial_epoch=9-step=121750._0.7831ckpt'
 
 trainer:
   limit_train_batches: 1.0

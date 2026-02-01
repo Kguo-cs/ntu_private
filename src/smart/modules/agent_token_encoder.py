@@ -39,7 +39,7 @@ class AgentTokenEncoder(nn.Module):
             # if self.token_processor.token_initial:
             #self.shape_dim = 2
             # else:
-            self.shape_dim = 3
+            self.shape_dim = 2
 
             self.type_a_emb = nn.Embedding(3, hidden_dim)
             self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
@@ -64,7 +64,7 @@ class AgentTokenEncoder(nn.Module):
             share=False #self.token_processor.use_bird
         )
 
-        self.discriminator=discriminator
+        self.discriminator=False
         self.use_state_action=False
         self.use_counterfactual=False
 
