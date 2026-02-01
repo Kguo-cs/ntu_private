@@ -195,8 +195,10 @@ class SMARTAgentDecoder(nn.Module):
 
             if self.interative_decoder.mask_pred:
                 action=tokenized_agent["sampled_idx"][:,1:].clone()
-                action_mask=tokenized_agent["token_mask"][:,1:]
+                action_mask=tokenized_agent["token_mask"][:,1:] #n_agent,n_step
                 state_mask=tokenized_agent["valid_mask"][:,:-1]
+
+                batch=tokenized_agent["batch"]
 
                 action=action[state_mask]
                 action_mask=action_mask[state_mask]
@@ -229,9 +231,9 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_valid = target_valid & pred_action_mask
 
-                end_mask = pred_valid[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a = r_a2a[end_mask]
+                # end_mask = pred_valid[edge_index_a2a[1]]
+                # edge_index_a2a = edge_index_a2a[:, end_mask]
+                # r_a2a = r_a2a[end_mask]
 
                 feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
