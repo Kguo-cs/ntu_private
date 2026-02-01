@@ -123,7 +123,7 @@ class IQ_SoftQ(LightningModule):
 
         if pred["mask_token_logit"] is not None:
             mask_token_logit=pred["mask_token_logit"]
-            pred_action_mask=~pred["pred_action_mask"]
+            pred_action_mask=pred["pred_action_mask"]
 
             target_valid=tokenized_agent["token_mask"][:,1:][tokenized_agent["valid_mask"][:,:-1]]
 
@@ -131,7 +131,7 @@ class IQ_SoftQ(LightningModule):
 
             target_action=tokenized_agent["sampled_idx"][:,1:][tokenized_agent["valid_mask"][:,:-1]]
 
-            mask_nll = self.token_cls_loss(mask_token_logit, target_action[pred_valid])
+            mask_nll = self.token_cls_loss(mask_token_logit/self.alpha, target_action[pred_valid])
 
             self.log("train/" + key + "_mask_nll", mask_nll.item(), on_step=True, batch_size=1)
 

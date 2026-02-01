@@ -172,7 +172,7 @@ class SMARTAgentDecoder(nn.Module):
             map_feature: Dict[str, torch.Tensor],
             post_sampling=False
     ) :
-        entry_logit = next_token_logits = mask_token_logit=action_mask = None
+        entry_logit = next_token_logits = mask_token_logit=pred_action_mask = None
 
         if self.learn_init:
             initial_logit = self.init_decoder( tokenized_agent)
@@ -215,7 +215,9 @@ class SMARTAgentDecoder(nn.Module):
 
                 action_mask[idx_to_mask_si] =False
 
-                action[~action_mask]=self.interative_decoder.n_token_agent
+                pred_action_mask=~action_mask
+
+                action[pred_action_mask]=self.interative_decoder.n_token_agent
 
                 edge_index_a2a, r_a2a, relative_pos=a2a_feature
 
@@ -223,16 +225,20 @@ class SMARTAgentDecoder(nn.Module):
 
                 feat_a=feat_a+action_feature
 
-                feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
-
                 target_valid = tokenized_agent["token_mask"][:, 1:][tokenized_agent["valid_mask"][:, :-1]]
 
-                pred_valid = target_valid & ~action_mask
+                pred_valid = target_valid & pred_action_mask
+
+                end_mask = pred_valid[edge_index_a2a[1]]
+                edge_index_a2a = edge_index_a2a[:, end_mask]
+                r_a2a = r_a2a[end_mask]
+
+                feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
                 mask_token_logit=self.interative_decoder.action_predict_head(feat_a_all[pred_valid])
 
         return {
-            "pred_action_mask":action_mask,
+            "pred_action_mask":pred_action_mask,
             "mask_token_logit":mask_token_logit,
             "initial_logit":initial_logit,
             "entry_logit":entry_logit,
