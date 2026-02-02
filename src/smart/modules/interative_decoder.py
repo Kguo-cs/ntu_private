@@ -70,7 +70,7 @@ class InterativeDecoder(nn.Module):
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
-                                        share=False,
+                                        share=discriminator,
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
                                         shift=token_processor.shift,
@@ -161,7 +161,7 @@ class InterativeDecoder(nn.Module):
 
         self.start_eval_step=self.num_historical_steps//self.shift-1
         
-        self.mask_pred=True
+        self.mask_pred=False
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)

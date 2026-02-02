@@ -231,9 +231,9 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_valid = target_valid & pred_action_mask
 
-                end_mask = pred_valid[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a = r_a2a[end_mask]
+                # end_mask = pred_valid[edge_index_a2a[1]]
+                # edge_index_a2a = edge_index_a2a[:, end_mask]
+                # r_a2a = r_a2a[end_mask]
 
                 feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
