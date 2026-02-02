@@ -327,18 +327,16 @@ class SMARTAgentDecoder(nn.Module):
 
             next_sampled=Categorical(logits=next_token_logits / self.alpha).sample()
 
-            if self.interative_decoder.mask_pred:
-                probs = torch.softmax(next_token_logits, dim=-1)
+            # if self.interative_decoder.mask_pred:
+            #     probs = torch.softmax(next_token_logits, dim=-1)
                 
-                prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
+            #     prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
                 
-                pred_action_mask=prob_sampled<0.01
+            #     pred_action_mask=prob_sampled<0.001
+                                 
+            #     mask_logit=self.pred_mask_logit(next_sampled,pred_action_mask,a2a_feature,torch.ones_like(pred_action_mask),feat_a)
                 
-                print("mask_ratio",pred_action_mask.float().mean())
-                 
-                mask_logit=self.pred_mask_logit(next_sampled,pred_action_mask,a2a_feature,torch.ones_like(pred_action_mask),feat_a)
-                
-                next_sampled[pred_action_mask]= Categorical(logits=mask_logit / self.alpha).sample()
+            #     next_sampled[pred_action_mask]= Categorical(logits=mask_logit / self.alpha).sample()
 
             next_token_idx = torch.zeros_like(sampled_idx[:, -1])
             if len(next_token_logits):
