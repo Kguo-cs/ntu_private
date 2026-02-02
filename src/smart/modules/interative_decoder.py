@@ -193,7 +193,7 @@ class InterativeDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
 
-        self.mask_pred=True
+        self.mask_pred=False
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)

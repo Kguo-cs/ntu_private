@@ -124,6 +124,11 @@ location and mapping is relative to ego current position ,query to get the infor
 | minADE                                | 1.5244122  |
 
 
+/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=9-step=121750_0.78724.ckpt
+
+
+0.7851
+
 
 
 
@@ -148,10 +153,12 @@ location and mapping is relative to ego current position ,query to get the infor
 
 
 
+
 /home/ke/code/sim/src/waymo_data/AIRL40_pred_drop01all_epoch=6-step=85225_0.78927.ckpt
 
 
 0.7836
+
 
 
 /home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_dis_epoch=9-step=121750_0.78167.ckpt
@@ -166,7 +173,15 @@ location and mapping is relative to ego current position ,query to get the infor
 /home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_dis_nosepcial_epoch=9-step=121750._0.7831ckpt
 
 
+0.7854
 
 /home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_t60_nosepcial_epoch=9-step=121750_0.7842.ckpt
 
-/home/ke/code/sim/src/waymo_data/AIRL40_pred_epoch=9-step=121750_0.78724.ckpt
+
+0.7862
+
+
+/home/ke/code/sim/src/waymo_data/bc56_t60_light_clone_shape3_epoch=30-step=269607.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_t60_nosepcial_epoch=9-step=121750.ckpt
