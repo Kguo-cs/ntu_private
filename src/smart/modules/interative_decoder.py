@@ -160,8 +160,25 @@ class InterativeDecoder(nn.Module):
         self.n_token_agent=n_token_agent
 
         self.start_eval_step=self.num_historical_steps//self.shift-1
+        
+        self.mask_pred=True
 
-        if token_processor.pred_init:
+        if self.mask_pred:
+            self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
+
+            self.a2a_inter =AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+            self.action_predict_head = MLPLayer(
+                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
+            )
+
+        if token_processor.pred_init or self.mask_pred:
             self.start_step=0
         else:
             self.start_step=self.num_historical_steps//self.shift-1
@@ -193,22 +210,6 @@ class InterativeDecoder(nn.Module):
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
 
-        self.mask_pred=False
-
-        if self.mask_pred:
-            self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
-
-            self.a2a_inter =AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-            self.action_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
 
         self.apply(weight_init)
 
@@ -330,7 +331,6 @@ class InterativeDecoder(nn.Module):
 
                 interact_reward=torch.zeros_like(next_token_logits[:,0])
 
-                #weight_logit= -torch.ones_like(interact_logits[:,0].detach()) * weight*0.01
                 weight_logit= interact_logits[:,0].detach() * weight
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)

@@ -134,6 +134,8 @@ class IQ_SoftQ(LightningModule):
             mask_nll = self.token_cls_loss(mask_token_logit/self.alpha, target_action[pred_valid])
 
             self.log("train/" + key + "_mask_nll", mask_nll.item(), on_step=True, batch_size=1)
+            
+            action_nll=action_nll+mask_nll
 
         if pred["initial_logit"] is not None:
 
