@@ -305,7 +305,6 @@ class InterativeDecoder(nn.Module):
             #each step entry agent allow attend to current agent feature
 
         if self.discriminator:
-            feat_a_pred=feat_a
             if token_embeding is not None :
                 if self.use_airl:
                     feat_sa=feat_a[:-n_agent]+token_embeding
@@ -313,9 +312,9 @@ class InterativeDecoder(nn.Module):
                     feat_a=feat_a+token_embeding
         else:
             current_len = inference_mask.sum()
-            feat_a_pred = feat_a[-current_len:]
+            feat_a = feat_a[-current_len:]
 
-        next_token_logits = self.token_predict_head(feat_a_pred)
+        next_token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.use_airl:
             next_token_logits1 = self.token_predict_head1(feat_sa)
