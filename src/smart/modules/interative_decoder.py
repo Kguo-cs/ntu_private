@@ -161,7 +161,7 @@ class InterativeDecoder(nn.Module):
 
         self.start_eval_step=self.num_historical_steps//self.shift-1
 
-        self.mask_pred=True
+        self.mask_pred=False
 
         if token_processor.pred_init :
             self.start_step=0
@@ -216,6 +216,27 @@ class InterativeDecoder(nn.Module):
 
         self.apply(weight_init)
 
+    def pred_mask_logit(self, action, pred_action_mask, a2a_feature, target_valid, feat_a):
+
+        action[pred_action_mask] = self.n_token_agent
+
+        edge_index_a2a, r_a2a, relative_pos = a2a_feature
+
+        action_feature = self.action_embed(action)
+
+        feat_a = feat_a + action_feature
+
+        pred_valid = target_valid & pred_action_mask
+
+        end_mask = pred_valid[edge_index_a2a[1]]
+        edge_index_a2a = edge_index_a2a[:, end_mask]
+        r_a2a = r_a2a[end_mask]
+
+        feat_a_all = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+
+        mask_token_logit = self.action_predict_head(feat_a_all[pred_valid])
+
+        return mask_token_logit
 
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,
