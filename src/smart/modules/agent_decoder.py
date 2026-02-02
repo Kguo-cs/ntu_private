@@ -165,6 +165,30 @@ class SMARTAgentDecoder(nn.Module):
         initial_logit=None
 
         return next_token_logits,a2a_feature,rewards,weight,entry_logit,initial_logit,feat_a
+    
+    def pred_mask_logit(self,action,pred_action_mask,a2a_feature,target_valid,feat_a):
+        
+        action[pred_action_mask]=self.interative_decoder.n_token_agent
+
+        edge_index_a2a, r_a2a, relative_pos=a2a_feature
+
+        action_feature=self.interative_decoder.action_embed(action)
+
+        feat_a=feat_a+action_feature
+
+        pred_valid = target_valid & pred_action_mask
+
+        end_mask = pred_valid[edge_index_a2a[1]]
+        edge_index_a2a = edge_index_a2a[:, end_mask]
+        r_a2a = r_a2a[end_mask]
+
+        feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+
+        mask_token_logit=self.interative_decoder.action_predict_head(feat_a_all[pred_valid])
+
+        return mask_token_logit
+
+        
 
     def forward(
             self,
@@ -215,25 +239,9 @@ class SMARTAgentDecoder(nn.Module):
 
                 pred_action_mask=~action_mask
 
-                action[pred_action_mask]=self.interative_decoder.n_token_agent
-
-                edge_index_a2a, r_a2a, relative_pos=a2a_feature
-
-                action_feature=self.interative_decoder.action_embed(action)
-
-                feat_a=feat_a+action_feature
-
                 target_valid = tokenized_agent["token_mask"][:, 1:][tokenized_agent["valid_mask"][:, :-1]]
 
-                pred_valid = target_valid & pred_action_mask
-
-                end_mask = pred_valid[edge_index_a2a[1]]
-                edge_index_a2a = edge_index_a2a[:, end_mask]
-                r_a2a = r_a2a[end_mask]
-
-                feat_a_all = self.interative_decoder.a2a_inter(feat_a, r_a2a, edge_index_a2a)
-
-                mask_token_logit=self.interative_decoder.action_predict_head(feat_a_all[pred_valid])
+                mask_token_logit=self.pred_mask_logit( action, pred_action_mask, a2a_feature, target_valid, feat_a)
 
         return {
             "pred_action_mask":pred_action_mask,
@@ -290,11 +298,11 @@ class SMARTAgentDecoder(nn.Module):
 
         pred_traj_10hz = []
         pred_head_10hz = []
+        a_num = next_mask.sum()
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
-                    a_num=next_mask.sum()
 
                     next_token_logits=tokenized_agent["next_token_logits"][:a_num]
 
@@ -310,16 +318,31 @@ class SMARTAgentDecoder(nn.Module):
                                                                 :current_step]
                     self.interative_decoder.feat_a_cache = self.interative_decoder.feat_a_cache[:current_step]
                 else:
-                    next_token_logits,_,_,_,entry_logit,init_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
+                    next_token_logits,a2a_feature,_,_,entry_logit,init_logit,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
                                                                 head_a,tokenized_agent, map_feature,0,abs_time)
             else:
-                next_token_logits, _, _, _, entry_logit,init_logit, feat_a = self.predict_agent(
+                next_token_logits, a2a_feature, _, _, entry_logit,init_logit, feat_a = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
                     pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, t - 1,abs_time[:, -1:])
 
+            next_sampled=Categorical(logits=next_token_logits / self.alpha).sample()
+
+            if self.interative_decoder.mask_pred:
+                probs = torch.softmax(next_token_logits, dim=-1)
+                
+                prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
+                
+                pred_action_mask=prob_sampled<0.01
+                
+                print("mask_ratio",pred_action_mask.float().mean())
+                 
+                mask_logit=self.pred_mask_logit(next_sampled,pred_action_mask,a2a_feature,torch.ones_like(pred_action_mask),feat_a)
+                
+                next_sampled[pred_action_mask]= Categorical(logits=mask_logit / self.alpha).sample()
+
             next_token_idx = torch.zeros_like(sampled_idx[:, -1])
             if len(next_token_logits):
-                next_token_idx[next_mask] = Categorical(logits=next_token_logits / self.alpha).sample()
+                next_token_idx[next_mask] = next_sampled[-next_mask.sum():]
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 

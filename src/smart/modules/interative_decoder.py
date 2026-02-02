@@ -160,8 +160,13 @@ class InterativeDecoder(nn.Module):
         self.n_token_agent=n_token_agent
 
         self.start_eval_step=self.num_historical_steps//self.shift-1
-        
+
         self.mask_pred=True
+
+        if token_processor.pred_init :
+            self.start_step=0
+        else:
+            self.start_step=self.num_historical_steps//self.shift-1
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -177,11 +182,9 @@ class InterativeDecoder(nn.Module):
             self.action_predict_head = MLPLayer(
                 input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
             )
-
-        if token_processor.pred_init or self.mask_pred:
+            self.start_eval_step = 0
             self.start_step=0
-        else:
-            self.start_step=self.num_historical_steps//self.shift-1
+
 
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
@@ -394,7 +397,7 @@ class InterativeDecoder(nn.Module):
                     if self.training:
                         inference_mask[:, :self.start_step] = False
                     else:
-                        inference_mask[:, self.start_eval_step:] = False
+                        inference_mask[:, :self.start_eval_step] = False
             else:
                 self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
                 self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
