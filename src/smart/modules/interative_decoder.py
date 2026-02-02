@@ -70,7 +70,7 @@ class InterativeDecoder(nn.Module):
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
-                                        share=discriminator,
+                                        share=False,
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
                                         shift=token_processor.shift,

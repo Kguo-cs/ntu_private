@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL40_pred_t60_nosep_nodetach
+task_name: AIRL40_pred_t60_nosep_nodetach_noshare
 
 trainer:
   limit_train_batches: 1.0
