@@ -200,22 +200,18 @@ class SMARTAgentDecoder(nn.Module):
 
                 batch=tokenized_agent["batch"]
 
+                n_batch=tokenized_agent["num_graphs"]
+                
+                mask_rate= torch.rand((n_batch,state_mask.shape[1]),device=action.device)
+
+                rand=torch.rand_like(action.to(torch.float32))
+                
+                idx_to_mask_si= rand<mask_rate[batch]
+                
+                action_mask[idx_to_mask_si] =False
+
                 action=action[state_mask]
                 action_mask=action_mask[state_mask]
-
-                n_tokens = len(action)
-                p_mask = random.random()
-
-                # compute the number of tokens to mask out
-                n_tokens_mask = math.ceil(n_tokens * p_mask)
-
-                # randomly select the indices of the tokens to mask out
-                # we should be masking out different tokens from all the tokens in the batch
-                idx_to_mask_si = torch.multinomial(
-                    torch.ones(n_tokens), n_tokens_mask, replacement=False
-                ).to(action.device)
-
-                action_mask[idx_to_mask_si] =False
 
                 pred_action_mask=~action_mask
 
