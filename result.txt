@@ -178,10 +178,43 @@ location and mapping is relative to ego current position ,query to get the infor
 /home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_histdrop01_t60_nosepcial_epoch=9-step=121750_0.7842.ckpt
 
 
-0.7862
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.786251   |
+| Linear Speed Likelihood               | 0.3788063  |
+| Linear Acceleration Likelihood        | 0.410145   |
+| Angular Speed Likelihood              | 0.5169366  |
+| Angular Acceleration Likelihood       | 0.6612378  |
+| Distance To Nearest Object Likelihood | 0.390476   |
+| Collision Likelihood                  | 0.9795408  |
+| Time To Collision Likelihood          | 0.8309666  |
+| Distance To Road Edge Likelihood      | 0.6799585  |
+| Offroad Likelihood                    | 0.95141864 |
+| minADE                                | 1.4540713  |
+
+
 
 
 /home/ke/code/sim/src/waymo_data/bc56_t60_light_clone_shape3_epoch=30-step=269607.ckpt
 
 
+
+
+
 /home/ke/code/sim/src/waymo_data/AIRL40_ep10_pred_t60_nosepcial_epoch=9-step=121750.ckpt
+
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.7862003  |
+| Linear Speed Likelihood               | 0.37805068 |
+| Linear Acceleration Likelihood        | 0.4102611  |
+| Angular Speed Likelihood              | 0.516358   |
+| Angular Acceleration Likelihood       | 0.66091406 |
+| Distance To Nearest Object Likelihood | 0.39022192 |
+| Collision Likelihood                  | 0.9796902  |
+| Time To Collision Likelihood          | 0.83087015 |
+| Distance To Road Edge Likelihood      | 0.67979836 |
+| Offroad Likelihood                    | 0.9515192  |
+| minADE                                | 1.465587   |
+
