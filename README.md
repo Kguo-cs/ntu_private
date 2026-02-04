@@ -14,12 +14,12 @@ rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyu
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=31-step=60896.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_batchmask0_start0eval0/2026-02-02_17-39-46/bc/t0i29vjm/checkpoints/epoch=19-step=243500.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_start0eval0/2026-02-03_10-16-54/bc/344ec1w6/checkpoints/epoch=31-step=389600.ckpt ./
 
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/auto64_val256_kl02/2026-01-24_09-23-22/bc/kuuoedsr/checkpoints/epoch=31-step=243520.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL40_pred_t60_nosep_nodetach/2026-02-02_02-00-20/sim/0krys4mq/checkpoints/epoch=9-step=121750.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL40_pred_t60_nosep_nodetach_noshare/2026-02-02_02-15-58/sim/zxb7gmtn/checkpoints/epoch=9-step=121750.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
@@ -90,7 +90,7 @@ CUDA_VISIBLE_DEVICES=2,3 setsid nohup torchrun --nproc_per_node=2 --master_port=
 
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --master_port=29501  -m run1 trainer=ddp >  2.log 2>&1 & 
 
-CUDA_VISIBLE_DEVICES=1 setsid nohup python run1.py > 1.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0 setsid nohup python run.py > 0.log 2>&1 &
 
 
 #0,2,3 1,2,3  -> 0,1, 2
