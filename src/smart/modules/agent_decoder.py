@@ -223,7 +223,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 target_valid = action_mask[state_mask]
 
-                mask_token_logit=self.interative_decoder.pred_mask_logit( action, pred_action_mask, a2a_feature, target_valid, feat_a)
+                next_token_logits=self.interative_decoder.pred_mask_logit( action, pred_action_mask, a2a_feature, target_valid, feat_a)
 
         return {
             "pred_action_mask":pred_action_mask,
