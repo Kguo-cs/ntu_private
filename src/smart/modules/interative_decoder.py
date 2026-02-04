@@ -208,11 +208,9 @@ class InterativeDecoder(nn.Module):
                     input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
                 )
 
-
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
-
 
         self.apply(weight_init)
 
@@ -224,7 +222,7 @@ class InterativeDecoder(nn.Module):
 
         action_feature = self.action_embed(action)
 
-        feat_a = feat_a + action_feature
+        feat_a = feat_a.detach() + action_feature
 
         pred_valid = target_valid & pred_action_mask
 
@@ -232,7 +230,7 @@ class InterativeDecoder(nn.Module):
         edge_index_a2a = edge_index_a2a[:, end_mask]
         r_a2a = r_a2a[end_mask]
 
-        feat_a_all = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+        feat_a_all = self.a2a_inter(feat_a, r_a2a.detach(), edge_index_a2a)
 
         mask_token_logit = self.action_predict_head(feat_a_all[pred_valid])
 
@@ -414,11 +412,10 @@ class InterativeDecoder(nn.Module):
                     inference_mask = mask_a.clone()
 
                 if not self.discriminator:
-
                     if self.training:
                         inference_mask[:, :self.start_step] = False
                     else:
-                        inference_mask[:, :self.start_eval_step] = False
+                        inference_mask[:, :self.start_eval_step] = False# 5,10
             else:
                 self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
                 self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]

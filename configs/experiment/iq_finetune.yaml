@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL40_hist01_t60_nosep_nodetach_noshare_noroformer
+task_name: AIRL40_hist01_t60_nosep_nodetach_noshare #_noroformer
 
 trainer:
   limit_train_batches: 1.0

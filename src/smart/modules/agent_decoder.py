@@ -196,24 +196,32 @@ class SMARTAgentDecoder(nn.Module):
                 action_mask=tokenized_agent["token_mask"][:,1:].clone() #n_agent,n_step
                 state_mask=tokenized_agent["valid_mask"][:,:-1]
 
-                batch=tokenized_agent["batch"]
-
-                n_batch=tokenized_agent["num_graphs"]
-                
-                mask_rate= torch.rand((n_batch,state_mask.shape[1]),device=action.device)
-
-                rand=torch.rand_like(action.to(torch.float32))
-                
-                idx_to_mask_si= rand<mask_rate[batch]
-                
-                action_mask[idx_to_mask_si] =False
-
+                # batch=tokenized_agent["batch"]
+                #
+                # n_batch=tokenized_agent["num_graphs"]
+                #
+                # mask_rate= torch.rand((n_batch,state_mask.shape[1]),device=action.device)
+                #
+                # rand=torch.rand_like(action.to(torch.float32))
+                #
+                # idx_to_mask_si= rand<mask_rate[batch]
+                #
+                # action_mask[idx_to_mask_si] =False
+                #
                 action=action[state_mask]
-                action_mask=action_mask[state_mask]
+                # action_mask=action_mask[state_mask]
+                #
+                # pred_action_mask=~action_mask
 
-                pred_action_mask=~action_mask
+                probs = torch.softmax(next_token_logits / self.alpha, dim=-1)
 
-                target_valid = tokenized_agent["token_mask"][:, 1:][tokenized_agent["valid_mask"][:, :-1]]
+                max_probs=torch.amax(probs, dim=-1)
+
+                # prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
+
+                pred_action_mask=max_probs<0.05#p<0.001,mask ratio 0.01
+
+                target_valid = action_mask[state_mask]
 
                 mask_token_logit=self.interative_decoder.pred_mask_logit( action, pred_action_mask, a2a_feature, target_valid, feat_a)
 
