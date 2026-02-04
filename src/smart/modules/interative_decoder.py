@@ -225,7 +225,7 @@ class InterativeDecoder(nn.Module):
 
         feat_a = feat_a + action_feature
 
-        pred_valid = target_valid & pred_action_mask
+        pred_valid =  pred_action_mask
 
         end_mask = pred_valid[edge_index_a2a[1]]
         edge_index_a2a = edge_index_a2a[:, end_mask]
