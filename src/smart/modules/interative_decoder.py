@@ -76,7 +76,8 @@ class InterativeDecoder(nn.Module):
                                         shift=token_processor.shift,
                                         discriminator=discriminator,
                                         use_bird=token_processor.use_bird,
-                                        use_cross=not token_processor.use_bird
+                                        use_cross=not token_processor.use_bird,
+                                        pred_exit=token_processor.pred_exit,
                                         )
 
 
@@ -430,7 +431,6 @@ class InterativeDecoder(nn.Module):
             inference_mask = inference_mask[agent_train_mask]
 
         if not self.edge_encoder.use_roformer:
-
             edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
                 pos_a=self.pos_cache,  # [n_agent, n_step, 2]
                 head_a=self.head_cache,  # [n_agent, n_step]
