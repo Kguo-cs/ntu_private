@@ -316,9 +316,9 @@ class SMARTAgentDecoder(nn.Module):
 
                 # prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
 
-                pred_action_mask=max_probs<0.001#p<0.001,mask ratio 0.01
+                pred_action_mask=max_probs<1#p<0.001,mask ratio 0.01
 
-                print(pred_action_mask.float().mean())
+               # print(pred_action_mask.float().mean())
 
                 mask_logit=self.interative_decoder.pred_mask_logit(next_sampled.clone(),pred_action_mask,a2a_feature,torch.ones_like(pred_action_mask),feat_a)
 

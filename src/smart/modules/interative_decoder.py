@@ -169,6 +169,23 @@ class InterativeDecoder(nn.Module):
         else:
             self.start_step=self.num_historical_steps//self.shift-1
 
+
+        self.add_a2a=True
+        
+        if self.add_a2a and not discriminator:
+            self.a2a_inter =AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=False,
+                        has_pos_emb=True,
+                    )
+            self.start_eval_step = 0
+            self.start_step=0
+
+
+
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
 
@@ -337,6 +354,9 @@ class InterativeDecoder(nn.Module):
         else:
             current_len = inference_mask.sum()
             feat_a = feat_a[-current_len:]
+            
+        if self.add_a2a and not self.discriminator:
+            feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
         next_token_logits = self.token_predict_head(feat_a)
 
