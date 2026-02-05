@@ -80,7 +80,7 @@ class FourierEmbedding(nn.Module):
                 #     continuous_embs[i] = self.mlps[i](x[:, i])
                 x = torch.stack(continuous_embs).sum(dim=0)
             if categorical_embs is not None:
-                x = x +torch.stack(categorical_embs).sum(dim=0)# categorical_embs#
+                x = x + categorical_embs#torch.stack(categorical_embs).sum(dim=0)
             x=self.to_out(x)
         return x
 

@@ -132,14 +132,14 @@ class SMARTAgentDecoder(nn.Module):
             agent_token_index=sampled_idx,  # [n_ag, n_step]
             pos_a=pos_a,  # [n_agent, n_step, 2]
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
-            #mask_a=mask_a,
+            mask_a=mask_a,
             agent_type=tokenized_agent["type"],  # [n_agent]
             agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch'],
             goal_pos=tokenized_agent["goal_pos"],
             goal_mask=tokenized_agent["goal_mask"],
-            #ego_mask=tokenized_agent["ego_mask"],
+            ego_mask=tokenized_agent["ego_mask"],
             abs_time=abs_time,
         )
 
