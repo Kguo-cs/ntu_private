@@ -354,76 +354,66 @@ class IQ_SoftQ(LightningModule):
 
         ego_logits, interact_logits = disc_out[0]
 
-        ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
+        ego_rewards, nei_rewards, valid_ego_reward, valid_interact_reward = disc_out[2]
 
-        if len(nei_rewards)>0:
+        if len(nei_rewards) > 0:
             all_rewards = ego_rewards + nei_rewards
             self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
 
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
 
-        mask_s = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
+        mask_s = tokenized_agent["valid_mask"].transpose(0, 1)
 
-        if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
-            mask_s=mask_s[:,tokenized_agent["train_mask"]]
+        if "train_mask" in tokenized_agent.keys():
+            mask_s = mask_s[:, tokenized_agent["train_mask"]]
 
-        after_any= torch.cumsum(mask_s, dim=0)
+        after_any = torch.cumsum(mask_s, dim=0)
 
-        #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
+        # exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
 
-       # print(torch.all(mask_s))
-
-        exit_mask = ~mask_s & (after_any >0)
+        exit_mask = ~mask_s & (after_any > 0)
         present_mask = exit_mask | mask_s
+        present_flatten = present_mask.flatten(0, 1)
 
-        if self.encoder.agent_encoder.agent_token_embedding.use_state_action:
-            exit_mask=exit_mask[1:]
-            present_flatten=present_mask[1:].flatten(0,1)
-            start_step=self.start_step
-        else:
-            present_flatten=present_mask.flatten(0,1)
-            start_step=self.start_step+1
-
-        self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0, 1)].mean().item(), on_step=True,
+                 batch_size=1)
+        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True,
+                 batch_size=1)
+        self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True,
+                 batch_size=1)
 
         if key == "expert":
-            target=1
+            target = 1
         else:
-            target=0
-            ego_rewards=ego_rewards.reshape(exit_mask.shape)[start_step:] #t,a
+            target = 0
+            ego_rewards = ego_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step + 1:]  # t,a
             if len(nei_rewards):
-               nei_rewards = nei_rewards.reshape(exit_mask.shape)[start_step:]#t,a
+                nei_rewards = nei_rewards.reshape(mask_s.shape[0], mask_s.shape[1])[self.start_step + 1:]  # t,a
 
-        if dis_mask is None:
-            if self.token_processor.use_bird:
-                dis_mask=present_flatten
-            else:
-                dis_mask=mask_s.flatten(0, 1)
+        if dis_mask is not None:
+            ego_logits = ego_logits[dis_mask]
+        else:
+            ego_logits = ego_logits[mask_s.flatten(0, 1)]
 
-        if len(interact_logits)==len(ego_logits):
-            interact_logits=interact_logits[dis_mask]
+            # ego_logits=ego_logits[present_flatten]
 
-        ego_logits=ego_logits[dis_mask]#valid ego logit
-
-        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='mean')
+        bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits) + target, weight=None,
+                                                      reduction='mean')
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
-            interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='sum')/dis_mask.sum()
+            bce_loss = bce_loss + F.binary_cross_entropy_with_logits(interact_logits,
+                                                                     torch.zeros_like(interact_logits) + target,
+                                                                     weight=weight, reduction='sum') / mask_s.sum()
 
-            ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
-            self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
-        else:
-            interact_bce_loss=0
+            ego_logits = torch.cat([ego_logits, interact_logits], dim=0)
+            self.log("train/" + key + "_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
 
         disc_val = torch.sigmoid(ego_logits)
 
-        self.log("train/"+key+"_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
-        self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_disc_val", disc_val.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         if self.use_gradient_penalty:
             gp=compute_gp(key, tokenized_agent, dis_mask, self.encoder.discriminator)
@@ -431,7 +421,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss+interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
+        return bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
         if self.use_kl_penalty:
