@@ -7,7 +7,7 @@ from torch.distributions import Categorical
 
 from src.smart.layers import MLPLayer
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
-from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
+from src.smart.modules.edge_encoder import EdgeEncoder
 from torch_scatter import scatter_max,scatter_mean,scatter_sum
 from src.smart.layers.relative_transformer import RoFormerBlock
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
