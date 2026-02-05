@@ -219,11 +219,11 @@ class SMARTAgentDecoder(nn.Module):
 
                 # prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
 
-                pred_action_mask=max_probs<1#p<0.001,mask ratio 0.01
+                pred_action_mask=max_probs<0.001#p<0.001,mask ratio 0.01
 
                 target_valid = action_mask[state_mask]
 
-                next_token_logits=self.interative_decoder.pred_mask_logit( action, pred_action_mask, a2a_feature, target_valid, feat_a)
+                mask_token_logit=self.interative_decoder.pred_mask_logit( action, pred_action_mask, a2a_feature, target_valid, feat_a)
 
         return {
             "pred_action_mask":pred_action_mask,
@@ -316,7 +316,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 # prob_sampled= torch.gather(probs,1,next_sampled.unsqueeze(-1)).squeeze(-1)
 
-                pred_action_mask=max_probs<1#p<0.001,mask ratio 0.01
+                pred_action_mask=max_probs<0.001#p<0.001,mask ratio 0.01
 
                 print(pred_action_mask.float().mean())
 

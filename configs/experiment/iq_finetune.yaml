@@ -42,7 +42,7 @@ model:
 
 #ckpt_path : './ckpts/bc40_apt30_tokenexit_14679_epoch=62-step=767025_0.78659.ckpt'
 
-ckpt_path: './ckpts/bcgen56_vel2_epoch=31-step=278304_0.78179.ckpt'
+ckpt_path: './ckpts/bc40_start0eval0_epoch=31-step=389600_0.78492.ckpt'
 
 logger:
   wandb:
@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL40_hist01_nodetach_noshare_noroformer53
+task_name: AIRL40_bc40_hist01_nodetach_noshare_noroformer53
 
 trainer:
   limit_train_batches: 1.0
