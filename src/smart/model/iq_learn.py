@@ -412,7 +412,14 @@ class IQ_SoftQ(LightningModule):
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
-            interact_logits=interact_logits[dis_mask[mask_t.flatten(0, 1)][end_index]]
+            all_dis_mask=torch.zeros_like(tokenized_agent["valid_mask"].transpose(0,1))
+
+            all_dis_mask[:,tokenized_agent["train_mask"]]=dis_mask.reshape(all_dis_mask.shape[0],-1)
+
+            dis_edge_mask=all_dis_mask[tokenized_agent["valid_mask"].transpose(0,1)][end_index]
+
+            interact_logits=interact_logits[dis_edge_mask]
+            weight=weight[dis_edge_mask]
             
             interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                          weight=weight, reduction='sum')/dis_mask.sum()
