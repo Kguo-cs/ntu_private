@@ -408,6 +408,8 @@ class IQ_SoftQ(LightningModule):
 
         ego_logits=ego_logits[dis_mask]#valid ego logit
 
+        self.log("train/"+key+"_ego_score", torch.sigmoid(ego_logits).mean().item(), on_step=True, batch_size=1)
+
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='mean')
         if len(interact_logits) > 0:
             weight = disc_out[3]
@@ -420,7 +422,9 @@ class IQ_SoftQ(LightningModule):
 
             interact_logits=interact_logits[dis_edge_mask]
             weight=weight[dis_edge_mask]
-            
+
+            self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().item(), on_step=True, batch_size=1)
+
             interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
                                                          weight=weight, reduction='sum')/dis_mask.sum()
 
