@@ -352,7 +352,7 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent,
                                                             tokenized_agent["map_feature"])
 
-        ego_logits, interact_logits = disc_out[0]
+        ego_logits, interact_logits,end_index = disc_out[0]
 
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
@@ -363,19 +363,19 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
 
-        mask_s = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
+        mask_t = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
-            mask_s=mask_s[:,tokenized_agent["train_mask"]]
+            mask_t=mask_t[:,tokenized_agent["train_mask"]]
 
-        after_any= torch.cumsum(mask_s, dim=0)
+        after_any= torch.cumsum(mask_t, dim=0)
 
         #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
 
        # print(torch.all(mask_s))
 
-        exit_mask = ~mask_s & (after_any >0)
-        present_mask = exit_mask | mask_s
+        exit_mask = ~mask_t & (after_any >0)
+        present_mask = exit_mask | mask_t
 
         if self.encoder.agent_encoder.agent_token_embedding.use_state_action:
             exit_mask=exit_mask[1:]
@@ -401,7 +401,7 @@ class IQ_SoftQ(LightningModule):
             if self.token_processor.use_bird:
                 dis_mask=present_flatten
             else:
-                dis_mask=mask_s.flatten(0, 1)
+                dis_mask=mask_t.flatten(0, 1)
 
         if len(interact_logits)==len(ego_logits):
             interact_logits=interact_logits[dis_mask]
@@ -412,8 +412,10 @@ class IQ_SoftQ(LightningModule):
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
+            interact_logits=interact_logits[dis_mask[mask_t.flatten(0, 1)][end_index]]
+            
             interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='sum')/mask_s.sum()
+                                                         weight=weight, reduction='sum')/dis_mask.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
