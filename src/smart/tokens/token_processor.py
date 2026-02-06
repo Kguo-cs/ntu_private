@@ -60,7 +60,7 @@ class TokenProcessor(torch.nn.Module):
         self.use_token=True
         self.use_time=False
         self.use_goal=False
-        self.pred_exit = True
+        self.pred_exit = False
         self.token_initial = False
         self.pred_map_token = False
         self.match_all=False

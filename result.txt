@@ -257,3 +257,4 @@ AIRL40_pred_t60_nosep_nodetach_noshare_epoch=9-step=121750.ckpt
 /home/ke/code/sim/src/waymo_data/bc40_start0eval0_MASK1_epoch=31-step=389600_0.78917.ckpt
 
 
+0.7839

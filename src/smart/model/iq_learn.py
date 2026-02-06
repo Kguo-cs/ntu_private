@@ -413,7 +413,7 @@ class IQ_SoftQ(LightningModule):
             weight = disc_out[3]
 
             interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='sum')/dis_mask.sum()
+                                                         weight=weight, reduction='sum')/mask_s.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
@@ -431,7 +431,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss+interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,None #,mask_s.flatten(0,1)
+        return bce_loss+interact_bce_loss, ego_rewards, nei_rewards,present_mask[self.start_step:-1],gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
         if self.use_kl_penalty:

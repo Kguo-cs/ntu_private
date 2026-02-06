@@ -43,7 +43,7 @@ model:
     decoder:
       #hist_drop_prob: 0.1 #0.1 #0.1
 
-      dis_a2a_radius: 0
+      dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
 #      hidden_dim: 64
@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_start0eval0_MASK1_epoch=31-step=389600_0.78917.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_hist01_nodetach_noshare_noroformer53_epoch=9-step=121750_0.7893.ckpt'
 
 trainer:
   limit_train_batches: 1.0
