@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_nodetach_noshare_noroformer53_epoch=9-step=121750_0.78145.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_noroformer53_nodismask_epoch=9-step=121750_0.78725.ckpt'
 
 trainer:
   limit_train_batches: 1.0

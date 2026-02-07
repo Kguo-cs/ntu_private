@@ -363,16 +363,12 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
 
-        mask_t = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
+        mask_t=mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)#[2:]
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             mask_t=mask_t[:,tokenized_agent["train_mask"]]
 
         after_any= torch.cumsum(mask_t, dim=0)
-
-        #exit_mask =~mask_s[:, 1 + self.start_step:] & mask_s[:,  self.start_step:-1]
-
-       # print(torch.all(mask_s))
 
         exit_mask = ~mask_t & (after_any >0)
         present_mask = exit_mask | mask_t
@@ -385,8 +381,12 @@ class IQ_SoftQ(LightningModule):
             present_flatten=present_mask.flatten(0,1)
             start_step=self.start_step+1
 
-        self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
+        if self.token_processor.pred_exit:    
+            self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
+            self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
+        else:
+            self.log("train/" + key + "_valid_ego_reward", valid_ego_reward.mean().item(), on_step=True, batch_size=1)
+
         self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
 
         if key == "expert":
@@ -405,20 +405,23 @@ class IQ_SoftQ(LightningModule):
 
         # if len(interact_logits)==len(ego_logits):
         #     interact_logits=interact_logits[dis_mask]
-
-        ego_logits=ego_logits[dis_mask]#valid ego logit
+        if self.token_processor.pred_exit:
+            ego_logits=ego_logits[dis_mask]#valid ego logit
+        else:
+            ego_logits=ego_logits[dis_mask[mask_t.flatten(0, 1)]]#valid ego logit
 
         self.log("train/"+key+"_ego_score", torch.sigmoid(ego_logits).mean().item(), on_step=True, batch_size=1)
 
         bce_loss = F.binary_cross_entropy_with_logits(ego_logits, torch.zeros_like(ego_logits)+target, reduction='mean')
+        
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
-            all_dis_mask=torch.zeros_like(tokenized_agent["valid_mask"].transpose(0,1))
+            all_dis_mask=torch.zeros_like(mask_transpose)
 
             all_dis_mask[:,tokenized_agent["train_mask"]]=dis_mask.reshape(all_dis_mask.shape[0],-1)
 
-            dis_edge_mask=all_dis_mask[tokenized_agent["valid_mask"].transpose(0,1)][end_index]
+            dis_edge_mask=all_dis_mask[mask_transpose][end_index]
 
             interact_logits=interact_logits[dis_edge_mask]
             weight=weight[dis_edge_mask]

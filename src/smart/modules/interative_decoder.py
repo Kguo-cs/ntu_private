@@ -170,7 +170,7 @@ class InterativeDecoder(nn.Module):
             self.start_step=self.num_historical_steps//self.shift-1
 
 
-        self.add_a2a=False
+        self.add_a2a=True
         
         if self.add_a2a and not discriminator:
             self.a2a_inter =AttentionLayer(
@@ -180,6 +180,15 @@ class InterativeDecoder(nn.Module):
                         dropout=dropout,
                         bipartite=False,
                         has_pos_emb=True,
+                    )
+            self.pt2a_inter= AttentionLayer(
+                        hidden_dim=hidden_dim,
+                        num_heads=num_heads,
+                        head_dim=head_dim,
+                        dropout=dropout,
+                        bipartite=True,
+                        has_pos_emb=True,
+                      #  gated_attention=discriminator,
                     )
             self.start_eval_step = 0
             self.start_step=0
@@ -330,7 +339,7 @@ class InterativeDecoder(nn.Module):
 
             feat_a=feat_a_t.transpose(0,1).flatten(0,1)
         else:
-            if self.discriminator or self.edge_encoder.rollout_traj:
+            if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
                 feat_a=feat_a_t.flatten(0,1)
             else:
                 if n_current == 0:
@@ -356,8 +365,8 @@ class InterativeDecoder(nn.Module):
             feat_a = feat_a[-current_len:]
             
         if self.add_a2a and not self.discriminator:
-            for i in range(2):
-                feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+            feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+            feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -379,24 +388,27 @@ class InterativeDecoder(nn.Module):
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)
 
-                interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
+                if self.pred_exit:
+                    interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
+                else:
+                    interact_reward=valid_interact_reward[train_repeat_mask]
 
                 ego_rewards = valid_ego_reward + interact_reward
 
                 next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0],end_index)
 
-                weight2=torch.exp(-dist / self.reward_decay) * self.reward_weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
+                # weight2=torch.exp(-dist / self.reward_decay) * self.reward_weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
 
-                all_rewards = torch.zeros_like(valid_interact_reward)
-                all_rewards[train_repeat_mask] = ego_rewards[mask_ta_flatten]
+                # all_rewards = torch.zeros_like(valid_interact_reward)
+                # all_rewards[train_repeat_mask] = ego_rewards[mask_ta_flatten]
 
-                weighted_nei_reward=all_rewards[start_index]*weight2
+                # weighted_nei_reward=all_rewards[start_index]*weight2
 
                 nei_rewards=torch.zeros_like(ego_rewards)
 
-                nei_rewards_sum= scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)
+                # nei_rewards_sum= scatter_sum(weighted_nei_reward, end_index, dim=0, dim_size=valid_number)
 
-                nei_rewards[mask_ta_flatten] =nei_rewards_sum[train_repeat_mask]  #the source
+                # nei_rewards[mask_ta_flatten] =nei_rewards_sum[train_repeat_mask]  #the source
             else:
                 next_token_logits = (next_token_logits[:, 0], next_token_logits[:0,0])
 
@@ -428,7 +440,7 @@ class InterativeDecoder(nn.Module):
                 self.mask_cache = mask_a
                 self.head_vector_cache = head_vector_a
 
-                if self.discriminator or self.edge_encoder.rollout_traj:
+                if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
                     inference_mask = torch.ones_like(mask_a)
                 else:
                     inference_mask = mask_a.clone()
