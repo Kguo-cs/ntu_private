@@ -170,23 +170,17 @@ class InterativeDecoder(nn.Module):
             self.start_step=self.num_historical_steps//self.shift-1
 
 
-        self.add_a2a=True
+        self.add_a2a=False
         
         if self.add_a2a and not discriminator:
-            self.a2a_inter =nn.ModuleList(
-                [
-                    AttentionLayer(
+            self.a2a_inter =AttentionLayer(
                         hidden_dim=hidden_dim,
                         num_heads=num_heads,
                         head_dim=head_dim,
                         dropout=dropout,
                         bipartite=False,
                         has_pos_emb=True,
-                    #    gated_attention=discriminator,
                     )
-                    for _ in range(2)
-                ]
-            )
             self.start_eval_step = 0
             self.start_step=0
 
@@ -363,7 +357,7 @@ class InterativeDecoder(nn.Module):
             
         if self.add_a2a and not self.discriminator:
             for i in range(2):
-                feat_a=self.a2a_inter[i](feat_a, r_a2a, edge_index_a2a)
+                feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
         next_token_logits = self.token_predict_head(feat_a)
 
