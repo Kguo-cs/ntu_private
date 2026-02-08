@@ -208,15 +208,15 @@ class SMARTDecoder(nn.Module):
                 map_feature = self.map_encoder(tokenized_map)
 
             tokenized_agent["initial_map_feature"] = map_feature
-
-            if self.gail:
-                if map_feature is not None:
-                    if self.use_smart:
-                        #mask = (tokenized_map["type"] == 4) | (tokenized_map["type"] == 5)#[mask]
-
-                        tokenized_agent["detach_map_feature"] = {k: v[::2].contiguous() for k, v in map_feature.items()}
-                    else:
-                        tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
+            #
+            # if self.gail:
+            #     if map_feature is not None:
+            #         if self.use_smart:
+            #             #mask = (tokenized_map["type"] == 4) | (tokenized_map["type"] == 5)#[mask]
+            #
+            #             tokenized_agent["detach_map_feature"] = {k: v[::2].contiguous() for k, v in map_feature.items()}
+            #         else:
+            #             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
 
             tokenized_agent["map_feature"] = map_feature
             # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)

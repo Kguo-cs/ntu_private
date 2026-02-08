@@ -73,7 +73,13 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
+        if key=="agent" and self.encoder.agent_encoder.interative_decoder.add_a2a:
+            tokenized_agent["train_mask"]=None
+
         pred = self.encoder(tokenized_map, tokenized_agent)
+
+        if key=="agent" and self.encoder.agent_encoder.interative_decoder.add_a2a:
+            tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
         if pred["next_token_logits"] is not None:
             valid_mask = tokenized_agent["valid_mask"][:, self.start_step:]
@@ -479,16 +485,9 @@ class IQ_SoftQ(LightningModule):
         #         m.p = 0.0
         # self.encoder.agent_encoder.interative_decoder.edge_encoder.hist_drop_prob = 0
 
-        if self.encoder.agent_encoder.interative_decoder.add_a2a:
-            tokenized_agent_rollout["train_mask"]=None
 
         agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
 
-        if self.encoder.agent_encoder.interative_decoder.add_a2a:
-            tokenized_agent_rollout["train_mask"]=tokenized_agent["pred_mask"]
-            n_agent=len(tokenized_agent_rollout["train_mask"])
-            agent_log_prob=agent_log_prob.reshape(-1,n_agent)[:,tokenized_agent["pred_mask"]].reshape(-1)
-            tokenized_agent_rollout["feat_a"]=tokenized_agent_rollout["feat_a"].reshape(17,n_agent,-1)[:,tokenized_agent["pred_mask"]].flatten(0,1)
 
 
         # for m in self.encoder.agent_encoder.interative_decoder.t_attn_layers.modules():
