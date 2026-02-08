@@ -41,7 +41,7 @@ class EdgeEncoder(nn.Module):
         if self.use_route:
             self.route_drop=nn.Dropout(p=0.5)
 
-        share=False
+        share=share
         self.use_bird=use_bird
         
         self.pred_exit=pred_exit
@@ -77,7 +77,7 @@ class EdgeEncoder(nn.Module):
 
         # if self.discriminator:
         #     input_dim_r_a2a = 2
-        self.use_roformer=False
+        self.use_roformer=discriminator
 
         if a2a:
             self.tokenized_pos=False
