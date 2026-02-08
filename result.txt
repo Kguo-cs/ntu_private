@@ -268,17 +268,16 @@ AIRL40_pred_t60_nosep_nodetach_noshare_epoch=9-step=121750.ckpt
 
 0.7873
 
-/home/ke/code/sim/src/waymo_data/bc40_start0eval0_inter1_epoch=31-step=389600.ckpt
-
-
-0.7578
-
-
 /home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_nodetach_noshare_noroformer53_epoch=9-step=121750_0.78145.ckpt
 
 0.7870
 
 /home/ke/code/sim/src/waymo_data/bc40_start0eval0_inter1_epoch=31-step=389600.ckpt
 
+0.7843
 
 AIRL40_bc40_hist01_noroformer53_nodismask_epoch=9-step=121750_0.78725.ckpt
+
+0.7858
+
+
