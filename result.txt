@@ -280,7 +280,13 @@ AIRL40_bc40_hist01_noroformer53_nodismask_epoch=9-step=121750_0.78725.ckpt
 
 0.7858
 
+bc40_start0eval0_inter2
+
+0.7842
+
+
 /home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_noroformer53_masks_epoch=9-step=121750_0.78693.ckpt
+
 
 
 /home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_noroformer53_interdis_epoch=9-step=121750_0.78731.ckpt
