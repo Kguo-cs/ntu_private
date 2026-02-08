@@ -286,7 +286,8 @@ class SMARTAgentDecoder(nn.Module):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
 
-                    next_token_logits=tokenized_agent["next_token_logits"][:a_num]
+                    step=current_step-self.interative_decoder.start_step
+                    next_token_logits=tokenized_agent["next_token_logits"][a_num*(step-1):a_num*step]
 
                     if tokenized_agent["entry_logit"] is not None:
                         entry_logit=tokenized_agent["entry_logit"][:,:1]

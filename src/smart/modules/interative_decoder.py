@@ -170,7 +170,7 @@ class InterativeDecoder(nn.Module):
             self.start_step=self.num_historical_steps//self.shift-1
 
 
-        self.add_a2a=False
+        self.add_a2a=True
         
         if self.add_a2a and not discriminator:
             self.a2a_inter =AttentionLayer(
@@ -181,15 +181,15 @@ class InterativeDecoder(nn.Module):
                         bipartite=False,
                         has_pos_emb=True,
                     )
-            self.pt2a_inter= AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=True,
-                        has_pos_emb=True,
-                      #  gated_attention=discriminator,
-                    )
+            # self.pt2a_inter= AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=head_dim,
+            #             dropout=dropout,
+            #             bipartite=True,
+            #             has_pos_emb=True,
+            #           #  gated_attention=discriminator,
+            #         )
             self.start_eval_step = 0
             self.start_step=0
 
@@ -365,7 +365,7 @@ class InterativeDecoder(nn.Module):
             feat_a = feat_a[-current_len:]
             
         if self.add_a2a and not self.discriminator:
-            feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+            #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
             feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
         next_token_logits = self.token_predict_head(feat_a)
