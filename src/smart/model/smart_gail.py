@@ -79,7 +79,7 @@ class SMART_IQ(IQ_SoftQ, SMART):
             #     )
             #
             # else:
-            optimizers_list = configure_optimizers(self.optimizers(), muon_lr=0.02 * (self.lr / 1e-4), adam_lr=self.lr)
+            optimizers_list = configure_optimizers(self.encoder.parameters(), muon_lr=0.02 * (self.lr / 1e-4), adam_lr=self.lr)
 
             optimizer = CombinedOptimizer(optimizers_list)
 
