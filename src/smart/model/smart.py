@@ -537,7 +537,7 @@ class SMART(LightningModule):
     def configure_optimizers(self):
        # optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-        optimizers_list = configure_optimizers(self.optimizers())
+        optimizers_list = configure_optimizers(self.optimizers(),muon_lr=0.02*(self.lr/1e-4),adam_lr=self.lr)
 
         optimizer = CombinedOptimizer(optimizers_list)
 
