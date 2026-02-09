@@ -86,9 +86,9 @@ class SMART_IQ(IQ_SoftQ, SMART):
             # optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
 
 
-            lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+            #lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
 
-            return [optimizer], [lr_scheduler]
+            return optimizer#[optimizer], [lr_scheduler]
 
         else:
             # actor_optimizer = torch.optim.AdamW(list(self.encoder.agent_encoder.parameters())  +list(self.encoder.value_network.parameters()) , lr=self.lr)
