@@ -170,7 +170,7 @@ class InterativeDecoder(nn.Module):
             self.start_step=self.num_historical_steps//self.shift-1
 
 
-        self.add_a2a=False
+        self.add_a2a=True
         
         if self.add_a2a and not discriminator:
             self.a2a_inter =AttentionLayer(
