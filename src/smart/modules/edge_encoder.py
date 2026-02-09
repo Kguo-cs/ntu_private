@@ -33,6 +33,7 @@ class EdgeEncoder(nn.Module):
             use_bird=False,
             use_cross=True,
             pred_exit=False,
+            diff_edge=False,
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
@@ -45,6 +46,7 @@ class EdgeEncoder(nn.Module):
         self.use_bird=use_bird
         
         self.pred_exit=pred_exit
+        self.diff_edge=diff_edge
 
         if not use_bird:
             input_dim_r_t = 4
@@ -236,7 +238,7 @@ class EdgeEncoder(nn.Module):
 
         dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
 
-        if self.discriminator:
+        if self.diff_edge:
             u=rel_pos_a2a[:, :2]
             v=head_vector_s[edge_index_a2a[1]]
 
@@ -398,7 +400,7 @@ class EdgeEncoder(nn.Module):
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
 
-        if self.discriminator:
+        if self.diff_edge:
             u = rel_pos_pl2a[:, :2]
             v = head_vector_s[edge_index_pl2a[1]]
 
