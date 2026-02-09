@@ -89,7 +89,8 @@ class InitDiscriminator(nn.Module):
                                             shift=token_processor.shift,
                                             discriminator=True,
                                             use_bird=token_processor.use_bird,
-                                            use_cross=True
+                                            use_cross=True,
+                                            diff_edge=True
                                             )
 
             num_layers = 1

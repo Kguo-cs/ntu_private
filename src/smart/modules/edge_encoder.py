@@ -79,7 +79,7 @@ class EdgeEncoder(nn.Module):
 
         # if self.discriminator:
         #     input_dim_r_a2a = 2
-        self.use_roformer=False
+        self.use_roformer=diff_edge
 
         if a2a:
             self.tokenized_pos=False
