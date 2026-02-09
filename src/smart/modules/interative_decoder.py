@@ -169,18 +169,17 @@ class InterativeDecoder(nn.Module):
         else:
             self.start_step=self.num_historical_steps//self.shift-1
 
-
         self.add_a2a=True
         
         if self.add_a2a and not discriminator:
-            self.a2a_inter =AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
+            # self.a2a_inter =AttentionLayer(
+            #             hidden_dim=hidden_dim,
+            #             num_heads=num_heads,
+            #             head_dim=head_dim,
+            #             dropout=dropout,
+            #             bipartite=False,
+            #             has_pos_emb=True,
+            #         )
             # self.pt2a_inter= AttentionLayer(
             #             hidden_dim=hidden_dim,
             #             num_heads=num_heads,
@@ -192,8 +191,6 @@ class InterativeDecoder(nn.Module):
             #         )
             self.start_eval_step = 0
             self.start_step=0
-
-
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -373,7 +370,7 @@ class InterativeDecoder(nn.Module):
                 edge_index_a2a = edge_index_a2a[:, end_mask]
                 r_a2a = r_a2a[end_mask]
 
-            feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+            # feat_a=self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
             if self.edge_encoder.rollout_traj:
                 feat_a=feat_a.reshape(17,n_agent,-1)[:,pred_mask].flatten(0,1)
