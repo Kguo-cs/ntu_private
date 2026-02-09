@@ -41,7 +41,7 @@ class EdgeEncoder(nn.Module):
         if self.use_route:
             self.route_drop=nn.Dropout(p=0.5)
 
-        share=share
+        share=False
         self.use_bird=use_bird
         
         self.pred_exit=pred_exit
@@ -77,7 +77,7 @@ class EdgeEncoder(nn.Module):
 
         # if self.discriminator:
         #     input_dim_r_a2a = 2
-        self.use_roformer=discriminator
+        self.use_roformer=False
 
         if a2a:
             self.tokenized_pos=False
@@ -397,31 +397,31 @@ class EdgeEncoder(nn.Module):
         rel_orient_pl2a = wrap_angle(
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
-        if self.discriminator:
-            u = rel_pos_pl2a[:, :2]
-            v = head_vector_s[edge_index_pl2a[1]]
+        # if self.discriminator:
+        #     u = rel_pos_pl2a[:, :2]
+        #     v = head_vector_s[edge_index_pl2a[1]]
+        #
+        #     r_pl2a = torch.stack(
+        #         [
+        #             (u*v).sum(dim=-1) ,
+        #             u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+        #             rel_orient_pl2a,
+        #         ],
+        #         dim=-1,
+        #     )
+        # else:
 
-            r_pl2a = torch.stack(
-                [
-                    (u*v).sum(dim=-1) ,
-                    u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                    rel_orient_pl2a,
-                ],
-                dim=-1,
-            )
-        else:
-
-            r_pl2a = torch.stack(
-                [
-                    torch.norm(rel_pos_pl2a, p=2, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                        nbr_vector=rel_pos_pl2a[:, :2],
-                    ),
-                    rel_orient_pl2a,
-                ],
-                dim=-1,
-            )
+        r_pl2a = torch.stack(
+            [
+                torch.norm(rel_pos_pl2a, p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
+                    nbr_vector=rel_pos_pl2a[:, :2],
+                ),
+                rel_orient_pl2a,
+            ],
+            dim=-1,
+        )
 
         r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
 
