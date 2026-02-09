@@ -40,6 +40,7 @@ import time
 from src.smart.modules.build_edge import insert_ego
 from src.smart.metrics.gen_metrics import compute_gen_samples,compute_agent_metrics
 import numpy as np
+from src.smart.model.optimizer import configure_optimizers,CombinedOptimizer
 
 class SMART(LightningModule):
 
@@ -534,7 +535,11 @@ class SMART(LightningModule):
            # print("Callback metrics:", self.trainer.callback_metrics.keys())
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+       # optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+
+        optimizers_list = configure_optimizers(self.optimizers())
+
+        optimizer = CombinedOptimizer(optimizers_list)
 
         def lr_lambda(current_step):
             current_step = self.current_epoch + 1
