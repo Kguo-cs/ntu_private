@@ -19,6 +19,7 @@ from src.smart.modules.smart_decoder import SMARTDecoder
 import torch
 import math
 from torch.optim.lr_scheduler import LambdaLR
+from src.smart.model.optimizer import configure_optimizers,CombinedOptimizer
 
 
 # class SMART_GAIL(GAIL, SMART):
@@ -78,7 +79,11 @@ class SMART_IQ(IQ_SoftQ, SMART):
             #     )
             #
             # else:
-            optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
+            optimizers_list = configure_optimizers(self.optimizers(), muon_lr=0.02 * (self.lr / 1e-4), adam_lr=self.lr)
+
+            optimizer = CombinedOptimizer(optimizers_list)
+
+            # optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
 
 
             lr_scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
