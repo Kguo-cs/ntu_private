@@ -88,7 +88,7 @@ class Muon(optim.Optimizer):
 
         return loss
 
-def configure_optimizers(named_parameters, muon_lr=0.02,muon_momentum=0.95,
+def configure_optimizers(model, muon_lr=0.02,muon_momentum=0.95,
                          adam_lr=1e-4, weight_decay=0.01,adam_beta1=0.9, adam_beta2=0.95):
     """
     Splits parameters into hidden (2D) for Muon and others for AdamW.
@@ -96,7 +96,7 @@ def configure_optimizers(named_parameters, muon_lr=0.02,muon_momentum=0.95,
     hidden_params = []
     other_params = []
 
-    for name, p in named_parameters:
+    for name, p in model.named_parameters():
         if not p.requires_grad:
             continue
 
