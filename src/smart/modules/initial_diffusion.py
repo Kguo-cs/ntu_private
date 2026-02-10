@@ -37,7 +37,7 @@ class PDInit(nn.Module):
         args = parser.parse_args()
 
         self.latent_diffusion=False
-        self.use_gan = True
+        self.use_gan = False
 
 
         self.learn_autoencoder = token_processor.learn_autoencoder

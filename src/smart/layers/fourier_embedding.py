@@ -116,3 +116,5 @@ class MLPEmbedding(nn.Module):
             if categorical_embs is not None:
                 x = x + torch.stack(categorical_embs).sum(dim=0)
         return x
+
+

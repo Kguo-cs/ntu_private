@@ -44,6 +44,7 @@ import copy
 from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
+from torch.func import functional_call, jvp
 
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
@@ -66,6 +67,7 @@ class InitDiffusion(nn.Module):
         self.ego_embedding = MLPLayer(20, args.hidden_dim, args.hidden_dim)
 
         self.pose_embedding= MLPLayer(128+2+2, args.hidden_dim, args.hidden_dim)
+        self.mean_flow=False
 
         self.net = InitDenoiser(
             dataset=args.dataset,
@@ -80,7 +82,8 @@ class InitDiffusion(nn.Module):
             head_dim=args.head_dim,
             dropout=args.dropout,
             diff_type=args.diff_type,
-            m_dim=args.m_dim
+            m_dim=args.m_dim,
+            mean_flow=self.mean_flow
         )
 
         self.var_sched = VarianceSchedule(
@@ -94,7 +97,6 @@ class InitDiffusion(nn.Module):
         probs = torch.tensor([0.5])
         self.B_dist = Bernoulli(probs=probs)
 
-
         self.flow_matching=True
 
         self.x_pred=True
@@ -105,7 +107,8 @@ class InitDiffusion(nn.Module):
 
         self.P_mean=2
 
-        self.steps=50
+        self.steps=1
+        
 
         self.apply(weight_init)
 
@@ -146,33 +149,72 @@ class InitDiffusion(nn.Module):
         x0 = torch.randn_like(x1)  # base distribution N(0, I)
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+        
+        if self.mean_flow:
+            
+                        # r ~ U[0, t]
+            r_batch = torch.rand(num_scenes, device=device) * t_batch
 
-        if self.steps==1:
-            t_batch=torch.zeros_like(t_batch)
+            t=t_batch[agent_batch]
+            r=r_batch[agent_batch]
 
-        t=t_batch[agent_batch]
+            # Avoid numerical issues at t=0
+            t = torch.clamp(t, min=1e-5)
 
-        z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
+            z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
+            v_target = x1 - x0
+            
+            params = dict()
+            buffers = dict()
+            params_and_buffers = {**params, **buffers}
 
-       # z[...,2:]=x1[...,2:]
+            def net_call(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask):
+                beta=torch.cat([t_arg,r_arg],dim=-1)
+                
+                return functional_call(self.net,params_and_buffers, (z_arg, beta, tokenized_agent, scene_enc,eval_mask))
 
-        if self.x_pred:
-            v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
+            def u_fn(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask):
+                x_pred_arg = net_call(z_arg, r_arg, t_arg, tokenized_agent, scene_enc,eval_mask)
+                return (z_arg - x_pred_arg) / t_arg[:,:,None]
 
-            x_pred = self.net(z
-                              , t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
-                              mode=mode) #t=0 ,0.1
+            v = u_fn(z, t, t, tokenized_agent, scene_enc,eval_mask)
+            func = lambda z_, r_, t_: u_fn(z_, r_, t_, tokenized_agent, scene_enc,eval_mask)
+            primals = (z, r, t)
+            tangents = (v, torch.zeros_like(r), torch.ones_like(t))
+            u_out, dudt_out = jvp(func, primals, tangents)
 
-            v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
+            # V = u + (t - r) * stop_grad(dudt)
+            v_pred = u_out + (t - r) * dudt_out.detach()
 
-            x_init_0_reconstructed = x_pred  # x0+v_pred
+            # Perceptual Loss
+            x_init_0_reconstructed = z - t * u_out
 
         else:
-            v_target =x1 - x0
 
-            v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+            if self.steps==1:
+                t_batch=torch.zeros_like(t_batch)
 
-            x_init_0_reconstructed =x0+v_pred
+            t=t_batch[agent_batch]
+
+            z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
+
+            if self.x_pred:
+                v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
+
+                x_pred = self.net(z
+                                , t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
+                                mode=mode) #t=0 ,0.1
+
+                v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
+
+                x_init_0_reconstructed = x_pred  # x0+v_pred
+
+            else:
+                v_target =x1 - x0
+
+                v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+
+                x_init_0_reconstructed =x0+v_pred
 
         return F.mse_loss(v_pred , v_target,reduction="none") ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5 #F.l1_loss(x_init_0_reconstructed , x1,reduction="none")
 
@@ -210,7 +252,7 @@ class InitDiffusion(nn.Module):
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
 
-        steps=1
+        steps=self.steps
 
         num_agents = eval_mask.sum()
 
@@ -393,7 +435,9 @@ class InitDenoiser(nn.Module):
                  head_dim: int,
                  dropout: float,
                  diff_type: str,
-                 m_dim: int) -> None:
+                 m_dim: int,
+                 mean_flow
+                 ) -> None:
         super(InitDenoiser, self).__init__()
         self.dataset = dataset
         self.input_dim = input_dim
@@ -449,6 +493,8 @@ class InitDenoiser(nn.Module):
             )
 
             noise_dim = 1
+            if mean_flow:
+                noise_dim=2
             self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
                                               num_freq_bands=num_freq_bands)
 
@@ -484,8 +530,8 @@ class InitDenoiser(nn.Module):
                 beta,
                 tokenized_agent: HeteroData,
                 scene_enc: Mapping[str, torch.Tensor],
-                num_samples: int,
-                eval_mask=None,
+                eval_mask,                
+                num_samples=1,
                 mode=0
                 ) -> Dict[str, torch.Tensor]:
 
@@ -542,12 +588,16 @@ class InitDenoiser(nn.Module):
 
             pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
-            x_pt = feat_map.repeat(self.num_samples, 1)
+            x_pt = feat_map#.repeat(self.num_samples, 1)
             map_batch_list = batch_pl
 
             poly_cnt_per_batch = map_batch_list.bincount(minlength=batch_size)
-            map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
+            # map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
 
+            map_emb_batch = torch.tensor_split(
+                x_pt,
+                torch.cumsum(poly_cnt_per_batch, dim=0)[:-1].cpu()
+            )
             map_emb = pad_sequence(map_emb_batch, batch_first=True, padding_value=0)
 
             beta_emb = self.noise_emb(beta)
@@ -562,12 +612,22 @@ class InitDenoiser(nn.Module):
             m_delta = self.proj_in_m_delta_2(m_delta)
 
             agent_cnt_per_batch = batch.bincount(minlength=batch_size)
-            agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
+            # agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
+            agent_emb_batch = torch.tensor_split(
+                m_delta,
+                torch.cumsum(agent_cnt_per_batch, dim=0)[:-1].cpu()
+            )
+
             m_delta = pad_sequence(agent_emb_batch, batch_first=True, padding_value=0)
             pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
             m_delta += pos_emb
 
-            beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
+            # beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
+            beta_emb_batch = torch.tensor_split(
+                beta_emb,
+                torch.cumsum(agent_cnt_per_batch, dim=0)[:-1].cpu()
+            )
+
             beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
 
             mask_map_layers = []
