@@ -67,7 +67,7 @@ class InitDiffusion(nn.Module):
         self.ego_embedding = MLPLayer(20, args.hidden_dim, args.hidden_dim)
 
         self.pose_embedding= MLPLayer(128+2+2, args.hidden_dim, args.hidden_dim)
-        self.mean_flow=False
+        self.mean_flow=True
 
         self.net = InitDenoiser(
             dataset=args.dataset,
@@ -108,7 +108,6 @@ class InitDiffusion(nn.Module):
         self.P_mean=2
 
         self.steps=1
-        
 
         self.apply(weight_init)
 
@@ -135,25 +134,27 @@ class InitDiffusion(nn.Module):
         z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
 
-    def flow_matching_loss(self,x1, tokenized_agent, scene_enc,eval_mask,num_samples):
+    def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples):
         """
         x1: target samples, shape [B, 2]
         """
-        device = x1.device
+        device = x.device
         num_scenes = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["batch"][eval_mask]
         mode =1#self.B_dist.sample()
 
-        x1=x1.unsqueeze(1).repeat(1, num_samples, 1)
+        x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
-        x0 = torch.randn_like(x1)  # base distribution N(0, I)
+        e = torch.randn_like(x)  # base distribution N(0, I)
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         
         if self.mean_flow:
-            
-                        # r ~ U[0, t]
-            r_batch = torch.rand(num_scenes, device=device) * t_batch
+
+            tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
+
+            # r ~ U[0, t]
+            r_batch = torch.rand(num_scenes, device=device) [:, None]* t_batch
 
             t=t_batch[agent_batch]
             r=r_batch[agent_batch]
@@ -161,8 +162,8 @@ class InitDiffusion(nn.Module):
             # Avoid numerical issues at t=0
             t = torch.clamp(t, min=1e-5)
 
-            z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
-            v_target = x1 - x0
+            z = (1 - t[:,:, None]) * x + t[:,:, None] * e #large t, low noise
+            v_target = e - x
             
             params = dict()
             buffers = dict()
@@ -184,10 +185,10 @@ class InitDiffusion(nn.Module):
             u_out, dudt_out = jvp(func, primals, tangents)
 
             # V = u + (t - r) * stop_grad(dudt)
-            v_pred = u_out + (t - r) * dudt_out.detach()
+            v_pred = u_out + (t[:,:,None] - r[:,:,None]) * dudt_out.detach()
 
             # Perceptual Loss
-            x_init_0_reconstructed = z - t * u_out
+            x_init_0_reconstructed = z - t[:,:,None] * u_out
 
         else:
 
@@ -196,10 +197,10 @@ class InitDiffusion(nn.Module):
 
             t=t_batch[agent_batch]
 
-            z = (1 - t[:,:, None]) * x0 + t[:,:, None] * x1 #large t, low noise
+            z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
 
             if self.x_pred:
-                v_target = (x1 - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
+                v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
                 x_pred = self.net(z
                                 , t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
@@ -210,11 +211,11 @@ class InitDiffusion(nn.Module):
                 x_init_0_reconstructed = x_pred  # x0+v_pred
 
             else:
-                v_target =x1 - x0
+                v_target =x - e
 
                 v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
 
-                x_init_0_reconstructed =x0+v_pred
+                x_init_0_reconstructed =e+v_pred
 
         return F.mse_loss(v_pred , v_target,reduction="none") ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5 #F.l1_loss(x_init_0_reconstructed , x1,reduction="none")
 
@@ -251,45 +252,57 @@ class InitDiffusion(nn.Module):
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
-
         steps=self.steps
 
         num_agents = eval_mask.sum()
 
         z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
 
-        #dt = 1.0 / steps
-        #timesteps = cosine_schedule(steps+1, z.device)
-        timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
-        
-        timesteps[-1] = 1.0
+        if self.mean_flow:
+            t = torch.ones(num_agents, device=eval_mask.device)[:,None]
+            r = torch.zeros(num_agents, device=eval_mask.device)[:,None]
+            beta = torch.cat([t, r], dim=-1)
 
-        #timesteps = power_schedule(steps+1, z.device, alpha=2)
-       # ts[0] = 1e-4
-       # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
-        # ode
-        for i in range(steps - 1):
-            t = timesteps[i]
-            t_next = timesteps[i + 1]
-            z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
-        # last step euler
-        z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
+            agent_batch = tokenized_agent["batch"][eval_mask]
+            num_scenes = tokenized_agent["num_graphs"]
 
-        # for i in range(steps):
-        #        # t = ts[i].expand(z.shape[0],z.shape[1])
-        #        # dt = ts[i + 1] - ts[i]
-        #
-        #     t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
-        #     if self.x_pred:
-        #         x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        #
-        #         v_pred = (x_pred - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
-        #     else:
-        #         v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        #
-        #     z = z + v_pred * dt
+            tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
-            #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
+            z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
+
+        else:
+            #dt = 1.0 / steps
+            #timesteps = cosine_schedule(steps+1, z.device)
+            timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
+
+            timesteps[-1] = 1.0
+
+            #timesteps = power_schedule(steps+1, z.device, alpha=2)
+           # ts[0] = 1e-4
+           # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
+            # ode
+            for i in range(steps - 1):
+                t = timesteps[i]
+                t_next = timesteps[i + 1]
+                z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+            # last step euler
+            z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
+
+            # for i in range(steps):
+            #        # t = ts[i].expand(z.shape[0],z.shape[1])
+            #        # dt = ts[i + 1] - ts[i]
+            #
+            #     t = torch.full((num_agents,num_samples), i / steps, device=eval_mask.device)
+            #     if self.x_pred:
+            #         x_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+            #
+            #         v_pred = (x_pred - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
+            #     else:
+            #         v_pred=self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+            #
+            #     z = z + v_pred * dt
+
+                #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
         return z
 
@@ -455,6 +468,7 @@ class InitDenoiser(nn.Module):
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
         self.use_roformer=False
+        self.mean_flow=mean_flow
 
         if self.use_roformer:
 
@@ -583,25 +597,7 @@ class InitDenoiser(nn.Module):
             res = torch.cat([pos, heading, shape,vel], dim=1)[:,None]
 
         else:
-
-            self.num_samples = num_samples
-
-            pos_pl, orient_pl, batch_pl, feat_map=scene_enc
-
-            x_pt = feat_map#.repeat(self.num_samples, 1)
-            map_batch_list = batch_pl
-
-            poly_cnt_per_batch = map_batch_list.bincount(minlength=batch_size)
-            # map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
-
-            map_emb_batch = torch.tensor_split(
-                x_pt,
-                torch.cumsum(poly_cnt_per_batch, dim=0)[:-1].cpu()
-            )
-            map_emb = pad_sequence(map_emb_batch, batch_first=True, padding_value=0)
-
             beta_emb = self.noise_emb(beta)
-
             # num_agents x 128
             categorical_embs_m = [
                 self.type_a_emb(type),
@@ -611,52 +607,78 @@ class InitDenoiser(nn.Module):
             m_delta = m_delta + categorical_embs_m[0]+ego_embedding
             m_delta = self.proj_in_m_delta_2(m_delta)
 
-            agent_cnt_per_batch = batch.bincount(minlength=batch_size)
-            # agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
-            agent_emb_batch = torch.tensor_split(
-                m_delta,
-                torch.cumsum(agent_cnt_per_batch, dim=0)[:-1].cpu()
-            )
+            self.num_samples = num_samples
 
-            m_delta = pad_sequence(agent_emb_batch, batch_first=True, padding_value=0)
+            if self.mean_flow:
+                pos_pl, orient_pl,map_mask, map_emb=scene_enc
+
+                lengths=tokenized_agent["lengths"]
+
+                #lengths = torch.bincount(batch, minlength=batch_size).tolist()
+
+                m_delta = padding(m_delta, lengths, padding_value=0)  # b, n, d
+
+                mask_agent = torch.any(m_delta != 0, dim=-1)
+
+                beta_emb_m= padding(beta_emb, lengths, padding_value=0)
+
+            else:
+                pos_pl, orient_pl, batch_pl, feat_map=scene_enc
+
+                x_pt = feat_map#.repeat(self.num_samples, 1)
+                map_batch_list = batch_pl
+
+                poly_cnt_per_batch = map_batch_list.bincount(minlength=batch_size)
+                map_emb_batch = torch.split(x_pt, poly_cnt_per_batch.tolist())
+
+                map_emb = pad_sequence(map_emb_batch, batch_first=True, padding_value=0)
+
+                agent_cnt_per_batch = batch.bincount(minlength=batch_size)
+                agent_emb_batch = torch.split(m_delta, agent_cnt_per_batch.tolist())
+
+                m_delta = pad_sequence(agent_emb_batch, batch_first=True, padding_value=0)
+
+                beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
+
+                beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
+
             pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
             m_delta += pos_emb
 
-            # beta_emb_batch = torch.split(beta_emb, agent_cnt_per_batch.tolist())
-            beta_emb_batch = torch.tensor_split(
-                beta_emb,
-                torch.cumsum(agent_cnt_per_batch, dim=0)[:-1].cpu()
-            )
+            if self.mean_flow:
+                attn_mask_agent_layers = ~mask_agent
+                attn_mask_map_layers = ~map_mask
+            else:
+                #mask_map_layers = []
+                #mask_agent_layers = []
 
-            beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
+                attn_mask_map_layers = []
+                attn_mask_agent_layers = []
 
-            mask_map_layers = []
-            mask_agent_layers = []
+                B, N, D = m_delta.shape
+                B, N_map, _ = map_emb.shape
 
-            attn_mask_map_layers = []
-            attn_mask_agent_layers = []
+                for i in range(batch_size):
+                   # mask_attn_map_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
+                    #mask_attn_map_agent_i = mask_attn_map_agent_i.unsqueeze(-1).expand(-1, N_map)
+                    mask_attn_map_pt_i = torch.arange(N_map).to(m_delta.device) < poly_cnt_per_batch[i]
+                    attn_mask_map_layers.append(mask_attn_map_pt_i)
+                    #mask_attn_map_pt_i = mask_attn_map_pt_i.unsqueeze(0).expand(N, -1)
 
-            B, N, D = m_delta.shape
-            B, N_map, _ = map_emb.shape
+                    #mask_attn_i = mask_attn_map_agent_i & mask_attn_map_pt_i
+                    # mask_map_layers.append(mask_attn_i)
 
-            for i in range(batch_size):
-                mask_attn_map_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
-                mask_attn_map_agent_i = mask_attn_map_agent_i.unsqueeze(-1).expand(-1, N_map)
-                mask_attn_map_pt_i = torch.arange(N_map).to(m_delta.device) < poly_cnt_per_batch[i]
-                attn_mask_map_layers.append(mask_attn_map_pt_i)
-                mask_attn_map_pt_i = mask_attn_map_pt_i.unsqueeze(0).expand(N, -1)
+                    mask_attn_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
+                    attn_mask_agent_layers.append(mask_attn_agent_i)
+                    # mask_attn_agent_i = mask_attn_agent_i.unsqueeze(-1).expand(-1, N)
+                    # mask_attn_i = mask_attn_agent_i & mask_attn_agent_i.t()
+                    # mask_agent_layers.append(mask_attn_i)
 
-                mask_attn_i = mask_attn_map_agent_i & mask_attn_map_pt_i
-                mask_map_layers.append(mask_attn_i)
+                attn_mask_agent_layers = ~torch.stack(attn_mask_agent_layers)
+                attn_mask_map_layers = ~torch.stack(attn_mask_map_layers)
+                mask = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
+                mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
 
-                mask_attn_agent_i = torch.arange(N).to(m_delta.device) < agent_cnt_per_batch[i]
-                attn_mask_agent_layers.append(mask_attn_agent_i)
-                mask_attn_agent_i = mask_attn_agent_i.unsqueeze(-1).expand(-1, N)
-                mask_attn_i = mask_attn_agent_i & mask_attn_agent_i.t()
-                mask_agent_layers.append(mask_attn_i)
-
-            attn_mask_agent_layers = ~torch.stack(attn_mask_agent_layers)
-            attn_mask_map_layers = ~torch.stack(attn_mask_map_layers)
 
             # attn_mask_agent_layers = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)
             # attn_mask_map_layers = attn_mask_map_layers.view(B, 1, 1, N_map). \
@@ -679,9 +701,7 @@ class InitDenoiser(nn.Module):
                                torch.zeros_like(map_emb[:,:,0]), ~attn_mask_map_layers
                                )
 
-            mask = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
-            mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
-            m_out_delta = m_delta[mask_agent].view(-1, D)  # [sum(agent_cnt_per_batch), D]
+            m_out_delta = m_delta[mask_agent]#.view(-1, D)  # [sum(agent_cnt_per_batch), D]
 
             out_m_delta = self.to_out_m_delta(m_out_delta)
             out_m_delta = out_m_delta.view(-1, self.num_samples, self.hidden_dim)

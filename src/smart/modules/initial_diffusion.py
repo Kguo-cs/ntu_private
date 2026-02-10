@@ -146,12 +146,9 @@ class PDInit(nn.Module):
 
     def get_gan_loss(self,m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego,rec_loss=None,t=None,t_batch=None):
         if self.D.use_entry_former:
+            pos_pl, orient_pl, map_mask, feat_map=map_feature
+        else:
             pos_pl, orient_pl, batch_pl, feat_map=map_feature
-            num_graphs=tokenized_agent["num_graphs"]
-
-            pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
-
-            map_mask = torch.any(feat_map != 0, dim=-1)
 
         RealSamples = m_init * normal_scale + normal_mean
         FakeSamples = x_pred * normal_scale + normal_mean
@@ -350,8 +347,16 @@ class PDInit(nn.Module):
         #feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
         feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))#,map_agent_count[:,None]
 
-        map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
+        if self.G.mean_flow  or (self.use_gan and self.D.use_entry_former):
+            num_graphs = tokenized_agent["num_graphs"]
 
+            pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
+
+            map_mask = torch.any(feat_map != 0, dim=-1)
+
+            map_feature=(pos_pl, orient_pl, map_mask, feat_map )
+        else:
+            map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 
         normal_scale=self.normal_scale.to(non_ego.device)
         normal_mean=self.normal_mean.to(non_ego.device)
@@ -382,12 +387,13 @@ class PDInit(nn.Module):
                     match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
                                                                                                 device=non_ego.device)
 
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(old_nonego_type_sorted,
-                                                                                                 old_batch,
-                                                                                                 x_pred * normal_scale + normal_mean,
-                                                                                                 m_init * normal_scale + normal_mean,
-                                                                                                 latent=False
-                                                                                                 )
+                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(old_nonego_type_sorted,
+                    #                                                                              old_batch,
+                    #                                                                              x_pred * normal_scale + normal_mean,
+                    #                                                                              m_init * normal_scale + normal_mean,
+                    #                                                                              latent=False,
+                    #                                                                              use_col=False,
+                    #                                                                              )
 
                     # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                     #                                                                              old_batch,
@@ -401,7 +407,7 @@ class PDInit(nn.Module):
                    #  #weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)*normal_mean[None]
                    #  weight=1
 
-                    loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = (loss_diff_init.mean(),loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:

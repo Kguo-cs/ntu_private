@@ -169,7 +169,7 @@ class InterativeDecoder(nn.Module):
         else:
             self.start_step=self.num_historical_steps//self.shift-1
 
-        self.add_a2a=True
+        self.add_a2a=False
         
         if self.add_a2a and not discriminator:
             self.a2a_inter =AttentionLayer(
@@ -208,7 +208,6 @@ class InterativeDecoder(nn.Module):
             )
             self.start_eval_step = 0
             self.start_step=0
-
 
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
@@ -272,7 +271,7 @@ class InterativeDecoder(nn.Module):
         valid_number=len(feat_a)
         mask_ta=mask_a.transpose(0, 1)
         mask_ta_flatten=mask_ta.flatten(0,1)
-        n_agent = inference_mask.shape[0]
+        n_pred_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
 
         #rank=topo_rank_among_edges(edge_index_a2a[1],dist)
@@ -323,15 +322,11 @@ class InterativeDecoder(nn.Module):
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
 
-        feat_a_t = torch.zeros([n_step, n_agent, self.hidden_dim], device=feat_a.device)
+        feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
 
         feat_a_t[mask_ta] = feat_a
 
         if self.edge_encoder.use_roformer:
-            # if agent_train_mask is not None:
-            #     self.pos_cache = self.pos_cache[agent_train_mask]
-            #     self.head_cache = self.head_cache[agent_train_mask]
-            #     self.mask_cache = inference_mask[agent_train_mask]
             feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), None, None, n_step, n_current, inference_mask)
 
             feat_a=feat_a_t.transpose(0,1).flatten(0,1)
@@ -349,12 +344,10 @@ class InterativeDecoder(nn.Module):
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
-            #each step entry agent allow attend to current agent feature
-
         if self.discriminator:
             if token_embeding is not None :
                 if self.use_airl:
-                    feat_sa=feat_a[:-n_agent]+token_embeding
+                    feat_sa=feat_a[:-n_pred_agent]+token_embeding
                 else:
                     feat_a=feat_a+token_embeding
         else:
@@ -378,15 +371,17 @@ class InterativeDecoder(nn.Module):
                 feat_a=feat_a[train_repeat_mask]
                 
         if self.discriminator:
-            feat_a=feat_a[n_agent*2:]
-            train_repeat_mask=train_repeat_mask[len(agent_train_mask)*2:]
-            valid_number=valid_number-len(agent_train_mask)*2
+            n_agent = len(agent_train_mask)
+
+            feat_a=feat_a[n_pred_agent*2:]
+            train_repeat_mask=train_repeat_mask[n_agent*2:]
+            valid_number=valid_number-n_agent*2
 
         next_token_logits = self.token_predict_head(feat_a)
 
         if self.discriminator and self.use_airl:
             next_token_logits1 = self.token_predict_head1(feat_sa)
-            next_token_logits=next_token_logits1+0.99*next_token_logits[n_agent:]-next_token_logits[:-n_agent]
+            next_token_logits=next_token_logits1+0.99*next_token_logits[n_pred_agent:]-next_token_logits[:-n_pred_agent]
 
         weight = None
 
