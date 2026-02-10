@@ -210,7 +210,6 @@ class EdgeEncoder(nn.Module):
             layer_num=1,
             counter_feat_a=None
         ):
-
         if mask is not None:
             pos_s = pos_s[mask]
             head_s = head_s[mask]

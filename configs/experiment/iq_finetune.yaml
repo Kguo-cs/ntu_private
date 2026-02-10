@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL36_inter1_interdis_mean_Noexit_13 #_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL40_inter1_interdis_mean_Noexit_13_start2 #_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
@@ -73,7 +73,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 36
+  train_batch_size: 40
   val_batch_size: 64
   test_batch_size: 10
   num_workers: 8

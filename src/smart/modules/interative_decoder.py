@@ -364,7 +364,7 @@ class InterativeDecoder(nn.Module):
         if self.add_a2a and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
             train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
-            #train_repeat_mask[:1]=False
+            train_repeat_mask[:1]=False
             train_repeat_mask=train_repeat_mask.flatten(0,1)
 
             if self.edge_encoder.rollout_traj:
@@ -376,6 +376,11 @@ class InterativeDecoder(nn.Module):
 
             if self.edge_encoder.rollout_traj:
                 feat_a=feat_a[train_repeat_mask]
+                
+        if self.discriminator:
+            feat_a=feat_a[n_agent*2:]
+            train_repeat_mask=train_repeat_mask[len(agent_train_mask)*2:]
+            valid_number=valid_number-len(agent_train_mask)*2
 
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -391,13 +396,13 @@ class InterativeDecoder(nn.Module):
             if self.use_decompose:
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
-                interact_reward=torch.zeros_like(next_token_logits[:,0])
-
                 weight_logit= interact_logits[:,0].detach() * weight
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)
 
                 if self.pred_exit:
+                    interact_reward=torch.zeros_like(next_token_logits[:,0])
+
                     interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
                 else:
                     interact_reward=valid_interact_reward[train_repeat_mask]
@@ -515,6 +520,9 @@ class InterativeDecoder(nn.Module):
             pred_mask=pred_mask[agent_train_mask]
         else:
             train_repeat_mask=None
+            
+        if self.discriminator:
+            mask_s[:n_agent*2]=False
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]

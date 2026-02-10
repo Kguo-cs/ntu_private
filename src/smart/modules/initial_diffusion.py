@@ -388,7 +388,6 @@ class PDInit(nn.Module):
                                                                                                  m_init * normal_scale + normal_mean,
                                                                                                  latent=False
                                                                                                  )
-                    #
 
                     # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                     #                                                                              old_batch,

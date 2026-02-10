@@ -210,7 +210,7 @@ class InitDiffusion(nn.Module):
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
 
-        steps=self.steps
+        steps=1
 
         num_agents = eval_mask.sum()
 
@@ -219,12 +219,14 @@ class InitDiffusion(nn.Module):
         #dt = 1.0 / steps
         #timesteps = cosine_schedule(steps+1, z.device)
         timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
+        
+        timesteps[-1] = 1.0
 
         #timesteps = power_schedule(steps+1, z.device, alpha=2)
        # ts[0] = 1e-4
        # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
         # ode
-        for i in range(self.steps - 1):
+        for i in range(steps - 1):
             t = timesteps[i]
             t_next = timesteps[i + 1]
             z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
