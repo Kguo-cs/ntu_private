@@ -35,8 +35,8 @@ model:
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
-      dis_weight: 0.1
-      dist_decay: 5
+      dis_weight: 1
+      dist_decay: 3
       reward_weight: 0
       reward_decay: 2.5
 
@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL36_PRE0_inter1_interdis_013_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL36_PRE0_interdis_13_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
