@@ -67,7 +67,7 @@ class InitDiffusion(nn.Module):
         self.ego_embedding = MLPLayer(20, args.hidden_dim, args.hidden_dim)
 
         self.pose_embedding= MLPLayer(128+2+2, args.hidden_dim, args.hidden_dim)
-        self.mean_flow=True
+        self.mean_flow=False
 
         self.net = InitDenoiser(
             dataset=args.dataset,
@@ -107,7 +107,7 @@ class InitDiffusion(nn.Module):
 
         self.P_mean=2
 
-        self.steps=1
+        self.steps=50
 
         self.apply(weight_init)
 
@@ -148,10 +148,10 @@ class InitDiffusion(nn.Module):
         e = torch.randn_like(x)  # base distribution N(0, I)
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
-        
+        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
+
         if self.mean_flow:
 
-            tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
             # r ~ U[0, t]
             r_batch = torch.rand(num_scenes, device=device) [:, None]* t_batch
@@ -160,7 +160,7 @@ class InitDiffusion(nn.Module):
             r=r_batch[agent_batch]
 
             # Avoid numerical issues at t=0
-            t = torch.clamp(t, min=1e-5)
+            t = torch.clamp(t, min=1e-2)
 
             z = (1 - t[:,:, None]) * x + t[:,:, None] * e #large t, low noise
             v_target = e - x
@@ -202,9 +202,7 @@ class InitDiffusion(nn.Module):
             if self.x_pred:
                 v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
-                x_pred = self.net(z
-                                , t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,
-                                mode=mode) #t=0 ,0.1
+                x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask) #t=0 ,0.1
 
                 v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
 
@@ -253,6 +251,10 @@ class InitDiffusion(nn.Module):
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
         steps=self.steps
+        agent_batch = tokenized_agent["batch"][eval_mask]
+        num_scenes = tokenized_agent["num_graphs"]
+
+        tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
         num_agents = eval_mask.sum()
 
@@ -263,10 +265,6 @@ class InitDiffusion(nn.Module):
             r = torch.zeros(num_agents, device=eval_mask.device)[:,None]
             beta = torch.cat([t, r], dim=-1)
 
-            agent_batch = tokenized_agent["batch"][eval_mask]
-            num_scenes = tokenized_agent["num_graphs"]
-
-            tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
             z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
 
@@ -468,7 +466,7 @@ class InitDenoiser(nn.Module):
         self.type_a_emb = nn.Embedding(3, hidden_dim)
 
         self.use_roformer=False
-        self.mean_flow=mean_flow
+        self.use_padding=True
 
         if self.use_roformer:
 
@@ -509,6 +507,7 @@ class InitDenoiser(nn.Module):
             noise_dim = 1
             if mean_flow:
                 noise_dim=2
+                self.use_padding=True
             self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
                                               num_freq_bands=num_freq_bands)
 
@@ -609,7 +608,7 @@ class InitDenoiser(nn.Module):
 
             self.num_samples = num_samples
 
-            if self.mean_flow:
+            if self.use_padding:
                 pos_pl, orient_pl,map_mask, map_emb=scene_enc
 
                 lengths=tokenized_agent["lengths"]
@@ -645,7 +644,7 @@ class InitDenoiser(nn.Module):
             pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
             m_delta += pos_emb
 
-            if self.mean_flow:
+            if self.use_padding:
                 attn_mask_agent_layers = ~mask_agent
                 attn_mask_map_layers = ~map_mask
             else:
@@ -676,8 +675,8 @@ class InitDenoiser(nn.Module):
 
                 attn_mask_agent_layers = ~torch.stack(attn_mask_agent_layers)
                 attn_mask_map_layers = ~torch.stack(attn_mask_map_layers)
-                mask = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
-                mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
+                mask_agent = torch.arange(N).expand(B, N).to(m_delta.device) < agent_cnt_per_batch.unsqueeze(1)  # [B, N]
+                #mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
 
 
             # attn_mask_agent_layers = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)

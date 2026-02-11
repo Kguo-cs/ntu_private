@@ -297,6 +297,7 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_noroformer53_interdis_mean_epoch=9-step=121750_0.78731.ckpt
 
+0.7875
 
 /home/ke/code/sim/src/waymo_data/bc40_start0eval0_intermap_epoch=31-step=389600.ckpt
 
@@ -306,7 +307,7 @@ bc40_start0eval0_inter2
 
 0.7871
 
-/home/ke/code/sim/src/waymo_data/AIRL40_bc40_hist01_noroformer53_interdis_mean_epoch=9-step=121750_0.78731.ckpt
-
 
 /home/ke/code/sim/src/waymo_data/AIRL40_bc40_noroformer53_interdis_mean_Noexit_epoch=9-step=121750_0.78052.ckpt
+
+0.7874

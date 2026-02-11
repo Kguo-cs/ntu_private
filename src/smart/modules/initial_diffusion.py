@@ -21,6 +21,7 @@ from src.smart.layers.discriminator import InitDiscriminator,InitGeneator
 from src.smart.layers.relative_transformer import padding
 import torch.nn.functional as F
 from torch_geometric.nn.pool import knn_graph,knn
+from lpips import LPIPS
 
 class PDInit(nn.Module):
 
@@ -71,10 +72,6 @@ class PDInit(nn.Module):
             self.agent_latents_scale=torch.tensor([[0.981, 0.982, 0.992, 1.012, 0.979, 0.950, 0.977, 0.975]])
             self.agent_latents_mean=torch.tensor([[0.026,  0.015,  0.001,  0.061,  0.010,  0.030, -0.021,  0.035]])
 
-        # self.agent_latents_scale=torch.tensor([[2.951, 2.383, 3.042, 2.819, 2.614, 2.401, 2.673, 2.773]])
-        # self.agent_latents_mean=torch.tensor([[-0.059,  0.043, -0.014,  0.116,  0.314,  0.155,  0.274, -0.091]])
-
-
         if self.use_gan:
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
@@ -89,6 +86,8 @@ class PDInit(nn.Module):
             self.G = LDM()
         else:
             self.G = InitDiffusion(args=args)
+            
+        self.use_perceptual_loss=True
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -347,7 +346,7 @@ class PDInit(nn.Module):
         #feat_map = feat_map + self.G.pos_embedding(pos_pl) + self.G.head_embedding(init_angle)
         feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))#,map_agent_count[:,None]
 
-        if self.G.mean_flow  or (self.use_gan and self.D.use_entry_former):
+        if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
             num_graphs = tokenized_agent["num_graphs"]
 
             pos_pl, orient_pl, feat_map = self.padding(pos_pl, orient_pl, feat_map, batch_pl, num_graphs)
@@ -406,6 +405,11 @@ class PDInit(nn.Module):
                    # match_loss=(match_loss/normal_scale).mean()
                    #  #weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)*normal_mean[None]
                    #  weight=1
+                   
+                   # if self.use_perceptual_loss:
+                   #     perceptual_loss = F.mse_loss(x_pred, m_init)
+                   #     loss_diff_init = loss_diff_init + perceptual_loss
+                       
 
                     loss = (loss_diff_init.mean(),loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
