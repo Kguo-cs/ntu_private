@@ -21,7 +21,7 @@ from src.smart.layers.discriminator import InitDiscriminator,InitGeneator
 from src.smart.layers.relative_transformer import padding
 import torch.nn.functional as F
 from torch_geometric.nn.pool import knn_graph,knn
-from lpips import LPIPS
+# from lpips import LPIPS
 
 class PDInit(nn.Module):
 
