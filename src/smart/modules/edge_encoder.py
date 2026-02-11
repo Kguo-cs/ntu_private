@@ -237,30 +237,30 @@ class EdgeEncoder(nn.Module):
 
         dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
 
-        if self.diff_edge:
-            u=rel_pos_a2a[:, :2]
-            v=head_vector_s[edge_index_a2a[1]]
+        #if self.diff_edge:
+        u=rel_pos_a2a[:, :2]
+        v=head_vector_s[edge_index_a2a[1]]
 
-            r_a2a = torch.stack(
-                [
-                    (u*v).sum(dim=-1) ,
-                    u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                    rel_head_a2a,
-                ],
-                dim=-1,
-            )
-        else:
-            r_a2a = torch.stack(
-                [
-                    dist,
-                    angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[edge_index_a2a[1]],
-                        nbr_vector=rel_pos_a2a[:, :2],
-                    ),
-                    rel_head_a2a,
-                ],
-                dim=-1,
-            )
+        r_a2a = torch.stack(
+            [
+                (u*v).sum(dim=-1) ,
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+                rel_head_a2a,
+            ],
+            dim=-1,
+        )
+        # else:
+        #     r_a2a = torch.stack(
+        #         [
+        #             dist,
+        #             angle_between_2d_vectors(
+        #                 ctr_vector=head_vector_s[edge_index_a2a[1]],
+        #                 nbr_vector=rel_pos_a2a[:, :2],
+        #             ),
+        #             rel_head_a2a,
+        #         ],
+        #         dim=-1,
+        #     )
 
         relative_pos=torch.cat([r_a2a,rel_pos_a2a[:,2:]],dim=-1)
 
@@ -399,30 +399,30 @@ class EdgeEncoder(nn.Module):
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
 
-        if self.diff_edge:
-            u = rel_pos_pl2a[:, :2]
-            v = head_vector_s[edge_index_pl2a[1]]
+        # if self.diff_edge:
+        u = rel_pos_pl2a[:, :2]
+        v = head_vector_s[edge_index_pl2a[1]]
 
-            r_pl2a = torch.stack(
-                [
-                    (u*v).sum(dim=-1) ,
-                    u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                    rel_orient_pl2a,
-                ],
-                dim=-1,
-            )
-        else:
-            r_pl2a = torch.stack(
-                [
-                    torch.norm(rel_pos_pl2a, p=2, dim=-1),
-                    angle_between_2d_vectors(
-                        ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                        nbr_vector=rel_pos_pl2a[:, :2],
-                    ),
-                    rel_orient_pl2a,
-                ],
-                dim=-1,
-            )
+        r_pl2a = torch.stack(
+            [
+                (u*v).sum(dim=-1) ,
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+                rel_orient_pl2a,
+            ],
+            dim=-1,
+        )
+        # else:
+        #     r_pl2a = torch.stack(
+        #         [
+        #             torch.norm(rel_pos_pl2a, p=2, dim=-1),
+        #             angle_between_2d_vectors(
+        #                 ctr_vector=head_vector_s[edge_index_pl2a[1]],
+        #                 nbr_vector=rel_pos_pl2a[:, :2],
+        #             ),
+        #             rel_orient_pl2a,
+        #         ],
+        #         dim=-1,
+        #     )
 
         r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
 
