@@ -53,7 +53,7 @@ model:
 #      num_agent_layers: 1
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL36_inter1_interdis_mean_Noexit_sepedge_epoch=9-step=135280_0.78843.ckpt'
+ckpt_path: '/home/ke/code/sim/src/waymo_data/AIRL36_inter1_interdis_mean_Noexit_13_epoch=9-step=135280_0.78722.ckpt'
 
 trainer:
   limit_train_batches: 1.0

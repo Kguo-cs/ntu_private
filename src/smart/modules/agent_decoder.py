@@ -34,6 +34,7 @@ from src.smart.modules.initial_gan import InitGAN
 from src.smart.modules.initial_diffusion import PDInit
 import math
 import random
+import torch.nn.functional as F
 
 class SMARTAgentDecoder(nn.Module):
     def __init__(
@@ -174,7 +175,64 @@ class SMARTAgentDecoder(nn.Module):
         entry_logit = next_token_logits = mask_token_logit=pred_action_mask = None
 
         if self.learn_init:
-            initial_logit = self.init_decoder( tokenized_agent)
+            initial_logit = self.init_decoder(tokenized_agent)
+            
+            if self.init_decoder.use_perceptual_loss:
+                gt_initial_pos,gt_initial_heading, gt_initial_idx, gt_initial_type,gt_initial_shape,sort_idx,non_ego=initial_logit[1]
+                
+                local_vel=tokenized_agent["local_vel"].clone()
+
+                center_token_traj = tokenized_agent["token_traj"].mean(-2)
+
+                sampled_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
+                
+                sampled_idx2=torch.cat([gt_initial_idx,sampled_idx],dim=0)  [:,None]
+
+                batch2=torch.cat([tokenized_agent["batch"],tokenized_agent["batch"]+tokenized_agent["num_graphs"]],dim=0)
+
+                initial_pos=tokenized_agent["initial_pos"].clone()
+
+                initial_pos[non_ego]=initial_pos[non_ego][sort_idx]
+
+                initial_heading=tokenized_agent["initial_heading"].clone()
+
+                initial_heading[non_ego]=initial_heading[non_ego][sort_idx]
+
+                sampled_pos2=torch.cat([initial_pos,gt_initial_pos],dim=0)  [:,None]
+                
+                sampled_heading2=torch.cat([initial_heading,gt_initial_heading],dim=0)  [:,None]
+
+                initial_shape= tokenized_agent["initial_shape"]
+
+                initial_shape[non_ego]=initial_shape[non_ego][sort_idx]
+
+                tokenized_agent["shape"]=torch.cat([initial_shape,gt_initial_shape])
+
+                tokenized_agent["batch"]=batch2
+                
+                tokenized_agent["type"]=torch.cat([gt_initial_type,gt_initial_type],dim=0)
+                
+                tokenized_agent["ego_mask"]=torch.cat([tokenized_agent["ego_mask"],tokenized_agent["ego_mask"]],dim=0) 
+
+                token_mask2=valid_mask2=torch.ones_like(tokenized_agent["ego_mask"]) [:,None]
+
+                tokenized_agent["pred_mask"]=torch.ones_like(tokenized_agent["ego_mask"])
+
+                token_logits,a2a_feature,rewards,agent_token_emb,entry_logit,_,feat_a= self.predict_agent(sampled_idx2,
+                                                                                        token_mask2,
+                                                                                        valid_mask2,
+                                                                                        sampled_pos2,
+                                                                                        sampled_heading2,
+                                                                                        tokenized_agent,
+                                                                                        map_feature,
+                                                                                        abs_time=tokenized_agent["abs_time"]
+                                                                                        )
+
+                perception_Loss=F.mse_loss(token_logits[:len(sampled_idx)], token_logits[len(sampled_idx):],reduction="mean")
+
+                initial_logit=(perception_Loss+initial_logit[0],perception_Loss,initial_logit[2],initial_logit[3],initial_logit[4],initial_logit[5],initial_logit[6])
+
+            
         else:
             next_token_logits,a2a_feature,rewards,agent_token_emb,entry_logit,initial_logit,feat_a= self.predict_agent(tokenized_agent["sampled_idx"][:,:-1],
                                                                                     tokenized_agent["token_mask"][:,:-1],

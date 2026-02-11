@@ -14,12 +14,12 @@ rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyu
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=31-step=60896.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_start0eval0_intermap/2026-02-07_23-20-51/bc/krrg14ie/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_start0eval0_start0_inter1_hist0/2026-02-10_17-35-51/bc/suu5t31o/checkpoints/epoch=31-step=389600.ckpt ./
 
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/auto64_val256_kl02/2026-01-24_09-23-22/bc/kuuoedsr/checkpoints/epoch=31-step=243520.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL36_inter1_interdis_mean_Noexit_sepedge/2026-02-09_02-06-39/sim/h5r42vsz/checkpoints/epoch=9-step=135280.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL36_inter1_interdis_mean_Noexit_13/2026-02-09_08-27-19/sim/7a1uyyvg/checkpoints/epoch=9-step=135280.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 

@@ -1008,6 +1008,12 @@ class TokenProcessor(torch.nn.Module):
                     tokenized_agent[key] = agent[key]  # [agent_mask]
                 tokenized_agent['initial_type'] = tokenized_agent['initial_type'].long()
 
+                agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
+                    tokenized_agent['initial_type']
+                )
+
+                tokenized_agent["token_traj"]=token_traj
+
             else:
                 agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(  agent['type'] )
 

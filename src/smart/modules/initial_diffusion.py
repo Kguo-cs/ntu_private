@@ -404,14 +404,23 @@ class PDInit(nn.Module):
 
                    # match_loss=(match_loss/normal_scale).mean()
                    #  #weight=torch.tensor([[[0.1,0.1,0.5,0.5,0.2,0.2,0.2,0.2]]],device=non_ego.device)*normal_mean[None]
-                   #  weight=1
-                   
-                   # if self.use_perceptual_loss:
-                   #     perceptual_loss = F.mse_loss(x_pred, m_init)
-                   #     loss_diff_init = loss_diff_init + perceptual_loss
-                       
+                   #  weight=1                        
+                    if self.use_perceptual_loss:
+                        
+                        gt_initial_pos,gt_initial_heading,gt_initial_shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
+                            x_pred * normal_scale + normal_mean, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
+                        )
 
-                    loss = (loss_diff_init.mean(),loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                        gt_initial_type=tokenized_agent["initial_type"].clone()
+
+                        gt_initial_type[non_ego] = tokenized_agent['nonego_type_sorted']
+
+                        res=(gt_initial_pos,gt_initial_heading, gt_initial_idx,gt_initial_type,gt_initial_shape,sort_idx,non_ego)
+                        
+                        loss = (loss_diff_init.mean(),res, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+
+                    else:
+                        loss = (loss_diff_init.mean(),loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
@@ -441,68 +450,78 @@ class PDInit(nn.Module):
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,batch,batch_pl)
 
             pred_init=pred_init*normal_scale+normal_mean
-
-            if self.use_count:
-                pred_count = pred_init[..., :6].reshape(-1, 3, 2)
-
-                pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
-
-                diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
-
-                # width & length
-                width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
-                length = torch.norm(diff_xy_next,dim=-1)
-
-                pred_head = torch.atan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
-
-                pred_vel=pred_init[..., -2:]
-
-                pred_shape = torch.stack([length, width], dim=-1)
-
-            else:
-                pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
-                pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
-
-            global_pos,global_heading=transform_to_global(
-                pred_trans,
-                pred_head,
-                ego_position[batch],
-                ego_heading[batch],
+            
+            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
+                pred_init, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
             )
-
-            global_pred_vel=transform_to_global(
-                pred_vel,
-                None,
-                global_pos,
-                global_heading,
-            )[0]-global_pos
-
-            gt_initial_pos[non_ego]=global_pos
-            gt_initial_heading[non_ego]=global_heading
-
-            gt_initial_vel=tokenized_agent["initial_vel"].clone()
-
-            gt_initial_vel[non_ego] =global_pred_vel
-
-            shape=tokenized_agent["initial_shape"].clone()
-
-            shape[non_ego,:2]=pred_shape[:,:2]
-
+            
             tokenized_agent["shape"]= shape
 
-            local_vel=tokenized_agent["local_vel"].clone()
-
-            local_vel[non_ego]=pred_vel
-
-            center_token_traj = tokenized_agent["token_traj"].mean(-2)
-
-            gt_initial_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
-
             tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
-
             tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_vel
+        
+    def get_original_state(self, pred_init, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading):
+
+        if self.use_count:
+            pred_count = pred_init[..., :6].reshape(-1, 3, 2)
+
+            pred_trans = 0.5 * (pred_count[:,0] + pred_count[:,2])
+
+            diff_xy_next = pred_count[:,1] - pred_count[:,2]#left_front, right_front, right_back, left_back
+
+            # width & length
+            width = torch.norm(pred_count[:,1]-pred_count[:,0],dim=-1)
+            length = torch.norm(diff_xy_next,dim=-1)
+
+            pred_head = torch.atan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
+
+            pred_vel=pred_init[..., -2:]
+
+            pred_shape = torch.stack([length, width], dim=-1)
+
+        else:
+            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+            pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+    
+    
+        global_pos,global_heading=transform_to_global(
+            pred_trans,
+            pred_head,
+            ego_position[batch],
+            ego_heading[batch],
+        )
+
+        global_pred_vel=transform_to_global(
+            pred_vel,
+            None,
+            global_pos,
+            global_heading,
+        )[0]-global_pos
+
+        gt_initial_pos[non_ego]=global_pos
+        gt_initial_heading[non_ego]=global_heading
+
+        gt_initial_vel=tokenized_agent["initial_vel"].clone()
+
+        gt_initial_vel[non_ego] =global_pred_vel
+
+        shape=tokenized_agent["initial_shape"].clone()
+
+        shape[non_ego,:2]=pred_shape[:,:2]
+
+        #tokenized_agent["shape"]= shape
+
+        local_vel=tokenized_agent["local_vel"].clone()
+
+        local_vel[non_ego]=pred_vel
+
+        center_token_traj = tokenized_agent["token_traj"].mean(-2)
+
+        gt_initial_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
+
+        return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
 
     @staticmethod
     def add_model_specific_args(parent_parser):
