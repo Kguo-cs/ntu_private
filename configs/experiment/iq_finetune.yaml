@@ -40,9 +40,9 @@ model:
       reward_weight: 0
       reward_decay: 2.5
 
-ckpt_path : './ckpts/bc40_start0eval0_inter1_epoch=31-step=389600.ckpt'
+#ckpt_path : './ckpts/bc40_start0eval0_inter1_epoch=31-step=389600.ckpt'
 
-#ckpt_path: './ckpts/bc40_start0eval0_start0_inter1_hist0_epoch=31-step=389600.ckpt'
+ckpt_path: './ckpts/bc40_start0eval0_start0_inter1_hist0_epoch=31-step=389600.ckpt'
 
 logger:
   wandb:
@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL36_interdis_53_mean_start2 #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL36_interdis_53_mean_start2_pre0 #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0

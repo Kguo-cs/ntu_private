@@ -246,7 +246,7 @@ class InterativeDecoder(nn.Module):
                       agent_train_mask,dist,
                       train_repeat_mask,mask_a,
                       n_current,inference_mask,
-                      token_embeding,pred_mask
+                      token_embeding,pred_mask,n_agent
                       ):
         valid_number=len(feat_a)
         mask_ta=mask_a.transpose(0, 1)
@@ -259,7 +259,7 @@ class InterativeDecoder(nn.Module):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
 
-                feat_a_later=feat_a[len(agent_train_mask)*self.gail_start_step:]
+                feat_a_later=feat_a[n_agent*self.gail_start_step:]
 
                 start_edge_feature = feat_a_later[start_index]
 
@@ -351,8 +351,6 @@ class InterativeDecoder(nn.Module):
                 feat_a=feat_a[train_repeat_mask]
                 
         if self.discriminator:
-            n_agent = len(agent_train_mask)
-
             feat_a=feat_a[n_pred_agent*self.gail_start_step:]
             train_repeat_mask=train_repeat_mask[n_agent*self.gail_start_step:]
             valid_number=valid_number-n_agent*self.gail_start_step
@@ -517,7 +515,7 @@ class InterativeDecoder(nn.Module):
                                                                       agent_train_mask,dist,
                                                                       train_repeat_mask,mask_a,
                                                                       n_current,inference_mask,
-                                                                      token_embedding,pred_mask
+                                                                      token_embedding,pred_mask,n_agent
 
                                                                       )
 
@@ -531,7 +529,7 @@ class InterativeDecoder(nn.Module):
                                                                             agent_train_mask, dist,
                                                                             train_repeat_mask, mask_a,
                                                                             n_current, inference_mask,
-                                                                            token_embedding,pred_mask
+                                                                            token_embedding,pred_mask,n_agent
                                                                             )
 
             next_token_logits=(next_token_logits[0],next_token_logits_counter[0])
