@@ -368,7 +368,7 @@ class InterativeDecoder(nn.Module):
             valid_ego_reward = next_token_logits[:, 0].detach()
 
             if self.use_decompose:
-                weight=torch.ones_like(dist) #=torch.exp(-dist / self.dis_decay)* self.dis_weight#
+                weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
