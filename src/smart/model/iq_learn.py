@@ -87,7 +87,7 @@ class IQ_SoftQ(LightningModule):
             if key=='expert':
                 start_step=0
             else:
-                start_step=self.gail_start_step-1
+                start_step=max(0,self.gail_start_step-1)
             
             valid_mask = tokenized_agent["valid_mask"][:, start_step:]
             action = tokenized_agent["sampled_idx"][:, start_step + 1:]
@@ -481,7 +481,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
-        agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step-1,self.token_processor.pred_exit)
+        agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1),self.token_processor.pred_exit)
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 

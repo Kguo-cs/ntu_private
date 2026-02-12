@@ -344,7 +344,7 @@ class InterativeDecoder(nn.Module):
         if self.add_a2a and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
             train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
-            train_repeat_mask[:self.gail_start_step-1]=False
+            train_repeat_mask[:max(0,self.gail_start_step-1)]=False
             train_repeat_mask=train_repeat_mask.flatten(0,1)
 
             if self.edge_encoder.rollout_traj:
