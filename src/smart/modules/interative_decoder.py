@@ -192,6 +192,8 @@ class InterativeDecoder(nn.Module):
             self.start_eval_step = 0
             self.start_step=0
 
+        self.gail_start_step=1 #self.num_historical_steps//self.shift
+
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
 
@@ -237,28 +239,6 @@ class InterativeDecoder(nn.Module):
 
         self.apply(weight_init)
 
-    def pred_mask_logit(self, action, pred_action_mask, a2a_feature, target_valid, feat_a):
-
-        action[pred_action_mask] = self.n_token_agent
-
-        edge_index_a2a, r_a2a, relative_pos = a2a_feature
-
-        action_feature = self.action_embed(action)
-
-        feat_a = feat_a + action_feature
-
-        pred_valid =  pred_action_mask
-
-        end_mask = pred_valid[edge_index_a2a[1]]
-        edge_index_a2a = edge_index_a2a[:, end_mask]
-        r_a2a = r_a2a[end_mask]
-
-        feat_a_all = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
-
-        mask_token_logit = self.action_predict_head(feat_a_all[pred_valid])
-
-        return mask_token_logit
-
     def predict_agent(self,feat_a,feat_map,
                       r_t,edge_index_t,
                       r_pl2a, edge_index_pl2a,
@@ -274,12 +254,19 @@ class InterativeDecoder(nn.Module):
         n_pred_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
 
-        #rank=topo_rank_among_edges(edge_index_a2a[1],dist)
-
         for layer_i in range(self.num_layers):
             if (self.use_decompose and self.discriminator):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
+
+                # all_dis_mask=torch.zeros_like(mask_transpose)
+
+                # all_dis_mask[:,tokenized_agent["train_mask"]]=dis_mask.reshape(all_dis_mask.shape[0],-1)
+
+                # dis_edge_mask=all_dis_mask[mask_transpose][end_index]
+
+                # interact_logits=interact_logits[dis_edge_mask]
+                # weight=weight[dis_edge_mask]
 
                 start_edge_feature = feat_a[start_index]
 
@@ -357,7 +344,7 @@ class InterativeDecoder(nn.Module):
         if self.add_a2a and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
             train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
-            train_repeat_mask[:1]=False
+            train_repeat_mask[:self.gail_start_step-1]=False
             train_repeat_mask=train_repeat_mask.flatten(0,1)
 
             if self.edge_encoder.rollout_traj:
@@ -373,9 +360,9 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             n_agent = len(agent_train_mask)
 
-            feat_a=feat_a[n_pred_agent*2:]
-            train_repeat_mask=train_repeat_mask[n_agent*2:]
-            valid_number=valid_number-n_agent*2
+            feat_a=feat_a[n_pred_agent*self.gail_start_step:]
+            train_repeat_mask=train_repeat_mask[n_agent*self.gail_start_step:]
+            valid_number=valid_number-n_agent*self.gail_start_step
 
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -383,7 +370,7 @@ class InterativeDecoder(nn.Module):
             next_token_logits1 = self.token_predict_head1(feat_sa)
             next_token_logits=next_token_logits1+0.99*next_token_logits[n_pred_agent:]-next_token_logits[:-n_pred_agent]
 
-        weight = None
+        weight =rewards= None
 
         if self.discriminator:
             valid_ego_reward = next_token_logits[:, 0].detach()
@@ -426,9 +413,7 @@ class InterativeDecoder(nn.Module):
                 nei_rewards=ego_rewards[:0]
 
             rewards = (ego_rewards, nei_rewards, valid_ego_reward,valid_interact_reward)
-        else:
-            rewards=None
-
+            
         return next_token_logits,feat_a,rewards,weight
 
     def forward(self,all_features,feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask,counter_feat_a=None ):
@@ -517,7 +502,7 @@ class InterativeDecoder(nn.Module):
             train_repeat_mask=None
             
         if self.discriminator:
-            mask_s[:n_agent*2]=False
+            mask_s[:n_agent*self.gail_start_step]=False
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
@@ -564,13 +549,26 @@ class InterativeDecoder(nn.Module):
             next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
 
         return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a, r_a2a,relative_pos)
+    
+    
+    def pred_mask_logit(self, action, pred_action_mask, a2a_feature, target_valid, feat_a):
 
-    def get_reward(self,weight,edge_value,end_index,valid_number,mask_ta_flatten,train_repeat_mask,n_step,n_agent):
+        action[pred_action_mask] = self.n_token_agent
 
-        batch_reward = torch.zeros([n_step,n_agent],device=edge_value.device)
+        edge_index_a2a, r_a2a, relative_pos = a2a_feature
 
-        edge_sum_weight = scatter_sum(edge_value * weight, end_index, dim=0,dim_size=valid_number)
+        action_feature = self.action_embed(action)
 
-        batch_reward[mask_ta_flatten] = edge_sum_weight[train_repeat_mask]
+        feat_a = feat_a + action_feature
 
-        return batch_reward
+        pred_valid =  pred_action_mask
+
+        end_mask = pred_valid[edge_index_a2a[1]]
+        edge_index_a2a = edge_index_a2a[:, end_mask]
+        r_a2a = r_a2a[end_mask]
+
+        feat_a_all = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
+
+        mask_token_logit = self.action_predict_head(feat_a_all[pred_valid])
+
+        return mask_token_logit

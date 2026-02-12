@@ -68,6 +68,8 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
+        self.gail_start_step=self.encoder.agent_encoder.interative_decoder.gail_start_step
+
         if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
             self.automatic_optimization=False
 
@@ -85,7 +87,7 @@ class IQ_SoftQ(LightningModule):
             if key=='expert':
                 start_step=0
             else:
-                start_step=1
+                start_step=self.gail_start_step-1
             
             valid_mask = tokenized_agent["valid_mask"][:, start_step:]
             action = tokenized_agent["sampled_idx"][:, start_step + 1:]
@@ -374,7 +376,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
 
-        mask_t=mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)[2:]
+        mask_t=mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)[self.gail_start_step:]
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             mask_t=mask_t[:,tokenized_agent["train_mask"]]
@@ -437,11 +439,11 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().item(), on_step=True, batch_size=1)
 
-            interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='sum')/dis_mask.sum()
-
             # interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-            #                                              weight=weight, reduction='mean')#/dis_mask.sum()
+            #                                              weight=weight, reduction='sum')/dis_mask.sum()
+
+            interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
+                                                         weight=weight, reduction='mean')#/dis_mask.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)
@@ -479,7 +481,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
-        agent_train_mask= get_train_mask(tokenized_agent_rollout,1,self.token_processor.pred_exit)
+        agent_train_mask= get_train_mask(tokenized_agent_rollout,self.gail_start_step-1,self.token_processor.pred_exit)
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
