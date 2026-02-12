@@ -192,7 +192,7 @@ class InterativeDecoder(nn.Module):
             self.start_eval_step = 0
             self.start_step=0
 
-        self.gail_start_step=2 #self.num_historical_steps//self.shift
+        self.gail_start_step=1 #self.num_historical_steps//self.shift
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
