@@ -192,7 +192,7 @@ class InterativeDecoder(nn.Module):
             self.start_eval_step = 0
             self.start_step=0
 
-        self.gail_start_step=0 #self.num_historical_steps//self.shift
+        self.gail_start_step=2 #self.num_historical_steps//self.shift
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -259,21 +259,14 @@ class InterativeDecoder(nn.Module):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
 
-                # all_dis_mask=torch.zeros_like(mask_transpose)
+                feat_a_later=feat_a[len(agent_train_mask)*self.gail_start_step:]
 
-                # all_dis_mask[:,tokenized_agent["train_mask"]]=dis_mask.reshape(all_dis_mask.shape[0],-1)
-
-                # dis_edge_mask=all_dis_mask[mask_transpose][end_index]
-
-                # interact_logits=interact_logits[dis_edge_mask]
-                # weight=weight[dis_edge_mask]
-
-                start_edge_feature = feat_a[start_index]
+                start_edge_feature = feat_a_later[start_index]
 
                 if token_embeding is not None:
-                    end_edge_feature   = (feat_a+token_embeding[mask_ta_flatten])[end_index]
+                    end_edge_feature   = (feat_a_later+token_embeding[mask_ta_flatten])[end_index]
                 else:
-                    end_edge_feature   = feat_a[end_index]
+                    end_edge_feature   = feat_a_later[end_index]
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a = feat_a[train_repeat_mask]
