@@ -32,3 +32,33 @@ def wrap_angle(
     return min_val + (angle + max_val) % (max_val - min_val)
 
 
+def project_to_local_frame(motion_vector_a, head_vector_a,differentiable=True):
+    
+    if differentiable:
+        speed=torch.norm(motion_vector_a, p=2, dim=-1)
+        u=motion_vector_a[:, :, :2]/(speed+1e-6)
+        v=head_vector_a
+    
+        feature_a = torch.stack(
+            [
+                speed,   
+                (u*v).sum(dim=-1) ,
+                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
+            ],
+            dim=-1,
+        )  # [n_agent, n_step, 2]
+    else:
+        feature_a = torch.stack(
+            [
+                torch.norm(motion_vector_a, p=2, dim=-1),
+                angle_between_2d_vectors(
+                    ctr_vector=head_vector_a, nbr_vector=motion_vector_a[:, :, :2]
+                ),
+            ],
+            dim=-1,
+        )  # [n_agent, n_step, 2]
+    feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
+
+    return feature_a
+
+

@@ -5,10 +5,7 @@ import torch
 import torch.nn as nn
 from src.smart.layers import MLPLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-from src.smart.utils import (
-    angle_between_2d_vectors,
-)
-from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
+from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle,project_to_local_frame
 
 class AgentTokenEncoder(nn.Module):
     def __init__(
@@ -44,6 +41,11 @@ class AgentTokenEncoder(nn.Module):
             self.type_a_emb = nn.Embedding(3, hidden_dim)
             self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
             input_dim_x_a=2
+            
+            self.differentiable_edge=True
+            
+            if self.differentiable_edge:
+                input_dim_x_a+=1
 
 
             self.ego_embed =nn.Embedding(2, hidden_dim)
@@ -177,30 +179,8 @@ class AgentTokenEncoder(nn.Module):
             )[:,-n_step:]
         else:
            motion_vector_a=pos_a[:, 1:] - pos_a[:, :-1]
-
-        # if self.discriminator:
-        u=motion_vector_a[:, :, :2]
-        v=head_vector_a
-    
-        feature_a = torch.stack(
-            [
-                (u*v).sum(dim=-1) ,
-                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-            ],
-            dim=-1,
-        )  # [n_agent, n_step, 2]
-        # else:
-        # feature_a = torch.stack(
-        #     [
-        #         torch.norm(motion_vector_a, p=2, dim=-1),
-        #         angle_between_2d_vectors(
-        #             ctr_vector=head_vector_a, nbr_vector=motion_vector_a[:, :, :2]
-        #         ),
-        #     ],
-        #     dim=-1,
-        # )  # [n_agent, n_step, 2]
-        feature_a = torch.cat([feature_a, motion_vector_a[:, :, 2:]], dim=-1)
-
+        
+        feature_a=project_to_local_frame(motion_vector_a, head_vector_a,self.differentiable_edge)
 
         if token_mask is not None:
             feature_a[~token_mask]= -10#self.invalid_feat_emb.weight

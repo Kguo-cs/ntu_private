@@ -10,6 +10,7 @@ from src.smart.utils import (
     transform_to_global,
     weight_init,
     wrap_angle,
+    project_to_local_frame
 )
 from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
     radiusGraphNearest
@@ -42,44 +43,39 @@ class EdgeEncoder(nn.Module):
         if self.use_route:
             self.route_drop=nn.Dropout(p=0.5)
 
-        share=False
         self.use_bird=use_bird
         
         self.pred_exit=pred_exit
-        self.diff_edge=diff_edge
+        self.differentiable_edge=True
 
         if not use_bird:
             input_dim_r_t = 4
             input_dim_r_a2a = 3
             input_dim_r_pt2a=3
-
-            # self.r_pt2a_emb = FourierEmbedding(
-            #     input_dim=input_dim_r_pt2a,
-            #     hidden_dim=hidden_dim,
-            #     num_freq_bands=num_freq_bands,
-            #     share=share
-            # )
-
         else:
             input_dim_r_t = 5
             input_dim_r_a2a = 4
             input_dim_r_pt2a = 4
+        
+        if self.differentiable_edge:
+            input_dim_r_a2a+=1
+            input_dim_r_pt2a+=1
+            input_dim_r_t+=1
 
         if use_cross:
             self.r_pt2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_pt2a,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
-                share=share
             )
 
         self.discriminator=discriminator
 
         self.rollout_traj=False
-
+        
         # if self.discriminator:
         #     input_dim_r_a2a = 2
-        self.use_roformer=diff_edge
+        self.use_roformer=False
 
         if a2a:
             self.tokenized_pos=False
@@ -145,34 +141,16 @@ class EdgeEncoder(nn.Module):
         rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
         rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
 
-        # if self.discriminator:
-        #     u=rel_pos_t[:, :2]
-        #     v=head_vector_t[edge_index_t[1]]
-        #
-        #     r_t = torch.stack(
-        #         [
-        #             (u*v).sum(dim=-1) ,
-        #             u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-        #             rel_head_t,
-        #             edge_index_t[0] - edge_index_t[1],
-        #         ],
-        #         dim=-1,
-        #     )
-        #
-        # else:
-        r_t = torch.stack(
-            [
-                torch.norm(rel_pos_t, p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_t[edge_index_t[1]], nbr_vector=rel_pos_t[:, :2]
-                ),
-                rel_head_t,
-                edge_index_t[0] - edge_index_t[1],
+        feat_a=project_to_local_frame(rel_pos_t,head_vector_t[edge_index_t[1]],self.differentiable_edge)
+
+        r_t = torch.cat(
+            [   
+                feat_a,
+                rel_head_t[:,None],
+                (edge_index_t[0] - edge_index_t[1])[:,None],
             ],
             dim=-1,
         )
-
-        r_t = torch.cat([r_t, rel_pos_t[:, 2:]], dim=-1)
 
         n_agent, n_step = mask.shape
 
@@ -236,35 +214,18 @@ class EdgeEncoder(nn.Module):
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])
 
         dist=torch.norm(rel_pos_a2a, p=2, dim=-1)
+        
+        feat_a=project_to_local_frame(rel_pos_a2a,head_vector_s[edge_index_a2a[1]],self.differentiable_edge)
 
-        #if self.diff_edge:
-        u=rel_pos_a2a[:, :2]
-        v=head_vector_s[edge_index_a2a[1]]
-
-        r_a2a = torch.stack(
-            [
-                (u*v).sum(dim=-1) ,
-                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                rel_head_a2a,
+        r_a2a = torch.cat(
+            [   
+                feat_a,
+                rel_head_a2a[:,None],
             ],
             dim=-1,
         )
-        # else:
-        #     r_a2a = torch.stack(
-        #         [
-        #             dist,
-        #             angle_between_2d_vectors(
-        #                 ctr_vector=head_vector_s[edge_index_a2a[1]],
-        #                 nbr_vector=rel_pos_a2a[:, :2],
-        #             ),
-        #             rel_head_a2a,
-        #         ],
-        #         dim=-1,
-        #     )
 
-        relative_pos=torch.cat([r_a2a,rel_pos_a2a[:,2:]],dim=-1)
-
-        r_a2a = self.r_a2a_emb(continuous_inputs=relative_pos, categorical_embs=None)
+        r_a2a = self.r_a2a_emb(continuous_inputs=r_a2a, categorical_embs=None)
 
         if counter_feat_a is not None:
             start_index = edge_index_a2a[0]
@@ -299,7 +260,7 @@ class EdgeEncoder(nn.Module):
         else:
             r_a2a_nei=center_nei_pos=center_nei_heading=None
 
-        return edge_index_a2a, r_a2a,dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading
+        return edge_index_a2a, r_a2a,dist,None,r_a2a_nei,center_nei_pos,center_nei_heading
 
     def build_map2map_edge(self,
                            pos_pl,  # [n_pl, 2]
@@ -399,33 +360,15 @@ class EdgeEncoder(nn.Module):
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
 
-        # if self.diff_edge:
-        u = rel_pos_pl2a[:, :2]
-        v = head_vector_s[edge_index_pl2a[1]]
+        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
 
-        r_pl2a = torch.stack(
-            [
-                (u*v).sum(dim=-1) ,
-                u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0],
-                rel_orient_pl2a,
+        r_pl2a = torch.cat(
+            [   
+                feat_a,
+                rel_orient_pl2a[:,None],
             ],
             dim=-1,
         )
-        # else:
-        #     r_pl2a = torch.stack(
-        #         [
-        #             torch.norm(rel_pos_pl2a, p=2, dim=-1),
-        #             angle_between_2d_vectors(
-        #                 ctr_vector=head_vector_s[edge_index_pl2a[1]],
-        #                 nbr_vector=rel_pos_pl2a[:, :2],
-        #             ),
-        #             rel_orient_pl2a,
-        #         ],
-        #         dim=-1,
-        #     )
-
-        r_pl2a=torch.cat([r_pl2a,rel_pos_pl2a[:,2:]],dim=-1)
-
         # head_vector_pl = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)
         #
         # r_a2pl = torch.stack(

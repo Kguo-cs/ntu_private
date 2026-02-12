@@ -11,7 +11,7 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 
-from src.smart.utils.geometry import angle_between_2d_vectors, wrap_angle
+from src.smart.utils.geometry import angle_between_2d_vectors, wrap_angle,project_to_local_frame
 from src.smart.utils.rollout import (
     cal_polygon_contour,
     sample_next_gmm_traj,

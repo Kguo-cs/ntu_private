@@ -314,11 +314,13 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/AIRL36_inter1_interdis_mean_Noexit_sepedge_epoch=9-step=135280_0.78843.ckpt
 
+0.7868
 
 /home/ke/code/sim/src/waymo_data/AIRL36_inter1_interdis_mean_Noexit_epoch=9-step=135280_0.7928.ckpt
 
+0.7876
 
 
 /home/ke/code/sim/src/waymo_data/AIRL36_inter1_interdis_mean_Noexit_13_epoch=9-step=135280_0.78722.ckpt
 
-
+0.7874
