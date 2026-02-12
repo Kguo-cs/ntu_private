@@ -32,7 +32,7 @@ def wrap_angle(
     return min_val + (angle + max_val) % (max_val - min_val)
 
 
-def project_to_local_frame(motion_vector_a, head_vector_a,differentiable=True):
+def project_to_local_frame(motion_vector_a, head_vector_a,differentiable=False):
     
     if differentiable:
         #speed=torch.norm(motion_vector_a, p=2, dim=-1)
