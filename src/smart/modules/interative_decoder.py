@@ -349,9 +349,8 @@ class InterativeDecoder(nn.Module):
             feat_a = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
 
             if self.edge_encoder.rollout_traj:
-                feat_a=feat_a.reshape(17,n_agent,-1)[:,pred_mask].flatten(0,1)
-                #feat_a=feat_a[train_repeat_mask]
-                
+                feat_a=feat_a[train_repeat_mask]
+
         if self.discriminator:
             feat_a=feat_a[n_pred_agent*self.gail_start_step:]
             train_repeat_mask=train_repeat_mask[n_agent*self.gail_start_step:]
