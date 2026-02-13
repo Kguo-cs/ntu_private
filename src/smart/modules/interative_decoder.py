@@ -339,15 +339,15 @@ class InterativeDecoder(nn.Module):
 
                         feat_list.append(feat_a)
 
-        if self.discriminator:
-            if token_embeding is not None :
-                if self.use_airl:
-                    feat_sa=feat_a[:-n_pred_agent]+token_embeding
-                else:
-                    feat_a=feat_a+token_embeding
-        else:
-            current_len = inference_mask.sum()
-            feat_a = feat_a[-current_len:]
+                    if self.discriminator:
+                        if token_embeding is not None :
+                            if self.use_airl:
+                                feat_sa=feat_a[:-n_pred_agent]+token_embeding
+                            else:
+                                feat_a=feat_a+token_embeding
+                    else:
+                        current_len = inference_mask.sum()
+                        feat_a = feat_a[-current_len:]
 
         if self.add_a2a and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
