@@ -330,3 +330,6 @@ bc40_start0eval0_inter2
 
 
 0.7840
+
+
+/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_sep_epoch=31-step=389600.ckpt
