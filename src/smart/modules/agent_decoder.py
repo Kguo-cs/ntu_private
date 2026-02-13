@@ -218,7 +218,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 tokenized_agent["pred_mask"]=torch.ones_like(tokenized_agent["ego_mask"])
 
-                token_logits,a2a_feature,rewards,agent_token_emb,entry_logit,_,feat_a= self.predict_agent(sampled_idx2,
+                token_logits,a2a_feature,rewards,agent_token_emb,entry_logit,_,feat_a_list= self.predict_agent(sampled_idx2,
                                                                                         token_mask2,
                                                                                         valid_mask2,
                                                                                         sampled_pos2,
@@ -228,7 +228,10 @@ class SMARTAgentDecoder(nn.Module):
                                                                                         abs_time=tokenized_agent["abs_time"]
                                                                                         )
 
-                perception_Loss=F.mse_loss(feat_a[:len(sampled_idx)], feat_a[len(sampled_idx):],reduction="mean")
+                perception_Loss=0
+
+                for feat_a in feat_a_list:
+                    perception_Loss+=F.mse_loss(feat_a[:len(sampled_idx)], feat_a[len(sampled_idx):],reduction="mean")
 
                 #perception_Loss=F.mse_loss(token_logits[:len(sampled_idx)], token_logits[len(sampled_idx):],reduction="mean")
 

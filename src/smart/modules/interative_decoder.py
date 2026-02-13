@@ -254,6 +254,8 @@ class InterativeDecoder(nn.Module):
         n_pred_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
 
+        feat_list=[]
+
         for layer_i in range(self.num_layers):
             if (self.use_decompose and self.discriminator):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
@@ -303,6 +305,8 @@ class InterativeDecoder(nn.Module):
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
 
+                feat_list.append(feat_a)
+
         feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
 
         feat_a_t[mask_ta] = feat_a
@@ -324,6 +328,8 @@ class InterativeDecoder(nn.Module):
 
             for i in range(self.t_num_layers):
                 feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+
+        feat_list.append(feat_a)
 
         if self.discriminator:
             if token_embeding is not None :
@@ -407,7 +413,7 @@ class InterativeDecoder(nn.Module):
 
             rewards = (ego_rewards, nei_rewards, valid_ego_reward,valid_interact_reward)
 
-        return next_token_logits,feat_a,rewards,weight
+        return next_token_logits,feat_list,rewards,weight
 
     def forward(self,all_features,feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask,counter_feat_a=None ):
 
