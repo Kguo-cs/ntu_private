@@ -83,9 +83,9 @@ class InterativeDecoder(nn.Module):
 
         self.pred_exit=token_processor.pred_exit
 
-        self.t_num_layers = 1
+        self.t_num_layers = 3
 
-        self.agent_hist = self.time_span // self.shift*self.t_num_layers
+        self.agent_hist = self.time_span // self.shift
 
         if self.edge_encoder.use_roformer:
             self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
@@ -164,12 +164,13 @@ class InterativeDecoder(nn.Module):
 
         self.mask_pred=False
 
-        if token_processor.pred_init :
+        if token_processor.pred_init or self.t_num_layers>1:
             self.start_step=0
+            self.start_eval_step = 0
         else:
             self.start_step=self.num_historical_steps//self.shift-1
 
-        self.add_a2a=True
+        self.add_a2a=False
 
         if self.add_a2a and not discriminator:
             self.a2a_inter =AttentionLayer(
@@ -236,6 +237,8 @@ class InterativeDecoder(nn.Module):
         self.token_predict_head = MLPLayer(
             input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
         )
+
+        self.feat_a_cache=[None,None,None]
 
         self.apply(weight_init)
 
@@ -309,39 +312,41 @@ class InterativeDecoder(nn.Module):
 
                 feat_list.append(feat_a)
 
-        feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
+                if layer_i>self.num_layers-self.t_num_layers-1:
 
-        feat_a_t[mask_ta] = feat_a
+                    feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
 
-        if self.edge_encoder.use_roformer:
-            feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), None, None, n_step, n_current, inference_mask)
+                    feat_a_t[mask_ta] = feat_a
 
-            feat_a=feat_a_t.transpose(0,1).flatten(0,1)
-        else:
-            if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
-                feat_a=feat_a_t.flatten(0,1)
-            else:
-                if n_current == 0:
-                    self.feat_a_cache = feat_a_t
-                else:
-                    self.feat_a_cache = torch.cat((self.feat_a_cache, feat_a_t), dim=0)[-self.agent_hist:]  # t,a
+                    if self.edge_encoder.use_roformer:
+                        feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), None, None, n_step, n_current, inference_mask)
 
-                    feat_a = self.feat_a_cache[self.mask_cache.transpose(0, 1)]
+                        feat_a=feat_a_t.transpose(0,1).flatten(0,1)
+                    else:
+                        if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
+                            feat_a=feat_a_t.flatten(0,1)
+                        else:
+                            if n_current == 0:
+                                self.feat_a_cache[layer_i] = feat_a_t
+                            else:
+                                self.feat_a_cache[layer_i] = torch.cat((self.feat_a_cache[layer_i], feat_a_t), dim=0)[-self.agent_hist:]  # t,a
 
-            for i in range(self.t_num_layers):
-                feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
+                                feat_a = self.feat_a_cache[layer_i][self.mask_cache.transpose(0, 1)]
 
-        feat_list.append(feat_a)
+                        for i in range(self.t_num_layers):
+                            feat_a = self.t_attn_layers[i](feat_a, r_t, edge_index_t)
 
-        if self.discriminator:
-            if token_embeding is not None :
-                if self.use_airl:
-                    feat_sa=feat_a[:-n_pred_agent]+token_embeding
-                else:
-                    feat_a=feat_a+token_embeding
-        else:
-            current_len = inference_mask.sum()
-            feat_a = feat_a[-current_len:]
+                        feat_list.append(feat_a)
+
+                    if self.discriminator:
+                        if token_embeding is not None :
+                            if self.use_airl:
+                                feat_sa=feat_a[:-n_pred_agent]+token_embeding
+                            else:
+                                feat_a=feat_a+token_embeding
+                    else:
+                        current_len = inference_mask.sum()
+                        feat_a = feat_a[-current_len:]
 
         if self.add_a2a and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
