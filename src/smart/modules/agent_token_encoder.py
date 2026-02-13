@@ -42,7 +42,7 @@ class AgentTokenEncoder(nn.Module):
             self.shape_emb = MLPLayer(self.shape_dim, hidden_dim, hidden_dim)
             input_dim_x_a=2
             
-            self.differentiable_edge=False
+            self.differentiable_edge=True
             
             # if self.differentiable_edge:
             #     input_dim_x_a+=1

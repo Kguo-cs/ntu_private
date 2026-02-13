@@ -327,3 +327,6 @@ bc40_start0eval0_inter2
 
 
 /home/ke/code/sim/src/ckpts/bc40_start0eval0_start0_inter1_hist0_epoch=31-step=389600.ckpt
+
+
+0.7840
