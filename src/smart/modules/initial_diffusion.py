@@ -87,7 +87,7 @@ class PDInit(nn.Module):
         else:
             self.G = InitDiffusion(args=args)
             
-        self.use_perceptual_loss=False
+        self.use_perceptual_loss=True
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
