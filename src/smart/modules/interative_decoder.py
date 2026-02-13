@@ -278,6 +278,7 @@ class InterativeDecoder(nn.Module):
                     feat_a_all = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
                     all_logits= self.all_head(feat_a_all)
 
+
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
             else:
