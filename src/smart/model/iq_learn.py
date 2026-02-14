@@ -75,12 +75,12 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        if key=="agent" and self.encoder.agent_encoder.interative_decoder.add_a2a:
+        if key=="agent" and self.encoder.agent_encoder.interative_decoder.t_num_layers>1:
             tokenized_agent["train_mask"]=None
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        if key=="agent" and self.encoder.agent_encoder.interative_decoder.add_a2a:
+        if key=="agent" and self.encoder.agent_encoder.interative_decoder.t_num_layers>1:
             tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
         if pred["next_token_logits"] is not None:
@@ -505,7 +505,7 @@ class IQ_SoftQ(LightningModule):
 
         agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
-        feat_a = tokenized_agent_rollout["feat_a"]
+        feat_a = tokenized_agent_rollout["feat_a"][-1]
 
         value = self.encoder.value_network(feat_a)[..., 0]
 

@@ -182,6 +182,8 @@ class SMARTDecoder(nn.Module):
                 if self.use_lcf:
                     self.nei_value_network =MLPLayer(hidden_dim,hidden_dim*2,1)
 
+            self.agent_encoder.interative_decoder.gail=self.gail
+
     def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
         encoder_was_training = agent_encoder.training
 
