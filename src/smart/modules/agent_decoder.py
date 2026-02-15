@@ -157,7 +157,7 @@ class SMARTAgentDecoder(nn.Module):
 
         all_features=[pos_a, head_a, head_vector_a,mask_a,batch_s_repeat,batch_s]
 
-        next_token_logits,feat_a,rewards,weight,a2a_feature=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent["pred_mask"])
+        next_token_logits,feat_a,rewards,weight,a2a_feature=self.interative_decoder(all_features,feat_a_token,agent_token_emb,map_feature,train_mask,n_current,tokenized_agent)
 
         entry_logit =None
 

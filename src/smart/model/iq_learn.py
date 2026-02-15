@@ -356,26 +356,7 @@ class IQ_SoftQ(LightningModule):
         return action_nll,log_prob
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
-
-        disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
-                                                            tokenized_agent["token_mask"],
-                                                            tokenized_agent["valid_mask"],
-                                                            tokenized_agent["sampled_pos"] ,
-                                                            tokenized_agent["sampled_heading"],
-                                                            tokenized_agent,
-                                                            tokenized_agent["map_feature"])
-
-        ego_logits, interact_logits,end_index = disc_out[0]
-
-        ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
-
-        if len(nei_rewards)>0:
-            all_rewards = ego_rewards + nei_rewards
-            self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
-
-        self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
-        self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
-
+        
         mask_t=mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)[self.gail_start_step:]
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
@@ -391,7 +372,34 @@ class IQ_SoftQ(LightningModule):
             present_flatten=present_mask[1:].flatten(0,1)
         else:
             present_flatten=present_mask.flatten(0,1)
+            
+        if dis_mask is None:
+            if self.token_processor.use_bird:
+                dis_mask=present_flatten
+            else:
+                dis_mask=mask_t.flatten(0, 1)
+            
+            tokenized_agent["dis_mask"]=dis_mask
+            
+        disc_out = self.encoder.discriminator.predict_agent(tokenized_agent["sampled_idx"],
+                                                            tokenized_agent["token_mask"],
+                                                            tokenized_agent["valid_mask"],
+                                                            tokenized_agent["sampled_pos"] ,
+                                                            tokenized_agent["sampled_heading"],
+                                                            tokenized_agent,
+                                                            tokenized_agent["map_feature"])
 
+        ego_logits, interact_logits = disc_out[0]
+
+        ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
+
+        if len(nei_rewards)>0:
+            all_rewards = ego_rewards + nei_rewards
+            self.log("train/" + key + "_all_rewards", all_rewards.mean().item(), on_step=True, batch_size=1)
+
+        self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
+        self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
+                
         if self.token_processor.pred_exit:
             self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
@@ -408,14 +416,6 @@ class IQ_SoftQ(LightningModule):
             if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(exit_mask.shape)#t,a
 
-        if dis_mask is None:
-            if self.token_processor.use_bird:
-                dis_mask=present_flatten
-            else:
-                dis_mask=mask_t.flatten(0, 1)
-
-        # if len(interact_logits)==len(ego_logits):
-        #     interact_logits=interact_logits[dis_mask]
         if self.token_processor.pred_exit:
             ego_logits=ego_logits[dis_mask]#valid ego logit
         else:
@@ -428,22 +428,13 @@ class IQ_SoftQ(LightningModule):
         if len(interact_logits) > 0:
             weight = disc_out[3]
 
-            all_dis_mask=torch.zeros_like(mask_transpose)
-
-            all_dis_mask[:,tokenized_agent["train_mask"]]=dis_mask.reshape(all_dis_mask.shape[0],-1)
-
-            dis_edge_mask=all_dis_mask[mask_transpose][end_index]
-
-            interact_logits=interact_logits[dis_edge_mask]
-            weight=weight[dis_edge_mask]
-
             self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().item(), on_step=True, batch_size=1)
 
-            interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-                                                         weight=weight, reduction='sum')/dis_mask.sum()
-
             # interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
-            #                                              weight=weight, reduction='mean')#/dis_mask.sum()
+            #                                              weight=weight, reduction='sum')/dis_mask.sum()
+
+            interact_bce_loss=F.binary_cross_entropy_with_logits(interact_logits, torch.zeros_like(interact_logits) + target,
+                                                         weight=weight, reduction='mean')#/dis_mask.sum()
 
             ego_logits=torch.cat([ego_logits, interact_logits], dim=0)
             self.log("train/"+key+"_interact_logits", interact_logits.mean().item(), on_step=True, batch_size=1)

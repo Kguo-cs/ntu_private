@@ -244,7 +244,8 @@ class InterativeDecoder(nn.Module):
                       agent_train_mask,dist,
                       train_repeat_mask,mask_a,
                       n_current,inference_mask,
-                      token_embeding,pred_mask,n_agent
+                      token_embeding,pred_mask,n_agent,
+                      mask_s,dis_mask
                       ):
         valid_number=len(feat_a)
         mask_ta=mask_a.transpose(0, 1)
@@ -384,6 +385,15 @@ class InterativeDecoder(nn.Module):
             if self.use_decompose:
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
+                all_dis_mask=torch.zeros_like(mask_ta[self.gail_start_step:])
+
+                all_dis_mask[:,agent_train_mask]=dis_mask.reshape(n_step,-1)
+
+                dis_edge_mask=all_dis_mask[mask_s][end_index]
+
+                interact_logits=interact_logits[dis_edge_mask]
+                weight=weight[dis_edge_mask]
+
                 weight_logit= interact_logits[:,0].detach() * weight
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)
@@ -422,7 +432,10 @@ class InterativeDecoder(nn.Module):
 
         return next_token_logits,feat_list,rewards,weight
 
-    def forward(self,all_features,feat_a,token_embedding,map_feature,agent_train_mask,n_current,pred_mask,counter_feat_a=None ):
+    def forward(self,all_features,feat_a,token_embedding,map_feature,agent_train_mask,n_current,tokenized_agent,counter_feat_a=None ):
+        
+        pred_mask=tokenized_agent["pred_mask"] if "pred_mask" in tokenized_agent else None
+        dis_mask=tokenized_agent["dis_mask"] if "dis_mask" in tokenized_agent else None
 
         if self.discriminator and token_embedding is not None and not self.use_airl:
             all_features=[feat[:,:-1] for feat in all_features]
@@ -530,8 +543,8 @@ class InterativeDecoder(nn.Module):
                                                                       agent_train_mask,dist,
                                                                       train_repeat_mask,mask_a,
                                                                       n_current,inference_mask,
-                                                                      token_embedding,pred_mask,n_agent
-
+                                                                      token_embedding,pred_mask,n_agent,
+                                                                      mask_s,dis_mask
                                                                       )
 
         if r_a2a_nei is not None:
