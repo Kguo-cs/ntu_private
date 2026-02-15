@@ -387,7 +387,7 @@ class InterativeDecoder(nn.Module):
 
                 all_dis_mask=torch.zeros_like(mask_ta[self.gail_start_step:])
 
-                all_dis_mask[:,agent_train_mask]=dis_mask.reshape(n_step-self.gail_start_step,-1)
+                all_dis_mask[:,pred_mask]=dis_mask.reshape(n_step-self.gail_start_step,-1)
 
                 dis_edge_mask=all_dis_mask[mask_s][end_index]
 
