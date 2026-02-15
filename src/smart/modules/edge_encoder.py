@@ -184,7 +184,8 @@ class EdgeEncoder(nn.Module):
             max_radius,
             agent_train_mask=None,
             layer_num=1,
-            counter_feat_a=None
+            counter_feat_a=None,
+            dis_edge_mask=None,
         ):
         if mask is not None:
             pos_s = pos_s[mask]
@@ -207,6 +208,9 @@ class EdgeEncoder(nn.Module):
         # if self.training:
         #     keep_mask = torch.rand(len(edge_index_a2a[0])) > 0.1
         #     edge_index_a2a = edge_index_a2a[:, keep_mask]
+        if dis_edge_mask is not None:
+            dis_edge_mask=dis_edge_mask[edge_index_a2a[1]]
+            edge_index_a2a=edge_index_a2a[:,dis_edge_mask]
 
         rel_pos_a2a = pos_s[edge_index_a2a[0]] - pos_s[edge_index_a2a[1]]
         rel_head_a2a = wrap_angle(head_s[edge_index_a2a[0]] - head_s[edge_index_a2a[1]])

@@ -364,6 +364,8 @@ class InterativeDecoder(nn.Module):
             if self.edge_encoder.rollout_traj:
                 feat_a=feat_a[train_repeat_mask]
 
+            feat_list.append(feat_a)
+
         if self.discriminator:
             feat_a=feat_a[n_pred_agent*self.gail_start_step:]
             train_repeat_mask=train_repeat_mask[n_agent*self.gail_start_step:]
@@ -384,16 +386,11 @@ class InterativeDecoder(nn.Module):
 
             if self.use_decompose:
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
-                                
-                all_dis_mask=torch.zeros_like(mask_transpose)
 
-                all_dis_mask[:,train_mask]=dis_mask.reshape(all_dis_mask.shape[0],-1)
 
-                dis_edge_mask=all_dis_mask[mask_transpose][end_index]
-
-                interact_logits=interact_logits[dis_edge_mask]
-                weight=weight[dis_edge_mask]
-                end_index=end_index[dis_edge_mask]
+                # interact_logits=interact_logits[dis_edge_mask]
+                # weight=weight[dis_edge_mask]
+                # end_index=end_index[dis_edge_mask]
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
@@ -526,6 +523,15 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             mask_s[:n_agent*self.gail_start_step]=False
 
+        if self.discriminator:
+            all_dis_mask = torch.zeros_like(mask_transpose)
+
+            all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
+
+            dis_edge_mask = all_dis_mask[mask_transpose]
+        else:
+            dis_edge_mask = None
+
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
             head_s=head_s,  # [n_agent, n_step]
@@ -536,7 +542,8 @@ class InterativeDecoder(nn.Module):
             max_num_neighbors=self.a2a_neighbor,
             agent_train_mask=train_repeat_mask,
             layer_num=self.num_layers,
-            counter_feat_a=counter_feat_a
+            counter_feat_a=counter_feat_a,
+            dis_edge_mask=dis_edge_mask
         )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
         next_token_logits, feat_a_value, rewards, weight=self.predict_agent(feat_a,feat_map,
