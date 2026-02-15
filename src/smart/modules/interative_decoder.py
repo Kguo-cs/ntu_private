@@ -283,6 +283,46 @@ class InterativeDecoder(nn.Module):
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
             else:
+                if layer_i > self.num_layers - self.t_num_layers - 1 or self.discriminator:  # self.num_layers-self.t_num_layers
+
+                    if not self.training or self.gail:
+                        feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
+
+                        feat_a_t[mask_ta] = feat_a
+
+                    if self.edge_encoder.use_roformer:
+                        feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0, 1), None, None, n_step,
+                                                                    n_current, inference_mask)
+
+                        feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+                    else:
+                        if not self.training or self.gail:
+                            if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
+                                feat_a = feat_a_t.flatten(0, 1)
+                            else:
+                                if n_current == 0:
+                                    self.feat_a_cache[layer_i] = feat_a_t
+                                else:
+                                    self.feat_a_cache[layer_i] = torch.cat((self.feat_a_cache[layer_i], feat_a_t),
+                                                                           dim=0)[-self.agent_hist:]  # t,a
+
+                                    feat_a = self.feat_a_cache[layer_i][self.mask_cache.transpose(0, 1)]
+
+                        feat_a = self.t_attn_layers[layer_i - self.num_layers + self.t_num_layers](feat_a, r_t,
+                                                                                                   edge_index_t)
+
+                    if self.discriminator:
+                        if token_embeding is not None:
+                            if self.use_airl:
+                                feat_sa = feat_a[:-n_pred_agent] + token_embeding
+                            else:
+                                feat_a = feat_a + token_embeding
+                    else:
+                        current_len = inference_mask.sum()
+                        feat_a = feat_a[-current_len:]
+
+                    feat_list.append(feat_a)
+
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
                     end_mask=train_repeat_mask[edge_index_a2a[1]]
                     edge_index_a2a = edge_index_a2a[:, end_mask]
@@ -308,42 +348,7 @@ class InterativeDecoder(nn.Module):
 
                 feat_list.append(feat_a)
 
-            if layer_i>self.num_layers-self.t_num_layers-1 or self.discriminator:#self.num_layers-self.t_num_layers
 
-                if not self.training or self.gail:
-                    feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
-
-                    feat_a_t[mask_ta] = feat_a
-
-                if self.edge_encoder.use_roformer:
-                    feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0,1), None, None, n_step, n_current, inference_mask)
-
-                    feat_a=feat_a_t.transpose(0,1).flatten(0,1)
-                else:
-                    if not self.training or self.gail:
-                        if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
-                            feat_a=feat_a_t.flatten(0,1)
-                        else:
-                            if n_current == 0:
-                                self.feat_a_cache[layer_i] = feat_a_t
-                            else:
-                                self.feat_a_cache[layer_i] = torch.cat((self.feat_a_cache[layer_i], feat_a_t), dim=0)[-self.agent_hist:]  # t,a
-
-                                feat_a = self.feat_a_cache[layer_i][self.mask_cache.transpose(0, 1)]
-
-                    feat_a = self.t_attn_layers[layer_i-self.num_layers+self.t_num_layers](feat_a, r_t, edge_index_t)
-
-                if self.discriminator:
-                    if token_embeding is not None :
-                        if self.use_airl:
-                            feat_sa=feat_a[:-n_pred_agent]+token_embeding
-                        else:
-                            feat_a=feat_a+token_embeding
-                else:
-                    current_len = inference_mask.sum()
-                    feat_a = feat_a[-current_len:]
-
-                feat_list.append(feat_a)
 
         if (self.add_a2a or self.t_num_layers>1) and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
