@@ -384,12 +384,14 @@ class InterativeDecoder(nn.Module):
 
             if self.use_decompose:
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
-
-                all_dis_mask=torch.zeros_like(mask_ta[self.gail_start_step:])
+                
+                mask_gail=mask_ta[self.gail_start_step:]
+                
+                all_dis_mask=torch.zeros_like(mask_gail)
 
                 all_dis_mask[:,pred_mask]=dis_mask.reshape(n_step-self.gail_start_step,-1)
 
-                dis_edge_mask=all_dis_mask[mask_s][end_index]
+                dis_edge_mask=all_dis_mask[mask_gail][end_index]
 
                 interact_logits=interact_logits[dis_edge_mask]
                 weight=weight[dis_edge_mask]
