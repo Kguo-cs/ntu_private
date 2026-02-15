@@ -408,7 +408,7 @@ class InterativeDecoder(nn.Module):
 
                 ego_rewards = valid_ego_reward + interact_reward
 
-                next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0],end_index)
+                next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0])
 
                 # weight2=torch.exp(-dist / self.reward_decay) * self.reward_weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
 
