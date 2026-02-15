@@ -245,7 +245,7 @@ class InterativeDecoder(nn.Module):
                       train_repeat_mask,mask_a,
                       n_current,inference_mask,
                       token_embeding,pred_mask,n_agent,
-                      mask_transpose,dis_mask
+                      mask_transpose,dis_mask,train_mask
                       ):
         valid_number=len(feat_a)
         mask_ta=mask_a.transpose(0, 1)
@@ -387,7 +387,7 @@ class InterativeDecoder(nn.Module):
                                 
                 all_dis_mask=torch.zeros_like(mask_transpose)
 
-                all_dis_mask[:,pred_mask]=dis_mask.reshape(all_dis_mask.shape[0],-1)
+                all_dis_mask[:,train_mask]=dis_mask.reshape(all_dis_mask.shape[0],-1)
 
                 dis_edge_mask=all_dis_mask[mask_transpose][end_index]
 
@@ -437,6 +437,7 @@ class InterativeDecoder(nn.Module):
         pred_mask=tokenized_agent["pred_mask"] if "pred_mask" in tokenized_agent else None
         dis_mask=tokenized_agent["dis_mask"] if "dis_mask" in tokenized_agent else None
         mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)[self.gail_start_step:]
+        train_mask=tokenized_agent["train_mask"] if "train_mask" in tokenized_agent else None
 
         if self.discriminator and token_embedding is not None and not self.use_airl:
             all_features=[feat[:,:-1] for feat in all_features]
@@ -545,7 +546,7 @@ class InterativeDecoder(nn.Module):
                                                                       train_repeat_mask,mask_a,
                                                                       n_current,inference_mask,
                                                                       token_embedding,pred_mask,n_agent,
-                                                                      mask_transpose,dis_mask
+                                                                      mask_transpose,dis_mask,train_mask
                                                                       )
 
         if r_a2a_nei is not None:
