@@ -332,9 +332,6 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
-                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-
-                feat_list.append(feat_a)
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a=feat_a[train_repeat_mask]
@@ -345,6 +342,10 @@ class InterativeDecoder(nn.Module):
 
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
+
+                feat_list.append(feat_a)
+
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 feat_list.append(feat_a)
 
