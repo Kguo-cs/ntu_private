@@ -85,7 +85,7 @@ class InterativeDecoder(nn.Module):
         if discriminator:
             self.t_num_layers = 1
         else:
-            self.t_num_layers = 1
+            self.t_num_layers = 3
 
         self.agent_hist = self.time_span // self.shift
 
@@ -167,7 +167,7 @@ class InterativeDecoder(nn.Module):
         self.start_step = 0
         self.start_eval_step = 0
 
-        self.add_a2a=True
+        self.add_a2a=False
 
         if self.add_a2a and not discriminator:
             self.a2a_inter =AttentionLayer(
