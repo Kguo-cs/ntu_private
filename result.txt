@@ -346,3 +346,8 @@ bc40_start0eval0_inter2
 
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_13_start2_epoch=9-step=135280_0.7886.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/AIRL36_interdis_mean_start2_53_pre0_epoch=9-step=135280_0.78651.ckpt
+
+/home/ke/code/sim/src/waymo_data/AIRL36_interdis_start2_013_epoch=9-step=135280_0.7880.ckpt

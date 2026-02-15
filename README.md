@@ -22,14 +22,15 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_inter1_hist0_diff3_t3/2026
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/auto64_val256_kl02/2026-01-24_09-23-22/bc/kuuoedsr/checkpoints/epoch=31-step=243520.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL36_interdis_13_mean_start2/2026-02-12_14-55-45/sim/8ufm3uud/checkpoints/epoch=9-step=135280.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL36_interdis_start2_013/2026-02-13_00-39-06/sim/rwuqhzjw/checkpoints/epoch=9-step=135280.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 
 
 qsub -I -l select=1:ngpus=1 -l walltime=24:00:00 -P personal-ke.guo
 myquota -p personal-ke.guo
-ssh ke.guo@aspire2antu.nscc.sg
+ssh ke.guo@aspire2antu.nscc.sg140286
+
 Gk@1402862912
 
 source ~/miniconda3/bin/activate
