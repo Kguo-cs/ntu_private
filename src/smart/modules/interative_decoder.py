@@ -393,6 +393,7 @@ class InterativeDecoder(nn.Module):
 
                 interact_logits=interact_logits[dis_edge_mask]
                 weight=weight[dis_edge_mask]
+                end_index=end_index[dis_edge_mask]
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
