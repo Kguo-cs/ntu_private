@@ -340,14 +340,19 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_diff3_t3_epoch=31-step=389600.ckpt
 
-
+0.7843
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_53_mean_start2_noshare_epoch=9-step=135280_0.79137.ckpt
 
+0.7877
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_13_start2_epoch=9-step=135280_0.7886.ckpt
 
+0.7858
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_mean_start2_53_pre0_epoch=9-step=135280_0.78651.ckpt
 
+
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_start2_013_epoch=9-step=135280_0.7880.ckpt
+
+/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_diff3_taM3_epoch=31-step=389600.ckpt
