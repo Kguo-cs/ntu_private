@@ -292,6 +292,9 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                feat_list.append(feat_a)
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a=feat_a[train_repeat_mask]
@@ -302,10 +305,6 @@ class InterativeDecoder(nn.Module):
 
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
-
-                feat_list.append(feat_a)
-
-                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 feat_list.append(feat_a)
 
@@ -348,6 +347,7 @@ class InterativeDecoder(nn.Module):
                     feat_a = feat_a[-current_len:]
 
                 feat_list.append(feat_a)
+
 
         if (self.add_a2a or self.t_num_layers>1) and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
@@ -393,7 +393,7 @@ class InterativeDecoder(nn.Module):
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
-                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)/len(interact_logits)
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)#/len(interact_logits)
 
                 if self.pred_exit:
                     interact_reward=torch.zeros_like(next_token_logits[:,0])
