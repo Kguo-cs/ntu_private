@@ -256,6 +256,7 @@ class InterativeDecoder(nn.Module):
         feat_list=[]
 
         for layer_i in range(self.num_layers):
+
             if (self.use_decompose and self.discriminator):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point

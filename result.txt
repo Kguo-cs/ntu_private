@@ -341,6 +341,20 @@ bc40_start0eval0_inter2
 /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_diff3_t3_epoch=31-step=389600.ckpt
 
 0.7843
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.78436947 |
+| Linear Speed Likelihood               | 0.38535866 |
+| Linear Acceleration Likelihood        | 0.41015756 |
+| Angular Speed Likelihood              | 0.5187027  |
+| Angular Acceleration Likelihood       | 0.6618633  |
+| Distance To Nearest Object Likelihood | 0.3914331  |
+| Collision Likelihood                  | 0.9713639  |
+| Time To Collision Likelihood          | 0.8317045  |
+| Distance To Road Edge Likelihood      | 0.6803105  |
+| Offroad Likelihood                    | 0.9492677  |
+| minADE                                | 1.3531957  |
+
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_53_mean_start2_noshare_epoch=9-step=135280_0.79137.ckpt
 
@@ -352,8 +366,37 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_mean_start2_53_pre0_epoch=9-step=135280_0.78651.ckpt
 
+0.7878
 
 /home/ke/code/sim/src/waymo_data/AIRL36_interdis_start2_013_epoch=9-step=135280_0.7880.ckpt
 
 
+
+0.7862
+
+
 /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_diff3_taM3_epoch=31-step=389600.ckpt
+
+
+| Metric                                | Value      |
+| ------------------------------------- | ---------- |
+| Realism meta-metric                   | 0.78431267 |
+| Linear Speed Likelihood               | 0.38556308 |
+| Linear Acceleration Likelihood        | 0.41008076 |
+| Angular Speed Likelihood              | 0.518926   |
+| Angular Acceleration Likelihood       | 0.66188085 |
+| Distance To Nearest Object Likelihood | 0.39146972 |
+| Collision Likelihood                  | 0.9708886  |
+| Time To Collision Likelihood          | 0.83179605 |
+| Distance To Road Edge Likelihood      | 0.680522   |
+| Offroad Likelihood                    | 0.9493241  |
+| minADE                                | 1.3517331  |
+
+
+
+/home/ke/code/sim/src/waymo_data/AIRL36_interdis_start2_53_hist0_mean_R_epoch=9-step=135280_0.7779.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/AIRL36_interdis_start2_53_hist0_mean_epoch=9-step=135280_0.7897.ckpt
+
+/home/ke/code/sim/src/waymo_data/AIRL36_interdis_start2_13_hist0_mean_R_epoch=9-step=135280_0.78362.ckpt
