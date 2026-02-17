@@ -394,7 +394,7 @@ class InterativeDecoder(nn.Module):
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
-                valid_interact_reward=scatter_mean(weight_logit, end_index, dim=0,  dim_size=valid_number)#/len(interact_logits)
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)#/len(interact_logits)
 
                 if self.pred_exit:
                     interact_reward=torch.zeros_like(next_token_logits[:,0])
