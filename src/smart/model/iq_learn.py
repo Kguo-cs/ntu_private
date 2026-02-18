@@ -389,7 +389,7 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent,
                                                             tokenized_agent["map_feature"])
 
-        ego_logits, interact_logits = disc_out[0]
+        ego_logits, interact_logits,end_index = disc_out[0]
 
         ego_rewards, nei_rewards,valid_ego_reward,valid_interact_reward = disc_out[2]
 
@@ -427,6 +427,16 @@ class IQ_SoftQ(LightningModule):
 
         if len(interact_logits) > 0:
             weight = disc_out[3]
+
+            all_dis_mask=torch.zeros_like(mask_transpose)
+
+            all_dis_mask[:,tokenized_agent["train_mask"]]=dis_mask.reshape(all_dis_mask.shape[0],-1)
+
+            dis_edge_mask=all_dis_mask[mask_transpose][end_index]
+
+            interact_logits=interact_logits[dis_edge_mask]
+            weight=weight[dis_edge_mask]
+
 
             self.log("train/" + key + "_inter_score", torch.sigmoid(interact_logits).mean().item(), on_step=True, batch_size=1)
 

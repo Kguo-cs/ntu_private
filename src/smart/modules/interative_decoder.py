@@ -405,7 +405,7 @@ class InterativeDecoder(nn.Module):
 
                 ego_rewards = valid_ego_reward + interact_reward
 
-                next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0])
+                next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0],end_index)
 
                 # weight2=torch.exp(-dist / self.reward_decay) * self.reward_weight  #torch.exp(-dist/self.dis_decay)*self.dis_weight
 
@@ -523,14 +523,14 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             mask_s[:n_agent*self.gail_start_step]=False
 
-        if self.discriminator:
-            all_dis_mask = torch.zeros_like(mask_transpose)
-
-            all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
-
-            dis_edge_mask = all_dis_mask[mask_transpose]
-        else:
-            dis_edge_mask = None
+        # if self.discriminator:
+        #     all_dis_mask = torch.zeros_like(mask_transpose)
+        #
+        #     all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
+        #
+        #     dis_edge_mask = all_dis_mask[mask_transpose]
+        # else:
+        dis_edge_mask = None
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
