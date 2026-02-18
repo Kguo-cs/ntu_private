@@ -188,7 +188,7 @@ class InterativeDecoder(nn.Module):
             #           #  gated_attention=discriminator,
             #         )
 
-        self.gail_start_step=2 #self.num_historical_steps//self.shift
+        self.gail_start_step=0 #self.num_historical_steps//self.shift
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
