@@ -257,58 +257,6 @@ class InterativeDecoder(nn.Module):
 
         for layer_i in range(self.num_layers):
 
-            if (self.use_decompose and self.discriminator):
-                start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
-                end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
-
-                feat_a_later=feat_a[n_agent*self.gail_start_step:]
-
-                start_edge_feature = feat_a_later[start_index]
-
-                if token_embeding is not None:
-                    end_edge_feature   = (feat_a_later+token_embeding[mask_ta_flatten])[end_index]
-                else:
-                    end_edge_feature   = feat_a_later[end_index]
-
-                if  agent_train_mask is not None and self.num_layers==1:
-                    feat_a = feat_a[train_repeat_mask]
-
-                if not self.token_processor.use_bird:
-                    feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
-
-                if self.use_full_feature:
-                    feat_a_all = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-                    all_logits= self.all_head(feat_a_all)
-
-
-                feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
-                interact_logits = self.interact_head(feat_interact)
-            else:
-                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
-                    end_mask=train_repeat_mask[edge_index_a2a[1]]
-                    edge_index_a2a = edge_index_a2a[:, end_mask]
-                    r_a2a=r_a2a[end_mask]
-
-                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
-                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
-                    r_pl2a=r_pl2a[end_pt_mask]
-
-                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
-
-                feat_list.append(feat_a)
-
-                if  agent_train_mask is not None and self.num_layers==1:
-                    feat_a=feat_a[train_repeat_mask]
-
-                if not self.token_processor.use_bird:#[:len(r_pl2a)//2]
-                    #feat_map  = self.a2pt_attn_layers[layer_i]((feat_a,feat_map), r_pl2a[len(r_pl2a)//2:], edge_index_pl2a.flip(0))  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
-                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
-                    feat_a = feat_a[train_repeat_mask]
-
-                feat_list.append(feat_a)
-
             if layer_i > self.num_layers - self.t_num_layers - 1 or self.discriminator:  # self.num_layers-self.t_num_layers
 
                 if not self.training or self.gail:
@@ -349,6 +297,59 @@ class InterativeDecoder(nn.Module):
 
                 feat_list.append(feat_a)
 
+
+            if (self.use_decompose and self.discriminator):
+                start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
+                end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
+
+                feat_a_later=feat_a[n_agent*self.gail_start_step:]
+
+                start_edge_feature = feat_a_later[start_index]
+
+                if token_embeding is not None:
+                    end_edge_feature   = (feat_a_later+token_embeding[mask_ta_flatten])[end_index]
+                else:
+                    end_edge_feature   = feat_a_later[end_index]
+
+                if  agent_train_mask is not None and self.num_layers==1:
+                    feat_a = feat_a[train_repeat_mask]
+
+                if not self.token_processor.use_bird:
+                    feat_a = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)
+
+                if self.use_full_feature:
+                    feat_a_all = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                    all_logits= self.all_head(feat_a_all)
+
+
+                feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
+                interact_logits = self.interact_head(feat_interact)
+            else:
+                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
+                    end_mask=train_repeat_mask[edge_index_a2a[1]]
+                    edge_index_a2a = edge_index_a2a[:, end_mask]
+                    r_a2a=r_a2a[end_mask]
+
+                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
+                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
+                    r_pl2a=r_pl2a[end_pt_mask]
+
+
+                if  agent_train_mask is not None and self.num_layers==1:
+                    feat_a=feat_a[train_repeat_mask]
+
+                if not self.token_processor.use_bird:#[:len(r_pl2a)//2]
+                    #feat_map  = self.a2pt_attn_layers[layer_i]((feat_a,feat_map), r_pl2a[len(r_pl2a)//2:], edge_index_pl2a.flip(0))  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
+                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
+                    feat_a = feat_a[train_repeat_mask]
+
+                feat_list.append(feat_a)
+
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                feat_list.append(feat_a)
 
         if (self.add_a2a or self.t_num_layers>1) and not self.discriminator:
             #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
