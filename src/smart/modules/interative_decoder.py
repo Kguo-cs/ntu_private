@@ -188,7 +188,7 @@ class InterativeDecoder(nn.Module):
             #           #  gated_attention=discriminator,
             #         )
 
-        self.gail_start_step=1 #self.num_historical_steps//self.shift
+        self.gail_start_step=0 #self.num_historical_steps//self.shift
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -522,14 +522,14 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             mask_s[:n_agent*self.gail_start_step]=False
 
-        if self.discriminator:
-            all_dis_mask = torch.zeros_like(mask_transpose)
-
-            all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
-
-            dis_edge_mask = all_dis_mask[mask_transpose]
-        else:
-            dis_edge_mask = None
+        # if self.discriminator:
+        #     all_dis_mask = torch.zeros_like(mask_transpose)
+        #
+        #     all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
+        #
+        #     dis_edge_mask = all_dis_mask[mask_transpose]
+        # else:
+        dis_edge_mask = None
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
