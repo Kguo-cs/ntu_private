@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL12_interdis_start1_13_t3 #_mean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL32_interdis_start1_13_t3 #_mean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
@@ -73,7 +73,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 12 #6
+  train_batch_size: 32 #6
   val_batch_size: 64
   test_batch_size: 10
   num_workers: 8
