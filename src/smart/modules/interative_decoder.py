@@ -188,7 +188,7 @@ class InterativeDecoder(nn.Module):
             #           #  gated_attention=discriminator,
             #         )
 
-        self.gail_start_step=2 #self.num_historical_steps//self.shift
+        self.gail_start_step=0 #self.num_historical_steps//self.shift
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -256,9 +256,6 @@ class InterativeDecoder(nn.Module):
         feat_list=[]
 
         for layer_i in range(self.num_layers):
-
-
-
             if (self.use_decompose and self.discriminator):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
@@ -295,6 +292,9 @@ class InterativeDecoder(nn.Module):
                     edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
                     r_pl2a=r_pl2a[end_pt_mask]
 
+                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                feat_list.append(feat_a)
 
                 if  agent_train_mask is not None and self.num_layers==1:
                     feat_a=feat_a[train_repeat_mask]
@@ -305,10 +305,6 @@ class InterativeDecoder(nn.Module):
 
                 if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
                     feat_a = feat_a[train_repeat_mask]
-
-                feat_list.append(feat_a)
-
-                feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                 feat_list.append(feat_a)
 
@@ -526,14 +522,14 @@ class InterativeDecoder(nn.Module):
         if self.discriminator:
             mask_s[:n_agent*self.gail_start_step]=False
 
-        if self.discriminator:
-            all_dis_mask = torch.zeros_like(mask_transpose)
-
-            all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
-
-            dis_edge_mask = all_dis_mask[mask_transpose]
-        else:
-            dis_edge_mask = None
+        # if self.discriminator:
+        #     all_dis_mask = torch.zeros_like(mask_transpose)
+        #
+        #     all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
+        #
+        #     dis_edge_mask = all_dis_mask[mask_transpose]
+        # else:
+        dis_edge_mask = None
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
