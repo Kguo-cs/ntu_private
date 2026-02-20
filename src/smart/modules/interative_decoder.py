@@ -418,14 +418,14 @@ class InterativeDecoder(nn.Module):
         else:
             train_repeat_mask1=train_repeat_mask
 
-        # if self.discriminator:
-        #     all_dis_mask = torch.zeros_like(mask_transpose)
-        #
-        #     all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
-        #
-        #     dis_edge_mask = all_dis_mask[mask_transpose]
-        # else:
-        dis_edge_mask = None
+        if self.discriminator:
+            all_dis_mask = torch.zeros_like(mask_transpose)
+
+            all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
+
+            dis_edge_mask = all_dis_mask[mask_transpose]
+        else:
+            dis_edge_mask = None
 
         edge_index_a2a, r_a2a, dist,relative_pos,r_a2a_nei,center_nei_pos,center_nei_heading = self.edge_encoder.build_interaction_edge(
             pos_s=pos_s,  # [n_agent, n_step, 2]
