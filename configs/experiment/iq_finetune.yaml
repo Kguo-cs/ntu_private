@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL32_inter_start2_53_t3 #_mean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL32_mean_start2_53_t3 #_mean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
