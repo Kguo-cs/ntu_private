@@ -87,7 +87,6 @@ class SMARTAgentDecoder(nn.Module):
                                                     discriminator=discriminator
                                                     )
 
-        self.start_step=self.interative_decoder.start_step#self.num_historical_steps//self.shift-1
         self.t_num_layers = 1
         self.agent_hist = self.time_span // self.shift*self.t_num_layers
         self.alpha = alpha
@@ -349,8 +348,7 @@ class SMARTAgentDecoder(nn.Module):
             if t == current_step:
                 if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
 
-                    step=current_step-self.interative_decoder.start_step
-                    next_token_logits=tokenized_agent["next_token_logits"][a_num*(step-1):a_num*step]
+                    next_token_logits=tokenized_agent["next_token_logits"][a_num*(current_step-1):a_num*current_step]
 
                     if tokenized_agent["entry_logit"] is not None:
                         entry_logit=tokenized_agent["entry_logit"][:,:1]

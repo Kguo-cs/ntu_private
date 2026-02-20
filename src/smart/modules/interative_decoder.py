@@ -123,21 +123,6 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
-            # self.a2pt_attn_layers = nn.ModuleList(
-            #     [
-            #         AttentionLayer(
-            #             hidden_dim=hidden_dim,
-            #             num_heads=num_heads,
-            #             head_dim=head_dim,
-            #             dropout=dropout,
-            #             bipartite=True,
-            #             has_pos_emb=True,
-            #           #  gated_attention=discriminator,
-            #         )
-            #         for _ in range(num_layers)
-            #     ]
-            # )
-            #
 
         self.discriminator = discriminator
         self.use_decompose=True
@@ -164,31 +149,9 @@ class InterativeDecoder(nn.Module):
         self.n_token_agent=n_token_agent
 
         self.mask_pred=False
-        self.start_step = 0
-        self.start_eval_step = 0
+        self.gail_start_step=2
 
-        self.add_a2a=False
-
-        if self.add_a2a and not discriminator:
-            self.a2a_inter =AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-            # self.pt2a_inter= AttentionLayer(
-            #             hidden_dim=hidden_dim,
-            #             num_heads=num_heads,
-            #             head_dim=head_dim,
-            #             dropout=dropout,
-            #             bipartite=True,
-            #             has_pos_emb=True,
-            #           #  gated_attention=discriminator,
-            #         )
-
-        self.gail_start_step=0 #self.num_historical_steps//self.shift
+        self.dis_start_step=0
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -260,7 +223,7 @@ class InterativeDecoder(nn.Module):
                 start_index = edge_index_a2a[0]       #edge_index[1] = src indices = its k nearest neighbors
                 end_index = edge_index_a2a[1]        #edge_index[0] = dst indices = query point
 
-                feat_a_later=feat_a[n_agent*self.gail_start_step:]
+                feat_a_later=feat_a[n_agent*self.dis_start_step:]
 
                 start_edge_feature = feat_a_later[start_index]
 
@@ -278,7 +241,6 @@ class InterativeDecoder(nn.Module):
                 if self.use_full_feature:
                     feat_a_all = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
                     all_logits= self.all_head(feat_a_all)
-
 
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
@@ -346,34 +308,16 @@ class InterativeDecoder(nn.Module):
                     current_len = inference_mask.sum()
                     feat_a = feat_a[-current_len:]
 
-                feat_list.append(feat_a)
-
-
-        if (self.add_a2a or self.t_num_layers>1) and not self.discriminator:
-            #feat_a  = self.pt2a_inter((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
-            if self.edge_encoder.rollout_traj:
-                train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
-                train_repeat_mask[:max(0,self.gail_start_step-1)]=False
-                train_repeat_mask=train_repeat_mask.flatten(0, 1)
-
-                if self.add_a2a:
-                    end_mask = train_repeat_mask[edge_index_a2a[1]]
-                    edge_index_a2a = edge_index_a2a[:, end_mask]
-                    r_a2a = r_a2a[end_mask]
-
-            if self.add_a2a:
-                feat_a = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
-
-            if self.edge_encoder.rollout_traj:
-                feat_a=feat_a[train_repeat_mask]
+        if  self.t_num_layers>1 and  self.edge_encoder.rollout_traj:
+            train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
+            train_repeat_mask[:max(0,self.gail_start_step-1)]=False
+            train_repeat_mask=train_repeat_mask.flatten(0, 1)
+            feat_a=feat_a[train_repeat_mask]
 
             feat_list.append(feat_a)
 
         if self.discriminator:
-            feat_a=feat_a[n_pred_agent*self.gail_start_step:]
-            train_repeat_mask=train_repeat_mask[n_agent*self.gail_start_step:]
-            valid_number=valid_number-n_agent*self.gail_start_step
+            feat_a=feat_a[n_pred_agent*self.dis_start_step:]
 
         next_token_logits = self.token_predict_head(feat_a)
 
@@ -389,6 +333,10 @@ class InterativeDecoder(nn.Module):
             valid_ego_reward = next_token_logits[:, 0].detach()
 
             if self.use_decompose:
+                train_repeat_mask = train_repeat_mask[n_agent * self.dis_start_step:]
+
+                valid_number = valid_number - n_agent * self.dis_start_step
+
                 weight=torch.exp(-dist / self.dis_decay)* self.dis_weight#torch.ones_like(dist) #=
 
                 weight_logit= interact_logits[:,0].detach() * weight
@@ -456,12 +404,6 @@ class InterativeDecoder(nn.Module):
                     inference_mask = torch.ones_like(mask_a)
                 else:
                     inference_mask = mask_a.clone()
-
-                if not self.discriminator:
-                    if self.training:
-                        inference_mask[:, :self.start_step] = False
-                    else:
-                        inference_mask[:, :self.start_eval_step] = False# 5,10
             else:
                 self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
                 self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
@@ -520,7 +462,7 @@ class InterativeDecoder(nn.Module):
             train_repeat_mask=None
 
         if self.discriminator:
-            mask_s[:n_agent*self.gail_start_step]=False
+            mask_s[:n_agent*self.dis_start_step]=False
 
         # if self.discriminator:
         #     all_dis_mask = torch.zeros_like(mask_transpose)

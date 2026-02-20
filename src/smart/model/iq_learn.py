@@ -28,8 +28,6 @@ class IQ_SoftQ(LightningModule):
 
         self.use_target_q = False
 
-        self.start_step = self.encoder.agent_encoder.start_step
-
         self.bce_loss = nn.BCELoss()
 
         self.buffer_len = 1
@@ -68,19 +66,20 @@ class IQ_SoftQ(LightningModule):
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        self.gail_start_step=self.encoder.agent_encoder.interative_decoder.gail_start_step
+        self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
+        self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
         if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
             self.automatic_optimization=False
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        if key=="agent" and (self.encoder.agent_encoder.interative_decoder.add_a2a or self.encoder.agent_encoder.interative_decoder.t_num_layers>1):
+        if key=="agent" and ( self.encoder.agent_encoder.interative_decoder.t_num_layers>1):
             tokenized_agent["train_mask"]=None
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        if key=="agent" and (self.encoder.agent_encoder.interative_decoder.add_a2a or self.encoder.agent_encoder.interative_decoder.t_num_layers>1):
+        if key=="agent" and ( self.encoder.agent_encoder.interative_decoder.t_num_layers>1):
             tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
         if pred["next_token_logits"] is not None:
@@ -357,7 +356,7 @@ class IQ_SoftQ(LightningModule):
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
         
-        mask_t=mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)[self.gail_start_step:]
+        mask_t = tokenized_agent["valid_mask"].transpose(0,1)[self.dis_start_step:]
 
         if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
             mask_t=mask_t[:,tokenized_agent["train_mask"]]
@@ -412,7 +411,7 @@ class IQ_SoftQ(LightningModule):
             target=1
         else:
             target=0
-            ego_rewards=ego_rewards.reshape(exit_mask.shape) #t,a
+            ego_rewards=ego_rewards.reshape(exit_mask.shape)[self.gail_start_step-self.dis_start_step:] #t,a
             if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(exit_mask.shape)#t,a
 
@@ -452,7 +451,7 @@ class IQ_SoftQ(LightningModule):
         else:
             gp=0
 
-        return bce_loss+interact_bce_loss, ego_rewards, nei_rewards,torch.ones_like(present_mask),gp,dis_mask #,mask_s.flatten(0,1)
+        return bce_loss+interact_bce_loss, ego_rewards, nei_rewards,torch.ones_like(present_mask[self.gail_start_step-self.dis_start_step:]),gp,dis_mask #,mask_s.flatten(0,1)
 
     def iq_update(self, tokenized_map, tokenized_agent):
         if self.use_kl_penalty:
