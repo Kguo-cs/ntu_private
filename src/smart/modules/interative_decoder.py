@@ -151,7 +151,7 @@ class InterativeDecoder(nn.Module):
         self.mask_pred=False
         self.gail_start_step=2
 
-        self.dis_start_step=0
+        self.dis_start_step=1
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
