@@ -154,22 +154,15 @@ class EdgeEncoder(nn.Module):
 
         edge_index_t = (edge_index_t % n_step) * n_agent + edge_index_t // n_step
 
-        if self.pred_exit and self.discriminator:
-            dst_invalid_mask = ~flat_mask[edge_index_t[1]]  # src,dst
-
-            r_t[dst_invalid_mask, :3] = -1  #dst not exist
-            r_t[dst_invalid_mask,-1]=-1 #dst not exist
-
         r_t = self.r_t_emb(continuous_inputs=r_t, categorical_embs=None)
 
-        if not self.pred_exit or (not self.discriminator and not self.rollout_traj):
-            N_total = n_step * n_agent  # total nodes in transposed ordering
+        N_total = n_step * n_agent  # total nodes in transposed ordering
 
-            kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
-            map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
-            map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
+        kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
+        map_to_compact = torch.full((N_total,), -1, dtype=torch.long, device=kept_nodes.device)
+        map_to_compact[kept_nodes] = torch.arange(kept_nodes.size(0), device=kept_nodes.device, dtype=torch.long)
 
-            edge_index_t = map_to_compact[edge_index_t]
+        edge_index_t = map_to_compact[edge_index_t]
 
         return edge_index_t, r_t
 

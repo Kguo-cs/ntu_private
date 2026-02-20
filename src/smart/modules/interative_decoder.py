@@ -245,12 +245,11 @@ class InterativeDecoder(nn.Module):
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
                 feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
-            if not self.training or not self.edge_encoder.rollout_traj:
+            if  not self.edge_encoder.rollout_traj and not self.discriminator:#rollout or expert
                 feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
 
                 feat_a_t[mask_ta] = feat_a
 
-            if not self.training or not self.edge_encoder.rollout_traj:
                 if n_current == 0:
                     self.feat_a_cache[layer_i] = feat_a_t
                 else:
@@ -349,25 +348,22 @@ class InterativeDecoder(nn.Module):
 
         n_agent,n_step = mask_a.shape
 
-        if self.discriminator and self.edge_encoder.use_roformer:
-            inference_mask = torch.ones_like(mask_a)
+        if n_current == 0:
+            self.pos_cache = pos_a
+            self.head_cache = head_a
+            self.mask_cache = mask_a
+            self.head_vector_cache = head_vector_a
+
+            inference_mask = mask_a.clone()
         else:
-            if n_current == 0:
-                self.pos_cache = pos_a
-                self.head_cache = head_a
-                self.mask_cache = mask_a
-                self.head_vector_cache = head_vector_a
+            self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
+            self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
+            self.mask_cache = torch.cat((self.mask_cache, mask_a), dim=1)[:, -self.agent_hist:]
+            self.head_vector_cache = torch.cat((self.head_vector_cache, head_vector_a), dim=1)[:, -self.agent_hist:]
 
-                inference_mask = mask_a.clone()
-            else:
-                self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
-                self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
-                self.mask_cache = torch.cat((self.mask_cache, mask_a), dim=1)[:, -self.agent_hist:]
-                self.head_vector_cache = torch.cat((self.head_vector_cache, head_vector_a), dim=1)[:, -self.agent_hist:]
+            inference_mask = self.mask_cache.clone()
 
-                inference_mask = self.mask_cache.clone()
-
-                inference_mask[:, :-1] = False  # a,t
+            inference_mask[:, :-1] = False  # a,t
 
         if agent_train_mask is not None:
             inference_mask = inference_mask[agent_train_mask]
@@ -418,6 +414,9 @@ class InterativeDecoder(nn.Module):
 
         if self.discriminator:
             mask_s[:n_agent*self.dis_start_step]=False
+            train_repeat_mask1=train_repeat_mask[n_agent*self.dis_start_step:]
+        else:
+            train_repeat_mask1=train_repeat_mask
 
         # if self.discriminator:
         #     all_dis_mask = torch.zeros_like(mask_transpose)
@@ -436,7 +435,7 @@ class InterativeDecoder(nn.Module):
             mask=mask_s,  # [n_agent, n_step]
             max_radius=self.a2a_radius,
             max_num_neighbors=self.a2a_neighbor,
-            agent_train_mask=train_repeat_mask,
+            agent_train_mask=train_repeat_mask1,
             layer_num=self.num_layers,
             counter_feat_a=counter_feat_a,
             dis_edge_mask=dis_edge_mask
