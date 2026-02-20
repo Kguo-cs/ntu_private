@@ -80,8 +80,6 @@ class InterativeDecoder(nn.Module):
                                         pred_exit=token_processor.pred_exit,
                                         )
 
-        self.pred_exit=token_processor.pred_exit
-
         if discriminator:
             self.t_num_layers = 1
         else:
@@ -128,7 +126,6 @@ class InterativeDecoder(nn.Module):
         self.use_decompose=True
         self.use_full_feature=False
         self.use_airl=False
-        self.gail=True
 
         if not (discriminator and self.use_decompose and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
@@ -151,7 +148,7 @@ class InterativeDecoder(nn.Module):
         self.mask_pred=False
         self.gail_start_step=2
 
-        self.dis_start_step=1
+        self.dis_start_step=2
 
         if self.mask_pred:
             self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
@@ -245,70 +242,36 @@ class InterativeDecoder(nn.Module):
                 feat_interact = torch.cat([start_edge_feature, r_a2a, end_edge_feature], dim=-1)
                 interact_logits = self.interact_head(feat_interact)
             else:
-                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None:
-                    end_mask=train_repeat_mask[edge_index_a2a[1]]
-                    edge_index_a2a = edge_index_a2a[:, end_mask]
-                    r_a2a=r_a2a[end_mask]
-
-                    end_pt_mask=train_repeat_mask[edge_index_pl2a[1]]
-                    edge_index_pl2a = edge_index_pl2a[:, end_pt_mask]
-                    r_pl2a=r_pl2a[end_pt_mask]
-
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
-                feat_list.append(feat_a)
+            if not self.training or not self.edge_encoder.rollout_traj:
+                feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
 
-                if  agent_train_mask is not None and self.num_layers==1:
-                    feat_a=feat_a[train_repeat_mask]
+                feat_a_t[mask_ta] = feat_a
 
-                if not self.token_processor.use_bird:#[:len(r_pl2a)//2]
-                    #feat_map  = self.a2pt_attn_layers[layer_i]((feat_a,feat_map), r_pl2a[len(r_pl2a)//2:], edge_index_pl2a.flip(0))  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
-                if self.num_layers > 1 and layer_i == self.num_layers - 1 and agent_train_mask is not None :
-                    feat_a = feat_a[train_repeat_mask]
-
-                feat_list.append(feat_a)
-
-            if layer_i > self.num_layers - self.t_num_layers - 1 or self.discriminator:  # self.num_layers-self.t_num_layers
-
-                if not self.training or self.gail:
-                    feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
-
-                    feat_a_t[mask_ta] = feat_a
-
-                if self.edge_encoder.use_roformer:
-                    feat_a_t = self.a_t_roformer.temporal_embed(feat_a_t.transpose(0, 1), None, None, n_step,
-                                                                n_current, inference_mask)
-
-                    feat_a = feat_a_t.transpose(0, 1).flatten(0, 1)
+            if not self.training or not self.edge_encoder.rollout_traj:
+                if n_current == 0:
+                    self.feat_a_cache[layer_i] = feat_a_t
                 else:
-                    if not self.training or self.gail:
-                        if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
-                            feat_a = feat_a_t.flatten(0, 1)
-                        else:
-                            if n_current == 0:
-                                self.feat_a_cache[layer_i] = feat_a_t
-                            else:
-                                self.feat_a_cache[layer_i] = torch.cat((self.feat_a_cache[layer_i], feat_a_t),
-                                                                       dim=0)[-self.agent_hist:]  # t,a
+                    self.feat_a_cache[layer_i] = torch.cat((self.feat_a_cache[layer_i], feat_a_t),
+                                                           dim=0)[-self.agent_hist:]  # t,a
 
-                                feat_a = self.feat_a_cache[layer_i][self.mask_cache.transpose(0, 1)]
+                    feat_a = self.feat_a_cache[layer_i][self.mask_cache.transpose(0, 1)]
 
-                    feat_a = self.t_attn_layers[layer_i - self.num_layers + self.t_num_layers](feat_a, r_t,
-                                                                                               edge_index_t)
+            feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
 
-                if self.discriminator:
-                    if token_embeding is not None:
-                        if self.use_airl:
-                            feat_sa = feat_a[:-n_pred_agent] + token_embeding
-                        else:
-                            feat_a = feat_a + token_embeding
-                else:
-                    current_len = inference_mask.sum()
-                    feat_a = feat_a[-current_len:]
+            if self.discriminator:
+                if token_embeding is not None:
+                    if self.use_airl:
+                        feat_sa = feat_a[:-n_pred_agent] + token_embeding
+                    else:
+                        feat_a = feat_a + token_embeding
+            else:
+                current_len = inference_mask.sum()
+                feat_a = feat_a[-current_len:]
 
-        if  self.t_num_layers>1 and  self.edge_encoder.rollout_traj:
+        if   self.edge_encoder.rollout_traj:
             train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
             train_repeat_mask[:max(0,self.gail_start_step-1)]=False
             train_repeat_mask=train_repeat_mask.flatten(0, 1)
@@ -343,12 +306,7 @@ class InterativeDecoder(nn.Module):
 
                 valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)#/len(interact_logits)
 
-                if self.pred_exit:
-                    interact_reward=torch.zeros_like(next_token_logits[:,0])
-
-                    interact_reward[mask_ta_flatten] = valid_interact_reward[train_repeat_mask]
-                else:
-                    interact_reward=valid_interact_reward[train_repeat_mask]
+                interact_reward = valid_interact_reward[train_repeat_mask]
 
                 ego_rewards = valid_ego_reward + interact_reward
 
@@ -400,10 +358,7 @@ class InterativeDecoder(nn.Module):
                 self.mask_cache = mask_a
                 self.head_vector_cache = head_vector_a
 
-                if self.pred_exit and (self.discriminator or self.edge_encoder.rollout_traj):
-                    inference_mask = torch.ones_like(mask_a)
-                else:
-                    inference_mask = mask_a.clone()
+                inference_mask = mask_a.clone()
             else:
                 self.pos_cache = torch.cat((self.pos_cache, pos_a), dim=1)[:, -self.agent_hist:]
                 self.head_cache = torch.cat((self.head_cache, head_a), dim=1)[:, -self.agent_hist:]
@@ -514,9 +469,6 @@ class InterativeDecoder(nn.Module):
             next_token_logits=(next_token_logits[0],next_token_logits_counter[0])
 
             rewards=(rewards[0]-rewards_counter[0],rewards[1],rewards[2],rewards[3])
-
-        if not self.discriminator and self.pred_exit and pred_mask is not None:
-            next_token_logits[pred_mask[None].repeat(inference_mask.shape[1],1)[inference_mask.transpose(0, 1)], -1] = -torch.inf #t,a
 
         return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a, r_a2a,relative_pos)
 
