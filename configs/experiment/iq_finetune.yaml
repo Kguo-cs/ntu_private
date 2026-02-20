@@ -40,7 +40,7 @@ model:
       reward_weight: 0
       reward_decay: 2.5
 
-#ckpt_path : './ckpts/bc40_start0eval0_inter1_epoch=31-step=389600.ckpt'
+#ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 ckpt_path: './ckpts/bc40_inter1_hist0_diff3_t3_epoch=31-step=389600.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
@@ -73,7 +73,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 12 #6
+  train_batch_size: 32 #6
   val_batch_size: 64
   test_batch_size: 10
   num_workers: 8
