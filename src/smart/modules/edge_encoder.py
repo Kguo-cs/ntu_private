@@ -139,7 +139,7 @@ class EdgeEncoder(nn.Module):
         rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
         rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
 
-        feat_a=project_to_local_frame(rel_pos_t,head_vector_t[edge_index_t[1]],self.differentiable_edge)
+        feat_a=project_to_local_frame(rel_pos_t,head_vector_t[edge_index_t[1]],False)
 
         r_t = torch.cat(
             [
