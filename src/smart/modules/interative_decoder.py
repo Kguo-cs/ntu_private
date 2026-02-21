@@ -303,11 +303,11 @@ class InterativeDecoder(nn.Module):
 
                 weight_logit= interact_logits[:,0].detach() * weight
 
-                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)#/len(interact_logits)
+                valid_interact_reward=scatter_sum(weight_logit, end_index, dim=0,  dim_size=valid_number)#
 
                 interact_reward = valid_interact_reward[train_repeat_mask]
 
-                ego_rewards = valid_ego_reward + interact_reward
+                ego_rewards = valid_ego_reward/len(next_token_logits) + interact_reward/len(interact_logits)
 
                 next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0])
 
