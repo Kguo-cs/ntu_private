@@ -204,8 +204,7 @@ class InterativeDecoder(nn.Module):
                       agent_train_mask,dist,
                       train_repeat_mask,mask_a,
                       n_current,inference_mask,
-                      token_embeding,pred_mask,n_agent,
-                      mask_transpose,dis_mask,train_mask
+                      token_embeding,pred_mask,n_agent
                       ):
         valid_number=len(feat_a)
         mask_ta=mask_a.transpose(0, 1)
@@ -243,7 +242,10 @@ class InterativeDecoder(nn.Module):
                 interact_logits = self.interact_head(feat_interact)
             else:
                 feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                feat_list.append(feat_a)
+
                 feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                feat_list.append(feat_a)
 
             if  not self.edge_encoder.rollout_traj and not self.discriminator:#rollout or expert
                 feat_a_t = torch.zeros([n_step, n_pred_agent, self.hidden_dim], device=feat_a.device)
@@ -270,13 +272,13 @@ class InterativeDecoder(nn.Module):
                 current_len = inference_mask.sum()
                 feat_a = feat_a[-current_len:]
 
+            feat_list.append(feat_a)
+
         if   self.edge_encoder.rollout_traj:
             train_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
             train_repeat_mask[:max(0,self.gail_start_step-1)]=False
             train_repeat_mask=train_repeat_mask.flatten(0, 1)
             feat_a=feat_a[train_repeat_mask]
-
-            feat_list.append(feat_a)
 
         if self.discriminator:
             feat_a=feat_a[n_pred_agent*self.dis_start_step:]
@@ -337,8 +339,6 @@ class InterativeDecoder(nn.Module):
     def forward(self,all_features,feat_a,token_embedding,map_feature,agent_train_mask,n_current,tokenized_agent,counter_feat_a=None ):
         
         pred_mask=tokenized_agent["pred_mask"] if "pred_mask" in tokenized_agent else None
-        dis_mask=tokenized_agent["dis_mask"] if "dis_mask" in tokenized_agent else None
-        mask_transpose = tokenized_agent["valid_mask"].transpose(0,1)[self.gail_start_step:]
         train_mask=tokenized_agent["train_mask"] if "train_mask" in tokenized_agent else None
 
         if self.discriminator and token_embedding is not None and not self.use_airl:
@@ -419,6 +419,9 @@ class InterativeDecoder(nn.Module):
             train_repeat_mask1=train_repeat_mask
 
         if self.discriminator:
+            dis_mask = tokenized_agent["dis_mask"] if "dis_mask" in tokenized_agent else None
+            mask_transpose = tokenized_agent["valid_mask"].transpose(0, 1)[self.gail_start_step:]
+
             all_dis_mask = torch.zeros_like(mask_transpose)
 
             all_dis_mask[:, train_mask] = dis_mask.reshape(all_dis_mask.shape[0], -1)
@@ -448,8 +451,7 @@ class InterativeDecoder(nn.Module):
                                                                       agent_train_mask,dist,
                                                                       train_repeat_mask,mask_a,
                                                                       n_current,inference_mask,
-                                                                      token_embedding,pred_mask,n_agent,
-                                                                      mask_transpose,dis_mask,train_mask
+                                                                      token_embedding,pred_mask,n_agent
                                                                       )
 
         if r_a2a_nei is not None:

@@ -234,7 +234,7 @@ class SMARTAgentDecoder(nn.Module):
 
                 #perception_Loss=F.mse_loss(token_logits[:len(sampled_idx)], token_logits[len(sampled_idx):],reduction="mean")
 
-                initial_logit=(perception_Loss+initial_logit[0],perception_Loss,initial_logit[2],initial_logit[3],initial_logit[4],initial_logit[5],initial_logit[6])
+                initial_logit=(perception_Loss,perception_Loss,initial_logit[2],initial_logit[3],initial_logit[4],initial_logit[5],initial_logit[6])
 
 
         else:

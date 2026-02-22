@@ -22,6 +22,7 @@ from src.smart.layers.relative_transformer import padding
 import torch.nn.functional as F
 from torch_geometric.nn.pool import knn_graph,knn
 # from lpips import LPIPS
+import  numpy as np
 
 class PDInit(nn.Module):
 
@@ -272,6 +273,57 @@ class PDInit(nn.Module):
 
         return loss
 
+    def kmeans_fast(self,x, k, iters=20):
+        N, D = x.shape
+        device = x.device
+
+        # random initialization
+        perm = torch.randperm(N, device=device)
+        centroids = x[perm[:k]].clone()
+
+        for _ in range(iters):
+            # squared distance (faster than cdist)
+            dist = (
+                    x.pow(2).sum(1, keepdim=True)
+                    - 2 * x @ centroids.t()
+                    + centroids.pow(2).sum(1)
+            )  # (N, k)
+
+            labels = dist.argmin(dim=1)
+
+            # vectorized centroid update
+            counts = torch.bincount(labels, minlength=k).clamp(min=1)
+            new_centroids = torch.zeros_like(centroids)
+            new_centroids.scatter_add_(
+                0,
+                labels.unsqueeze(1).expand(-1, D),
+                x,
+            )
+
+            centroids = new_centroids / counts.unsqueeze(1)
+
+        return centroids, labels
+
+    def cluster_points(self, pos, batch, num_graphs):
+
+        device = pos.device
+        results = []
+
+        for i in range(num_graphs):
+            mask = (batch == i)
+            x = pos[mask]
+
+            N = x.shape[0]
+            if N <= 1:
+                continue
+
+            k = torch.randint(1, N, (1,), device=device).item()
+
+            centroids, labels =self.kmeans_fast(x, k)
+            results.append((centroids, labels))
+
+        return results
+
     def forward(self,  tokenized_agent,map_range=100):
 
         map_feature=tokenized_agent["initial_map_feature"]
@@ -365,6 +417,7 @@ class PDInit(nn.Module):
             data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
             old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
             old_batch = tokenized_agent["batch"][non_ego]
+            #self.cluster_points(m_init[:,:2], batch, num_graphs)
 
             if self.learn_autoencoder:
                 rec_loss,agent_loss,kl_loss,x_pred =self.autoencoder.loss(data)
