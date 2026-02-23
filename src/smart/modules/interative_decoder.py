@@ -147,7 +147,6 @@ class InterativeDecoder(nn.Module):
 
         self.mask_pred=False
         self.gail_start_step=2
-
         self.dis_start_step=2
 
         if self.mask_pred:
@@ -279,6 +278,7 @@ class InterativeDecoder(nn.Module):
             train_repeat_mask[:max(0,self.gail_start_step-1)]=False
             train_repeat_mask=train_repeat_mask.flatten(0, 1)
             feat_a=feat_a[train_repeat_mask]
+            feat_list.append(feat_a)
 
         if self.discriminator:
             feat_a=feat_a[n_pred_agent*self.dis_start_step:]
