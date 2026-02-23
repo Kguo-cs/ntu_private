@@ -309,7 +309,7 @@ class InterativeDecoder(nn.Module):
 
                 interact_reward = valid_interact_reward[train_repeat_mask]
 
-                ego_rewards = valid_ego_reward/len(next_token_logits) + interact_reward/len(interact_logits)
+                ego_rewards = valid_ego_reward + interact_reward
 
                 next_token_logits = (next_token_logits[:, 0], interact_logits[:, 0])
 
