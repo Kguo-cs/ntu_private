@@ -88,7 +88,7 @@ class PDInit(nn.Module):
         else:
             self.G = InitDiffusion(args=args)
             
-        self.use_perceptual_loss=True
+        self.use_perceptual_loss=False
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -304,25 +304,50 @@ class PDInit(nn.Module):
 
         return centroids, labels
 
-    def cluster_points(self, pos, batch, num_graphs):
+    def cluster_points(self, pos, batch,type, num_graphs):
 
         device = pos.device
-        results = []
+        new_centroids = []
+
+        new_batch=[]
+        new_type=[]
 
         for i in range(num_graphs):
             mask = (batch == i)
-            x = pos[mask]
+            type_i=type[mask]
+
+            x_non_veh=pos[mask ][type_i!=0]
+
+            x = pos[mask ][type_i==0]
+
+            type_non_veh=type_i[type_i!=0]
 
             N = x.shape[0]
-            if N <= 1:
-                continue
+            if N<=1:
+                k=N
+                centroids=x
+            else:
+                k = torch.randint(1, N, (1,), device=device).item()
 
-            k = torch.randint(1, N, (1,), device=device).item()
+                centroids, labels =self.kmeans_fast(x, k)
 
-            centroids, labels =self.kmeans_fast(x, k)
-            results.append((centroids, labels))
+            # k1 = torch.randint(k+1, N+1, (1,), device=device).item()
+            #
+            # centroids1, labels1 =self.kmeans_fast(x, k1)
 
-        return results
+            new_batch.append(torch.zeros([k+len(x_non_veh)],device=device,dtype=torch.long)+i)
+
+            new_centroids.append(torch.cat([centroids,x_non_veh],dim=0))
+
+            new_type.append(torch.cat([torch.zeros([k],device=device,dtype=torch.long),type_non_veh],dim=0))
+
+            # results1.append(centroids1)
+
+        new_batch = torch.cat(new_batch, dim=0)
+        new_centroids = torch.cat(new_centroids, dim=0)
+        new_type=torch.cat(new_type, dim=0)
+
+        return new_centroids,new_batch,new_type
 
     def forward(self,  tokenized_agent,map_range=100):
 
@@ -352,11 +377,6 @@ class PDInit(nn.Module):
         ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
 
         ego_embedding=self.G.ego_embedding(ego_local_traj.flatten(1,2))
-        ego_embedding=ego_embedding[batch]
-        # feat_map=feat_map+ego_embedding[batch_pl]
-        # ego_embedding=0
-
-        tokenized_agent["ego_embedding"]=ego_embedding
 
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
@@ -416,8 +436,12 @@ class PDInit(nn.Module):
             m_init,sort_idx=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
             data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
             old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
-            old_batch = tokenized_agent["batch"][non_ego]
-            #self.cluster_points(m_init[:,:2], batch, num_graphs)
+            m_init,batch,new_type=self.cluster_points(m_init, batch,old_nonego_type_sorted, num_graphs)
+            tokenized_agent['nonego_type_sorted']=new_type
+            ego_embedding = ego_embedding[batch]
+            tokenized_agent["ego_embedding"] = ego_embedding
+            tokenized_agent["nonego_batch"]=batch
+            data=(m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
 
             if self.learn_autoencoder:
                 rec_loss,agent_loss,kl_loss,x_pred =self.autoencoder.loss(data)
@@ -477,6 +501,10 @@ class PDInit(nn.Module):
 
                 return loss
         else:
+            ego_embedding = ego_embedding[batch]
+            tokenized_agent["ego_embedding"] = ego_embedding
+            tokenized_agent["nonego_batch"]=batch
+
             if self.learn_autoencoder:
                 m_init,sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)

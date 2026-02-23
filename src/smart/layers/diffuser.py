@@ -140,7 +140,7 @@ class InitDiffusion(nn.Module):
         """
         device = x.device
         num_scenes = tokenized_agent["num_graphs"]
-        agent_batch = tokenized_agent["batch"][eval_mask]
+        agent_batch = tokenized_agent["nonego_batch"]
         mode =1#self.B_dist.sample()
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
@@ -251,7 +251,7 @@ class InitDiffusion(nn.Module):
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
         steps=self.steps
-        agent_batch = tokenized_agent["batch"][eval_mask]
+        agent_batch = tokenized_agent["nonego_batch"]
         num_scenes = tokenized_agent["num_graphs"]
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
@@ -312,7 +312,7 @@ class InitDiffusion(nn.Module):
                     num_samples=1, ) -> Dict[str, torch.Tensor]:
         # m: [num_agents, d_latent]
 
-        agent_batch = tokenized_agent["batch"][eval_mask]
+        agent_batch = tokenized_agent["nonego_batch"]
         num_scenes = tokenized_agent["num_graphs"]
 
         x_init_0 = m_init.unsqueeze(1).repeat(1, num_samples, 1)
