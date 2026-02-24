@@ -139,7 +139,7 @@ class EdgeEncoder(nn.Module):
         rel_pos_t = pos_t[edge_index_t[0]] - pos_t[edge_index_t[1]]
         rel_head_t = wrap_angle(head_t[edge_index_t[0]] - head_t[edge_index_t[1]])
 
-        feat_a=project_to_local_frame(rel_pos_t,head_vector_t[edge_index_t[1]],False)
+        feat_a=project_to_local_frame(rel_pos_t,head_vector_t[edge_index_t[1]],self.differentiable_edge)
 
         r_t = torch.cat(
             [
@@ -289,18 +289,29 @@ class EdgeEncoder(nn.Module):
             orient_pl[edge_index_pl2a[0]] - head_s[edge_index_pl2a[1]]
         )
 
+        feat_a=project_to_local_frame(rel_pos_pl2a,head_vector_s[edge_index_pl2a[1]],self.differentiable_edge)
 
-        r_pl2a = torch.stack(
+
+        r_pl2a = torch.cat(
             [
-                torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
-                angle_between_2d_vectors(
-                    ctr_vector=head_vector_s[edge_index_pl2a[1]],
-                    nbr_vector=rel_pos_pl2a[:, :2],
-                ),
-                rel_orient_pl2a,
+                feat_a,
+                rel_orient_pl2a[:,None],
             ],
             dim=-1,
         )
+
+
+        # r_pl2a = torch.stack(
+        #     [
+        #         torch.norm(rel_pos_pl2a[:, :2], p=2, dim=-1),
+        #         angle_between_2d_vectors(
+        #             ctr_vector=head_vector_s[edge_index_pl2a[1]],
+        #             nbr_vector=rel_pos_pl2a[:, :2],
+        #         ),
+        #         rel_orient_pl2a,
+        #     ],
+        #     dim=-1,
+        # )
 
         r_pl2a = self.r_pt2a_emb(continuous_inputs=r_pl2a, categorical_embs=None)
 
