@@ -273,7 +273,7 @@ class PDInit(nn.Module):
 
         return loss
 
-    def kmeans_fast(self,x, k, iters=20):
+    def kmeans_fast(self,x, k, iters=10):
         N, D = x.shape
         device = x.device
 
