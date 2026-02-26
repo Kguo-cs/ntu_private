@@ -302,15 +302,17 @@ class PDInit(nn.Module):
 
             centroids = new_centroids / counts.unsqueeze(1)
 
-        return centroids, labels
+        return centroids
 
     def cluster_points(self, pos, batch,type, num_graphs):
 
         device = pos.device
-        new_centroids = []
-
-        new_batch=[]
-        new_type=[]
+        #less_batch= []
+        less_centroids =[]
+        #less_type =[]
+        more_batch =[]
+        more_centroids =[]
+        more_type =[]
 
         for i in range(num_graphs):
             mask = (batch == i)
@@ -323,31 +325,43 @@ class PDInit(nn.Module):
             type_non_veh=type_i[type_i!=0]
 
             N = x.shape[0]
-            if N<=1:
-                k=N
-                centroids=x
+            k = torch.randint(0, N+1, (1,), device=device).item()
+            k1 = min(N, k + 1)  # torch.randint(k+1, N+1, (1,), device=device).item()
+
+            if k==0:
+                centroids=x[:k]
             else:
-                k = torch.randint(1, N, (1,), device=device).item()
+                centroids =self.kmeans_fast(x, k)
 
-                centroids, labels =self.kmeans_fast(x, k)
+            if k1 == 0:
+                centroids1 = x[:k1]
+            else:
+                centroids1 = self.kmeans_fast(x, k1)
 
-            # k1 = torch.randint(k+1, N+1, (1,), device=device).item()
-            #
-            # centroids1, labels1 =self.kmeans_fast(x, k1)
+            #less_batch.append(torch.zeros([k+len(x_non_veh)],device=device,dtype=torch.long)+i)
 
-            new_batch.append(torch.zeros([k+len(x_non_veh)],device=device,dtype=torch.long)+i)
+            padding_centers=torch.zeros_like(centroids1)[k:]
 
-            new_centroids.append(torch.cat([centroids,x_non_veh],dim=0))
+            less_centroids.append(torch.cat([centroids,padding_centers,x_non_veh],dim=0))
 
-            new_type.append(torch.cat([torch.zeros([k],device=device,dtype=torch.long),type_non_veh],dim=0))
+            #less_type.append(torch.cat([torch.zeros([k],device=device,dtype=torch.long),type_non_veh],dim=0))
 
-            # results1.append(centroids1)
+            more_batch.append(torch.zeros([k1+len(x_non_veh)],device=device,dtype=torch.long)+i)
 
-        new_batch = torch.cat(new_batch, dim=0)
-        new_centroids = torch.cat(new_centroids, dim=0)
-        new_type=torch.cat(new_type, dim=0)
+            more_centroids.append(torch.cat([centroids1,x_non_veh],dim=0))
 
-        return new_centroids,new_batch,new_type
+            more_type.append(torch.cat([torch.zeros([k1],device=device,dtype=torch.long),type_non_veh],dim=0))
+
+        #less_batch = torch.cat(less_batch, dim=0)
+        less_centroids = torch.cat(less_centroids, dim=0)
+        #less_type=torch.cat(less_type, dim=0)
+
+        more_batch = torch.cat(more_batch, dim=0)
+        more_centroids = torch.cat(more_centroids, dim=0)
+        more_type=torch.cat(more_type, dim=0)
+
+
+        return less_centroids,more_batch,more_centroids,more_type
 
     def forward(self,  tokenized_agent,map_range=100):
 
@@ -368,7 +382,7 @@ class PDInit(nn.Module):
 
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
-        batch = tokenized_agent["batch"][non_ego].clone()
+        nonego_batch = tokenized_agent["batch"][non_ego].clone()
 
         nonego_type = tokenized_agent["initial_type"][non_ego].clone()
 
@@ -433,15 +447,20 @@ class PDInit(nn.Module):
         normal_mean=self.normal_mean.to(non_ego.device)
 
         if self.training:
-            m_init,sort_idx=self.get_data(tokenized_agent,non_ego,batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
-            data = (m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
-            old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
-            m_init,batch,new_type=self.cluster_points(m_init, batch,old_nonego_type_sorted, num_graphs)
-            tokenized_agent['nonego_type_sorted']=new_type
-            ego_embedding = ego_embedding[batch]
-            tokenized_agent["ego_embedding"] = ego_embedding
-            tokenized_agent["nonego_batch"]=batch
-            data=(m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, batch, batch_pl)
+            m_init,sort_idx=self.get_data(tokenized_agent,non_ego,nonego_batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
+            if self.G.use_scale:
+                old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
+
+                diff_input, nonego_batch, m_init, more_type = self.cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
+                tokenized_agent['nonego_type_sorted']=more_type
+                ego_embedding = ego_embedding[nonego_batch]
+                tokenized_agent["ego_embedding"] = ego_embedding
+            else:
+                diff_input=m_init
+
+            tokenized_agent["nonego_batch"]=nonego_batch
+
+            data=(m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, nonego_batch, batch_pl)
 
             if self.learn_autoencoder:
                 rec_loss,agent_loss,kl_loss,x_pred =self.autoencoder.loss(data)
@@ -455,21 +474,21 @@ class PDInit(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init,x_pred ,t_batch,t = self.G.get_loss(m_init, tokenized_agent, map_feature,non_ego)
+                loss_diff_init,x_pred ,t_batch,t = self.G.get_loss(diff_input, tokenized_agent, map_feature,non_ego)
 
                 if self.use_gan:
                     loss=self.get_gan_loss(m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego)
                 else:
-                    match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
-                                                                                                device=non_ego.device)
+                    # match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
+                    #                                                                             device=non_ego.device)
 
-                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(old_nonego_type_sorted,
-                    #                                                                              old_batch,
-                    #                                                                              x_pred * normal_scale + normal_mean,
-                    #                                                                              m_init * normal_scale + normal_mean,
-                    #                                                                              latent=False,
-                    #                                                                              use_col=False,
-                    #                                                                              )
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent['nonego_type_sorted'],
+                                                                                                 tokenized_agent["nonego_batch"],
+                                                                                                 x_pred * normal_scale + normal_mean,
+                                                                                                 m_init * normal_scale + normal_mean,
+                                                                                                 latent=False,
+                                                                                                 use_col=False,
+                                                                                                 )
 
                     # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                     #                                                                              old_batch,
@@ -501,19 +520,19 @@ class PDInit(nn.Module):
 
                 return loss
         else:
-            ego_embedding = ego_embedding[batch]
+            ego_embedding = ego_embedding[nonego_batch]
             tokenized_agent["ego_embedding"] = ego_embedding
-            tokenized_agent["nonego_batch"]=batch
+            tokenized_agent["nonego_batch"]=nonego_batch
 
             if self.learn_autoencoder:
-                m_init,sort_idx = self.get_data(tokenized_agent, non_ego, batch, nonego_type, gt_initial_pos,
+                m_init,sort_idx = self.get_data(tokenized_agent, non_ego, nonego_batch, nonego_type, gt_initial_pos,
                                        gt_initial_heading, ego_position, ego_heading)
 
-                data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding,feat_map, batch, batch_pl)
+                data = (m_init, tokenized_agent['nonego_type_sorted'],num_graphs, ego_embedding,feat_map, nonego_batch, batch_pl)
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                sort_rank = batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                sort_rank = nonego_batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
 
                 sort_idx = sort_rank.argsort()
 
@@ -528,12 +547,12 @@ class PDInit(nn.Module):
             if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
 
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
 
             pred_init=pred_init*normal_scale+normal_mean
             
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
-                pred_init, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
+                pred_init, tokenized_agent, non_ego, nonego_batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
             )
             
             tokenized_agent["shape"]= shape

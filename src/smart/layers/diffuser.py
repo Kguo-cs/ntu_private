@@ -21,6 +21,7 @@ from typing import Dict, Mapping, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from matplotlib.pyplot import step
 from torch_cluster import radius
 from torch_geometric.data import Batch
 from torch_geometric.data import HeteroData
@@ -100,6 +101,8 @@ class InitDiffusion(nn.Module):
         self.flow_matching=True
 
         self.x_pred=True
+
+        self.use_scale=True
 
         self.t_eps=5e-2
 
@@ -238,7 +241,7 @@ class InitDiffusion(nn.Module):
     def _forward_sample(self, z, t, labels):
 
         tokenized_agent, scene_enc, eval_mask=labels
-        num_agents = eval_mask.sum()
+        num_agents = len(z)
 
         t_n=torch.full((num_agents,1), t, device=eval_mask.device)
 
@@ -250,7 +253,6 @@ class InitDiffusion(nn.Module):
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
-        steps=self.steps
         agent_batch = tokenized_agent["nonego_batch"]
         num_scenes = tokenized_agent["num_graphs"]
 
@@ -259,6 +261,38 @@ class InitDiffusion(nn.Module):
         num_agents = eval_mask.sum()
 
         z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
+
+        max_agent_number=max(tokenized_agent["lengths"])
+
+        if self.use_scale:
+            steps=max_agent_number
+
+            agent_type = tokenized_agent["nonego_type_sorted"]
+
+            veh_mask = agent_type == 0
+
+            # 1. cumulative vehicle count globally
+            veh_cumsum = torch.cumsum(veh_mask.long(), dim=0)
+
+            # 2. total vehicles per scene
+            veh_per_scene = torch.bincount(
+                agent_batch[veh_mask],
+                minlength=num_scenes
+            )
+
+            # 3. prefix vehicle offsets per scene
+            veh_offsets = torch.cumsum(veh_per_scene, dim=0)
+            veh_offsets = torch.cat([
+                torch.zeros(1, device=veh_offsets.device, dtype=veh_offsets.dtype),
+                veh_offsets[:-1]
+            ])
+
+            # 4. vehicle rank inside its own scene
+            veh_rank = veh_cumsum - veh_offsets[agent_batch] - 1
+
+
+        else:
+            steps=self.steps
 
         if self.mean_flow:
             t = torch.ones(num_agents, device=eval_mask.device)[:,None]
@@ -282,7 +316,26 @@ class InitDiffusion(nn.Module):
             for i in range(steps - 1):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
-                z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+
+                if self.use_scale:
+                    first_i_veh_mask = (~veh_mask) | (veh_rank < i+1)
+
+                    tokenized_agent_scale = {}
+                    tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
+                    tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
+                    tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
+                    tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
+
+                    agent_batch_scale=agent_batch[first_i_veh_mask]
+
+                    tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
+
+                    z_scale=z[first_i_veh_mask]
+                    z[first_i_veh_mask]=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+
+                else:
+                    z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+
             # last step euler
             z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
 
@@ -549,7 +602,7 @@ class InitDenoiser(nn.Module):
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device
-        batch = tokenized_agent["batch"][eval_mask]
+        batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
         batch_size = tokenized_agent["num_graphs"]
         ego_embedding = tokenized_agent["ego_embedding"]

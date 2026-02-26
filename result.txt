@@ -475,9 +475,6 @@ bc40_start0eval0_inter2
 0.7877
 
 
-/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_t30_epoch=31-step=389600.ckpt
-
-
 /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_t30_diff_epoch=31-step=389600.ckpt
 
 | Metric                                | Value      |
@@ -499,9 +496,6 @@ bc40_start0eval0_inter2
 
 0.7871
 
-/home/ke/code/sim/src/waymo_data/AIRL32_mean_start2_53_t3_epoch=9-step=152190_0.7865.ckpt
-
-
 
 /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_t30_epoch=31-step=389600.ckpt
 
@@ -520,12 +514,31 @@ bc40_start0eval0_inter2
 | minADE                                | 1.3521289  |
 
 
+/home/ke/code/sim/src/waymo_data/AIRL32_mean_start2_53_t3_epoch=9-step=152190_0.7865.ckpt
+
+0.7871
 
 /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_start2_53_t3_nodiff_epoch=9-step=152190_0.78663.ckpt
+
+
+0.7878
+
+/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_alldiff_epoch=31-step=389600.ckpt
 
 
 
 /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_start2_53_t3_R_epoch=9-step=152190_0.78684.ckpt
 
 
-/home/ke/code/sim/src/waymo_data/AIRL32_mean_start2_53_t3_epoch=9-step=152190_0.7865.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_13_t3_nodiff_epoch=9-step=152190_0.7864.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_103_t3_nodiff_epoch=9-step=152190_0.79065.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_t3_nodiff_epoch=9-step=152190_0.79065.ckpt
+
+
+/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_noego_alldiff_epoch=31-step=389600.ckpt
