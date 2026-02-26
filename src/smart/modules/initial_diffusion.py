@@ -516,7 +516,7 @@ class PDInit(nn.Module):
                         loss = (loss_diff_init.mean(),res, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                     else:
-                        loss = (loss_diff_init.mean(),loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                        loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
