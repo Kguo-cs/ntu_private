@@ -323,7 +323,7 @@ class PDInit(nn.Module):
 
         max_number=max(veh_number_per_batch)#self.G.steps#
 
-        step = torch.randint(0, max_number+1, (1,), device=device).item()
+        #step = torch.randint(0, max_number+1, (1,), device=device).item()
 
         for i in range(num_graphs):
             mask = (batch == i)
@@ -336,6 +336,7 @@ class PDInit(nn.Module):
             type_non_veh=type_i[type_i!=0]
 
             N = x.shape[0]
+            step= torch.randint(0, N*2+1, (1,), device=device).item()
             k = min(step,N)
             # k = torch.randint(0, N+1, (1,), device=device).item()
             k1 = min(step + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
