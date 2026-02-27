@@ -133,7 +133,12 @@ class InitDiffusion(nn.Module):
         #dist = torch.distributions.Beta(0.5, 1)
         #z = dist.sample((n,)).to(device)
 
-        z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
+        timesteps = torch.linspace(0, 1, self.steps + 1, device=device)
+
+        idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
+        z = timesteps[idx]
+
+        #z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
 
     def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples):
@@ -286,7 +291,7 @@ class InitDiffusion(nn.Module):
             # 4. vehicle rank inside its own scene
             veh_rank = veh_cumsum - veh_offsets[agent_batch] - 1
 
-            steps=512#max(veh_rank)+1
+            steps=self.steps#max(veh_rank)+1
 
         else:
             steps=self.steps
