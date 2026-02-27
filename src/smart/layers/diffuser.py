@@ -135,10 +135,10 @@ class InitDiffusion(nn.Module):
 
         timesteps = torch.linspace(0, 1, self.steps + 1, device=device)
 
-        idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
-        z = timesteps[idx]#.repeat(n)
+        # idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
+        # z = timesteps[idx]#.repeat(n)
 
-        #z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
+        z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
 
     def flow_matching_loss(self,x, tokenized_agent, scene_enc,eval_mask,num_samples):
