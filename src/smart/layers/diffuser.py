@@ -315,23 +315,23 @@ class InitDiffusion(nn.Module):
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
 
-                # if self.use_scale:
-                #     first_i_veh_mask = (~veh_mask) | (veh_rank < i+1)
-                #
-                #     tokenized_agent_scale = {}
-                #     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
-                #     tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
-                #     tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
-                #     tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
-                #
-                #     agent_batch_scale=agent_batch[first_i_veh_mask]
-                #
-                #     tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
-                #
-                #     z_scale=z[first_i_veh_mask]
-                #     z[first_i_veh_mask]=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
-                # else:
-                z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+                if self.use_scale:
+                    first_i_veh_mask = (~veh_mask) | (veh_rank < i+1)
+
+                    tokenized_agent_scale = {}
+                    tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
+                    tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
+                    tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
+                    tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
+
+                    agent_batch_scale=agent_batch[first_i_veh_mask]
+
+                    tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
+
+                    z_scale=z[first_i_veh_mask]
+                    z[first_i_veh_mask]=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+                else:
+                    z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
             # last step euler
             z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))

@@ -314,6 +314,17 @@ class PDInit(nn.Module):
         more_centroids =[]
         more_type =[]
 
+        veh_mask = (type == 0)
+
+        veh_number_per_batch = torch.bincount(
+            batch[veh_mask],
+            minlength=num_graphs
+        )
+
+        max_number=max(veh_number_per_batch)
+
+        k = torch.randint(0, max_number+1, (1,), device=device).item()
+
         for i in range(num_graphs):
             mask = (batch == i)
             type_i=type[mask]
@@ -325,8 +336,9 @@ class PDInit(nn.Module):
             type_non_veh=type_i[type_i!=0]
 
             N = x.shape[0]
-            k = torch.randint(0, N+1, (1,), device=device).item()
-            k1 = min(N, k + 1)  # torch.randint(k+1, N+1, (1,), device=device).item()
+            k = min(k,N)
+            # k = torch.randint(0, N+1, (1,), device=device).item()
+            k1 = min(k + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
             if k==0:
                 centroids=x[:k]
