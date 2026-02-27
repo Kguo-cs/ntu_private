@@ -321,9 +321,9 @@ class PDInit(nn.Module):
             minlength=num_graphs
         )
 
-        max_number=512#max(veh_number_per_batch)
+        max_number=self.G.steps#max(veh_number_per_batch)
 
-        all_k = torch.randint(0, max_number+1, (1,), device=device).item()
+        step = torch.randint(0, max_number+1, (1,), device=device).item()
 
         for i in range(num_graphs):
             mask = (batch == i)
@@ -336,9 +336,9 @@ class PDInit(nn.Module):
             type_non_veh=type_i[type_i!=0]
 
             N = x.shape[0]
-            k = min(all_k,N)
+            k = min(step,N)
             # k = torch.randint(0, N+1, (1,), device=device).item()
-            k1 = min(all_k + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
+            k1 = min(step + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
             if k==0:
                 centroids=x[:k]
@@ -373,7 +373,7 @@ class PDInit(nn.Module):
         more_type=torch.cat(more_type, dim=0)
 
 
-        return less_centroids,more_batch,more_centroids,more_type
+        return less_centroids,more_batch,more_centroids,more_type,step
 
     def forward(self,  tokenized_agent,map_range=100):
 
@@ -463,10 +463,11 @@ class PDInit(nn.Module):
             if self.G.use_scale:
                 old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
 
-                diff_input, nonego_batch, m_init, more_type = self.cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
+                diff_input, nonego_batch, m_init, more_type ,step= self.cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
                 tokenized_agent['nonego_type_sorted']=more_type
                 ego_embedding = ego_embedding[nonego_batch]
                 tokenized_agent["ego_embedding"] = ego_embedding
+                tokenized_agent["step"]=step
             else:
                 diff_input=m_init
 
