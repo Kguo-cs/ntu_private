@@ -299,7 +299,7 @@ class InitDiffusion(nn.Module):
             # 4. vehicle rank inside its own scene
             veh_rank = veh_cumsum - veh_offsets[agent_batch] - 1
 
-            steps=self.steps#max(veh_rank)+1
+            steps=max(veh_rank)+1#self.steps#
 
         else:
             steps=self.steps
