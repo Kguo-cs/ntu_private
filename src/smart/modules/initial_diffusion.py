@@ -321,7 +321,7 @@ class PDInit(nn.Module):
             minlength=num_graphs
         )
 
-        max_number=max(veh_number_per_batch)
+        max_number=512#max(veh_number_per_batch)
 
         k = torch.randint(0, max_number+1, (1,), device=device).item()
 
