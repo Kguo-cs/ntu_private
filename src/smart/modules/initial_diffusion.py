@@ -323,7 +323,7 @@ class PDInit(nn.Module):
 
         max_number=512#max(veh_number_per_batch)
 
-        k = torch.randint(0, max_number+1, (1,), device=device).item()
+        all_k = 3#torch.randint(0, max_number+1, (1,), device=device).item()
 
         for i in range(num_graphs):
             mask = (batch == i)
@@ -336,9 +336,9 @@ class PDInit(nn.Module):
             type_non_veh=type_i[type_i!=0]
 
             N = x.shape[0]
-            k = min(k,N)
+            k = min(all_k,N)
             # k = torch.randint(0, N+1, (1,), device=device).item()
-            k1 = min(k + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
+            k1 = min(all_k + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
             if k==0:
                 centroids=x[:k]
