@@ -323,7 +323,7 @@ class PDInit(nn.Module):
 
         max_number=512#max(veh_number_per_batch)
 
-        all_k = 3#torch.randint(0, max_number+1, (1,), device=device).item()
+        all_k = torch.randint(0, max_number+1, (1,), device=device).item()
 
         for i in range(num_graphs):
             mask = (batch == i)

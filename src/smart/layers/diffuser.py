@@ -154,14 +154,9 @@ class InitDiffusion(nn.Module):
 
         e = torch.randn_like(x)  # base distribution N(0, I)
 
-        nonego_type_sorted= tokenized_agent['nonego_type_sorted']
-
-        veh_batch=agent_batch[nonego_type_sorted==0]
-
-        veh_number_per_batch = torch.bincount(
-            veh_batch,
-            minlength=num_scenes
-        )#output veh number
+        # timesteps = torch.linspace(0, 1, self.steps + 1, device=eval_mask.device)
+        #
+        # t = timesteps[i]
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
