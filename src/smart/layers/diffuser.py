@@ -135,8 +135,8 @@ class InitDiffusion(nn.Module):
 
         timesteps = torch.linspace(0, 1, self.steps + 1, device=device)
 
-        idx = torch.randint(0, timesteps.shape[0], (1,), device=timesteps.device)
-        z = timesteps[idx].repeat(n)
+        idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
+        z = timesteps[idx]#.repeat(n)
 
         #z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
@@ -154,15 +154,15 @@ class InitDiffusion(nn.Module):
 
         e = torch.randn_like(x)  # base distribution N(0, I)
 
-        timesteps = torch.linspace(0, 1, self.steps + 1, device=eval_mask.device)
+        # timesteps = torch.linspace(0, 1, self.steps + 1, device=eval_mask.device)
+        #
+        # step=tokenized_agent["step"]
+        #
+        # t =timesteps[step]
+        #
+        # t_batch=t.repeat(num_scenes)[:, None]
 
-        step=tokenized_agent["step"]
-
-        t =timesteps[step]
-
-        t_batch=t.repeat(num_scenes)[:, None]
-
-        #t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+        t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
         if self.mean_flow:
