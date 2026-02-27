@@ -164,9 +164,11 @@ class InitDiffusion(nn.Module):
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
+        
+        
+        
 
         if self.mean_flow:
-
 
             # r ~ U[0, t]
             r_batch = torch.rand(num_scenes, device=device) [:, None]* t_batch
@@ -211,8 +213,12 @@ class InitDiffusion(nn.Module):
                 t_batch=torch.zeros_like(t_batch)
 
             t=t_batch[agent_batch]
-
+            
+            padding_mask =torch.all(x==0,dim=-1)
+            
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
+            
+            z[padding_mask]=e
 
             if self.x_pred:
                 v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
