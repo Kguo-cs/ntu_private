@@ -218,7 +218,7 @@ class InitDiffusion(nn.Module):
             
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
             
-            z[padding_mask]=e
+            z[padding_mask]=e[padding_mask]
 
             if self.x_pred:
                 v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
