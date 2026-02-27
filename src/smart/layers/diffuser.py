@@ -21,7 +21,6 @@ from typing import Dict, Mapping, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from matplotlib.pyplot import step
 from torch_cluster import radius
 from torch_geometric.data import Batch
 from torch_geometric.data import HeteroData
