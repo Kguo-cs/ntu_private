@@ -31,12 +31,93 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
+import torch
+
+import torch
+
+def batched_kmeans(pos, batch, num_graphs, k_max=None, iters=10):
+    """
+    Batched per-graph K-Means clustering on GPU.
+
+    Args:
+        pos: (N_total, D) positions of all veh points
+        batch: (N_total,) batch indices (0..num_graphs-1)
+        num_graphs: number of graphs
+        k_max: max clusters per graph; if None, set to min points per graph
+        iters: k-means iterations
+
+    Returns:
+        centroids: list of per-graph centroids (padded to k_max)
+        labels: (N_total,) cluster assignment per point
+    """
+    device = pos.device
+    D = pos.shape[1]
+
+    # --- count points per graph ---
+    counts = torch.bincount(batch, minlength=num_graphs)
+    max_points = counts.max().item()
+
+    # --- create padded tensor for positions ---
+    padded = torch.zeros(num_graphs, max_points, D, device=device)
+    mask = torch.zeros(num_graphs, max_points, dtype=torch.bool, device=device)
+
+    # compute offsets to scatter points
+    idx_in_graph = torch.zeros_like(batch)
+    for g in range(num_graphs):
+        mask_g = batch == g
+        idx_in_graph[mask_g] = torch.arange(counts[g], device=device)
+
+    padded[batch, idx_in_graph] = pos
+    mask[batch, idx_in_graph] = True  # True for real points
+
+    # --- set k per graph ---
+    if k_max is None:
+        k_max = counts.min().item()  # simple heuristic
+    k_max = min(k_max, max_points)
+
+    # --- initialize centroids: pick first k points per graph ---
+    centroids = padded[:, :k_max].clone()  # (num_graphs, k_max, D)
+
+    # --- iterative K-Means ---
+    for _ in range(iters):
+        # compute squared distances: (num_graphs, max_points, k_max)
+        dist = (
+            padded.pow(2).sum(-1, keepdim=True)
+            - 2 * padded @ centroids.transpose(1, 2)
+            + centroids.pow(2).sum(-1).unsqueeze(1)
+        )
+        dist[~mask.unsqueeze(-1)] = float('inf')  # ignore padded points
+
+        # assign labels
+        labels = dist.argmin(dim=2)  # (num_graphs, max_points)
+
+        # vectorized centroid update
+        new_centroids = torch.zeros_like(centroids)
+        counts_centroids = torch.zeros(num_graphs, k_max, device=device)
+
+        for g in range(num_graphs):
+            # mask valid points
+            valid_idx = mask[g]
+            lbls = labels[g, valid_idx]
+            pts = padded[g, valid_idx]
+            # sum points per cluster
+            new_centroids[g].scatter_add_(0, lbls.unsqueeze(-1).expand(-1, D), pts)
+            # count points per cluster
+            counts_centroids[g].scatter_add_(0, lbls, torch.ones_like(lbls, dtype=torch.float, device=device))
+
+        centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
+
+    # --- flatten labels to original shape ---
+    flat_labels = labels[batch, idx_in_graph]
+
+    return centroids, flat_labels
+
+
 
 def cluster_points( pos, batch, type, num_graphs):
+    #batched_kmeans(pos, batch, num_graphs, iters=10)
     device = pos.device
-    # less_batch= []
     less_centroids = []
-    # less_type =[]
     more_batch = []
     more_centroids = []
     more_type = []
@@ -63,20 +144,20 @@ def cluster_points( pos, batch, type, num_graphs):
         type_non_veh = type_i[type_i != 0]
 
         N = x.shape[0]
-        step = torch.randint(0, N*2 + 1, (1,), device=device).item()
+        step = torch.randint(0, N + 1, (1,), device=device).item()
         k = min(step, N)
-        # k = torch.randint(0, N+1, (1,), device=device).item()
-        k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
         if k == 0:
             centroids = x[:k]
         else:
-            centroids = kmeans_fast(x, k)
+            centroids = x[:k]#kmeans_fast(x, k)
+
+        k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
         if k1 == 0:
             centroids1 = x[:k1]
         else:
-            centroids1 = kmeans_fast(x, k1)
+            centroids1 = x[:k1] #kmeans_fast(x, k1)
 
         # import matplotlib.pylab as plt
         #
