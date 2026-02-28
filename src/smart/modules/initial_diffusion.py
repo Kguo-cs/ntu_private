@@ -471,6 +471,7 @@ class PDInit(nn.Module):
                 tokenized_agent["step"]=step
             else:
                 diff_input=m_init
+                tokenized_agent["ego_embedding"] = ego_embedding
 
             tokenized_agent["nonego_batch"]=nonego_batch
 
