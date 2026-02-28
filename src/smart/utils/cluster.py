@@ -173,14 +173,14 @@ def cluster_points( pos, batch, type, num_graphs):
         if k == 0:
             centroids = x[:k]
         else:
-            centroids = x[:k]#kmeans_fast(x, k)
+            centroids = kmeans_fast(x, k)#x[:k]#
 
         k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
         if k1 == 0:
             centroids1 = x[:k1]
         else:
-            centroids1 = x[:k1] #kmeans_fast(x, k1)
+            centroids1 =kmeans_fast(x, k1)# x[:k1] #
 
         # import matplotlib.pylab as plt
         #

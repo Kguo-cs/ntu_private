@@ -266,7 +266,7 @@ class InitDiffusion(nn.Module):
 
         # conditional
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        v_cond = (x_cond - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
+        v_cond = (x_cond - z) / (1.0 - t_n[:,:,None])#.clamp_min(self.t_eps)
 
         return v_cond,t_n[:,:,None]
 
