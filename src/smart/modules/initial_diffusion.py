@@ -466,14 +466,14 @@ class PDInit(nn.Module):
 
                 diff_input, nonego_batch, m_init, more_type ,step= self.cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
                 tokenized_agent['nonego_type_sorted']=more_type
-                ego_embedding = ego_embedding[nonego_batch]
-                tokenized_agent["ego_embedding"] = ego_embedding
                 tokenized_agent["step"]=step
             else:
                 diff_input=m_init
-                tokenized_agent["ego_embedding"] = ego_embedding
+                
+            ego_embedding = ego_embedding[nonego_batch]
 
             tokenized_agent["nonego_batch"]=nonego_batch
+            tokenized_agent["ego_embedding"] = ego_embedding
 
             data=(m_init, tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map, nonego_batch, batch_pl)
 
