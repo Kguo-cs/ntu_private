@@ -1,8 +1,8 @@
 export PBS_JOBID=118609.pbs111
 
-rsync -avz   ke@10.87.67.68:~/code/sim/src/waymo_data/full/training_map2_03_light ./
+rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
-rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/
+rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/testing_map2light 
 
 rsync -avz /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_drop0_kl02epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/   
 
