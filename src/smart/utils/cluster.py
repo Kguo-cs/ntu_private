@@ -75,52 +75,52 @@ def kmeans( padded, mask,k_per_graph, iters=10):
         # assign labels per point (capped at graph's k)
         labels = dist.argmin(dim=2)  # (num_graphs, max_points)
         #
-        # labels_per_point=labels.flatten(0,1)
-        #
-        # # total clusters across all graphs
-        # total_clusters = num_graphs * max_k
-        #
-        # new_centroids = torch.zeros(total_clusters, D, device=device)
-        # counts_centroids = torch.zeros(total_clusters, device=device)
-        #
-        # # global cluster index per point
-        # global_idx = batch * max_k + labels_per_point   # (N_total,)
-        #
-        # # scatter sums
-        # new_centroids.index_add_(0, global_idx, pos)
-        # counts_centroids.index_add_(0, global_idx, torch.ones_like(global_idx, dtype=torch.float))
-        #
-        # # reshape back
-        # new_centroids = new_centroids.view(num_graphs, max_k, D)
-        # counts_centroids = counts_centroids.view(num_graphs, max_k)
-        #
-        # centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
-        # # --- vectorized centroid update ---
-        new_centroids = torch.zeros_like(centroids)
-        counts_centroids = torch.zeros(num_graphs, max_k, device=device)
+        labels_per_point=labels.flatten(0,1)
 
-        # flatten graphs and clusters to 1D indices
-        flat_graph = torch.arange(num_graphs, device=device).unsqueeze(1).expand(-1, max_points).reshape(-1)
-        flat_labels = labels.reshape(-1)
-        flat_points = padded.reshape(-1, D)
-        flat_mask = mask.reshape(-1)
+        # total clusters across all graphs
+        total_clusters = num_graphs * max_k
 
-        # only valid points
-        valid = flat_mask
-        flat_idx = flat_graph[valid] * max_k + flat_labels[valid]  # unique index per graph+cluster
+        new_centroids = torch.zeros(total_clusters, D, device=device)
+        counts_centroids = torch.zeros(total_clusters, device=device)
 
-        new_centroids = new_centroids.reshape(-1, D)
-        counts_centroids = counts_centroids.reshape(-1)
+        # global cluster index per point
+        global_idx = batch * max_k + labels_per_point   # (N_total,)
 
-        # scatter add
-        new_centroids.index_add_(0, flat_idx, flat_points[valid])
-        counts_centroids.index_add_(0, flat_idx, torch.ones_like(flat_labels[valid], dtype=torch.float, device=device))
+        # scatter sums
+        new_centroids.index_add_(0, global_idx, pos)
+        counts_centroids.index_add_(0, global_idx, torch.ones_like(global_idx, dtype=torch.float))
 
         # reshape back
-        new_centroids = new_centroids.reshape(num_graphs, max_k, D)
-        counts_centroids = counts_centroids.reshape(num_graphs, max_k)
+        new_centroids = new_centroids.view(num_graphs, max_k, D)
+        counts_centroids = counts_centroids.view(num_graphs, max_k)
 
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
+        # # --- vectorized centroid update ---
+        # new_centroids = torch.zeros_like(centroids)
+        # counts_centroids = torch.zeros(num_graphs, max_k, device=device)
+        #
+        # # flatten graphs and clusters to 1D indices
+        # flat_graph = torch.arange(num_graphs, device=device).unsqueeze(1).expand(-1, max_points).reshape(-1)
+        # flat_labels = labels.reshape(-1)
+        # flat_points = padded.reshape(-1, D)
+        # flat_mask = mask.reshape(-1)
+        #
+        # # only valid points
+        # valid = flat_mask
+        # flat_idx = flat_graph[valid] * max_k + flat_labels[valid]  # unique index per graph+cluster
+        #
+        # new_centroids = new_centroids.reshape(-1, D)
+        # counts_centroids = counts_centroids.reshape(-1)
+        #
+        # # scatter add
+        # new_centroids.index_add_(0, flat_idx, flat_points[valid])
+        # counts_centroids.index_add_(0, flat_idx, torch.ones_like(flat_labels[valid], dtype=torch.float, device=device))
+        #
+        # # reshape back
+        # new_centroids = new_centroids.reshape(num_graphs, max_k, D)
+        # counts_centroids = counts_centroids.reshape(num_graphs, max_k)
+        #
+        # centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
     return centroids
  # [00:48<11:03,  5.34it/s, v_num=vx1p]
