@@ -31,91 +31,114 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-import torch
 
 import torch
 
-def batched_kmeans(pos, batch, num_graphs, k_max=None, iters=10):
+def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     """
-    Batched per-graph K-Means clustering on GPU.
+    Batched K-Means per graph, allowing variable number of clusters per graph.
 
     Args:
-        pos: (N_total, D) positions of all veh points
-        batch: (N_total,) batch indices (0..num_graphs-1)
-        num_graphs: number of graphs
-        k_max: max clusters per graph; if None, set to min points per graph
-        iters: k-means iterations
+        pos: (N_total, D) positions
+        batch: (N_total,) graph index per point (0..num_graphs-1)
+        k_per_graph: (num_graphs,) number of clusters for each graph
+        iters: K-Means iterations
 
     Returns:
-        centroids: list of per-graph centroids (padded to k_max)
+        centroids: (num_graphs, max_k, D) padded centroids
         labels: (N_total,) cluster assignment per point
     """
     device = pos.device
     D = pos.shape[1]
+    N_total = pos.shape[0]
 
-    # --- count points per graph ---
+    # --- compute point offsets within each graph ---
     counts = torch.bincount(batch, minlength=num_graphs)
-    max_points = counts.max().item()
+    idx_in_graph = torch.zeros(N_total, device=device, dtype=torch.long)
+    temp_counts = torch.zeros(num_graphs, device=device, dtype=torch.long)
+    for i in range(N_total):
+        g = batch[i]
+        idx_in_graph[i] = temp_counts[g]
+        temp_counts[g] += 1
 
     # --- create padded tensor for positions ---
+    max_points = counts.max().item()
     padded = torch.zeros(num_graphs, max_points, D, device=device)
     mask = torch.zeros(num_graphs, max_points, dtype=torch.bool, device=device)
-
-    # compute offsets to scatter points
-    idx_in_graph = torch.zeros_like(batch)
-    for g in range(num_graphs):
-        mask_g = batch == g
-        idx_in_graph[mask_g] = torch.arange(counts[g], device=device)
-
     padded[batch, idx_in_graph] = pos
-    mask[batch, idx_in_graph] = True  # True for real points
+    mask[batch, idx_in_graph] = True
 
-    # --- set k per graph ---
-    if k_max is None:
-        k_max = counts.min().item()  # simple heuristic
-    k_max = min(k_max, max_points)
+    k_per_graph = torch.zeros_like(temp_counts)
 
-    # --- initialize centroids: pick first k points per graph ---
-    centroids = padded[:, :k_max].clone()  # (num_graphs, k_max, D)
+    for i in range(num_graphs):
+        k_per_graph[i]=torch.randint(0, temp_counts[i] + 1, (1,), device=device).item()
 
-    # --- iterative K-Means ---
+    max_k = k_per_graph.max().item()
+
+    # --- initialize centroids (first k points per graph) ---
+    centroids = torch.zeros(num_graphs, max_k, D, device=device)
+
+    for g in range(num_graphs):
+        k = k_per_graph[g].item()
+        centroids[g, :k] = padded[g, :k]
+
+    # --- K-Means iterations ---
     for _ in range(iters):
-        # compute squared distances: (num_graphs, max_points, k_max)
+        # distances: (num_graphs, max_points, max_k)
         dist = (
             padded.pow(2).sum(-1, keepdim=True)
             - 2 * padded @ centroids.transpose(1, 2)
             + centroids.pow(2).sum(-1).unsqueeze(1)
         )
-        dist[~mask.unsqueeze(-1)] = float('inf')  # ignore padded points
+        dist[~mask] = float('inf')  # ignore padded points
 
-        # assign labels
+        # assign labels per point (capped at graph's k)
         labels = dist.argmin(dim=2)  # (num_graphs, max_points)
-
-        # vectorized centroid update
-        new_centroids = torch.zeros_like(centroids)
-        counts_centroids = torch.zeros(num_graphs, k_max, device=device)
-
+        # mask labels exceeding k_per_graph
         for g in range(num_graphs):
-            # mask valid points
-            valid_idx = mask[g]
-            lbls = labels[g, valid_idx]
-            pts = padded[g, valid_idx]
-            # sum points per cluster
-            new_centroids[g].scatter_add_(0, lbls.unsqueeze(-1).expand(-1, D), pts)
-            # count points per cluster
-            counts_centroids[g].scatter_add_(0, lbls, torch.ones_like(lbls, dtype=torch.float, device=device))
+            labels[g, labels[g] >= k_per_graph[g]] = k_per_graph[g] - 1
+
+        # --- vectorized centroid update ---
+        new_centroids = torch.zeros_like(centroids)
+        counts_centroids = torch.zeros(num_graphs, max_k, device=device)
+
+        # flatten graphs and clusters to 1D indices
+        flat_graph = torch.arange(num_graphs, device=device).unsqueeze(1).expand(-1, max_points).reshape(-1)
+        flat_labels = labels.reshape(-1)
+        flat_points = padded.reshape(-1, D)
+        flat_mask = mask.reshape(-1)
+
+        # only valid points
+        valid = flat_mask
+        flat_idx = flat_graph[valid] * max_k + flat_labels[valid]  # unique index per graph+cluster
+
+        new_centroids = new_centroids.reshape(-1, D)
+        counts_centroids = counts_centroids.reshape(-1)
+
+        # scatter add
+        new_centroids.index_add_(0, flat_idx, flat_points[valid])
+        counts_centroids.index_add_(0, flat_idx, torch.ones_like(flat_labels[valid], dtype=torch.float, device=device))
+
+        # reshape back
+        new_centroids = new_centroids.reshape(num_graphs, max_k, D)
+        counts_centroids = counts_centroids.reshape(num_graphs, max_k)
 
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
-    # --- flatten labels to original shape ---
-    flat_labels = labels[batch, idx_in_graph]
+    # --- flatten labels to original points ---
+    flat_labels_out = labels[batch, idx_in_graph]
 
-    return centroids, flat_labels
+    return centroids, flat_labels_out
+
 
 
 
 def cluster_points( pos, batch, type, num_graphs):
-    #batched_kmeans(pos, batch, num_graphs, iters=10)
+    # veh_pos=pos[type==0]
+    # veh_batch=batch[type==0]
+    # batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+
+
     device = pos.device
     less_centroids = []
     more_batch = []
