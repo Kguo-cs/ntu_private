@@ -41,14 +41,14 @@ def cluster_points( pos, batch, type, num_graphs):
     more_centroids = []
     more_type = []
 
-    veh_mask = (type == 0)
-
-    veh_number_per_batch = torch.bincount(
-        batch[veh_mask],
-        minlength=num_graphs
-    )
-
-    max_number = max(veh_number_per_batch)  # self.G.steps#
+    # veh_mask = (type == 0)
+    #
+    # veh_number_per_batch = torch.bincount(
+    #     batch[veh_mask],
+    #     minlength=num_graphs
+    # )
+    #
+    # max_number = max(veh_number_per_batch)  # self.G.steps#
 
     # step = torch.randint(0, max_number+1, (1,), device=device).item()
 
@@ -63,7 +63,7 @@ def cluster_points( pos, batch, type, num_graphs):
         type_non_veh = type_i[type_i != 0]
 
         N = x.shape[0]
-        step = torch.randint(0, N + 1, (1,), device=device).item()
+        step = torch.randint(0, N*2 + 1, (1,), device=device).item()
         k = min(step, N)
         # k = torch.randint(0, N+1, (1,), device=device).item()
         k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
@@ -90,7 +90,7 @@ def cluster_points( pos, batch, type, num_graphs):
 
         # less_batch.append(torch.zeros([k+len(x_non_veh)],device=device,dtype=torch.long)+i)
 
-        padding_centers = torch.zeros_like(centroids1)[k:]
+        padding_centers = torch.zeros_like(centroids1[k:])
 
         less_centroids.append(torch.cat([centroids, padding_centers, x_non_veh], dim=0))
 
