@@ -1,3 +1,5 @@
+from turtledemo.chaos import plot
+
 from sympy.testing.pytest import tooslow
 
 from src.smart.layers import MLPLayer
@@ -339,7 +341,7 @@ class PDInit(nn.Module):
             step= torch.randint(0, N+1, (1,), device=device).item()
             k = min(step,N)
             # k = torch.randint(0, N+1, (1,), device=device).item()
-            k1 = min(step + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
+            k1 = min(k + 1,N)  # torch.randint(k+1, N+1, (1,), device=device).item()
 
             if k==0:
                 centroids=x[:k]
@@ -350,6 +352,16 @@ class PDInit(nn.Module):
                 centroids1 = x[:k1]
             else:
                 centroids1 = self.kmeans_fast(x, k1)
+
+            # import matplotlib.pylab as plt
+            #
+            # plt.scatter(centroids[:,0].cpu().numpy(), centroids[:,1].cpu().numpy(),s=30, c='r')
+            #
+            # plt.scatter(centroids1[:,0].cpu().numpy(), centroids1[:,1].cpu().numpy(),s=20, c='b')
+            #
+            # plt.scatter(x[:,0].cpu().numpy(), x[:,1].cpu().numpy(),s=10,c='g')
+            #
+            # plt.show()
 
             #less_batch.append(torch.zeros([k+len(x_non_veh)],device=device,dtype=torch.long)+i)
 

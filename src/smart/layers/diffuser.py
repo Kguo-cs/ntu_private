@@ -101,7 +101,7 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.use_scale=False
+        self.use_scale=True
 
         self.t_eps=5e-2
 
@@ -164,9 +164,6 @@ class InitDiffusion(nn.Module):
 
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
-        
-        
-        
 
         if self.mean_flow:
 
@@ -213,14 +210,13 @@ class InitDiffusion(nn.Module):
                 t_batch=torch.zeros_like(t_batch)
 
             t=t_batch[agent_batch]
-            
-            
-            z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
-            
+
             if self.use_scale:
                 padding_mask =torch.all(x==0,dim=-1)
 
-                z[padding_mask]=e[padding_mask]
+                t[padding_mask]=0
+
+            z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
 
             if self.x_pred:
                 v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
@@ -265,9 +261,15 @@ class InitDiffusion(nn.Module):
 
         t_n=torch.full((num_agents,1), t, device=eval_mask.device)
 
+        if self.use_scale:
+
+            padding_mask=tokenized_agent["padding_mask"]
+
+            t_n[padding_mask]=0
+
         # conditional
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        v_cond = (x_cond - z) / (1.0 - t).clamp_min(self.t_eps)
+        v_cond = (x_cond - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
 
         return v_cond
 
@@ -331,12 +333,12 @@ class InitDiffusion(nn.Module):
            # ts[0] = 1e-4
            # z[..., 0, 2:] = tokenized_agent["m_init"][..., 2:]
             # ode
-            for i in range(steps - 1):
+            for i in range(steps):# - 1
                 t = timesteps[i]
                 t_next = timesteps[i + 1]
 
                 if self.use_scale:
-                    first_i_veh_mask = (~veh_mask) | (veh_rank < i+1)
+                    first_i_veh_mask = (~veh_mask) | (veh_rank <= i)
 
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
@@ -348,13 +350,18 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
 
+                    padding_mask=((veh_rank==i) & veh_mask)[first_i_veh_mask]
+
+                    tokenized_agent_scale["padding_mask"]=padding_mask
+
                     z_scale=z[first_i_veh_mask]
+
                     z[first_i_veh_mask]=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
                 else:
                     z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
             # last step euler
-            z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
+           # z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
 
             # for i in range(steps):
             #        # t = ts[i].expand(z.shape[0],z.shape[1])
