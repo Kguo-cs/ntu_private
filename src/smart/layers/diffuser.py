@@ -101,7 +101,7 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.use_scale=True
+        self.use_scale=False
 
         self.t_eps=5e-2
 
@@ -133,7 +133,7 @@ class InitDiffusion(nn.Module):
         #dist = torch.distributions.Beta(0.5, 1)
         #z = dist.sample((n,)).to(device)
 
-        timesteps = torch.linspace(0, 1, self.steps + 1, device=device)
+        #timesteps = torch.linspace(0, 1, self.steps + 1, device=device)
 
         # idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
         # z = timesteps[idx]#.repeat(n)
@@ -214,11 +214,13 @@ class InitDiffusion(nn.Module):
 
             t=t_batch[agent_batch]
             
-            padding_mask =torch.all(x==0,dim=-1)
             
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
             
-            z[padding_mask]=e[padding_mask]
+            if self.use_scale:
+                padding_mask =torch.all(x==0,dim=-1)
+
+                z[padding_mask]=e[padding_mask]
 
             if self.x_pred:
                 v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
