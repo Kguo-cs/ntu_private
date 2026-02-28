@@ -119,7 +119,6 @@ class InitDiffusion(nn.Module):
                  scene_enc: Mapping[str, torch.Tensor],
                  eval_mask,
                  num_samples=1) :
-
         if self.flow_matching:
             return self.flow_matching_loss(diff_input, tokenized_agent, scene_enc,eval_mask, num_samples )
         else:
@@ -137,6 +136,13 @@ class InitDiffusion(nn.Module):
 
         # idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
         # z = timesteps[idx]#.repeat(n)
+        # timesteps = torch.linspace(0, 1, self.steps + 1, device=eval_mask.device)
+        #
+        # step=tokenized_agent["step"]
+        #
+        # t =timesteps[step]
+        #
+        # t_batch=t.repeat(num_scenes)[:, None]
 
         z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
@@ -153,15 +159,6 @@ class InitDiffusion(nn.Module):
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
         e = torch.randn_like(x)  # base distribution N(0, I)
-
-        # timesteps = torch.linspace(0, 1, self.steps + 1, device=eval_mask.device)
-        #
-        # step=tokenized_agent["step"]
-        #
-        # t =timesteps[step]
-        #
-        # t_batch=t.repeat(num_scenes)[:, None]
-
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
@@ -238,8 +235,8 @@ class InitDiffusion(nn.Module):
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
-        v_pred = self._forward_sample(z, t, labels)
-        z_next = z + (t_next - t) * v_pred
+        v_pred,t_n = self._forward_sample(z, t, labels)
+        z_next = z + (t_next - t_n) * v_pred
         return z_next
 
     @torch.no_grad()
@@ -271,7 +268,7 @@ class InitDiffusion(nn.Module):
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
         v_cond = (x_cond - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
 
-        return v_cond
+        return v_cond,t_n[:,:,None]
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
@@ -318,7 +315,6 @@ class InitDiffusion(nn.Module):
             t = torch.ones(num_agents, device=eval_mask.device)[:,None]
             r = torch.zeros(num_agents, device=eval_mask.device)[:,None]
             beta = torch.cat([t, r], dim=-1)
-
 
             z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
 
