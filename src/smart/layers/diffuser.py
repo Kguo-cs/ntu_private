@@ -266,7 +266,7 @@ class InitDiffusion(nn.Module):
 
         # conditional
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        v_cond = (x_cond - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
+        v_cond = (x_cond - z) / (1.0 - t_n[:,:,None])#.clamp_min(self.t_eps)
 
         return v_cond,t_n[:,:,None]
 
@@ -351,6 +351,9 @@ class InitDiffusion(nn.Module):
                     tokenized_agent_scale["padding_mask"]=padding_mask
 
                     z_scale=z[first_i_veh_mask]
+
+                    if i==steps-1:
+                        print(1)
 
                     z[first_i_veh_mask]=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
                 else:

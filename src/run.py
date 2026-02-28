@@ -30,7 +30,7 @@ from typing import Iterable, Pattern, Union
 
 os.environ["WANDB_SILENT"] = "true"
 
-#wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')
+wandb.login(key='7eba71eb2539f241fbf502af503ea5dd098168ae')#offline  no login
 wandb.require("service")  # forces the new service backend
 # Optional: use thread start (very robust in multiprocess settings)
 settings = wandb.Settings(start_method="thread")
