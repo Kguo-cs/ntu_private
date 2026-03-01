@@ -35,7 +35,7 @@ def kmeans_fast( x, k, iters=10):
 import torch
 
 
-def kmeans( padded, mask,k_per_graph,batch,pos,sorted_idx, iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
 
     max_k = k_per_graph.max().item()
 
@@ -48,6 +48,15 @@ def kmeans( padded, mask,k_per_graph,batch,pos,sorted_idx, iters=10):
             .unsqueeze(0)
             < k_per_graph.unsqueeze(1)
     )  # (num_graphs, max_k)
+    # --- generate random indices per graph ---
+    # first, get random floats per graph & point
+    rand_vals = torch.rand((num_graphs, max_points), device=device)
+
+    # mask invalid points so they won't be selected
+    rand_vals[~mask] = -1.0  # ensure they are ignored
+
+    # argsort descending so top-k picks random valid points
+    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
 
     selected_idx = sorted_idx[:, :max_k]  # (num_graphs, max_k)
     # zero-out positions where k < max_k
@@ -168,31 +177,13 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k1 = min(k+1, counts)
     k1_per_graph = torch.minimum(k_per_graph + 1, counts)
 
-    # --- generate random indices per graph ---
-    # first, get random floats per graph & point
-    rand_vals = torch.rand((num_graphs, max_points), device=device)
-
-    # mask invalid points so they won't be selected
-    rand_vals[~mask] = -1.0  # ensure they are ignored
-
-    # argsort descending so top-k picks random valid points
-    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
 
 
-    centroids=kmeans(padded, mask,k_per_graph,batch,pos,sorted_idx)
-
-    # --- generate random indices per graph ---
-    # first, get random floats per graph & point
-    rand_vals = torch.rand((num_graphs, max_points), device=device)
-
-    # mask invalid points so they won't be selected
-    rand_vals[~mask] = -1.0  # ensure they are ignored
-
-    # argsort descending so top-k picks random valid points
-    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
+    centroids=kmeans(padded, mask,k_per_graph,batch,pos)
 
 
-    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos,sorted_idx)
+
+    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos)
 
     return centroids,centroids1, k_per_graph,k1_per_graph
 
@@ -266,4 +257,4 @@ def cluster_points( pos, batch, type, num_graphs):
     more_centroids = torch.cat(more_centroids, dim=0)
     more_type = torch.cat(more_type, dim=0)
 
-    return less_centroids, more_batch, more_centroids, more_type, 1
+    return less_centroids, more_batch, more_centroids, more_type, k_per_graph

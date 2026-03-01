@@ -159,6 +159,13 @@ class InitDiffusion(nn.Module):
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
         e = torch.randn_like(x)  # base distribution N(0, I)
+
+        # if self.use_scale:
+        #
+        #
+        #
+        # else:
+
         t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
@@ -306,7 +313,7 @@ class InitDiffusion(nn.Module):
             # 4. vehicle rank inside its own scene
             veh_rank = veh_cumsum - veh_offsets[agent_batch] - 1
 
-            steps=max(veh_rank)+1#self.steps#
+            steps=512#max(veh_rank)+1#self.steps#
 
         else:
             steps=self.steps

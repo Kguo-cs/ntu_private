@@ -4,7 +4,7 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/testing_map2light 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/gen256_val256_std_w2_drop0_kl02epoch=31-step=60896.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/   
+rsync -avz /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_t3_nodiff_epoch=9-step=152190_0.79065.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/   
 
 rsync -avz ke@10.87.114.128:~/wifi_auto_reconnect.sh ./
  10.87.67.68 
