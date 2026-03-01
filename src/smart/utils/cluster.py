@@ -170,7 +170,7 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     u = torch.rand(num_graphs, device=device)
 
     # scale per-graph and floor
-    k_per_graph = torch.floor(u * (counts*2 + 1)).long()
+    k_per_graph = torch.floor(u * (512 + 1)).long()
 
     k_per_graph = torch.minimum(k_per_graph, counts)
 
