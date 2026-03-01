@@ -110,7 +110,7 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor
             )
 
-            self.sep_map=False
+            self.sep_map=True
             if self.sep_map:
 
                 self.map_encoder1 = SMARTMapDecoder(
