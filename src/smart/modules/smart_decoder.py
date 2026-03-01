@@ -110,22 +110,6 @@ class SMARTDecoder(nn.Module):
                 token_processor=token_processor
             )
 
-            self.sep_map=True
-            if self.sep_map:
-
-                self.map_encoder1 = SMARTMapDecoder(
-                    hidden_dim=hidden_dim,
-                    pl2pl_radius=pl2pl_radius,
-                    num_freq_bands=num_freq_bands,
-                    num_layers=num_map_layers,
-                    num_heads=num_heads,
-                    head_dim=head_dim,
-                    dropout=dropout,
-                    pt2pt_neighbor=pt2pt_neighbor,
-                    token_processor=token_processor
-                )
-
-
             self.agent_encoder = SMARTAgentDecoder(
                 hidden_dim=hidden_dim,
                 num_historical_steps=num_historical_steps,
@@ -149,6 +133,23 @@ class SMARTDecoder(nn.Module):
                 reward_weight=reward_weight,
                 reward_decay=reward_decay,
             )
+
+            self.sep_map=self.agent_encoder.init_decoder.sep_map
+
+            if self.sep_map:
+
+                self.map_encoder1 = SMARTMapDecoder(
+                    hidden_dim=hidden_dim,
+                    pl2pl_radius=pl2pl_radius,
+                    num_freq_bands=num_freq_bands,
+                    num_layers=num_map_layers,
+                    num_heads=num_heads,
+                    head_dim=head_dim,
+                    dropout=dropout,
+                    pt2pt_neighbor=pt2pt_neighbor,
+                    token_processor=token_processor
+                )
+
         from .agent_decoder import SMARTAgentDecoder
 
         if self.gail:
@@ -205,7 +206,7 @@ class SMARTDecoder(nn.Module):
             map_feature = tokenized_agent["map_feature"]
         else:
             if self.sep_map:
-                map_feature = self.map_encoder1(tokenized_map,edge_mask=False)
+                map_feature = self.map_encoder1(tokenized_map,tokenized_agent=tokenized_agent)
             else:
                 map_feature = self.map_encoder(tokenized_map)
 
