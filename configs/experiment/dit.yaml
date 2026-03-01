@@ -46,14 +46,14 @@ ckpt_path: './waymo_data/AIRL32_interdis_mean_203_t3_nodiff_epoch=9-step=152190_
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_sep_epoch=31-step=389600.ckpt'
 #ckpt_path: './logs/auto64_val256_l2l_kl02_egomap_nodownsmaple/2026-01-17_22-01-40/bc/rke1kj6i/checkpoints/auto64_val256_kl02_epoch=31-step=243520.ckpt'
 
-task_name: dit128_airl_2N_newcluster_coun_scedule512 #_noclip_nomean ##@_scale1_maxN_paddingZ # _trainLin #Same_col00_onestep_imf  #ganlogit1_r60_norp_lr_sepa2a_step1 #_detach_exp10_match_airlgan_weight1diff_decomp #inter_nopg_r10_dec2000_graphmatch_5e2_OBBexp_inner10 #_val0_dit512l1 #colcircleexp10 #circle #obb #_pos1 #@_cos #_beta05 #_learnmapall #_heun_statescalel1 # #l1  #latentRand_#_match_roformer1power2 #gan512 #_pos2xloss_ganstep10 #09 #_matchl1pos1h1v1 #matchonlyweightMse #_gan50 #_initloss_tsamll01 #roformer50 #drop0 #roformerPosmode1step50gangan1big05_step50 #rofromer_gan_step15e4_inter5 #loss09_inter5 #_clip #gan128_ego_shape0 #_ #p01_shape002 #dit128_gan #_inter5_gp01  #noclip_match #_n3 #headv05only # #dit128_noclip21_n20 #ego_eval27
+task_name: dit128_airl_2N_newcluster_coun_scedule256 #_noclip_nomean ##@_scale1_maxN_paddingZ # _trainLin #Same_col00_onestep_imf  #ganlogit1_r60_norp_lr_sepa2a_step1 #_detach_exp10_match_airlgan_weight1diff_decomp #inter_nopg_r10_dec2000_graphmatch_5e2_OBBexp_inner10 #_val0_dit512l1 #colcircleexp10 #circle #obb #_pos1 #@_cos #_beta05 #_learnmapall #_heun_statescalel1 # #l1  #latentRand_#_match_roformer1power2 #gan512 #_pos2xloss_ganstep10 #09 #_matchl1pos1h1v1 #matchonlyweightMse #_gan50 #_initloss_tsamll01 #roformer50 #drop0 #roformerPosmode1step50gangan1big05_step50 #rofromer_gan_step15e4_inter5 #loss09_inter5 #_clip #gan128_ego_shape0 #_ #p01_shape002 #dit128_gan #_inter5_gp01  #noclip_match #_n3 #headv05only # #dit128_noclip21_n20 #ego_eval27
 
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
   check_val_every_n_epoch: 1
   #val_check_interval: 0.1
- # val_check_interval: 0.0000002
+  #val_check_interval: 0.0000002
   max_epochs: 32
   gradient_clip_val: 0.0
 
