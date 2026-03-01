@@ -151,6 +151,8 @@ def batch_increasing_schedule(N, S=256+1, gamma=1):
     schedule = torch.ceil_(N[:, None] * t[None, :])
     schedule = torch.minimum(schedule, N[:, None])
 
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,10)],dim=-1)
+
     return schedule.long()
 
  # [00:48<11:03,  5.34it/s, v_num=vx1p]
