@@ -272,9 +272,14 @@ def build_less_more_grouped(
     # ----------------------------------------------------
     # 1) Write centroids (LESS and MORE)
     # ----------------------------------------------------
-    for_mask_k = torch.arange(centroids_b.shape[1], device=device)
-    valid_k = for_mask_k.unsqueeze(0) < k_per_graph.unsqueeze(1)
-    valid_k1 = for_mask_k.unsqueeze(0) < k1_per_graph.unsqueeze(1)
+    max_k = centroids_b.shape[1]
+    max_k1 = centroids1_b.shape[1]
+
+    arange_k = torch.arange(max_k, device=device)
+    arange_k1 = torch.arange(max_k1, device=device)
+
+    valid_k = arange_k.unsqueeze(0) < k_per_graph.unsqueeze(1)
+    valid_k1 = arange_k1.unsqueeze(0) < k1_per_graph.unsqueeze(1)
 
     # Flatten valid entries
     centroids_less_flat = centroids_b[valid_k]
