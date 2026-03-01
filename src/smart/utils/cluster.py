@@ -190,7 +190,7 @@ def cluster_points( pos, batch, type, num_graphs):
     veh_pos=pos[type==0]
     veh_batch=batch[type==0]
 
-    centroids_b,centroids1_b, k_per_graph,k1_per_graph=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+    #centroids_b,centroids1_b, k_per_graph,k1_per_graph=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
 
     device = pos.device
     less_centroids = []
@@ -206,27 +206,27 @@ def cluster_points( pos, batch, type, num_graphs):
 
         type_non_veh = type_i[type_i != 0]
 
-        # x = pos[mask][type_i == 0]
-        # N = x.shape[0]
-        # step = torch.randint(0, N + 1, (1,), device=device).item()
-        # k = min(step, N)
-        #
-        # if k == 0:
-        #     centroids = x[:k]
-        # else:
-        #     centroids = kmeans_fast(x, k)#x[:k]#
-        #
-        # k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
-        #
-        # if k1 == 0:
-        #     centroids1 = x[:k1]
-        # else:
-        #     centroids1 =kmeans_fast(x, k1)# x[:k1] #
+        x = pos[mask][type_i == 0]
+        N = x.shape[0]
+        step = torch.randint(0, N + 1, (1,), device=device).item()
+        k = min(step, N)
 
-        k=k_per_graph[i]
-        k1=k1_per_graph[i]
-        centroids=centroids_b[i][:k]
-        centroids1=centroids1_b[i][:k1]
+        if k == 0:
+            centroids = x[:k]
+        else:
+            centroids = kmeans_fast(x, k)#x[:k]#
+
+        k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
+
+        if k1 == 0:
+            centroids1 = x[:k1]
+        else:
+            centroids1 =kmeans_fast(x, k1)# x[:k1] #
+
+        # k=k_per_graph[i]
+        # k1=k1_per_graph[i]
+        # centroids=centroids_b[i][:k]
+        # centroids1=centroids1_b[i][:k1]
 
         # import matplotlib.pylab as plt
         #
