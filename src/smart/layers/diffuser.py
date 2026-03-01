@@ -160,13 +160,11 @@ class InitDiffusion(nn.Module):
 
         e = torch.randn_like(x)  # base distribution N(0, I)
 
-        # if self.use_scale:
-        #
-        #
-        #
-        # else:
-
-        t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+        if tokenized_agent["step_idx"] is not None:
+            timesteps=torch.linspace(0,1,128+64+1,device=eval_mask.device)
+            t_batch = timesteps[tokenized_agent["step_idx"]][:, None]
+        else:
+            t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
         if self.mean_flow:
@@ -331,8 +329,6 @@ class InitDiffusion(nn.Module):
             #dt = 1.0 / steps
             #timesteps = cosine_schedule(steps+1, z.device)
             timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
-
-            timesteps[-1] = 1.0
 
             #timesteps = power_schedule(steps+1, z.device, alpha=2)
            # ts[0] = 1e-4

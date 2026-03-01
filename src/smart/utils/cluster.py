@@ -191,12 +191,12 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     step_number=schedules.shape[1]-1
 
-    rand_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
+    step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
 
     batch_idx = torch.arange(num_graphs, device=counts.device)
 
-    k_per_graph = schedules[batch_idx, rand_idx]
-    k1_per_graph = schedules[batch_idx, rand_idx + 1]
+    k_per_graph = schedules[batch_idx, step_idx]
+    k1_per_graph = schedules[batch_idx, step_idx + 1]
     # # sample uniform float in [0,1)
     # u = torch.rand(num_graphs, device=device)
     # # scale per-graph and floor
@@ -211,7 +211,7 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     centroids1=kmeans(padded, mask,k1_per_graph,batch,pos)
 
-    return centroids,centroids1, k_per_graph,k1_per_graph
+    return centroids,centroids1, k_per_graph,k1_per_graph,step_idx
 
 def build_less_more_grouped(
     pos,
@@ -228,7 +228,7 @@ def build_less_more_grouped(
     veh_pos=pos[type==0]
     veh_batch=batch[type==0]
 
-    centroids_b,centroids1_b, k_per_graph,k1_per_graph=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
 
     nonveh_mask = ~veh_mask
 
@@ -343,12 +343,12 @@ def build_less_more_grouped(
         less_centroids,
         more_centroids,
         more_batch,
-        more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph
+        more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx
     )
 
 def cluster_points( pos, batch, type, num_graphs):
 
-    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph=build_less_more_grouped(
+    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx=build_less_more_grouped(
         pos,
         type,
         batch,
@@ -427,4 +427,4 @@ def cluster_points( pos, batch, type, num_graphs):
    #  print(torch.all(more_batch == more_batch1))
    #  print(torch.all(more_type == more_type1))
 
-    return less_centroids, more_batch, more_centroids, more_type, None
+    return less_centroids, more_batch, more_centroids, more_type,step_idx

@@ -358,9 +358,9 @@ class PDInit(nn.Module):
             if self.G.use_scale:
                 old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
 
-                diff_input, nonego_batch, m_init, more_type ,step= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
+                diff_input, nonego_batch, m_init, more_type ,step_idx= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
                 tokenized_agent['nonego_type_sorted']=more_type
-                tokenized_agent["step"]=step
+                tokenized_agent["step_idx"]=step_idx
             else:
                 diff_input=m_init
                 

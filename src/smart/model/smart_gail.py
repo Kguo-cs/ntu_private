@@ -23,16 +23,6 @@ from src.smart.model.optimizer import configure_optimizers,CombinedOptimizer,Muo
 import torch.optim as optim
 
 
-# class SMART_GAIL(GAIL, SMART):
-#     def __init__(self, model_config) -> None:
-#         SMART.__init__(self, model_config)  # Explicit call
-#         GAIL.__init__(self, model_config)  # Explicit call
-#
-#         model_config.decoder.hidden_dim=model_config.decoder.hidden_dim//2
-#
-#         self.discriminator=SMARTDecoder(
-#             **model_config.decoder, n_token_agent=self.token_processor.n_token_agent )
-
 class SMART_IQ(IQ_SoftQ, SMART):
     def __init__(self, model_config) -> None:
         SMART.__init__(self, model_config)  # Explicit call
