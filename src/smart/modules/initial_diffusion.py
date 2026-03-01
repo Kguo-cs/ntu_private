@@ -301,9 +301,21 @@ class PDInit(nn.Module):
 
         ego_traj=tokenized_agent["ego_traj"].reshape(len(ego_position),-1,2)
 
-        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0]
+        ego_local_traj=transform_to_local(ego_traj,None,ego_position,ego_heading)[0].flatten(1,2)
 
-        ego_embedding=self.G.ego_embedding(ego_local_traj.flatten(1,2))
+        num_types = 3  # since types are 0,1,2
+
+        # encode (batch, type) pair into a single index
+        idx = nonego_batch * num_types + nonego_type
+
+        counts = torch.bincount(
+            idx,
+            minlength=num_graphs * num_types
+        )
+
+        counts = counts.view(num_graphs, num_types)
+
+        ego_embedding=self.G.ego_embedding(torch.cat([ego_local_traj,counts],dim=-1))
 
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
