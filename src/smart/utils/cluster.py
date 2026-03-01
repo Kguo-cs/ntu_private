@@ -35,7 +35,7 @@ def kmeans_fast( x, k, iters=10):
 import torch
 
 
-def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos,sorted_idx, iters=10):
 
     max_k = k_per_graph.max().item()
 
@@ -49,41 +49,18 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
             < k_per_graph.unsqueeze(1)
     )  # (num_graphs, max_k)
 
-    # initialize centroids
-    #centroids = padded[:, :max_k].clone()
-
-    # --- generate random indices per graph ---
-    # first, get random floats per graph & point
-    rand_vals = torch.rand((num_graphs, max_points), device=device)
-
-    # mask invalid points so they won't be selected
-    rand_vals[~mask] = -1.0  # ensure they are ignored
-
-    # argsort descending so top-k picks random valid points
-    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
+    selected_idx = sorted_idx[:, :max_k]  # (num_graphs, max_k)
+    # zero-out positions where k < max_k
+    selected_idx = selected_idx * cluster_mask.long()
 
     # select the first k_per_graph indices for each graph
     # create batch offsets for advanced indexing
     graph_idx = torch.arange(num_graphs, device=device).unsqueeze(1)  # (num_graphs,1)
 
-
-    selected_idx = sorted_idx[:, :max_k]  # (num_graphs, max_k)
-    # zero-out positions where k < max_k
-    selected_idx = selected_idx * cluster_mask.long()
-
     # gather centroids
     centroids = padded[graph_idx, selected_idx]  # (num_graphs, max_k, D)
 
-    # zero out invalid centroid slots
-    #centroids *= cluster_mask.unsqueeze(-1)
-
-    #centroids_mask=cluster_mask[:,None].expand(-1, max_points, -1)
-
-    # pos=padded.flatten(0,1)
-    #
-    # batch=torch.arange(num_graphs, device=device)[:,None].repeat(1,max_points).flatten(0,1)
-
-    centroids_mask=~(cluster_mask[:,None] & mask[:,:,None])
+    centroids_mask=~(cluster_mask[:,None] & mask[:,:,None])[mask]
 
     # --- K-Means iterations ---
     for _ in range(iters):
@@ -93,15 +70,14 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
             - 2 * padded @ centroids.transpose(1, 2)
             + centroids.pow(2).sum(-1).unsqueeze(1)
         )
-        #dist[~mask] = float('inf')  # ignore padded points
-       # dist[~centroids_mask] = float('inf')  # ignore padded points
+        dist=dist[mask]
 
         dist[centroids_mask]=float('inf')
 
         # assign labels per point (capped at graph's k)
-        labels = dist.argmin(dim=2)  # (num_graphs, max_points)
+        labels_per_point = dist.argmin(dim=-1)  # (num_graphs, max_points)
 
-        labels_per_point=labels[mask]
+        # labels_per_point=labels[mask]
 
         # total clusters across all graphs
         total_clusters = num_graphs * max_k
@@ -190,9 +166,20 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k1 = min(k+1, counts)
     k1_per_graph = torch.minimum(k_per_graph + 1, counts)
 
-    centroids=kmeans(padded, mask,k_per_graph,batch,pos)
+    # --- generate random indices per graph ---
+    # first, get random floats per graph & point
+    rand_vals = torch.rand((num_graphs, max_points), device=device)
 
-    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos)
+    # mask invalid points so they won't be selected
+    rand_vals[~mask] = -1.0  # ensure they are ignored
+
+    # argsort descending so top-k picks random valid points
+    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
+
+
+    centroids=kmeans(padded, mask,k_per_graph,batch,pos,sorted_idx)
+
+    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos,sorted_idx)
 
     return centroids,centroids1, k_per_graph,k1_per_graph
 
@@ -205,23 +192,11 @@ def cluster_points( pos, batch, type, num_graphs):
 
     centroids_b,centroids1_b, k_per_graph,k1_per_graph=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
 
-
     device = pos.device
     less_centroids = []
     more_batch = []
     more_centroids = []
     more_type = []
-
-    # veh_mask = (type == 0)
-    #
-    # veh_number_per_batch = torch.bincount(
-    #     batch[veh_mask],
-    #     minlength=num_graphs
-    # )
-    #
-    # max_number = max(veh_number_per_batch)  # self.G.steps#
-
-    # step = torch.randint(0, max_number+1, (1,), device=device).item()
 
     for i in range(num_graphs):
         mask = (batch == i)
@@ -229,12 +204,11 @@ def cluster_points( pos, batch, type, num_graphs):
 
         x_non_veh = pos[mask][type_i != 0]
 
-        x = pos[mask][type_i == 0]
-
         type_non_veh = type_i[type_i != 0]
 
-        N = x.shape[0]
-        step = torch.randint(0, N + 1, (1,), device=device).item()
+        # x = pos[mask][type_i == 0]
+        # N = x.shape[0]
+        # step = torch.randint(0, N + 1, (1,), device=device).item()
         # k = min(step, N)
         #
         # if k == 0:
@@ -264,13 +238,9 @@ def cluster_points( pos, batch, type, num_graphs):
         #
         # plt.show()
 
-        # less_batch.append(torch.zeros([k+len(x_non_veh)],device=device,dtype=torch.long)+i)
-
         padding_centers = torch.zeros_like(centroids1[k:])
 
         less_centroids.append(torch.cat([centroids, padding_centers, x_non_veh], dim=0))
-
-        # less_type.append(torch.cat([torch.zeros([k],device=device,dtype=torch.long),type_non_veh],dim=0))
 
         more_batch.append(torch.zeros([k1 + len(x_non_veh)], device=device, dtype=torch.long) + i)
 
@@ -278,15 +248,9 @@ def cluster_points( pos, batch, type, num_graphs):
 
         more_type.append(torch.cat([torch.zeros([k1], device=device, dtype=torch.long), type_non_veh], dim=0))
 
-    # less_batch = torch.cat(less_batch, dim=0)
     less_centroids = torch.cat(less_centroids, dim=0)
-    # less_type=torch.cat(less_type, dim=0)
-
     more_batch = torch.cat(more_batch, dim=0)
     more_centroids = torch.cat(more_centroids, dim=0)
     more_type = torch.cat(more_type, dim=0)
 
-    return less_centroids, more_batch, more_centroids, more_type, step
-
-
-# [00:18<25:13,  2.48it/s, v_num=quor]
+    return less_centroids, more_batch, more_centroids, more_type, 1
