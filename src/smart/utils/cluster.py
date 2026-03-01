@@ -134,6 +134,25 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
         # centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
     return centroids
+
+
+def batch_increasing_schedule(N, S, gamma=2.0):
+    """
+    N: (B,) tensor of maximum levels per batch
+    S: total number of steps (int)
+    gamma: curvature (>1 gives more steps to small values)
+
+    Returns:
+        schedule: (B, S) integer tensor
+    """
+    s = torch.arange(S, device=N.device).float()  # (S,)
+    t = (s / S).pow(gamma)  # (S,)
+
+    schedule = torch.ceil_(N[:, None] * t[None, :])
+    schedule = torch.minimum(schedule, N[:, None])
+
+    return schedule.long()
+
  # [00:48<11:03,  5.34it/s, v_num=vx1p]
 def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     """
@@ -166,22 +185,28 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     padded[batch, idx_in_graph] = pos
     mask[batch, idx_in_graph] = True
 
-    # sample uniform float in [0,1)
-    u = torch.rand(num_graphs, device=device)
+    step_number = 512
+    S = step_number + 1
 
-    # scale per-graph and floor
-    k_per_graph = torch.floor(u * (512 + 1)).long()
+    schedules = batch_increasing_schedule(counts, S)
 
-    k_per_graph = torch.minimum(k_per_graph, counts)
+    rand_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
+
+    batch_idx = torch.arange(num_graphs, device=counts.device)
+
+    k_per_graph = schedules[batch_idx, rand_idx]
+    k1_per_graph = schedules[batch_idx, rand_idx + 1]
+    # # sample uniform float in [0,1)
+    # u = torch.rand(num_graphs, device=device)
+    # # scale per-graph and floor
+    # k_per_graph = torch.floor(u * (512 + 1)).long()
+    #
+    # k_per_graph = torch.minimum(k_per_graph, counts)
 
     # k1 = min(k+1, counts)
-    k1_per_graph = torch.minimum(k_per_graph + 1, counts)
-
-
+    # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
 
     centroids=kmeans(padded, mask,k_per_graph,batch,pos)
-
-
 
     centroids1=kmeans(padded, mask,k1_per_graph,batch,pos)
 

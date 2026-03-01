@@ -45,8 +45,8 @@ from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
+from src.smart.utils.cluster import batch_increasing_schedule
 
-warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
 def power_schedule(steps, device, alpha=2.0):
     return  1 - (1 - torch.linspace(0, 1, steps, device=device)) **alpha
@@ -311,9 +311,11 @@ class InitDiffusion(nn.Module):
             ])
 
             # 4. vehicle rank inside its own scene
-            veh_rank = veh_cumsum - veh_offsets[agent_batch] - 1
+            veh_rank = veh_cumsum - veh_offsets[agent_batch] #- 1
 
             steps=512#max(veh_rank)+1#self.steps#512#
+
+            schedule=batch_increasing_schedule(veh_per_scene,steps+1)[agent_batch]
 
         else:
             steps=self.steps
@@ -341,7 +343,10 @@ class InitDiffusion(nn.Module):
                 t_next = timesteps[i + 1]
 
                 if self.use_scale:
-                    first_i_veh_mask = (~veh_mask) | (veh_rank <= i)
+                    schedule_i=schedule[:,i]
+                    schedule_i1=schedule[:,i+1]
+
+                    first_i_veh_mask = (~veh_mask) | (veh_rank <= schedule_i1)
 
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
@@ -353,7 +358,7 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
 
-                    padding_mask=((veh_rank==i) & veh_mask)[first_i_veh_mask]
+                    padding_mask=(((veh_rank==schedule_i1) & (veh_rank !=schedule_i)) & veh_mask)[first_i_veh_mask]
 
                     tokenized_agent_scale["padding_mask"]=padding_mask
 
