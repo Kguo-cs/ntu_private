@@ -136,7 +136,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
     return centroids
 
 
-def batch_increasing_schedule(N, S=256+1, gamma=2.0):
+def batch_increasing_schedule(N, S=256+1, gamma=1.0):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -184,6 +184,9 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     padded[batch, idx_in_graph] = pos
     mask[batch, idx_in_graph] = True
+
+    # if torch.max(counts)>256:
+    #     print(torch.max(counts))
 
     schedules = batch_increasing_schedule(counts)
 

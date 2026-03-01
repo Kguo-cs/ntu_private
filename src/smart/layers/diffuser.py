@@ -346,6 +346,9 @@ class InitDiffusion(nn.Module):
                     schedule_i=schedule[:,i]
                     schedule_i1=schedule[:,i+1]
 
+                    # if torch.any(schedule_i1>schedule_i+1):
+                    #     print(schedule_i1-schedule_i)
+
                     first_i_veh_mask = (~veh_mask) | (veh_rank <= schedule_i1)
 
                     tokenized_agent_scale = {}
@@ -358,7 +361,7 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
 
-                    padding_mask=(((veh_rank==schedule_i1) & (veh_rank !=schedule_i)) & veh_mask)[first_i_veh_mask]
+                    padding_mask=(((veh_rank<=schedule_i1) & (veh_rank>schedule_i)) & veh_mask)[first_i_veh_mask]
 
                     tokenized_agent_scale["padding_mask"]=padding_mask
 
