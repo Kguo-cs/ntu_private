@@ -181,6 +181,17 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     centroids=kmeans(padded, mask,k_per_graph,batch,pos,sorted_idx)
 
+    # --- generate random indices per graph ---
+    # first, get random floats per graph & point
+    rand_vals = torch.rand((num_graphs, max_points), device=device)
+
+    # mask invalid points so they won't be selected
+    rand_vals[~mask] = -1.0  # ensure they are ignored
+
+    # argsort descending so top-k picks random valid points
+    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
+
+
     centroids1=kmeans(padded, mask,k1_per_graph,batch,pos,sorted_idx)
 
     return centroids,centroids1, k_per_graph,k1_per_graph
