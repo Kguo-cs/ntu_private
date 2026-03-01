@@ -136,7 +136,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
     return centroids
 
 
-def batch_increasing_schedule(N, S=256+1, gamma=0.9):
+def batch_increasing_schedule(N, S=256+1, gamma=1.1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
