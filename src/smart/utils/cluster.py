@@ -158,9 +158,21 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
     max_k = k1_per_graph.max().item()
 
-    centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
+    # centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
+    #
+    # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
 
-    centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
+    padded=torch.cat([padded,padded])
+    mask=torch.cat([mask,mask])
+    k_per_graph_all=torch.cat([k_per_graph,k1_per_graph])
+
+    batch=torch.cat([batch,batch+num_graphs])
+    pos=torch.cat([pos,pos])
+
+    centroids=kmeans(padded, mask,k_per_graph_all,batch,pos,max_k)
+
+    centroids1=centroids[num_graphs:]
+    centroids=centroids[:num_graphs]
 
     # centroids1=torch.zeros_like(centroids)
     #
@@ -411,6 +423,6 @@ def batch_increasing_schedule(N, S=128+1, gamma=1):
     schedule = torch.ceil_(N[:, None] * t[None, :])
     schedule = torch.minimum(schedule, N[:, None])
 
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,64)],dim=-1)
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,128)],dim=-1)
 
     return schedule.long()
