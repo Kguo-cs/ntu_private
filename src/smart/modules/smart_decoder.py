@@ -133,8 +133,10 @@ class SMARTDecoder(nn.Module):
                 reward_weight=reward_weight,
                 reward_decay=reward_decay,
             )
-
-            self.sep_map=self.agent_encoder.init_decoder.sep_map
+            if token_processor.learn_init :
+                self.sep_map= self.agent_encoder.init_decoder.sep_map
+            else:
+                self.sep_map=False
 
             if self.sep_map:
 
