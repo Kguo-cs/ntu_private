@@ -163,7 +163,17 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
 
-    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos,max_k)
+    centroids1=torch.zeros_like(centroids)
+
+    new_k=k_per_graph!=k1_per_graph
+
+    same_batch_mask = new_k[batch]
+
+    selected_batch = batch[same_batch_mask]
+
+    _, consecutive_batch = torch.unique(selected_batch, return_inverse=True)
+
+    centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k)
 
     # k1_per_graph[:10]=0
     #
