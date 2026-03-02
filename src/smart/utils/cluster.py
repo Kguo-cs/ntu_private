@@ -31,9 +31,7 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
-
-    max_k = k_per_graph.max().item()
+def kmeans( padded, mask,k_per_graph,batch,pos,max_k, iters=10):
 
     num_graphs,max_points, D=padded.shape
 
@@ -103,7 +101,9 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
 
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
-    #centroids[~cluster_mask]=0 # for k=0
+    #centroids[~cluster_mask,:8]=0
+    centroids[:,:,8:]*=counts_centroids[:,:,None]
+    centroids[:,:, :8] *= cluster_mask[:,:,None]# for k=0
 
     return centroids
 
@@ -159,10 +159,15 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k_per_graph = torch.minimum(k_per_graph, counts)
     #
     # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
+    max_k = k_per_graph.max().item()
 
-    centroids=kmeans(padded, mask,k_per_graph,batch,pos)
+    centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
 
-    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos)
+    centroids1=kmeans(padded, mask,k1_per_graph,batch,pos,max_k)
+
+    # k1_per_graph[:10]=0
+    #
+    # centroids2=kmeans(padded, mask,k1_per_graph,batch,pos)
 
     return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
 
@@ -299,8 +304,36 @@ def build_less_more_grouped(
         more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number
     )
 
-def cluster_points( pos, batch, type, num_graphs):
 
+def cluster_points(pos, batch, type, num_graphs  ):
+
+    type_vector=torch.zeros([len(type),3],device=pos.device)
+
+    type_vector[torch.arange(len(type)),type]=1
+
+    pos=torch.cat([pos,type_vector],dim=-1)
+
+    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(pos, batch,num_graphs)
+
+    max_k = k1_per_graph.max().item()
+
+    cluster_mask = (
+            torch.arange(max_k, device=pos.device)
+            .unsqueeze(0)
+            < k1_per_graph.unsqueeze(1)
+    )  # (num_graphs, max_k)
+
+    less_centroids=centroids_b[cluster_mask]
+    more_centroids=centroids1_b[cluster_mask]
+
+    more_batch=torch.where(cluster_mask)[0]
+
+    more_type=less_centroids[:,8:]
+
+    return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
+
+def cluster_points1(pos, batch, type, num_graphs
+        ):
 
     # veh_pos=pos[type==0]
     # veh_batch=batch[type==0]

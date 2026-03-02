@@ -5,7 +5,6 @@ from tqdm import tqdm
 import torch
 import math
 import sys
-from kinematic_compute import  kinematic_likelihood
 
 sys.path.append('/home/users/ntu/lyuchen/scratch/keguo_projects/ntu/sim')
 sys.path.append('/home/ke/code/sim')
