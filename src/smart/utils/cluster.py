@@ -31,10 +31,6 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-
-import torch
-
-
 def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
 
     max_k = k_per_graph.max().item()
@@ -106,54 +102,12 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
         counts_centroids = counts_centroids.view(num_graphs, max_k)
 
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
-        # # --- vectorized centroid update ---
-        # new_centroids = torch.zeros_like(centroids)
-        # counts_centroids = torch.zeros(num_graphs, max_k, device=device)
-        #
-        # # flatten graphs and clusters to 1D indices
-        # flat_graph = torch.arange(num_graphs, device=device).unsqueeze(1).expand(-1, max_points).reshape(-1)
-        # flat_labels = labels.reshape(-1)
-        # flat_points = padded.reshape(-1, D)
-        # flat_mask = mask.reshape(-1)
-        #
-        # # only valid points
-        # valid = flat_mask
-        # flat_idx = flat_graph[valid] * max_k + flat_labels[valid]  # unique index per graph+cluster
-        #
-        # new_centroids = new_centroids.reshape(-1, D)
-        # counts_centroids = counts_centroids.reshape(-1)
-        #
-        # # scatter add
-        # new_centroids.index_add_(0, flat_idx, flat_points[valid])
-        # counts_centroids.index_add_(0, flat_idx, torch.ones_like(flat_labels[valid], dtype=torch.float, device=device))
-        #
-        # # reshape back
-        # new_centroids = new_centroids.reshape(num_graphs, max_k, D)
-        # counts_centroids = counts_centroids.reshape(num_graphs, max_k)
-        #
-        # centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
+
+    centroids[~cluster_mask]=0 # for k=0
 
     return centroids
 
 
-def batch_increasing_schedule(N, S=128+1, gamma=1):
-    """
-    N: (B,) tensor of maximum levels per batch
-    S: total number of steps (int)
-    gamma: curvature (>1 gives more steps to small values)
-
-    Returns:
-        schedule: (B, S) integer tensor
-    """
-    s = torch.arange(S, device=N.device).float()  # (S,)
-    t = (s / S).pow(gamma)  # (S,)
-
-    schedule = torch.ceil_(N[:, None] * t[None, :])
-    schedule = torch.minimum(schedule, N[:, None])
-
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,128)],dim=-1)
-
-    return schedule.long()
 
  # [00:48<11:03,  5.34it/s, v_num=vx1p]
 def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
@@ -200,11 +154,10 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # # sample uniform float in [0,1)
     # u = torch.rand(num_graphs, device=device)
     # # scale per-graph and floor
-    # k_per_graph = torch.floor(u * (512 + 1)).long()
+    # k_per_graph = torch.floor(u * (counts + 1)).long()
     #
     # k_per_graph = torch.minimum(k_per_graph, counts)
-
-    # k1 = min(k+1, counts)
+    #
     # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
 
     centroids=kmeans(padded, mask,k_per_graph,batch,pos)
@@ -348,17 +301,11 @@ def build_less_more_grouped(
 
 def cluster_points( pos, batch, type, num_graphs):
 
-    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=build_less_more_grouped(
-        pos,
-        type,
-        batch,
-        num_graphs
-        )
-    #
+
     # veh_pos=pos[type==0]
     # veh_batch=batch[type==0]
     #
-    # centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+    # #centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
     #
     #
     # device = pos.device
@@ -375,37 +322,28 @@ def cluster_points( pos, batch, type, num_graphs):
     #
     #     type_non_veh = type_i[type_i != 0]
     #
-    #     # x = pos[mask][type_i == 0]
-    #     # N = x.shape[0]
-    #     # step = torch.randint(0, N + 1, (1,), device=device).item()
-    #     # k = min(step, N)
-    #     #
-    #     # if k == 0:
-    #     #     centroids = x[:k]
-    #     # else:
-    #     #     centroids = kmeans_fast(x, k)#x[:k]#
-    #     #
-    #     # k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
-    #     #
-    #     # if k1 == 0:
-    #     #     centroids1 = x[:k1]
-    #     # else:
-    #     #     centroids1 =kmeans_fast(x, k1)# x[:k1] #
+    #     x = pos[mask][type_i == 0]
+    #     N = x.shape[0]
+    #     step = torch.randint(0, N + 1, (1,), device=device).item()
+    #     k = min(step, N)
     #
-    #     k=k_per_graph[i]
-    #     k1=k1_per_graph[i]
-    #     centroids=centroids_b[i][:k]
-    #     centroids1=centroids1_b[i][:k1]
+    #     if k == 0:
+    #         centroids = x[:k]
+    #     else:
+    #         centroids = kmeans_fast(x, k)#x[:k]#
     #
-    #     # import matplotlib.pylab as plt
-    #     #
-    #     # plt.scatter(centroids[:,0].cpu().numpy(), centroids[:,1].cpu().numpy(),s=30, c='r')
-    #     #
-    #     # plt.scatter(centroids1[:,0].cpu().numpy(), centroids1[:,1].cpu().numpy(),s=20, c='b')
-    #     #
-    #     # plt.scatter(x[:,0].cpu().numpy(), x[:,1].cpu().numpy(),s=10,c='g')
-    #     #
-    #     # plt.show()
+    #     k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
+    #
+    #     if k1 == 0:
+    #         centroids1 = x[:k1]
+    #     else:
+    #         centroids1 =kmeans_fast(x, k1)# x[:k1] #
+    #
+    #     # k=k_per_graph[i]
+    #     # k1=k1_per_graph[i]
+    #     # centroids=centroids_b[i][:k]
+    #     # centroids1=centroids1_b[i][:k1]
+    #
     #
     #     padding_centers = torch.zeros_like(centroids1[k:])
     #
@@ -421,10 +359,49 @@ def cluster_points( pos, batch, type, num_graphs):
     # more_batch = torch.cat(more_batch, dim=0)
     # more_centroids = torch.cat(more_centroids, dim=0)
     # more_type = torch.cat(more_type, dim=0)
-   #
-   #  print(torch.all(less_centroids == less_centroids1))
-   #  print(torch.all(more_centroids == more_centroids1))
-   #  print(torch.all(more_batch == more_batch1))
-   #  print(torch.all(more_type == more_type1))
+    #
+    # if not (torch.all(less_centroids == less_centroids1) & torch.all(more_centroids == more_centroids1) & torch.all(more_batch == more_batch1) & torch.all(more_type == more_type1)):
+    #
+    #     print(torch.all(less_centroids == less_centroids1))
+    #     print(torch.all(more_centroids == more_centroids1))
+    #     print(torch.all(more_batch == more_batch1))
+    #     print(torch.all(more_type == more_type1))
+    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=build_less_more_grouped(
+        pos,
+        type,
+        batch,
+        num_graphs
+        )
 
     return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
+
+
+# import matplotlib.pylab as plt
+#
+# plt.scatter(centroids[:,0].cpu().numpy(), centroids[:,1].cpu().numpy(),s=30, c='r')
+#
+# plt.scatter(centroids1[:,0].cpu().numpy(), centroids1[:,1].cpu().numpy(),s=20, c='b')
+#
+# plt.scatter(x[:,0].cpu().numpy(), x[:,1].cpu().numpy(),s=10,c='g')
+#
+# plt.show()
+
+
+def batch_increasing_schedule(N, S=128+1, gamma=1):
+    """
+    N: (B,) tensor of maximum levels per batch
+    S: total number of steps (int)
+    gamma: curvature (>1 gives more steps to small values)
+
+    Returns:
+        schedule: (B, S) integer tensor
+    """
+    s = torch.arange(S, device=N.device).float()  # (S,)
+    t = (s / S).pow(gamma)  # (S,)
+
+    schedule = torch.ceil_(N[:, None] * t[None, :])
+    schedule = torch.minimum(schedule, N[:, None])
+
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,128)],dim=-1)
+
+    return schedule.long()
