@@ -103,7 +103,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos, iters=10):
 
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
-    centroids[~cluster_mask]=0 # for k=0
+    #centroids[~cluster_mask]=0 # for k=0
 
     return centroids
 
@@ -387,7 +387,7 @@ def cluster_points( pos, batch, type, num_graphs):
 # plt.show()
 
 
-def batch_increasing_schedule(N, S=128+1, gamma=1):
+def batch_increasing_schedule(N, S=196+1, gamma=1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -402,6 +402,6 @@ def batch_increasing_schedule(N, S=128+1, gamma=1):
     schedule = torch.ceil_(N[:, None] * t[None, :])
     schedule = torch.minimum(schedule, N[:, None])
 
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,128)],dim=-1)
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,64)],dim=-1)
 
     return schedule.long()
