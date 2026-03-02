@@ -164,9 +164,9 @@ class InitDiffusion(nn.Module):
             timesteps=torch.linspace(0,1,128+64+1,device=eval_mask.device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
 
-            t_batch=t_batch+torch.randn(num_scenes, device=device) *0.1
-
-            t_batch=torch.clamp(t_batch, min=0,max=1)
+            # t_batch=t_batch+torch.randn(num_scenes, device=device) *0.1
+            #
+            # t_batch=torch.clamp(t_batch, min=0,max=1)
 
             t_batch=t_batch[:, None]
 
