@@ -16,7 +16,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_inter1_hist0_t3_noego_alldiff/2026-02-25_13-20-40/bc/70ksh6wz/checkpoints/epoch=31-step=389600.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_inter1_hist0_diff3_t3/2026-02-13_19-20-26/bc/yklst89x/checkpoints/last.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit128_airl_128pad64_lambda1_map100_t/2026-03-01_22-13-08/bc/2ty5p2qv/checkpoints/last.ckpt ./
 
 
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_inter1_hist0_t3_noego/2026-02-28_19-45-16/bc/mkpmjodk/checkpoints/epoch=31-step=389600.ckpt ./

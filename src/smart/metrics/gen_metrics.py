@@ -34,13 +34,18 @@ def compute_vehicle_bounds(vehicles_real, vehicles_gen, margin=5.0):
     vehicles_*: [N, 7] arrays
     margin: extra meters around vehicles
     """
-    all_vehicles = np.concatenate([vehicles_real, vehicles_gen], axis=0)
 
-    xs = all_vehicles[:, 0]
-    ys = all_vehicles[:, 1]
+    if len(vehicles_real):
+        all_vehicles = np.concatenate([vehicles_real, vehicles_gen], axis=0)
 
-    x_min, x_max = xs.min(), xs.max()
-    y_min, y_max = ys.min(), ys.max()
+        xs = all_vehicles[:, 0]
+        ys = all_vehicles[:, 1]
+
+        x_min, x_max = xs.min(), xs.max()
+        y_min, y_max =ys.min(), ys.max()
+    else:
+        x_min, x_max=-75,75
+        y_min, y_max=-75,75
 
     return (
         x_min - margin,

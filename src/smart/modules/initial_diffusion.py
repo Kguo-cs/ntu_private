@@ -26,6 +26,7 @@ from torch_geometric.nn.pool import knn_graph,knn
 # from lpips import LPIPS
 import  numpy as np
 from src.smart.utils.cluster import cluster_points
+from src.smart.metrics.gen_metrics import plot_scene
 
 class PDInit(nn.Module):
 
@@ -93,7 +94,7 @@ class PDInit(nn.Module):
             
         self.use_perceptual_loss=False
 
-        self.sep_map=False
+        self.sep_map=True
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -447,11 +448,33 @@ class PDInit(nn.Module):
 
                 tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
 
-                pred_init= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
+                pred_init,pred_list,batch_list,step_list= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
                                                         stride=1,
                                                         if_output_diffusion_process=False,
-                                                        reverse_steps=None)[:,0]
+                                                        reverse_steps=None)
+
+                self.vis=False
+                if self.vis:
+                    batch_list=torch.cat(batch_list)
+                    step_list=torch.cat(step_list)
+
+                    pred_list=torch.cat(pred_list)[:,0] * normal_scale + normal_mean
+
+                    pred_trans, pred_head, pred_shape, pred_vel = pred_list[..., :2], pred_list[..., 2:4], pred_list[
+                        ..., 4:6], pred_list[..., -2:]
+                    pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+
+                    vehicles_gen = torch.cat([pred_trans,pred_head[:,None],torch.cos(pred_head)[:,None],torch.sin(pred_head)[:,None],
+                                              pred_shape,pred_vel
+                                              ],dim=-1)#[x, y, speed, cos_h, sin_h, length, width, vx, vy]
+
+                    for batch_id in range(num_graphs):
+                        for i in range(len(batch_list)):
+                            batch_mask=(batch_list==batch_id) & (step_list==i)
+                            if len(vehicles_gen[batch_mask]):
+                                plot_scene([], [], vehicles_gen[batch_mask].cpu().numpy(), title=str(batch_id)+"_"+str(i))
+                                print(batch_id,i)
 
             if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)

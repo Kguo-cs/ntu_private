@@ -248,9 +248,9 @@ class InitDiffusion(nn.Module):
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
-        v_pred,t_n = self._forward_sample(z, t, labels)
+        v_pred,t_n,x_cond = self._forward_sample(z, t, labels)
         z_next = z + (t_next - t_n) * v_pred
-        return z_next
+        return z_next,x_cond
 
     @torch.no_grad()
     def _heun_step(self, z, t, t_next, labels):
@@ -281,7 +281,7 @@ class InitDiffusion(nn.Module):
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
         v_cond = (x_cond - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
 
-        return v_cond,t_n[:,:,None]
+        return v_cond,t_n[:,:,None],x_cond
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
@@ -325,6 +325,10 @@ class InitDiffusion(nn.Module):
 
         else:
             steps=self.steps
+
+        x_list=[]
+        batch_list=[]
+        step_list=[]
 
         if self.mean_flow:
             t = torch.ones(num_agents, device=eval_mask.device)[:,None]
@@ -371,9 +375,13 @@ class InitDiffusion(nn.Module):
 
                     z_scale=z[first_i_veh_mask]
 
-                    z[first_i_veh_mask]=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+                    z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
                 else:
                     z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
+
+                x_list.append(x_cond)
+                batch_list.append(tokenized_agent_scale["nonego_batch"])
+                step_list.append(torch.zeros_like(tokenized_agent_scale["nonego_batch"])+i)
 
             # last step euler
            # z = self._euler_step(z, timesteps[-2], timesteps[-1], (tokenized_agent, scene_enc,eval_mask))
@@ -394,7 +402,7 @@ class InitDiffusion(nn.Module):
 
                 #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
-        return z
+        return z[:,0],x_list,batch_list,step_list
 
     def get_loss_vd(self,
                     m_init,
