@@ -207,19 +207,19 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state,latent=False,use_col=True
+    initial_type, batch, fake_state,real_state,latent=False,use_col=True,use_type=True,
     ):
-    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[   :, 4:]
-    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[ :, 4:]
+    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
+    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
 
-    rows, cols = [], []
+    if not use_type:
+        rows, cols = [], []
 
-    for b in batch.unique():
-        for type in initial_type[batch == b].unique():
-            f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
+        for b in batch.unique():
+            f_idx = ((batch == b) ).nonzero(as_tuple=True)[0]
 
             if latent:
-                dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],p=1,dim=-1)#.square()
+                dist = torch.norm(fake_state[f_idx][:, None] - real_state[f_idx][None], p=1, dim=-1)  # .square()
             else:
                 dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
 
@@ -229,6 +229,24 @@ def get_matching_loss(
 
             rows.append(f_idx[row])
             cols.append(f_idx[col])
+    else:
+        rows, cols = [], []
+
+        for b in batch.unique():
+            for type in initial_type[batch == b].unique():
+                f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
+
+                if latent:
+                    dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],p=1,dim=-1)#.square()
+                else:
+                    dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+
+                cost = dist.cpu().detach().numpy()
+
+                row, col = linear_sum_assignment(cost)
+
+                rows.append(f_idx[row])
+                cols.append(f_idx[col])
 
     row = torch.cat(rows)
     col = torch.cat(cols)

@@ -27,6 +27,7 @@ from torch_geometric.nn.pool import knn_graph,knn
 import  numpy as np
 from src.smart.utils.cluster import cluster_points
 from src.smart.metrics.gen_metrics import plot_scene
+from torch_scatter import scatter_sum
 
 class PDInit(nn.Module):
 
@@ -310,7 +311,6 @@ class PDInit(nn.Module):
 
         # encode (batch, type) pair into a single index
         idx = nonego_batch * num_types + nonego_type
-
         counts = torch.bincount(
             idx,
             minlength=num_graphs * num_types
@@ -318,7 +318,11 @@ class PDInit(nn.Module):
 
         counts = counts.view(num_graphs, num_types)
 
-        ego_embedding=self.G.ego_embedding(torch.cat([ego_local_traj,counts],dim=-1))
+        tokenized_agent["type_counts"]=counts
+
+        ego_local_traj=torch.cat([ego_local_traj,counts],dim=-1)
+
+        ego_embedding=self.G.ego_embedding(ego_local_traj)
 
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
@@ -359,8 +363,8 @@ class PDInit(nn.Module):
             if self.G.use_scale:
                 old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
 
-                diff_input, nonego_batch, m_init, more_type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
-                tokenized_agent['nonego_type_sorted']=more_type
+                diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
+                tokenized_agent['nonego_type_sorted']=type
                 tokenized_agent["step_idx"]=step_idx
                 tokenized_agent["step_number"]=step_number
             else:
@@ -395,12 +399,21 @@ class PDInit(nn.Module):
 
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent['nonego_type_sorted'],
                                                                                                  tokenized_agent["nonego_batch"],
-                                                                                                 x_pred * normal_scale + normal_mean,
-                                                                                                 m_init * normal_scale + normal_mean,
+                                                                                                 x_pred[:,:8]* normal_scale + normal_mean,
+                                                                                                 m_init[:,:8]* normal_scale + normal_mean,
                                                                                                  latent=False,
                                                                                                  use_col=False,
+                                                                                                 use_type=False
                                                                                                  )
 
+                    pred_type_count=torch.relu(x_pred[:,8:])
+                    real_type_count=m_init[:,8:]
+
+                    real_batch_type_count=scatter_sum(real_type_count, nonego_batch.unsqueeze(-1), dim=0)
+                    pred_batch_type_count=scatter_sum(pred_type_count, nonego_batch.unsqueeze(-1), dim=0)
+
+
+                    collision_loss=(real_batch_type_count-pred_batch_type_count).square().mean()*10
                     # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                     #                                                                              old_batch,
                     #                                                                              x_pred ,

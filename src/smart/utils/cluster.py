@@ -101,9 +101,9 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, iters=10):
 
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
-    #centroids[~cluster_mask,:8]=0
+    centroids[~cluster_mask]=0
     centroids[:,:,8:]*=counts_centroids[:,:,None]
-    centroids[:,:, :8] *= cluster_mask[:,:,None]# for k=0
+    #centroids[:,:, :8] *= cluster_mask[:,:,None]# for k=0
 
     return centroids
 
@@ -159,7 +159,7 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k_per_graph = torch.minimum(k_per_graph, counts)
     #
     # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
-    max_k = k_per_graph.max().item()
+    max_k = k1_per_graph.max().item()
 
     centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
 
@@ -328,9 +328,9 @@ def cluster_points(pos, batch, type, num_graphs  ):
 
     more_batch=torch.where(cluster_mask)[0]
 
-    more_type=less_centroids[:,8:]
+    less_type=less_centroids[:,8:]
 
-    return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
+    return less_centroids[:,:8], more_batch, more_centroids, less_type,step_idx,step_number
 
 def cluster_points1(pos, batch, type, num_graphs
         ):
@@ -420,7 +420,7 @@ def cluster_points1(pos, batch, type, num_graphs
 # plt.show()
 
 
-def batch_increasing_schedule(N, S=196+1, gamma=1):
+def batch_increasing_schedule(N, S=128+1, gamma=1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)

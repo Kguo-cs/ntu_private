@@ -64,7 +64,7 @@ class InitDiffusion(nn.Module):
 
         # self.pos_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
         # self.head_embedding = MLPLayer(2, args.hidden_dim, args.hidden_dim)
-        self.ego_embedding = MLPLayer(20+3, args.hidden_dim, args.hidden_dim)
+        self.ego_embedding = MLPLayer(20+3, args.hidden_dim, args.hidden_dim)#+3
 
         self.pose_embedding= MLPLayer(128+2+2, args.hidden_dim, args.hidden_dim)
         self.mean_flow=False
@@ -102,6 +102,8 @@ class InitDiffusion(nn.Module):
         self.x_pred=True
 
         self.use_scale=True
+
+        self.use_all_type=self.net.use_all_type
 
         self.t_eps=5e-2
 
@@ -233,7 +235,7 @@ class InitDiffusion(nn.Module):
 
                 x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask) #t=0 ,0.1
 
-                v_pred = (x_pred - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
+                v_pred = (x_pred[:,:,:x.shape[-1]] - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
 
                 x_init_0_reconstructed = x_pred  # x0+v_pred
 
@@ -279,7 +281,7 @@ class InitDiffusion(nn.Module):
 
         # conditional
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        v_cond = (x_cond - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
+        v_cond = (x_cond[:,:,:z.shape[-1]] - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
 
         return v_cond,t_n[:,:,None],x_cond
 
@@ -298,7 +300,10 @@ class InitDiffusion(nn.Module):
 
             agent_type = tokenized_agent["nonego_type_sorted"]
 
-            veh_mask = agent_type == 0
+            if self.use_all_type:
+                veh_mask=torch.ones_like(agent_type).to(torch.bool)
+            else:
+                veh_mask = agent_type == 0
 
             # 1. cumulative vehicle count globally
             veh_cumsum = torch.cumsum(veh_mask.long(), dim=0)
@@ -329,6 +334,8 @@ class InitDiffusion(nn.Module):
         x_list=[]
         batch_list=[]
         step_list=[]
+
+        type_count=torch.zeros((num_agents,3), device=eval_mask.device)
 
         if self.mean_flow:
             t = torch.ones(num_agents, device=eval_mask.device)[:,None]
@@ -361,7 +368,11 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
-                    tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
+
+                    if self.use_all_type:
+                        tokenized_agent_scale["nonego_type_sorted"]=type_count[first_i_veh_mask]
+                    else:
+                        tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
                     tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
                     tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
 
@@ -375,7 +386,11 @@ class InitDiffusion(nn.Module):
 
                     z_scale=z[first_i_veh_mask]
 
-                    z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+                    res,x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+
+                    z[first_i_veh_mask]=res[:,:,:8]
+                    if self.use_all_type:
+                        type_count[first_i_veh_mask]=torch.relu(x_cond[:,0,8:])
                 else:
                     z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
@@ -401,6 +416,9 @@ class InitDiffusion(nn.Module):
             #     z = z + v_pred * dt
 
                 #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
+
+        if self.use_all_type:
+            tokenized_agent['nonego_type_sorted']=torch.argmax(type_count,dim=-1)
 
         return z[:,0],x_list,batch_list,step_list
 
@@ -553,8 +571,6 @@ class InitDenoiser(nn.Module):
         self.dataset = dataset
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        self.output_dim = output_dim
-        self.output_head = output_head
         self.init_timestep = init_timestep
         self.num_freq_bands = num_freq_bands
         self.num_layers = num_layers
@@ -563,10 +579,17 @@ class InitDenoiser(nn.Module):
         self.dropout = dropout
         self.diff_type = diff_type
         self.m_dim = m_dim
-        self.type_a_emb = nn.Embedding(3, hidden_dim)
 
         self.use_roformer=False
         self.use_padding=True
+        self.use_all_type=True
+
+        if self.use_all_type:
+            self.type_a_emb = MLPLayer(3, hidden_dim, hidden_dim)
+            self.output_dim=11
+        else:
+            self.type_a_emb = nn.Embedding(3, hidden_dim)
+            self.output_dim=8
 
         if self.use_roformer:
 
@@ -601,7 +624,7 @@ class InitDenoiser(nn.Module):
 
             self.proj_out_m_delta = nn.Sequential(
                 nn.LayerNorm(hidden_dim),
-                nn.Linear(self.hidden_dim, m_delta_dim),
+                nn.Linear(self.hidden_dim, self.output_dim),
             )
 
             noise_dim = 1
