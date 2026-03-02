@@ -207,12 +207,12 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state,latent=False,use_col=True,use_type=True,
+    initial_type, batch, fake_state,real_state,latent=False,use_col=True,use_all_type=False
     ):
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
 
-    if not use_type:
+    if use_all_type:
         rows, cols = [], []
 
         for b in batch.unique():

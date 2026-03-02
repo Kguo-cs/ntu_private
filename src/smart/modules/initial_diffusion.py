@@ -363,7 +363,7 @@ class PDInit(nn.Module):
             if self.G.use_scale:
                 old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
 
-                diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs)
+                diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs,self.G.use_all_type)
                 tokenized_agent['nonego_type_sorted']=type
                 tokenized_agent["step_idx"]=step_idx
                 tokenized_agent["step_number"]=step_number
@@ -403,17 +403,17 @@ class PDInit(nn.Module):
                                                                                                  m_init[:,:8]* normal_scale + normal_mean,
                                                                                                  latent=False,
                                                                                                  use_col=False,
-                                                                                                 use_type=False
+                                                                                                 use_all_type=self.G.use_all_type
                                                                                                  )
+                    if self.G.use_all_type:
+                        pred_type_count=torch.relu(x_pred[:,8:])
+                        real_type_count=m_init[:,8:]
 
-                    pred_type_count=torch.relu(x_pred[:,8:])
-                    real_type_count=m_init[:,8:]
-
-                    real_batch_type_count=scatter_sum(real_type_count, nonego_batch.unsqueeze(-1), dim=0)
-                    pred_batch_type_count=scatter_sum(pred_type_count, nonego_batch.unsqueeze(-1), dim=0)
+                        real_batch_type_count=scatter_sum(real_type_count, nonego_batch.unsqueeze(-1), dim=0)
+                        pred_batch_type_count=scatter_sum(pred_type_count, nonego_batch.unsqueeze(-1), dim=0)
 
 
-                    collision_loss=(real_batch_type_count-pred_batch_type_count).square().mean()*10
+                        collision_loss=(real_batch_type_count-pred_batch_type_count).square().mean()*10
                     # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                     #                                                                              old_batch,
                     #                                                                              x_pred ,

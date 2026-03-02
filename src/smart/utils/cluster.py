@@ -200,59 +200,32 @@ def build_less_more_grouped(
         minlength=G
     )
 
-    # --------------------------------------------
-    # Compute sizes per graph
-    # --------------------------------------------
-    less_sizes = k1_per_graph + nonveh_count
     more_sizes = k1_per_graph + nonveh_count
-
-    # Prefix sums (graph offsets)
-    less_offsets = torch.cat([
-        torch.zeros(1, device=device, dtype=torch.long),
-        torch.cumsum(less_sizes, dim=0)
-    ])[:-1]
 
     more_offsets = torch.cat([
         torch.zeros(1, device=device, dtype=torch.long),
         torch.cumsum(more_sizes, dim=0)
     ])[:-1]
 
-    total_less = less_sizes.sum()
     total_more = more_sizes.sum()
 
     # Allocate final tensors
-    less_centroids = torch.zeros(total_less, D, device=device)
-
+    less_centroids = torch.zeros(total_more, D, device=device)
     more_centroids = torch.zeros(total_more, D, device=device)
     more_batch = torch.zeros(total_more, device=device, dtype=torch.long)
     more_type = torch.zeros(total_more, device=device, dtype=torch.long)
 
-    # ----------------------------------------------------
-    # 1) Write centroids (LESS and MORE)
-    # ----------------------------------------------------
-    max_k = centroids_b.shape[1]
     max_k1 = centroids1_b.shape[1]
 
-    arange_k = torch.arange(max_k, device=device)
     arange_k1 = torch.arange(max_k1, device=device)
 
-    valid_k = arange_k.unsqueeze(0) < k_per_graph.unsqueeze(1)
     valid_k1 = arange_k1.unsqueeze(0) < k1_per_graph.unsqueeze(1)
 
-    # Flatten valid entries
-    centroids_less_flat = centroids_b[valid_k]
+    centroids_less_flat = centroids_b[valid_k1]
     centroids_more_flat = centroids1_b[valid_k1]
 
-    graph_ids_k = torch.arange(G, device=device).repeat_interleave(k_per_graph)
     graph_ids_k1 = torch.arange(G, device=device).repeat_interleave(k1_per_graph)
 
-    # Compute write indices
-    less_write_idx = less_offsets[graph_ids_k] + \
-                     torch.arange(centroids_less_flat.shape[0], device=device) \
-                     - torch.repeat_interleave(
-                         torch.cumsum(k_per_graph, 0) - k_per_graph,
-                         k_per_graph
-                     )
 
     more_write_idx = more_offsets[graph_ids_k1] + \
                      torch.arange(centroids_more_flat.shape[0], device=device) \
@@ -261,7 +234,7 @@ def build_less_more_grouped(
                          k1_per_graph
                      )
 
-    less_centroids[less_write_idx] = centroids_less_flat
+    less_centroids[more_write_idx] = centroids_less_flat
     more_centroids[more_write_idx] = centroids_more_flat
     more_batch[more_write_idx] = graph_ids_k1
     more_type[more_write_idx] = 0
@@ -278,21 +251,13 @@ def build_less_more_grouped(
         )
     )
 
-    # Write positions
-    less_nonveh_idx = (
-        less_offsets[nonveh_batch]
-        + k1_per_graph[nonveh_batch]
-        + nonveh_local_idx
-    )
-
     more_nonveh_idx = (
         more_offsets[nonveh_batch]
         + k1_per_graph[nonveh_batch]
         + nonveh_local_idx
     )
 
-    less_centroids[less_nonveh_idx] = nonveh_pos
-
+    less_centroids[more_nonveh_idx] = nonveh_pos
     more_centroids[more_nonveh_idx] = nonveh_pos
     more_batch[more_nonveh_idx] = nonveh_batch
     more_type[more_nonveh_idx] = nonveh_type
@@ -305,7 +270,7 @@ def build_less_more_grouped(
     )
 
 
-def cluster_points(pos, batch, type, num_graphs  ):
+def cluster_points1(pos, batch, type, num_graphs  ):
 
     type_vector=torch.zeros([len(type),3],device=pos.device)
 
@@ -332,9 +297,10 @@ def cluster_points(pos, batch, type, num_graphs  ):
 
     return less_centroids[:,:8], more_batch, more_centroids, less_type,step_idx,step_number
 
-def cluster_points1(pos, batch, type, num_graphs
+def cluster_points(pos, batch, type, num_graphs,use_all_type
         ):
-
+    if use_all_type:
+        return cluster_points1(pos, batch, type, num_graphs)
     # veh_pos=pos[type==0]
     # veh_batch=batch[type==0]
     #
