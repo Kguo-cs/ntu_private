@@ -161,7 +161,7 @@ class InitDiffusion(nn.Module):
         e = torch.randn_like(x)  # base distribution N(0, I)
 
         if tokenized_agent["step_idx"] is not None:
-            timesteps=torch.linspace(0,1,128+64+1,device=eval_mask.device)
+            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
 
             # t_batch=t_batch+torch.randn(num_scenes, device=device) *0.1

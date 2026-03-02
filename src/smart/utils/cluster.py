@@ -211,7 +211,7 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     centroids1=kmeans(padded, mask,k1_per_graph,batch,pos)
 
-    return centroids,centroids1, k_per_graph,k1_per_graph,step_idx
+    return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
 
 def build_less_more_grouped(
     pos,
@@ -228,7 +228,7 @@ def build_less_more_grouped(
     veh_pos=pos[type==0]
     veh_batch=batch[type==0]
 
-    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
 
     nonveh_mask = ~veh_mask
 
@@ -343,12 +343,12 @@ def build_less_more_grouped(
         less_centroids,
         more_centroids,
         more_batch,
-        more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx
+        more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number
     )
 
 def cluster_points( pos, batch, type, num_graphs):
 
-    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx=build_less_more_grouped(
+    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=build_less_more_grouped(
         pos,
         type,
         batch,
@@ -427,4 +427,4 @@ def cluster_points( pos, batch, type, num_graphs):
    #  print(torch.all(more_batch == more_batch1))
    #  print(torch.all(more_type == more_type1))
 
-    return less_centroids, more_batch, more_centroids, more_type,step_idx
+    return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
