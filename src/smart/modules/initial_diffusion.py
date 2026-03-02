@@ -95,7 +95,7 @@ class PDInit(nn.Module):
             
         self.use_perceptual_loss=False
 
-        self.sep_map=True
+        self.sep_map=False
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()

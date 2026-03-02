@@ -8,7 +8,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_t3_nodiff_e
 
 rsync -avz ke@10.87.114.128:~/wifi_auto_reconnect.sh ./
  10.87.67.68 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_t3_nodiff_epoch=9-step=152190_0.79065.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_noego_epoch=31-step=389600.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
