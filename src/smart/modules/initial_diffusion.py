@@ -330,15 +330,15 @@ class PDInit(nn.Module):
                                                ego_heading[batch_pl],
                                                )
 
-        if not self.sep_map:
-            ego_dist = torch.linalg.norm(pos_pl, dim=-1)
-
-            ego_dist_mask = ego_dist < map_range
-
-            pos_pl = pos_pl[ego_dist_mask]
-            orient_pl = orient_pl[ego_dist_mask]
-            batch_pl = batch_pl[ego_dist_mask]
-            feat_map = feat_map[ego_dist_mask]
+        # if not self.sep_map:
+        #     ego_dist = torch.linalg.norm(pos_pl, dim=-1)
+        #
+        #     ego_dist_mask = ego_dist < map_range
+        #
+        #     pos_pl = pos_pl[ego_dist_mask]
+        #     orient_pl = orient_pl[ego_dist_mask]
+        #     batch_pl = batch_pl[ego_dist_mask]
+        #     feat_map = feat_map[ego_dist_mask]
 
         init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
 

@@ -148,7 +148,9 @@ class SMARTMapDecoder(nn.Module):
 
             ego_position = gt_initial_pos[ego_mask][batch]
 
-            dist_mask=torch.norm(ego_position-pos_pt,dim=-1)<100
+            dist=torch.norm(ego_position-pos_pt,dim=-1)
+
+            dist_mask=dist<120
 
             batch=batch[dist_mask]
             pos_pt=pos_pt[dist_mask]
@@ -156,8 +158,8 @@ class SMARTMapDecoder(nn.Module):
             token_idx=token_idx[dist_mask]
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
-
-            mask=torch.ones_like(map_type).to(torch.bool)
+            mask = ((map_type == 4) | (map_type == 5)) & (dist[dist_mask]<100)
+            #mask=torch.ones_like(map_type).to(torch.bool)
 
         if self.pred_offroad:
 
