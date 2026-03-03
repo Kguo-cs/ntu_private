@@ -64,9 +64,13 @@ class PDInit(nn.Module):
         self.use_count=False
 
         if self.use_count:
-            self.normal_scale = torch.tensor([[35.105, 29.893, 35.130, 30.152, 35.201, 30.277,  5.155,  0.281]])
-            self.normal_mean = torch.tensor([[2.797e+00,  1.178e+00,  2.839e+00,  6.951e-01,  2.621e+00,  6.769e-01,
-         2.648e+00, -1.963e-03]])
+         #    self.normal_scale = torch.tensor([[35.105, 29.893, 35.130, 30.152, 35.201, 30.277,  5.155,  0.281]])
+         #    self.normal_mean = torch.tensor([[2.797e+00,  1.178e+00,  2.839e+00,  6.951e-01,  2.621e+00,  6.769e-01,
+         # 2.648e+00, -1.963e-03]])
+
+            self.normal_scale = torch.tensor([[35.280, 29.757,  0.769,  0.630,  1.291,  0.400,  5.100,  2.496]])
+            self.normal_mean=torch.tensor([[ 3.048e+00,  2.221e+00,  1.055e-01,  4.566e-04,  4.454e+00,  2.003e+00,
+         4.072e-01, -2.645e-02]])
 
         else:
 

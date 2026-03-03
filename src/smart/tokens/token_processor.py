@@ -174,14 +174,30 @@ class TokenProcessor(torch.nn.Module):
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
+        batch = tokenized_agent["batch"]
+
+        if "ego_mask" not in tokenized_agent:
+            ego_mask = torch.ones_like(batch)
+            ego_mask[:-1] = batch[:-1] != batch[1:]
+            tokenized_agent["ego_mask"] = ego_mask.bool()
+
         tokenized_agent["abs_time"]=torch.zeros([0,18])
 
         if self.learn_init:
+
+            ego_position=tokenized_agent["initial_pos"][tokenized_agent["ego_mask"]][batch]
+            ego_heading=tokenized_agent["initial_heading"][tokenized_agent["ego_mask"]][batch]
+
             tokenized_agent["local_vel"] = transform_to_local(
                 tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
                 None,
-                tokenized_agent["initial_pos"],
-                tokenized_agent["initial_heading"],
+                ego_position,
+                ego_heading,
+            )[0]-transform_to_local(
+                tokenized_agent["initial_pos"] ,
+                None,
+                ego_position,
+                ego_heading,
             )[0]
 
         if self.use_goal and self.training:
@@ -213,12 +229,6 @@ class TokenProcessor(torch.nn.Module):
             exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
             tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
 
-        batch = tokenized_agent["batch"]
-
-        if "ego_mask" not in tokenized_agent:
-            ego_mask = torch.ones_like(batch)
-            ego_mask[:-1] = batch[:-1] != batch[1:]
-            tokenized_agent["ego_mask"] = ego_mask.bool()
 
         if self.pred_init and not self.learn_init:
             if self.training:
