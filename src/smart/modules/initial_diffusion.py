@@ -437,15 +437,15 @@ class PDInit(nn.Module):
                                                                                                  use_col=False,
                                                                                                  use_all_type=self.G.use_all_type
                                                                                                  )
-                    if self.G.use_all_type:
-                        pred_type_count=torch.relu(x_pred[:,8:])
-                        real_type_count=m_init[:,8:]
-
-                        real_batch_type_count=scatter_sum(real_type_count, nonego_batch.unsqueeze(-1), dim=0)
-                        pred_batch_type_count=scatter_sum(pred_type_count, nonego_batch.unsqueeze(-1), dim=0)
-
-
-                        collision_loss=(real_batch_type_count-pred_batch_type_count).square().mean()*10
+                    # if self.G.use_all_type:
+                    #     pred_type_count=torch.relu(x_pred[:,8:])
+                    #     real_type_count=m_init[:,8:]
+                    #
+                    #     real_batch_type_count=scatter_sum(real_type_count, nonego_batch.unsqueeze(-1), dim=0)
+                    #     pred_batch_type_count=scatter_sum(pred_type_count, nonego_batch.unsqueeze(-1), dim=0)
+                    #
+                    #
+                    #     collision_loss=(real_batch_type_count-pred_batch_type_count).square().mean()*10
                     # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
                     #                                                                              old_batch,
                     #                                                                              x_pred ,

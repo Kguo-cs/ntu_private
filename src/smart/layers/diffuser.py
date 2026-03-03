@@ -640,14 +640,14 @@ class InitDenoiser(nn.Module):
             self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
                                               num_freq_bands=num_freq_bands)
 
-            self.interact_pt2m = nn.ModuleList(
-                [TransformerDecoderLayerDiff(
-                    n_embd=hidden_dim,
-                    n_head=num_heads,
-                    ff_dim=4 * hidden_dim,
-                    dropout=0,
-                    layer_id=i,
-                ) for i in range(num_layers)])
+            # self.interact_pt2m = nn.ModuleList(
+            #     [TransformerDecoderLayerDiff(
+            #         n_embd=hidden_dim,
+            #         n_head=num_heads,
+            #         ff_dim=4 * hidden_dim,
+            #         dropout=0,
+            #         layer_id=i,
+            #     ) for i in range(num_layers)])
             module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
                                                   hist_len=1000000)  # replace with gnn
             self.interact_pt2m = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
