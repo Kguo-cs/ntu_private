@@ -31,7 +31,7 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=20):
 
     num_graphs,max_points, D=padded.shape
 
@@ -236,8 +236,8 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
    # centroids=centroids_all[:num_graphs]
     # centroids1[new_k]=centroids_all[num_graphs:]
 
-    centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k,
-                             initial_centroids=centroids[new_k])
+    centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k)
+#, initial_centroids=centroids[new_k]
 
 
     return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
