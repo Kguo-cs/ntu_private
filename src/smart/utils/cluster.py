@@ -31,7 +31,7 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=40):
+def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
 
     num_graphs,max_points, D=padded.shape
 
