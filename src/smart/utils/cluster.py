@@ -31,7 +31,7 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=20):
+def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
 
     num_graphs,max_points, D=padded.shape
 
@@ -206,14 +206,14 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
 
-    dist=torch.linalg.norm(centroids,dim=-1)
+    #dist=torch.linalg.norm(centroids,dim=-1)
 
-    arg_sort=torch.argsort(dist,dim=-1,descending=True)
-
-    centroids = centroids.gather(
-        1,
-        arg_sort.unsqueeze(-1).expand(-1, -1, centroids.size(-1))
-    )
+    # arg_sort=torch.argsort(dist,dim=-1,descending=True)
+    #
+    # centroids = centroids.gather(
+    #     1,
+    #     arg_sort.unsqueeze(-1).expand(-1, -1, centroids.size(-1))
+    # )
 
     centroids1 = centroids.clone()
 
