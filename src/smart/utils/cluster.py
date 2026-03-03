@@ -31,7 +31,7 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=40):
 
     num_graphs,max_points, D=padded.shape
 
@@ -204,7 +204,7 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
     max_k = k1_per_graph.max().item()
 
-    centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
+    #centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
 
     #dist=torch.linalg.norm(centroids,dim=-1)
 
@@ -215,7 +215,6 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     #     arg_sort.unsqueeze(-1).expand(-1, -1, centroids.size(-1))
     # )
 
-    centroids1 = centroids.clone()
 
     new_k=k_per_graph!=k1_per_graph
 
@@ -225,19 +224,23 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     _, consecutive_batch = torch.unique(selected_batch, return_inverse=True)
 
-    # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
-    # batch=torch.cat([batch,consecutive_batch+num_graphs])
-    # pos=torch.cat([pos,pos[same_batch_mask]])
-    # padded=torch.cat([padded,padded[new_k]])
-    # mask=torch.cat([mask,mask[new_k]])
-    # k_per_graph_all=torch.cat([k_per_graph,k1_per_graph[new_k]])
-    #
-    # centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,max_k)
-   # centroids=centroids_all[:num_graphs]
-    # centroids1[new_k]=centroids_all[num_graphs:]
+    batch=torch.cat([batch,consecutive_batch+num_graphs])
+    pos=torch.cat([pos,pos[same_batch_mask]])
+    padded=torch.cat([padded,padded[new_k]])
+    mask=torch.cat([mask,mask[new_k]])
+    k_per_graph_all=torch.cat([k_per_graph,k1_per_graph[new_k]])
 
-    centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k)
+    centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,max_k)
+
+    centroids=centroids_all[:num_graphs]
+
+    centroids1 = centroids.clone()
+
+    centroids1[new_k]=centroids_all[num_graphs:]
+
+    #centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k)
 #, initial_centroids=centroids[new_k]
+    # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
 
 
     return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
