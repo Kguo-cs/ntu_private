@@ -184,11 +184,11 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
 
-    num_choices = step_number - step_idx
+    # num_choices = step_number - step_idx
+    #
+    # offset = (torch.rand(num_graphs, device=device) * num_choices).long()
 
-    offset = (torch.rand(num_graphs, device=device) * num_choices).long()
-
-    step1_idx = step_idx + 1 + offset
+    step1_idx = step_idx + 1 #+ offset
 
     batch_idx = torch.arange(num_graphs, device=counts.device)
 
@@ -451,7 +451,7 @@ def cluster_points(pos, batch, type, num_graphs,use_all_type
 # plt.show()
 
 
-def batch_increasing_schedule(N, S=128+1, gamma=1):
+def batch_increasing_schedule(N, S=50+1, gamma=1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -466,6 +466,6 @@ def batch_increasing_schedule(N, S=128+1, gamma=1):
     schedule = torch.ceil_(N[:, None] * t[None, :])
     schedule = torch.minimum(schedule, N[:, None])
 
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,64)],dim=-1)
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,50)],dim=-1)
 
     return schedule.long()
