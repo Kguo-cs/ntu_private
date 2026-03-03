@@ -294,7 +294,10 @@ class InitDiffusion(nn.Module):
 
         num_agents = eval_mask.sum()
 
-        z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
+        if self.use_all_type:
+            z = torch.randn(num_agents,num_samples, 11, device=eval_mask.device)
+        else:
+            z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
 
         if self.use_scale:
 
@@ -369,10 +372,10 @@ class InitDiffusion(nn.Module):
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
 
-                    if self.use_all_type:
-                        tokenized_agent_scale["nonego_type_sorted"]=type_count[first_i_veh_mask]
-                    else:
-                        tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
+                    # if self.use_all_type:
+                    #     tokenized_agent_scale["nonego_type_sorted"]=type_count[first_i_veh_mask]
+                    # else:
+                    tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
                     tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
                     tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
 
@@ -388,9 +391,9 @@ class InitDiffusion(nn.Module):
 
                     res,x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
 
-                    z[first_i_veh_mask]=res[:,:,:8]
-                    if self.use_all_type:
-                        type_count[first_i_veh_mask]=torch.relu(x_cond[:,0,8:])
+                    # z[first_i_veh_mask]=res[:,:,:8]
+                    # if self.use_all_type:
+                    #     type_count[first_i_veh_mask]=torch.relu(x_cond[:,0,8:])
                 else:
                     z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
@@ -417,8 +420,8 @@ class InitDiffusion(nn.Module):
 
                 #z[...,0, 2:] = tokenized_agent["m_init"][..., 2:]
 
-        if self.use_all_type:
-            tokenized_agent['nonego_type_sorted']=torch.argmax(type_count,dim=-1)
+        # if self.use_all_type:
+        #     tokenized_agent['nonego_type_sorted']=torch.argmax(type_count,dim=-1)
 
         return z[:,0],x_list,batch_list,step_list
 
@@ -582,14 +585,18 @@ class InitDenoiser(nn.Module):
 
         self.use_roformer=False
         self.use_padding=True
-        self.use_all_type=False
+        self.use_all_type=True
 
         if self.use_all_type:
-            self.type_a_emb = MLPLayer(3, hidden_dim, hidden_dim)
+            # self.type_a_emb = MLPLayer(3, hidden_dim, hidden_dim)
             self.output_dim=11
+            m_delta_dim = 11
+
         else:
             self.type_a_emb = nn.Embedding(3, hidden_dim)
             self.output_dim=8
+            m_delta_dim = 5+3
+
 
         if self.use_roformer:
 
@@ -612,7 +619,6 @@ class InitDenoiser(nn.Module):
                                               2.447e+00, 1.321e-03]])
 
         else:
-            m_delta_dim = 5+3
 
             self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
 
@@ -683,7 +689,10 @@ class InitDenoiser(nn.Module):
 
             m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
 
-            feature = self.noise_embedding(beta) + self.type_a_emb(type) +ego_embedding+self.proj_in_m_delta(m_delta)
+            feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
+
+            if not self.use_all_type:
+                feature=feature+ self.type_a_emb(type)
 
             pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
 
@@ -721,12 +730,14 @@ class InitDenoiser(nn.Module):
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
-            categorical_embs_m = [
-                self.type_a_emb(type),
-            ]
 
             m_delta = self.proj_in_m_delta(m_delta).view(-1, self.hidden_dim)
-            m_delta = m_delta + categorical_embs_m[0]+ego_embedding
+
+            if self.use_all_type:
+                m_delta = m_delta +ego_embedding
+
+            else:
+                m_delta = m_delta + self.type_a_emb(type)+ego_embedding
             m_delta = self.proj_in_m_delta_2(m_delta)
 
             self.num_samples = num_samples

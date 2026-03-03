@@ -63,6 +63,21 @@ class PDInit(nn.Module):
 
             self.autoencoder=AutoEncoder(num_encoder_blocks,num_decoder_blocks,hidden_dim,latent_dim,num_heads)
 
+        if self.use_gan:
+            self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
+
+        self.use_dit=False
+        self.global_step=0
+        self.Gamma=1
+        self.use_Rp=False
+
+        self.density_conditioned=False
+
+        if self.use_dit:
+            self.G = LDM()
+        else:
+            self.G = InitDiffusion(args=args)
+
         self.use_count=False
 
         if self.use_count:
@@ -85,25 +100,18 @@ class PDInit(nn.Module):
             self.normal_mean=torch.tensor([[ 3.154e+00, 2.278e+00, 1.054e-01, 2.113e-03, 4.372e+00, 1.975e+00,
         2.571e+00, 3.261e-03]])
 
+            if self.G.use_all_type:
+                self.normal_scale=torch.tensor([[34.853, 29.443,  0.754,  0.611,  1.284,  0.394,  5.303,  0.223,  0.272,
+         0.261,  0.082]])
+
+                self.normal_mean=torch.tensor([[2.965e+00, 1.508e+00, 1.021e-01, 6.725e-04, 4.474e+00, 2.006e+00,
+        2.798e+00, 3.254e-03, 9.154e-01, 7.743e-02, 7.147e-03]])
+
         if self.latent_diffusion:
             self.agent_latents_scale=torch.tensor([[0.981, 0.982, 0.992, 1.012, 0.979, 0.950, 0.977, 0.975]])
             self.agent_latents_mean=torch.tensor([[0.026,  0.015,  0.001,  0.061,  0.010,  0.030, -0.021,  0.035]])
 
-        if self.use_gan:
-            self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
-        self.use_dit=False
-        self.global_step=0
-        self.Gamma=1
-        self.use_Rp=False
-
-        self.density_conditioned=False
-
-        if self.use_dit:
-            self.G = LDM()
-        else:
-            self.G = InitDiffusion(args=args)
-            
         self.use_perceptual_loss=False
 
         self.sep_map=False
@@ -374,6 +382,10 @@ class PDInit(nn.Module):
             if self.G.use_scale:
                 old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
 
+                one_hot = F.one_hot(old_nonego_type_sorted, num_classes=num_types)
+
+                m_init=torch.cat([m_init,one_hot],dim=-1)
+
                 diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs,self.G.use_all_type)
 
                 pad_mask=torch.all(diff_input == 0, dim=-1)
@@ -419,8 +431,8 @@ class PDInit(nn.Module):
 
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent['nonego_type_sorted'],
                                                                                                  tokenized_agent["nonego_batch"],
-                                                                                                 x_pred[:,:8]* normal_scale + normal_mean,
-                                                                                                 m_init[:,:8]* normal_scale + normal_mean,
+                                                                                                 x_pred* normal_scale + normal_mean,
+                                                                                                 m_init* normal_scale + normal_mean,
                                                                                                  latent=False,
                                                                                                  use_col=False,
                                                                                                  use_all_type=self.G.use_all_type
@@ -520,6 +532,9 @@ class PDInit(nn.Module):
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
                 pred_init, tokenized_agent, non_ego, nonego_batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
             )
+
+            if self.G.use_all_type:
+                tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
             
             tokenized_agent["shape"]= shape
 

@@ -142,7 +142,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
     centroids[~cluster_mask]=0
-    centroids[:,:,8:]*=counts_centroids[:,:,None]
+    #centroids[:,:,8:]*=counts_centroids[:,:,None]
     #centroids[:,:, :8] *= cluster_mask[:,:,None]# for k=0
 
     return centroids
@@ -348,11 +348,11 @@ def build_less_more_grouped(
 
 def cluster_points1(pos, batch, type, num_graphs  ):
 
-    type_vector=torch.zeros([len(type),3],device=pos.device)
-
-    type_vector[torch.arange(len(type)),type]=1
-
-    pos=torch.cat([pos,type_vector],dim=-1)
+    # type_vector=torch.zeros([len(type),3],device=pos.device)
+    #
+    # type_vector[torch.arange(len(type)),type]=1
+    #
+    # pos=torch.cat([pos,type_vector],dim=-1)
 
     centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(pos, batch,num_graphs)
 
@@ -369,9 +369,9 @@ def cluster_points1(pos, batch, type, num_graphs  ):
 
     more_batch=torch.where(cluster_mask)[0]
 
-    less_type=less_centroids[:,8:]
+    more_type=centroids1_b[:,8:]
 
-    return less_centroids[:,:8], more_batch, more_centroids, less_type,step_idx,step_number
+    return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
 
 def cluster_points(pos, batch, type, num_graphs,use_all_type
         ):
