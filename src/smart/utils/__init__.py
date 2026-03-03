@@ -18,5 +18,7 @@ from src.smart.utils.rollout import (
     sample_next_token_traj,
     transform_to_global,
     transform_to_local,
+    rotate_to_local,
+    rotate_to_global
 )
 from src.smart.utils.weight_init import weight_init

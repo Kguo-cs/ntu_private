@@ -18,6 +18,39 @@ from omegaconf import DictConfig
 from torch import Tensor
 from torch.distributions import Categorical, Independent, MixtureSameFamily, Normal
 
+def rotate_to_local(vel, heading):
+    """
+    vel: (..., 2) global velocity
+    heading: (...) ego heading (radians)
+    returns: (..., 2) velocity in ego-local frame
+    """
+    cos_h = torch.cos(heading)
+    sin_h = torch.sin(heading)
+
+    vx = vel[..., 0]
+    vy = vel[..., 1]
+
+    v_local_x =  cos_h * vx + sin_h * vy
+    v_local_y = -sin_h * vx + cos_h * vy
+
+    return torch.stack((v_local_x, v_local_y), dim=-1)
+
+def rotate_to_global(vel, heading):
+    """
+    vel: (..., 2) local velocity
+    heading: (...) ego heading (radians)
+    returns: (..., 2) velocity in global frame
+    """
+    cos_h = torch.cos(heading)
+    sin_h = torch.sin(heading)
+
+    vx = vel[..., 0]
+    vy = vel[..., 1]
+
+    v_global_x = cos_h * vx - sin_h * vy
+    v_global_y = sin_h * vx + cos_h * vy
+
+    return torch.stack((v_global_x, v_global_y), dim=-1)
 
 # @torch.no_grad()
 def cal_polygon_contour(

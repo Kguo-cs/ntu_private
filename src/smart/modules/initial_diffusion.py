@@ -14,6 +14,7 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
+    rotate_to_global
 )
 from src.smart.layers.autoencoder import AutoEncoder
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
@@ -580,9 +581,15 @@ class PDInit(nn.Module):
 
         local_vel[non_ego]=pred_vel
 
+        rel_vel=transform_to_local(local_vel+pred_trans,
+                                   None,
+                                   pred_trans,
+                                   pred_head,
+                                   )[0]
+
         center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-        gt_initial_idx = torch.linalg.norm(center_token_traj - local_vel[:, None]*0.5, dim=-1).argmin(-1)
+        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
 
         return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
 
