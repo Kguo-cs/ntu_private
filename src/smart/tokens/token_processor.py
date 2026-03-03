@@ -189,17 +189,20 @@ class TokenProcessor(torch.nn.Module):
             ego_position=tokenized_agent["initial_pos"][tokenized_agent["ego_mask"]][batch]
             ego_heading=tokenized_agent["initial_heading"][tokenized_agent["ego_mask"]][batch]
 
-            tokenized_agent["local_vel"] = transform_to_local(
-                tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
-                None,
-                ego_position,
-                ego_heading,
-            )[0]-transform_to_local(
-                tokenized_agent["initial_pos"] ,
-                None,
-                ego_position,
-                ego_heading,
-            )[0]
+            # tokenized_agent["local_vel"] = transform_to_local(
+            #     tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
+            #     None,
+            #     ego_position,
+            #     ego_heading,
+            # )[0]-transform_to_local(
+            #     tokenized_agent["initial_pos"] ,
+            #     None,
+            #     ego_position,
+            #     ego_heading,
+            # )[0]
+
+            tokenized_agent["local_vel"]=rotate_to_local(tokenized_agent["initial_vel"],ego_heading)
+
 
         if self.use_goal and self.training:
             self.compute_goal(tokenized_agent)
