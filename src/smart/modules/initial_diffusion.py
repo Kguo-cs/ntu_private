@@ -557,10 +557,10 @@ class PDInit(nn.Module):
         )
 
         global_pred_vel=transform_to_global(
-            pred_vel,
+            pred_vel+pred_trans,
             None,
-            global_pos,
-            global_heading,
+            ego_position[batch],
+            ego_heading[batch],
         )[0]-global_pos
 
         gt_initial_pos[non_ego]=global_pos
