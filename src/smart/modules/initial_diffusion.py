@@ -64,19 +64,17 @@ class PDInit(nn.Module):
         self.use_count=False
 
         if self.use_count:
-         #    self.normal_scale = torch.tensor([[35.105, 29.893, 35.130, 30.152, 35.201, 30.277,  5.155,  0.281]])
-         #    self.normal_mean = torch.tensor([[2.797e+00,  1.178e+00,  2.839e+00,  6.951e-01,  2.621e+00,  6.769e-01,
-         # 2.648e+00, -1.963e-03]])
-
+            self.normal_scale = torch.tensor([[35.105, 29.893, 35.130, 30.152, 35.201, 30.277,  5.155,  0.281]])
+            self.normal_mean = torch.tensor([[2.797e+00,  1.178e+00,  2.839e+00,  6.951e-01,  2.621e+00,  6.769e-01,
+         2.648e+00, -1.963e-03]])
+        else:
             self.normal_scale = torch.tensor([[35.280, 29.757,  0.769,  0.630,  1.291,  0.400,  5.100,  2.496]])
             self.normal_mean=torch.tensor([[ 3.048e+00,  2.221e+00,  1.055e-01,  4.566e-04,  4.454e+00,  2.003e+00,
-         4.072e-01, -2.645e-02]])
+                                             4.072e-01, -2.645e-02]])
+            # self.normal_scale = torch.tensor([[35.013, 30.234, 0.764, 0.638, 1.326, 0.417, 4.860, 0.230]])
+            # self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
+            #                                   2.447e+00, 1.321e-03]])
 
-        else:
-
-            self.normal_scale = torch.tensor([[35.013, 30.234, 0.764, 0.638, 1.326, 0.417, 4.860, 0.230]])
-            self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
-                                              2.447e+00, 1.321e-03]])
 
         if self.latent_diffusion:
             self.agent_latents_scale=torch.tensor([[0.981, 0.982, 0.992, 1.012, 0.979, 0.950, 0.977, 0.975]])
