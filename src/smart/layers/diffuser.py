@@ -691,9 +691,9 @@ class InitDenoiser(nn.Module):
 
             pos_a_b,heading_a_b,feat_a_b,mask_a_b = self.padding(m_delta[:,:2], theta, feature, batch, batch_size)  # b, n, d
 
-            pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
-
-            feat_a_b=feat_a_b+pos_emb
+            # pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
+            #
+            # feat_a_b=feat_a_b+pos_emb
 
             # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
             # heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
@@ -764,8 +764,8 @@ class InitDenoiser(nn.Module):
 
                 beta_emb_m = pad_sequence(beta_emb_batch, batch_first=True, padding_value=0)
 
-            pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
-            m_delta += pos_emb
+            # pos_emb = sinusoidal_embedding(m_delta.shape[1], self.hidden_dim).to(device).unsqueeze(0)
+            # m_delta += pos_emb
 
             if self.use_padding:
                 attn_mask_agent_layers = ~mask_agent
