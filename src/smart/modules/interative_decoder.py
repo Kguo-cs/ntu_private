@@ -83,7 +83,7 @@ class InterativeDecoder(nn.Module):
         if discriminator:
             self.t_num_layers = 1
         else:
-            self.t_num_layers = 3
+            self.t_num_layers = num_layers
 
         self.agent_hist = self.time_span // self.shift
 
