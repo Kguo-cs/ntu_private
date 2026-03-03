@@ -78,11 +78,12 @@ class PDInit(nn.Module):
             # self.normal_mean=torch.tensor([[ 3.048e+00,  2.221e+00,  1.055e-01,  4.566e-04,  4.454e+00,  2.003e+00,
             #                                  4.072e-01, -2.645e-02]])
 
-            self.normal_scale = torch.tensor([[35.188, 29.759,  0.761,  0.613,  1.383,  0.432,  4.960,  2.466]])
-            self.normal_mean=torch.tensor([[ 3.155e+00,  2.276e+00,  1.048e-01,  2.168e-03,  4.372e+00,  1.975e+00,
-         3.858e-01, -2.313e-02]])
-
-
+         #    self.normal_scale = torch.tensor([[35.188, 29.759,  0.761,  0.613,  1.383,  0.432,  4.960,  2.466]])
+         #    self.normal_mean=torch.tensor([[ 3.155e+00,  2.276e+00,  1.048e-01,  2.168e-03,  4.372e+00,  1.975e+00,
+         # 3.858e-01, -2.313e-02]])
+            self.normal_scale = torch.tensor([[35.191, 29.766,  0.759,  0.613,  1.382,  0.432,  4.948,  0.241]])
+            self.normal_mean=torch.tensor([[ 3.154e+00, 2.278e+00, 1.054e-01, 2.113e-03, 4.372e+00, 1.975e+00,
+        2.571e+00, 3.261e-03]])
 
         if self.latent_diffusion:
             self.agent_latents_scale=torch.tensor([[0.981, 0.982, 0.992, 1.012, 0.979, 0.950, 0.977, 0.975]])
@@ -565,7 +566,7 @@ class PDInit(nn.Module):
         #     ego_heading[batch],
         # )[0]-global_pos
 
-        global_pred_vel=rotate_to_global(pred_vel,ego_heading[batch])
+        global_pred_vel=rotate_to_global(pred_vel,global_heading)
 
         gt_initial_pos[non_ego]=global_pos
         gt_initial_heading[non_ego]=global_heading
@@ -580,9 +581,9 @@ class PDInit(nn.Module):
 
         #tokenized_agent["shape"]= shape
 
-        local_vel=tokenized_agent["local_vel"].clone()
-
-        local_vel[non_ego]=pred_vel
+        # local_vel=tokenized_agent["local_vel"].clone()
+        #
+        # local_vel[non_ego]=pred_vel
 
         # rel_vel=transform_to_local(gt_initial_vel+gt_initial_pos,
         #                            None,
