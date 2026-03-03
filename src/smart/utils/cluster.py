@@ -31,7 +31,7 @@ def kmeans_fast( x, k, iters=10):
 
     return centroids
 
-def kmeans( padded, mask,k_per_graph,batch,pos,max_k, iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
 
     num_graphs,max_points, D=padded.shape
 
@@ -43,25 +43,66 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, iters=10):
             < k_per_graph.unsqueeze(1)
     )  # (num_graphs, max_k)
     # --- generate random indices per graph ---
-    # first, get random floats per graph & point
-    rand_vals = torch.rand((num_graphs, max_points), device=device)
 
-    # mask invalid points so they won't be selected
-    rand_vals[~mask] = -1.0  # ensure they are ignored
+    if initial_centroids is None:
+        # first, get random floats per graph & point
+        rand_vals = torch.rand((num_graphs, max_points), device=device)
 
-    # argsort descending so top-k picks random valid points
-    sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
+        # mask invalid points so they won't be selected
+        rand_vals[~mask] = -1.0  # ensure they are ignored
 
-    selected_idx = sorted_idx[:, :max_k]  # (num_graphs, max_k)
-    # zero-out positions where k < max_k
-    selected_idx = selected_idx * cluster_mask.long()
+        # argsort descending so top-k picks random valid points
+        sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
 
-    # select the first k_per_graph indices for each graph
-    # create batch offsets for advanced indexing
-    graph_idx = torch.arange(num_graphs, device=device).unsqueeze(1)  # (num_graphs,1)
+        selected_idx = sorted_idx[:, :max_k]  # (num_graphs, max_k)
+        # zero-out positions where k < max_k
+        selected_idx = selected_idx * cluster_mask.long()
 
-    # gather centroids
-    centroids = padded[graph_idx, selected_idx]  # (num_graphs, max_k, D)
+        # select the first k_per_graph indices for each graph
+        # create batch offsets for advanced indexing
+        graph_idx = torch.arange(num_graphs, device=device).unsqueeze(1)  # (num_graphs,1)
+
+        # gather centroids
+        centroids = padded[graph_idx, selected_idx]  # (num_graphs, max_k, D)
+
+    else:
+        dist = (
+            padded.pow(2).sum(-1, keepdim=True)
+            - 2 * padded @ initial_centroids.transpose(1, 2)
+            + initial_centroids.pow(2).sum(-1).unsqueeze(1)
+        ).swapaxes(1,2)
+
+        initial_cluster_mask=torch.any(initial_centroids,dim=-1)
+
+        dist[~initial_cluster_mask]=float('inf')
+
+        min_dist=dist.amin(dim=1)
+
+        min_dist[~mask]=-1
+
+        max_dist_idx=torch.argsort(min_dist,dim=-1,descending=True)
+
+        fill_mask = cluster_mask & (~initial_cluster_mask)
+
+        # sort points by descending min distance
+        sorted_points = padded.gather(
+            1,
+            max_dist_idx.unsqueeze(-1).expand(-1, -1, D)
+        )
+
+        # per-graph rank for fill positions
+        fill_rank = (torch.cumsum(fill_mask.float(), dim=1) - 1).long()
+
+        # get replacement points
+        replacement_points = sorted_points[
+            torch.arange(num_graphs, device=device).unsqueeze(1),
+            fill_rank.clamp(min=0)
+        ]
+
+        # update centroids
+        centroids = initial_centroids.clone()
+        centroids[fill_mask] = replacement_points[fill_mask]
+
 
     centroids_mask=~(cluster_mask[:,None] & mask[:,:,None])[mask]
 
@@ -78,7 +119,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, iters=10):
         dist[centroids_mask]=float('inf')
 
         # assign labels per point (capped at graph's k)
-        labels_per_point = dist.argmin(dim=-1)  # (num_graphs, max_points)
+        labels_per_point = dist.argmin(dim=-1)  # (valid_point)
 
         # labels_per_point=labels[mask]
 
@@ -158,14 +199,11 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
     # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
     max_k = k1_per_graph.max().item()
 
-    # centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
-    #
-    # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
-    new_k=k_per_graph!=k1_per_graph
+    centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
 
-    padded=torch.cat([padded,padded[new_k]])
-    mask=torch.cat([mask,mask[new_k]])
-    k_per_graph_all=torch.cat([k_per_graph,k1_per_graph[new_k]])
+    centroids1 = centroids.clone()
+
+    new_k=k_per_graph!=k1_per_graph
 
     same_batch_mask = new_k[batch]
 
@@ -173,23 +211,23 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
 
     _, consecutive_batch = torch.unique(selected_batch, return_inverse=True)
 
-    batch=torch.cat([batch,consecutive_batch+num_graphs])
-    pos=torch.cat([pos,pos[same_batch_mask]])
+    # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
+    # batch=torch.cat([batch,consecutive_batch+num_graphs])
+    # pos=torch.cat([pos,pos[same_batch_mask]])
+    # padded=torch.cat([padded,padded[new_k]])
+    # mask=torch.cat([mask,mask[new_k]])
+    # k_per_graph_all=torch.cat([k_per_graph,k1_per_graph[new_k]])
+    #
+    # centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,max_k)
+   # centroids=centroids_all[:num_graphs]
+    # centroids1[new_k]=centroids_all[num_graphs:]
 
-    centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,max_k)
-
-    centroids=centroids_all[:num_graphs]
-
-
-    centroids1=centroids.clone()
-
-    centroids1[new_k]=centroids_all[num_graphs:]
-
-
-    # centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k)
+    centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k,
+                             initial_centroids=centroids[new_k])
 
 
     return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
+
 def build_less_more_grouped(
     pos,
     type,
@@ -554,6 +592,6 @@ def batch_increasing_schedule(N, S=128+1, gamma=1):
     schedule = torch.ceil_(N[:, None] * t[None, :])
     schedule = torch.minimum(schedule, N[:, None])
 
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,128)],dim=-1)
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,64)],dim=-1)
 
     return schedule.long()
