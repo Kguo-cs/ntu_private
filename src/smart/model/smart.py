@@ -196,9 +196,10 @@ class SMART(LightningModule):
             map_feature = self.encoder.map_encoder(tokenized_map)
             if self.encoder.sep_map:
                 map_feature1 = self.encoder.map_encoder1(tokenized_map,tokenized_agent)
-                tokenized_agent["initial_map_feature"]=map_feature1
             else:
-                tokenized_agent["initial_map_feature"]=map_feature
+                map_feature1 = self.encoder.map_encoder(tokenized_map,tokenized_agent)
+
+            tokenized_agent["initial_map_feature"]=map_feature1
 
 
             for _ in range(self.n_rollout_closed_val):
