@@ -74,13 +74,13 @@ class PDInit(nn.Module):
             # self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
             #                                   2.447e+00, 1.321e-03]])
 
-            self.normal_scale = torch.tensor([[35.280, 29.757,  0.769,  0.630,  1.291,  0.400,  5.100,  2.496]])
-            self.normal_mean=torch.tensor([[ 3.048e+00,  2.221e+00,  1.055e-01,  4.566e-04,  4.454e+00,  2.003e+00,
-                                             4.072e-01, -2.645e-02]])
+            # self.normal_scale = torch.tensor([[35.280, 29.757,  0.769,  0.630,  1.291,  0.400,  5.100,  2.496]])
+            # self.normal_mean=torch.tensor([[ 3.048e+00,  2.221e+00,  1.055e-01,  4.566e-04,  4.454e+00,  2.003e+00,
+            #                                  4.072e-01, -2.645e-02]])
 
-         #    self.normal_scale = torch.tensor([[35.188, 29.759,  0.761,  0.613,  1.383,  0.432,  4.960,  2.466]])
-         #    self.normal_mean=torch.tensor([[ 3.155e+00,  2.276e+00,  1.048e-01,  2.168e-03,  4.372e+00,  1.975e+00,
-         # 3.858e-01, -2.313e-02]])
+            self.normal_scale = torch.tensor([[35.188, 29.759,  0.761,  0.613,  1.383,  0.432,  4.960,  2.466]])
+            self.normal_mean=torch.tensor([[ 3.155e+00,  2.276e+00,  1.048e-01,  2.168e-03,  4.372e+00,  1.975e+00,
+         3.858e-01, -2.313e-02]])
 
 
 
@@ -141,7 +141,7 @@ class PDInit(nn.Module):
 
             m_init = torch.cat([init_trans, init_angle, initial_shape[:,:2], real_vel], dim=-1)
 
-        m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
+        #m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
 
         dist = torch.norm(init_trans, dim=-1)#init_trans[:, 0] + init_trans[:, 1]  # +200#
 
@@ -375,12 +375,12 @@ class PDInit(nn.Module):
 
                 diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs,self.G.use_all_type)
 
-                # pad_mask=torch.all(diff_input == 0, dim=-1)
-                #
-                # m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)
-                # diff_input = (diff_input - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)
-                #
-                # diff_input[pad_mask]=0
+                pad_mask=torch.all(diff_input == 0, dim=-1)
+
+                m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)
+                diff_input = (diff_input - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)
+
+                diff_input[pad_mask]=0
 
 
                 tokenized_agent['nonego_type_sorted']=type
