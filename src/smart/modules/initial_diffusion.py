@@ -157,23 +157,20 @@ class PDInit(nn.Module):
 
         #m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
 
-        dist = torch.norm(init_trans, dim=-1)#init_trans[:, 0] + init_trans[:, 1]  # +200#
+        # dist = torch.norm(init_trans, dim=-1)#init_trans[:, 0] + init_trans[:, 1]  # +200#
+        #
+        # dist_max = dist.max().abs() +dist.min().abs()+1
+        #
+        # sort_rank = batch.to(torch.float64) * dist_max * 3 + nonego_type.to(torch.float64) * dist_max + dist.to(
+        #     torch.float64)  # -ego_mask.float()#+dist#dist sorted
+        #
+        # sort_idx = sort_rank.argsort()
+        #
+        # m_init = m_init[sort_idx]
 
-        dist_max = dist.max().abs() +dist.min().abs()+1
+        tokenized_agent['nonego_type_sorted'] = nonego_type#[sort_idx]
 
-        sort_rank = batch.to(torch.float64) * dist_max * 3 + nonego_type.to(torch.float64) * dist_max + dist.to(
-            torch.float64)  # -ego_mask.float()#+dist#dist sorted
-
-        sort_idx = sort_rank.argsort()
-
-        #sort_idx=torch.arange(len(sort_idx))
-        #sort_idx = torch.arange(len(sort_idx), device=non_ego.device)
-
-        m_init = m_init[sort_idx]
-
-        tokenized_agent['nonego_type_sorted'] = nonego_type[sort_idx]
-
-        return m_init,sort_idx
+        return m_init,None
 
     def get_gan_loss(self,m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego,rec_loss=None,t=None,t_batch=None):
         if self.D.use_entry_former:
