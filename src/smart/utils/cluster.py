@@ -55,6 +55,8 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
         sorted_idx = rand_vals.argsort(dim=1, descending=True)  # (num_graphs, max_points)
 
         selected_idx = sorted_idx[:, :max_k]  # (num_graphs, max_k)
+
+
         # zero-out positions where k < max_k
         selected_idx = selected_idx * cluster_mask.long()
 
@@ -249,6 +251,44 @@ def batched_kmeans_variable_k(pos, batch, num_graphs,k_per_graph=None,k1_per_gra
 
     return centroids, centroids1, k_per_graph, k1_per_graph, step_idx, step_number
 
+def allocate_k_per_type(k_total, type_counts):
+    """
+    k_total:     (G,)
+    type_counts: (G, T)
+
+    returns:
+        k_type:   (G, T)
+        sum over T exactly equals k_total
+    """
+
+    G, T = type_counts.shape
+
+    denom = type_counts.sum(dim=1, keepdim=True).clamp_min(1)
+
+    raw = type_counts / denom * k_total.unsqueeze(1)
+
+    k_floor = raw.floor()
+    remainder = (k_total - k_floor.sum(dim=1)).long()   # (G,)
+
+    frac = raw - k_floor
+
+    # rank fractional parts descending
+    frac_sorted, order = torch.sort(frac, dim=1, descending=True)
+
+    # build mask for top-r entries per row
+    arange_t = torch.arange(T, device=type_counts.device)
+
+    # shape: (G, T)
+    add_mask = arange_t.unsqueeze(0) < remainder.unsqueeze(1)
+
+    # scatter mask back to original column positions
+    add_mask = torch.zeros_like(frac, dtype=torch.bool).scatter(
+        1, order, add_mask
+    )
+
+    k_type = k_floor.long() + add_mask.long()
+
+    return k_type
 
 def build_less_more_grouped(
     pos,
@@ -274,61 +314,63 @@ def build_less_more_grouped(
     num_types = 3
 
     idx = batch * num_types + type
-    counts = torch.bincount(
+
+    type_counts = torch.bincount(
         idx,
         minlength=num_graphs * num_types
-    )
+    ).view(num_graphs, num_types)
 
-    type_counts = counts.view(num_graphs, num_types)
-    
-    type_ratio = type_counts / type_counts.sum()
-    
     centroids_list=[]
     centroids1_list=[]
-    k_total_list    = []
-    k1_total_list   = []
+    # k_total_list    = []
+    # k1_total_list   = []
 
-    for i in range( num_graphs ):
-        k_per_graph_type=torch.ceil_(k_per_graph*type_ratio[i])
-        k1_per_graph_type=torch.ceil_(k1_per_graph*type_ratio[i])
-    
+    batch_list=[]
+    type_list=[]
+
+    # --------------------------------------------------------
+    # Step 3: allocate clusters per type (exact sum preserved)
+    # --------------------------------------------------------
+    k_type  = allocate_k_per_type(k_per_graph,  type_counts)
+    k1_type = allocate_k_per_type(k1_per_graph, type_counts)
+
+    for i in range( num_types ):
+        k_per_graph_type=k_type[:,i]
+        k1_per_graph_type=k1_type[:,i]
+
         veh_pos=pos[type==i]
         veh_batch=batch[type==i]
-    
-        centroids_b,centroids1_b=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs,k_per_graph_type,k1_per_graph_type)
+
+        centroids_b,centroids1_b,_,_,_,_=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs,k_per_graph_type,k1_per_graph_type)
 
         centroids_list.append(centroids_b)
         centroids1_list.append(centroids1_b)
 
-        k_total_list.append(k_per_graph_type)
-        k1_total_list.append(k1_per_graph_type)
+        # k_total_list.append(k_per_graph_type)
+        # k1_total_list.append(k1_per_graph_type)
+
+        batch_list.append(torch.arange(num_graphs, device=counts.device)[:,None].repeat(1,centroids1_b.shape[1]))
+        type_list.append(torch.zeros_like(centroids1_b[:,:,0]).to(torch.long)+i)
 
     centroids_all = torch.cat(centroids_list, dim=1)
     centroids1_all = torch.cat(centroids1_list, dim=1)
+    batch_list = torch.cat(batch_list, dim=1)
+    type_list = torch.cat(type_list, dim=1)
 
-    k_total = torch.stack(k_total_list, dim=1).sum(dim=1)
-    k1_total = torch.stack(k1_total_list, dim=1).sum(dim=1)
+    valid_mask=torch.any(centroids1_all,dim=-1)
 
-    # --------------------------------------------------------
-    # Step 6: compact (remove padding)
-    # --------------------------------------------------------
-    max_k = centroids_all.shape[1]
-    mask = torch.arange(max_k, device=pos.device)[None, :] < k_total[:, None]
+    less_centroids=centroids_all[valid_mask]
+    more_centroids=centroids1_all[valid_mask]
 
-    centroids = centroids_all[mask]
+    more_batch=batch_list[valid_mask]
+    more_type=type_list[valid_mask]
 
-    max_k1 = centroids1_all.shape[1]
-    mask1 = torch.arange(max_k1, device=pos.device)[None, :] < k1_total[:, None]
-
-    centroids1 = centroids1_all[mask1]
-
-    print(centroids_b_list)
-    print(centroids1_b_list)
+    return less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number
 
 
 
 
-def build_less_more_grouped(
+def build_less_more_grouped1(
     pos,
     type,
     batch,

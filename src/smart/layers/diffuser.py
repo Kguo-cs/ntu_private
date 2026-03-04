@@ -45,7 +45,7 @@ from src.smart.layers.relative_transformer import RoFormerBlock,RoFormerDecoder
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
-from src.smart.utils.cluster import batch_increasing_schedule
+from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -303,31 +303,50 @@ class InitDiffusion(nn.Module):
 
             agent_type = tokenized_agent["nonego_type_sorted"]
 
-            if self.use_all_type:
-                veh_mask=torch.ones_like(agent_type).to(torch.bool)
-            else:
-                veh_mask = agent_type == 0
+            type_counts=tokenized_agent["type_counts"]
 
-            # 1. cumulative vehicle count globally
-            veh_cumsum = torch.cumsum(veh_mask.long(), dim=0)
+            # if self.use_all_type:
+            #     veh_mask=torch.ones_like(agent_type).to(torch.bool)
+            # else:
+            #     veh_mask = agent_type == 0
 
-            # 2. total vehicles per scene
-            veh_per_scene = torch.bincount(
-                agent_batch[veh_mask],
-                minlength=num_scenes
-            )
+            # # 1. cumulative vehicle count globally
+            # veh_cumsum = torch.cumsum(veh_mask.long(), dim=0)
+            #
+            # # 2. total vehicles per scene
+            # veh_per_scene = torch.bincount(
+            #     agent_batch[veh_mask],
+            #     minlength=num_scenes
+            # )
+            #
+            # # 3. prefix vehicle offsets per scene
+            # veh_offsets = torch.cumsum(veh_per_scene, dim=0)
+            # veh_offsets = torch.cat([
+            #     torch.zeros(1, device=veh_offsets.device, dtype=veh_offsets.dtype),
+            #     veh_offsets[:-1]
+            # ])
+            #
+            # # 4. vehicle rank inside its own scene
+            # veh_rank = veh_cumsum - veh_offsets[agent_batch] #- 1
 
-            # 3. prefix vehicle offsets per scene
-            veh_offsets = torch.cumsum(veh_per_scene, dim=0)
-            veh_offsets = torch.cat([
-                torch.zeros(1, device=veh_offsets.device, dtype=veh_offsets.dtype),
-                veh_offsets[:-1]
-            ])
+            num_types=3
 
-            # 4. vehicle rank inside its own scene
-            veh_rank = veh_cumsum - veh_offsets[agent_batch] #- 1
+            idx = agent_batch * num_types + agent_type
+            mask = agent_type >= 0  # or specific valid condition
 
-            schedule=batch_increasing_schedule(veh_per_scene)[agent_batch]
+            cumsum = torch.cumsum(mask.long(), dim=0)
+
+            per_group = torch.bincount(idx[mask], minlength=num_scenes * num_types)
+
+            offsets = torch.cumsum(per_group, dim=0)
+            offsets = torch.cat([torch.zeros(1, device=offsets.device).to(torch.long), offsets[:-1]])
+
+            rank = torch.full_like(agent_batch, -1)
+            rank[mask] = cumsum[mask] - offsets[idx[mask]]
+
+            veh_per_scene=type_counts.sum(-1)
+
+            schedule=batch_increasing_schedule(veh_per_scene)#[agent_batch]
 
             steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
 
@@ -364,17 +383,19 @@ class InitDiffusion(nn.Module):
                     schedule_i=schedule[:,i]
                     schedule_i1=schedule[:,i+1]
 
-                    # if torch.any(schedule_i1>schedule_i+1):
-                    #     print(schedule_i1-schedule_i)
+                    k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
+                    k1_batch = allocate_k_per_type(schedule_i1, type_counts)
 
-                    first_i_veh_mask = (~veh_mask) | (veh_rank <= schedule_i1)
+                    # if torch.any(schedule_i1>schedule_i+1):
+                    #     print(schedule_i1-schedule_i)#(~veh_mask) | (veh_rank <= schedule_i1)
+
+                    k1=k1_batch[agent_batch, agent_type]
+
+
+                    first_i_veh_mask = rank <= k1
 
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
-
-                    # if self.use_all_type:
-                    #     tokenized_agent_scale["nonego_type_sorted"]=type_count[first_i_veh_mask]
-                    # else:
                     tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
                     tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
                     tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
@@ -383,7 +404,9 @@ class InitDiffusion(nn.Module):
 
                     tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
 
-                    padding_mask=(((veh_rank<=schedule_i1) & (veh_rank>schedule_i)) & veh_mask)[first_i_veh_mask]
+                    padding_mask = (first_i_veh_mask &  (rank> k))[first_i_veh_mask]
+
+                    #padding_mask=(((veh_rank<=schedule_i1) & (veh_rank>schedule_i)) & veh_mask)
 
                     tokenized_agent_scale["padding_mask"]=padding_mask
 

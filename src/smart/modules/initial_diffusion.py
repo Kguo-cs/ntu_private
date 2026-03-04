@@ -96,9 +96,14 @@ class PDInit(nn.Module):
          #    self.normal_scale = torch.tensor([[35.188, 29.759,  0.761,  0.613,  1.383,  0.432,  4.960,  2.466]])
          #    self.normal_mean=torch.tensor([[ 3.155e+00,  2.276e+00,  1.048e-01,  2.168e-03,  4.372e+00,  1.975e+00,
          # 3.858e-01, -2.313e-02]])
-            self.normal_scale = torch.tensor([[34.823, 29.733,  0.753,  0.616,  1.351,  0.422,  5.165,  0.226]])
-            self.normal_mean=torch.tensor([[ 4.001e+00,  2.440e+00,  1.120e-01, -4.082e-04,  4.373e+00,  1.974e+00,
-         2.703e+00, -3.432e-03]])
+         #    self.normal_scale = torch.tensor([[34.823, 29.733,  0.753,  0.616,  1.351,  0.422,  5.165,  0.226]])
+         #    self.normal_mean=torch.tensor([[ 4.001e+00,  2.440e+00,  1.120e-01, -4.082e-04,  4.373e+00,  1.974e+00,
+         # 2.703e+00, -3.432e-03]])
+
+
+            self.normal_scale=torch.tensor([[34.820, 29.857,  0.750,  0.616,  1.264,  0.391,  5.200,  0.212]])
+            self.normal_mean=torch.tensor([[3.768e+00,  2.336e+00,  1.188e-01, -1.358e-03,  4.453e+00,  2.001e+00,
+         2.728e+00, -2.259e-03]])
 
             if self.G.use_all_type:
                 self.normal_scale=torch.tensor([[35.039, 29.354,  0.758,  0.606,  1.317,  0.405,  4.842,  0.281,  0.290,
@@ -330,16 +335,15 @@ class PDInit(nn.Module):
 
         # encode (batch, type) pair into a single index
         idx = nonego_batch * num_types + nonego_type
-        counts = torch.bincount(
+
+        type_counts = torch.bincount(
             idx,
             minlength=num_graphs * num_types
-        )
+        ).view(num_graphs, num_types)
 
-        counts = counts.view(num_graphs, num_types)
+        tokenized_agent["type_counts"]=type_counts
 
-        tokenized_agent["type_counts"]=counts
-
-        ego_local_traj=torch.cat([ego_local_traj,counts],dim=-1)
+        ego_local_traj=torch.cat([ego_local_traj,type_counts],dim=-1)
 
         ego_embedding=self.G.ego_embedding(ego_local_traj)
 
@@ -438,7 +442,7 @@ class PDInit(nn.Module):
                                                                                                  m_init,
                                                                                                  latent=False,
                                                                                                  use_col=False,
-                                                                                                 use_all_type=True
+                                                                                                 use_all_type=False
                                                                                                  )
                     # if self.G.use_all_type:
                     #     pred_type_count=torch.relu(x_pred[:,8:])
