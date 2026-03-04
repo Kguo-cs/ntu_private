@@ -258,7 +258,7 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
 def get_matching_loss(
     initial_type, batch, fake_state,real_state,
     fake_norm_state,
-    real_norm_state ,latent=False,use_col=True,use_all_type=False
+    real_norm_state,denom ,latent=False,use_col=True,use_all_type=False
     ):
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
@@ -267,8 +267,8 @@ def get_matching_loss(
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_pos[fake_idx], fake_heading[fake_idx], fake_shape[fake_idx],
-        real_pos[real_idx], real_heading[real_idx], real_shape[real_idx]
+        fake_pos[fake_idx]/denom, fake_heading[fake_idx]/denom, fake_shape[fake_idx]/denom,
+        real_pos[real_idx]/denom, real_heading[real_idx]/denom, real_shape[real_idx]/denom
     )
 
    # if latent or use_all_type:

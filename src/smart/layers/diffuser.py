@@ -230,9 +230,14 @@ class InitDiffusion(nn.Module):
 
                 x_pred=x_pred[fake_idx]
 
-                v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
+                denom = (1 - t[:, :, None]).clamp_min(self.t_eps)
 
-                v_pred = (x_pred[:,:,:x.shape[-1]] - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
+
+                v_target = (x - z) /denom
+
+                v_pred = (x_pred - z) /denom
+
+
             else:
                 v_target =x - e
 
@@ -240,7 +245,7 @@ class InitDiffusion(nn.Module):
 
                 x_pred =e+v_pred
 
-        return F.mse_loss(v_pred , v_target,reduction="none") ,x_pred[:,0],t_batch,t
+        return F.mse_loss(v_pred , v_target,reduction="none") ,x_pred[:,0],z,denom[:,0]
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
