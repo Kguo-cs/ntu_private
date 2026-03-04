@@ -36,7 +36,7 @@ def matching_loss(
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
 
-    vel_loss = F.l1_loss(fake_shape[:,2:4], real_shape[:,2:4])
+    vel_loss = F.l1_loss(fake_shape[:,2:], real_shape[:,2:])
 
     total_loss = (
         w_pos * pos_loss +
