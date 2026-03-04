@@ -147,7 +147,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
 
     return centroids
 
-def batched_kmeans_variable_k(pos, batch,  num_graphs,iters=10):
+def batched_kmeans_variable_k(pos, batch,  num_graphs):
     """
     Batched K-Means per graph, allowing variable number of clusters per graph.
 

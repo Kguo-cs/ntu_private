@@ -689,10 +689,10 @@ class InitDenoiser(nn.Module):
 
             m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
 
-            feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
-
-            if not self.use_all_type:
-                feature=feature+ self.type_a_emb(type)
+            if  self.use_all_type:
+                feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)+ self.type_a_emb(type)
+            else:
+                feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
 
             pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
 

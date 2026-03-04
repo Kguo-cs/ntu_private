@@ -101,11 +101,11 @@ class PDInit(nn.Module):
         2.571e+00, 3.261e-03]])
 
             if self.G.use_all_type:
-                self.normal_scale=torch.tensor([[34.853, 29.443,  0.754,  0.611,  1.284,  0.394,  5.303,  0.223,  0.272,
-         0.261,  0.082]])
+                self.normal_scale=torch.tensor([[35.039, 29.354,  0.758,  0.606,  1.317,  0.405,  4.842,  0.281,  0.290,
+         0.282,  0.071]])
 
-                self.normal_mean=torch.tensor([[2.965e+00, 1.508e+00, 1.021e-01, 6.725e-04, 4.474e+00, 2.006e+00,
-        2.798e+00, 3.254e-03, 9.154e-01, 7.743e-02, 7.147e-03]])
+                self.normal_mean=torch.tensor([[2.345e+00,  3.163e+00,  1.098e-01,  1.229e-02,  4.424e+00,  1.992e+00,
+         2.421e+00, -3.600e-05,  9.040e-01,  9.043e-02,  5.601e-03]])
 
         if self.latent_diffusion:
             self.agent_latents_scale=torch.tensor([[0.981, 0.982, 0.992, 1.012, 0.979, 0.950, 0.977, 0.975]])
