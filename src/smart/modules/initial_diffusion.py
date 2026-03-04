@@ -563,7 +563,7 @@ class PDInit(nn.Module):
             pred_shape = torch.stack([length, width], dim=-1)
 
         else:
-            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., -2:]
+            pred_trans, pred_head,pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4],pred_init[..., 4:6], pred_init[..., 6:8]
             pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
     
     
