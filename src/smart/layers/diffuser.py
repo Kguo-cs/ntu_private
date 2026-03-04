@@ -383,11 +383,7 @@ class InitDiffusion(nn.Module):
                     k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
                     k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
-                    # if torch.any(schedule_i1>schedule_i+1):
-                    #     print(schedule_i1-schedule_i)#(~veh_mask) | (veh_rank <= schedule_i1)
-
-
-                    first_i_veh_mask = rank <= k1
+                    first_i_veh_mask = rank <= k1#(~veh_mask) | (veh_rank <= schedule_i1)
 
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]

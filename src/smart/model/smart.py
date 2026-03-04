@@ -380,12 +380,7 @@ class SMART(LightningModule):
                         _vis.save_video_scenario_rollout(
                             scenario_rollouts[_i_sc], self.n_vis_rollout,new_agent[_i_sc*100:(_i_sc+1)*100],
                         )
-                        # for _path in _vis.video_paths:
-                        #     self.logger.log_video(
-                        #         "/".join(_path.split("/")[-3:]), [_path]
-                        #     )
-                    #print(time.time()-t1)
-            #
+
             # if self.n_rollout_closed_val ==1 and not self.use_bird:
             #     scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
             #
@@ -479,11 +474,6 @@ class SMART(LightningModule):
                                  rank_zero_only=True)
 
                 if self.global_rank == 0:
-                    # epoch_wosac_metrics["epoch"] = (
-                    #     self.log_epoch if self.log_epoch >= 0 else self.current_epoch
-                    # )
-                    # self.logger.log_metrics(epoch_wosac_metrics)
-                    #print("Logged keys:", epoch_wosac_metrics.keys())
                     if self.token_processor.use_bird:
 
                         epoch_wosac_metrics['val_closed/minADE'] = self.minADE0/self.minADE0_num
