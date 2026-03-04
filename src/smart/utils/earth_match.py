@@ -205,7 +205,7 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 
-def get_closest_sum_idx(fake_state,real_state,batch,initial_type,latent=False,use_all_type=False):
+def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False,use_all_type=False):
 
     fake_pos = fake_state[:, :2]
     real_pos = real_state[:, :2]
@@ -217,7 +217,7 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,latent=False,us
         for b in batch.unique():
             f_idx = ((batch == b) ).nonzero(as_tuple=True)[0]
 
-            if latent:
+            if all_state:
                 dist = torch.norm(fake_state[f_idx][:, None] - real_state[f_idx][None], p=1, dim=-1)  # .square()
             else:
                 dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
@@ -235,8 +235,8 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,latent=False,us
             for type in initial_type[batch == b].unique():
                 f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
 
-                if latent:
-                    dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],p=1,dim=-1)#.square()
+                if all_state:
+                    dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],dim=-1)#.square()p=1,
                 else:
                     dist = torch.cdist( real_pos[f_idx],fake_pos[f_idx])
 
