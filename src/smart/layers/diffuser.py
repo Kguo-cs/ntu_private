@@ -226,10 +226,10 @@ class InitDiffusion(nn.Module):
 
                 x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask)
 
-                fake_idx, real_idx= get_closest_sum_idx(x_pred[:,0],x[:,0],agent_batch,tokenized_agent["nonego_type_sorted"],all_state=True)
-
-                x_pred=x_pred[fake_idx]
-
+                # fake_idx, real_idx= get_closest_sum_idx(x_pred[:,0],x[:,0],agent_batch,tokenized_agent["nonego_type_sorted"],all_state=True)
+                #
+                # x_pred=x_pred[fake_idx]
+                #
                 denom = (1 - t[:, :, None]).clamp_min(self.t_eps)
 
 
