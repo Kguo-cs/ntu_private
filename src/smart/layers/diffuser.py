@@ -46,6 +46,7 @@ from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
 from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
+from src.smart.utils.earth_match import get_closest_sum_idx
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -165,14 +166,7 @@ class InitDiffusion(nn.Module):
         if tokenized_agent["step_idx"] is not None:
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
-
-            # t_batch=t_batch+torch.randn(num_scenes, device=device) *0.1
-            #
-            # t_batch=torch.clamp(t_batch, min=0,max=1)
-
             t_batch=t_batch[:, None]
-
-
         else:
             t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
@@ -215,9 +209,7 @@ class InitDiffusion(nn.Module):
 
             # Perceptual Loss
             x_init_0_reconstructed = z - t[:,:,None] * u_out
-
         else:
-
             if self.steps==1:
                 t_batch=torch.zeros_like(t_batch)
 
@@ -231,22 +223,25 @@ class InitDiffusion(nn.Module):
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
 
             if self.x_pred:
+
+                x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask)
+
+                fake_idx, real_idx= get_closest_sum_idx(x_pred[:,0],x[:,0],agent_batch,tokenized_agent["nonego_type_sorted"])
+
+                x_pred=x_pred[fake_idx]
+
+
                 v_target = (x - z) / (1 - t[:,:, None]).clamp_min(self.t_eps)
 
-                x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask) #t=0 ,0.1
-
                 v_pred = (x_pred[:,:,:x.shape[-1]] - z) / (1 - t[:, :, None]).clamp_min(self.t_eps)
-
-                x_init_0_reconstructed = x_pred  # x0+v_pred
-
             else:
                 v_target =x - e
 
                 v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
 
-                x_init_0_reconstructed =e+v_pred
+                x_pred =e+v_pred
 
-        return F.mse_loss(v_pred , v_target,reduction="none") ,x_init_0_reconstructed[:,0],t_batch,t #t>0.5 #F.l1_loss(x_init_0_reconstructed , x1,reduction="none")
+        return F.mse_loss(v_pred , v_target,reduction="none") ,x_pred[:,0],t_batch,t
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
@@ -384,12 +379,10 @@ class InitDiffusion(nn.Module):
                     schedule_i1=schedule[:,i+1]
 
                     k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
-                    k1_batch = allocate_k_per_type(schedule_i1, type_counts)
+                    k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
                     # if torch.any(schedule_i1>schedule_i+1):
                     #     print(schedule_i1-schedule_i)#(~veh_mask) | (veh_rank <= schedule_i1)
-
-                    k1=k1_batch[agent_batch, agent_type]
 
 
                     first_i_veh_mask = rank <= k1

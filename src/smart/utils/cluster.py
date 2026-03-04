@@ -322,15 +322,8 @@ def build_less_more_grouped(
 
     centroids_list=[]
     centroids1_list=[]
-    # k_total_list    = []
-    # k1_total_list   = []
-
-    batch_list=[]
     type_list=[]
 
-    # --------------------------------------------------------
-    # Step 3: allocate clusters per type (exact sum preserved)
-    # --------------------------------------------------------
     k_type  = allocate_k_per_type(k_per_graph,  type_counts)
     k1_type = allocate_k_per_type(k1_per_graph, type_counts)
 
@@ -345,30 +338,20 @@ def build_less_more_grouped(
 
         centroids_list.append(centroids_b)
         centroids1_list.append(centroids1_b)
-
-        # k_total_list.append(k_per_graph_type)
-        # k1_total_list.append(k1_per_graph_type)
-
-        batch_list.append(torch.arange(num_graphs, device=counts.device)[:,None].repeat(1,centroids1_b.shape[1]))
         type_list.append(torch.zeros_like(centroids1_b[:,:,0]).to(torch.long)+i)
 
     centroids_all = torch.cat(centroids_list, dim=1)
     centroids1_all = torch.cat(centroids1_list, dim=1)
-    batch_list = torch.cat(batch_list, dim=1)
     type_list = torch.cat(type_list, dim=1)
 
     valid_mask=torch.any(centroids1_all,dim=-1)
 
     less_centroids=centroids_all[valid_mask]
     more_centroids=centroids1_all[valid_mask]
-
-    more_batch=batch_list[valid_mask]
+    more_batch=torch.arange(num_graphs, device=counts.device)[:,None].repeat(1,centroids1_all.shape[1])[valid_mask]
     more_type=type_list[valid_mask]
 
     return less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number
-
-
-
 
 def build_less_more_grouped1(
     pos,

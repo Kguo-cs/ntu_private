@@ -205,14 +205,11 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 
+def get_closest_sum_idx(fake_state,real_state,batch,initial_type,latent=False,use_all_type=False):
 
-def get_matching_loss(
-    initial_type, batch, fake_state,real_state,
-    fake_norm_state,
-    real_norm_state ,latent=False,use_col=True,use_all_type=False
-    ):
-    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
-    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
+    fake_pos = fake_state[:, :2]
+    real_pos = real_state[:, :2]
+
 
     if use_all_type:
         rows, cols = [], []
@@ -241,7 +238,7 @@ def get_matching_loss(
                 if latent:
                     dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],p=1,dim=-1)#.square()
                 else:
-                    dist = torch.cdist(fake_pos[f_idx], real_pos[f_idx])
+                    dist = torch.cdist( real_pos[f_idx],fake_pos[f_idx])
 
                 cost = dist.cpu().detach().numpy()
 
@@ -250,12 +247,28 @@ def get_matching_loss(
                 rows.append(f_idx[row])
                 cols.append(f_idx[col])
 
-    row = torch.cat(rows)
-    col = torch.cat(cols)
+    real_idx = torch.cat(rows)
+    fake_idx = torch.cat(cols)
+
+    # print(torch.all(torch.all(real_idx==torch.arange(len(real_idx)).cuda())))
+
+    return fake_idx, real_idx
+
+
+def get_matching_loss(
+    initial_type, batch, fake_state,real_state,
+    fake_norm_state,
+    real_norm_state ,latent=False,use_col=True,use_all_type=False
+    ):
+    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
+    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
+
+    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type)
+
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_pos[row], fake_heading[row], fake_shape[row],
-        real_pos[col], real_heading[col], real_shape[col]
+        fake_pos[fake_idx], fake_heading[fake_idx], fake_shape[fake_idx],
+        real_pos[real_idx], real_heading[real_idx], real_shape[real_idx]
     )
 
    # if latent or use_all_type:
