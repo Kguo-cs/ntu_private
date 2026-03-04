@@ -356,8 +356,6 @@ class InitDiffusion(nn.Module):
         batch_list=[]
         step_list=[]
 
-        type_count=torch.zeros((num_agents,3), device=eval_mask.device)
-
         if self.mean_flow:
             t = torch.ones(num_agents, device=eval_mask.device)[:,None]
             r = torch.zeros(num_agents, device=eval_mask.device)[:,None]
@@ -408,6 +406,8 @@ class InitDiffusion(nn.Module):
                     tokenized_agent_scale["padding_mask"]=padding_mask
 
                     z_scale=z[first_i_veh_mask]
+
+                    t_next=torch.clamp_max(t_next+0.1,max=1)
 
                     z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
 
