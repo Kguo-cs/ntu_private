@@ -653,18 +653,29 @@ class InitDenoiser(nn.Module):
             self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
                                               num_freq_bands=num_freq_bands)
 
-            self.interact_pt2m = nn.ModuleList(
-                [TransformerDecoderLayerDiff(
-                    n_embd=hidden_dim,
-                    n_head=num_heads,
-                    ff_dim=4 * hidden_dim,
-                    dropout=0,
-                    layer_id=i,
-                ) for i in range(num_layers)])
+            # self.interact_pt2m = nn.ModuleList(
+            #     [TransformerDecoderLayerDiff(
+            #         n_embd=hidden_dim,
+            #         n_head=num_heads,
+            #         ff_dim=4 * hidden_dim,
+            #         dropout=0,
+            #         layer_id=i,
+            #     ) for i in range(num_layers)])
             # module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
             #                                       hist_len=1000000)  # replace with gnn
             # self.interact_pt2m = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
-
+            self.interact_pt2m = nn.ModuleList([
+                nn.TransformerDecoderLayer(
+                    d_model=hidden_dim,
+                    nhead=num_heads,
+                    dim_feedforward=4 * hidden_dim,
+                    dropout=0.0,
+                    batch_first=True,
+                    activation="gelu",
+                    norm_first=True
+                )
+                for _ in range(num_layers)
+            ])
             self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
         self.apply(weight_init)
@@ -826,10 +837,10 @@ class InitDenoiser(nn.Module):
                 #mask_agent = mask.unsqueeze(-1).expand(-1, -1, D)  # [B, N, D]
 
 
-            attn_mask_agent_layers1 = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)
-            attn_mask_map_layers1 = attn_mask_map_layers.view(B, 1, 1, N_map). \
-                expand(-1, self.num_heads * 2, N, -1)
-            #
+            # attn_mask_agent_layers1 = attn_mask_agent_layers.view(B, 1, N).to(torch.bool)
+            # attn_mask_map_layers1 = attn_mask_map_layers.view(B, 1, 1, N_map). \
+            #     expand(-1, self.num_heads * 2, N, -1)
+            # #
             # # 0: don't attend others
             # if mode == 0:
             #     attn_mask_agent_layers = attn_mask_agent_layers + ~torch.eye(N).to(torch.bool).unsqueeze(0).to(
@@ -837,9 +848,17 @@ class InitDenoiser(nn.Module):
 
             for i in range(self.num_layers):
                 m_delta = m_delta + beta_emb_m
-                m_delta = self.interact_pt2m[i](x=m_delta, map_enc=map_emb,
-                                                mask=attn_mask_agent_layers1,
-                                                map_mask=attn_mask_map_layers1)
+
+                m_delta = self.interact_pt2m[i](
+                    tgt=m_delta,
+                    memory=map_emb,
+                    tgt_key_padding_mask=attn_mask_agent_layers,
+                    memory_key_padding_mask=attn_mask_map_layers
+                )
+
+                # m_delta = self.interact_pt2m[i](x=m_delta, map_enc=map_emb,
+                #                                 mask=attn_mask_agent_layers1,
+                #                                 map_mask=attn_mask_map_layers1)
                 # m_delta = self.interact_pt2m[i](m_delta, torch.zeros_like(m_delta[:,:,:2]),
                 #                torch.zeros_like(m_delta[:,:,0]), ~attn_mask_agent_layers,
                 #                map_emb,
