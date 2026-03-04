@@ -258,9 +258,9 @@ def get_matching_loss(
         real_pos[col], real_heading[col], real_shape[col]
     )
 
-    if latent or use_all_type:
+   # if latent or use_all_type:
 
-        match_loss = torch.norm(fake_norm_state[row] - real_norm_state[col],p=1,dim=-1).mean()#.square()
+    match_loss = torch.norm(fake_norm_state[row] - real_norm_state[col],p=1,dim=-1).mean()#.square()
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 

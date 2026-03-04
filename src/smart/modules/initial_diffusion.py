@@ -438,7 +438,7 @@ class PDInit(nn.Module):
                                                                                                  m_init,
                                                                                                  latent=False,
                                                                                                  use_col=False,
-                                                                                                 use_all_type=False
+                                                                                                 use_all_type=True
                                                                                                  )
                     # if self.G.use_all_type:
                     #     pred_type_count=torch.relu(x_pred[:,8:])
