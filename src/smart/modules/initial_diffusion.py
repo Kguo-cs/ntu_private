@@ -157,18 +157,18 @@ class PDInit(nn.Module):
 
         #m_init = (m_init - self.normal_mean.to(non_ego.device)) / self.normal_scale.to(non_ego.device)  # [-1,1]
 
-        # dist = torch.norm(init_trans, dim=-1)#init_trans[:, 0] + init_trans[:, 1]  # +200#
-        #
-        # dist_max = dist.max().abs() +dist.min().abs()+1
-        #
-        # sort_rank = batch.to(torch.float64) * dist_max * 3 + nonego_type.to(torch.float64) * dist_max + dist.to(
-        #     torch.float64)  # -ego_mask.float()#+dist#dist sorted
-        #
-        # sort_idx = sort_rank.argsort()
-        #
-        # m_init = m_init[sort_idx]
+        dist = torch.norm(init_trans, dim=-1)#init_trans[:, 0] + init_trans[:, 1]  # +200#
 
-        tokenized_agent['nonego_type_sorted'] = nonego_type#[sort_idx]
+        dist_max = dist.max().abs() +dist.min().abs()+1
+
+        sort_rank = batch.to(torch.float64) * dist_max * 3 + nonego_type.to(torch.float64) * dist_max + dist.to(
+            torch.float64)  # -ego_mask.float()#+dist#dist sorted
+
+        sort_idx = sort_rank.argsort()
+
+        m_init = m_init[sort_idx]
+
+        tokenized_agent['nonego_type_sorted'] = nonego_type[sort_idx]
 
         return m_init,None
 
