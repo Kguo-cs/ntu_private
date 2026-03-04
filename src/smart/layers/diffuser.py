@@ -585,7 +585,7 @@ class InitDenoiser(nn.Module):
 
         self.use_roformer=False
         self.use_padding=True
-        self.use_all_type=True
+        self.use_all_type=False
 
         if self.use_all_type:
             # self.type_a_emb = MLPLayer(3, hidden_dim, hidden_dim)

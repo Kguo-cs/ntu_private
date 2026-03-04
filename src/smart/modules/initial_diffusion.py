@@ -96,9 +96,9 @@ class PDInit(nn.Module):
          #    self.normal_scale = torch.tensor([[35.188, 29.759,  0.761,  0.613,  1.383,  0.432,  4.960,  2.466]])
          #    self.normal_mean=torch.tensor([[ 3.155e+00,  2.276e+00,  1.048e-01,  2.168e-03,  4.372e+00,  1.975e+00,
          # 3.858e-01, -2.313e-02]])
-            self.normal_scale = torch.tensor([[35.191, 29.766,  0.759,  0.613,  1.382,  0.432,  4.948,  0.241]])
-            self.normal_mean=torch.tensor([[ 3.154e+00, 2.278e+00, 1.054e-01, 2.113e-03, 4.372e+00, 1.975e+00,
-        2.571e+00, 3.261e-03]])
+            self.normal_scale = torch.tensor([[34.823, 29.733,  0.753,  0.616,  1.351,  0.422,  5.165,  0.226]])
+            self.normal_mean=torch.tensor([[ 4.001e+00,  2.440e+00,  1.120e-01, -4.082e-04,  4.373e+00,  1.974e+00,
+         2.703e+00, -3.432e-03]])
 
             if self.G.use_all_type:
                 self.normal_scale=torch.tensor([[35.039, 29.354,  0.758,  0.606,  1.317,  0.405,  4.842,  0.281,  0.290,
@@ -382,9 +382,10 @@ class PDInit(nn.Module):
             if self.G.use_scale:
                 old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
 
-                one_hot = F.one_hot(old_nonego_type_sorted, num_classes=num_types)
+                if self.G.use_all_type:
+                    one_hot = F.one_hot(old_nonego_type_sorted, num_classes=num_types)
 
-                m_init=torch.cat([m_init,one_hot],dim=-1)
+                    m_init=torch.cat([m_init,one_hot],dim=-1)
 
                 diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs,self.G.use_all_type)
 
@@ -437,7 +438,7 @@ class PDInit(nn.Module):
                                                                                                  m_init,
                                                                                                  latent=False,
                                                                                                  use_col=False,
-                                                                                                 use_all_type=self.G.use_all_type
+                                                                                                 use_all_type=True
                                                                                                  )
                     # if self.G.use_all_type:
                     #     pred_type_count=torch.relu(x_pred[:,8:])
