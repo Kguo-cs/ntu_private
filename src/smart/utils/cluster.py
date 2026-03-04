@@ -147,7 +147,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
 
     return centroids
 
-def batched_kmeans_variable_k(pos, batch,  num_graphs):
+def batched_kmeans_variable_k(pos, batch, num_graphs ):
     """
     Batched K-Means per graph, allowing variable number of clusters per graph.
 
@@ -244,6 +244,50 @@ def batched_kmeans_variable_k(pos, batch,  num_graphs):
 
 
     return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
+
+
+def build_less_more_grouped1(
+    pos,
+    type,
+    batch,
+    num_graphs,
+):
+    device = pos.device
+    D = pos.shape[1]
+    G = num_graphs
+
+    counts = torch.bincount(batch, minlength=num_graphs)
+
+    schedules = batch_increasing_schedule(counts)
+
+    step_number=schedules.shape[1]-1
+
+    step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
+
+    step1_idx = step_idx + 1
+
+    batch_idx = torch.arange(num_graphs, device=counts.device)
+
+    k_per_graph = schedules[batch_idx, step_idx]
+    k1_per_graph = schedules[batch_idx, step1_idx]
+
+    num_types = 3
+
+    idx = nonego_batch * num_types + nonego_type
+    counts = torch.bincount(
+        idx,
+        minlength=num_graphs * num_types
+    )
+
+    type_counts = counts.view(num_graphs, num_types)
+
+    veh_mask = (type == 0)
+
+    veh_pos=pos[type==0]
+    veh_batch=batch[type==0]
+
+    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+
 
 
 
