@@ -403,7 +403,7 @@ class InitDiffusion(nn.Module):
 
                     z_scale=z[first_i_veh_mask]
 
-                    t_next=torch.clamp_max(t_next+0.1,max=1)
+                    #t_next=torch.clamp_max(t_next+0.1,max=1)
 
                     z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
 

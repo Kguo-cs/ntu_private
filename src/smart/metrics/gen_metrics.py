@@ -181,7 +181,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
         all_polylines = map_infos["all_polylines"]
         compact_centerlines = []
 
-        for lane in map_infos["lane"]:
+        for lane in map_infos["road_edge"]:
             lane_type = lane['type']
             polyline_index = lane['polyline_index']
             if lane_type == 3:  # lane_type == 0 or
@@ -569,6 +569,8 @@ def compute_jsd_metrics(samples, gt_samples,vis):
     length_jsd = jsd(length_gen_all, length_real_all, clip_min=0, clip_max=25, bin_size=0.1) * 100
     width_jsd = jsd(width_gen_all, width_real_all, clip_min=0, clip_max=5, bin_size=0.1) * 100
     speed_jsd = jsd(speed_gen_all, speed_real_all, clip_min=0, clip_max=50, bin_size=1) * 100
+
+    # lat_dev_jsd1 = jsd(np.random.rand(*lat_dev_gen_all.shape)*1.5, lat_dev_real_all, clip_min=0, clip_max=1.5, bin_size=0.1) * 10
 
     # plot_gen_real_distribution(
     #     nearest_dist_gen_all,

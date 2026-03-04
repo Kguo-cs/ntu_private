@@ -12,9 +12,9 @@ rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
-rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=31-step=60896.ckpt ./
+rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=5-step=22830.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/bc40_inter1_hist0_t3_noego_alldiff/2026-02-25_13-20-40/bc/70ksh6wz/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit128_clusterscale_typesch_matcht/2026-03-04_17-46-25/bc/pnfko9h5/checkpoints/epoch=5-step=22830.ckpt ./
 
 rsync -avz ke@10.87.114.128:~/keguo/waymo/training/training.tfrecord-00000-of-01000 ./
 
