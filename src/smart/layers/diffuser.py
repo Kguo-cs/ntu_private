@@ -389,11 +389,8 @@ class InitDiffusion(nn.Module):
 
                     z_scale=z[first_i_veh_mask]
 
-                    res,x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+                    z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
 
-                    # z[first_i_veh_mask]=res[:,:,:8]
-                    # if self.use_all_type:
-                    #     type_count[first_i_veh_mask]=torch.relu(x_cond[:,0,8:])
                 else:
                     z =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 

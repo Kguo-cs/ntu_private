@@ -147,7 +147,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
 
     return centroids
 
-def batched_kmeans_variable_k(pos, batch, num_graphs ):
+def batched_kmeans_variable_k(pos, batch, num_graphs,k_per_graph=None,k1_per_graph=None ):
     """
     Batched K-Means per graph, allowing variable number of clusters per graph.
 
@@ -177,31 +177,36 @@ def batched_kmeans_variable_k(pos, batch, num_graphs ):
 
     padded[batch, idx_in_graph] = pos
     mask[batch, idx_in_graph] = True
+    
+    if k_per_graph is None:
 
-    schedules = batch_increasing_schedule(counts)
-
-    step_number=schedules.shape[1]-1
-
-    step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
-
-    # num_choices = step_number - step_idx
-    #
-    # offset = (torch.rand(num_graphs, device=device) * num_choices).long()
-
-    step1_idx = step_idx + 1 #+ offset
-
-    batch_idx = torch.arange(num_graphs, device=counts.device)
-
-    k_per_graph = schedules[batch_idx, step_idx]
-    k1_per_graph = schedules[batch_idx, step1_idx]
-    # # sample uniform float in [0,1)
-    # u = torch.rand(num_graphs, device=device)
-    # # scale per-graph and floor
-    # k_per_graph = torch.floor(u * (counts + 1)).long()
-    #
-    # k_per_graph = torch.minimum(k_per_graph, counts)
-    #
-    # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
+        schedules = batch_increasing_schedule(counts)
+    
+        step_number=schedules.shape[1]-1
+    
+        step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
+    
+        # num_choices = step_number - step_idx
+        #
+        # offset = (torch.rand(num_graphs, device=device) * num_choices).long()
+    
+        step1_idx = step_idx + 1 #+ offset
+    
+        batch_idx = torch.arange(num_graphs, device=counts.device)
+    
+        k_per_graph = schedules[batch_idx, step_idx]
+        k1_per_graph = schedules[batch_idx, step1_idx]
+        # # sample uniform float in [0,1)
+        # u = torch.rand(num_graphs, device=device)
+        # # scale per-graph and floor
+        # k_per_graph = torch.floor(u * (counts + 1)).long()
+        #
+        # k_per_graph = torch.minimum(k_per_graph, counts)
+        #
+        # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
+    else:
+        step_idx=step_number=None
+        
     max_k = k1_per_graph.max().item()
 
     #centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
@@ -242,20 +247,15 @@ def batched_kmeans_variable_k(pos, batch, num_graphs ):
 #, initial_centroids=centroids[new_k]
     # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
 
+    return centroids, centroids1, k_per_graph, k1_per_graph, step_idx, step_number
 
-    return centroids,centroids1, k_per_graph,k1_per_graph,step_idx,step_number
 
-
-def build_less_more_grouped1(
+def build_less_more_grouped(
     pos,
     type,
     batch,
     num_graphs,
 ):
-    device = pos.device
-    D = pos.shape[1]
-    G = num_graphs
-
     counts = torch.bincount(batch, minlength=num_graphs)
 
     schedules = batch_increasing_schedule(counts)
@@ -273,20 +273,57 @@ def build_less_more_grouped1(
 
     num_types = 3
 
-    idx = nonego_batch * num_types + nonego_type
+    idx = batch * num_types + type
     counts = torch.bincount(
         idx,
         minlength=num_graphs * num_types
     )
 
     type_counts = counts.view(num_graphs, num_types)
+    
+    type_ratio = type_counts / type_counts.sum()
+    
+    centroids_list=[]
+    centroids1_list=[]
+    k_total_list    = []
+    k1_total_list   = []
 
-    veh_mask = (type == 0)
+    for i in range( num_graphs ):
+        k_per_graph_type=torch.ceil_(k_per_graph*type_ratio[i])
+        k1_per_graph_type=torch.ceil_(k1_per_graph*type_ratio[i])
+    
+        veh_pos=pos[type==i]
+        veh_batch=batch[type==i]
+    
+        centroids_b,centroids1_b=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs,k_per_graph_type,k1_per_graph_type)
 
-    veh_pos=pos[type==0]
-    veh_batch=batch[type==0]
+        centroids_list.append(centroids_b)
+        centroids1_list.append(centroids1_b)
 
-    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
+        k_total_list.append(k_per_graph_type)
+        k1_total_list.append(k1_per_graph_type)
+
+    centroids_all = torch.cat(centroids_list, dim=1)
+    centroids1_all = torch.cat(centroids1_list, dim=1)
+
+    k_total = torch.stack(k_total_list, dim=1).sum(dim=1)
+    k1_total = torch.stack(k1_total_list, dim=1).sum(dim=1)
+
+    # --------------------------------------------------------
+    # Step 6: compact (remove padding)
+    # --------------------------------------------------------
+    max_k = centroids_all.shape[1]
+    mask = torch.arange(max_k, device=pos.device)[None, :] < k_total[:, None]
+
+    centroids = centroids_all[mask]
+
+    max_k1 = centroids1_all.shape[1]
+    mask1 = torch.arange(max_k1, device=pos.device)[None, :] < k1_total[:, None]
+
+    centroids1 = centroids1_all[mask1]
+
+    print(centroids_b_list)
+    print(centroids1_b_list)
 
 
 
