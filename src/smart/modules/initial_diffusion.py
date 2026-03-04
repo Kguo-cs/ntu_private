@@ -433,6 +433,8 @@ class PDInit(nn.Module):
                                                                                                  tokenized_agent["nonego_batch"],
                                                                                                  x_pred* normal_scale + normal_mean,
                                                                                                  m_init* normal_scale + normal_mean,
+                                                                                                 x_pred,
+                                                                                                 m_init,
                                                                                                  latent=False,
                                                                                                  use_col=False,
                                                                                                  use_all_type=self.G.use_all_type

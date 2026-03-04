@@ -36,7 +36,7 @@ def matching_loss(
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
 
-    vel_loss = F.l1_loss(fake_shape[:,2:], real_shape[:,2:])
+    vel_loss = F.l1_loss(fake_shape[:,2:4], real_shape[:,2:4])
 
     total_loss = (
         w_pos * pos_loss +
@@ -207,7 +207,9 @@ def multi_circle_collision_loss_mem_efficient(
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state,latent=False,use_col=True,use_all_type=False
+    initial_type, batch, fake_state,real_state,
+    fake_norm_state,
+    real_norm_state ,latent=False,use_col=True,use_all_type=False
     ):
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
@@ -251,16 +253,14 @@ def get_matching_loss(
     row = torch.cat(rows)
     col = torch.cat(cols)
 
-    if latent:
-        match_loss = pos_loss = heading_loss = shape_loss = vel_loss = torch.tensor(0.0,
-                                                                                    device=fake_state.device)
+    match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
+        fake_pos[row], fake_heading[row], fake_shape[row],
+        real_pos[col], real_heading[col], real_shape[col]
+    )
 
-        match_loss = torch.norm(fake_state[row] - real_state[col],p=1,dim=-1).mean()#.square()
-    else:
-        match_loss, pos_loss, heading_loss, shape_loss,vel_loss = matching_loss(
-            fake_pos[row], fake_heading[row], fake_shape[row],
-            real_pos[col], real_heading[col], real_shape[col]
-        )
+    if latent or use_all_type:
+
+        match_loss = torch.norm(fake_norm_state[row] - real_norm_state[col],p=1,dim=-1).mean()#.square()
 
     # match_loss=((fake_state[row] - real_state[col]) ** 2)#.mean()
 
