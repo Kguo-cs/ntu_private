@@ -181,7 +181,7 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
         all_polylines = map_infos["all_polylines"]
         compact_centerlines = []
 
-        for lane in map_infos["road_edge"]:
+        for lane in map_infos["lane"]:
             lane_type = lane['type']
             polyline_index = lane['polyline_index']
             if lane_type == 3:  # lane_type == 0 or
