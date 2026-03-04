@@ -267,8 +267,8 @@ def get_matching_loss(
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_pos[fake_idx], fake_heading[fake_idx]/denom, fake_shape[fake_idx]/denom,
-        real_pos[real_idx], real_heading[real_idx]/denom, real_shape[real_idx]/denom
+        fake_pos[fake_idx]/denom, fake_heading[fake_idx]/denom, fake_shape[fake_idx]/denom,
+        real_pos[real_idx]/denom, real_heading[real_idx]/denom, real_shape[real_idx]/denom
     )
 
    # if latent or use_all_type:
