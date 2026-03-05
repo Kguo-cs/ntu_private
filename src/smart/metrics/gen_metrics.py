@@ -432,23 +432,6 @@ def jsd(sim, gt, clip_min, clip_max, bin_size):
     return jsd_value
 
 
-def resample_polyline(points, num_points=20):
-    """Resample a polyline to `num_points` equally spaced points along its arc-length."""
-    # Calculate the cumulative distances along the polyline
-    distances = np.sqrt(((points[1:] - points[:-1]) ** 2).sum(axis=1))
-    cumulative_distances = np.insert(np.cumsum(distances), 0, 0)
-
-    # Create an array of 20 evenly spaced distance values along the polyline
-    target_distances = np.linspace(0, cumulative_distances[-1], num=num_points)
-
-    # Interpolate to find x and y values at these target distances
-    x_new = np.interp(target_distances, cumulative_distances, points[:, 0])
-    y_new = np.interp(target_distances, cumulative_distances, points[:, 1])
-
-    # Combine x and y coordinates into a single array
-    new_points = np.stack((x_new, y_new), axis=-1)
-
-    return new_points
 
 
 def resample_lanes(lanes, num_points):

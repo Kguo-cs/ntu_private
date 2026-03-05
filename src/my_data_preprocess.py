@@ -138,21 +138,20 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
         scenario_id = scenario.scenario_id
         current_time_index = scenario.current_time_index
         #if scenario_id=='4d82fec943ddaa44':
-            #  map_infos = decode_map_features_from_proto(scenario.map_features)
-            #  dynamic_map_infos = decode_dynamic_map_states_from_proto(
-            #      scenario.dynamic_map_states
-            #  )## scenario.dynamic_map_states has stop_point
-            # #
-            #  current_time_index = scenario.current_time_index
-            #
-            #  tf_lights = process_dynamic_map(dynamic_map_infos)
-            #  tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
-            #  map_data = get_map_features(map_infos,tf_current_light,remove_last=False)
-            # #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
-            # #  # map_data = get_map_features(map_infos, [])
-            #  data = preprocess_map(map_data)
-            #
-            #  print(scenario_id == '4d82fec943ddaa44')
+        map_infos = decode_map_features_from_proto(scenario.map_features)
+        dynamic_map_infos = decode_dynamic_map_states_from_proto(
+         scenario.dynamic_map_states
+        )## scenario.dynamic_map_states has stop_point
+        #
+        current_time_index = scenario.current_time_index
+
+        tf_lights = process_dynamic_map(dynamic_map_infos)
+        tf_current_light = tf_lights.loc[tf_lights["time_step"] == current_time_index]
+        map_data = get_map_features(map_infos,tf_current_light,remove_last=False)
+        #  # polylines = torch.from_numpy(map_infos['all_polylines_list'].copy())
+        #  # map_data = get_map_features(map_infos, [])
+        data = preprocess_map(map_data)
+
 
     #  del data['pt_token']['light_type']
     #  del data['pt_token']['pl_type']
@@ -160,18 +159,18 @@ def wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted):
     # data={"edge":map_infos['road_edge_list']}
 
     # data= process_map(map_infos['all_polylines_list'])
-        track_infos = decode_tracks_from_proto(scenario)
-
-        agent = get_agent_features(
-            track_infos,
-            split=split,
-            num_historical_steps=current_time_index + 1,
-            num_steps=91,
-        )
-
-        data={}
-
-        data["agent"]=agent
+    #     track_infos = decode_tracks_from_proto(scenario)
+    #
+    #     agent = get_agent_features(
+    #         track_infos,
+    #         split=split,
+    #         num_historical_steps=current_time_index + 1,
+    #         num_steps=91,
+    #     )
+    #
+    #     data={}
+    #
+    #     data["agent"]=agent
 
         #del agent["id"]
 
@@ -211,23 +210,23 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
         output_dir_tfrecords_splitted=output_dir_tfrecords_splitted,
     )
 
-    with multiprocessing.Pool(num_workers) as p:
-        r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
+    # with multiprocessing.Pool(num_workers) as p:
+    #     r = list(tqdm(p.imap_unordered(func, packages), total=len(packages)))
     # print(len(packages))
-    # for file_path in tqdm(packages):
-    #     wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
+    for file_path in tqdm(packages):
+        wm2argo(file_path, split, output_dir, output_dir_tfrecords_splitted)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/home/ke/code/waymo",
+        default="/home/ke/keguo/waymo",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/code/sim/src/waymo_data/agent"
+        "--output_dir", type=str, default="/home/ke/keguo/sim/src/waymo_data/map_lane"
     )
-    parser.add_argument("--split", type=str, default="validation")
+    parser.add_argument("--split", type=str, default="training")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
