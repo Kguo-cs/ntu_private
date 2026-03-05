@@ -618,14 +618,14 @@ class InitDenoiser(nn.Module):
             self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
 
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-            m_delta_dim = 5+3
 
             self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
 
-            self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-            self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-            self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-            self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            # self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            # self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            # self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            # self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
+            self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
             self.normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
             self.normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
@@ -741,15 +741,17 @@ class InitDenoiser(nn.Module):
 
             attr_feature = feat_a_b[mask_a_b]
 
-            pos = self.pos_decoder(attr_feature)  # * 80
+            res=self.to_out_m_delta(attr_feature)
 
-            heading = self.head_decoder(attr_feature)
-
-            shape = self.shape_head_decoder(attr_feature)
-
-            vel = self.vel_head_decoder(attr_feature)
-
-            res = torch.cat([pos, heading, shape,vel], dim=1)[:,None]
+            # pos = self.pos_decoder(attr_feature)  # * 80
+            #
+            # heading = self.head_decoder(attr_feature)
+            #
+            # shape = self.shape_head_decoder(attr_feature)
+            #
+            # vel = self.vel_head_decoder(attr_feature)
+            #
+            # res = torch.cat([pos, heading, shape,vel], dim=1)[:,None]
 
         else:
             beta_emb = self.noise_emb(beta)
