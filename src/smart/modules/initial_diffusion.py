@@ -344,9 +344,9 @@ class PDInit(nn.Module):
         #     batch_pl = batch_pl[ego_dist_mask]
         #     feat_map = feat_map[ego_dist_mask]
 
-        init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
-
-        feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))
+        # init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
+        #
+        # feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))
 
         if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
             num_graphs = tokenized_agent["num_graphs"]
