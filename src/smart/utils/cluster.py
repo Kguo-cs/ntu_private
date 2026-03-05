@@ -115,7 +115,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
         #     - 2 * padded @ centroids.transpose(1, 2)
         #     + centroids.pow(2).sum(-1).unsqueeze(1)
         # )
-        dist=torch.cdist(padded,centroids)#[:,:,:2][:,:,:2]
+        dist=torch.cdist(padded[:,:,:2],centroids[:,:,:2])
         dist=dist[mask]
 
         dist[centroids_mask]=float('inf')
