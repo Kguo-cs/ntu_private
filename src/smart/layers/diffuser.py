@@ -741,7 +741,7 @@ class InitDenoiser(nn.Module):
 
             attr_feature = feat_a_b[mask_a_b]
 
-            res=self.to_out_m_delta(attr_feature)
+            res=self.to_out_m_delta(attr_feature)[:,None]
 
             # pos = self.pos_decoder(attr_feature)  # * 80
             #
