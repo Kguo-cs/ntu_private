@@ -613,7 +613,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 5+3
 
         self.use_graph=True
-        self.ego_rel = False
+        self.ego_rel = True
         noise_dim = 1
         if mean_flow:
             noise_dim = 2
