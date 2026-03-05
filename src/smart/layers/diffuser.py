@@ -614,11 +614,14 @@ class InitDenoiser(nn.Module):
 
         self.use_graph=True
         self.ego_rel = True
+        noise_dim = 1
+        if mean_flow:
+            noise_dim = 2
+            self.use_padding = True
 
         if self.use_roformer:
-
-
-            self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+            self.noise_embedding = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
+                                              num_freq_bands=num_freq_bands)
 
             if self.ego_rel:
                 self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)
@@ -701,10 +704,6 @@ class InitDenoiser(nn.Module):
                 nn.Linear(self.hidden_dim, self.output_dim),
             )
 
-            noise_dim = 1
-            if mean_flow:
-                noise_dim=2
-                self.use_padding=True
             self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
                                               num_freq_bands=num_freq_bands)
 
@@ -774,7 +773,7 @@ class InitDenoiser(nn.Module):
             else:
                 feat_a=self.proj_in_m_delta(m_delta)
 
-            beta_emb_m = self.noise_embedding(beta) + self.type_a_emb(type)
+            beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
 
             feat_a = feat_a + beta_emb_m
 
@@ -868,11 +867,9 @@ class InitDenoiser(nn.Module):
 
                 for layer_i in range(self.num_layers):
 
-
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
 
             else:
                 pos_pl, orient_pl,map_mask, map_emb=scene_enc
