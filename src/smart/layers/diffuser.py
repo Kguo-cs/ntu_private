@@ -753,7 +753,9 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             m_delta=m_delta[:,0]
 
-            m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
+            self.normal_mean=self.normal_mean.to(device)
+
+            m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean
 
             feat_a=self.proj_in_m_delta(m_delta)
 
@@ -766,6 +768,37 @@ class InitDenoiser(nn.Module):
             pos_s=m_delta[:, :2]
 
             if self.use_graph:
+                # number of agents per batch
+                counts = torch.bincount(batch)
+
+                # first index of each batch
+                first_idx = torch.cumsum(counts, dim=0) - counts
+
+                ego_tokens = ego_embedding[first_idx]  # (B, A)
+                B = ego_tokens.shape[0]
+                N = feat_a.shape[0]
+
+                new_feature = torch.cat([feat_a, ego_tokens], dim=0)
+                new_batch = torch.cat([batch, batch[first_idx]], dim=0)
+
+                ego_theta=torch.atan2(self.normal_mean[:,3],self.normal_mean[:,2])
+
+                pos_s=torch.cat([pos_s, torch.zeros_like(ego_tokens[:,:2])+self.normal_mean[:,:2]], dim=0)
+                theta=torch.cat([theta, torch.zeros_like(ego_tokens[:,0])+ego_theta], dim=0)
+
+                order = torch.argsort(new_batch)
+                feat_a = new_feature[order]
+                batch = new_batch[order]
+                theta=theta[order]
+                pos_s=pos_s[order]
+
+                # mask BEFORE sorting
+                non_ego_mask = torch.cat([
+                    torch.ones(N, dtype=torch.bool, device=batch.device),
+                    torch.zeros(B, dtype=torch.bool, device=batch.device)
+                ], dim=0)
+                non_ego_mask = non_ego_mask[order]
+
                 pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
                 head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
@@ -804,6 +837,8 @@ class InitDenoiser(nn.Module):
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
+                feat_a=feat_a[non_ego_mask]
 
 
             else:
