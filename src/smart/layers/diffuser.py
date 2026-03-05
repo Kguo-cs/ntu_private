@@ -759,6 +759,8 @@ class InitDenoiser(nn.Module):
 
             beta_emb_m = self.noise_embedding(beta) + ego_embedding+ self.type_a_emb(type)
 
+            feat_a = feat_a + beta_emb_m
+
             theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
             pos_s=m_delta[:, :2]
@@ -798,7 +800,6 @@ class InitDenoiser(nn.Module):
                 )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
                 for layer_i in range(self.num_layers):
-                    feat_a = feat_a + beta_emb_m
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
