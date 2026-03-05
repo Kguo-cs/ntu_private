@@ -755,10 +755,9 @@ class InitDenoiser(nn.Module):
 
             m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
 
-            if  self.use_all_type:
-                feat_a = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)+ self.type_a_emb(type)
-            else:
-                feat_a = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
+            feat_a=self.proj_in_m_delta(m_delta)
+
+            beta_emb_m = self.noise_embedding(beta) + ego_embedding+ self.type_a_emb(type)
 
             theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
@@ -799,6 +798,7 @@ class InitDenoiser(nn.Module):
                 )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
                 for layer_i in range(self.num_layers):
+                    feat_a = feat_a + beta_emb_m
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
@@ -821,6 +821,8 @@ class InitDenoiser(nn.Module):
                 # heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
 
                 for mod in self.entry_formers:
+                    feat_a_b = feat_a_b + beta_emb_m
+
                     feat_a_b = mod(feat_a_b, pos_a_b,
                                    heading_a_b, mask_a_b,
                                    map_emb,
