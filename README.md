@@ -16,10 +16,10 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit128_clusterscale_typesch_matcht/2026-03-04_17-46-25/bc/pnfko9h5/checkpoints/epoch=5-step=22830.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/waymo/training/training.tfrecord-00000-of-01000 ./
+rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t30_noego_l4/2026-03-03_17-24-14/bc/n8v60nwu/checkpoints/epoch=31-step=389600.ckpt ./
 
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_inter1_hist0_t30_noego/2026-03-03_01-03-07/bc/8w2iryhi/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t30_noego_l4/2026-03-03_17-24-14/bc/n8v60nwu/checkpoints/epoch=31-step=389600.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/
