@@ -46,7 +46,7 @@ class EdgeEncoder(nn.Module):
         self.use_bird=use_bird
 
         self.pred_exit=pred_exit
-        self.differentiable_edge=False
+        self.differentiable_edge=not discriminator
 
         if not use_bird:
             input_dim_r_t = 4
