@@ -613,13 +613,18 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 5+3
 
         self.use_graph=True
+        self.ego_rel = True
 
         if self.use_roformer:
 
 
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
-            self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
+            if self.ego_rel:
+                self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)
+            else:
+                self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
+
 
             # self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
             # self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
@@ -640,6 +645,7 @@ class InitDenoiser(nn.Module):
                                                 use_a2a=True,
                                                 use_pl2a=True
                                                 )
+
 
                 self.ego_encoder = EdgeEncoder(hidden_dim,
                                                 num_freq_bands,
@@ -763,7 +769,10 @@ class InitDenoiser(nn.Module):
 
             m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean
 
-            feat_a=self.proj_in_m_delta(m_delta)
+            if self.ego_rel:
+                feat_a=self.proj_in_m_delta(m_delta[:,4:])
+            else:
+                feat_a=self.proj_in_m_delta(m_delta)
 
             beta_emb_m = self.noise_embedding(beta) + self.type_a_emb(type)
 
@@ -855,9 +864,10 @@ class InitDenoiser(nn.Module):
 
                 r_a2ego = self.ego_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)+ego_embedding
 
+                feat_a = feat_a + r_a2ego
+
                 for layer_i in range(self.num_layers):
 
-                    feat_a=feat_a+r_a2ego
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
