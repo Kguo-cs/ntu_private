@@ -833,25 +833,25 @@ class InitDenoiser(nn.Module):
                     dis_edge_mask=None
                 )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-                ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2])
-                ego_pos=self.normal_mean[:,:2]
-
-                rel_pos_a2ego = pos_s-ego_pos
-                rel_head_a2ego = wrap_angle(theta-ego_theta)
-
-                r_a2ego = torch.cat(
-                    [
-                        project_to_local_frame(rel_pos_a2ego, head_vector_s, False),
-                        rel_head_a2ego[:, None],
-                    ],
-                    dim=-1,
-                )
-
-                r_a2ego = self.edge_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)
+                # ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2])
+                # ego_pos=self.normal_mean[:,:2]
+                #
+                # rel_pos_a2ego = pos_s-ego_pos
+                # rel_head_a2ego = wrap_angle(theta-ego_theta)
+                #
+                # r_a2ego = torch.cat(
+                #     [
+                #         project_to_local_frame(rel_pos_a2ego, head_vector_s, False),
+                #         rel_head_a2ego[:, None],
+                #     ],
+                #     dim=-1,
+                # )
+                #
+                # r_a2ego = self.edge_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)
 
                 for layer_i in range(self.num_layers):
 
-                    feat_a=feat_a+r_a2ego
+                    #feat_a=feat_a+r_a2ego
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
