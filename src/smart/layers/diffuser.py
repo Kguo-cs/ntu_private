@@ -613,7 +613,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 5+3
 
         self.use_graph=True
-        self.ego_rel = True
+        self.ego_rel = False
         noise_dim = 1
         if mean_flow:
             noise_dim = 2
@@ -781,7 +781,9 @@ class InitDenoiser(nn.Module):
 
             self.normal_mean=self.normal_mean.to(device)
 
-            m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean
+            self.normal_scale=self.normal_scale.to(device)
+
+            m_delta=m_delta*self.normal_scale+self.normal_mean
 
             if self.ego_rel:
                 feat_a=self.proj_in_m_delta(m_delta[:,4:])
@@ -938,6 +940,8 @@ class InitDenoiser(nn.Module):
 
             res=self.to_out_m_delta(feat_a)
 
+            res=res*self.normal_scale+self.normal_mean
+
             res_theta=torch.atan2(res[:,3],res[:,2])
 
             global_pos,global_theta = transform_to_global(
@@ -948,6 +952,8 @@ class InitDenoiser(nn.Module):
             )
 
             res=torch.cat([global_pos,torch.cos(global_theta)[:,None],torch.sin(global_theta)[:,None],res[:,4:]], dim=-1)[:,None]
+
+            res=(res-self.normal_mean)/self.normal_scale
 
             # pos = self.pos_decoder(attr_feature)  # * 80
             #
