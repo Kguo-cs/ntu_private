@@ -610,5 +610,8 @@ bc40_start0eval0_inter2
 | Offroad Likelihood                    | 0.94868356 |
 | minADE                                | 1.352583   |
 
+/home/ke/code/sim/src/waymo_data/bc40_t30_noego_l4_epoch=31-step=389600.ckpt
+
+
 
 design t ,n scedule

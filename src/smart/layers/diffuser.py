@@ -596,7 +596,7 @@ class InitDenoiser(nn.Module):
         self.diff_type = diff_type
         self.m_dim = m_dim
 
-        self.use_roformer=False
+        self.use_roformer=True
         self.use_padding=True
         self.use_all_type=False
 
@@ -627,9 +627,9 @@ class InitDenoiser(nn.Module):
             self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
             self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
 
-            self.normal_scale = torch.tensor([[35.013, 30.234, 0.764, 0.638, 1.326, 0.417, 4.860, 0.230]])
-            self.normal_mean = torch.tensor([[2.896e+00, 8.604e-01, 9.726e-02, 9.904e-04, 4.409e+00, 1.989e+00,
-                                              2.447e+00, 1.321e-03]])
+            self.normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
+            self.normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
+                                              2.728e+00, -2.259e-03]])
 
         else:
 
@@ -708,7 +708,7 @@ class InitDenoiser(nn.Module):
         ego_embedding = tokenized_agent["ego_embedding"]
 
         if self.use_roformer:
-            pos_pl, orient_pl, batch_pl, feat_map=scene_enc
+            pos_pl, orient_pl,map_mask, map_emb=scene_enc
             m_delta=m_delta[:,0]
 
             m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
@@ -718,7 +718,7 @@ class InitDenoiser(nn.Module):
             else:
                 feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
 
-            pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
+           # pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
 
             theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
@@ -734,7 +734,7 @@ class InitDenoiser(nn.Module):
             for mod in self.entry_formers:
                 feat_a_b = mod(feat_a_b, pos_a_b,
                                heading_a_b, mask_a_b,
-                               feat_map,
+                               map_emb,
                                pos_pl,
                                orient_pl, map_mask
                                )
