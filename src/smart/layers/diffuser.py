@@ -652,7 +652,7 @@ class InitDenoiser(nn.Module):
 
                 self.ego_encoder = EdgeEncoder(hidden_dim,
                                                 num_freq_bands,
-                                                use_a2a=True,
+                                                use_pl2a=True,
                                                 )
 
 
@@ -683,6 +683,21 @@ class InitDenoiser(nn.Module):
                         for _ in range(num_layers)
                     ]
                 )
+
+                self.a2ego_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=True,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
+
 
             else:
                 module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
@@ -758,7 +773,7 @@ class InitDenoiser(nn.Module):
         device = m_delta.device
         batch = tokenized_agent["nonego_batch"]
         type = tokenized_agent["nonego_type_sorted"]
-        batch_size = tokenized_agent["num_graphs"]
+        num_graphs = tokenized_agent["num_graphs"]
         ego_embedding = tokenized_agent["ego_embedding"]
 
         if self.use_roformer:
@@ -847,25 +862,47 @@ class InitDenoiser(nn.Module):
                     dis_edge_mask=None
                 )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-                ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2])
-                ego_pos=self.normal_mean[:,:2]
+                ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2]).repeat(num_graphs)
+                ego_pos=self.normal_mean[:,:2].repeat(num_graphs,1)
 
-                rel_pos_a2ego = pos_s-ego_pos
-                rel_head_a2ego = wrap_angle(theta-ego_theta)
+                ego_batch=torch.arange(num_graphs).to(device)
 
-                r_a2ego = torch.cat(
-                    [
-                        project_to_local_frame(rel_pos_a2ego, head_vector_s, False),
-                        rel_head_a2ego[:, None],
-                    ],
-                    dim=-1,
+                edge_index_ego2a, r_ego2a = self.ego_encoder.build_map2agent_edge(
+                    pos_pl=ego_pos,  # [n_pl, 2]
+                    orient_pl=ego_theta,  # [n_pl]
+                    pos_a=pos_s,  # [n_agent, n_step, 2]
+                    head_a=theta,  # [n_agent, n_step]
+                    head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
+                    mask=None,  # [n_agent, n_step]
+                    batch_s=batch,  # [n_agent,n_step]
+                    batch_pl=ego_batch,  # [n_pl*n_step]
+                    pl2a_radius=1000,
+                    max_num_neighbors=1,
+                    agent_train_mask=None,
+                    layer_num=self.num_layers
                 )
 
-                r_a2ego = self.ego_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)+ego_embedding
+                #
+                # rel_pos_a2ego = pos_s-ego_pos
+                # rel_head_a2ego = wrap_angle(theta-ego_theta)
+                #
+                # r_a2ego = torch.cat(
+                #     [
+                #         project_to_local_frame(rel_pos_a2ego, head_vector_s, False),
+                #         rel_head_a2ego[:, None],
+                #     ],
+                #     dim=-1,
+                # )
+                #
+                # r_a2ego = self.ego_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)#+ego_embedding
 
-                feat_a = feat_a + r_a2ego
+                # edge_index_a2ego=torch.arange(len(feat_a))
+
+                # feat_a = feat_a + r_a2ego
 
                 for layer_i in range(self.num_layers):
+
+                    feat_a = self.a2ego_attn_layers[layer_i]((ego_embedding, feat_a), r_ego2a, edge_index_ego2a)
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
