@@ -620,9 +620,9 @@ class InitDenoiser(nn.Module):
             self.use_padding = True
 
         if self.use_roformer:
-            self.noise_embedding = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
-                                              num_freq_bands=num_freq_bands)
-
+            # self.noise_embedding = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
+            #                                   num_freq_bands=num_freq_bands)
+            self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             if self.ego_rel:
                 self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)
             else:
@@ -788,7 +788,8 @@ class InitDenoiser(nn.Module):
             else:
                 feat_a=self.proj_in_m_delta(m_delta)
 
-            beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
+            #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
+            beta_emb_m = self.noise_embedding(beta) + self.type_a_emb(type)
 
             feat_a = feat_a + beta_emb_m
 
