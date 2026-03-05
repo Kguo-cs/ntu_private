@@ -106,7 +106,7 @@ def transform_to_global(
 
     if len(pos_local.shape) == 3:
         pos_now=pos_now.unsqueeze(1)
-        head_now.unsqueeze(1)
+        head_now=head_now.unsqueeze(1)
 
     if len(pos_local.shape) == 3:
         pos_global = torch.bmm(pos_local, rot_mat)  # [n_agent, n_step, 2]*[n_agent, 2, 2]

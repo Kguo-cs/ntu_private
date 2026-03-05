@@ -231,7 +231,7 @@ class InitDiffusion(nn.Module):
                 # fake_idx, real_idx= get_closest_sum_idx(x_pred[:,0],x[:,0],agent_batch,tokenized_agent["nonego_type_sorted"],all_state=True)
                 #
                 # x_pred=x_pred[fake_idx]
-                #
+
                 denom = (1 - t[:, :, None]).clamp_min(self.t_eps)
 
 
@@ -936,7 +936,18 @@ class InitDenoiser(nn.Module):
 
                 feat_a = feat_a_b[mask_a_b]
 
-            res=self.to_out_m_delta(feat_a)[:,None]
+            res=self.to_out_m_delta(feat_a)
+
+            res_theta=torch.atan2(res[:,3],res[:,2])
+
+            global_pos,global_theta = transform_to_global(
+                res[:,:2],
+                res_theta,
+                pos_s,
+                theta,
+            )
+
+            res=torch.cat([global_pos,torch.cos(global_theta)[:,None],torch.sin(global_theta)[:,None],res[:,4:]], dim=-1)[:,None]
 
             # pos = self.pos_decoder(attr_feature)  # * 80
             #
