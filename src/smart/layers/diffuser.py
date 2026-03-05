@@ -48,7 +48,7 @@ from torch.func import functional_call, jvp
 from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
 from src.smart.utils.earth_match import get_closest_sum_idx
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
-from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
+from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges,project_to_local_frame
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -768,36 +768,37 @@ class InitDenoiser(nn.Module):
             pos_s=m_delta[:, :2]
 
             if self.use_graph:
-                # number of agents per batch
-                counts = torch.bincount(batch)
 
-                # first index of each batch
-                first_idx = torch.cumsum(counts, dim=0) - counts
-
-                ego_tokens = ego_embedding[first_idx]  # (B, A)
-                B = ego_tokens.shape[0]
-                N = feat_a.shape[0]
-
-                new_feature = torch.cat([feat_a, ego_tokens], dim=0)
-                new_batch = torch.cat([batch, batch[first_idx]], dim=0)
-
-                ego_theta=torch.atan2(self.normal_mean[:,3],self.normal_mean[:,2])
-
-                pos_s=torch.cat([pos_s, torch.zeros_like(ego_tokens[:,:2])+self.normal_mean[:,:2]], dim=0)
-                theta=torch.cat([theta, torch.zeros_like(ego_tokens[:,0])+ego_theta], dim=0)
-
-                order = torch.argsort(new_batch)
-                feat_a = new_feature[order]
-                batch = new_batch[order]
-                theta=theta[order]
-                pos_s=pos_s[order]
-
-                # mask BEFORE sorting
-                non_ego_mask = torch.cat([
-                    torch.ones(N, dtype=torch.bool, device=batch.device),
-                    torch.zeros(B, dtype=torch.bool, device=batch.device)
-                ], dim=0)
-                non_ego_mask = non_ego_mask[order]
+                # # number of agents per batch
+                # counts = torch.bincount(batch)
+                #
+                # # first index of each batch
+                # first_idx = torch.cumsum(counts, dim=0) - counts
+                #
+                # ego_tokens = ego_embedding[first_idx]  # (B, A)
+                # B = ego_tokens.shape[0]
+                # N = feat_a.shape[0]
+                #
+                # new_feature = torch.cat([feat_a, ego_tokens], dim=0)
+                # new_batch = torch.cat([batch, batch[first_idx]], dim=0)
+                #
+                # ego_theta=torch.atan2(self.normal_mean[:,3],self.normal_mean[:,2])
+                #
+                # pos_s=torch.cat([pos_s, torch.zeros_like(ego_tokens[:,:2])+self.normal_mean[:,:2]], dim=0)
+                # theta=torch.cat([theta, torch.zeros_like(ego_tokens[:,0])+ego_theta], dim=0)
+                #
+                # order = torch.argsort(new_batch)
+                # feat_a = new_feature[order]
+                # batch = new_batch[order]
+                # theta=theta[order]
+                # pos_s=pos_s[order]
+                #
+                # # mask BEFORE sorting
+                # non_ego_mask = torch.cat([
+                #     torch.ones(N, dtype=torch.bool, device=batch.device),
+                #     torch.zeros(B, dtype=torch.bool, device=batch.device)
+                # ], dim=0)
+                # non_ego_mask = non_ego_mask[order]
 
                 pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
@@ -832,13 +833,29 @@ class InitDenoiser(nn.Module):
                     dis_edge_mask=None
                 )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
+                ego_theta = torch.atan2(self.normal_mean[:, 3], self.normal_mean[:, 2])
+                ego_pos=self.normal_mean[:,:2]
+
+                rel_pos_a2ego = pos_s-ego_pos
+                rel_head_a2ego = wrap_angle(theta-ego_theta)
+
+                r_a2ego = torch.cat(
+                    [
+                        project_to_local_frame(rel_pos_a2ego, head_vector_s, False),
+                        rel_head_a2ego[:, None],
+                    ],
+                    dim=-1,
+                )
+
+                r_a2ego = self.edge_encoder.r_a2a_emb(continuous_inputs=r_a2ego, categorical_embs=None)
+
                 for layer_i in range(self.num_layers):
+
+                    feat_a=feat_a+r_a2ego
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
-
-                feat_a=feat_a[non_ego_mask]
 
 
             else:
