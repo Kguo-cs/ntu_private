@@ -47,6 +47,8 @@ from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
 from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
 from src.smart.utils.earth_match import get_closest_sum_idx
+from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
+from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -610,12 +612,10 @@ class InitDenoiser(nn.Module):
             self.output_dim=8
             m_delta_dim = 5+3
 
+        self.use_graph=True
 
         if self.use_roformer:
 
-            module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
-                                                  hist_len=1000000)  # replace with gnn
-            self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
 
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
 
@@ -630,6 +630,49 @@ class InitDenoiser(nn.Module):
             self.normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
             self.normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
                                               2.728e+00, -2.259e-03]])
+
+
+            if self.use_graph:
+                self.use_padding = False
+
+                self.edge_encoder = EdgeEncoder(hidden_dim,
+                                                num_freq_bands,
+                                                use_a2a=True,
+                                                use_pl2a=True
+                                                )
+
+                self.pt2a_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=True,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
+
+                self.a2a_attn_layers = nn.ModuleList(
+                    [
+                        AttentionLayer(
+                            hidden_dim=hidden_dim,
+                            num_heads=num_heads,
+                            head_dim=head_dim,
+                            dropout=dropout,
+                            bipartite=False,
+                            has_pos_emb=True,
+                        )
+                        for _ in range(num_layers)
+                    ]
+                )
+
+            else:
+                module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                                  hist_len=1000000)  # replace with gnn
+                self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
 
         else:
 
@@ -708,40 +751,86 @@ class InitDenoiser(nn.Module):
         ego_embedding = tokenized_agent["ego_embedding"]
 
         if self.use_roformer:
-            pos_pl, orient_pl,map_mask, map_emb=scene_enc
             m_delta=m_delta[:,0]
 
             m_delta=m_delta*self.normal_scale.to(device)+self.normal_mean.to(device)
 
             if  self.use_all_type:
-                feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)+ self.type_a_emb(type)
+                feat_a = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)+ self.type_a_emb(type)
             else:
-                feature = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
-
-           # pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
+                feat_a = self.noise_embedding(beta)  +ego_embedding+self.proj_in_m_delta(m_delta)
 
             theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
-            pos_a_b,heading_a_b,feat_a_b,mask_a_b = self.padding(m_delta[:,:2], theta, feature, batch, batch_size)  # b, n, d
+            pos_s=m_delta[:, :2]
 
-            pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
+            if self.use_graph:
+                pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
-            feat_a_b=feat_a_b+pos_emb
+                head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
-            # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
-            # heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
+                edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                    pos_pl=pos_pl,  # [n_pl, 2]
+                    orient_pl=orient_pl,  # [n_pl]
+                    pos_a=pos_s,  # [n_agent, n_step, 2]
+                    head_a=theta,  # [n_agent, n_step]
+                    head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
+                    mask=None,  # [n_agent, n_step]
+                    batch_s=batch,  # [n_agent,n_step]
+                    batch_pl=batch_pl,  # [n_pl*n_step]
+                    pl2a_radius=40,
+                    max_num_neighbors=20,
+                    agent_train_mask=None,
+                    layer_num=self.num_layers
+                )
 
-            for mod in self.entry_formers:
-                feat_a_b = mod(feat_a_b, pos_a_b,
-                               heading_a_b, mask_a_b,
-                               map_emb,
-                               pos_pl,
-                               orient_pl, map_mask
-                               )
+                edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
+                    pos_s=pos_s,  # [n_agent, n_step, 2]
+                    head_s=theta,  # [n_agent, n_step]
+                    head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
+                    batch_s=batch,  # [n_agent*n_step]
+                    mask=None,  # [n_agent, n_step]
+                    max_radius=60,
+                    max_num_neighbors=20,
+                    agent_train_mask=None,
+                    layer_num=self.num_layers,
+                    counter_feat_a=None,
+                    dis_edge_mask=None
+                )  # edge_index_a2a: [2, n_edge_a2a], r_a2a: [n_edge_a2a, hidden_dim]
 
-            attr_feature = feat_a_b[mask_a_b]
+                for layer_i in range(self.num_layers):
 
-            res=self.to_out_m_delta(attr_feature)[:,None]
+                    feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
+
+            else:
+                pos_pl, orient_pl,map_mask, map_emb=scene_enc
+
+                # pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
+
+                pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.padding(pos_s, theta, feat_a, batch,
+                                                                        batch_size)  # b, n, d
+
+                pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
+
+                feat_a_b=feat_a_b+pos_emb
+
+                # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
+                # heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
+
+                for mod in self.entry_formers:
+                    feat_a_b = mod(feat_a_b, pos_a_b,
+                                   heading_a_b, mask_a_b,
+                                   map_emb,
+                                   pos_pl,
+                                   orient_pl, map_mask
+                                   )
+
+                feat_a = feat_a_b[mask_a_b]
+
+            res=self.to_out_m_delta(feat_a)[:,None]
 
             # pos = self.pos_decoder(attr_feature)  # * 80
             #

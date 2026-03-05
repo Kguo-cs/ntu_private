@@ -24,29 +24,24 @@ class EdgeEncoder(nn.Module):
             self,
             hidden_dim: int,
             num_freq_bands:int,
-            share,
-            a2a=True,
             hist_drop_prob=0.0,
             time_span=30,
             shift=0,
-            use_route=False,
             discriminator=False,
             use_bird=False,
-            use_cross=True,
-            pred_exit=False,
-            diff_edge=False,
+            use_pl2a=False,
+            use_a2a=False,
+            use_t2t=False
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
-        self.use_route=use_route & (not discriminator)
-
-        if self.use_route:
-            self.route_drop=nn.Dropout(p=0.5)
-
-        self.use_bird=use_bird
-
-        self.pred_exit=pred_exit
         self.differentiable_edge=False
+        self.rollout_traj=False
+
+        self.hist_drop_prob = hist_drop_prob
+        self.time_span = time_span
+        self.shift = shift
+        self.use_t2t=use_t2t
 
         if not use_bird:
             input_dim_r_t = 4
@@ -57,22 +52,14 @@ class EdgeEncoder(nn.Module):
             input_dim_r_a2a = 4
             input_dim_r_pt2a = 4
 
-        if use_cross:
+        if use_pl2a:
             self.r_pt2a_emb = FourierEmbedding(
                 input_dim=input_dim_r_pt2a,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
 
-        self.discriminator=discriminator
-
-        self.rollout_traj=False
-
-        # if self.discriminator:
-        #     input_dim_r_a2a = 2
-        self.use_roformer=False
-
-        if a2a:
+        if use_a2a:
             self.tokenized_pos=False
 
             self.r_a2a_emb = FourierEmbedding(
@@ -81,18 +68,12 @@ class EdgeEncoder(nn.Module):
                 num_freq_bands=num_freq_bands,
             )
 
-            if not self.use_roformer:
-                self.r_t_emb = FourierEmbedding(
-                    input_dim=input_dim_r_t,
-                    hidden_dim=hidden_dim,
-                    num_freq_bands=num_freq_bands,
-                )
-
-                self.hist_drop_prob=hist_drop_prob
-                self.time_span=time_span
-
-                self.shift=shift
-
+        if use_t2t:
+            self.r_t_emb = FourierEmbedding(
+                input_dim=input_dim_r_t,
+                hidden_dim=hidden_dim,
+                num_freq_bands=num_freq_bands,
+            )
 
     def build_temporal_edge(
             self,

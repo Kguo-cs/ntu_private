@@ -70,14 +70,14 @@ class InterativeDecoder(nn.Module):
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
-                                        share=discriminator,
                                         hist_drop_prob=hist_drop_prob,
                                         time_span=time_span,
                                         shift=token_processor.shift,
                                         discriminator=discriminator,
                                         use_bird=token_processor.use_bird,
-                                        use_cross=not token_processor.use_bird,
-                                        pred_exit=token_processor.pred_exit,
+                                        use_pl2a=True,
+                                        use_a2a=True,
+                                        use_t2t=True,
                                         )
 
         if discriminator:
@@ -87,10 +87,7 @@ class InterativeDecoder(nn.Module):
 
         self.agent_hist = self.time_span // self.shift
 
-        if self.edge_encoder.use_roformer:
-            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
-                                              hist_len=self.agent_hist)
-        else:
+        if self.edge_encoder.use_t2t:
             self.t_attn_layers = nn.ModuleList(
                 [
                     AttentionLayer(
@@ -105,6 +102,9 @@ class InterativeDecoder(nn.Module):
                     for _ in range(self.t_num_layers)
                 ]
             )
+        else:
+            self.a_t_roformer = RoFormerBlock(hidden_dim=hidden_dim, num_heads=num_heads, dropout=hist_drop_prob,
+                                              hist_len=self.agent_hist)
 
         if not token_processor.use_bird:
             self.pt2a_attn_layers = nn.ModuleList(
@@ -368,7 +368,7 @@ class InterativeDecoder(nn.Module):
         if agent_train_mask is not None:
             inference_mask = inference_mask[agent_train_mask]
 
-        if not self.edge_encoder.use_roformer:
+        if self.edge_encoder.use_t2t:
             edge_index_t, r_t = self.edge_encoder.build_temporal_edge(
                 pos_a=self.pos_cache,  # [n_agent, n_step, 2]
                 head_a=self.head_cache,  # [n_agent, n_step]
