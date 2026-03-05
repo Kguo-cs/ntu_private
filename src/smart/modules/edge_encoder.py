@@ -44,17 +44,13 @@ class EdgeEncoder(nn.Module):
         self.use_t2t=use_t2t
 
         if not use_bird:
-            input_dim_r_t = 4
-            input_dim_r_a2a = 3
-            input_dim_r_pt2a=3
+            input_dim = 3
         else:
-            input_dim_r_t = 5
-            input_dim_r_a2a = 4
-            input_dim_r_pt2a = 4
+            input_dim = 4
 
         if use_pl2a:
             self.r_pt2a_emb = FourierEmbedding(
-                input_dim=input_dim_r_pt2a,
+                input_dim=input_dim,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
@@ -63,14 +59,14 @@ class EdgeEncoder(nn.Module):
             self.tokenized_pos=False
 
             self.r_a2a_emb = FourierEmbedding(
-                input_dim=input_dim_r_a2a,
+                input_dim=input_dim,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
 
         if use_t2t:
             self.r_t_emb = FourierEmbedding(
-                input_dim=input_dim_r_t,
+                input_dim=input_dim+1,
                 hidden_dim=hidden_dim,
                 num_freq_bands=num_freq_bands,
             )
