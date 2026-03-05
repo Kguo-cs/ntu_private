@@ -15,7 +15,7 @@ rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyu
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=5-step=22830.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit128_clusterscale_typesch_matcht/2026-03-04_17-46-25/bc/pnfko9h5/checkpoints/epoch=5-step=22830.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/waymo/validation ./
 
 rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t30_noego_l4/2026-03-03_17-24-14/bc/n8v60nwu/checkpoints/epoch=31-step=389600.ckpt ./
 
