@@ -139,6 +139,141 @@ class InitDiscriminator(nn.Module):
         else:
             self.shape_embedding = MLPLayer(2, hidden_dim, hidden_dim)
 
+
+    def ZeroCenteredGradientPenalty(self,Samples, Critics):
+        Gradient, = torch.autograd.grad(outputs=Critics.sum(), inputs=Samples, create_graph=True)
+        return Gradient.square().sum([-1])
+
+
+    def get_gan_loss(self,m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego,rec_loss=None,t=None,t_batch=None):
+        if self.D.use_entry_former:
+            pos_pl, orient_pl, map_mask, feat_map=map_feature
+        else:
+            pos_pl, orient_pl, batch_pl, feat_map=map_feature
+
+        RealSamples = m_init * normal_scale + normal_mean
+        FakeSamples = x_pred * normal_scale + normal_mean
+        old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
+        old_batch = tokenized_agent["batch"][non_ego]
+
+        if t is not None:
+            gap = -1
+
+            low_noise_mask = t[:, 0] > gap
+            low_noise_map_mask = t_batch[:, 0] > gap
+            map_feature = (pos_pl[low_noise_map_mask], orient_pl[low_noise_map_mask], feat_map[low_noise_map_mask],
+                           map_mask[low_noise_map_mask])
+            tokenized_agent["num_graphs"] = low_noise_map_mask.sum()
+            _, new_batch = torch.unique(old_batch[low_noise_mask], sorted=True, return_inverse=True)
+
+            tokenized_agent["nonego_batch"] = new_batch
+            tokenized_agent["nonego_type_sorted"] = tokenized_agent["nonego_type_sorted"][low_noise_mask]
+            RealSamples=RealSamples[low_noise_mask]
+            FakeSamples=FakeSamples[low_noise_mask]
+        else:
+            tokenized_agent["nonego_batch"] = old_batch
+            if self.D.use_entry_former:
+                map_feature = (pos_pl, orient_pl, feat_map, map_mask)
+
+        agent_n=len(FakeSamples)
+
+        if self.global_step % 10 == 0:
+
+            #RealSamples = RealSamples.detach().requires_grad_(True)
+            #FakeSamples = FakeSamples.detach().requires_grad_(True)
+
+            RealLogits,real_weight = self.D(RealSamples, map_feature, tokenized_agent,return_weight=True)
+            FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
+
+            # R1Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(RealSamples, RealLogits)
+            # R2Penalty = (self.Gamma / 2) * self.ZeroCenteredGradientPenalty(FakeSamples, FakeLogits)
+
+            if self.use_Rp:
+                RelativisticLogits = RealLogits - FakeLogits
+                AdversarialLoss = nn.functional.softplus(-RelativisticLogits).mean()
+            else:
+                FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+                RealLogits, real_interact_logits = RealLogits[:agent_n], RealLogits[agent_n:]
+
+                fake_bce_loss = F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+                                                              reduction='mean')
+                real_bce_loss = F.binary_cross_entropy_with_logits(RealLogits, torch.ones_like(RealLogits),
+                                                              reduction='mean')
+                AdversarialLoss =fake_bce_loss+real_bce_loss
+                # AdversarialLoss = FakeLogits.mean() - RealLogits.mean()
+                if len(fake_interact_logits) > 0:
+                    fake_loss = F.binary_cross_entropy_with_logits(
+                        fake_interact_logits,
+                        torch.zeros_like(fake_interact_logits),
+                        reduction='none'
+                    )
+
+                    fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
+
+                    real_loss = F.binary_cross_entropy_with_logits(
+                        real_interact_logits,
+                        torch.ones_like(real_interact_logits),
+                        reduction='none'
+                    )
+
+                    real_interact_bce_loss= (real_loss * real_weight).sum() / agent_n
+
+                    AdversarialLoss =  AdversarialLoss +fake_interact_bce_loss +real_interact_bce_loss#
+
+            w = 1  # 0.1+(1-self.global_step/10000.0)
+
+            R2Penalty = R1Penalty = torch.tensor(0.0, device=RealLogits.device)
+
+            loss = (AdversarialLoss, w * R2Penalty.mean(), w * R1Penalty.mean(),FakeLogits,RealLogits)  # cosine schedule
+        else:
+            if self.global_step>-1:
+                self.D.eval()
+                FakeLogits,fake_weight = self.D(FakeSamples, map_feature, tokenized_agent,return_weight=True)
+
+                if self.use_Rp:
+                    RealLogits = self.D(RealSamples, map_feature, tokenized_agent)
+                    RelativisticLogits = FakeLogits - RealLogits
+                    AdversarialLoss = nn.functional.softplus(-RelativisticLogits)
+                    loss = AdversarialLoss.mean()
+                else:
+                    FakeLogits, fake_interact_logits = FakeLogits[:agent_n], FakeLogits[agent_n:]
+                    # fake_bce_loss =  F.binary_cross_entropy_with_logits(FakeLogits, torch.zeros_like(FakeLogits),
+                    #                                           reduction='mean')
+                    fake_bce_loss=FakeLogits
+                    loss=-fake_bce_loss.mean()
+                    if len(fake_interact_logits) > 0:
+                        # fake_loss = F.binary_cross_entropy_with_logits(
+                        #     fake_interact_logits,
+                        #     torch.zeros_like(fake_interact_logits),
+                        #     reduction='none'
+                        # )
+                        fake_loss =fake_interact_logits
+
+                        fake_interact_bce_loss = (fake_loss * fake_weight).sum() / agent_n
+
+                        loss=loss-fake_interact_bce_loss
+                self.D.train()
+            else:
+                loss=torch.tensor(0.0, device=FakeSamples.device)
+
+            # match_loss,pos_loss,heading_loss,shape_loss,vel_loss=get_matching_loss(tokenized_agent["nonego_type_sorted"], new_batch,
+            #                                                                        FakeSamples,RealSamples
+            #                                                                        )
+            match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                old_nonego_type_sorted,
+                old_batch,
+                x_pred * normal_scale + normal_mean,
+                m_init * normal_scale + normal_mean,
+                use_col=False
+            )
+
+            # match_loss= pos_loss= heading_loss=shape_loss= vel_loss=torch.tensor(0.0, device=non_ego.device)
+
+            loss = (loss, match_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+        self.global_step += 1
+
+        return loss
+
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 

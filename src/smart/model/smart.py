@@ -37,7 +37,6 @@ from src.smart.metrics.bird_metrics import compute_bird_metrics,MetricDict
 from src.smart.plot.plot_rollout import plot_rollout_frames
 from src.smart.metrics.wosac_metrics import WOSACMetrics
 import time
-from src.smart.modules.build_edge import insert_ego
 from src.smart.metrics.gen_metrics import compute_gen_samples,compute_agent_metrics
 import numpy as np
 

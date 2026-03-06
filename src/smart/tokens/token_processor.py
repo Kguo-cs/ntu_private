@@ -190,9 +190,6 @@ class TokenProcessor(torch.nn.Module):
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
 
-        if self.learn_init:
-            tokenized_agent["local_vel"]=rotate_to_local(tokenized_agent["initial_vel"],tokenized_agent["initial_heading"])
-
         if self.use_goal and self.training:
             self.compute_goal(tokenized_agent)
         else:

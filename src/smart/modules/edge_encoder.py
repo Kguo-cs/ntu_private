@@ -12,11 +12,8 @@ from src.smart.utils import (
     wrap_angle,
     project_to_local_frame
 )
-from .build_edge import radiusGraphNearest2,nearest_mask,generate_limited_causal_mask,nearest_mask2, \
-    radiusGraphNearest
+from src.smart.utils.edge_utils import radiusGraphNearest2, radiusGraphNearest
 from torch_geometric.utils import dense_to_sparse, subgraph
-from torch_cluster import radius_graph
-import time
 from torch_scatter import scatter_mean
 
 class EdgeEncoder(nn.Module):

@@ -27,7 +27,7 @@ from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
 
-from src.smart.layers.transformer_decoder import TransformerDecoderLayerDiff,sinusoidal_embedding
+from .transformer_decoder import TransformerDecoderLayerDiff,sinusoidal_embedding
 
 from src.smart.layers.fourier_embedding import FourierEmbedding
 
@@ -36,6 +36,8 @@ from src.smart.utils import (
     transform_to_global,
     transform_to_local,
     wrap_angle,
+    rotate_to_global,
+    rotate_to_local,
     weight_init
 )
 import warnings
@@ -49,6 +51,11 @@ from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_typ
 from src.smart.utils.earth_match import get_closest_sum_idx
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges,project_to_local_frame
+from src.smart.layers.relative_transformer import padding
+from torch_geometric.nn.pool import knn_graph,knn
+# from lpips import LPIPS
+from src.smart.utils.cluster import cluster_points
+from torch_scatter import scatter_sum
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -58,7 +65,7 @@ def cosine_schedule(steps, device):
     i = torch.arange(steps + 1, device=device)
     return 0.5 * (1 - torch.cos(torch.pi * i / steps))
 
-class InitDiffusion(nn.Module):
+class ScaleFlow(nn.Module):
 
     def __init__(self, args):
         super().__init__()
@@ -104,7 +111,7 @@ class InitDiffusion(nn.Module):
 
         self.x_pred=True
 
-        self.use_scale=True
+        self.use_scale=self.net.use_scale
 
         self.use_all_type=self.net.use_all_type
 
@@ -220,7 +227,6 @@ class InitDiffusion(nn.Module):
                 v_target = (x - z) /denom
 
                 v_pred = (x_pred - z) /denom
-
 
             else:
                 v_target =x - e
@@ -570,6 +576,7 @@ class InitDenoiser(nn.Module):
 
         self.use_graph=True
         self.ego_rel = True
+        self.use_scale=True
         noise_dim = 1
         if mean_flow:
             noise_dim = 2
@@ -723,6 +730,115 @@ class InitDenoiser(nn.Module):
         mask = torch.any(padding_features_a != 0, dim=-1)
 
         return padding_pos_a, padding_heading_a, padding_features_a,mask
+
+    def get_original_state(self, pred_init, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading):
+        pred_init = self.denormalize(pred_init)
+
+        pred_trans, pred_head, pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4], pred_init[..., 4:6], \
+        pred_init[..., 6:8]
+        pred_head = torch.atan2(pred_head[..., 1], pred_head[..., 0])
+
+        global_pos,global_heading=transform_to_global(
+            pred_trans,
+            pred_head,
+            ego_position[batch],
+            ego_heading[batch],
+        )
+
+        global_pred_vel=rotate_to_global(pred_vel,global_heading)
+
+        gt_initial_pos[non_ego]=global_pos
+        gt_initial_heading[non_ego]=global_heading
+
+        gt_initial_vel=tokenized_agent["initial_vel"].clone()
+
+        gt_initial_vel[non_ego] =global_pred_vel
+
+        shape=tokenized_agent["initial_shape"].clone()
+
+        shape[non_ego,:2]=pred_shape[:,:2]
+
+        tokenized_agent["shape"] = shape
+
+        rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
+
+        center_token_traj = tokenized_agent["token_traj"].mean(-2)
+
+        # gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
+
+        vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
+
+        pred_pos=transform_to_global(
+            center_token_traj,#.flatten(1, 2)
+            None,
+            - rel_vel*0.5,
+            vel_heading,
+        )[0].reshape(center_token_traj.shape)
+
+        # static_token=center_token_traj[:,0]
+        #
+        # gt_initial_idx=torch.linalg.norm(static_token[:,None]-pred_pos,dim=-1).sum(-1).argmin(-1)
+
+
+        gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
+
+
+        return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
+
+    def get_data(self,tokenized_agent,non_ego,nonego_batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
+
+        local_vel = rotate_to_local(tokenized_agent["initial_vel"],
+                                                       tokenized_agent["initial_heading"])[non_ego]
+
+        initial_shape = tokenized_agent["initial_shape"][non_ego]
+
+        non_ego_pos=gt_initial_pos[non_ego]
+        non_ego_head=gt_initial_heading[non_ego]
+
+        init_trans, real_heading = transform_to_local(non_ego_pos,
+                                                    non_ego_head,
+                                                    ego_position[nonego_batch],
+                                                    ego_heading[nonego_batch],
+                                                    )
+
+        delta_rot = real_heading.unsqueeze(-1)
+
+        init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
+
+        m_init = torch.cat([init_trans, init_angle, initial_shape[:, :2], local_vel], dim=-1)
+
+        tokenized_agent['nonego_type_sorted'] = nonego_type
+
+        if self.use_scale:
+            old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
+
+            if self.use_all_type:
+                one_hot = F.one_hot(old_nonego_type_sorted, num_classes=tokenized_agent["type_counts"].shape[-1])
+
+                m_init = torch.cat([m_init, one_hot], dim=-1)
+
+            diff_input, nonego_batch, m_init, type, step_idx, step_number = cluster_points(m_init, nonego_batch,
+                                                                                           old_nonego_type_sorted,
+                                                                                           tokenized_agent["type_counts"],
+                                                                                           self.use_all_type)
+
+            pad_mask = torch.all(diff_input == 0, dim=-1)
+
+            diff_input[:, 2:4] /= torch.linalg.norm(diff_input[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+            m_init[:, 2:4] /= torch.linalg.norm(m_init[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+
+            m_init = self.normalize(m_init)
+            diff_input = self.normalize(diff_input)
+
+            diff_input[pad_mask] = 0
+
+            tokenized_agent['nonego_type_sorted'] = type
+            tokenized_agent["step_idx"] = step_idx
+            tokenized_agent["step_number"] = step_number
+        else:
+            diff_input = m_init
+
+        return diff_input,m_init,nonego_batch
 
     def forward(self,
                 m_delta,

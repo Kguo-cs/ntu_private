@@ -19,16 +19,14 @@ import torch.nn as nn
 
 from src.smart.layers.attention_layer import AttentionLayer
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
-from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
-from ..layers.relative_transformer import RoFormerSinusoidalPositionalEmbedding, padding
-from .build_edge import radiusGraphNearest
 from .edge_encoder import EdgeEncoder
 from src.smart.utils import (
     cal_polygon_contour,
     transform_to_global,
     transform_to_local,
     wrap_angle,
-    angle_between_2d_vectors
+    angle_between_2d_vectors,
+    weight_init
 )
 
 from src.smart.layers import MLPLayer

@@ -373,4 +373,3 @@ def insert_ego(map_feature,ego_feature,ego_pos,ego_heading):
     map_feature['batch'] = batch_out
 
     return map_feature
-

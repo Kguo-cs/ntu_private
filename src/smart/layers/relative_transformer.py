@@ -48,7 +48,7 @@ except ImportError:
 from src.smart.layers.fourier_embedding import FourierEmbedding, MLPEmbedding
 from src.smart.layers import MLPLayer
 
-from src.smart.modules.build_edge import generate_limited_causal_mask
+from src.smart.utils.edge_utils import generate_limited_causal_mask
 
 class RoFormerSelfAttention(nn.Module):
     def __init__(self,

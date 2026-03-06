@@ -23,15 +23,13 @@ from src.smart.utils import (
     weight_init
 )
 from torch.distributions import Categorical
-from .build_edge import build_batch,insert_ego
+from src.smart.utils.edge_utils import build_batch
 from src.smart.modules.agent_token_encoder import AgentTokenEncoder
 from src.smart.modules.interative_decoder import InterativeDecoder
 import numpy as np
 from src.smart.modules.entry_encoder import EntryDecoder
 from src.smart.modules.inf_encoder import InfGenAgentDecoder
 from src.smart.modules.initial_decoder import InitDecoder
-from src.smart.modules.initial_gan import InitGAN
-from src.smart.modules.initial_diffusion import PDInit
 import math
 import random
 import torch.nn.functional as F
@@ -87,10 +85,7 @@ class SMARTAgentDecoder(nn.Module):
                                                     discriminator=discriminator
                                                     )
 
-        self.t_num_layers = 1
-        self.agent_hist = self.time_span // self.shift*self.t_num_layers
         self.alpha = alpha
-
 
         self.pred_entry=token_processor.pred_entry & (not discriminator)
         self.pred_exit=token_processor.pred_exit & (not discriminator)
@@ -118,9 +113,12 @@ class SMARTAgentDecoder(nn.Module):
                 self.init_decoder=InitDecoder(hidden_dim,num_heads,num_freq_bands,token_processor)
             else:
                 if self.use_gan:
+                    from src.smart.gan.initial_gan import InitGAN
                     self.init_decoder=InitGAN(hidden_dim,num_heads,num_freq_bands,token_processor)
                 else:
-                    self.init_decoder=PDInit(hidden_dim,num_heads,num_freq_bands,token_processor)
+                    from src.smart.diffusion.initial_diffusion import InitDiffusion
+
+                    self.init_decoder=InitDiffusion(hidden_dim,num_heads,num_freq_bands,token_processor)
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0):
 

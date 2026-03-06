@@ -14,13 +14,9 @@
 
 from src.smart.model.iq_learn import IQ_SoftQ
 from src.smart.model.smart import SMART
-from src.smart.modules.smart_decoder import SMARTDecoder
-
 import torch
 import math
 from torch.optim.lr_scheduler import LambdaLR
-from src.smart.model.optimizer import configure_optimizers,CombinedOptimizer,Muon
-import torch.optim as optim
 
 
 class SMART_IQ(IQ_SoftQ, SMART):
