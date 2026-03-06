@@ -29,10 +29,6 @@ class InitDiffusion(nn.Module):
         self.latent_diffusion=False
         self.use_gan = False
         self.use_dit=False
-        self.global_step=0
-        self.Gamma=1
-        self.use_Rp=False
-        self.use_perceptual_loss=False
         self.sep_map=False
 
         self.learn_autoencoder = token_processor.learn_autoencoder

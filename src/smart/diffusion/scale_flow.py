@@ -159,12 +159,12 @@ class ScaleFlow(nn.Module):
 
         e = torch.randn_like(x)  # base distribution N(0, I)
 
-        if tokenized_agent["step_idx"] is not None:
-            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
-            t_batch = timesteps[tokenized_agent["step_idx"]]
-            t_batch=t_batch[:, None]
-        else:
-            t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+        # if tokenized_agent["step_idx"] is not None:
+        #     timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
+        #     t_batch = timesteps[tokenized_agent["step_idx"]]
+        #     t_batch=t_batch[:, None]
+        # else:
+        t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
         if self.mean_flow:

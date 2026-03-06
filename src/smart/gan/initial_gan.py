@@ -32,6 +32,8 @@ class InitGAN(nn.Module):
         self.criterion = nn.BCELoss()
 
         self.use_Rp=True
+        self.global_step=0
+        self.use_Rp=False
 
         self.Gamma =   1
 
