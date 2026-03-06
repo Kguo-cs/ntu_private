@@ -575,9 +575,9 @@ class InitDenoiser(nn.Module):
             noise_dim = 2
             self.use_padding = True
 
-        normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
-        normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
-                                          2.728e+00, -2.259e-03]])
+        normal_scale = torch.tensor([[33.699, 28.851,  0.774,  0.622,  1.207,  0.364,  4.970,  0.239]])
+        normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.162e-01, -1.249e-05,  4.515e+00,  2.022e+00,
+         2.568e+00,  9.085e-04]])
 
         if self.use_all_type:
             normal_scale = torch.tensor([[35.039, 29.354, 0.758, 0.606, 1.317, 0.405, 4.842, 0.281, 0.290,

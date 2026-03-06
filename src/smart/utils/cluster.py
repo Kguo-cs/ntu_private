@@ -33,6 +33,8 @@ def kmeans_fast( x, k, iters=10):
 
 def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
 
+    padded=padded[:,:,:2]
+
     num_graphs,max_points, D=padded.shape
 
     device=padded.device
@@ -108,14 +110,17 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
     centroids_mask=~(cluster_mask[:,None] & mask[:,:,None])[mask]
 
     # --- K-Means iterations ---
-    for _ in range(iters):
+    for i in range(iters):
         # distances: (num_graphs, max_points, max_k)
         # dist = (
         #     padded.pow(2).sum(-1, keepdim=True)
         #     - 2 * padded @ centroids.transpose(1, 2)
         #     + centroids.pow(2).sum(-1).unsqueeze(1)
         # )
-        dist=torch.cdist(padded[:,:,:2],centroids[:,:,:2])
+        if i==iters-1:
+            D=pos.shape[-1]
+
+        dist=torch.cdist(padded,centroids)
         dist=dist[mask]
 
         dist[centroids_mask]=float('inf')
@@ -135,7 +140,7 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
         global_idx = batch * max_k + labels_per_point   # (N_total,)
 
         # scatter sums
-        new_centroids.index_add_(0, global_idx, pos)
+        new_centroids.index_add_(0, global_idx, pos[:,:D])
         counts_centroids.index_add_(0, global_idx, torch.ones_like(global_idx, dtype=torch.float))
 
         # reshape back

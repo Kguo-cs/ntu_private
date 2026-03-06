@@ -140,19 +140,20 @@ class TokenProcessor(torch.nn.Module):
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
-            batch = data["agent"]["batch"]
+            if self.learn_init:
+                batch = data["agent"]["batch"]
 
-            type = data["agent"]["type"]
+                type = data["agent"]["type"]
 
-            ego_mask = torch.ones_like(batch)
-            ego_mask[:-1] = batch[:-1] != batch[1:]
+                ego_mask = torch.ones_like(batch)
+                ego_mask[:-1] = batch[:-1] != batch[1:]
 
-            sort_rank = batch.to(torch.float64)  * 30+ego_mask.to(torch.float64)*3 + type.to(torch.float64)
+                sort_rank = batch.to(torch.float64)  * 30+ego_mask.to(torch.float64)*3 + type.to(torch.float64)
 
-            sort_idx = sort_rank.argsort()
+                sort_idx = sort_rank.argsort()
 
-            for key in ['valid_mask', 'role', 'id', 'type', 'position', 'heading', 'velocity', 'shape']:
-                data["agent"][key] = data["agent"][key][sort_idx]
+                for key in ['valid_mask', 'role', 'id', 'type', 'position', 'heading', 'velocity', 'shape']:
+                    data["agent"][key] = data["agent"][key][sort_idx]
 
             tokenized_agent = self.tokenize_agent(data)
 
@@ -176,16 +177,9 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape
                 tokenized_agent["initial_type"] = type.long()
-                #tokenized_agent["initial_speed"]=tokenized_agent["initial_vel"].norm(dim=-1)
-                # tokenized_agent["initial_idx"]=  tokenized_agent["initial_type"]
-
-
-                #tokenized_agent["ego_traj"] = agent["position"][:, 1:11, :2][tokenized_agent["ego_mask"]]
-
                 tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
 
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
-
         else:
             tokenized_map, tokenized_agent=self.process_data(data)
 
@@ -196,26 +190,8 @@ class TokenProcessor(torch.nn.Module):
             ego_mask[:-1] = batch[:-1] != batch[1:]
             tokenized_agent["ego_mask"] = ego_mask.bool()
 
-        tokenized_agent["abs_time"]=torch.zeros([0,18])
-
         if self.learn_init:
-
-            # ego_heading=tokenized_agent["initial_heading"][tokenized_agent["ego_mask"]][batch]
-
-            # tokenized_agent["local_vel"] = transform_to_local(
-            #     tokenized_agent["initial_pos"] + tokenized_agent["initial_vel"],
-            #     None,
-            #     ego_position,
-            #     ego_heading,
-            # )[0]-transform_to_local(
-            #     tokenized_agent["initial_pos"] ,
-            #     None,
-            #     ego_position,
-            #     ego_heading,
-            # )[0]
-
             tokenized_agent["local_vel"]=rotate_to_local(tokenized_agent["initial_vel"],tokenized_agent["initial_heading"])
-
 
         if self.use_goal and self.training:
             self.compute_goal(tokenized_agent)

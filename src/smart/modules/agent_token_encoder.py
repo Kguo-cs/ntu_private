@@ -160,7 +160,6 @@ class AgentTokenEncoder(nn.Module):
             goal_pos,
             goal_mask,
             ego_mask,
-            abs_time,
             token_mask=None,
             inference=False,
     ):
@@ -214,9 +213,6 @@ class AgentTokenEncoder(nn.Module):
             categorical_embs=categorical_embs[None].repeat(n_step,1,1)
         else:
             categorical_embs = None
-
-        if self.token_processor.use_time:
-            feature_a=torch.cat([feature_a, abs_time[:,:,None]/50000], dim=-1)
 
         if mask_a is not None:
             mask_s=mask_a.transpose(0, 1)

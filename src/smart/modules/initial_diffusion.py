@@ -156,9 +156,6 @@ class PDInit(nn.Module):
                                                ego_position[batch_pl],
                                                ego_heading[batch_pl],
                                                )
-        # init_angle = torch.stack([orient_pl.cos(), orient_pl.sin()], dim=-1)  # [0,2]
-        #
-        # feat_map=self.G.pose_embedding(torch.cat([feat_map, pos_pl,init_angle], dim=-1))
 
         if self.G.net.use_padding  or (self.use_gan and self.D.use_entry_former):
             map_feature = self.G.net.padding(pos_pl, orient_pl, feat_map, batch_pl, tokenized_agent["num_graphs"])
@@ -178,6 +175,9 @@ class PDInit(nn.Module):
                 diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs,self.G.use_all_type)
 
                 pad_mask=torch.all(diff_input == 0, dim=-1)
+
+                diff_input[:, 2:4]  /=  torch.linalg.norm(diff_input[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+                m_init[:, 2:4]  /=  torch.linalg.norm(m_init[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
 
                 m_init = self.G.net.normalize(m_init)
                 diff_input = self.G.net.normalize(diff_input)
@@ -244,11 +244,7 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                # sort_rank = nonego_batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
-                #
-                # sort_idx = sort_rank.argsort()
-
-                tokenized_agent['nonego_type_sorted']= nonego_type#[sort_idx]
+                tokenized_agent['nonego_type_sorted']= nonego_type
 
                 pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
@@ -322,8 +318,6 @@ class PDInit(nn.Module):
         shape[non_ego,:2]=pred_shape[:,:2]
 
         tokenized_agent["shape"] = shape
-
-        # tokenized_agent["type"][non_ego] = tokenized_agent['nonego_type_sorted']
 
         rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
 
