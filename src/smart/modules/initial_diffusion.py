@@ -460,10 +460,20 @@ class PDInit(nn.Module):
 
         rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
 
-
         center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
+        vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
+
+        pred_pos=transform_to_global(
+            center_token_traj,
+            None,
+            - rel_vel*0.5,
+            vel_heading,
+        )[0]
+
+        gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
+
+        #gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
 
         return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
 
