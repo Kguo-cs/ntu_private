@@ -228,28 +228,7 @@ class PDInit(nn.Module):
                                                                                                  use_col=False,
                                                                                                  use_all_type=False
                                                                                                  )
-                    # match_loss, pos_loss, heading_loss, shape_loss, vel_loss = get_matching_loss(old_nonego_type_sorted,
-                    #                                                                              old_batch,
-                    #                                                                              x_pred ,
-                    #                                                                              m_init,
-                    #                                                                              latent=True
-                    #                                                                              )
-                    if self.use_perceptual_loss:
-                        
-                        gt_initial_pos,gt_initial_heading,gt_initial_shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
-                            x_pred * normal_scale + normal_mean, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
-                        )
-
-                        gt_initial_type=tokenized_agent["initial_type"].clone()
-
-                        gt_initial_type[non_ego] = tokenized_agent['nonego_type_sorted']
-
-                        res=(gt_initial_pos,gt_initial_heading, gt_initial_idx,gt_initial_type,gt_initial_shape,sort_idx,non_ego)
-                        
-                        loss = (loss_diff_init.mean(),res, collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
-
-                    else:
-                        loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
+                    loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
         else:
@@ -314,7 +293,6 @@ class PDInit(nn.Module):
                 tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
             
             tokenized_agent["shape"]= shape
-
             tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
             tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
 
@@ -332,13 +310,6 @@ class PDInit(nn.Module):
             ego_position[batch],
             ego_heading[batch],
         )
-
-        # global_pred_vel=transform_to_global(
-        #     pred_vel+pred_trans,
-        #     None,
-        #     ego_position[batch],
-        #     ego_heading[batch],
-        # )[0]-global_pos
 
         global_pred_vel=rotate_to_global(pred_vel,global_heading)
 
