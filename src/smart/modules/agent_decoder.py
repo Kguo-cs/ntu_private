@@ -179,8 +179,7 @@ class SMARTAgentDecoder(nn.Module):
                                                                                     tokenized_agent["sampled_pos"][:,:-1],
                                                                                     tokenized_agent["sampled_heading"][:,:-1] ,
                                                                                     tokenized_agent,
-                                                                                    map_feature,
-                                                                                    abs_time=tokenized_agent["abs_time"][:,:-1]
+                                                                                    map_feature
                                                                                                          )
 
             tokenized_agent["next_token_logits"] = next_token_logits
