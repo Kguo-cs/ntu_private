@@ -172,7 +172,7 @@ class PDInit(nn.Module):
 
                     m_init=torch.cat([m_init,one_hot],dim=-1)
 
-                diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, num_graphs,self.G.use_all_type)
+                diff_input, nonego_batch, m_init, type ,step_idx,step_number= cluster_points(m_init, nonego_batch,old_nonego_type_sorted, type_counts,self.G.use_all_type)
 
                 pad_mask=torch.all(diff_input == 0, dim=-1)
 
@@ -277,7 +277,7 @@ class PDInit(nn.Module):
             if self.latent_diffusion:
                 pred_init = pred_init*self.agent_latents_scale.to(non_ego.device)+self.agent_latents_mean.to(non_ego.device)
 
-                pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
+                pred_init = self.autoencoder.forward_decoder(pred_init,tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
                 pred_init, tokenized_agent, non_ego, nonego_batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
@@ -285,8 +285,6 @@ class PDInit(nn.Module):
 
             if self.G.use_all_type:
                 tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
-
-            #tokenized_agent['id'][non_ego] = tokenized_agent['id'][non_ego][sort_idx]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_vel
         
@@ -321,43 +319,24 @@ class PDInit(nn.Module):
 
         rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
 
-        center_token_traj = tokenized_agent["token_traj"].mean(-2)
+        center_token_traj = tokenized_agent["token_traj"]#.mean(-2)
 
-        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
+        # gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
 
-        # vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
-        #
-        # pred_pos=transform_to_global(
-        #     center_token_traj.flatten(1, 2),
-        #     None,
-        #     - rel_vel*0.5,
-        #     vel_heading,
-        # )[0].reshape(center_token_traj.shape)
-        #
-        # sizes = {
-        #     "veh": (4.8, 2.0),
-        #     "ped": (1.0, 1.0),
-        #     "other": (2.0, 1.0),
-        # }
-        #
-        # corners = []
-        #
-        # for k in ["veh", "ped", "other"]:
-        #     length, width = sizes[k]
-        #     hl = length / 2
-        #     hw = width / 2
-        #
-        #     rect = torch.tensor([
-        #         [hl, hw],  # front-left
-        #         [hl, -hw],  # front-right
-        #         [-hl, -hw],  # rear-right
-        #         [-hl, hw],  # rear-left
-        #     ])
-        #
-        #     corners.append(rect)
-        #
-        # corners = torch.stack(corners)  # (3,4,2)
-        #
+        vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
+
+        pred_pos=transform_to_global(
+            center_token_traj.flatten(1, 2),
+            None,
+            - rel_vel*0.5,
+            vel_heading,
+        )[0].reshape(center_token_traj.shape)
+
+        static_token=center_token_traj[:,0]
+
+        gt_initial_idx=torch.linalg.norm(static_token[:,None]-pred_pos,dim=-1).sum(-1).argmin(-1)
+
+
         # gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
 
 

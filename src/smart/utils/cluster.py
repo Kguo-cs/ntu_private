@@ -150,8 +150,6 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
         centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
 
     centroids[~cluster_mask]=0
-    #centroids[:,:,8:]*=counts_centroids[:,:,None]
-    #centroids[:,:, :8] *= cluster_mask[:,:,None]# for k=0
 
     return centroids
 
@@ -300,9 +298,11 @@ def build_less_more_grouped(
     pos,
     type,
     batch,
-    num_graphs,
+    type_counts
 ):
-    counts = torch.bincount(batch, minlength=num_graphs)
+    num_graphs,num_types=type_counts.shape
+
+    counts = type_counts.sum(-1)
 
     schedules = batch_increasing_schedule(counts)
 
@@ -316,15 +316,6 @@ def build_less_more_grouped(
 
     k_per_graph = schedules[batch_idx, step_idx]
     k1_per_graph = schedules[batch_idx, step1_idx]
-
-    num_types = 3
-
-    idx = batch * num_types + type
-
-    type_counts = torch.bincount(
-        idx,
-        minlength=num_graphs * num_types
-    ).view(num_graphs, num_types)
 
     centroids_list=[]
     centroids1_list=[]
@@ -485,10 +476,10 @@ def cluster_points1(pos, batch, type, num_graphs  ):
 
     return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
 
-def cluster_points(pos, batch, type, num_graphs,use_all_type
+def cluster_points(pos, batch, type, type_counts,use_all_type
         ):
     if use_all_type:
-        return cluster_points1(pos, batch, type, num_graphs)
+        return cluster_points1(pos, batch, type, len(type_counts))
 
     # veh_pos=pos[type==0]
     # veh_batch=batch[type==0]
@@ -558,7 +549,7 @@ def cluster_points(pos, batch, type, num_graphs,use_all_type
         pos,
         type,
         batch,
-        num_graphs
+        type_counts
         )
 
     return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
