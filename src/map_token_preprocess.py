@@ -33,9 +33,9 @@ token_processor.eval()
 
 # Set paths
 
-agent_data_directory = "./waymo_data/full/training_map2_03_pt"
-map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_03_light"
+agent_data_directory = "./waymo_data/full/training_map2_init10_light"
+map_data_directory  = "./waymo_data/map_lane/training"
+ouput_data_directory = "./waymo_data/full/training_lane_init10_light"
 
 
 # agent_data_directory = "/home/ke/code/sim/src/waymo_data/full/validation_map2light"
