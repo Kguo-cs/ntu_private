@@ -942,38 +942,38 @@ class InitDenoiser(nn.Module):
 
             res=res*self.normal_scale+self.normal_mean
 
-            # res_theta=torch.atan2(res[:,3],res[:,2])
-            #
-            # global_pos,global_theta = transform_to_global(
-            #     res[:,:2],
-            #     res_theta,
-            #     pos_s,
-            #     theta,
-            # )
-            #
-            # res=torch.cat([global_pos,torch.cos(global_theta)[:,None],torch.sin(global_theta)[:,None],res[:,4:]], dim=-1)[:,None]
-            cos_d = res[:, 2]
-            sin_d = res[:, 3]
+            res_theta=torch.atan2(res[:,3],res[:,2])
 
-            cos_t = torch.cos(theta)
-            sin_t = torch.sin(theta)
-
-            cos_global = cos_t * cos_d - sin_t * sin_d
-            sin_global = sin_t * cos_d + cos_t * sin_d
-
-            global_pos, _ = transform_to_global(
-                res[:, :2],
-                None,
+            global_pos,global_theta = transform_to_global(
+                res[:,:2],
+                res_theta,
                 pos_s,
                 theta,
             )
 
-            res = torch.cat([
-                global_pos,
-                cos_global[:, None],
-                sin_global[:, None],
-                res[:, 4:]
-            ], dim=-1)[:, None]
+            res=torch.cat([global_pos,torch.cos(global_theta)[:,None],torch.sin(global_theta)[:,None],res[:,4:]], dim=-1)[:,None]
+            # cos_d = res[:, 2]
+            # sin_d = res[:, 3]
+            #
+            # cos_t = torch.cos(theta)
+            # sin_t = torch.sin(theta)
+            #
+            # cos_global = cos_t * cos_d - sin_t * sin_d
+            # sin_global = sin_t * cos_d + cos_t * sin_d
+            #
+            # global_pos, _ = transform_to_global(
+            #     res[:, :2],
+            #     None,
+            #     pos_s,
+            #     theta,
+            # )
+            #
+            # res = torch.cat([
+            #     global_pos,
+            #     cos_global[:, None],
+            #     sin_global[:, None],
+            #     res[:, 4:]
+            # ], dim=-1)[:, None]
 
             res=(res-self.normal_mean)/self.normal_scale
 
