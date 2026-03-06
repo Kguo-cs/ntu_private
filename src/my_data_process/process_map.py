@@ -8,9 +8,9 @@ from torch_geometric.data import HeteroData
 import numpy as np
 
 
-data_directory = "../waymo_data/full/testing_map2/"
-raw_data= "../waymo_data/map2_light/testing/"
-output_path = "../waymo_data/full/testing_map2light/"
+data_directory = "/home/ke/code/sim/src/waymo_data/full/validation_map2light"
+raw_data= "/home/ke/code/sim/src/waymo_data/map_lane/validation/"
+output_path = "/home/ke/code/sim/src/waymo_data/full/validation_lane/"
 
 
 # data_directory = "/home/ke/code/catk/src/waymo_data/full/validation_light/"
@@ -26,15 +26,17 @@ os.makedirs(output_path, exist_ok=True)
 
 for filename in tqdm(files):
     input_path = os.path.join(data_directory, filename)
-    with open(input_path, "rb") as f:
-        data = pickle.load(f)
+    # with open(input_path, "rb") as f:
+    #     data = pickle.load(f)
+
+    data=torch.load(input_path)
 
     # data=torch.load(input_path)
 
     # del data['tokenized_map']['light_type']
     # del data['tokenized_map']['pl_type']
 
-    input_path1 = os.path.join(raw_data, filename[:-3]+'pt')
+    input_path1 = os.path.join(raw_data, filename)
 
     # with open(input_path1, "rb") as f:
     #     data1 = pickle.load(f)
@@ -47,7 +49,7 @@ for filename in tqdm(files):
     data["map_save"]=data1["map_save"]
     data["pt_token"]=data1["pt_token"]
 
-    output_file = output_path + filename[:-3]+'pt'
+    output_file = output_path + filename
 
     torch.save(data, output_file)
 

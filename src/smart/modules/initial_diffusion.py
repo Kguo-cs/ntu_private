@@ -103,7 +103,7 @@ class PDInit(nn.Module):
 
         self.use_perceptual_loss=False
 
-        self.sep_map=False
+        self.sep_map=True
 
     def padding(self,pos,heading,feature,batch,batch_num):
         lengths = torch.bincount(batch,minlength=batch_num).tolist()
@@ -157,7 +157,7 @@ class PDInit(nn.Module):
         return m_init,None
 
 
-    def forward(self,  tokenized_agent,map_range=100):
+    def forward(self,  tokenized_agent):
 
         map_feature=tokenized_agent["initial_map_feature"]
 

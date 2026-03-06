@@ -187,19 +187,6 @@ class SMARTDecoder(nn.Module):
 
             self.agent_encoder.interative_decoder.gail=self.gail
 
-    def run_async_rollout(self,agent_encoder, tokenized_agent, detach_map_feature, post_sampling):
-        encoder_was_training = agent_encoder.training
-
-        with torch.no_grad(), torch.cuda.stream(self.rollout_stream):
-            agent_encoder.eval()
-            rollout_result = agent_encoder.inference(
-                tokenized_agent, detach_map_feature, post_sampling
-            )
-            if encoder_was_training:
-                agent_encoder.train()
-
-        return rollout_result
-
     def forward(
         self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,
             use_critic=False
@@ -209,22 +196,10 @@ class SMARTDecoder(nn.Module):
         else:
             if self.agent_encoder.learn_init :
                 map_feature = self.map_encoder(tokenized_map,tokenized_agent=tokenized_agent)
+                tokenized_agent["initial_map_feature"] = map_feature
             else:
                 map_feature = self.map_encoder(tokenized_map)
-
-            tokenized_agent["initial_map_feature"] = map_feature
-            #
-            # if self.gail:
-            #     if map_feature is not None:
-            #         if self.use_smart:
-            #             #mask = (tokenized_map["type"] == 4) | (tokenized_map["type"] == 5)#[mask]
-            #
-            #             tokenized_agent["detach_map_feature"] = {k: v[::2].contiguous() for k, v in map_feature.items()}
-            #         else:
-            #             tokenized_agent["detach_map_feature"] = {k: v.detach() for k, v in map_feature.items()}
-
             tokenized_agent["map_feature"] = map_feature
-            # self.rollout_result = self.run_async_rollout(tokenized_agent, tokenized_map["detach_map_feature"] , post_sampling)
 
         pred_dict = self.agent_encoder(tokenized_agent, map_feature)
 
