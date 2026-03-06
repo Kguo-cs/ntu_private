@@ -624,15 +624,11 @@ class InitDenoiser(nn.Module):
             #                                   num_freq_bands=num_freq_bands)
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             if self.ego_rel:
-                self.proj_in_m_delta = MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#nn.Linear(m_delta_dim-4, self.hidden_dim)
+                self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
             else:
-                self.proj_in_m_delta = MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#nn.Linear(m_delta_dim, self.hidden_dim)
+                self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
 
-            # self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-            # self.head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-            # self.shape_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
-            # self.vel_head_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
             self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
             self.normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
