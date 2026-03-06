@@ -52,6 +52,8 @@ def process_file(filename):
 
     data=torch.load(input_path)
 
+    filename=filename[:-2]+'.pt'
+
     #data1= HeteroData(data).cuda()
 
     # tokenized_map = token_processor.tokenize_map(data1)
