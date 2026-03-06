@@ -136,19 +136,6 @@ class InitDiffusion(nn.Module):
         #timesteps = power_schedule(self.steps+1, device, alpha=2)
         #dist = torch.distributions.Beta(0.5, 1)
         #z = dist.sample((n,)).to(device)
-
-        #timesteps = torch.linspace(0, 1, self.steps + 1, device=device)
-
-        # idx = torch.randint(0, timesteps.shape[0], (n,), device=timesteps.device)
-        # z = timesteps[idx]#.repeat(n)
-        # timesteps = torch.linspace(0, 1, self.steps + 1, device=eval_mask.device)
-        #
-        # step=tokenized_agent["step"]
-        #
-        # t =timesteps[step]
-        #
-        # t_batch=t.repeat(num_scenes)[:, None]
-
         z=torch.rand(n, device=device)#timesteps[torch.randint(low=0,high=self.steps,size=(n,),device=device)] #/self.steps#
         return z
 
@@ -619,22 +606,28 @@ class InitDenoiser(nn.Module):
             noise_dim = 2
             self.use_padding = True
 
+        normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
+        normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
+                                          2.728e+00, -2.259e-03]])
+
+        if self.use_all_type:
+            normal_scale = torch.tensor([[35.039, 29.354, 0.758, 0.606, 1.317, 0.405, 4.842, 0.281, 0.290,
+                                               0.282, 0.071]])
+
+            normal_mean = torch.tensor([[2.345e+00, 3.163e+00, 1.098e-01, 1.229e-02, 4.424e+00, 1.992e+00,
+                                              2.421e+00, -3.600e-05, 9.040e-01, 9.043e-02, 5.601e-03]])
+
+        self.register_buffer( "normal_scale",normal_scale )
+        self.register_buffer( "normal_mean",normal_mean)
+
         if self.use_roformer:
-            # self.noise_embedding = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
-            #                                   num_freq_bands=num_freq_bands)
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             if self.ego_rel:
                 self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
             else:
                 self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
-
             self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
-
-            self.normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
-            self.normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
-                                              2.728e+00, -2.259e-03]])
-
 
             if self.use_graph:
                 self.use_padding = False
@@ -745,6 +738,12 @@ class InitDenoiser(nn.Module):
 
         self.apply(weight_init)
 
+    def normalize(self,input):
+        return (input - self.normal_mean) / self.normal_scale
+
+    def denormalize(self,input):
+        return input* self.normal_scale+self.normal_mean
+
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 
@@ -775,11 +774,7 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             m_delta=m_delta[:,0]
 
-            self.normal_mean=self.normal_mean.to(device)
-
-            self.normal_scale=self.normal_scale.to(device)
-
-            m_delta=m_delta*self.normal_scale+self.normal_mean
+            m_delta=self.denormalize(m_delta)
 
             if self.ego_rel:
                 feat_a=self.proj_in_m_delta(m_delta[:,4:])
@@ -936,7 +931,7 @@ class InitDenoiser(nn.Module):
 
             res=self.to_out_m_delta(feat_a)
 
-            res=res*self.normal_scale+self.normal_mean
+            res=self.denormalize(res)
 
             res_theta=torch.atan2(res[:,3],res[:,2])
 
@@ -971,18 +966,7 @@ class InitDenoiser(nn.Module):
             #     res[:, 4:]
             # ], dim=-1)[:, None]
 
-            res=(res-self.normal_mean)/self.normal_scale
-
-            # pos = self.pos_decoder(attr_feature)  # * 80
-            #
-            # heading = self.head_decoder(attr_feature)
-            #
-            # shape = self.shape_head_decoder(attr_feature)
-            #
-            # vel = self.vel_head_decoder(attr_feature)
-            #
-            # res = torch.cat([pos, heading, shape,vel], dim=1)[:,None]
-
+            res=self.normalize(res)
         else:
             beta_emb = self.noise_emb(beta)
             # num_agents x 128
