@@ -244,13 +244,13 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_encoder(data)
             else:
-                sort_rank = nonego_batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                # sort_rank = nonego_batch.to(torch.float64)  * 3 + nonego_type.to(torch.float64)
+                #
+                # sort_idx = sort_rank.argsort()
 
-                sort_idx = sort_rank.argsort()
+                tokenized_agent['nonego_type_sorted']= nonego_type#[sort_idx]
 
-                tokenized_agent['nonego_type_sorted']= nonego_type[sort_idx]
-
-                pred_init,pred_list,batch_list,step_list= self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
+                pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
                                                         sampling='ddim',
                                                         stride=1,
                                                         if_output_diffusion_process=False,
@@ -283,22 +283,19 @@ class PDInit(nn.Module):
 
                 pred_init = self.autoencoder.forward_decoder(pred_init,   tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
 
-            pred_init=self.G.net.denormalize(pred_init)
-            
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.get_original_state(
                 pred_init, tokenized_agent, non_ego, nonego_batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
             )
 
             if self.G.use_all_type:
                 tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
-            
-            tokenized_agent["shape"]= shape
-            tokenized_agent["type"][non_ego]= tokenized_agent['nonego_type_sorted']
-            tokenized_agent['id'][non_ego]=tokenized_agent['id'][non_ego][sort_idx]
+
+            #tokenized_agent['id'][non_ego] = tokenized_agent['id'][non_ego][sort_idx]
 
             return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_vel
         
     def get_original_state(self, pred_init, tokenized_agent, non_ego, batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading):
+        pred_init = self.G.net.denormalize(pred_init)
 
         pred_trans, pred_head, pred_shape, pred_vel = pred_init[..., :2], pred_init[..., 2:4], pred_init[..., 4:6], \
         pred_init[..., 6:8]
@@ -324,34 +321,51 @@ class PDInit(nn.Module):
 
         shape[non_ego,:2]=pred_shape[:,:2]
 
-        #tokenized_agent["shape"]= shape
+        tokenized_agent["shape"] = shape
 
-        # local_vel=tokenized_agent["local_vel"].clone()
-        #
-        # local_vel[non_ego]=pred_vel
-
-        # rel_vel=transform_to_local(gt_initial_vel+gt_initial_pos,
-        #                            None,
-        #                            gt_initial_pos,
-        #                            gt_initial_heading,
-        #                            )[0]
+        # tokenized_agent["type"][non_ego] = tokenized_agent['nonego_type_sorted']
 
         rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
 
         center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
+        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
+
         # vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
         #
         # pred_pos=transform_to_global(
-        #     center_token_traj,
+        #     center_token_traj.flatten(1, 2),
         #     None,
         #     - rel_vel*0.5,
         #     vel_heading,
-        # )[0]
+        # )[0].reshape(center_token_traj.shape)
+        #
+        # sizes = {
+        #     "veh": (4.8, 2.0),
+        #     "ped": (1.0, 1.0),
+        #     "other": (2.0, 1.0),
+        # }
+        #
+        # corners = []
+        #
+        # for k in ["veh", "ped", "other"]:
+        #     length, width = sizes[k]
+        #     hl = length / 2
+        #     hw = width / 2
+        #
+        #     rect = torch.tensor([
+        #         [hl, hw],  # front-left
+        #         [hl, -hw],  # front-right
+        #         [-hl, -hw],  # rear-right
+        #         [-hl, hw],  # rear-left
+        #     ])
+        #
+        #     corners.append(rect)
+        #
+        # corners = torch.stack(corners)  # (3,4,2)
         #
         # gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
 
-        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
 
         return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
 

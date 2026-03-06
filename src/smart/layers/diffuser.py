@@ -215,12 +215,7 @@ class InitDiffusion(nn.Module):
 
                 x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask)
 
-                # fake_idx, real_idx= get_closest_sum_idx(x_pred[:,0],x[:,0],agent_batch,tokenized_agent["nonego_type_sorted"],all_state=True)
-                #
-                # x_pred=x_pred[fake_idx]
-
                 denom = (1 - t[:, :, None]).clamp_min(self.t_eps)
-
 
                 v_target = (x - z) /denom
 
@@ -277,10 +272,9 @@ class InitDiffusion(nn.Module):
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):
         agent_batch = tokenized_agent["nonego_batch"]
         num_scenes = tokenized_agent["num_graphs"]
+        num_agents = len(agent_batch)
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
-
-        num_agents = eval_mask.sum()
 
         if self.use_all_type:
             z = torch.randn(num_agents,num_samples, 11, device=eval_mask.device)
@@ -288,34 +282,9 @@ class InitDiffusion(nn.Module):
             z = torch.randn(num_agents,num_samples, 8, device=eval_mask.device)
 
         if self.use_scale:
-
             agent_type = tokenized_agent["nonego_type_sorted"]
 
             type_counts=tokenized_agent["type_counts"]
-
-            # if self.use_all_type:
-            #     veh_mask=torch.ones_like(agent_type).to(torch.bool)
-            # else:
-            #     veh_mask = agent_type == 0
-
-            # # 1. cumulative vehicle count globally
-            # veh_cumsum = torch.cumsum(veh_mask.long(), dim=0)
-            #
-            # # 2. total vehicles per scene
-            # veh_per_scene = torch.bincount(
-            #     agent_batch[veh_mask],
-            #     minlength=num_scenes
-            # )
-            #
-            # # 3. prefix vehicle offsets per scene
-            # veh_offsets = torch.cumsum(veh_per_scene, dim=0)
-            # veh_offsets = torch.cat([
-            #     torch.zeros(1, device=veh_offsets.device, dtype=veh_offsets.dtype),
-            #     veh_offsets[:-1]
-            # ])
-            #
-            # # 4. vehicle rank inside its own scene
-            # veh_rank = veh_cumsum - veh_offsets[agent_batch] #- 1
 
             num_types=3
 
