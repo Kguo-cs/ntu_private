@@ -234,8 +234,9 @@ class SMART(LightningModule):
             if self.challenge_type == ChallengeType.SCENARIO_GEN:
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
-                compute_gen_samples(data, tokenized_agent, pred_traj, pred_speeds, pred_head, pred_sizes, self.samples,
-                                    self.gt_samples)
+                if not self.wosac_submission.is_active:
+                    compute_gen_samples(data, tokenized_agent, pred_traj, pred_speeds, pred_head, pred_sizes, self.samples,
+                                        self.gt_samples)
 
             else:
                 pred_traj=pred_traj[:,:,-80:]
@@ -526,8 +527,6 @@ class SMART(LightningModule):
             if self.global_rank == 0:
                 if self.wosac_submission.is_active:
                     self.wosac_submission.save_sub_file()
-
-           # print("Callback metrics:", self.trainer.callback_metrics.keys())
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)

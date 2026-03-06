@@ -622,11 +622,11 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             # self.noise_embedding = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
             #                                   num_freq_bands=num_freq_bands)
-            self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+            #self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             if self.ego_rel:
-                self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)
+                self.proj_in_m_delta = MLPLayer(m_delta_dim-3, hidden_dim, hidden_dim)#nn.Linear(m_delta_dim-4, self.hidden_dim)
             else:
-                self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
+                self.proj_in_m_delta = MLPLayer(m_delta_dim+1, hidden_dim, hidden_dim)#nn.Linear(m_delta_dim, self.hidden_dim)
 
 
             # self.pos_decoder = MLPLayer(hidden_dim, hidden_dim, 2)
@@ -786,12 +786,12 @@ class InitDenoiser(nn.Module):
             m_delta=m_delta*self.normal_scale+self.normal_mean
 
             if self.ego_rel:
-                feat_a=self.proj_in_m_delta(m_delta[:,4:])
+                feat_a=self.proj_in_m_delta(torch.cat([m_delta[:,4:],beta],dim=-1))
             else:
-                feat_a=self.proj_in_m_delta(m_delta)
+                feat_a=self.proj_in_m_delta(torch.cat([m_delta,beta],dim=-1))
 
             #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
-            beta_emb_m = self.noise_embedding(beta) + self.type_a_emb(type)
+            beta_emb_m = self.type_a_emb(type)#self.noise_embedding(beta) +
 
             feat_a = feat_a + beta_emb_m
 
