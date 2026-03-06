@@ -202,7 +202,7 @@ def batch_process9s_transformer(input_dir, output_dir, split, num_workers):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     input_dir = Path(input_dir) / split
-    packages = sorted([p.as_posix() for p in input_dir.glob("*")])#[123:]
+    packages = sorted([p.as_posix() for p in input_dir.glob("*")])[53:]
     func = partial(
         wm2argo,
         split=split,
@@ -221,12 +221,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/home/ke/keguo/waymo",
+        default="/home/ke/code/sim/src/waymo_data/waymo",
     )
     parser.add_argument(
-        "--output_dir", type=str, default="/home/ke/keguo/sim/src/waymo_data/map_lane"
+        "--output_dir", type=str, default="./waymo_data/map_lane"
     )
-    parser.add_argument("--split", type=str, default="training")
+    parser.add_argument("--split", type=str, default="validation")
     parser.add_argument("--num_workers", type=int, default=32)
     args = parser.parse_args()
 
