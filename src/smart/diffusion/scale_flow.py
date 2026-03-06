@@ -218,6 +218,8 @@ class ScaleFlow(nn.Module):
 
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
 
+            z=self.net.normalize_z(z)
+
             if self.x_pred:
 
                 x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask)
@@ -368,6 +370,7 @@ class ScaleFlow(nn.Module):
                     z_scale=z[first_i_veh_mask]
 
                     #t_next=torch.clamp_max(t_next+0.1,max=1)
+                    z_scale = self.net.normalize_z(z_scale)
 
                     z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
 
@@ -840,6 +843,17 @@ class InitDenoiser(nn.Module):
 
         return diff_input,m_init,nonego_batch
 
+    def normalize_z(self,z):
+        m_delta = z[:, 0]
+
+        m_delta = self.denormalize(m_delta)
+
+        m_delta[:, 2:4] = m_delta[:, 2:4] / torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+
+        z = self.normalize(m_delta)
+
+        return z[:,None]
+
     def forward(self,
                 m_delta,
                 beta,
@@ -860,6 +874,9 @@ class InitDenoiser(nn.Module):
             m_delta=m_delta[:,0]
 
             m_delta=self.denormalize(m_delta)
+
+            m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+
 
             if self.ego_rel:
                 feat_a=self.proj_in_m_delta(m_delta[:,4:])

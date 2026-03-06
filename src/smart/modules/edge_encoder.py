@@ -32,7 +32,7 @@ class EdgeEncoder(nn.Module):
     ) -> None:
         super(EdgeEncoder, self).__init__()
 
-        self.differentiable_edge=True
+        self.differentiable_edge=False
         self.rollout_traj=False
 
         self.hist_drop_prob = hist_drop_prob
