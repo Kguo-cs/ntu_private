@@ -786,23 +786,23 @@ class InitDenoiser(nn.Module):
 
         center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-        # gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
+        gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None]*0.5, dim=-1).argmin(-1)
 
-        vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
-
-        pred_pos=transform_to_global(
-            center_token_traj,#.flatten(1, 2)
-            None,
-            - rel_vel*0.5,
-            vel_heading,
-        )[0].reshape(center_token_traj.shape)
-
-        # static_token=center_token_traj[:,0]
+        # vel_heading=torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
         #
-        # gt_initial_idx=torch.linalg.norm(static_token[:,None]-pred_pos,dim=-1).sum(-1).argmin(-1)
-
-
-        gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
+        # pred_pos=transform_to_global(
+        #     center_token_traj,#.flatten(1, 2)
+        #     None,
+        #     - rel_vel*0.5,
+        #     vel_heading,
+        # )[0].reshape(center_token_traj.shape)
+        #
+        # # static_token=center_token_traj[:,0]
+        # #
+        # # gt_initial_idx=torch.linalg.norm(static_token[:,None]-pred_pos,dim=-1).sum(-1).argmin(-1)
+        #
+        #
+        # gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
 
 
         return gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx
