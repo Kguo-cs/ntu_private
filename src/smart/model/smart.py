@@ -464,8 +464,6 @@ class SMART(LightningModule):
                 t1=time.time()
                 epoch_wosac_metrics = self.wosac_metrics.compute()
 
-                print('metric compute time:', time.time() - t1)
-
                 if self.challenge_type!=ChallengeType.SCENARIO_GEN:
                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
@@ -522,6 +520,9 @@ class SMART(LightningModule):
 
                 self.wosac_metrics.reset()
                 self.minADE.reset()
+
+                print('metric compute time:', time.time() - t1)
+
 
             if self.global_rank == 0:
                 if self.wosac_submission.is_active:
