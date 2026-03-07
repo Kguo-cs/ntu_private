@@ -589,9 +589,12 @@ class InitDenoiser(nn.Module):
         # normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.162e-01, -1.249e-05,  4.515e+00,  2.022e+00,
         #  2.568e+00,  9.085e-04]])
 
-        normal_scale = torch.tensor([[33.699, 28.851,  0.774,  0.622,  1.207,  0.364,  4.927,  2.453]])
-        normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.162e-01, -1.249e-05,  4.515e+00,  2.022e+00,
-         6.634e-01, -5.857e-0]]) # ego velocity
+        # normal_scale = torch.tensor([[33.699, 28.851,  0.774,  0.622,  1.207,  0.364,  4.927,  2.453]])# ego velocity+ norm
+
+        normal_scale = torch.tensor([[33.699, 28.851,  0.760,  0.606,  1.207,  0.364,  4.927,  2.453]])
+
+        normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.148e-01, -1.181e-03,  4.515e+00,  2.022e+00,
+         6.634e-01, -5.857e-02]])
 
         if self.use_all_type:
             normal_scale = torch.tensor([[35.039, 29.354, 0.758, 0.606, 1.317, 0.405, 4.842, 0.281, 0.290,
@@ -842,8 +845,8 @@ class InitDenoiser(nn.Module):
 
             pad_mask = torch.all(diff_input == 0, dim=-1)
 
-            diff_input[:, 2:4] /= torch.linalg.norm(diff_input[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
-            m_init[:, 2:4] /= torch.linalg.norm(m_init[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+            # diff_input[:, 2:4] /= torch.linalg.norm(diff_input[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+            # m_init[:, 2:4] /= torch.linalg.norm(m_init[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
 
             m_init = self.normalize(m_init)
             diff_input = self.normalize(diff_input)
