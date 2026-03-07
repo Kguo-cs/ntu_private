@@ -37,7 +37,7 @@ token_processor.eval()
 
 agent_data_directory = "./waymo_data/full/training_map2_a_light"
 # map_data_directory  = "./waymo_data/map2_light/training"
-ouput_data_directory = "./waymo_data/full/training_map2_init10_light"
+ouput_data_directory = "./waymo_data/full/training_map2_init10_inter"
 
 pred_init=True
 
@@ -65,29 +65,6 @@ def process_file(filename):
     if av_index != len(data["agent"]["role"]) - 1:
         print(av_index,len(data["agent"]["role"]) - 1)
 
-
-    # distance = torch.norm(pos - pos[av_index], dim=-1)
-    #
-    # # we do not believe the perception out of range of 150 meters
-    # data["agent"]["valid_mask"] = data["agent"]["valid_mask"] & (distance < 150)
-    #
-    # # we do not predict vehicle too far away from ego car
-    # role_train_mask = data["agent"]["role"].any(-1)
-    # extra_train_mask = (distance[:, 10] < 100) & (
-    #         data["agent"]["valid_mask"][:, 10 + 1:].sum(-1) >= 5
-    # )
-    #
-    # train_mask = extra_train_mask | role_train_mask
-    # if train_mask.sum() > 32:  # too many vehicle
-    #     _indices = torch.where(extra_train_mask & ~role_train_mask)[0]
-    #     selected_indices = _indices[
-    #         torch.randperm(_indices.size(0))[: 32 - role_train_mask.sum()]
-    #     ]
-    #     data["agent"]["train_mask"] = role_train_mask
-    #     data["agent"]["train_mask"][selected_indices] = True
-    # else:
-    #     data["agent"]["train_mask"] = train_mask  # [n_agent]
-
     data1= HeteroData(data).cuda()
 
     # tokenized_map = token_processor.tokenize_map(data1)
@@ -102,27 +79,41 @@ def process_file(filename):
     #
     # data["tokenized_map"]=tokenized_map
     # data["tokenized_map"]['num_nodes']=len(tokenized_map["type"])
+    agent = data1["agent"]
+
+    valid = agent["valid_mask"]  # [n_agent, n_step]
+    heading = agent["heading"]   ## [n_agent, n_step]
+    pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
+    vel = agent["velocity"]   ## [n_agent, n_step, 2]
+
+
 
     start_idx=10
 
-    agent = data1["agent"]
+    heading = token_processor._clean_heading(valid[:,:start_idx+11], heading[:,:start_idx+11])
+    # ! extrapolate to previous 5th step.
+    valid, pos, heading, vel = token_processor._extrapolate_agent_to_prev_token_step(
+        valid[:,:start_idx+11], pos[:,:start_idx+11], heading[:,:start_idx+11], vel[:,:start_idx+11]
+    )
 
-    valid = agent["valid_mask"][:,start_idx]  # [n_agent, n_step]
-    heading = agent["heading"] [:,start_idx]  ## [n_agent, n_step]
-    pos = agent["position"][..., :2] [:,start_idx]# # [n_agent, n_step, 2]
-    vel = agent["velocity"]  [:,start_idx] ## [n_agent, n_step, 2]
+
+    ego_traj=pos[av_index,start_idx+1:start_idx+11].contiguous()
+    #valid = valid[:,start_idx]  # [n_agent, n_step]
+    # heading = heading [:,start_idx]  ## [n_agent, n_step]
+    # pos = pos [:,start_idx]# # [n_agent, n_step, 2]
+    #vel = vel  [:,start_idx] ## [n_agent, n_step, 2]
     shape = agent["shape"]
     type = agent["type"]
 
-    ego_traj=agent["position"][av_index,start_idx+1:start_idx+11, :2].contiguous()
-
     tokenized_agent={}
 
-    tokenized_agent["initial_heading"] = heading[valid]  # [n_agent, n_step]
-    tokenized_agent["initial_pos"] = pos[valid]  # [n_agent, n_step, 2]
-    tokenized_agent["initial_vel"] = vel[valid]  # [n_agent, n_step, 2]
-    tokenized_agent["initial_shape"]= shape[valid]
-    tokenized_agent["initial_type"] = type[valid]
+    tokenized_agent["initial_heading"] = heading [:,start_idx]#[valid]  # [n_agent, n_step]
+    tokenized_agent["initial_pos"] = pos [:,start_idx]#[valid]  # [n_agent, n_step, 2]
+    tokenized_agent["prev_pos"] = pos[:,start_idx-5] # [valid]  # [n_agent, n_step, 2]
+    tokenized_agent["prev_heading"] = heading[:,start_idx-5] # [valid]  # [n_agent, n_step, 2]
+
+    tokenized_agent["initial_shape"]= shape#[valid]
+    tokenized_agent["initial_type"] = type#[valid]
     tokenized_agent["ego_traj"] = ego_traj
 
     for key in tokenized_agent.keys():
@@ -134,7 +125,7 @@ def process_file(filename):
 
     del data['agent']
 
-    output_path = os.path.join(ouput_data_directory, filename[:-3]+'pt')
+    output_path = os.path.join(ouput_data_directory, filename[:-3]+'.pt')
 
     torch.save(data, output_path)
 
