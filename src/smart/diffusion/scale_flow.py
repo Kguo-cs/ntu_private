@@ -218,7 +218,7 @@ class ScaleFlow(nn.Module):
 
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
 
-            z=self.net.normalize_z(z)
+            #z=self.net.normalize_z(z)
 
             if self.x_pred:
 
@@ -370,7 +370,7 @@ class ScaleFlow(nn.Module):
                     z_scale=z[first_i_veh_mask]
 
                     #t_next=torch.clamp_max(t_next+0.1,max=1)
-                    z_scale = self.net.normalize_z(z_scale)
+                    #z_scale = self.net.normalize_z(z_scale)
 
                     z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
 
@@ -585,9 +585,13 @@ class InitDenoiser(nn.Module):
             noise_dim = 2
             self.use_padding = True
 
-        normal_scale = torch.tensor([[33.699, 28.851,  0.774,  0.622,  1.207,  0.364,  4.970,  0.239]])
-        normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.162e-01, -1.249e-05,  4.515e+00,  2.022e+00,
-         2.568e+00,  9.085e-04]])
+        # normal_scale = torch.tensor([[33.699, 28.851,  0.774,  0.622,  1.207,  0.364,  4.970,  0.239]])
+        # normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.162e-01, -1.249e-05,  4.515e+00,  2.022e+00,
+        #  2.568e+00,  9.085e-04]])
+
+        normal_scale = torch.tensor([[33.699, 28.851,  0.760,  0.606,  1.207,  0.364,  4.927,  2.453]])
+        normal_mean = torch.tensor([[3.609e+00,  1.850e+00,  1.148e-01, -1.181e-03,  4.515e+00,  2.022e+00,
+         6.634e-01, -5.857e-02]]) # ego velocity
 
         if self.use_all_type:
             normal_scale = torch.tensor([[35.039, 29.354, 0.758, 0.606, 1.317, 0.405, 4.842, 0.281, 0.290,
@@ -723,6 +727,18 @@ class InitDenoiser(nn.Module):
     def denormalize(self,input):
         return input* self.normal_scale+self.normal_mean
 
+    def normalize_z(self,z):
+        m_delta = z[:, 0]
+
+        m_delta = self.denormalize(m_delta)
+
+        m_delta[:, 2:4] = m_delta[:, 2:4] / torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+
+        z = self.normalize(m_delta)
+
+        return z[:,None]
+
+
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 
@@ -748,7 +764,7 @@ class InitDenoiser(nn.Module):
             ego_heading[batch],
         )
 
-        global_pred_vel=rotate_to_global(pred_vel,global_heading)
+        global_pred_vel=rotate_to_global(pred_vel,ego_heading[batch])
 
         gt_initial_pos[non_ego]=global_pos
         gt_initial_heading[non_ego]=global_heading
@@ -790,8 +806,7 @@ class InitDenoiser(nn.Module):
 
     def get_data(self,tokenized_agent,non_ego,nonego_batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading):
 
-        local_vel = rotate_to_local(tokenized_agent["initial_vel"],
-                                                       tokenized_agent["initial_heading"])[non_ego]
+        local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  ego_heading[nonego_batch])
 
         initial_shape = tokenized_agent["initial_shape"][non_ego]
 
@@ -843,16 +858,6 @@ class InitDenoiser(nn.Module):
 
         return diff_input,m_init,nonego_batch
 
-    def normalize_z(self,z):
-        m_delta = z[:, 0]
-
-        m_delta = self.denormalize(m_delta)
-
-        m_delta[:, 2:4] = m_delta[:, 2:4] / torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
-
-        z = self.normalize(m_delta)
-
-        return z[:,None]
 
     def forward(self,
                 m_delta,
@@ -1044,7 +1049,11 @@ class InitDenoiser(nn.Module):
                 theta,
             )
 
-            res=torch.cat([global_pos,torch.cos(global_theta)[:,None],torch.sin(global_theta)[:,None],res[:,4:]], dim=-1)[:,None]
+            local_vel=res[:,6:]
+
+            global_vel=rotate_to_global(local_vel,theta)
+
+            res=torch.cat([global_pos,torch.cos(global_theta)[:,None],torch.sin(global_theta)[:,None],res[:,4:6],global_vel], dim=-1)[:,None]
             # cos_d = res[:, 2]
             # sin_d = res[:, 3]
             #
