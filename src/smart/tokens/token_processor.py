@@ -1012,6 +1012,8 @@ class TokenProcessor(torch.nn.Module):
                 else:
                     tokenized_agent["initial_vel"]=(agent["initial_pos"]-agent["prev_pos"])/0.5
 
+                    tokenized_agent["prev_heading"] = agent["prev_heading"]
+
                 tokenized_agent['initial_type'] = tokenized_agent['initial_type'].long()
 
                 agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(

@@ -6,7 +6,7 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init10_inter ke@10.87.114.128:~/keguo/sim/src/waymo_data/full/   
 
-rsync -avz -e "ssh -p 32884" ./waymo_data/full/training_lane_init10_light guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
+rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/full/training_map2_init10_inter guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/full/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 

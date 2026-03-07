@@ -125,6 +125,7 @@ def process_file(filename):
 
     del data['agent']
 
+
     output_path = os.path.join(ouput_data_directory, filename[:-3]+'.pt')
 
     torch.save(data, output_path)
