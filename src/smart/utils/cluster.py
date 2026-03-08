@@ -100,24 +100,38 @@ def kmeans( padded, mask,k_per_graph,batch,pos,valid_mask,max_k, initial_centroi
         total_clusters = num_graphs * max_k
 
         new_centroids = torch.zeros(total_clusters, D, device=device)
-        counts_centroids = torch.zeros(total_clusters, D, device=device)
+
+        if valid_mask is None:
+            counts_centroids = torch.zeros(total_clusters, device=device)
+        else:
+            counts_centroids = torch.zeros(total_clusters, D, device=device)
 
         # global cluster index per point
         global_idx = batch * max_k + labels_per_point   # (N_total,)
 
         # scatter sums
         new_centroids.index_add_(0, global_idx, pos[:,:D])
-        counts_centroids.index_add_(0, global_idx, valid_mask[:,:D])
+
+        if valid_mask is None:
+            counts_centroids.index_add_(0, global_idx, torch.ones_like(global_idx, dtype=torch.float))
+        else:
+            counts_centroids.index_add_(0, global_idx, valid_mask[:,:D])
 
         # reshape back
         new_centroids = new_centroids.view(num_graphs, max_k, D)
-        counts_centroids = counts_centroids.view(num_graphs, max_k,D)
+
+        if valid_mask is None:
+            counts_centroids = counts_centroids.view(num_graphs, max_k,1)
+        else:
+            counts_centroids = counts_centroids.view(num_graphs, max_k,D)
 
         centroids = new_centroids / counts_centroids.clamp(min=1)
 
     centroids[~cluster_mask]=torch.nan
 
-    centroids[counts_centroids==0]=torch.nan
+    if valid_mask is not None:
+
+        centroids[counts_centroids==0]=torch.nan
 
     return centroids
 
@@ -170,7 +184,8 @@ def batched_kmeans_variable_k(pos, batch,valid_mask, num_graphs,k_per_graph=None
 
     batch=torch.cat([batch,consecutive_batch+num_graphs])
     pos=torch.cat([pos,pos[same_batch_mask]])
-    valid_mask=torch.cat([valid_mask,valid_mask[same_batch_mask]])
+    if valid_mask is not None:
+        valid_mask=torch.cat([valid_mask,valid_mask[same_batch_mask]])
 
     centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,valid_mask,max_k)
 
@@ -267,7 +282,10 @@ def cluster_point_per_type(
         veh_pos=pos[type==i]
         veh_batch=batch[type==i]
 
-        veh_valid_mask=valid_mask[type==i]
+        if valid_mask is not None:
+            veh_valid_mask=valid_mask[type==i]
+        else:
+            veh_valid_mask=None
 
         centroids_b,centroids1_b,_,_,_,_=batched_kmeans_variable_k(veh_pos, veh_batch,veh_valid_mask,num_graphs,k_per_graph_type,k1_per_graph_type)
 

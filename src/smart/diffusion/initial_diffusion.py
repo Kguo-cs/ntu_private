@@ -65,9 +65,6 @@ class InitDiffusion(nn.Module):
         orient_pl = map_feature["orientation"]
         feat_map = map_feature["pt_token"]
 
-        gt_initial_pos = tokenized_agent["initial_pos"].clone()
-        gt_initial_heading = tokenized_agent["initial_heading"].clone()
-
         num_graphs=tokenized_agent["num_graphs"]
 
         ego_mask = tokenized_agent["ego_mask"]
@@ -76,9 +73,12 @@ class InitDiffusion(nn.Module):
         if self.use_all_pos:
             non_ego=torch.ones_like(non_ego)
 
-        ego_position = gt_initial_pos[ego_mask]
-        ego_heading = gt_initial_heading[ego_mask]
+        ego_position = tokenized_agent["initial_pos"][ego_mask]
+        ego_heading = tokenized_agent["initial_heading"][ego_mask]
         nonego_batch = tokenized_agent["batch"][non_ego].clone()
+
+        tokenized_agent["batch_ego_pos"]=ego_position[nonego_batch]
+        tokenized_agent["batch_ego_heading"]=ego_heading[nonego_batch]
 
         nonego_type = tokenized_agent["initial_type"][non_ego].clone()
 
@@ -113,7 +113,7 @@ class InitDiffusion(nn.Module):
             map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 
         if self.training:
-            diff_input,m_init,nonego_batch=self.G.net.get_input(tokenized_agent,non_ego,nonego_batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
+            diff_input,m_init,nonego_batch=self.G.net.get_input(tokenized_agent,non_ego,nonego_batch,nonego_type)
 
             ego_embedding = ego_embedding[nonego_batch]
 
@@ -204,7 +204,7 @@ class InitDiffusion(nn.Module):
                 pred_init = self.autoencoder.forward_decoder(pred_init,tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
 
             gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
-                pred_init, tokenized_agent, non_ego, nonego_batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
+                pred_init, tokenized_agent, non_ego
             )
 
             if self.G.use_all_type:
