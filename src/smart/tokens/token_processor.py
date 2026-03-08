@@ -72,11 +72,8 @@ class TokenProcessor(torch.nn.Module):
         self.exit_state= 3
         self.pred_init=pred_init
         self.pl2seed_radius=81
-        #
-        # self.attr_tokenizer= Attr_Tokenizer(grid_range=self.pl2seed_radius*2,
-        #                                      grid_interval=3,
-        #                                      radius=self.pl2seed_radius,
-        #                                      angle_interval=3)
+
+        self.use_all_pos=True
 
         module_dir = os.path.dirname(__file__)
         self.init_agent_token(os.path.join(module_dir, agent_token_file))
@@ -158,7 +155,7 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent = self.tokenize_agent(data)
 
             if self.learn_init:
-                if self.learn_autoencoder:
+                if self.learn_autoencoder or self.use_all_pos:
                     idx=10
                 else:
                     idx=0
@@ -177,7 +174,10 @@ class TokenProcessor(torch.nn.Module):
                 tokenized_agent["initial_vel"] = vel  # [n_agent, n_step, 2]
                 tokenized_agent["initial_shape"] = shape
                 tokenized_agent["initial_type"] = type.long()
-                tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
+                if self.use_all_pos:
+                    tokenized_agent["ego_traj"] = agent["position"][:, :10, :2][tokenized_agent["ego_mask"]]
+                else:
+                    tokenized_agent["ego_traj"] = agent["position"][:, idx+1:idx+11, :2][tokenized_agent["ego_mask"]]
 
             tokenized_agent["type"] = tokenized_agent["type"].long().clone()
         else:
@@ -457,19 +457,6 @@ class TokenProcessor(torch.nn.Module):
 
         batch = data["agent"]["batch"]
 
-        if  self.token_initial:
-            valid =valid[:,10:]
-            pos=pos[:,10:]
-            heading=heading[:,10:]
-
-            token_initial_pos, token_initial_heading,pos_token_idx,heading_token_idx,offset_idx,initial_pos,initial_heading=self.tokenize_initial(pos[:,0],heading[:,0],ego_mask,batch)
-
-            pos[:, :1]=initial_pos
-            heading[:, :1]=initial_heading
-
-            tokenized_agent["initial_pos"]=pos[:,0]
-            tokenized_agent["initial_heading"]=heading[:,0]
-
         token_dict = self._match_agent_token(
             valid=valid,
             pos=pos,
@@ -586,26 +573,6 @@ class TokenProcessor(torch.nn.Module):
             prev_head = heading[:, i].clone()
             prev_pos = pos[:, i].clone()
 
-            if self.pred_entry:
-                if not self.autoregressive_entry:
-                    entry_idx = torch.zeros_like(token_idx_gt) + self.n_token_entry
-
-                if i > self.shift + self.shift:
-                    entry_agent = ~valid[:, i - self.shift] & valid[:, i]
-
-                    if self.autoregressive_entry:
-                        self.auto_enter(entry_agent,prev_pos,prev_head,batch,num_graphs,ego_mask,shape,type,out_dict, entry_idx_list)
-                    else:
-                        present_agent = valid[:, i - self.shift]
-
-                        self.entry_agent(entry_idx, entry_agent,present_agent,prev_pos,prev_head,batch,num_graphs,shape,type,out_dict,
-                                         entry_head_idx_list,entry_pos_offset_list,entry_pos_list,entry_shape_list)
-
-
-
-                if not self.autoregressive_entry:
-                    out_dict["entry_idx"].append(entry_idx)
-
             dxy = token_contour_gt[:, 0] - token_contour_gt[:, 3]
             next_head=torch.arctan2(dxy[:, 1], dxy[:, 0])
             prev_head[_valid_mask] = next_head[_valid_mask]
@@ -626,63 +593,6 @@ class TokenProcessor(torch.nn.Module):
             out_dict["valid_mask"].append(_valid_mask)
 
         out_dict = {k: torch.stack(v, dim=1) for k, v in out_dict.items()}
-
-        if self.training and self.pred_entry:
-            if len(entry_token_invalid_mask)>0:
-                out_dict["entry_token_invalid_mask"]=torch.cat(entry_token_invalid_mask, dim=0)
-
-
-            if len(entry_pos_list) :
-                out_dict["entry_pos"]=torch.cat(entry_pos_list)
-
-            if len(entry_head_idx_list) :
-                out_dict["entry_head_idx"]=torch.cat(entry_head_idx_list)
-                #out_dict["entry_head_idx_num"]=torch.tensor([len(entry_head_idx) for entry_head_idx in entry_head_idx_list])
-            else:
-                out_dict["entry_head_idx"] =torch.zeros([0])
-                # out_dict["entry_head_idx_num"]=torch.zeros([out_dict["valid_mask"].shape[1]-1],device=out_dict["sampled_idx"].device)
-
-            if len(entry_pos_offset_list) :
-                out_dict["entry_pos_offset"]=torch.cat(entry_pos_offset_list)
-            else:
-                out_dict["entry_pos_offset"] =torch.zeros([0,4])
-
-
-            if len(entry_shape_list) :
-                out_dict["entry_shape"]=torch.cat(entry_shape_list)
-
-            if len(entry_type_list) :
-                out_dict["entry_type"]=torch.cat(entry_type_list)
-
-
-            if len(entry_idx_list) :
-                # entry_length=out_dict['sampled_idx'].shape[1]-1
-                entry_idx=pad_sequence(entry_idx_list, batch_first=True, padding_value=self.n_token_entry)#.reshape(entry_length,batch_num,-1)
-
-                out_dict["pos_idx"]=entry_idx[:,:,0].long()
-
-                out_dict["head_idx"] = torch.clamp(
-                    entry_idx[:, :, 1],
-                    max=self.n_token_entry_head - 1
-                ).long()
-
-                if self.token_offset:
-                    offset=entry_idx[:,:,2]
-                else:
-                    offset=entry_idx[:,:,2:5]
-
-                offset[offset==self.n_token_entry]=0
-
-                out_dict["offset"]=offset
-
-                out_dict["entry_type"]= torch.clamp(
-                    entry_idx[:, :, 5],
-                    max=2
-                ).long()
-                out_dict["entry_shape"]=entry_idx[:,:,6:]
-
-        if self.use_infgen:
-            self.process_state(data, pos, out_dict["sampled_idx"].clone(), out_dict["token_contour"], [], valid)
 
         return out_dict
 
@@ -822,7 +732,7 @@ class TokenProcessor(torch.nn.Module):
             if self.learn_init:
                 agent = data["agent"]
 
-                valid = agent["valid_mask"]  # [n_agent, n_step]
+                valid_mask = agent["valid_mask"]  # [n_agent, n_step]
                 heading = agent["heading"]  ## [n_agent, n_step]
                 pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
                 vel = agent["velocity"]  ## [n_agent, n_step, 2]
@@ -835,19 +745,26 @@ class TokenProcessor(torch.nn.Module):
                 ego_mask[:-1] = batch[:-1] != batch[1:]
                 ego_mask=ego_mask.bool()
 
-                start_idx = 0
+                start_idx = 10
 
-                ego_traj = pos[ego_mask, start_idx + 1:start_idx + 11].contiguous()
-
-                valid = valid[:, start_idx]
+                valid = valid_mask[:, start_idx]
 
                 tokenized_agent["initial_heading"] = heading[:, start_idx][valid]
                 tokenized_agent["initial_pos"] = pos[:, start_idx][valid]  # [valid]
                 tokenized_agent["initial_shape"] = shape[valid]
                 tokenized_agent["initial_type"] = type[valid]
-                tokenized_agent["ego_traj"] = ego_traj
-                tokenized_agent["initial_vel"] = vel[:, start_idx][valid]
                 tokenized_agent["batch"] = batch[valid]
+
+                if self.use_all_pos:
+                    tokenized_agent["all_pos"] = torch.cat((pos[:,:start_idx],pos[:,start_idx+1:]),dim=1)[valid]
+                    tokenized_agent["all_heading"] = torch.cat((heading[:,:start_idx],heading[:,start_idx+1:]),dim=1)[valid]
+                    tokenized_agent["valid_mask"] = torch.cat((valid_mask[:,:start_idx],valid_mask[:,start_idx+1:]),dim=1)[valid]
+                    ego_traj = pos[ego_mask, :10].contiguous()
+                else:
+                    tokenized_agent["initial_vel"] = vel[:, start_idx][valid]
+                    ego_traj = pos[ego_mask, start_idx + 1:start_idx + 11].contiguous()
+
+                tokenized_agent["ego_traj"] = ego_traj
 
             else:
                 tokenized_agent=self.tokenize_agent(data)

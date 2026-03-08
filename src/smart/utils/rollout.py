@@ -138,7 +138,7 @@ def transform_to_local(
 
     if len(pos_global.shape) == 3:
         pos_now=pos_now.unsqueeze(1)
-        head_now.unsqueeze(1)
+        head_now=head_now.unsqueeze(1)
 
     pos_local = pos_global - pos_now
     if len(pos_global.shape) == 3:

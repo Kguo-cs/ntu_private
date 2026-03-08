@@ -36,7 +36,12 @@ def matching_loss(
     # Shape: L1
     shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
 
-    vel_loss = F.l1_loss(fake_shape[:,2:], real_shape[:,2:])
+
+    cluster_valid_mask=~torch.isnan(real_shape[:,2:])
+
+    #cluster_valid_mask1=cluster_valid_mask.reshape(-1,90,2)
+
+    vel_loss = F.l1_loss(fake_shape[:,2:][cluster_valid_mask], real_shape[:,2:][cluster_valid_mask])
 
     total_loss = (
         w_pos * pos_loss +
@@ -256,10 +261,13 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
 
 
 def get_matching_loss(
-    initial_type, batch, fake_state,real_state,
+    tokenized_agent, fake_state,real_state,
     fake_norm_state,
     real_norm_state,denom ,latent=False,use_col=True,use_all_type=False
     ):
+    initial_type, batch=tokenized_agent['nonego_type_sorted'],tokenized_agent["nonego_batch"]
+
+
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
 

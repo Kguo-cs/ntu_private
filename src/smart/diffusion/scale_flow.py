@@ -60,7 +60,7 @@ def cosine_schedule(steps, device):
 
 class ScaleFlow(nn.Module):
 
-    def __init__(self, args):
+    def __init__(self, args,token_processor):
         super().__init__()
         self.diff_type = args.diff_type
         self.guid_sampling = args.guid_sampling
@@ -73,6 +73,7 @@ class ScaleFlow(nn.Module):
         self.mean_flow=False
 
         self.net = InitDenoiser(
+            token_processor,
             dataset=args.dataset,
             input_dim=args.input_dim,
             hidden_dim=args.hidden_dim,
@@ -158,6 +159,7 @@ class ScaleFlow(nn.Module):
             t_batch=t_batch[:, None]
         else:
             t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
         if self.mean_flow:
@@ -205,9 +207,13 @@ class ScaleFlow(nn.Module):
             t=t_batch[agent_batch]
 
             if self.use_scale:
-                padding_mask =torch.all(x==0,dim=-1)
+                nan_mask=torch.isnan(x)
+
+                padding_mask =torch.all(nan_mask,dim=-1)
 
                 t[padding_mask]=0
+
+                x[nan_mask]=0
 
             z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
 

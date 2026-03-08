@@ -31,6 +31,8 @@ class InitDiffusion(nn.Module):
         self.use_dit=False
         self.sep_map=False
 
+        self.use_all_pos=token_processor.use_all_pos
+
         self.learn_autoencoder = token_processor.learn_autoencoder
         if self.learn_autoencoder:
             self.use_gan = False
@@ -52,7 +54,7 @@ class InitDiffusion(nn.Module):
             parser = ArgumentParser()
             self.add_model_specific_args(parser)
             args = parser.parse_args()
-            self.G = ScaleFlow(args)
+            self.G = ScaleFlow(args,token_processor)
 
     def forward(self,  tokenized_agent):
 
@@ -70,6 +72,9 @@ class InitDiffusion(nn.Module):
 
         ego_mask = tokenized_agent["ego_mask"]
         non_ego = ~ego_mask
+
+        if self.use_all_pos:
+            non_ego=torch.ones_like(non_ego)
 
         ego_position = gt_initial_pos[ego_mask]
         ego_heading = gt_initial_heading[ego_mask]
@@ -108,7 +113,7 @@ class InitDiffusion(nn.Module):
             map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 
         if self.training:
-            diff_input,m_init,nonego_batch=self.G.net.get_data(tokenized_agent,non_ego,nonego_batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
+            diff_input,m_init,nonego_batch=self.G.net.get_input(tokenized_agent,non_ego,nonego_batch,nonego_type,gt_initial_pos,gt_initial_heading,ego_position,ego_heading)
 
             ego_embedding = ego_embedding[nonego_batch]
 
@@ -137,8 +142,7 @@ class InitDiffusion(nn.Module):
                     match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
                                                                                                 device=non_ego.device)
 
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent['nonego_type_sorted'],
-                                                                                                 tokenized_agent["nonego_batch"],
+                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent,
                                                                                                  self.G.net.denormalize(x_pred),
                                                                                                  self.G.net.denormalize(m_init),
                                                                                                  x_pred,
@@ -199,14 +203,14 @@ class InitDiffusion(nn.Module):
 
                 pred_init = self.autoencoder.forward_decoder(pred_init,tokenized_agent['nonego_type_sorted'], num_graphs,ego_embedding,feat_map,nonego_batch,batch_pl)
 
-            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_original_state(
+            gt_initial_pos,gt_initial_heading,shape,gt_initial_vel,gt_initial_idx=self.G.net.get_output(
                 pred_init, tokenized_agent, non_ego, nonego_batch, ego_position, ego_heading, gt_initial_pos, gt_initial_heading
             )
 
             if self.G.use_all_type:
                 tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
 
-            return gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None],gt_initial_vel
+            return gt_initial_pos, gt_initial_heading,gt_initial_idx,gt_initial_vel
         
     @staticmethod
     def add_model_specific_args(parent_parser):

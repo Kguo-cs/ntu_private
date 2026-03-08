@@ -1,37 +1,6 @@
 import torch
 
-def kmeans_fast( x, k, iters=10):
-    N, D = x.shape
-    device = x.device
-
-    # random initialization
-    perm = torch.randperm(N, device=device)
-    centroids = x[perm[:k]].clone()
-
-    for _ in range(iters):
-        # squared distance (faster than cdist)
-        dist = (
-                x.pow(2).sum(1, keepdim=True)
-                - 2 * x @ centroids.t()
-                + centroids.pow(2).sum(1)
-        )  # (N, k)
-
-        labels = dist.argmin(dim=1)
-
-        # vectorized centroid update
-        counts = torch.bincount(labels, minlength=k).clamp(min=1)
-        new_centroids = torch.zeros_like(centroids)
-        new_centroids.scatter_add_(
-            0,
-            labels.unsqueeze(1).expand(-1, D),
-            x,
-        )
-
-        centroids = new_centroids / counts.unsqueeze(1)
-
-    return centroids
-
-def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos,valid_mask,max_k, initial_centroids=None,iters=10):
 
     padded=padded[:,:,:2]
 
@@ -44,7 +13,6 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
             .unsqueeze(0)
             < k_per_graph.unsqueeze(1)
     )  # (num_graphs, max_k)
-    # --- generate random indices per graph ---
 
     if initial_centroids is None:
         # first, get random floats per graph & point
@@ -128,45 +96,32 @@ def kmeans( padded, mask,k_per_graph,batch,pos,max_k, initial_centroids=None,ite
         # assign labels per point (capped at graph's k)
         labels_per_point = dist.argmin(dim=-1)  # (valid_point)
 
-        # labels_per_point=labels[mask]
-
         # total clusters across all graphs
         total_clusters = num_graphs * max_k
 
         new_centroids = torch.zeros(total_clusters, D, device=device)
-        counts_centroids = torch.zeros(total_clusters, device=device)
+        counts_centroids = torch.zeros(total_clusters, D, device=device)
 
         # global cluster index per point
         global_idx = batch * max_k + labels_per_point   # (N_total,)
 
         # scatter sums
         new_centroids.index_add_(0, global_idx, pos[:,:D])
-        counts_centroids.index_add_(0, global_idx, torch.ones_like(global_idx, dtype=torch.float))
+        counts_centroids.index_add_(0, global_idx, valid_mask[:,:D])
 
         # reshape back
         new_centroids = new_centroids.view(num_graphs, max_k, D)
-        counts_centroids = counts_centroids.view(num_graphs, max_k)
+        counts_centroids = counts_centroids.view(num_graphs, max_k,D)
 
-        centroids = new_centroids / counts_centroids.clamp(min=1).unsqueeze(-1)
+        centroids = new_centroids / counts_centroids.clamp(min=1)
 
-    centroids[~cluster_mask]=0
+    centroids[~cluster_mask]=torch.nan
+
+    centroids[counts_centroids==0]=torch.nan
 
     return centroids
 
-def batched_kmeans_variable_k(pos, batch, num_graphs,k_per_graph=None,k1_per_graph=None ):
-    """
-    Batched K-Means per graph, allowing variable number of clusters per graph.
-
-    Args:
-        pos: (N_total, D) positions
-        batch: (N_total,) graph index per point (0..num_graphs-1)
-        k_per_graph: (num_graphs,) number of clusters for each graph
-        iters: K-Means iterations
-
-    Returns:
-        centroids: (num_graphs, max_k, D) padded centroids
-        labels: (N_total,) cluster assignment per point
-    """
+def batched_kmeans_variable_k(pos, batch,valid_mask, num_graphs,k_per_graph=None,k1_per_graph=None ):
     device = pos.device
     D = pos.shape[1]
 
@@ -178,7 +133,7 @@ def batched_kmeans_variable_k(pos, batch, num_graphs,k_per_graph=None,k1_per_gra
 
     max_points = counts.max()
 
-    padded = torch.zeros(num_graphs, max_points, D, device=pos.device)
+    padded = torch.zeros(num_graphs, max_points, D, device=pos.device)+torch.nan
     mask = torch.zeros(num_graphs, max_points, dtype=torch.bool, device=pos.device)
 
     padded[batch, idx_in_graph] = pos
@@ -191,41 +146,15 @@ def batched_kmeans_variable_k(pos, batch, num_graphs,k_per_graph=None,k1_per_gra
         step_number=schedules.shape[1]-1
     
         step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
-    
-        # num_choices = step_number - step_idx
-        #
-        # offset = (torch.rand(num_graphs, device=device) * num_choices).long()
-    
-        step1_idx = step_idx + 1 #+ offset
-    
+
         batch_idx = torch.arange(num_graphs, device=counts.device)
     
         k_per_graph = schedules[batch_idx, step_idx]
-        k1_per_graph = schedules[batch_idx, step1_idx]
-        # # sample uniform float in [0,1)
-        # u = torch.rand(num_graphs, device=device)
-        # # scale per-graph and floor
-        # k_per_graph = torch.floor(u * (counts + 1)).long()
-        #
-        # k_per_graph = torch.minimum(k_per_graph, counts)
-        #
-        # k1_per_graph = torch.minimum(k_per_graph + 1, counts)
+        k1_per_graph = schedules[batch_idx, step_idx + 1]
     else:
         step_idx=step_number=None
         
     max_k = k1_per_graph.max().item()
-
-    #centroids=kmeans(padded, mask,k_per_graph,batch,pos,max_k)
-
-    #dist=torch.linalg.norm(centroids,dim=-1)
-
-    # arg_sort=torch.argsort(dist,dim=-1,descending=True)
-    #
-    # centroids = centroids.gather(
-    #     1,
-    #     arg_sort.unsqueeze(-1).expand(-1, -1, centroids.size(-1))
-    # )
-
 
     new_k=k_per_graph!=k1_per_graph
 
@@ -235,13 +164,15 @@ def batched_kmeans_variable_k(pos, batch, num_graphs,k_per_graph=None,k1_per_gra
 
     _, consecutive_batch = torch.unique(selected_batch, return_inverse=True)
 
-    batch=torch.cat([batch,consecutive_batch+num_graphs])
-    pos=torch.cat([pos,pos[same_batch_mask]])
     padded=torch.cat([padded,padded[new_k]])
     mask=torch.cat([mask,mask[new_k]])
     k_per_graph_all=torch.cat([k_per_graph,k1_per_graph[new_k]])
 
-    centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,max_k)
+    batch=torch.cat([batch,consecutive_batch+num_graphs])
+    pos=torch.cat([pos,pos[same_batch_mask]])
+    valid_mask=torch.cat([valid_mask,valid_mask[same_batch_mask]])
+
+    centroids_all=kmeans(padded, mask,k_per_graph_all,batch,pos,valid_mask,max_k)
 
     centroids=centroids_all[:num_graphs]
 
@@ -294,12 +225,17 @@ def allocate_k_per_type(k_total, type_counts):
 
     return k_type
 
-def build_less_more_grouped(
+def cluster_point_per_type(
     pos,
-    type,
     batch,
-    type_counts
+    tokenized_agent
 ):
+    type = tokenized_agent["nonego_type_sorted"]
+
+    type_counts = tokenized_agent["type_counts"]
+
+    valid_mask=tokenized_agent["nonego_valid"]
+
     num_graphs,num_types=type_counts.shape
 
     counts = type_counts.sum(-1)
@@ -331,7 +267,9 @@ def build_less_more_grouped(
         veh_pos=pos[type==i]
         veh_batch=batch[type==i]
 
-        centroids_b,centroids1_b,_,_,_,_=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs,k_per_graph_type,k1_per_graph_type)
+        veh_valid_mask=valid_mask[type==i]
+
+        centroids_b,centroids1_b,_,_,_,_=batched_kmeans_variable_k(veh_pos, veh_batch,veh_valid_mask,num_graphs,k_per_graph_type,k1_per_graph_type)
 
         centroids_list.append(centroids_b)
         centroids1_list.append(centroids1_b)
@@ -341,14 +279,18 @@ def build_less_more_grouped(
     centroids1_all = torch.cat(centroids1_list, dim=1)
     type_list = torch.cat(type_list, dim=1)
 
-    valid_mask=torch.any(centroids1_all,dim=-1)
+    valid_mask=torch.any(~torch.isnan(centroids1_all),dim=-1)
 
     less_centroids=centroids_all[valid_mask]
     more_centroids=centroids1_all[valid_mask]
     more_batch=torch.arange(num_graphs, device=counts.device)[:,None].repeat(1,centroids1_all.shape[1])[valid_mask]
     more_type=type_list[valid_mask]
 
-    return less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number
+    tokenized_agent['nonego_type_sorted'] = more_type
+    tokenized_agent["step_idx"] = step_idx
+    tokenized_agent["step_number"] = step_number
+
+    return less_centroids,more_centroids,more_batch
 
 def build_less_more_grouped1(
     pos,
