@@ -254,15 +254,16 @@ class SMARTAgentDecoder(nn.Module):
             if self.learn_init:
                 pos_a, head_a,sampled_idx,initial_speed=self.init_decoder( tokenized_agent)
 
-                out_dict = {
-                    "shape": tokenized_agent["shape"],
-                    "pred_traj_10hz": pos_a,
-                    "pred_head_10hz":  head_a,
-                    "pred_z_10hz":torch.zeros_like(pos_a[:,:,0]),
-                    "initial_speed": initial_speed,
-                }
+                if self.token_processor.use_all_pos:
+                    out_dict = {
+                        "shape": tokenized_agent["shape"],
+                        "pred_traj_10hz": pos_a,
+                        "pred_head_10hz":  head_a,
+                        "pred_z_10hz":torch.zeros_like(pos_a[:,:,0]),
+                        "initial_speed": initial_speed,
+                    }
 
-                return out_dict
+                    return out_dict
 
                 max_step=18
             else:
