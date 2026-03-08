@@ -498,8 +498,8 @@ class InitDenoiser(nn.Module):
                     mask=None,  # [n_agent, n_step]
                     batch_s=batch,  # [n_agent,n_step]
                     batch_pl=batch_pl,  # [n_pl*n_step]
-                    pl2a_radius=100,
-                    max_num_neighbors=100,
+                    pl2a_radius=80,
+                    max_num_neighbors=80,
                     agent_train_mask=None,
                     layer_num=self.num_layers
                 )
@@ -510,8 +510,8 @@ class InitDenoiser(nn.Module):
                     head_vector_s=head_vector_s,  # [n_agent, n_step, 2]
                     batch_s=batch,  # [n_agent*n_step]
                     mask=None,  # [n_agent, n_step]
-                    max_radius=100,
-                    max_num_neighbors=100,
+                    max_radius=80,
+                    max_num_neighbors=80,
                     agent_train_mask=None,
                     layer_num=self.num_layers,
                     counter_feat_a=None,
