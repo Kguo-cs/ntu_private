@@ -378,6 +378,8 @@ class InitDenoiser(nn.Module):
         else:
            local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  ego_heading[nonego_batch])
 
+           tokenized_agent["nonego_valid"] = torch.ones([len(local_vel),8],device=local_vel.device)
+
         m_init = torch.cat([init_trans, init_angle, initial_shape[:, :2], local_vel], dim=-1)
 
         if 'prev_heading' in tokenized_agent.keys():

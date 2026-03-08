@@ -16,13 +16,13 @@ model_checkpoint:
   monitor: "step"
   verbose: false
   save_last: true
-  save_top_k: 8
+  save_top_k: 1
   mode: "max"
   auto_insert_metric_name: false
   save_weights_only: false
   every_n_train_steps: null
   train_time_interval: null
-  every_n_epochs: null
+  every_n_epochs: 8
   save_on_train_epoch_end: false
 
 
