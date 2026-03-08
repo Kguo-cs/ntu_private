@@ -51,8 +51,8 @@ task_name: dit256_init0 #_all_v5 #Posheading #_vhead_normcorner #_lane_vhead_mlp
 trainer:
   limit_train_batches: 1.0
   limit_val_batches: 1
-  #check_val_every_n_epoch: 1
-  val_check_interval: 0.0000002
+  check_val_every_n_epoch: 1
+  #val_check_interval: 0.0000002
   max_epochs: 64
   gradient_clip_val: 0.0
 
