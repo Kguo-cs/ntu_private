@@ -303,7 +303,7 @@ class InitDenoiser(nn.Module):
             gt_initial_idx=None
         else:
 
-            global_pred_vel=rotate_to_global(pred_vel,batch_ego_heading)
+            global_pred_vel=rotate_to_global(pred_vel,global_heading)
 
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
@@ -373,7 +373,7 @@ class InitDenoiser(nn.Module):
 
             tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
-           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  batch_ego_heading)
+           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  local_heading)
 
            tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
@@ -620,7 +620,7 @@ class InitDenoiser(nn.Module):
 
                 global_vel=torch.cat([global_vpos,torch.cos(global_vheading)[:,:,None],torch.sin(global_vheading)[:,:,None]],dim=-1).flatten(1,2)
             else:
-                global_vel=rotate_to_global(local_vel,theta)
+                global_vel=local_vel#rotate_to_global(local_vel,theta)
 
             if res.shape[-1]==10:
                 res_heading = torch.atan2(res[:, 9], res[:, 8])
