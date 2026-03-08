@@ -109,9 +109,9 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             if self.ego_rel:
-                self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
+                self.proj_in_m_delta = MLPLayer(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
             else:
-                self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
+                self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
             self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
@@ -348,23 +348,21 @@ class InitDenoiser(nn.Module):
         non_ego_pos=gt_initial_pos[non_ego]
         non_ego_head=gt_initial_heading[non_ego]
 
-        init_trans, real_heading = transform_to_local(non_ego_pos,
+        local_pos, local_heading = transform_to_local(non_ego_pos,
                                                     non_ego_head,
                                                     batch_ego_pos,
                                                     batch_ego_heading,
                                                     )
 
-        delta_rot = real_heading.unsqueeze(-1)
-
-        init_angle = torch.cat([delta_rot.cos(), delta_rot.sin()], dim=-1)  # [0,2]
+        local_headings = torch.cat([local_heading.cos().unsqueeze(-1), local_heading.sin().unsqueeze(-1)], dim=-1)  # [0,2]
 
         if self.use_all_pos:
-            local_pos,local_heading = transform_to_local(tokenized_agent["all_pos"][non_ego],
+            local_allpos,local_allheading = transform_to_local(tokenized_agent["all_pos"][non_ego],
                                            tokenized_agent["all_heading"][non_ego],
                                            batch_ego_pos,
                                            batch_ego_heading)
 
-            local_vel=torch.cat([local_pos,local_heading.cos()[:,:,None],local_heading.sin()[:,:,None]],dim=-1)
+            local_vel=torch.cat([local_allpos,local_allheading.cos()[:,:,None],local_allheading.sin()[:,:,None]],dim=-1)
 
             tokenized_agent["nonego_valid_mask"]=tokenized_agent["valid_mask"][non_ego]
 
@@ -376,11 +374,11 @@ class InitDenoiser(nn.Module):
 
             tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
-           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  ego_heading[nonego_batch])
+           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  batch_ego_heading)
 
            tokenized_agent["nonego_valid"] = torch.ones([len(local_vel),8],device=local_vel.device)
 
-        m_init = torch.cat([init_trans, init_angle, initial_shape[:, :2], local_vel], dim=-1)
+        m_init = torch.cat([local_pos, local_headings, initial_shape[:, :2], local_vel], dim=-1)
 
         if 'prev_heading' in tokenized_agent.keys():
             prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],ego_heading[nonego_batch])
@@ -390,10 +388,8 @@ class InitDenoiser(nn.Module):
         tokenized_agent['nonego_type_sorted'] = nonego_type
 
         if self.use_scale:
-            old_nonego_type_sorted = tokenized_agent["nonego_type_sorted"].clone()
-
             if self.use_all_type:
-                one_hot = F.one_hot(old_nonego_type_sorted, num_classes=tokenized_agent["type_counts"].shape[-1])
+                one_hot = F.one_hot(tokenized_agent["nonego_type_sorted"], num_classes=tokenized_agent["type_counts"].shape[-1])
 
                 m_init = torch.cat([m_init, one_hot], dim=-1)
 
@@ -439,14 +435,14 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             m_delta=m_delta[:,0]
 
-            m_delta=self.denormalize(m_delta)
-
-            m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
-
             if self.ego_rel:
                 feat_a=self.proj_in_m_delta(m_delta[:,4:])
             else:
                 feat_a=self.proj_in_m_delta(m_delta)
+
+            m_delta=self.denormalize(m_delta)
+
+            # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
 
             #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
             beta_emb_m = self.noise_embedding(beta) +self.type_a_emb(type)#
@@ -503,8 +499,8 @@ class InitDenoiser(nn.Module):
                     mask=None,  # [n_agent, n_step]
                     batch_s=batch,  # [n_agent,n_step]
                     batch_pl=batch_pl,  # [n_pl*n_step]
-                    pl2a_radius=80,
-                    max_num_neighbors=80,
+                    pl2a_radius=40,
+                    max_num_neighbors=20,
                     agent_train_mask=None,
                     layer_num=self.num_layers
                 )
