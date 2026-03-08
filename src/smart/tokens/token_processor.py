@@ -686,188 +686,6 @@ class TokenProcessor(torch.nn.Module):
 
         return out_dict
 
-    def auto_enter(self,entry_agent,prev_pos,prev_head,batch,num_graphs,ego_mask,shape,type,out_dict,  entry_idx_list):
-
-        entry_pos = prev_pos[entry_agent]
-        entry_heading = prev_head[entry_agent]
-        entry_batch = batch[entry_agent]
-
-        entry_pos_list = []
-        entry_heading_list = []
-        entry_type_list = []
-        entry_shape_list = []
-
-        for b in range(num_graphs):
-            ego_pos = out_dict["sampled_pos"][-1][ego_mask][b]
-            ego_heading = out_dict["sampled_heading"][-1][ego_mask][b]
-
-            entry_pos_b, entry_heading_b = transform_to_local(
-                entry_pos[entry_batch == b][None,],  # [n_agent, n_step, 2]
-                entry_heading[entry_batch == b][None],  # [n_agent, n_step]
-                ego_pos[None],  # [n_agent, 2]
-                ego_heading[None]  # [n_agent]
-            )
-
-            entry_pos_b = entry_pos_b[0]
-            entry_heading_b = entry_heading_b[0]
-
-            #
-            # C = 10000
-            # sort_key = entry_batch.float() * C + entry_pos[:, 0]
-            sort_idx = torch.argsort(entry_pos_b[:, 0])
-
-            entry_pos_b = entry_pos_b[sort_idx]
-            entry_heading_b = entry_heading_b[sort_idx]
-
-            entry_pos_list.append(entry_pos_b)
-            entry_heading_list.append(entry_heading_b)
-
-            entry_type = type[entry_agent][entry_batch == b][sort_idx]
-            entry_shape = shape[entry_agent][entry_batch == b][sort_idx]
-
-            entry_type_list.append(entry_type)
-            entry_shape_list.append(entry_shape)
-
-        entry_pos = torch.cat(entry_pos_list)  # 1
-        entry_heading = torch.cat(entry_heading_list)  # 1
-        entry_type = torch.cat(entry_type_list)  # 1
-        entry_shape = torch.cat(entry_shape_list)  # 3
-
-        # entry_idx= self.tokenizer(entry_pos,entry_heading)
-
-        pos_entry_idx = torch.linalg.norm(entry_pos[:, None] - self.entry_pos_token[None], dim=-1).argmin(1)
-
-        entry_head_idx = (wrap_angle(
-            entry_heading) / np.pi * self.n_token_entry_head2).round().long() + self.n_token_entry_head2
-
-        entry_head_idx[entry_head_idx == self.n_token_entry_head] = 0
-
-        tokenized_pos = self.entry_pos_token[pos_entry_idx]
-
-        tokenized_heading = self.decode_head(entry_head_idx)
-
-        offset_pos = entry_pos - tokenized_pos
-
-        if self.token_offset:
-            offset_local = torch.linalg.norm(offset_pos[:, None] - self.offset_token[None], dim=-1).argmin(1)[:,
-                           None]
-        else:
-            offset_local = torch.cat((offset_pos, wrap_angle(entry_heading - tokenized_heading)[:, None]),
-                                     dim=-1)
-
-        entry_idx = torch.cat(
-            [pos_entry_idx[:, None], entry_head_idx[:, None], offset_local, entry_type[:, None], entry_shape],
-            dim=-1)
-
-        entry_length = torch.bincount(entry_batch, minlength=num_graphs).tolist()
-
-        entry_idx_list.extend(torch.split(entry_idx, entry_length))
-
-    def entry_agent(self,entry_idx,entry_agent,present_agent,prev_pos,prev_head,batch,num_graphs,shape,type,out_dict,entry_head_idx_list,entry_pos_offset_list,entry_pos_list,entry_shape_list):
-
-        entry_pos = prev_pos[entry_agent]
-
-        if entry_agent.any():
-
-            present_pos = out_dict["sampled_pos"][-1][present_agent]
-
-            present_heading = out_dict["sampled_heading"][-1][present_agent]
-
-            if self.match_all:
-                global_token_xy = \
-                    transform_to_global(entry_token_xy[:len(present_pos)], None, present_pos[:, :2], present_heading)[0]
-
-                global_token_z = entry_token_z[:len(present_pos)] + present_pos[:, None, 2]
-
-                global_token_pos = torch.cat((global_token_xy, global_token_z[:, :, None]), dim=-1)
-
-            present_batch = batch[present_agent]
-            entry_batch = batch[entry_agent]
-
-            row_ind = []
-            col_ind = []
-            entry_idx_gt = []
-
-            for b in range(num_graphs):
-                entry_pos_i = entry_pos[entry_batch == b]
-                if len(entry_pos_i):
-
-                    if self.match_all:
-                        global_token_pos_i = global_token_pos[present_batch == b]
-                        diff = global_token_pos_i[:, None] - entry_pos_i[None, :, None]  # (Np, Ne,token, D)
-                        cost, min_idx = torch.linalg.norm(diff, dim=-1).min(-1)
-                    else:
-                        global_token_pos_i = present_pos[present_batch == b]
-                        diff = global_token_pos_i[:, None] - entry_pos_i[None]  # (Np, Ne,token, D)
-                        cost = torch.linalg.norm(diff, dim=-1)
-
-                    row_ind_i, col_ind_i = linear_sum_assignment(cost.cpu().numpy())
-
-                    row_ind.append(row_ind_i + torch.sum(present_batch < b).item())
-                    col_ind.append(col_ind_i + torch.sum(entry_batch < b).item())
-
-                    if self.match_all:
-                        entry_idx_gt_i = min_idx[row_ind_i, col_ind_i]
-                        entry_idx_gt.append(entry_idx_gt_i)
-
-            row_ind = np.concatenate(row_ind)
-            col_ind = np.concatenate(col_ind)
-
-            gt_entry_id = torch.nonzero(entry_agent, as_tuple=False).squeeze(1)
-            gt_present_id = torch.nonzero(present_agent, as_tuple=False).squeeze(1)
-
-            entry_id = gt_entry_id[col_ind]
-
-            entry_pos1 = prev_pos[entry_id]
-            entry_heading = prev_head[entry_id]
-
-            select_pos = present_pos[row_ind]
-            select_heading = present_heading[row_ind]
-            present_id = gt_present_id[row_ind]
-
-            local_xy, local_heading = transform_to_local(
-                entry_pos1[:, None, :2],
-                entry_heading[:, None],
-                select_pos[:, :2],
-                select_heading
-            )
-
-            entry_head_idx = (wrap_angle(
-                local_heading[:, 0]) / np.pi * self.n_token_entry_head2).round().long() + self.n_token_entry_head2
-
-            entry_head_idx[entry_head_idx == self.n_token_entry_head] = 0
-
-            tokenized_heading = self.decode_head(entry_head_idx)
-
-            head_offset = wrap_angle(local_heading[:, 0] - tokenized_heading)  # for selecting heading, not for
-
-            entry_head_idx_list.append(entry_head_idx)
-
-            local_z = entry_pos1[:, 2:] - select_pos[:, 2:]
-
-            local_pos = torch.cat([local_xy[:, 0], local_z], dim=-1)
-
-            if self.match_all:
-                entry_idx_gt = torch.cat(entry_idx_gt)
-            else:
-                dist, entry_idx_gt = torch.linalg.norm(local_pos[:, None] - self.entry_pos_token[None], dim=-1).min(
-                    -1)  # .mean(-1)
-
-            entry_pos_list.append(entry_idx_gt)
-
-            entry_type = type[entry_id]
-            entry_shape = shape[entry_id]
-
-            # entry_type_list.append(entry_type)
-            entry_shape_list.append(entry_shape)
-
-            entry_idx[present_id] = entry_type
-
-            local_tok = self.entry_pos_token[entry_idx_gt]
-
-            offset_local = torch.cat((local_pos - local_tok, head_offset[:, None]), dim=-1)
-            entry_pos_offset_list.append(offset_local)
-
     @staticmethod
     def _clean_heading(valid: Tensor, heading: Tensor) -> Tensor:
         valid_pairs = valid[:, :-1] & valid[:, 1:]
@@ -1001,27 +819,52 @@ class TokenProcessor(torch.nn.Module):
 
 
         if len(agent) == 0:
-            tokenized_agent=self.tokenize_agent(data)
+            if self.learn_init:
+                agent = data["agent"]
+
+                valid = agent["valid_mask"]  # [n_agent, n_step]
+                heading = agent["heading"]  ## [n_agent, n_step]
+                pos = agent["position"][..., :2].contiguous()  # # [n_agent, n_step, 2]
+                vel = agent["velocity"]  ## [n_agent, n_step, 2]
+                shape = agent["shape"]
+                type = agent["type"]
+
+                batch = agent["batch"]
+
+                ego_mask = torch.ones_like(batch)
+                ego_mask[:-1] = batch[:-1] != batch[1:]
+                ego_mask=ego_mask.bool()
+
+                start_idx = 0
+
+                ego_traj = pos[ego_mask, start_idx + 1:start_idx + 11].contiguous()
+
+                valid = valid[:, start_idx]
+
+                tokenized_agent["initial_heading"] = heading[:, start_idx][valid]
+                tokenized_agent["initial_pos"] = pos[:, start_idx][valid]  # [valid]
+                tokenized_agent["initial_shape"] = shape[valid]
+                tokenized_agent["initial_type"] = type[valid]
+                tokenized_agent["ego_traj"] = ego_traj
+                tokenized_agent["initial_vel"] = vel[:, start_idx][valid]
+                tokenized_agent["batch"] = batch[valid]
+
+            else:
+                tokenized_agent=self.tokenize_agent(data)
         else:
             if self.learn_init:
-                for key in ["initial_heading", "initial_pos", "initial_shape", "initial_type","batch","ego_traj"]:
+
+                for key in ["initial_heading", "initial_pos", "initial_shape", "initial_type", "batch", "ego_traj"]:
                     tokenized_agent[key] = agent[key]  # [agent_mask]
 
                 if "initial_vel" in agent.keys():
                     tokenized_agent["initial_vel"] = agent["initial_vel"]
                 else:
-                    tokenized_agent["initial_vel"]=(agent["initial_pos"]-agent["prev_pos"])/0.5
+                    tokenized_agent["initial_vel"] = (agent["initial_pos"] - agent["prev_pos"]) / 0.5
 
                     tokenized_agent["prev_heading"] = agent["prev_heading"]
 
                 tokenized_agent['initial_type'] = tokenized_agent['initial_type'].long()
-
-                agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(
-                    tokenized_agent['initial_type']
-                )
-
-                tokenized_agent["token_traj"]=token_traj
-
             else:
                 agent_shape, token_traj_all, token_traj = self._get_agent_shape_and_token_traj(  agent['type'] )
 
@@ -1088,10 +931,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent[f"trajectory_token_{k}"] = getattr(
                 self, f"agent_token_all_{k}"
             )[:, -1].flatten(1, 2)
-
-        # tokenized_agent["gt_idx"]=tokenized_agent["sampled_idx"]
-        # tokenized_agent["gt_pos"]=tokenized_agent["sampled_pos"]
-        # tokenized_agent["gt_heading"]=tokenized_agent["sampled_heading"]
 
         return tokenized_map, tokenized_agent
 
