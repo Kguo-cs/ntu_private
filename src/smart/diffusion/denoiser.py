@@ -109,9 +109,9 @@ class InitDenoiser(nn.Module):
         if self.use_roformer:
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
             if self.ego_rel:
-                self.proj_in_m_delta = MLPLayer(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
+                self.proj_in_m_delta = MLPLayer(m_delta_dim-4, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
             else:
-                self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
+                self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
             self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
