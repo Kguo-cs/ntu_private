@@ -291,7 +291,7 @@ class InitDenoiser(nn.Module):
 
             gt_initial_heading=torch.cat([all_heading[:,:10],global_heading[:,None],all_heading[:,10:]],dim=1)
 
-            gt_initial_vel= (gt_initial_pos[:,11]-gt_initial_pos[:,10])/0.1
+            gt_initial_vel= (gt_initial_pos[:,15]-gt_initial_pos[:,10])/0.5
             gt_initial_idx=None
         else:
 
