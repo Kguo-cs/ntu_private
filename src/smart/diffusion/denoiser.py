@@ -35,7 +35,6 @@ from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
 from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
-from src.smart.utils.earth_match import get_closest_sum_idx
 from src.smart.layers.attention_layer import AttentionLayer,CacheAttention
 from src.smart.modules.edge_encoder import EdgeEncoder,topo_rank_among_edges,project_to_local_frame
 from src.smart.layers.relative_transformer import padding

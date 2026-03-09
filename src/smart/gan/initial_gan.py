@@ -4,7 +4,7 @@ import torch.nn as nn
 from smart.utils import transform_to_global
 from src.smart.layers import MLPLayer
 from src.smart.layers.relative_transformer import padding
-from smart.utils.earth_match import get_matching_loss
+from smart.loss.earth_match import get_matching_loss
 from src.smart.utils import (
     transform_to_local,
 )
