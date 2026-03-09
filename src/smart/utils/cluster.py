@@ -292,15 +292,16 @@ def cluster_point_per_type(
         else:
             veh_valid_mask=None
 
-        centroids_b,centroids1_b,_,_,_,_=batched_kmeans_variable_k(veh_pos, veh_batch,veh_valid_mask,num_graphs,k_per_graph_type,k1_per_graph_type)
+        if k1_per_graph_type.max().item()>0:
+            centroids_b,centroids1_b,_,_,_,_=batched_kmeans_variable_k(veh_pos, veh_batch,veh_valid_mask,num_graphs,k_per_graph_type,k1_per_graph_type)
 
-        centroids_list.append(centroids_b)
-        centroids1_list.append(centroids1_b)
-        type_list.append(torch.zeros_like(centroids1_b[:,:,0]).to(torch.long)+i)
+            centroids_list.append(centroids_b)
+            centroids1_list.append(centroids1_b)
+            type_list.append(torch.zeros_like(centroids1_b[:,:,0])+i)
 
     centroids_all = torch.cat(centroids_list, dim=1)
     centroids1_all = torch.cat(centroids1_list, dim=1)
-    type_list = torch.cat(type_list, dim=1)
+    type_list = torch.cat(type_list, dim=1).to(torch.long)
 
     valid_mask=torch.any(~torch.isnan(centroids1_all),dim=-1)
 
@@ -531,7 +532,7 @@ def cluster_points(pos, batch, type, type_counts,use_all_type
 # plt.show()
 
 
-def batch_increasing_schedule(N, S=50+1, gamma=1):
+def batch_increasing_schedule(N, S=100+1, gamma=1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -546,6 +547,6 @@ def batch_increasing_schedule(N, S=50+1, gamma=1):
     schedule = torch.ceil_(N[:, None] * t[None, :])
     schedule = torch.minimum(schedule, N[:, None])
 
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,50)],dim=-1)
+    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,0)],dim=-1)
 
     return schedule.long()

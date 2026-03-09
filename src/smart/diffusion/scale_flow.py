@@ -296,6 +296,7 @@ class ScaleFlow(nn.Module):
             num_types=3
 
             idx = agent_batch * num_types + agent_type
+
             mask = agent_type >= 0  # or specific valid condition
 
             cumsum = torch.cumsum(mask.long(), dim=0)
@@ -308,9 +309,9 @@ class ScaleFlow(nn.Module):
             rank = torch.full_like(agent_batch, -1)
             rank[mask] = cumsum[mask] - offsets[idx[mask]]
 
-            veh_per_scene=type_counts.sum(-1)
+            counts=type_counts.sum(-1)
 
-            schedule=batch_increasing_schedule(veh_per_scene)#[agent_batch]
+            schedule=batch_increasing_schedule(counts)#[agent_batch]
 
             steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
 
