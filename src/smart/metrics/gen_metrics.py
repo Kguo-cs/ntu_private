@@ -235,7 +235,6 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
             # 20 point each
 
             unified_data = {
-                'lanes': compact_centerlines,  # [num_lanes, 20, 2]
                 'vehicles': vehicles
             }
             samples.append(unified_data)
@@ -543,8 +542,6 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
                     vehicles_gen,
                     title=f"Frame_{i}, Sample_{j}"
                 )
-
-
 
     nearest_dist_gen_all = np.concatenate(nearest_dist_gen_all, axis=0)
     lat_dev_gen_all = np.concatenate(lat_dev_gen_all, axis=0)

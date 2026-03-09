@@ -88,7 +88,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 5+3
 
 
-        self.use_graph=True
+        self.use_graph=False
         self.ego_rel = True
         self.use_scale=True
         noise_dim = 1
@@ -564,7 +564,7 @@ class InitDenoiser(nn.Module):
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
             else:
-                pos_pl, orient_pl,map_mask, map_emb=scene_enc
+                pos_pl, orient_pl, map_emb,map_mask=scene_enc
 
                 pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.padding(pos_s, theta, feat_a, batch,
                                                                         num_graphs)  # b, n, d
