@@ -140,9 +140,6 @@ class SMART(LightningModule):
         self.all_data=[]
 
         self.metric_logger=MetricDict()
-        self.samples = []
-        self.gt_samples = []
-
         #self.wosac_submission.save_sub_file()
 
     def training_step(self, data, batch_idx):
@@ -168,9 +165,6 @@ class SMART(LightningModule):
         return loss
 
     def validation_step(self, data, batch_idx):
-        # torch.random.manual_seed(1)
-        # if batch_idx not in [1819]:#[28,109,164,242,402,729,842,1819]: #3500
-        #     return
         tokenized_map, tokenized_agent = self.token_processor(data)
 
         # # ! open-loop vlidation
@@ -234,6 +228,8 @@ class SMART(LightningModule):
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
                 if not self.wosac_submission.is_active:
+                    self.samples=[]
+                    self.gt_samples=[]
                     compute_gen_samples(data, tokenized_agent, pred_traj, pred_speeds, pred_head, pred_sizes, self.samples,
                                         self.gt_samples)
 
