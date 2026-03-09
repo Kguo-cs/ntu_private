@@ -33,10 +33,10 @@ model:
     #val_closed_loop: False
     finetune: true
     smart: false
-    n_batch_wosac_metric: 0
-    n_vis_batch: 1
-    n_vis_scenario: 32
-    n_vis_rollout: 2
+#    n_batch_wosac_metric: 0
+#    n_vis_batch: 1
+#    n_vis_scenario: 32
+#    n_vis_rollout: 2
 
 ckpt_path: './waymo_data/AIRL32_interdis_mean_203_t3_nodiff_epoch=9-step=152190_0.79065.ckpt'
 
