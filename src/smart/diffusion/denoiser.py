@@ -90,7 +90,7 @@ class InitDenoiser(nn.Module):
 
         self.use_graph=True
         self.ego_rel = True
-        self.use_scale=False
+        self.use_scale=True
         noise_dim = 1
         if mean_flow:
             noise_dim = 2

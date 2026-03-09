@@ -208,35 +208,38 @@ def allocate_k_per_type(k_total, type_counts):
 
     returns:
         k_type:   (G, T)
-        sum over T exactly equals k_total
     """
 
     G, T = type_counts.shape
+    Kmax = k_total.max()
 
-    denom = type_counts.sum(dim=1, keepdim=True).clamp_min(1)
+    # divisors: 1..Kmax
+    divisors = torch.arange(1, Kmax + 1, device=type_counts.device)
 
-    raw = type_counts / denom * k_total.unsqueeze(1)
+    # compute priority table
+    # shape: (G, T, Kmax)
+    priorities = type_counts.unsqueeze(-1) / divisors
 
-    k_floor = raw.floor()
-    remainder = (k_total - k_floor.sum(dim=1)).long()   # (G,)
+    # flatten type/divisor axis
+    priorities = priorities.reshape(G, T * Kmax)
 
-    frac = raw - k_floor
+    # select top-k priorities per graph
+    topk_vals, topk_idx = torch.topk(priorities, Kmax, dim=1)
 
-    # rank fractional parts descending
-    frac_sorted, order = torch.sort(frac, dim=1, descending=True)
+    # mask out positions beyond k_total
+    mask = torch.arange(Kmax, device=type_counts.device).unsqueeze(0) < k_total.unsqueeze(1)
 
-    # build mask for top-r entries per row
-    arange_t = torch.arange(T, device=type_counts.device)
+    selected = topk_idx * mask
 
-    # shape: (G, T)
-    add_mask = arange_t.unsqueeze(0) < remainder.unsqueeze(1)
+    # recover type index
+    type_idx = selected // Kmax
 
-    # scatter mask back to original column positions
-    add_mask = torch.zeros_like(frac, dtype=torch.bool).scatter(
-        1, order, add_mask
-    )
+    # count allocations
+    k_type = torch.zeros(G, T, device=type_counts.device, dtype=torch.long)
 
-    k_type = k_floor.long() + add_mask.long()
+    ones = mask.long()
+
+    k_type.scatter_add_(1, type_idx, ones)
 
     return k_type
 
@@ -275,6 +278,8 @@ def cluster_point_per_type(
     k_type  = allocate_k_per_type(k_per_graph,  type_counts)
     k1_type = allocate_k_per_type(k1_per_graph, type_counts)
 
+    #print(torch.all(k1_type>=k_type),torch.all(k_type.sum(dim=-1) == k_per_graph))
+
     for i in range( num_types ):
         k_per_graph_type=k_type[:,i]
         k1_per_graph_type=k1_type[:,i]
@@ -306,7 +311,7 @@ def cluster_point_per_type(
 
     tokenized_agent['nonego_type_sorted'] = more_type
     tokenized_agent["step_idx"] = step_idx
-    tokenized_agent["step_number"] = step_number
+    tokenized_agent["step_number"] = step_number#7057 ,7056
 
     return less_centroids,more_centroids,more_batch
 
