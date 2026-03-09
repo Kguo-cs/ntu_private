@@ -143,7 +143,7 @@ def plot_scene(lanes, vehicles_real, vehicles_gen, title=None):
     ax.legend()
     plt.savefig('/home/ke/code/sim/src/logs/'+title+'.png')
 
-def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_sizes,samples,gt_samples):
+def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_sizes,samples,gt_samples,gt_dist):
     pred_vel = torch.stack(pred_vel, dim=1)
 
     pred_speeds=pred_vel.norm(dim=-1)
@@ -157,101 +157,109 @@ def compute_gen_samples(data,tokenized_agent,pred_traj,pred_vel,pred_head,pred_s
         dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
     type = tokenized_agent["type"]
 
-    gt_vel =data["agent"]["velocity"][:, 10]
-    gt_speed = gt_vel.norm(dim=-1)
-    gt_cos = torch.cos(data["agent"]["heading"][:, 10])
-    gt_sin = torch.sin(data["agent"]["heading"][:, 10])
-    gt_shape = data["agent"]["shape"]
-    gt_pos = data["agent"]["position"][:, 10, :2]
-    gt_type= data["agent"]["type"]
+    if gt_dist is None:
 
-    real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
-                           dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
+        gt_vel =data["agent"]["velocity"][:, 10]
+        gt_speed = gt_vel.norm(dim=-1)
+        gt_cos = torch.cos(data["agent"]["heading"][:, 10])
+        gt_sin = torch.sin(data["agent"]["heading"][:, 10])
+        gt_shape = data["agent"]["shape"]
+        gt_pos = data["agent"]["position"][:, 10, :2]
+        gt_type= data["agent"]["type"]
+
+        real_state = torch.cat([gt_pos, gt_speed[:, None], gt_cos[:, None], gt_sin[:, None], gt_shape[:, :2],gt_vel],
+                               dim=-1)  # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
 
     for b in range(data.num_graphs):
         vehicles = state[(batch == b) & (type == 0)].cpu().numpy()
 
-        scenario_file = data["tfrecord_path"][b]
+        if gt_dist is None:
 
-        scenario = scenario_pb2.Scenario()
-        for data_b in tf.data.TFRecordDataset([scenario_file], compression_type=""):
-            scenario.ParseFromString(bytes(data_b.numpy()))
+            scenario_file = data["tfrecord_path"][b]
 
-        map_infos = decode_map_features_from_proto(scenario.map_features)
-        all_polylines = map_infos["all_polylines"]
-        compact_centerlines = []
+            scenario = scenario_pb2.Scenario()
+            for data_b in tf.data.TFRecordDataset([scenario_file], compression_type=""):
+                scenario.ParseFromString(bytes(data_b.numpy()))
 
-        for lane in map_infos["lane"]:
-            lane_type = lane['type']
-            polyline_index = lane['polyline_index']
-            if lane_type == 3:  # lane_type == 0 or
-                continue
+            map_infos = decode_map_features_from_proto(scenario.map_features)
+            all_polylines = map_infos["all_polylines"]
+            compact_centerlines = []
 
-            lane_point = all_polylines[polyline_index[0]:polyline_index[1]]
+            for lane in map_infos["lane"]:
+                lane_type = lane['type']
+                polyline_index = lane['polyline_index']
+                if lane_type == 3:  # lane_type == 0 or
+                    continue
 
-            resampled_lane = resample_polyline(lane_point, num_points=100)
-            compact_centerlines.append(resampled_lane)
+                lane_point = all_polylines[polyline_index[0]:polyline_index[1]]
 
-        compact_centerlines = np.stack(compact_centerlines, axis=0)
+                resampled_lane = resample_polyline(lane_point, num_points=100)
+                compact_centerlines.append(resampled_lane)
 
-        # centerlines = data['road_points']
-        # lanes = {}
+            compact_centerlines = np.stack(compact_centerlines, axis=0)
 
-        # for lane_id in data['road_info']['lane']:
-        #     lane_type = data['road_info']['lane'][lane_id]['type']
-        #     if lane_type == 'TYPE_UNDEFINED' or lane_type == 'TYPE_BIKE_LANE':
-        #         continue
-        #
-        #     my_lane = data['road_info']['lane'][lane_id]['polyline']
-        #     lanes[int(lane_id)] = my_lane[:, :2]
-        #
-        # compact_lane.append(data['lane_graph']['lanes'][lane_id])
-        #
-        # compact_lane_graph_scene = self.normalize_compact_lane_graph(copy.deepcopy(compact_lane_graph),
-        #                                                              normalize_dict)
-        # compact_lane_graph = self.get_lane_graph_within_fov(compact_lane_graph_scene)
+            # centerlines = data['road_points']
+            # lanes = {}
 
-        # resampled_lanes = []
-        # idx_to_id = {}
-        # id_to_idx = {}
-        # i = 0
-        #
-        # for lane_id in compact_lane_graph['lanes']:
-        #     lane = compact_lane_graph['lanes'][lane_id]
-        #     resampled_lane = resample_polyline(lane, num_points=self.cfg.num_points_per_lane)
-        #     resampled_lanes.append(resampled_lane)
-        #
-        # resampled_lanes = np.array(resampled_lanes)
-        # num_lanes = min(len(resampled_lanes), self.cfg.max_num_lanes)
-        # dist_to_origin = np.linalg.norm(resampled_lanes, axis=-1).min(1)
-        # closest_lane_ids = np.argsort(dist_to_origin)[:num_lanes]
-        # road_points = resampled_lanes[closest_lane_ids]
-        # remove_offroad vehicle, fov: 64*64 in metres, max 30 agent
+            # for lane_id in data['road_info']['lane']:
+            #     lane_type = data['road_info']['lane'][lane_id]['type']
+            #     if lane_type == 'TYPE_UNDEFINED' or lane_type == 'TYPE_BIKE_LANE':
+            #         continue
+            #
+            #     my_lane = data['road_info']['lane'][lane_id]['polyline']
+            #     lanes[int(lane_id)] = my_lane[:, :2]
+            #
+            # compact_lane.append(data['lane_graph']['lanes'][lane_id])
+            #
+            # compact_lane_graph_scene = self.normalize_compact_lane_graph(copy.deepcopy(compact_lane_graph),
+            #                                                              normalize_dict)
+            # compact_lane_graph = self.get_lane_graph_within_fov(compact_lane_graph_scene)
 
-        # 20 point each
+            # resampled_lanes = []
+            # idx_to_id = {}
+            # id_to_idx = {}
+            # i = 0
+            #
+            # for lane_id in compact_lane_graph['lanes']:
+            #     lane = compact_lane_graph['lanes'][lane_id]
+            #     resampled_lane = resample_polyline(lane, num_points=self.cfg.num_points_per_lane)
+            #     resampled_lanes.append(resampled_lane)
+            #
+            # resampled_lanes = np.array(resampled_lanes)
+            # num_lanes = min(len(resampled_lanes), self.cfg.max_num_lanes)
+            # dist_to_origin = np.linalg.norm(resampled_lanes, axis=-1).min(1)
+            # closest_lane_ids = np.argsort(dist_to_origin)[:num_lanes]
+            # road_points = resampled_lanes[closest_lane_ids]
+            # remove_offroad vehicle, fov: 64*64 in metres, max 30 agent
 
-        unified_data = {
-            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-            'vehicles': vehicles
-        }
-        samples.append(unified_data)
+            # 20 point each
 
-        # unified_data = {
-        #     'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-        #     'vehicles': vehicles[:, 1]
-        # }
-        # samples.append(unified_data)
+            unified_data = {
+                'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+                'vehicles': vehicles
+            }
+            samples.append(unified_data)
 
-        real_vehicles = real_state[(batch == b) & (gt_type == 0)].cpu().numpy()
+            # unified_data = {
+            #     'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+            #     'vehicles': vehicles[:, 1]
+            # }
+            # samples.append(unified_data)
 
-        unified_data = {
-            'lanes': compact_centerlines,  # [num_lanes, 20, 2]
-            'vehicles': real_vehicles
-        }
+            real_vehicles = real_state[(batch == b) & (gt_type == 0)].cpu().numpy()
 
-        gt_samples.append(unified_data)
-        #gt_samples.append(unified_data)
+            unified_data = {
+                'lanes': compact_centerlines,  # [num_lanes, 20, 2]
+                'vehicles': real_vehicles
+            }
 
+            gt_samples.append(unified_data)
+            #gt_samples.append(unified_data)
+        else:
+            unified_data = {
+                'vehicles': vehicles
+            }
+            samples.append(unified_data)
 
 # unified format for computing metrics
 # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
@@ -474,30 +482,44 @@ def plot_gen_real_distribution(
     plt.tight_layout()
     plt.show()
 
-def compute_jsd_metrics(samples, gt_samples,vis):
+def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
     """ Computes the JSD agent metrics for the samples and ground truth samples."""
     print("Computing agent jsd metrics")
+
     nearest_dist_gen_all = []
     lat_dev_gen_all = []
     ang_dev_gen_all = []
     length_gen_all = []
     width_gen_all = []
     speed_gen_all = []
-    nearest_dist_real_all = []
-    lat_dev_real_all = []
-    ang_dev_real_all = []
-    length_real_all = []
-    width_real_all = []
-    speed_real_all = []
+
+    if gt_dist is None:
+        nearest_dist_real_all = []
+        lat_dev_real_all = []
+        ang_dev_real_all = []
+        length_real_all = []
+        width_real_all = []
+        speed_real_all = []
 
     for i in range(len(samples)):
         data_gen = samples[i]
-        lanes_gen=lanes_real=data_gen['lanes']
         data_real = gt_samples[i]
-        vehicles_real = data_real['vehicles']
 
-        #lanes_real = resample_lanes(data_real['lanes'], num_points=100)
-        onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
+        lanes_gen=lanes_real=data_real['lanes']
+
+        if gt_dist is None:
+            vehicles_real = data_real['vehicles']
+
+            #lanes_real = resample_lanes(data_real['lanes'], num_points=100)
+            onroad_vehicles_real = get_onroad_vehicles(vehicles_real, lanes_real)
+            if len(vehicles_real) > 1:
+                nearest_dist_real_all.append(get_nearest_dists(vehicles_real))
+            if len(onroad_vehicles_real) > 0:
+                lat_dev_real_all.append(get_lateral_devs(onroad_vehicles_real, lanes_real))
+                ang_dev_real_all.append(get_angular_devs(onroad_vehicles_real, lanes_real))
+            length_real_all.append(get_lengths(vehicles_real))
+            width_real_all.append(get_widths(vehicles_real))
+            speed_real_all.append(get_speeds(vehicles_real))
 
         for j in range(data_gen['vehicles'].shape[1]):
             vehicles_gen = data_gen['vehicles'][:,j] # [pos_x, pos_y, speed, cos(heading), sin(heading), length, width]
@@ -523,14 +545,6 @@ def compute_jsd_metrics(samples, gt_samples,vis):
                 )
 
 
-        if len(vehicles_real) > 1:
-            nearest_dist_real_all.append(get_nearest_dists(vehicles_real))
-        if len(onroad_vehicles_real) > 0:
-            lat_dev_real_all.append(get_lateral_devs(onroad_vehicles_real, lanes_real))
-            ang_dev_real_all.append(get_angular_devs(onroad_vehicles_real, lanes_real))
-        length_real_all.append(get_lengths(vehicles_real))
-        width_real_all.append(get_widths(vehicles_real))
-        speed_real_all.append(get_speeds(vehicles_real))
 
     nearest_dist_gen_all = np.concatenate(nearest_dist_gen_all, axis=0)
     lat_dev_gen_all = np.concatenate(lat_dev_gen_all, axis=0)
@@ -539,12 +553,18 @@ def compute_jsd_metrics(samples, gt_samples,vis):
     width_gen_all = np.concatenate(width_gen_all, axis=0)
     speed_gen_all = np.concatenate(speed_gen_all, axis=0)
 
-    nearest_dist_real_all = np.concatenate(nearest_dist_real_all, axis=0)
-    lat_dev_real_all = np.concatenate(lat_dev_real_all, axis=0)
-    ang_dev_real_all = np.concatenate(ang_dev_real_all, axis=0)
-    length_real_all = np.concatenate(length_real_all, axis=0)
-    width_real_all = np.concatenate(width_real_all, axis=0)
-    speed_real_all = np.concatenate(speed_real_all, axis=0)
+    if gt_dist is None:
+        nearest_dist_real_all = np.concatenate(nearest_dist_real_all, axis=0)
+        lat_dev_real_all = np.concatenate(lat_dev_real_all, axis=0)
+        ang_dev_real_all = np.concatenate(ang_dev_real_all, axis=0)
+        length_real_all = np.concatenate(length_real_all, axis=0)
+        width_real_all = np.concatenate(width_real_all, axis=0)
+        speed_real_all = np.concatenate(speed_real_all, axis=0)
+
+        gt_dist = (nearest_dist_real_all, lat_dev_real_all, ang_dev_real_all, length_real_all, width_real_all,
+                   speed_real_all)
+    else:
+        nearest_dist_real_all, lat_dev_real_all, ang_dev_real_all, length_real_all, width_real_all,speed_real_all=gt_dist
 
     nearest_dist_jsd = jsd(nearest_dist_gen_all, nearest_dist_real_all, clip_min=0, clip_max=50, bin_size=1) * 10
     lat_dev_jsd = jsd(lat_dev_gen_all, lat_dev_real_all, clip_min=0, clip_max=1.5, bin_size=0.1) * 10
@@ -609,7 +629,10 @@ def compute_jsd_metrics(samples, gt_samples,vis):
     #     bin_size=1
     # )
 
-    return nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd
+    jsds=(nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd)
+
+
+    return jsds,gt_dist
 
 #(0.44205092401097407, 0.893392520955104, 14.291746007068648, 1.2888893233756689, 0.5276743398450541, 0.2849639251475777)
 
@@ -722,7 +745,7 @@ def collision_rate_from_state1(states_list, count_touch=True):
 
 
 
-def compute_agent_metrics(samples, gt_samples,vis=True):
+def compute_agent_metrics(samples, gt_samples,gt_dist,vis=True):
     """ Computes the agent metrics for the samples and ground truth samples."""
     #collision_rate1,collision1 = collision_rate_from_state(samples)
     #collision_rate,collision = collision_rate_from_state1(samples)
@@ -734,7 +757,10 @@ def compute_agent_metrics(samples, gt_samples,vis=True):
 
     #collision_jsd = jsd(collision.astype(np.float32), gt_collision.astype(np.float32), clip_min=-0.5, clip_max=2, bin_size=1) * 100
 
-    nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd = compute_jsd_metrics(samples, gt_samples,vis)
+    jsds, gt_dist = compute_jsd_metrics(samples, gt_samples,gt_dist,vis)
+
+    nearest_dist_jsd, lat_dev_jsd, ang_dev_jsd, length_jsd, width_jsd, speed_jsd=jsds
+
     collision_rate,collision = compute_collision_rate(samples)
 
     return {
@@ -746,4 +772,4 @@ def compute_agent_metrics(samples, gt_samples,vis=True):
         'speed_jsd': speed_jsd,
         #"collision_jsd":collision_jsd,
         'collision_rate': collision_rate * 100
-    }
+    },gt_dist

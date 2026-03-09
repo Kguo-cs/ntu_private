@@ -142,6 +142,10 @@ class SMART(LightningModule):
         self.metric_logger=MetricDict()
         #self.wosac_submission.save_sub_file()
 
+        self.samples = []
+        self.gt_samples = []
+        self.gt_dist=None
+
     def training_step(self, data, batch_idx):
         tokenized_map, tokenized_agent = self.token_processor(data)
         if self.training_rollout_sampling.num_k <= 0:
@@ -228,10 +232,8 @@ class SMART(LightningModule):
                 pred_sizes=torch.stack(pred_sizes, dim=1)[:,:,None].repeat(1,1,pred_traj.shape[2],1)
 
                 if not self.wosac_submission.is_active:
-                    self.samples=[]
-                    self.gt_samples=[]
                     compute_gen_samples(data, tokenized_agent, pred_traj, pred_speeds, pred_head, pred_sizes, self.samples,
-                                        self.gt_samples)
+                                        self.gt_samples,self.gt_dist)
 
             else:
                 pred_traj=pred_traj[:,:,-80:]
@@ -392,7 +394,9 @@ class SMART(LightningModule):
                     t1 = time.time()
                     print('metric compute start.')
 
-                    self.result = compute_agent_metrics(samples=self.samples, gt_samples=self.gt_samples, vis=False)
+                    self.result,self.gt_dist = compute_agent_metrics(self.samples, self.gt_samples, self.gt_dist,False)
+
+                    self.samples=[]
 
                     for key, value in self.result.items():
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True,
