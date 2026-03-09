@@ -663,6 +663,19 @@ bc40_start0eval0_inter2
 
 
 
+| Metric                                | Value          |
+| ------------------------------------- | -------------- |
+| Realism meta-metric                   | **0.78473675** |
+| Linear Speed Likelihood               | 0.38607654     |
+| Linear Acceleration Likelihood        | 0.41009238     |
+| Angular Speed Likelihood              | 0.5191686      |
+| Angular Acceleration Likelihood       | 0.6619555      |
+| Distance To Nearest Object Likelihood | 0.39132383     |
+| Collision Likelihood                  | 0.9723152      |
+| Time To Collision Likelihood          | 0.83187944     |
+| Distance To Road Edge Likelihood      | 0.6807657      |
+| Offroad Likelihood                    | 0.9494545      |
+| minADE                                | **1.3468841**  |
 
 
 
