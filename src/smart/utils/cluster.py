@@ -1,6 +1,6 @@
 import torch
 
-def kmeans( padded, mask,k_per_graph,batch,pos,valid_mask,max_k, initial_centroids=None,iters=10):
+def kmeans( padded, mask,k_per_graph,batch,pos,valid_mask,max_k, initial_centroids=None,iters=50):
 
     padded=padded[:,:,:2]
 
