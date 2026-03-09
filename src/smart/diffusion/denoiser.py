@@ -241,7 +241,6 @@ class InitDenoiser(nn.Module):
 
         return z[:,None]
 
-
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 
@@ -567,21 +566,14 @@ class InitDenoiser(nn.Module):
             else:
                 pos_pl, orient_pl,map_mask, map_emb=scene_enc
 
-                # pos_pl,orient_pl,feat_map,map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl, batch_size)  # b, n, d
-
                 pos_a_b, heading_a_b, feat_a_b, mask_a_b = self.padding(pos_s, theta, feat_a, batch,
-                                                                        batch_size)  # b, n, d
+                                                                        num_graphs)  # b, n, d
 
-                pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
-
-                feat_a_b=feat_a_b+pos_emb
-
-                # pos_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], 2, device=type.device)
-                # heading_a_b = torch.zeros(feat_a_b.shape[0], feat_a_b.shape[1], device=type.device)
+                # pos_emb = sinusoidal_embedding(feat_a_b.shape[1], self.hidden_dim).to(device).unsqueeze(0)
+                #
+                # feat_a_b=feat_a_b+pos_emb
 
                 for mod in self.entry_formers:
-                    feat_a_b = feat_a_b + beta_emb_m
-
                     feat_a_b = mod(feat_a_b, pos_a_b,
                                    heading_a_b, mask_a_b,
                                    map_emb,

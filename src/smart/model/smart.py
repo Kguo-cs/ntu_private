@@ -381,77 +381,6 @@ class SMART(LightningModule):
                             scenario_rollouts[_i_sc], self.n_vis_rollout,new_agent[_i_sc*100:(_i_sc+1)*100],
                         )
 
-            # if self.n_rollout_closed_val ==1 and not self.use_bird:
-            #     scenario_metrics=self.wosac_metrics.pool_scenario_metrics[0]
-            #
-            #     simulated_collision_rate=scenario_metrics.simulated_collision_rate
-            #
-            #     collision_indication_likelihood=scenario_metrics.collision_indication_likelihood
-            #     #simulated_offroad_rate = scenario_metrics.simulated_offroad_rate
-            #     #print(collision_indication_likelihood,simulated_collision_rate)
-            #
-            #     if collision_indication_likelihood<0.99 and simulated_collision_rate>0 : #simulated_collision_rate<0.99 :#or simulated_offroad_rate>0       #242
-            #         disc_out = self.encoder.discriminator.predict_agent(None,
-            #                                                             pred["token_mask"],
-            #                                                             pred["valid_mask"],
-            #                                                             pred["sampled_pos"],
-            #                                                             pred["sampled_heading"],
-            #                                                             tokenized_agent,
-            #                                                             map_feature,
-            #                                                             abs_time=tokenized_agent["abs_time"])
-            #         ego_logits, interact_logits = disc_out[0]
-            #
-            #         edge_index_a2a=disc_out[1] [0]       #t,a
-            #
-            #         n_step=18
-            #
-            #         ego_logits=ego_logits.reshape(18,-1)
-            #         n_agent=ego_logits.shape[1]
-            #
-            #         ego_index = torch.where(tokenized_agent["ego_mask"])[0][0]
-            #
-            #         scene_realism=ego_logits[:,ego_index]
-            #
-            #         mask=pred["valid_mask"]
-            #
-            #         src,dst=edge_index_a2a[0],edge_index_a2a[1]
-            #
-            #         flat_mask = mask.transpose(0, 1).flatten(0, 1)
-            #
-            #         kept_nodes = torch.nonzero(flat_mask, as_tuple=True)[0]  # shape [M]
-            #
-            #         dst_all = kept_nodes[dst]
-            #
-            #         dst_agent=dst_all % n_agent
-            #
-            #         ego_mask=dst_agent ==ego_index
-            #
-            #         src_ego=src[ego_mask]
-            #
-            #         src_all=kept_nodes[src_ego]
-            #
-            #         interact_realism= torch.zeros([n_step*n_agent],device=src_all.device)
-            #
-            #         interact_realism[src_all] = interact_logits[ego_mask]
-            #
-            #         interact_realism=interact_realism.reshape(n_step,n_agent)
-            #
-            #         #print(torch.all(interact_realism[:,ego_index]==0))
-            #
-            #         interact_realism[:,ego_index]=scene_realism
-            #
-            #         interact_realism=torch.sigmoid(interact_realism)
-            #         save_path=self.video_dir  / f"step_{self.global_step}_batch_{batch_idx:02d}.pdf"
-            #
-            #        # if interact_realism.min()>0.45:
-            #         plot_rollout_frames( tokenized_agent,
-            #                                 data["tfrecord_path"][0],
-            #                                 interact_realism.transpose(0,1).cpu(),
-            #                                 pred,
-            #                                  save_path=save_path
-            #                             )
-
-
     def on_validation_epoch_end(self):
 
         if self.val_open_loop:
@@ -461,18 +390,21 @@ class SMART(LightningModule):
 
         if self.val_closed_loop:
             if not self.wosac_submission.is_active:
-                t1=time.time()
                 epoch_wosac_metrics = self.wosac_metrics.compute()
 
-                if self.challenge_type!=ChallengeType.SCENARIO_GEN:
-                   epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
+                if self.challenge_type==ChallengeType.SCENARIO_GEN:
+                    t1 = time.time()
+                    print('metric compute start.')
 
-                else:
-                    self.result=compute_agent_metrics(samples=self.samples, gt_samples=self.gt_samples,vis=False)
+                    self.result = compute_agent_metrics(samples=self.samples, gt_samples=self.gt_samples, vis=False)
 
                     for key, value in self.result.items():
                         self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True,
                                  rank_zero_only=True)
+
+                    print('metric compute time:', time.time() - t1)
+                else:
+                    epoch_wosac_metrics["val_closed/ADE"] = self.minADE.compute()#ADE is all the sum distance for all agent
 
                 if self.global_rank == 0:
                     if self.token_processor.use_bird:
@@ -520,9 +452,6 @@ class SMART(LightningModule):
 
                 self.wosac_metrics.reset()
                 self.minADE.reset()
-
-                print('metric compute time:', time.time() - t1)
-
 
             if self.global_rank == 0:
                 if self.wosac_submission.is_active:
