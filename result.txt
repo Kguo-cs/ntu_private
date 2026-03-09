@@ -654,4 +654,22 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt
 
+
+0.7881
+
+
+/home/ke/code/sim/src/waymo_data/bc40_t60_noego_l4_diff_epoch=31-step=389600.ckpt
+
+
+
+
+
+
+
+
+
+
+
 design t ,n scedule
+
+

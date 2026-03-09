@@ -393,19 +393,26 @@ class InitDenoiser(nn.Module):
             diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
 
             if self.normal_mean is None:
-                valid = ~torch.isnan(m_init)
-                count = valid.sum(0, keepdim=True).clamp_min(1)
+                # valid = ~torch.isnan(m_init)
+                # count = valid.sum(0, keepdim=True).clamp_min(1)
+                #
+                # mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
+                # std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
+                #     1e-8)
 
-                mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
-                std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
-                    1e-8)
+                # self.normal_mean = mean
+                # self.normal_scale = std
 
-                self.normal_mean = mean
-                self.normal_scale = std
+                normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
+                normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
+                                             2.728e+00, -2.259e-03]])
+
+                self.normal_mean = normal_mean.to(m_init.device)
+                self.normal_scale = normal_scale.to(m_init.device)
+
                 # self.normal_mean = torch.nanmean(m_init, dim=0,keepdim=True)
                 # self.normal_scale = torch.nanstd(m_init, dim=0,keepdim=True)
 
-            m_init = self.normalize(m_init)
             diff_input = self.normalize(diff_input)
         else:
             diff_input = m_init

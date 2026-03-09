@@ -144,7 +144,7 @@ class InitDiffusion(nn.Module):
 
                     match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent,
                                                                                                  self.G.net.denormalize(x_pred),
-                                                                                                 self.G.net.denormalize(m_init),
+                                                                                                 m_init,
                                                                                                  x_pred,
                                                                                                  m_init,
                                                                                                  denom,
