@@ -76,7 +76,7 @@ data:
   train_batch_size: 256
   val_batch_size: 256
   test_batch_size: 10
-  num_workers: 8
+  num_workers: 16
   train_raw_dir: ${paths.cache_root}/training_map2_init0_light #a_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
   #train_raw_dir: ${paths.cache_root}/training_lane_init10_light #init10_light #03_light #all training_map2_03_light,training_map2_03_token: 486995
   #val_raw_dir: ${paths.cache_root}/validation_lane #44097
