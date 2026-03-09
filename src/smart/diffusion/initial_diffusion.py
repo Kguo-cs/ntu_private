@@ -12,7 +12,7 @@ from src.smart.utils import (
     rotate_to_local,
 )
 from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
-from src.smart.utils.earth_match import get_matching_loss
+from src.smart.loss.earth_match import get_matching_loss
 from src.smart.gan.discriminator import InitDiscriminator,InitGeneator
 from src.smart.metrics.gen_metrics import plot_scene
 
