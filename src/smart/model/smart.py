@@ -394,7 +394,7 @@ class SMART(LightningModule):
                     t1 = time.time()
                     print('metric compute start.')
 
-                    self.result,self.gt_dist = compute_agent_metrics(self.samples, self.gt_samples, self.gt_dist,False)
+                    self.result,self.gt_dist = compute_agent_metrics(self.samples, self.gt_samples, self.gt_dist,self.n_vis_batch>0)
 
                     self.samples=[]
 

@@ -103,8 +103,9 @@ class InitDenoiser(nn.Module):
 
         self.output_dim=m_delta_dim
 
-        self.normal_scale=None
-        self.normal_mean=None
+        # self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
+        # self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
+        self.normal_initialized = False
 
         if self.use_roformer:
             self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
@@ -371,7 +372,7 @@ class InitDenoiser(nn.Module):
 
             tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
-           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  local_heading)
+           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  batch_ego_heading)
 
            tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
@@ -393,8 +394,6 @@ class InitDenoiser(nn.Module):
             diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
         else:
             diff_input = m_init
-
-        if self.normal_mean is None:
             # valid = ~torch.isnan(m_init)
             # count = valid.sum(0, keepdim=True).clamp_min(1)
             #
@@ -405,15 +404,17 @@ class InitDenoiser(nn.Module):
             # self.normal_mean = mean
             # self.normal_scale = std
 
-            # normal_scale = torch.tensor([[34.820, 29.857, 0.750, 0.616, 1.264, 0.391, 5.200, 0.212]])
-            # normal_mean = torch.tensor([[3.768e+00, 2.336e+00, 1.188e-01, -1.358e-03, 4.453e+00, 2.001e+00,
-            #                              2.728e+00, -2.259e-03]])
-            #
-            # self.normal_mean = normal_mean.to(m_init.device)
-            # self.normal_scale = normal_scale.to(m_init.device)
 
-            self.normal_mean = torch.mean(m_init, dim=0,keepdim=True)
-            self.normal_scale = torch.std(m_init, dim=0,keepdim=True)
+        if not self.normal_initialized:
+            # self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            # self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+            # self.normal_initialized = True
+            normal_scale = torch.tensor([[33.642, 29.009,  0.762,  0.605,  1.105,  0.339,  3.670,  3.979]])
+            normal_mean = torch.tensor([[4.067e+00,  1.290e+00,  1.171e-01, -6.635e-05,  4.562e+00,  2.041e+00,
+        -2.284e-01,  1.114e-01]])
+
+            self.normal_mean = normal_mean.to(m_init.device)
+            self.normal_scale = normal_scale.to(m_init.device)
 
         diff_input = self.normalize(diff_input)
 

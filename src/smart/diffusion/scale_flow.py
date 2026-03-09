@@ -240,9 +240,13 @@ class ScaleFlow(nn.Module):
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
-        v_pred,t_n,x_cond = self._forward_sample(z, t, labels)
+        v_pred,t_n,x = self._forward_sample(z, t, labels)
+
+        #t_next=torch.zeros_like(x)+t_next
+
+        #z_next=(1 - t_next) * torch.randn_like(x)+ t_next * x
         z_next = z + (t_next - t_n) * v_pred
-        return z_next,x_cond
+        return z_next,x
 
     @torch.no_grad()
     def _heun_step(self, z, t, t_next, labels):
@@ -271,7 +275,7 @@ class ScaleFlow(nn.Module):
 
         # conditional
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        v_cond = (x_cond[:,:,:z.shape[-1]] - z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
+        v_cond = (x_cond- z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
 
         return v_cond,t_n[:,:,None],x_cond
 
