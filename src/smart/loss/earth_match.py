@@ -21,7 +21,7 @@ def matching_loss(
     #
     # pos_loss = dist.mean()
 
-    pos_loss=F.huber_loss(fake_pos, real_pos)
+    pos_loss=F.l1_loss(fake_pos, real_pos)
 
     # Heading: periodic-safe loss
     # heading_diff = torch.atan2(
@@ -31,17 +31,17 @@ def matching_loss(
     # heading_diff=wrap_angle(fake_heading - real_heading)
     # heading_loss = heading_diff.abs().mean()
 
-    heading_loss= F.huber_loss(fake_heading, real_heading)
+    heading_loss= F.l1_loss(fake_heading, real_heading)
 
     # Shape: L1
-    shape_loss = F.huber_loss(fake_shape[:,:2], real_shape[:,:2])
+    shape_loss = F.l1_loss(fake_shape[:,:2], real_shape[:,:2])
 
 
     cluster_valid_mask=~torch.isnan(real_shape[:,2:])
 
     #cluster_valid_mask1=cluster_valid_mask.reshape(-1,90,2)
 
-    vel_loss = F.huber_loss(fake_shape[:,2:][cluster_valid_mask], real_shape[:,2:][cluster_valid_mask])
+    vel_loss = F.l1_loss(fake_shape[:,2:][cluster_valid_mask], real_shape[:,2:][cluster_valid_mask])
 
     total_loss = (
         w_pos * pos_loss +
