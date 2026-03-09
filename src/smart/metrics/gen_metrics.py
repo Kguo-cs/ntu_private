@@ -571,7 +571,7 @@ def compute_jsd_metrics(samples, gt_samples,gt_dist,vis):
     speed_jsd = jsd(speed_gen_all, speed_real_all, clip_min=0, clip_max=50, bin_size=1) * 100
 
     # lat_dev_jsd1 = jsd(np.random.rand(*lat_dev_gen_all.shape)*1.5, lat_dev_real_all, clip_min=0, clip_max=1.5, bin_size=0.1) * 10
-
+    #
     # plot_gen_real_distribution(
     #     nearest_dist_gen_all,
     #     nearest_dist_real_all,
