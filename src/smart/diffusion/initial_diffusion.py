@@ -11,9 +11,7 @@ from src.smart.utils import (
     rotate_to_global,
     rotate_to_local,
 )
-from src.smart.utils import angle_between_2d_vectors, weight_init, wrap_angle
 from src.smart.loss.earth_match import get_matching_loss
-from src.smart.gan.discriminator import InitDiscriminator,InitGeneator
 from src.smart.metrics.gen_metrics import plot_scene
 
 class InitDiffusion(nn.Module):
@@ -44,6 +42,8 @@ class InitDiffusion(nn.Module):
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=hidden_dim,latent_dim=8,num_heads=8)
 
         if self.use_gan:
+            from src.smart.gan.discriminator import InitDiscriminator, InitGeneator
+
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         if self.use_dit:
@@ -233,7 +233,7 @@ class InitDiffusion(nn.Module):
         parser.add_argument('--submission_dir', type=str, default='./')
         parser.add_argument('--submission_file_name', type=str, default='submission')
         parser.add_argument('--qcnet_map_ckpt_path', type=str, required=False)
-        parser.add_argument('--num_denoiser_layers', type=int, default=3)
+        parser.add_argument('--num_denoiser_layers', type=int, default=4)
         parser.add_argument('--num_diffusion_steps', type=int, default=100)
         parser.add_argument('--beta_1', type=float, default=1e-4)
         parser.add_argument('--beta_T', type=float, default=0.05)
