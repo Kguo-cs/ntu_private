@@ -685,6 +685,9 @@ bc40_start0eval0_inter2
 
 design t ,n scedule   previous clean
 
+finetuning the policy encoder
+
+
 
 
 
