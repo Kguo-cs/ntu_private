@@ -97,6 +97,11 @@ class InitDenoiser(nn.Module):
 
         self.use_all_pos=token_processor.use_all_pos
 
+        self.use_prev_head=True
+
+        if self.use_prev_head:
+            m_delta_dim=m_delta_dim+2
+
         if self.use_all_pos:
             m_delta_dim=m_delta_dim+90*4-2
 
@@ -301,7 +306,7 @@ class InitDenoiser(nn.Module):
             gt_initial_idx=None
         else:
 
-            global_pred_vel=rotate_to_global(pred_vel,global_heading)
+            global_pred_vel=rotate_to_global(pred_vel[:,:2],global_heading)
 
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading
@@ -314,12 +319,12 @@ class InitDenoiser(nn.Module):
 
             center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
-            if pred_init.shape[-1]==10:
-                pred_vel_heading=torch.atan2(pred_head[..., 9], pred_head[..., 8])
+            if self.use_prev_head:
+                rel_vel_heading=torch.atan2(pred_vel[:, 3], pred_vel[:, 2]) #local heading
 
                 vel_heading = torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
 
-                vel_heading[non_ego]=wrap_angle(pred_vel_heading+batch_ego_heading-gt_initial_heading[non_ego])
+                vel_heading[non_ego]=rel_vel_heading #ego local heading
 
                 pred_pos=transform_to_global(
                     center_token_traj,#.flatten(1, 2)
@@ -377,8 +382,8 @@ class InitDenoiser(nn.Module):
 
         m_init = torch.cat([local_pos, local_headings, initial_shape[:, :2], local_vel], dim=-1)
 
-        if 'prev_heading' in tokenized_agent.keys():
-            prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],ego_heading[nonego_batch])
+        if self.use_prev_head:
+            prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],non_ego_head)
 
             m_init = torch.cat([m_init, prev_heading.cos()[:,None],prev_heading.sin()[:,None]], dim=-1)
 
@@ -622,19 +627,9 @@ class InitDenoiser(nn.Module):
             else:
                 global_vel=local_vel#rotate_to_global(local_vel,theta)
 
-            if res.shape[-1]==10:
-                res_heading = torch.atan2(res[:, 9], res[:, 8])
-
-                new_heading=wrap_angle(res_heading+theta)
-
-                res = torch.cat(
-                    [global_pos, torch.cos(global_theta)[:, None], torch.sin(global_theta)[:, None], res[:, 4:6],
-                     global_vel,torch.cos(new_heading)[:, None], torch.sin(new_heading)[:, None],], dim=-1)[:, None]
-
-            else:
-                res = torch.cat(
-                    [global_pos, torch.cos(global_theta)[:, None], torch.sin(global_theta)[:, None], res[:, 4:6],
-                     global_vel], dim=-1)[:, None]
+            res = torch.cat(
+                [global_pos, torch.cos(global_theta)[:, None], torch.sin(global_theta)[:, None], res[:, 4:6],
+                 global_vel], dim=-1)[:, None]
 
             # cos_d = res[:, 2]
             # sin_d = res[:, 3]
