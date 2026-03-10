@@ -79,11 +79,13 @@ class InitDenoiser(nn.Module):
         self.use_padding=True
         self.use_all_type=False
 
+        self.num_classes=3
+
         if self.use_all_type:
             # self.type_a_emb = MLPLayer(3, hidden_dim, hidden_dim)
             m_delta_dim = 11
         else:
-            self.type_a_emb = nn.Embedding(3, hidden_dim)
+            self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)
             m_delta_dim = 5+3
 
 
@@ -106,6 +108,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim=m_delta_dim+90*4-2
 
         self.output_dim=m_delta_dim
+        self.label_drop_prob=0
 
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
@@ -245,6 +248,11 @@ class InitDenoiser(nn.Module):
 
         return z[:,None]
 
+    def drop_labels(self, labels):
+        drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
+        out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
+        return out
+
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
 
@@ -317,7 +325,7 @@ class InitDenoiser(nn.Module):
 
             rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
 
-            use_corner=True
+            use_corner=False
 
             if use_corner:
                 center_token_traj = tokenized_agent["token_traj"].flatten(1, 2)
@@ -389,12 +397,12 @@ class InitDenoiser(nn.Module):
 
            tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
+           if self.use_prev_head:
+                prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],non_ego_head)
+
+                local_vel = torch.cat([local_vel, prev_heading.cos()[:,None],prev_heading.sin()[:,None]], dim=-1)
+
         m_init = torch.cat([local_pos, local_headings, initial_shape[:, :2], local_vel], dim=-1)
-
-        if self.use_prev_head:
-            prev_heading = wrap_angle(tokenized_agent["prev_heading"][non_ego],non_ego_head)
-
-            m_init = torch.cat([m_init, prev_heading.cos()[:,None],prev_heading.sin()[:,None]], dim=-1)
 
         tokenized_agent['nonego_type_sorted'] = nonego_type
 
@@ -407,6 +415,11 @@ class InitDenoiser(nn.Module):
             diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
         else:
             diff_input = m_init
+
+        if not self.normal_initialized:
+            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+            self.normal_initialized = True
             # valid = ~torch.isnan(m_init)
             # count = valid.sum(0, keepdim=True).clamp_min(1)
             #
@@ -416,18 +429,6 @@ class InitDenoiser(nn.Module):
 
             # self.normal_mean = mean
             # self.normal_scale = std
-
-
-        if not self.normal_initialized:
-            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
-            self.normal_initialized = True
-        #     normal_scale = torch.tensor([[33.642, 29.009,  0.762,  0.605,  1.105,  0.339,  3.670,  3.979]])
-        #     normal_mean = torch.tensor([[4.067e+00,  1.290e+00,  1.171e-01, -6.635e-05,  4.562e+00,  2.041e+00,
-        # -2.284e-01,  1.114e-01]])
-
-            # self.normal_mean = normal_mean.to(m_init.device)
-            # self.normal_scale = normal_scale.to(m_init.device)
 
         diff_input = self.normalize(diff_input)
 
@@ -450,6 +451,8 @@ class InitDenoiser(nn.Module):
         num_graphs = tokenized_agent["num_graphs"]
         ego_embedding = tokenized_agent["ego_embedding"]
 
+        type = self.drop_labels(type) if self.training else type
+
         if self.use_roformer:
             m_delta=m_delta[:,0]
             m_delta=self.denormalize(m_delta)
@@ -463,7 +466,7 @@ class InitDenoiser(nn.Module):
             # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
 
             #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
-            beta_emb_m = self.noise_embedding(beta) +self.type_a_emb(type)#
+            beta_emb_m = self.noise_embedding(beta) +self.type_a_emb(type)
 
             feat_a = feat_a + beta_emb_m
 
