@@ -420,6 +420,7 @@ class InitDenoiser(nn.Module):
 
             # self.normal_mean = mean
             # self.normal_scale = std
+        m_init=self.normalize(m_init)
 
         tokenized_agent['nonego_type_sorted'] = nonego_type
 
