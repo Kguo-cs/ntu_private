@@ -114,14 +114,34 @@ class InitDenoiser(nn.Module):
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
         self.normal_initialized = False
 
-        if self.use_roformer:
-            self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
-            if self.ego_rel:
-                self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
-            else:
-                self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
+        if self.ego_rel:
+            self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
+        else:
+            self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
 
-            self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
+        self.proj_in_m_delta_2 = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+
+        self.proj_out_m_delta = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(self.hidden_dim, self.output_dim),
+        )
+        self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
+
+        self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
+                                          num_freq_bands=num_freq_bands)
+
+        if self.use_roformer:
+            # self.noise_embedding = MLPLayer(1, hidden_dim, hidden_dim)
+            # if self.ego_rel:
+            #     self.proj_in_m_delta = nn.Linear(m_delta_dim-4, self.hidden_dim)#MLPLayer(m_delta_dim-4, hidden_dim, hidden_dim)#
+            # else:
+            #     self.proj_in_m_delta = MLPLayer(m_delta_dim, self.hidden_dim,self.hidden_dim)#MLPLayer(m_delta_dim, hidden_dim, hidden_dim)#
+            #
+            # self.to_out_m_delta= MLPLayer(hidden_dim, hidden_dim, m_delta_dim)
 
             if self.use_graph:
                 self.use_padding = False
@@ -188,22 +208,6 @@ class InitDenoiser(nn.Module):
 
         else:
 
-            self.proj_in_m_delta = nn.Linear(m_delta_dim, self.hidden_dim)
-
-            self.proj_in_m_delta_2 = nn.Sequential(
-                nn.LayerNorm(hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, hidden_dim),
-            )
-
-            self.proj_out_m_delta = nn.Sequential(
-                nn.LayerNorm(hidden_dim),
-                nn.Linear(self.hidden_dim, self.output_dim),
-            )
-
-            self.noise_emb = FourierEmbedding(input_dim=noise_dim, hidden_dim=hidden_dim,
-                                              num_freq_bands=num_freq_bands)
-
             # self.interact_pt2m = nn.ModuleList(
             #     [TransformerDecoderLayerDiff(
             #         n_embd=hidden_dim,
@@ -227,7 +231,6 @@ class InitDenoiser(nn.Module):
             #     )
             #     for _ in range(num_layers)
             # ])
-            self.to_out_m_delta = SkipMLP(d_model=hidden_dim)
 
         self.apply(weight_init)
 
@@ -454,60 +457,43 @@ class InitDenoiser(nn.Module):
 
         type = self.drop_labels(type) if self.training else type
 
+        beta_emb = self.noise_emb(beta[:,0])
+        # num_agents x 128
+        m_delta = m_delta[:, 0]
+
+        if self.ego_rel:
+            feat_a=self.proj_in_m_delta(m_delta[:,4:])
+        else:
+            feat_a=self.proj_in_m_delta(m_delta)
+
+        if self.use_all_type:
+            feat_a = feat_a + ego_embedding
+        else:
+            feat_a = feat_a + self.type_a_emb(type) + ego_embedding
+
+        feat_a = self.proj_in_m_delta_2(feat_a)
+
         if self.use_roformer:
-            m_delta=m_delta[:,0]
             m_delta=self.denormalize(m_delta)
 
-            if self.ego_rel:
-                feat_a=self.proj_in_m_delta(m_delta[:,4:])
-            else:
-                feat_a=self.proj_in_m_delta(m_delta)
+            # if self.ego_rel:
+            #     feat_a=self.proj_in_m_delta(m_delta[:,4:])
+            # else:
+            #     feat_a=self.proj_in_m_delta(m_delta)
+            #
+            #
+            # # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
+            #
+            # #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
+            # beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
 
-
-            # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
-
-            #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
-            beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
-
-            feat_a = feat_a + beta_emb_m
+            # feat_a = feat_a + beta_emb_m
 
             theta=torch.atan2(m_delta[:,3],m_delta[:,2])
 
             pos_s=m_delta[:, :2]
 
             if self.use_graph:
-
-                # # number of agents per batch
-                # counts = torch.bincount(batch)
-                #
-                # # first index of each batch
-                # first_idx = torch.cumsum(counts, dim=0) - counts
-                #
-                # ego_tokens = ego_embedding[first_idx]  # (B, A)
-                # B = ego_tokens.shape[0]
-                # N = feat_a.shape[0]
-                #
-                # new_feature = torch.cat([feat_a, ego_tokens], dim=0)
-                # new_batch = torch.cat([batch, batch[first_idx]], dim=0)
-                #
-                # ego_theta=torch.atan2(self.normal_mean[:,3],self.normal_mean[:,2])
-                #
-                # pos_s=torch.cat([pos_s, torch.zeros_like(ego_tokens[:,:2])+self.normal_mean[:,:2]], dim=0)
-                # theta=torch.cat([theta, torch.zeros_like(ego_tokens[:,0])+ego_theta], dim=0)
-                #
-                # order = torch.argsort(new_batch)
-                # feat_a = new_feature[order]
-                # batch = new_batch[order]
-                # theta=theta[order]
-                # pos_s=pos_s[order]
-                #
-                # # mask BEFORE sorting
-                # non_ego_mask = torch.cat([
-                #     torch.ones(N, dtype=torch.bool, device=batch.device),
-                #     torch.zeros(B, dtype=torch.bool, device=batch.device)
-                # ], dim=0)
-                # non_ego_mask = non_ego_mask[order]
-
                 pos_pl, orient_pl, batch_pl, feat_map=scene_enc
 
                 head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
@@ -579,9 +565,10 @@ class InitDenoiser(nn.Module):
 
                 # feat_a = feat_a + r_a2ego
 
-                feat_a=feat_a+ego_embedding
+                # feat_a=feat_a+ego_embedding
 
                 for layer_i in range(self.num_layers):
+                    feat_a = feat_a + beta_emb
 
                     # feat_a = self.a2ego_attn_layers[layer_i]((ego_embedding, feat_a), r_ego2a, edge_index_ego2a)
 
@@ -609,7 +596,8 @@ class InitDenoiser(nn.Module):
 
                 feat_a = feat_a_b[mask_a_b]
 
-            res=self.to_out_m_delta(feat_a)
+            out_m_delta = self.to_out_m_delta(feat_a)
+            res=self.proj_out_m_delta(out_m_delta)
 
             res=self.denormalize(res)
 
@@ -669,17 +657,6 @@ class InitDenoiser(nn.Module):
 
             res=self.normalize(res)
         else:
-            beta_emb = self.noise_emb(beta)
-            # num_agents x 128
-
-            m_delta = self.proj_in_m_delta(m_delta).view(-1, self.hidden_dim)
-
-            if self.use_all_type:
-                m_delta = m_delta +ego_embedding
-
-            else:
-                m_delta = m_delta + self.type_a_emb(type)+ego_embedding
-            m_delta = self.proj_in_m_delta_2(m_delta)
 
             self.num_samples = num_samples
 
