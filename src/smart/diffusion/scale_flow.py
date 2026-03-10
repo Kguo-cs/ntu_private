@@ -156,9 +156,9 @@ class ScaleFlow(nn.Module):
         if "step_idx" in tokenized_agent.keys():
             timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
-            t_batch=t_batch[:, None]
+            t_batch=t_batch[:, None,None]
         else:
-            t_batch = self.sample_t(num_scenes, device=device)[:, None].to(device)  # t ~ U[0,1]
+            t_batch = self.sample_t(num_scenes, device=device)[:, None,None].to(device)  # t ~ U[0,1]
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
@@ -215,7 +215,7 @@ class ScaleFlow(nn.Module):
 
                 x[nan_mask]=0
 
-            z = (1 - t[:,:, None]) * e + t[:,:, None] * x #large t, low noise
+            z = (1 - t) * e + t * x #large t, low noise
 
             #z=self.net.normalize_z(z)
 
@@ -223,7 +223,7 @@ class ScaleFlow(nn.Module):
 
                 x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask)
 
-                denom = (1 - t[:, :, None]).clamp_min(self.t_eps)
+                denom = (1 - t).clamp_min(self.t_eps)
 
                 v_target = (x - z) /denom
 
@@ -259,13 +259,14 @@ class ScaleFlow(nn.Module):
         z_next = z + (t_next - t) * v_pred
         return z_next
 
+
     @torch.no_grad()
     def _forward_sample(self, z, t, labels):
 
         tokenized_agent, scene_enc, eval_mask=labels
         num_agents = len(z)
 
-        t_n=torch.full((num_agents,1), t, device=eval_mask.device)
+        t_n=torch.full((num_agents,1,1), t, device=eval_mask.device)
 
         if self.use_scale:
 
@@ -275,9 +276,27 @@ class ScaleFlow(nn.Module):
 
         # conditional
         x_cond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
-        v_cond = (x_cond- z) / (1.0 - t_n[:,:,None]).clamp_min(self.t_eps)
+        v_cond = (x_cond- z) / (1.0 - t_n).clamp_min(self.t_eps)
 
-        return v_cond,t_n[:,:,None],x_cond
+        if self.net.label_drop_prob>0:
+
+            tokenized_agent["nonego_type_sorted"]=torch.full_like(tokenized_agent["nonego_type_sorted"], self.net.num_classes)
+
+            # unconditional
+            x_uncond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+            v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
+
+            self.cfg_interval = (0.1, 1.0)
+            self.cfg_scale=3
+
+            # cfg interval
+            low, high = self.cfg_interval
+            interval_mask = (t_n < high) & ((low == 0) | (t_n > low))
+            cfg_scale_interval = torch.where(interval_mask, self.cfg_scale, 1.0)
+
+            v_cond=v_uncond + cfg_scale_interval * (v_cond - v_uncond)
+
+        return v_cond,t_n,x_cond
 
     @torch.no_grad()
     def sample_flow(self,num_samples,tokenized_agent, scene_enc,    eval_mask):

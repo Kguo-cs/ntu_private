@@ -108,7 +108,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim=m_delta_dim+90*4-2
 
         self.output_dim=m_delta_dim
-        self.label_drop_prob=0
+        self.label_drop_prob=0.1
 
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
@@ -466,7 +466,7 @@ class InitDenoiser(nn.Module):
             # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
 
             #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
-            beta_emb_m = self.noise_embedding(beta) +self.type_a_emb(type)
+            beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
 
             feat_a = feat_a + beta_emb_m
 
