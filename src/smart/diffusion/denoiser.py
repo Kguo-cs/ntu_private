@@ -108,7 +108,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim=m_delta_dim+90*4-2
 
         self.output_dim=m_delta_dim
-        self.label_drop_prob=0.1
+        self.label_drop_prob=0
 
         self.register_buffer("normal_mean", torch.zeros(1, m_delta_dim))
         self.register_buffer("normal_scale", torch.ones(1, m_delta_dim))
