@@ -407,20 +407,7 @@ class InitDenoiser(nn.Module):
 
         m_init = torch.cat([local_pos, local_headings, initial_shape[:, :2], local_vel], dim=-1)
 
-        if not self.normal_initialized:
-            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
-            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
-            self.normal_initialized = True
-            # valid = ~torch.isnan(m_init)
-            # count = valid.sum(0, keepdim=True).clamp_min(1)
-            #
-            # mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
-            # std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
-            #     1e-8)
-
-            # self.normal_mean = mean
-            # self.normal_scale = std
-        m_init=self.normalize(m_init)
+        #m_init=self.normalize(m_init)
 
         tokenized_agent['nonego_type_sorted'] = nonego_type
 
@@ -434,8 +421,22 @@ class InitDenoiser(nn.Module):
         else:
             diff_input = m_init
 
-        # diff_input = self.normalize(diff_input)
-        m_init = self.denormalize(m_init)
+        if not self.normal_initialized:
+            self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
+            self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
+            self.normal_initialized = True
+            # valid = ~torch.isnan(m_init)
+            # count = valid.sum(0, keepdim=True).clamp_min(1)
+            #
+            # mean = torch.where(valid, m_init, 0).sum(0, keepdim=True) / count
+            # std = torch.sqrt(torch.where(valid, (m_init - mean) ** 2, 0).sum(0, keepdim=True) / count).clamp_min(
+            #     1e-8)
+
+            # self.normal_mean = mean
+            # self.normal_scale = std
+
+        diff_input = self.normalize(diff_input)
+        #m_init = self.denormalize(m_init)
 
         return diff_input,m_init,nonego_batch
 
