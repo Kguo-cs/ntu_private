@@ -317,23 +317,32 @@ class InitDenoiser(nn.Module):
 
             rel_vel=rotate_to_local(gt_initial_vel,gt_initial_heading)
 
-            center_token_traj = tokenized_agent["token_traj"].mean(-2)
+            use_corner=True
+
+            if use_corner:
+                center_token_traj = tokenized_agent["token_traj"].flatten(1, 2)
+            else:
+                center_token_traj = tokenized_agent["token_traj"].mean(-2)
 
             if self.use_prev_head:
                 rel_vel_heading=torch.atan2(pred_vel[:, 3], pred_vel[:, 2]) #local heading
 
                 vel_heading = torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
 
-                vel_heading[non_ego]=rel_vel_heading #ego local heading
+                vel_heading[non_ego]=rel_vel_heading # local heading
 
                 pred_pos=transform_to_global(
-                    center_token_traj,#.flatten(1, 2)
+                    center_token_traj,
                     None,
                     - rel_vel*0.5,
                     vel_heading,
-                )[0].reshape(center_token_traj.shape)
+                )[0]
 
-                gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
+                if use_corner:
+                    token_traj=tokenized_agent["token_traj"]
+                    gt_initial_idx = torch.linalg.norm(pred_pos.reshape(token_traj.shape)-token_traj[:,:1], dim=-1).mean(-1).argmin(-1)
+                else:
+                    gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
             else:
                 gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)
 

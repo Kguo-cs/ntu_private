@@ -54,7 +54,7 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=True
+        self.autoregressive_entry=False
         self.use_smart=False
         self.use_bird=False
         self.noise=False
@@ -276,6 +276,7 @@ class TokenProcessor(torch.nn.Module):
 
         module_dir = os.path.dirname(__file__)
 
+
         if self.autoregressive_entry:
             entry_token = os.path.join(module_dir, 'entry_prev_global512.pkl')
             entry_pos_token = pickle.load(open(entry_token, "rb"))
@@ -290,7 +291,7 @@ class TokenProcessor(torch.nn.Module):
                 self.n_token_offset = self.offset_token.shape[0]
             else:
                 self.n_token_offset = 4
-        else:
+        elif self.pred_entry:
             entry_token = os.path.join(module_dir, 'entry512.pkl')
 
             entry_pos_token = pickle.load(open(entry_token, "rb"))
