@@ -14,8 +14,6 @@ from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
 
-from .transformer_decoder import TransformerDecoderLayerDiff,sinusoidal_embedding
-
 from src.smart.layers.fourier_embedding import FourierEmbedding
 
 from src.smart.utils import (
@@ -169,7 +167,7 @@ class InitDenoiser(nn.Module):
                             bipartite=True,
                             has_pos_emb=True,
                         )
-                        for _ in range(num_layers)
+                        for _ in range(num_layers-1)
                     ]
                 )
 
@@ -183,9 +181,12 @@ class InitDenoiser(nn.Module):
                             bipartite=False,
                             has_pos_emb=True,
                         )
-                        for _ in range(num_layers)
+                        for _ in range(num_layers-1)
                     ]
                 )
+                module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                                                  hist_len=1000000)  # replace with gnn
+                self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(1)])
 
                 # self.a2ego_attn_layers = nn.ModuleList(
                 #     [
@@ -574,9 +575,27 @@ class InitDenoiser(nn.Module):
 
                     # feat_a = self.a2ego_attn_layers[layer_i]((ego_embedding, feat_a), r_ego2a, edge_index_ego2a)
 
-                    feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+                    if layer_i==1:
 
-                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                        pos_pl, orient_pl, map_emb,map_mask=self.padding(pos_pl, orient_pl, feat_map, batch_pl,num_graphs)#pos, heading, feature, batch, batch_num
+                        padding_pos_a, padding_heading_a, padding_features_a,mask_a=self.padding(pos_s, theta, feat_a, batch,num_graphs)#pos, heading, feature, batch, batch_num
+
+                        m_delta = self.entry_formers[0](padding_features_a,
+                                                        padding_pos_a, padding_heading_a, mask_a,
+                                                        map_emb,
+                                                        pos_pl,orient_pl, map_mask
+                                                        )
+
+                        feat_a = m_delta[mask_a]  # .view(-1, D)  # [sum(agent_cnt_per_batch), D]
+
+
+                    else:
+                        if layer_i==2:
+                            layer_i=1
+
+                        feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
+
+                        feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
             else:
                 pos_pl, orient_pl, map_emb,map_mask=scene_enc

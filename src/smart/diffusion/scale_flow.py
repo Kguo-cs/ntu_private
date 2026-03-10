@@ -27,8 +27,6 @@ from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
 
-from .transformer_decoder import TransformerDecoderLayerDiff,sinusoidal_embedding
-
 from src.smart.layers.fourier_embedding import FourierEmbedding
 
 from src.smart.utils import (

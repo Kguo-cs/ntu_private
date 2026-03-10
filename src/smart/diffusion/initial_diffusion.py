@@ -1,16 +1,8 @@
 import torch
 import torch.nn as nn
-from .scale_flow import ScaleFlow
 from argparse import ArgumentParser
 
-from src.smart.utils import (
-    cal_polygon_contour,
-    transform_to_global,
-    transform_to_local,
-    wrap_angle,
-    rotate_to_global,
-    rotate_to_local,
-)
+from src.smart.utils import transform_to_local
 from src.smart.loss.earth_match import get_matching_loss
 from src.smart.metrics.gen_metrics import plot_scene
 
@@ -37,7 +29,7 @@ class InitDiffusion(nn.Module):
             self.latent_diffusion = True
 
         if self.latent_diffusion:
-            from .autoencoder import AutoEncoder
+            from src.smart.diffusion.dit.autoencoder import AutoEncoder
 
             self.autoencoder=AutoEncoder(num_encoder_blocks=2,num_decoder_blocks=2,hidden_dim=hidden_dim,latent_dim=8,num_heads=8)
 
@@ -47,10 +39,12 @@ class InitDiffusion(nn.Module):
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         if self.use_dit:
-            from src.smart.diffusion.ldm import LDM
+            from src.smart.diffusion.dit.ldm import LDM
 
             self.G = LDM()
         else:
+            from .scale_flow import ScaleFlow
+
             parser = ArgumentParser()
             self.add_model_specific_args(parser)
             args = parser.parse_args()
