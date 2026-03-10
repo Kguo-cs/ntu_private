@@ -373,6 +373,7 @@ class ScaleFlow(nn.Module):
 
                     first_i_veh_mask = rank <= k1#(~veh_mask) | (veh_rank <= schedule_i1)
 
+                    # if torch.all(schedule_i==counts):
                     tokenized_agent_scale = {}
                     tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
                     tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
@@ -388,6 +389,8 @@ class ScaleFlow(nn.Module):
                     #padding_mask=(((veh_rank<=schedule_i1) & (veh_rank>schedule_i)) & veh_mask)
 
                     tokenized_agent_scale["padding_mask"]=padding_mask
+
+                    tokenized_agent_scale["clustering"] = schedule_i != counts
 
                     z_scale=z[first_i_veh_mask]
 

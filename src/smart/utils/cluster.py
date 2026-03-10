@@ -314,6 +314,8 @@ def cluster_point_per_type(
     tokenized_agent["step_idx"] = step_idx
     tokenized_agent["step_number"] = step_number#7057 ,7056
 
+    tokenized_agent["clustering"]=k_per_graph!=counts
+
     return less_centroids,more_centroids,more_batch
 
 def build_less_more_grouped1(
@@ -532,7 +534,7 @@ def cluster_points(pos, batch, type, type_counts,use_all_type
 # plt.show()
 
 
-def batch_increasing_schedule(N, S=50+1, gamma=1):
+def batch_increasing_schedule(count, S=50+1, gamma=1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -541,12 +543,12 @@ def batch_increasing_schedule(N, S=50+1, gamma=1):
     Returns:
         schedule: (B, S) integer tensor
     """
-    s = torch.arange(S, device=N.device).float()  # (S,)
+    s = torch.arange(S, device=count.device).float()  # (S,)
     ratio = (s / S).pow(gamma)  # (S,)
 
-    schedule = torch.ceil_(N[:, None] * ratio[None, :])
-    schedule = torch.minimum(schedule, N[:, None])
+    schedule = torch.ceil_(count[:, None] * ratio[None, :])
+    schedule = torch.minimum(schedule, count[:, None])
 
-    schedule =torch.cat([schedule,schedule[:,-1:].repeat(1,50)],dim=-1)
+    schedule =torch.cat([schedule,count[:,None].repeat(1,50)],dim=-1)
 
     return schedule.long()

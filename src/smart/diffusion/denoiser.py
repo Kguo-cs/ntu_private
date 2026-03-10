@@ -87,7 +87,7 @@ class InitDenoiser(nn.Module):
 
 
         self.use_graph=True
-        self.ego_rel = False
+        self.ego_rel = True
         self.use_scale=True
         noise_dim = 1
         if mean_flow:
@@ -177,6 +177,9 @@ class InitDenoiser(nn.Module):
                 #         for _ in range(num_layers)
                 #     ]
                 # )
+                # module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
+                #                                   hist_len=1000000)  # replace with gnn
+                # self.entry_formers = ModuleList([copy.deepcopy(module) for i in range(num_layers)])
 
             else:
                 module=RoFormerDecoder(hidden_dim=hidden_dim, num_heads=num_heads, dropout=0,
@@ -580,6 +583,34 @@ class InitDenoiser(nn.Module):
 
                 feat_a=feat_a+ego_embedding
 
+
+                # clustering=tokenized_agent["clustering"]
+                #
+                # clustering_mask=clustering[batch]
+                #
+                # pos_pl, orient_pl, map_emb, map_mask = self.padding(pos_pl, orient_pl, feat_map, batch_pl,
+                #                                                     num_graphs)  # pos, heading, feature, batch, batch_num
+                # padding_pos_a, padding_heading_a, padding_features_a, mask_a = self.padding(pos_s, theta, feat_a, batch,
+                #                                                                             num_graphs)  # pos, heading, feature, batch, batch_num
+                #
+                # pos_pl=pos_pl[clustering]
+                # orient_pl=orient_pl[clustering]
+                # map_emb=map_emb[clustering]
+                # map_mask=map_mask[clustering]
+                # padding_pos_a=padding_pos_a[clustering]
+                # padding_heading_a=padding_heading_a[clustering]
+                # padding_features_a=padding_features_a[clustering]
+                # mask_a=mask_a[clustering]
+                #
+                # for layer_i in range(self.num_layers):
+                #     padding_features_a = self.entry_formers[layer_i](padding_features_a,
+                #                                     padding_pos_a, padding_heading_a, mask_a,
+                #                                     map_emb,
+                #                                     pos_pl, orient_pl, map_mask
+                #                                     )
+                #
+                # feat_a1 = padding_features_a[mask_a]
+
                 for layer_i in range(self.num_layers):
 
                     # feat_a = self.a2ego_attn_layers[layer_i]((ego_embedding, feat_a), r_ego2a, edge_index_ego2a)
@@ -587,6 +618,8 @@ class InitDenoiser(nn.Module):
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
                     feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+
+                #feat_a[clustering_mask]=feat_a1
 
             else:
                 pos_pl, orient_pl, map_emb,map_mask=scene_enc
