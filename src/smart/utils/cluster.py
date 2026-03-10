@@ -2,7 +2,7 @@ import torch
 
 def kmeans( padded, mask,k_per_graph,batch,pos,valid_mask,max_k, initial_centroids=None,iters=10):
 
-    padded=padded[:,:,:2]
+    #padded=padded[:,:,:2]
 
     num_graphs,max_points, D=padded.shape
 

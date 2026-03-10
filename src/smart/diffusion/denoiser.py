@@ -404,18 +404,6 @@ class InitDenoiser(nn.Module):
 
         m_init = torch.cat([local_pos, local_headings, initial_shape[:, :2], local_vel], dim=-1)
 
-        tokenized_agent['nonego_type_sorted'] = nonego_type
-
-        if self.use_scale:
-            if self.use_all_type:
-                one_hot = F.one_hot(tokenized_agent["nonego_type_sorted"], num_classes=tokenized_agent["type_counts"].shape[-1])
-
-                m_init = torch.cat([m_init, one_hot], dim=-1)
-
-            diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
-        else:
-            diff_input = m_init
-
         if not self.normal_initialized:
             self.normal_mean.copy_(torch.mean(m_init, dim=0, keepdim=True))
             self.normal_scale.copy_(torch.std(m_init, dim=0, keepdim=True))
@@ -430,7 +418,20 @@ class InitDenoiser(nn.Module):
             # self.normal_mean = mean
             # self.normal_scale = std
 
-        diff_input = self.normalize(diff_input)
+        tokenized_agent['nonego_type_sorted'] = nonego_type
+
+        if self.use_scale:
+            if self.use_all_type:
+                one_hot = F.one_hot(tokenized_agent["nonego_type_sorted"], num_classes=tokenized_agent["type_counts"].shape[-1])
+
+                m_init = torch.cat([m_init, one_hot], dim=-1)
+
+            diff_input, m_init , nonego_batch= cluster_point_per_type(m_init, nonego_batch, tokenized_agent)
+        else:
+            diff_input = m_init
+
+        # diff_input = self.normalize(diff_input)
+        m_init = self.denormalize(m_init)
 
         return diff_input,m_init,nonego_batch
 
