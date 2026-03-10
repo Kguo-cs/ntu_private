@@ -156,7 +156,7 @@ class SMARTMapDecoder(nn.Module):
             token_idx=token_idx[dist_mask]
             light_type=light_type[dist_mask]
             map_type=map_type[dist_mask]
-            mask = ((map_type == 4) | (map_type == 5)) & (dist[dist_mask]<100)
+            mask = (dist[dist_mask]<100)# ((map_type == 4) | (map_type == 5)) &
             #mask=torch.ones_like(map_type).to(torch.bool)
 
         if self.pred_offroad:
