@@ -27,8 +27,6 @@ from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
 
-from .transformer_decoder import TransformerDecoderLayerDiff,sinusoidal_embedding
-
 from src.smart.layers.fourier_embedding import FourierEmbedding
 
 from src.smart.utils import (
@@ -281,6 +279,7 @@ class ScaleFlow(nn.Module):
         if self.net.label_drop_prob>0:
 
             tokenized_agent["nonego_type_sorted"]=torch.full_like(tokenized_agent["nonego_type_sorted"], self.net.num_classes)
+            tokenized_agent["ego_embedding"]=torch.full_like(tokenized_agent["ego_embedding"], 0)
 
             # unconditional
             x_uncond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)

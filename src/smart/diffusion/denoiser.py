@@ -13,9 +13,6 @@ from torch_geometric.data import Batch
 from torch_geometric.data import HeteroData
 from torch.nn.utils.rnn import pad_sequence
 from torch.distributions import Bernoulli
-
-from .transformer_decoder import TransformerDecoderLayerDiff,sinusoidal_embedding
-
 from src.smart.layers.fourier_embedding import FourierEmbedding
 
 from src.smart.utils import (
@@ -248,10 +245,13 @@ class InitDenoiser(nn.Module):
 
         return z[:,None]
 
-    def drop_labels(self, labels):
+    def drop_labels(self, labels,ego_embedding):
         drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
         out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
-        return out
+
+        out1 = torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)
+
+        return out,out1
 
     def padding(self, pos, heading, feature, batch, batch_num):
         lengths = torch.bincount(batch, minlength=batch_num).tolist()
@@ -451,7 +451,7 @@ class InitDenoiser(nn.Module):
         num_graphs = tokenized_agent["num_graphs"]
         ego_embedding = tokenized_agent["ego_embedding"]
 
-        type = self.drop_labels(type) if self.training else type
+        type,ego_embedding = self.drop_labels(type,ego_embedding) if self.training else (type,ego_embedding)
 
         if self.use_roformer:
             m_delta=m_delta[:,0]
