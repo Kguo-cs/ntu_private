@@ -126,7 +126,7 @@ class InitDenoiser(nn.Module):
                 self.edge_encoder = EdgeEncoder(hidden_dim,
                                                 num_freq_bands,
                                                 use_a2a=True,
-                                                use_pl2a=True
+                                                use_pl2a=False
                                                 )
 
 
@@ -135,20 +135,20 @@ class InitDenoiser(nn.Module):
                 #                                 use_pl2a=True,
                 #                                 )
 
-
-                self.pt2a_attn_layers = nn.ModuleList(
-                    [
-                        AttentionLayer(
-                            hidden_dim=hidden_dim,
-                            num_heads=num_heads,
-                            head_dim=head_dim,
-                            dropout=dropout,
-                            bipartite=True,
-                            has_pos_emb=True,
-                        )
-                        for _ in range(num_layers)
-                    ]
-                )
+                #
+                # self.pt2a_attn_layers = nn.ModuleList(
+                #     [
+                #         AttentionLayer(
+                #             hidden_dim=hidden_dim,
+                #             num_heads=num_heads,
+                #             head_dim=head_dim,
+                #             dropout=dropout,
+                #             bipartite=True,
+                #             has_pos_emb=True,
+                #         )
+                #         for _ in range(num_layers)
+                #     ]
+                # )
 
                 self.a2a_attn_layers = nn.ModuleList(
                     [
@@ -514,20 +514,20 @@ class InitDenoiser(nn.Module):
 
                 head_vector_s = torch.stack([theta.cos(), theta.sin()], dim=-1)
 
-                edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
-                    pos_pl=pos_pl,  # [n_pl, 2]
-                    orient_pl=orient_pl,  # [n_pl]
-                    pos_a=pos_s,  # [n_agent, n_step, 2]
-                    head_a=theta,  # [n_agent, n_step]
-                    head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
-                    mask=None,  # [n_agent, n_step]
-                    batch_s=batch,  # [n_agent,n_step]
-                    batch_pl=batch_pl,  # [n_pl*n_step]
-                    pl2a_radius=40,
-                    max_num_neighbors=20,
-                    agent_train_mask=None,
-                    layer_num=self.num_layers
-                )
+                # edge_index_pl2a, r_pl2a = self.edge_encoder.build_map2agent_edge(
+                #     pos_pl=pos_pl,  # [n_pl, 2]
+                #     orient_pl=orient_pl,  # [n_pl]
+                #     pos_a=pos_s,  # [n_agent, n_step, 2]
+                #     head_a=theta,  # [n_agent, n_step]
+                #     head_vector_a=head_vector_s,  # [n_agent, n_step, 2]
+                #     mask=None,  # [n_agent, n_step]
+                #     batch_s=batch,  # [n_agent,n_step]
+                #     batch_pl=batch_pl,  # [n_pl*n_step]
+                #     pl2a_radius=40,
+                #     max_num_neighbors=20,
+                #     agent_train_mask=None,
+                #     layer_num=self.num_layers
+                # )
 
                 edge_index_a2a, r_a2a, dist, relative_pos, r_a2a_nei, center_nei_pos, center_nei_heading = self.edge_encoder.build_interaction_edge(
                     pos_s=pos_s,  # [n_agent, n_step, 2]
@@ -624,7 +624,7 @@ class InitDenoiser(nn.Module):
 
                     feat_a = self.a2a_attn_layers[layer_i](feat_a, r_a2a, edge_index_a2a)
 
-                    feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
+                    # feat_a  = self.pt2a_attn_layers[layer_i]((feat_map, feat_a), r_pl2a, edge_index_pl2a)  # edge_index_pl2a[0] is the src, edge_index_pl2a[1] is dst
 
                 # if torch.any(clustering):
                 #     feat_a[clustering_mask]=feat_a1
