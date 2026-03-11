@@ -79,10 +79,9 @@ class InitDenoiser(nn.Module):
         self.num_classes=3
 
         if self.use_all_type:
-            # self.type_a_emb = MLPLayer(3, hidden_dim, hidden_dim)
             m_delta_dim = 11
         else:
-            self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)
+            self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
             m_delta_dim = 5+3
 
 
@@ -96,7 +95,7 @@ class InitDenoiser(nn.Module):
 
         self.use_all_pos=token_processor.use_all_pos
 
-        self.use_prev_head=True
+        self.use_prev_head=False
 
         if self.use_prev_head:
             m_delta_dim=m_delta_dim+2
@@ -252,7 +251,7 @@ class InitDenoiser(nn.Module):
         drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
         out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
 
-        out1 = ego_embedding#torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)
+        out1 = torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)#ego_embedding#
 
         return out,out1
 
