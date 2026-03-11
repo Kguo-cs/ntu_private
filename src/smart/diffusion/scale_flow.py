@@ -230,7 +230,7 @@ class ScaleFlow(nn.Module):
             else:
                 v_target =x - e
 
-                v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=mode)
+                v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
 
                 x_pred =e+v_pred
 
@@ -278,11 +278,12 @@ class ScaleFlow(nn.Module):
 
         if self.net.label_drop_prob>0:
 
-            tokenized_agent["nonego_type_sorted"]=torch.full_like(tokenized_agent["nonego_type_sorted"], self.net.num_classes)
+
+            # tokenized_agent["nonego_type_sorted"]=torch.full_like(tokenized_agent["nonego_type_sorted"], self.net.num_classes)
             #tokenized_agent["ego_embedding"]=torch.full_like(tokenized_agent["ego_embedding"], 0)
 
             # unconditional
-            x_uncond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+            x_uncond = self.net(z, t_n, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=0)
             v_uncond = (x_uncond - z) / (1.0 - t_n).clamp_min(self.t_eps)
 
             self.cfg_interval = (0.1, 1.0)
@@ -371,38 +372,40 @@ class ScaleFlow(nn.Module):
                     k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
                     k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
-                    first_i_veh_mask = rank <= k1#(~veh_mask) | (veh_rank <= schedule_i1)
+                    eval_mask = rank <= k1#(~veh_mask) | (veh_rank <= schedule_i1)
 
                     # if torch.all(schedule_i==counts):
-                    tokenized_agent_scale = {}
-                    tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
-                    tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
-                    tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
-                    tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
+                    # tokenized_agent_scale = {}
+                    # tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
+                    # tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
+                    # tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
+                    # tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
+                    #
+                    # agent_batch_scale=agent_batch[first_i_veh_mask]
 
-                    agent_batch_scale=agent_batch[first_i_veh_mask]
+                    #tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
 
-                    tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
+                    padding_mask = (eval_mask &  (rank> k))[eval_mask]
 
-                    padding_mask = (first_i_veh_mask &  (rank> k))[first_i_veh_mask]
+                    tokenized_agent['padding_mask'] = padding_mask
 
                     #padding_mask=(((veh_rank<=schedule_i1) & (veh_rank>schedule_i)) & veh_mask)
 
-                    tokenized_agent_scale["padding_mask"]=padding_mask
+                    # tokenized_agent_scale["padding_mask"]=padding_mask
+                    #
+                    # tokenized_agent_scale["clustering"] = schedule_i != counts
 
-                    tokenized_agent_scale["clustering"] = schedule_i != counts
-
-                    z_scale=z[first_i_veh_mask]
+                    #z_scale=z[first_i_veh_mask]
 
                     #t_next=torch.clamp_max(t_next+0.1,max=1)
                     #z_scale = self.net.normalize_z(z_scale)
 
-                    z[first_i_veh_mask],x_cond=  self._euler_step(z_scale, t, t_next, (tokenized_agent_scale, scene_enc,eval_mask))
+                    z[eval_mask],x_cond=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
                 else:
                     z,x_cond =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
-                x_list.append(x_cond)
+                #x_list.append(x_cond)
                 # batch_list.append(tokenized_agent_scale["nonego_batch"])
                 # step_list.append(torch.zeros_like(tokenized_agent_scale["nonego_batch"])+i)
 

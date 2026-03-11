@@ -164,24 +164,55 @@ class SMARTAgentDecoder(nn.Module):
         gt_head=tokenized_agent["sampled_heading"].clone()
         gt_valid=tokenized_agent["valid_mask"].clone()
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
-        sampled_idx=gt_sampled_idx[:, :current_step]
-
         token_traj_all = tokenized_agent["token_traj_all"]
 
-        if gt_pos.shape[1]==gt_head.shape[1]:
-            pos_a = gt_pos[:, :current_step]
-        else:
-            pos_a = gt_pos[:, :current_step+1]
+        if self.pred_init:
+            current_step=1
 
         head_a = gt_head[:, :current_step]
         mask = gt_valid[:, :current_step]
+        pos_a = gt_pos[:, :current_step]
+        sampled_idx=gt_sampled_idx[:, :current_step]
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         if self.pred_init:
 
-            current_step=1
+            if "gt_z_raw" not in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+                batch=tokenized_agent["batch"]
+                num_graphs=tokenized_agent["num_graphs"]
+                batch_mask=batch<num_graphs//2
 
-            pos_a, head_a, sampled_idx, initial_speed = self.init_decoder(tokenized_agent)
+                tokenized_agent_new={}
+
+                for key in {"initial_pos","initial_heading","batch","ego_mask","initial_type","initial_shape","initial_vel","token_traj"}:
+                    tokenized_agent_new[key]=tokenized_agent[key][batch_mask]
+
+                tokenized_agent_new["num_graphs"]=num_graphs//2
+                tokenized_agent_new["ego_traj"]=tokenized_agent["ego_traj"][:num_graphs//2]
+
+                batch_pl_mask=map_feature["batch"]<num_graphs//2
+
+                new_map_features={}
+
+                for key in map_feature.keys():
+                    new_map_features[key]=map_feature[key][batch_pl_mask]
+
+                tokenized_agent_new["map_feature"]=new_map_features
+            else:
+                tokenized_agent_new=tokenized_agent
+
+            pos_a1, head_a1, sampled_idx1, initial_speed = self.init_decoder(tokenized_agent_new)
+
+            if "gt_z_raw" not in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+                pos_a[batch_mask]=pos_a1
+                head_a[batch_mask]=head_a1
+                sampled_idx[batch_mask]=sampled_idx1
+            else:
+                pos_a=pos_a1
+                head_a=head_a1
+                sampled_idx=sampled_idx1
+
+
 
             if self.token_processor.use_all_pos:
                 out_dict = {

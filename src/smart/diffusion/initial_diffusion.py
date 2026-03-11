@@ -185,7 +185,7 @@ class InitDiffusion(nn.Module):
             else:
                 tokenized_agent['nonego_type_sorted']= nonego_type
 
-                pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,non_ego,num_samples=1,
+                pred_init, pred_list, batch_list, step_list = self.G.sample( tokenized_agent, map_feature,torch.ones_like(non_ego),num_samples=1,
                                                         sampling='ddim',
                                                         stride=1,
                                                         if_output_diffusion_process=False,

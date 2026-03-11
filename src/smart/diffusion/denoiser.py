@@ -247,9 +247,13 @@ class InitDenoiser(nn.Module):
 
         return z[:,None]
 
-    def drop_labels(self, labels,ego_embedding):
-        drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
-        out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
+    def drop_labels(self, labels,ego_embedding,mode):
+
+        if mode==1:
+            drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
+            out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
+        else:
+            out=torch.full_like(labels, self.num_classes)
 
         out1 = ego_embedding#torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)#ego_embedding#
 
@@ -448,12 +452,12 @@ class InitDenoiser(nn.Module):
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device
-        batch = tokenized_agent["nonego_batch"]
-        type = tokenized_agent["nonego_type_sorted"]
+        batch = tokenized_agent["nonego_batch"][eval_mask]
+        type = tokenized_agent["nonego_type_sorted"][eval_mask]
         num_graphs = tokenized_agent["num_graphs"]
-        ego_embedding = tokenized_agent["ego_embedding"]
+        ego_embedding = tokenized_agent["ego_embedding"][eval_mask]
 
-        type,ego_embedding = self.drop_labels(type,ego_embedding) if self.training else (type,ego_embedding)
+        type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
 
         if self.use_roformer:
             m_delta=m_delta[:,0]
