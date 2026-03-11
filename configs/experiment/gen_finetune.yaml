@@ -41,7 +41,25 @@ ckpt_path: './waymo_data/epoch=39-step=76120.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
 
-task_name: AIRL40_diffdis_203_start0 #_l4_nonego #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL48_diffdis_203_start0_nodis #_l4_nonego #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+
+
+logger:
+  wandb:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    name: ${task_name}
+    save_dir: "${paths.output_dir}"
+    offline: False
+    id: null # pass correct id to resume experiment!
+    anonymous: null # enable anonymous logging
+    project: sim
+    log_model: False # upload lightning ckpts
+    prefix: "" # a string to put at the beginning of metric keys
+    entity: u3006612
+    group: ""
+    tags: []
+    job_type: ""
+    resume: allow
 
 trainer:
   limit_train_batches: 1.0
@@ -53,7 +71,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 40 #6
+  train_batch_size: 48 #6
   val_batch_size: 64
   test_batch_size: 10
   num_workers: 8

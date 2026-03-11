@@ -69,6 +69,9 @@ class IQ_SoftQ(LightningModule):
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
+
+        self.learn_dis=False
+
         # if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
         #     self.automatic_optimization=False
 
@@ -224,127 +227,6 @@ class IQ_SoftQ(LightningModule):
 
                 action_nll=action_nll+pos_nll+head_nll+0.1*shape_nll#+0.1*offset_nll
 
-        if pred["entry_logit"] is not None:
-
-            if self.token_processor.autoregressive_entry:
-
-                pred_entry_logit,pred_entry_head_logit,pred_offset,type_logit,pred_shape=pred["entry_logit"]
-
-                pos_idx=tokenized_agent["pos_idx"]
-
-                entry_head_idx=tokenized_agent["head_idx"]
-
-                entry_pos_offset=tokenized_agent["offset"]
-
-                entry_mask =pos_idx!=pred_entry_logit.shape[-1]-1
-
-                pos_mask=torch.cat([torch.ones_like(entry_mask[:,:1]),entry_mask],dim=1)
-
-                pos_idx=torch.cat([pos_idx, torch.zeros_like(pos_idx[:,:1])+pred_entry_logit.shape[-1]-1], dim=1)[pos_mask]
-
-                entry_log_p=torch.log_softmax(pred_entry_logit[pos_mask], dim=-1)
-
-                entry_nll = -torch.gather(entry_log_p, dim=-1, index=pos_idx.unsqueeze(-1)).mean()
-
-                self.log("train/entry_nll", entry_nll.item(), on_step=True, batch_size=1)
-
-                entry_head_log_p=torch.log_softmax(pred_entry_head_logit[entry_mask], dim=-1)
-
-                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx[entry_mask].unsqueeze(-1)).mean()
-
-                self.log("train/entry_head_nll", entry_head_nll.item(), on_step=True, batch_size=1)
-
-                entry_pos_offset=entry_pos_offset[entry_mask]
-                pred_offset=pred_offset[entry_mask]
-
-                action_nll=action_nll+0.01*entry_nll+0.01*entry_head_nll
-
-                if self.token_processor.token_offset:
-                    pred_offset=torch.log_softmax(pred_offset, dim=-1)
-
-                    entry_offset_nll = -torch.gather(pred_offset, dim=-1, index=entry_pos_offset.unsqueeze(-1)).mean()
-
-                    self.log("train/entry_offset_nll", entry_offset_nll.item(), on_step=True, batch_size=1)
-
-                    action_nll = action_nll+entry_offset_nll
-                else:
-                    offset_l1=(entry_pos_offset[...,:-1]-pred_offset[...,:-1]).abs().mean()
-
-                    self.log("train/offset_l1", offset_l1.item(), on_step=True, batch_size=1)
-
-                    offset_head = wrap_angle(entry_pos_offset[..., -1] - pred_offset[..., -1]).abs().mean()
-
-                    self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
-
-                    action_nll=action_nll+0.01*offset_l1+0.01*offset_head
-
-                if not self.token_processor.use_bird:
-                    entry_type = tokenized_agent["entry_type"]
-
-                    entry_type_log_p = torch.log_softmax(type_logit[entry_mask], dim=-1)
-
-                    entry_type_nll = -torch.gather(entry_type_log_p, dim=-1,
-                                                   index=entry_type[entry_mask].unsqueeze(-1)).mean()
-
-                    self.log("train/entry_type_nll", entry_type_nll.item(), on_step=True, batch_size=1)
-
-                    entry_shape = tokenized_agent["entry_shape"]
-
-                    shape_l1 = (entry_shape[entry_mask] - pred_shape[entry_mask]).abs().mean()
-
-                    self.log("train/shape_l1", shape_l1.item(), on_step=True, batch_size=1)
-
-                    action_nll=action_nll+0.01*entry_type_nll+0.01*shape_l1
-
-            else:
-                entry_idx=tokenized_agent["entry_idx"][:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)
-
-                pred_entry_logit,pred_entry_head_logit,pred_offset,type_logit,pred_shape=pred["entry_logit"]
-
-                entry_log_p=torch.log_softmax(pred_entry_logit, dim=-1)
-
-                entry_nll = -torch.gather(entry_log_p, dim=-1, index=entry_idx[train_mask].unsqueeze(-1)).mean()
-
-                self.log("train/entry_type_nll", entry_nll.item(), on_step=True, batch_size=1)
-
-                entry_head_idx=tokenized_agent["entry_head_idx"]#[:,self.start_step + 1:].transpose(0, 1).flatten(0, 1)[head_mask]#t,a
-
-                entry_head_log_p=torch.log_softmax(pred_entry_head_logit, dim=-1)
-
-                entry_head_nll = -torch.gather(entry_head_log_p, dim=-1, index=entry_head_idx.unsqueeze(-1)).squeeze(-1).mean()
-
-                self.log("train/entry_head_nll", entry_head_nll.item(), on_step=True, batch_size=1)
-
-                action_nll = action_nll +0.01* entry_nll + 0.01*entry_head_nll
-
-                entry_pos_offset=tokenized_agent["entry_pos_offset"]
-
-                offset_l1=(entry_pos_offset[...,:-1]-pred_offset[...,:-1]).abs().mean()
-
-                self.log("train/offset_l1", offset_l1.item(), on_step=True, batch_size=1)
-
-                offset_head = wrap_angle(entry_pos_offset[..., -1] - pred_offset[..., -1]).abs().mean()
-
-                self.log("train/offset_head", offset_head.item(), on_step=True, batch_size=1)
-
-                action_nll=action_nll+0.01*offset_l1+0.01*offset_head
-
-                if not self.token_processor.use_bird:
-                    entry_type = tokenized_agent["entry_pos"]
-                    type_log_p = torch.log_softmax(type_logit, dim=-1)
-                    entry_type_nll = -torch.gather(type_log_p, dim=-1,
-                                                   index=entry_type.unsqueeze(-1)).mean()
-
-                    self.log("train/entry_nll", entry_type_nll.item(), on_step=True, batch_size=1)
-
-                    entry_shape = tokenized_agent["entry_shape"]
-
-                    shape_l1 = (entry_shape - pred_shape).abs().mean()
-
-                    self.log("train/shape_l1", shape_l1.item(), on_step=True, batch_size=1)
-
-                    action_nll=action_nll+0.01*entry_type_nll+0.01*shape_l1
-
         return action_nll,log_prob
 
     def get_reward(self, tokenized_agent, key,dis_mask=None):
@@ -453,7 +335,11 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
-        expert_dis_loss,_,_,expert_present_mask,expert_gp,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        if self.learn_dis:
+            expert_dis_loss,_,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
+        else:
+            expert_dis_loss=0
+            expert_dis_mask=None
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
@@ -479,7 +365,12 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
+        if self.learn_dis:
+            agent_dis_loss, agent_rewards, nei_rewards, agent_present_mask, agent_gp, _ = self.get_reward(
+                tokenized_agent_rollout, "agent", expert_dis_mask)
+        else:
+            with torch.no_grad():
+                agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
         feat_a = tokenized_agent_rollout["feat_a"][-2]
 

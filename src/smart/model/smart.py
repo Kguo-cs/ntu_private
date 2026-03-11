@@ -83,8 +83,10 @@ class SMART(LightningModule):
             else:
                 for p in self.encoder.agent_encoder.parameters():
                     p.requires_grad = True
-                for p in self.encoder.discriminator.parameters():
-                    p.requires_grad = True
+
+                if self.learn_dis:
+                    for p in self.encoder.discriminator.parameters():
+                        p.requires_grad = True
 
                 for p in self.encoder.agent_encoder.init_decoder.parameters():
                     p.requires_grad = False
