@@ -543,7 +543,7 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
     Returns:
         schedule: (B, S) integer tensor
     """
-    s = torch.arange(S, device=count.device).float()  # (S,)
+    s = torch.arange(S, device=count.device) # (S,)
     # ratio = (s / S).pow(gamma)  # (S,)
     #
     # schedule = torch.ceil_(count[:, None] * ratio[None, :])
