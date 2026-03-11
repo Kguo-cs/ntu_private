@@ -33,7 +33,7 @@ model:
     #val_closed_loop: False
     finetune: true
     smart: false
-    n_batch_wosac_metric: 0
+    #n_batch_wosac_metric: 0
 #    n_vis_batch: 1
 #    n_vis_scenario: 32
 #    n_vis_rollout: 2
