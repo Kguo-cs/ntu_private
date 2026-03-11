@@ -534,7 +534,7 @@ def cluster_points(pos, batch, type, type_counts,use_all_type
 # plt.show()
 
 
-def batch_increasing_schedule(count, S=50+1, gamma=1):
+def batch_increasing_schedule(count, S=100+1, gamma=1):
     """
     N: (B,) tensor of maximum levels per batch
     S: total number of steps (int)
@@ -547,8 +547,7 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
     # ratio = (s / S).pow(gamma)  # (S,)
     #
     # schedule = torch.ceil_(count[:, None] * ratio[None, :])
-
-    # ratio=torch.clamp_min(1/S)
+    #schedule = torch.minimum(schedule, count[:, None])
 
     schedule = (s/S*count[:,None]).to(torch.long)
 
@@ -556,8 +555,7 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
 
     schedule2=torch.minimum(count[:,None],schedule1)
 
-    #schedule = torch.minimum(schedule, count[:, None])
 
-    schedule3 =torch.cat([schedule2,count[:,None].repeat(1,50)],dim=-1)
+    schedule3 =torch.cat([schedule2,count[:,None].repeat(1,1)],dim=-1)
 
     return schedule3
