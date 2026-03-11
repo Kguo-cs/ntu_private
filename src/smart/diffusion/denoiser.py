@@ -251,7 +251,7 @@ class InitDenoiser(nn.Module):
         drop = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
         out = torch.where(drop, torch.full_like(labels, self.num_classes), labels)
 
-        out1 = torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)#ego_embedding#
+        out1 = ego_embedding#torch.where(drop[:,None].repeat(1,ego_embedding.shape[1]), torch.full_like(ego_embedding, 0), ego_embedding)#ego_embedding#
 
         return out,out1
 
