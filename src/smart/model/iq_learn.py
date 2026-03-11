@@ -70,7 +70,6 @@ class IQ_SoftQ(LightningModule):
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
 
-        self.learn_dis=False
 
         # if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
         #     self.automatic_optimization=False
@@ -335,7 +334,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
-        if self.learn_dis:
+        if self.encoder.learn_dis:
             expert_dis_loss,_,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
         else:
             expert_dis_loss=0
@@ -365,7 +364,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
-        if self.learn_dis:
+        if self.encoder.learn_dis:
             agent_dis_loss, agent_rewards, nei_rewards, agent_present_mask, agent_gp, _ = self.get_reward(
                 tokenized_agent_rollout, "agent", expert_dis_mask)
         else:
