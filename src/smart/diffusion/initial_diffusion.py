@@ -149,7 +149,7 @@ class InitDiffusion(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init,x_pred ,z,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,non_ego)
+                loss_diff_init,x_pred ,z,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,torch.ones_like(non_ego))
 
                 if self.use_gan:
                     loss=self.get_gan_loss(m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego)
