@@ -151,8 +151,9 @@ class ScaleFlow(nn.Module):
         e = torch.randn_like(x)  # base distribution N(0, I)
 
         if "step_idx" in tokenized_agent.keys():
-            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
-            t_batch = timesteps[tokenized_agent["step_idx"]]
+            # timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
+            # t_batch = timesteps[tokenized_agent["step_idx"]]
+            t_batch=torch.zeros(num_scenes, device=device)+0.9
             t_batch=t_batch[:, None,None]
         else:
             t_batch = self.sample_t(num_scenes, device=device)[:, None,None].to(device)  # t ~ U[0,1]
@@ -237,12 +238,18 @@ class ScaleFlow(nn.Module):
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
+        t=0.9
+
         v_pred,t_n,x = self._forward_sample(z, t, labels)
 
         #t_next=torch.zeros_like(x)+t_next
 
         #z_next=(1 - t_next) * torch.randn_like(x)+ t_next * x
-        z_next = z + (t_next - t_n) * v_pred
+        if t_next==1:
+            z_next=x
+        else:
+            z_next = 0.1*torch.randn_like(x)+ 0.9 * x
+        #z_next = z + (t_next - t_n) * v_pred
         return z_next,x
 
     @torch.no_grad()

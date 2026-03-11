@@ -264,6 +264,8 @@ def cluster_point_per_type(
 
     step_idx = torch.randint(0, step_number, (num_graphs,), device=counts.device)
 
+    step_idx[0]=0
+
     step1_idx = step_idx + 1
 
     batch_idx = torch.arange(num_graphs, device=counts.device)
