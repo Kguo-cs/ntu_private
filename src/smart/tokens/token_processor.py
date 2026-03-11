@@ -54,24 +54,16 @@ class TokenProcessor(torch.nn.Module):
         self.agent_token_sampling = agent_token_sampling
         self.shift = 5
         self.pred_entry=pred_entry
-        self.autoregressive_entry=False
+        self.pred_init=pred_init
+        self.learn_init=learn_init
+        self.learn_autoencoder = learn_autoencoder
+
         self.use_smart=False
         self.use_bird=False
         self.noise=False
         self.use_token=True
-        self.use_time=False
         self.use_goal=False
-        self.pred_exit = False
-        self.token_initial = False
-        self.pred_map_token = False
-        self.match_all=False
-        self.token_offset=False
-        self.invalid_state=0
-        self.valid_state= 1
-        self.enter_state= 2
-        self.exit_state= 3
-        self.pred_init=pred_init
-        self.pl2seed_radius=81
+        self.token_initial=False
 
         self.use_all_pos=False
 
@@ -80,56 +72,6 @@ class TokenProcessor(torch.nn.Module):
         self.init_map_token(os.path.join(module_dir, map_token_file))
         self.n_token_agent = self.agent_token_all_veh.shape[0]
         self.n_token_map = self.map_token_traj_src.shape[0]
-
-        if  self.token_initial:
-            self.pl2seed_radius = 80
-            self.grid_interval = 2.5
-            self.offset_interval = 0.05
-            self.angle_interval = 0.25
-            self.attr_tokenizer = Attr_Tokenizer(grid_range=self.pl2seed_radius * 2,
-                                                 grid_interval=self.grid_interval,
-                                                 radius=self.pl2seed_radius,
-                                                 angle_interval=self.angle_interval)
-
-            self.offset_tokenizer = Attr_Tokenizer(grid_range=self.grid_interval,
-                                                   grid_interval=self.offset_interval,
-                                                   radius=100,
-                                                   angle_interval=3)
-
-            res = 0.25
-
-            res1 = 0.25
-
-            length, width = 12.25, 3.25
-
-            # number of tokens
-            nx = int(length / res)
-            ny = int(width / res1)
-
-            # grid coordinates (centered)
-            x = torch.arange(1, nx + 1) * res
-            y = torch.arange(1, ny + 1) * res1
-
-            # meshgrid
-            yy, xx = torch.meshgrid(y, x, indexing="ij")
-
-            self.shape_grid = torch.stack([xx, yy], dim=-1).reshape(-1, 2)
-
-            self.n_token_entry_head = self.attr_tokenizer.angle_size
-            self.n_token_entry_head2 = self.n_token_entry_head // 2
-            self.n_token_entry=self.attr_tokenizer.grid_size
-
-
-        if self.pred_exit:
-            self.n_token_agent+=1
-
-        self.use_infgen=False
-
-        self.learn_init=learn_init #True
-
-        self.pred_vel=True
-
-        self.learn_autoencoder = learn_autoencoder
 
     @torch.no_grad()
     def forward(self, data: HeteroData) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
@@ -196,42 +138,6 @@ class TokenProcessor(torch.nn.Module):
             tokenized_agent["goal_pos"]=None
             tokenized_agent["goal_mask"]=None
 
-        if not self.training and self.pred_entry:
-            batch = tokenized_agent["batch"].clone()
-
-            for key, value in tokenized_agent.items():
-                if type(value) is torch.Tensor and len(value)==len(batch):
-                    new_tensor=[]
-                    for b in range(data.num_graphs):
-                        valueb=value[batch==b]
-                        if 'valid_mask' in key:
-                            value_repeat=torch.zeros_like(valueb[:1]).repeat_interleave(100,dim=0)
-                        elif key=='id':
-                            value_repeat=-torch.arange(100,device=valueb.device)
-                        else:
-                            value_repeat=valueb[:1].repeat_interleave(100,dim=0)
-                        new_tensor.append(torch.cat([value_repeat,valueb]))
-                    tokenized_agent[key]=torch.cat(new_tensor)
-
-        if self.pred_exit:
-            valid_mask=tokenized_agent["valid_mask"]
-            exit_mask=valid_mask[:,:-1] & ~valid_mask[:,1:]
-            exit_mask=torch.cat([torch.zeros_like(exit_mask[:,:1]),exit_mask], dim=1)
-            tokenized_agent["sampled_idx"][exit_mask]=self.n_token_agent-1
-
-
-        if self.pred_init and not self.learn_init:
-            if self.training:
-                for key in ["sampled_idx", "token_mask", "valid_mask", "sampled_pos", "sampled_heading"]:
-                    if self.token_initial:
-                        tokenized_agent[key] = torch.cat([tokenized_agent[key][:, :1], tokenized_agent[key]], dim=1)
-                    else:
-                        tokenized_agent[key] = tokenized_agent[key][:, 1:]
-            else:
-                tokenized_agent["gt_initial_pos"] = tokenized_agent["sampled_pos"][:, 1][:, None]
-                tokenized_agent["gt_initial_heading"] = tokenized_agent["sampled_heading"][:, 1][:, None]
-                tokenized_agent["gt_initial_idx"] = tokenized_agent["sampled_idx"][:, 1][:, None]
-
         return tokenized_map, tokenized_agent
 
 
@@ -273,34 +179,6 @@ class TokenProcessor(torch.nn.Module):
         self.register_buffer(f"trajectory_token_veh", self.agent_token_all_veh[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_ped", self.agent_token_all_ped[:, -1].flatten(1, 2), persistent=False)
         self.register_buffer(f"trajectory_token_cyc", self.agent_token_all_cyc[:, -1].flatten(1, 2), persistent=False)
-
-        module_dir = os.path.dirname(__file__)
-
-
-        if self.autoregressive_entry:
-            entry_token = os.path.join(module_dir, 'entry_prev_global512.pkl')
-            entry_pos_token = pickle.load(open(entry_token, "rb"))
-            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
-            self.n_token_entry = self.entry_pos_token.shape[0]
-            if self.token_offset:
-                module_dir = os.path.dirname(__file__)
-                offset_token = os.path.join(module_dir, 'offset512.pkl')
-
-                offset_token = pickle.load(open(offset_token, "rb"))
-                self.register_buffer(f"offset_token", offset_token, persistent=False)
-                self.n_token_offset = self.offset_token.shape[0]
-            else:
-                self.n_token_offset = 4
-        elif self.pred_entry:
-            entry_token = os.path.join(module_dir, 'entry512.pkl')
-
-            entry_pos_token = pickle.load(open(entry_token, "rb"))
-            self.register_buffer(f"entry_pos_token", entry_pos_token, persistent=False)
-            self.n_token_entry = self.entry_pos_token.shape[0]
-            self.n_token_entry = 3
-
-    def decode_head(self, entry_head_idx):
-        return (entry_head_idx - self.n_token_entry_head2) / (self.n_token_entry_head2) * torch.pi
 
     def tokenize_map(self, data: HeteroData) -> Dict[str, Tensor]:
 
@@ -388,16 +266,6 @@ class TokenProcessor(torch.nn.Module):
 
             for key in tokenized_map.keys():
                 tokenized_map[key] = tokenized_map[key][keep_mask]
-
-        if self.pred_map_token:
-
-            kept_idx = torch.nonzero(keep_mask, as_tuple=False).squeeze(-1)  # [K]
-            next_idx = kept_idx + 1  # [K] 安全：上面已保证最后一个不保留
-
-            same_mask = (pl_idx[next_idx] == pl_idx[kept_idx])  # [K] 布尔
-
-            tokenized_map['pt_pred_mask'] = same_mask  # [K]，与过滤后的 token 对齐
-            tokenized_map['pt_target'] = gt_idx[next_idx][same_mask]  # 目标是“下一帧”的 token
 
         return tokenized_map
 

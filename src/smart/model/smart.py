@@ -73,7 +73,7 @@ class SMART(LightningModule):
         if self.use_smart:
             set_model_for_finetuning(self.encoder, model_config.finetune)
 
-        if  self.encoder.agent_encoder.learn_init_only and self.encoder.agent_encoder.learn_init:
+        if  self.encoder.agent_encoder.learn_init:
             for p in self.encoder.parameters():
                 p.requires_grad = False
 
@@ -81,17 +81,16 @@ class SMART(LightningModule):
                 p.requires_grad = True
 
             if self.encoder.sep_map:
-
                 for p in self.encoder.map_encoder1.parameters():
                     p.requires_grad = True
 
-            if not self.encoder.agent_encoder.use_gan and self.encoder.agent_encoder.init_decoder.latent_diffusion and not self.encoder.agent_encoder.init_decoder.learn_autoencoder:
-                for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
-                    p.requires_grad = False
-                for p in self.encoder.agent_encoder.init_decoder.G.pose_embedding.parameters():
-                    p.requires_grad = False
-                for p in self.encoder.agent_encoder.init_decoder.G.ego_embedding.parameters():
-                    p.requires_grad = False
+                # if not self.encoder.agent_encoder.use_gan and self.encoder.agent_encoder.init_decoder.latent_diffusion and not self.encoder.agent_encoder.init_decoder.learn_autoencoder:
+                #     for p in self.encoder.agent_encoder.init_decoder.autoencoder.parameters():
+                #         p.requires_grad = False
+                #     for p in self.encoder.agent_encoder.init_decoder.G.pose_embedding.parameters():
+                #         p.requires_grad = False
+                #     for p in self.encoder.agent_encoder.init_decoder.G.ego_embedding.parameters():
+                #         p.requires_grad = False
                 # for p in self.encoder.map_encoder.parameters():
                 #     p.requires_grad = False
 
@@ -192,14 +191,23 @@ class SMART(LightningModule):
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
 
-            if self.encoder.agent_encoder.learn_init :
-                if self.encoder.sep_map:
-                    map_feature1 = self.encoder.map_encoder1(tokenized_map,tokenized_agent)
-                else:
-                    map_feature1 = self.encoder.map_encoder(tokenized_map,tokenized_agent)
+            if self.token_processor.pred_init :
+                gt_initial_pos = tokenized_agent["initial_pos"]
+                ego_mask = tokenized_agent["ego_mask"]
+                batch = map_feature["batch"]
 
-                tokenized_agent["initial_map_feature"]=map_feature1
+                pos_pt = map_feature["position"]
 
+                ego_position = gt_initial_pos[ego_mask][batch]
+
+                dist = torch.norm(ego_position - pos_pt, dim=-1)
+
+                initial_map_feature={}
+
+                for key in map_feature.keys():
+                    initial_map_feature[key]=map_feature[key][dist<100]
+
+                tokenized_agent["initial_map_feature"]=initial_map_feature
 
             for _ in range(self.n_rollout_closed_val):
 

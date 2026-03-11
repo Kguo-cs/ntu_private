@@ -90,13 +90,6 @@ class SMARTMapDecoder(nn.Module):
 
             self.pred_offroad=False
 
-            self.pred_map_token=token_processor.pred_map_token
-
-            if self.pred_map_token:
-                self.token_size = 1024
-                self.token_predict_head = MLPLayer(input_dim=hidden_dim, hidden_dim=hidden_dim,
-                                                   output_dim=self.token_size)
-
             self.apply(weight_init)
 
     def forward(self, tokenized_map: Dict,tokenized_agent=None):
@@ -302,12 +295,6 @@ class SMARTMapDecoder(nn.Module):
             "batch": batch,
         }
 
-        if self.pred_map_token and self.training:
-            pt_pred_mask = tokenized_map['pt_pred_mask']
-
-            next_map_token_logits = self.token_predict_head(x_pt[pt_pred_mask])
-
-            output['next_map_token_logits']=next_map_token_logits
 
 
         return output

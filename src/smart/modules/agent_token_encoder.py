@@ -33,9 +33,6 @@ class AgentTokenEncoder(nn.Module):
             self.use_type=False
             input_dim_x_a=3
         else:
-            # if self.token_processor.token_initial:
-            #self.shape_dim = 2
-            # else:
             self.shape_dim = 2
 
             self.type_a_emb = nn.Embedding(3, hidden_dim)
@@ -56,14 +53,10 @@ class AgentTokenEncoder(nn.Module):
         if self.use_goal:
             input_dim_x_a*=2
 
-        if self.token_processor.use_time:
-            input_dim_x_a+=1
-
         self.x_a_emb = FourierEmbedding(
             input_dim=input_dim_x_a,
             hidden_dim=hidden_dim,
-            num_freq_bands=num_freq_bands,
-            share=False #self.token_processor.use_bird
+            num_freq_bands=num_freq_bands
         )
 
         self.discriminator=discriminator

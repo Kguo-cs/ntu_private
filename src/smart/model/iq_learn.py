@@ -69,8 +69,8 @@ class IQ_SoftQ(LightningModule):
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
-        if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
-            self.automatic_optimization=False
+        # if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
+        #     self.automatic_optimization=False
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
@@ -91,7 +91,7 @@ class IQ_SoftQ(LightningModule):
             valid_mask = tokenized_agent["valid_mask"][:, start_step:]
             action = tokenized_agent["sampled_idx"][:, start_step + 1:]
 
-            train_mask = get_train_mask(tokenized_agent, start_step, self.token_processor.pred_exit)  # t,a
+            train_mask = get_train_mask(tokenized_agent, start_step)  # t,a
 
             if "train_mask" in tokenized_agent.keys() and tokenized_agent["train_mask"] is not None:
                 agent_train_mask=tokenized_agent["train_mask"]
@@ -123,13 +123,6 @@ class IQ_SoftQ(LightningModule):
 
             self.log("train/" + key + "_nll", action_nll.item(), on_step=True, batch_size=1)
             self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
-
-            if self.token_processor.pred_exit:
-                exit_mask=action==self.token_processor.n_token_agent-1
-
-                exit_nll = -log_prob[exit_mask].mean()
-
-                self.log("train/" + key +"_exit_nll", exit_nll.item(), on_step=True, batch_size=1)
         else:
             action_nll=log_prob=0
 
@@ -151,7 +144,7 @@ class IQ_SoftQ(LightningModule):
 
             if not self.token_processor.token_initial:
 
-                if  self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan:
+                if   self.encoder.agent_encoder.init_decoder.use_gan:
                     opt_G,opt_D=self.optimizers()
 
                     if len(pred["initial_logit"]) == 5:
@@ -398,12 +391,8 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/" + key + "_rewards", ego_rewards.mean().item(), on_step=True, batch_size=1)
         self.log("train/" + key + "_nei_rewards", nei_rewards.mean().item(), on_step=True, batch_size=1)
-                
-        if self.token_processor.pred_exit:
-            self.log("train/" + key + "_exit_rewards", ego_rewards[exit_mask.flatten(0,1)].mean().item(), on_step=True, batch_size=1)
-            self.log("train/" + key + "_valid_ego_reward", valid_ego_reward[present_flatten].mean().item(), on_step=True, batch_size=1)
-        else:
-            self.log("train/" + key + "_valid_ego_reward", valid_ego_reward.mean().item(), on_step=True, batch_size=1)
+
+        self.log("train/" + key + "_valid_ego_reward", valid_ego_reward.mean().item(), on_step=True, batch_size=1)
 
         self.log("train/" + key + "_valid_interact_reward", valid_interact_reward.mean().item(), on_step=True, batch_size=1)
 
@@ -415,10 +404,7 @@ class IQ_SoftQ(LightningModule):
             if len(nei_rewards):
                nei_rewards = nei_rewards.reshape(exit_mask.shape)#t,a
 
-        if self.token_processor.pred_exit:
-            ego_logits=ego_logits[dis_mask]#valid ego logit
-        else:
-            ego_logits=ego_logits[dis_mask[mask_t.flatten(0, 1)]]#valid ego logit
+        ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
 
         self.log("train/"+key+"_ego_score", torch.sigmoid(ego_logits).mean().item(), on_step=True, batch_size=1)
 
@@ -471,7 +457,7 @@ class IQ_SoftQ(LightningModule):
 
         tokenized_agent_rollout = rollout(self.encoder, tokenized_map, tokenized_agent,  self.validation_rollout_sampling)
 
-        agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1),self.token_processor.pred_exit)
+        agent_train_mask= get_train_mask(tokenized_agent_rollout,max(0,self.gail_start_step-1))
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
@@ -551,12 +537,6 @@ class IQ_SoftQ(LightningModule):
             self.log("train/entry_token_invalid", entry_token_invalid_mask.float().mean().item(), on_step=True, batch_size=1)
 
         loss = self.iq_update(tokenized_map, tokenized_agent)
-
-        if self.token_processor.use_infgen:
-            for key in tokenized_agent["map_feature"].keys():
-                data["pt_token"][key]=tokenized_agent["map_feature"][key]
-
-            loss1=self.encoder.agent_encoder.inf_decoder(data,tokenized_agent["map_feature"])
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
         return loss

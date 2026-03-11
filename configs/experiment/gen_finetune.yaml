@@ -15,16 +15,12 @@ model:
       agent_token_sampling: # closed-loop
         num_k: 1 # for k nearest neighbors
         temp: 1.0
-    training_rollout_sampling:
-      criterium: topk_prob # {topk_dist_sampled_with_prob, topk_prob, topk_prob_sampled_with_dist}
-      num_k: 2048 # for k nearest neighbors, set to -1 to turn-off closed-loop training
-      temp: 1.0
-    validation_rollout_sampling:
-      criterium: topk_prob
-      num_k: 2048 # for k most likely
-      temp: 1.0
+      pred_entry: False
+      pred_init: True
+      learn_init: False
+      learn_autoencoder: False
+
     val_open_loop: False
-    #val_closed_loop: False
     finetune: true
     smart : false
     n_rollout_closed_val: 8
@@ -41,7 +37,7 @@ model:
       reward_decay: 2.5
 
 #ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-ckpt_path: './waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt'
+ckpt_path: './waymo_data/epoch=39-step=76120.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
 logger:
@@ -73,7 +69,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 32 #6
+  train_batch_size: 2 #6
   val_batch_size: 64
   test_batch_size: 10
   num_workers: 8
