@@ -73,12 +73,22 @@ class SMART(LightningModule):
         if self.use_smart:
             set_model_for_finetuning(self.encoder, model_config.finetune)
 
-        if  self.encoder.agent_encoder.learn_init:
+        if  self.token_processor.pred_init:
             for p in self.encoder.parameters():
                 p.requires_grad = False
 
-            for p in self.encoder.agent_encoder.init_decoder.parameters():
-                p.requires_grad = True
+            if self.token_processor.learn_init:
+                for p in self.encoder.agent_encoder.init_decoder.parameters():
+                    p.requires_grad = True
+            else:
+                for p in self.encoder.agent_encoder.parameters():
+                    p.requires_grad = True
+                for p in self.encoder.discriminator.parameters():
+                    p.requires_grad = True
+
+                for p in self.encoder.agent_encoder.init_decoder.parameters():
+                    p.requires_grad = False
+
 
             if self.encoder.sep_map:
                 for p in self.encoder.map_encoder1.parameters():
@@ -103,7 +113,7 @@ class SMART(LightningModule):
         self.n_vis_rollout = model_config.n_vis_rollout
         self.n_batch_wosac_metric = model_config.n_batch_wosac_metric
 
-        if self.token_processor.pred_init and self.encoder.agent_encoder.learn_init:
+        if self.token_processor.pred_init:
             self.challenge_type=ChallengeType.SCENARIO_GEN
             self.para_num=2
             self.n_rollout_closed_val=2
@@ -190,24 +200,7 @@ class SMART(LightningModule):
             pred_traj, pred_z, pred_head,new_agent,pred_sizes,pred_speeds = [], [], [],[],[],[]
             # tokenized_map, tokenized_agent = self.token_processor(data)
             map_feature = self.encoder.map_encoder(tokenized_map)
-
-            if self.token_processor.pred_init :
-                gt_initial_pos = tokenized_agent["initial_pos"]
-                ego_mask = tokenized_agent["ego_mask"]
-                batch = map_feature["batch"]
-
-                pos_pt = map_feature["position"]
-
-                ego_position = gt_initial_pos[ego_mask][batch]
-
-                dist = torch.norm(ego_position - pos_pt, dim=-1)
-
-                initial_map_feature={}
-
-                for key in map_feature.keys():
-                    initial_map_feature[key]=map_feature[key][dist<100]
-
-                tokenized_agent["initial_map_feature"]=initial_map_feature
+            tokenized_agent["map_feature"]=map_feature
 
             for _ in range(self.n_rollout_closed_val):
 

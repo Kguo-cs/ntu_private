@@ -57,14 +57,6 @@ class InitDiffusion(nn.Module):
             self.G = ScaleFlow(args,token_processor)
 
     def forward(self,  tokenized_agent):
-
-        map_feature=tokenized_agent["initial_map_feature"]
-
-        batch_pl = map_feature["batch"]
-        pos_pl = map_feature["position"]
-        orient_pl = map_feature["orientation"]
-        feat_map = map_feature["pt_token"]
-
         num_graphs=tokenized_agent["num_graphs"]
 
         ego_mask = tokenized_agent["ego_mask"]
@@ -76,9 +68,8 @@ class InitDiffusion(nn.Module):
         ego_position = tokenized_agent["initial_pos"][ego_mask]
         ego_heading = tokenized_agent["initial_heading"][ego_mask]
         nonego_batch = tokenized_agent["batch"][non_ego].clone()
-
-        tokenized_agent["batch_ego_pos"]=ego_position[nonego_batch]
-        tokenized_agent["batch_ego_heading"]=ego_heading[nonego_batch]
+        tokenized_agent["batch_ego_pos"] = ego_position[nonego_batch]
+        tokenized_agent["batch_ego_heading"] = ego_heading[nonego_batch]
 
         nonego_type = tokenized_agent["initial_type"][non_ego].clone()
 
@@ -101,6 +92,29 @@ class InitDiffusion(nn.Module):
 
         ego_embedding=self.G.ego_embedding(ego_local_traj)
 
+        if "initial_map_feature" not in tokenized_agent.keys():
+            map_feature=tokenized_agent["map_feature"]
+
+            batch_pl = map_feature["batch"]
+
+            pos_pt = map_feature["position"]
+
+            dist = torch.norm(ego_position[batch_pl] - pos_pt, dim=-1)
+
+            initial_map_feature = {}
+
+            for key in map_feature.keys():
+                initial_map_feature[key] = map_feature[key][dist < 100]
+
+            tokenized_agent["initial_map_feature"] = initial_map_feature
+        else:
+            initial_map_feature=tokenized_agent["initial_map_feature"]
+
+        batch_pl = initial_map_feature["batch"]
+        pos_pl = initial_map_feature["position"]
+        orient_pl = initial_map_feature["orientation"]
+        feat_map = initial_map_feature["pt_token"]
+
         pos_pl, orient_pl = transform_to_local(pos_pl,  # [:,None],
                                                orient_pl,  # [:,None],
                                                ego_position[batch_pl],
@@ -113,6 +127,7 @@ class InitDiffusion(nn.Module):
             map_feature = (pos_pl, orient_pl, batch_pl, feat_map)
 
         if self.training:
+
             diff_input,m_init,nonego_batch=self.G.net.get_input(tokenized_agent,non_ego,nonego_batch,nonego_type)
 
             ego_embedding = ego_embedding[nonego_batch]

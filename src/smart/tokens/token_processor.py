@@ -79,7 +79,7 @@ class TokenProcessor(torch.nn.Module):
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
-            if self.learn_init:
+            if self.pred_init:
                 batch = data["agent"]["batch"]
 
                 type = data["agent"]["type"]
@@ -96,7 +96,7 @@ class TokenProcessor(torch.nn.Module):
 
             tokenized_agent = self.tokenize_agent(data)
 
-            if self.learn_init:
+            if self.pred_init:
                 if self.learn_autoencoder or self.use_all_pos:
                     idx=10
                 else:
@@ -664,11 +664,6 @@ class TokenProcessor(torch.nn.Module):
                 if "pred_mask" in agent.keys():
                     tokenized_agent["pred_mask"] = agent["pred_mask"]
 
-                if "initial_pos" in agent.keys():
-                    tokenized_agent["initial_pos"] = agent["initial_pos"]
-                    tokenized_agent["initial_heading"] = agent["initial_heading"]
-
-
                 if "gt_valid_raw" in data.keys():
                     for key in ["type", "batch", "shape"]:
                         tokenized_agent[key] = agent[key]
@@ -702,6 +697,33 @@ class TokenProcessor(torch.nn.Module):
                     else:
                         tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
 
+                    if self.pred_init:
+                        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,1]
+                        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:,1]
+                        tokenized_agent["initial_type"]=tokenized_agent["type"]
+                        tokenized_agent["initial_shape"]=tokenized_agent["shape"]
+
+                        batch=tokenized_agent["batch"]
+                        ego_mask = torch.ones_like(batch).to(bool)
+                        ego_mask[:-1] = batch[:-1] != batch[1:]
+
+                        ego_idx=tokenized_agent["sampled_idx"][ego_mask][:,2:4]
+                        ego_head=tokenized_agent["sampled_heading"][ego_mask][:,1:3]
+                        ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,1:3]
+
+                        ego_token_traj_all=tokenized_agent["token_traj_all"][ego_mask].mean(-2)
+
+                        ego_local_traj=ego_token_traj_all[torch.arange(len(ego_idx))[:,None].repeat(1,2),ego_idx].reshape(-1,5,2) #ego later 10 steps
+
+                        ego_traj=transform_to_global(
+                            ego_local_traj,
+                            None,
+                            ego_pos.reshape(-1,2),
+                            ego_head.reshape(-1),
+                        )[0].reshape(-1,10,2)
+
+                        tokenized_agent["ego_traj"] = ego_traj
+                        tokenized_agent["initial_vel"]=(tokenized_agent["sampled_pos"][:,1] - tokenized_agent["sampled_pos"][:,0]) / 0.5
 
                     if "gt_pos_raw" in agent.keys():
 
