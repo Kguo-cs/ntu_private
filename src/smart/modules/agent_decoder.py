@@ -179,18 +179,18 @@ class SMARTAgentDecoder(nn.Module):
 
             if "gt_z_raw" not in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
                 batch=tokenized_agent["batch"]
-                num_graphs=tokenized_agent["num_graphs"]
-                batch_mask=batch<num_graphs//2
+                exist_n=10
+                batch_mask=batch<exist_n
 
                 tokenized_agent_new={}
 
                 for key in {"initial_pos","initial_heading","batch","ego_mask","initial_type","initial_shape","initial_vel","token_traj"}:
                     tokenized_agent_new[key]=tokenized_agent[key][batch_mask]
 
-                tokenized_agent_new["num_graphs"]=num_graphs//2
-                tokenized_agent_new["ego_traj"]=tokenized_agent["ego_traj"][:num_graphs//2]
+                tokenized_agent_new["num_graphs"]=exist_n
+                tokenized_agent_new["ego_traj"]=tokenized_agent["ego_traj"][:exist_n]
 
-                batch_pl_mask=map_feature["batch"]<num_graphs//2
+                batch_pl_mask=map_feature["batch"]<exist_n
 
                 new_map_features={}
 
@@ -202,17 +202,6 @@ class SMARTAgentDecoder(nn.Module):
                 tokenized_agent_new=tokenized_agent
 
             pos_a1, head_a1, sampled_idx1, initial_speed = self.init_decoder(tokenized_agent_new)
-
-            if "gt_z_raw" not in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-                pos_a[batch_mask]=pos_a1
-                head_a[batch_mask]=head_a1
-                sampled_idx[batch_mask]=sampled_idx1
-            else:
-                pos_a=pos_a1
-                head_a=head_a1
-                sampled_idx=sampled_idx1
-
-
 
             if self.token_processor.use_all_pos:
                 out_dict = {
@@ -226,8 +215,14 @@ class SMARTAgentDecoder(nn.Module):
                 return out_dict
 
             if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+                pos_a=pos_a1
+                head_a=head_a1
+                sampled_idx=sampled_idx1
                 max_step = 18
             else:
+                pos_a[batch_mask]=pos_a1
+                head_a[batch_mask]=head_a1
+                sampled_idx[batch_mask]=sampled_idx1
                 max_step = 17
 
             mask=torch.ones_like(mask[:, :current_step])
