@@ -95,7 +95,7 @@ class InitDenoiser(nn.Module):
 
         self.use_all_pos=token_processor.use_all_pos
 
-        self.use_prev_head=True
+        self.use_prev_head=False
 
         if self.use_prev_head:
             m_delta_dim=m_delta_dim+2
