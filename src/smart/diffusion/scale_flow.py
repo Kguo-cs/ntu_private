@@ -218,7 +218,7 @@ class ScaleFlow(nn.Module):
 
             if self.x_pred:
 
-                x_pred = self.net(z, t, tokenized_agent, scene_enc)
+                x_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
 
                 denom = (1 - t).clamp_min(self.t_eps)
 
@@ -229,7 +229,7 @@ class ScaleFlow(nn.Module):
             else:
                 v_target =x - e
 
-                v_pred = self.net(z, t, tokenized_agent, scene_enc, num_samples=1, eval_mask=eval_mask,mode=1)
+                v_pred = self.net(z, t, tokenized_agent, scene_enc,mode=1)
 
                 x_pred =e+v_pred
 
