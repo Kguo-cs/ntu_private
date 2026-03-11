@@ -145,7 +145,6 @@ class ScaleFlow(nn.Module):
         device = x.device
         num_scenes = tokenized_agent["num_graphs"]
         agent_batch = tokenized_agent["nonego_batch"]
-        mode =1#self.B_dist.sample()
 
         x=x.unsqueeze(1).repeat(1, num_samples, 1)
 
@@ -219,7 +218,7 @@ class ScaleFlow(nn.Module):
 
             if self.x_pred:
 
-                x_pred = self.net(z, t, tokenized_agent, scene_enc, eval_mask)
+                x_pred = self.net(z, t, tokenized_agent, scene_enc)
 
                 denom = (1 - t).clamp_min(self.t_eps)
 

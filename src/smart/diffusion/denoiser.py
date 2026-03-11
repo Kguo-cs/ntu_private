@@ -446,16 +446,21 @@ class InitDenoiser(nn.Module):
                 beta,
                 tokenized_agent: HeteroData,
                 scene_enc: Mapping[str, torch.Tensor],
-                eval_mask,
+                eval_mask=None,
                 num_samples=1,
                 mode=0
                 ) -> Dict[str, torch.Tensor]:
 
         device = m_delta.device
-        batch = tokenized_agent["nonego_batch"][eval_mask]
-        type = tokenized_agent["nonego_type_sorted"][eval_mask]
+        batch = tokenized_agent["nonego_batch"]
+        type = tokenized_agent["nonego_type_sorted"]
+        ego_embedding = tokenized_agent["ego_embedding"]
         num_graphs = tokenized_agent["num_graphs"]
-        ego_embedding = tokenized_agent["ego_embedding"][eval_mask]
+
+        if eval_mask is not None:
+            batch=batch[eval_mask]
+            type=type[eval_mask]
+            ego_embedding=ego_embedding[eval_mask]
 
         type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
 
