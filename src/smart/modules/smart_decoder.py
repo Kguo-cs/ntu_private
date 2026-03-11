@@ -62,7 +62,7 @@ class SMARTDecoder(nn.Module):
         self.use_value=True
         self.use_kl_penalty=False
         self.gail=dis_a2a_radius>0
-        self.learn_dis=False
+        self.learn_dis=True
 
         if self.use_smart:
             self.alpha = 1
