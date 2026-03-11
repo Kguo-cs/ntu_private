@@ -558,6 +558,6 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
     schedule2=torch.minimum(count[:,None],schedule1)
 
 
-    schedule3 =torch.cat([schedule2,count[:,None].repeat(100,1)],dim=-1)
+    schedule3 =torch.cat([schedule2,count[:,None].repeat(1,100)],dim=-1)
 
     return schedule3
