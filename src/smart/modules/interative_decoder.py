@@ -146,25 +146,8 @@ class InterativeDecoder(nn.Module):
         self.n_token_agent=n_token_agent
 
         self.mask_pred=False
-        self.gail_start_step=2
-        self.dis_start_step=2
-
-        if self.mask_pred:
-            self.action_embed=nn.Embedding(n_token_agent+1,hidden_dim)
-
-            self.a2a_inter =AttentionLayer(
-                        hidden_dim=hidden_dim,
-                        num_heads=num_heads,
-                        head_dim=head_dim,
-                        dropout=dropout,
-                        bipartite=False,
-                        has_pos_emb=True,
-                    )
-            self.action_predict_head = MLPLayer(
-                input_dim=hidden_dim, hidden_dim=hidden_dim, output_dim=n_token_agent
-            )
-            self.start_eval_step = 0
-            self.start_step=0
+        self.gail_start_step=0
+        self.dis_start_step=0
 
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
