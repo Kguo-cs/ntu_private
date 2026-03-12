@@ -153,10 +153,15 @@ class ScaleFlow(nn.Module):
         e = torch.randn_like(x)  # base distribution N(0, I)
 
         if "step_idx" in tokenized_agent.keys():
-            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
-            t_batch = timesteps[tokenized_agent["step_idx"]]
-            t_batch=t_batch[:, None,None]
+            #timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
+            # t_batch = timesteps[tokenized_agent["step_idx"]]
+            # t_batch=t_batch[:, None,None]
 
+            timesteps=tokenized_agent["noise_schedule"]
+
+            t_batch=timesteps[torch.arange(len(timesteps)), tokenized_agent["step_idx"]]
+
+            t_batch = t_batch[:, None, None]
             # if self.use_cluster:
             #     t_batch[tokenized_agent["clustering"]]=0.9
             #     t_batch[~tokenized_agent["clustering"]]=0.9+0.1*t_batch[~tokenized_agent["clustering"]]
@@ -255,8 +260,8 @@ class ScaleFlow(nn.Module):
             non_increasing=~increasing
 
 
-            z[non_increasing] = z[non_increasing] + (t_next - t_n[non_increasing]) * v_pred[non_increasing]
-            z[increasing] = (1-t_next)*torch.randn_like(x[increasing])+ t_next * x[increasing]
+            z[non_increasing] = z[non_increasing] + (t_next - t_n)[non_increasing] * v_pred[non_increasing]
+            z[increasing] = (1-t_next[increasing])*torch.randn_like(x[increasing])+ t_next[increasing] * x[increasing]
 
             # z[~clustering]=z[~clustering]+ (0.9+0.1*t_next - t_n[~clustering]) * v_pred[~clustering]
             #
@@ -278,12 +283,15 @@ class ScaleFlow(nn.Module):
 
 
     @torch.no_grad()
-    def _forward_sample(self, z, t, labels):
+    def _forward_sample(self, z, t_n, labels):
 
         tokenized_agent, scene_enc, eval_mask=labels
         num_agents = len(z)
 
-        t_n=torch.full((num_agents,1,1), t, device=eval_mask.device)
+        if type(t_n)==int:
+            t_n=torch.full((num_agents,1,1), t_n, device=eval_mask.device)
+        else:
+            t_n=t_n[:,None,None]
 
         if self.use_scale:
             # if self.use_cluster:
@@ -356,7 +364,7 @@ class ScaleFlow(nn.Module):
 
             counts=type_counts.sum(-1)
 
-            schedule=batch_increasing_schedule(counts)#[agent_batch]
+            schedule,noise_scedule=batch_increasing_schedule(counts)#[agent_batch]
 
             steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
 
@@ -391,6 +399,7 @@ class ScaleFlow(nn.Module):
                     schedule_i=schedule[:,i]
                     schedule_i1=schedule[:,i+1]
 
+
                     k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
                     k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
@@ -419,6 +428,9 @@ class ScaleFlow(nn.Module):
 
                         # tokenized_agent["clustering"] = (schedule_i != counts)[agent_batch][eval_mask]
                         tokenized_agent["increasing"] = (schedule_i != schedule_i1)[agent_batch][eval_mask]
+
+                        t=noise_scedule[:,i][agent_batch][eval_mask]
+                        t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
 
                     #z_scale=z[first_i_veh_mask]
 

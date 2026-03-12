@@ -195,10 +195,6 @@ def batched_kmeans_variable_k(pos, batch,valid_mask, num_graphs,k_per_graph=None
 
     centroids1[new_k]=centroids_all[num_graphs:]
 
-    #centroids1[new_k]=kmeans(padded[new_k], mask[new_k],k1_per_graph[new_k],consecutive_batch,pos[same_batch_mask],max_k)
-#, initial_centroids=centroids[new_k]
-    # centroids1 = kmeans(padded, mask, k1_per_graph,batch, pos,max_k)
-
     return centroids, centroids1, k_per_graph, k1_per_graph, step_idx, step_number
 
 def allocate_k_per_type(k_total, type_counts):
@@ -258,7 +254,7 @@ def cluster_point_per_type(
 
     counts = type_counts.sum(-1)
 
-    schedules = batch_increasing_schedule(counts)
+    schedules,noise_schedule = batch_increasing_schedule(counts)
 
     step_number=schedules.shape[1]-1
 
@@ -316,213 +312,11 @@ def cluster_point_per_type(
     tokenized_agent["step_idx"] = step_idx
     tokenized_agent["step_number"] = step_number#7057 ,7056
 
+    tokenized_agent["noise_schedule"]=noise_schedule
+
     tokenized_agent["clustering"]=k_per_graph!=counts
 
     return less_centroids,more_centroids,more_batch
-
-def build_less_more_grouped1(
-    pos,
-    type,
-    batch,
-    num_graphs,
-):
-    device = pos.device
-    D = pos.shape[1]
-    G = num_graphs
-
-    veh_mask = (type == 0)
-
-    veh_pos=pos[type==0]
-    veh_batch=batch[type==0]
-
-    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
-
-    nonveh_mask = ~veh_mask
-
-    nonveh_pos = pos[nonveh_mask]
-    nonveh_batch = batch[nonveh_mask]
-    nonveh_type = type[nonveh_mask]
-
-    # Count non-veh per graph
-    nonveh_count = torch.bincount(
-        nonveh_batch,
-        minlength=G
-    )
-
-    more_sizes = k1_per_graph + nonveh_count
-
-    more_offsets = torch.cat([
-        torch.zeros(1, device=device, dtype=torch.long),
-        torch.cumsum(more_sizes, dim=0)
-    ])[:-1]
-
-    total_more = more_sizes.sum()
-
-    # Allocate final tensors
-    less_centroids = torch.zeros(total_more, D, device=device)
-    more_centroids = torch.zeros(total_more, D, device=device)
-    more_batch = torch.zeros(total_more, device=device, dtype=torch.long)
-    more_type = torch.zeros(total_more, device=device, dtype=torch.long)
-
-    max_k1 = centroids1_b.shape[1]
-
-    arange_k1 = torch.arange(max_k1, device=device)
-
-    valid_k1 = arange_k1.unsqueeze(0) < k1_per_graph.unsqueeze(1)
-
-    centroids_less_flat = centroids_b[valid_k1]
-    centroids_more_flat = centroids1_b[valid_k1]
-
-    graph_ids_k1 = torch.arange(G, device=device).repeat_interleave(k1_per_graph)
-
-
-    more_write_idx = more_offsets[graph_ids_k1] + \
-                     torch.arange(centroids_more_flat.shape[0], device=device) \
-                     - torch.repeat_interleave(
-                         torch.cumsum(k1_per_graph, 0) - k1_per_graph,
-                         k1_per_graph
-                     )
-
-    less_centroids[more_write_idx] = centroids_less_flat
-    more_centroids[more_write_idx] = centroids_more_flat
-    more_batch[more_write_idx] = graph_ids_k1
-    more_type[more_write_idx] = 0
-
-    # ----------------------------------------------------
-    # 2) Write non-vehicle
-    # ----------------------------------------------------
-    # Compute per-nonveh relative index within its graph
-    nonveh_local_idx = (
-        torch.arange(nonveh_batch.shape[0], device=device)
-        - torch.repeat_interleave(
-            torch.cumsum(nonveh_count, 0) - nonveh_count,
-            nonveh_count
-        )
-    )
-
-    more_nonveh_idx = (
-        more_offsets[nonveh_batch]
-        + k1_per_graph[nonveh_batch]
-        + nonveh_local_idx
-    )
-
-    less_centroids[more_nonveh_idx] = nonveh_pos
-    more_centroids[more_nonveh_idx] = nonveh_pos
-    more_batch[more_nonveh_idx] = nonveh_batch
-    more_type[more_nonveh_idx] = nonveh_type
-
-    return (
-        less_centroids,
-        more_centroids,
-        more_batch,
-        more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number
-    )
-
-
-def cluster_points1(pos, batch, type, num_graphs  ):
-
-    # type_vector=torch.zeros([len(type),3],device=pos.device)
-    #
-    # type_vector[torch.arange(len(type)),type]=1
-    #
-    # pos=torch.cat([pos,type_vector],dim=-1)
-
-    centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(pos, batch,num_graphs)
-
-    max_k = k1_per_graph.max().item()
-
-    cluster_mask = (
-            torch.arange(max_k, device=pos.device)
-            .unsqueeze(0)
-            < k1_per_graph.unsqueeze(1)
-    )  # (num_graphs, max_k)
-
-    less_centroids=centroids_b[cluster_mask]
-    more_centroids=centroids1_b[cluster_mask]
-
-    more_batch=torch.where(cluster_mask)[0]
-
-    more_type=centroids1_b[:,8:]
-
-    return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
-
-def cluster_points(pos, batch, type, type_counts,use_all_type
-        ):
-    if use_all_type:
-        return cluster_points1(pos, batch, type, len(type_counts))
-
-    # veh_pos=pos[type==0]
-    # veh_batch=batch[type==0]
-    #
-    # centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=batched_kmeans_variable_k(veh_pos, veh_batch,num_graphs)
-    #
-    #
-    # device = pos.device
-    # less_centroids = []
-    # more_batch = []
-    # more_centroids = []
-    # more_type = []
-    #
-    # for i in range(num_graphs):
-    #     mask = (batch == i)
-    #     type_i = type[mask]
-    #
-    #     x_non_veh = pos[mask][type_i != 0]
-    #
-    #     type_non_veh = type_i[type_i != 0]
-    #
-    #     x = pos[mask][type_i == 0]
-    #     N = x.shape[0]
-    #     step = torch.randint(0, N + 1, (1,), device=device).item()
-    #     k = min(step, N)
-    #
-    #     # if k == 0:
-    #     #     centroids = x[:k]
-    #     # else:
-    #     #     centroids = kmeans_fast(x, k)#x[:k]#
-    #     #
-    #     # k1 = min(k + 1, N)  # torch.randint(k+1, N+1, (1,), device=device).item()
-    #     #
-    #     # if k1 == 0:
-    #     #     centroids1 = x[:k1]
-    #     # else:
-    #     #     centroids1 =kmeans_fast(x, k1)# x[:k1] #
-    #
-    #     k=k_per_graph[i]
-    #     k1=k1_per_graph[i]
-    #     centroids=centroids_b[i][:k]
-    #     centroids1=centroids1_b[i][:k1]
-    #
-    #
-    #     padding_centers = torch.zeros_like(centroids1[k:])
-    #
-    #     less_centroids.append(torch.cat([centroids, padding_centers, x_non_veh], dim=0))
-    #
-    #     more_batch.append(torch.zeros([k1 + len(x_non_veh)], device=device, dtype=torch.long) + i)
-    #
-    #     more_centroids.append(torch.cat([centroids1, x_non_veh], dim=0))
-    #
-    #     more_type.append(torch.cat([torch.zeros([k1], device=device, dtype=torch.long), type_non_veh], dim=0))
-    #
-    # less_centroids = torch.cat(less_centroids, dim=0)
-    # more_batch = torch.cat(more_batch, dim=0)
-    # more_centroids = torch.cat(more_centroids, dim=0)
-    # more_type = torch.cat(more_type, dim=0)
-    #
-    # if not (torch.all(less_centroids == less_centroids1) & torch.all(more_centroids == more_centroids1) & torch.all(more_batch == more_batch1) & torch.all(more_type == more_type1)):
-    #
-    #     print(torch.all(less_centroids == less_centroids1))
-    #     print(torch.all(more_centroids == more_centroids1))
-    #     print(torch.all(more_batch == more_batch1))
-    #     print(torch.all(more_type == more_type1))
-    less_centroids,more_centroids,more_batch,more_type,centroids_b,centroids1_b, k_per_graph,k1_per_graph,step_idx,step_number=build_less_more_grouped(
-        pos,
-        type,
-        batch,
-        type_counts
-        )
-
-    return less_centroids, more_batch, more_centroids, more_type,step_idx,step_number
 
 
 # import matplotlib.pylab as plt
@@ -546,18 +340,38 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
         schedule: (B, S) integer tensor
     """
     s = torch.arange(S, device=count.device) # (S,)
-    ratio = (s / S).pow(gamma)  # (S,)
-
-    schedule = torch.ceil_(count[:, None] * ratio[None, :]).to(torch.long)
-    schedule2 = torch.minimum(schedule, count[:, None])
-
-    # schedule = (s/S*count[:,None]).to(torch.long)
+    # ratio = (s / S).pow(gamma)  # (S,)
     #
-    # schedule1=torch.maximum(s[None],schedule)
-    #
-    # schedule2=torch.minimum(count[:,None],schedule1)
+    # schedule = torch.ceil_(count[:, None] * ratio[None, :]).to(torch.long)
+    # schedule2 = torch.minimum(schedule, count[:, None])
 
+    schedule = (s/S*count[:,None]).to(torch.long)
+
+    schedule1=torch.maximum(s[None],schedule)
+
+    schedule2=torch.minimum(count[:,None],schedule1)
 
     schedule3 =torch.cat([schedule2,count[:,None].repeat(1,50)],dim=-1)
 
-    return schedule3
+
+    prev = torch.cat([schedule3[:, :1], schedule3[:, :-1]], dim=1)
+
+    increasing = schedule3 > prev
+    non_increasing = ~increasing
+
+    # cumulative length of non-increasing segments
+    seg_len = torch.cumsum(non_increasing, dim=1)
+
+    seg_len = seg_len * non_increasing
+
+    seg_max = seg_len.amax(dim=1, keepdim=True).clamp_min(1)
+
+    ratio = seg_len / seg_max
+
+    noise_schedule = torch.where(
+        increasing,
+        torch.full_like(schedule3, 0.9, dtype=torch.float),
+        0.9 + 0.1 * ratio
+    )
+
+    return schedule3,noise_schedule
