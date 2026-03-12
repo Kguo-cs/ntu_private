@@ -278,7 +278,7 @@ def get_matching_loss(
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_state[fake_idx], real_state[real_idx]#/denom
+        fake_state[fake_idx]/denom, real_state[real_idx]/denom
     )
 
    # if latent or use_all_type:
