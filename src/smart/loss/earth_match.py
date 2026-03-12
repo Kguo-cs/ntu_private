@@ -11,10 +11,14 @@ from src.smart.utils import (
 )
 
 def matching_loss(
-    fake_pos, fake_heading, fake_shape,
-    real_pos, real_heading, real_shape,
+    fake_state,
+    real_state,
     w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
 ):
+
+    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
+    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
+
     # Position: L1 or L2
 
     # dist=torch.linalg.norm(fake_pos-real_pos,dim=-1)
@@ -241,7 +245,7 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
                 f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
 
                 if all_state:
-                    dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],dim=-1).square()
+                    dist = torch.cdist(fake_state[f_idx],real_state[f_idx]).square()
                 else:
                     dist = torch.cdist( real_pos[f_idx],fake_pos[f_idx])
 
@@ -269,15 +273,12 @@ def get_matching_loss(
     initial_type, batch=tokenized_agent['nonego_type_sorted'],tokenized_agent["nonego_batch"]
 
 
-    fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
-    real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
 
     fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
-        fake_pos[fake_idx]/denom, fake_heading[fake_idx]/denom, fake_shape[fake_idx]/denom,
-        real_pos[real_idx]/denom, real_heading[real_idx]/denom, real_shape[real_idx]/denom
+        fake_state[fake_idx], real_state[real_idx]#/denom
     )
 
    # if latent or use_all_type:
