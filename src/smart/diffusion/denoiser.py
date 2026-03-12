@@ -82,7 +82,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 11
         else:
             self.type_a_emb = nn.Embedding(self.num_classes+1, hidden_dim)#
-            m_delta_dim = 5+3-1
+            m_delta_dim = 5+3
 
 
         self.use_graph=True
@@ -96,6 +96,10 @@ class InitDenoiser(nn.Module):
         self.use_all_pos=token_processor.use_all_pos
 
         self.use_prev_head=False
+        self.use_speed=False
+
+        if self.use_speed:
+            m_delta_dim = m_delta_dim-1
 
         if self.use_prev_head:
             m_delta_dim=m_delta_dim+2
@@ -305,7 +309,10 @@ class InitDenoiser(nn.Module):
 
             tokenized_agent["nonego_valid"]=torch.cat([torch.ones_like(valid[:,:6]),valid],dim=-1).to(torch.float32)
         else:
-           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head).norm(dim=-1,keepdim=True)
+           local_vel = rotate_to_local(tokenized_agent["initial_vel"][non_ego],  non_ego_head)
+
+           if self.use_speed:
+               local_vel=local_vel.norm(dim=-1,keepdim=True)
 
            tokenized_agent["nonego_valid"] = None#torch.ones([len(local_vel),8],device=local_vel.device)
 
@@ -793,8 +800,10 @@ class InitDenoiser(nn.Module):
             gt_initial_idx=None
         else:
 
-            global_pred_vel=torch.stack([global_heading.cos(),global_heading.sin()],dim=-1)*pred_vel
-            # global_pred_vel=rotate_to_global(pred_vel[:,:2],global_heading)
+            if self.use_speed:
+                global_pred_vel=torch.stack([global_heading.cos(),global_heading.sin()],dim=-1)*pred_vel
+            else:
+                global_pred_vel=rotate_to_global(pred_vel[:,:2],global_heading)
 
             gt_initial_pos[non_ego]=global_pos
             gt_initial_heading[non_ego]=global_heading

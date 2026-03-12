@@ -115,7 +115,7 @@ class ScaleFlow(nn.Module):
 
         self.steps=512
 
-        self.use_cluster=False
+        self.use_cluster=True
 
         self.apply(weight_init)
 
@@ -157,9 +157,9 @@ class ScaleFlow(nn.Module):
             t_batch = timesteps[tokenized_agent["step_idx"]]
             t_batch=t_batch[:, None,None]
 
-            if self.use_cluster:
-                t_batch[tokenized_agent["clustering"]]=0.9
-                t_batch[~tokenized_agent["clustering"]]=0.9+0.1*t_batch[~tokenized_agent["clustering"]]
+            # if self.use_cluster:
+            #     t_batch[tokenized_agent["clustering"]]=0.9
+            #     t_batch[~tokenized_agent["clustering"]]=0.9+0.1*t_batch[~tokenized_agent["clustering"]]
 
         else:
             t_batch = self.sample_t(num_scenes, device=device)[:, None,None].to(device)  # t ~ U[0,1]
@@ -253,9 +253,13 @@ class ScaleFlow(nn.Module):
             #z_next=(1 - t_next) * torch.randn_like(x)+ t_next * x
             clustering=tokenized_agent["clustering"]
 
-            z[~clustering]=z[~clustering]+ (0.9+0.1*t_next - t_n[~clustering]) * v_pred[~clustering]
 
-            z[clustering]=0.1*torch.randn_like(x[clustering])+ 0.9 * x[clustering]
+            z[~clustering] = z[~clustering] + (t_next - t_n[~clustering]) * v_pred[~clustering]
+            z[clustering] = (1-t_next)*torch.randn_like(x[clustering])+ t_next * x[clustering]
+
+            # z[~clustering]=z[~clustering]+ (0.9+0.1*t_next - t_n[~clustering]) * v_pred[~clustering]
+            #
+            # z[clustering]=0.1*torch.randn_like(x[clustering])+ 0.9 * x[clustering]
         else:
             z = z + (t_next - t_n) * v_pred
         return z,x
@@ -281,9 +285,9 @@ class ScaleFlow(nn.Module):
         t_n=torch.full((num_agents,1,1), t, device=eval_mask.device)
 
         if self.use_scale:
-            if self.use_cluster:
-                t_n[tokenized_agent["clustering"]]=0.9
-                t_n[~tokenized_agent["clustering"]]=0.9+0.1*t_n[~tokenized_agent["clustering"]]
+            # if self.use_cluster:
+            #     t_n[tokenized_agent["clustering"]]=0.9
+            #     t_n[~tokenized_agent["clustering"]]=0.9+0.1*t_n[~tokenized_agent["clustering"]]
 
             padding_mask=tokenized_agent["padding_mask"]
 
