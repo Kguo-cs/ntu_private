@@ -289,10 +289,10 @@ class ScaleFlow(nn.Module):
         tokenized_agent, scene_enc, eval_mask=labels
         num_agents = len(z)
 
-        if type(t_n)==int:
-            t_n=torch.full((num_agents,1,1), t_n, device=eval_mask.device)
-        else:
+        if self.use_cluster:
             t_n=t_n[:,None,None]
+        else:
+            t_n=torch.full((num_agents,1,1), t_n, device=eval_mask.device)
 
         if self.use_scale:
             # if self.use_cluster:
@@ -400,43 +400,20 @@ class ScaleFlow(nn.Module):
                     schedule_i=schedule[:,i]
                     schedule_i1=schedule[:,i+1]
 
-
                     k = allocate_k_per_type(schedule_i, type_counts)[agent_batch, agent_type]
                     k1 = allocate_k_per_type(schedule_i1, type_counts)[agent_batch, agent_type]
 
-                    eval_mask = rank <= k1#(~veh_mask) | (veh_rank <= schedule_i1)
-
-                    # if torch.all(schedule_i==counts):
-                    # tokenized_agent_scale = {}
-                    # tokenized_agent_scale["nonego_batch"]=tokenized_agent["nonego_batch"][first_i_veh_mask]
-                    # tokenized_agent_scale["nonego_type_sorted"]=tokenized_agent["nonego_type_sorted"][first_i_veh_mask]
-                    # tokenized_agent_scale["num_graphs"]=tokenized_agent["num_graphs"]
-                    # tokenized_agent_scale["ego_embedding"]=tokenized_agent["ego_embedding"][first_i_veh_mask]
-                    #
-                    # agent_batch_scale=agent_batch[first_i_veh_mask]
-
-                    #tokenized_agent_scale["lengths"] = torch.bincount(agent_batch_scale, minlength=num_scenes).tolist()
+                    eval_mask = rank <= k1
 
                     padding_mask = (eval_mask &  (rank> k))[eval_mask]
 
                     tokenized_agent['padding_mask'] = padding_mask
 
-                    #padding_mask=(((veh_rank<=schedule_i1) & (veh_rank>schedule_i)) & veh_mask)
-
-                    # tokenized_agent_scale["padding_mask"]=padding_mask
                     if self.use_cluster:
-                        # print(torch.all((schedule_i != counts)== (schedule_i != schedule_i1)))
-
-                        # tokenized_agent["clustering"] = (schedule_i != counts)[agent_batch][eval_mask]
                         tokenized_agent["increasing"] = (schedule_i != schedule_i1)[agent_batch][eval_mask]
 
                         t=noise_scedule[:,i][agent_batch][eval_mask]
                         t_next=noise_scedule[:,i+1][agent_batch][eval_mask][:,None,None]
-
-                    #z_scale=z[first_i_veh_mask]
-
-                    #t_next=torch.clamp_max(t_next+0.1,max=1)
-                    #z_scale = self.net.normalize_z(z_scale)
 
                     z[eval_mask],x_cond=  self._euler_step(z[eval_mask], t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
