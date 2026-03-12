@@ -161,9 +161,9 @@ class InitDiffusion(nn.Module):
                                                                                                  self.G.net.denormalize(x_pred),
                                                                                                  m_init,
                                                                                                  x_pred,
-                                                                                                 m_init,
+                                                                                                 self.G.net.normalize(m_init),
                                                                                                  denom,
-                                                                                                 latent=False,
+                                                                                                 all_state=True,
                                                                                                  use_col=False,
                                                                                                  use_all_type=False
                                                                                                  )

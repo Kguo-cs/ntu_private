@@ -13,7 +13,7 @@ from src.smart.utils import (
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=1, w_shape=0.2,w_vel=1
+    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
 ):
     # Position: L1 or L2
 
@@ -263,7 +263,8 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
 def get_matching_loss(
     tokenized_agent, fake_state,real_state,
     fake_norm_state,
-    real_norm_state,denom ,latent=False,use_col=True,use_all_type=False
+    real_norm_state,
+    denom ,all_state=False,use_col=False,use_all_type=False
     ):
     initial_type, batch=tokenized_agent['nonego_type_sorted'],tokenized_agent["nonego_batch"]
 
@@ -271,7 +272,7 @@ def get_matching_loss(
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
 
-    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type)
+    fake_idx, real_idx=get_closest_sum_idx(fake_norm_state, real_norm_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
