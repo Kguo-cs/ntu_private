@@ -241,7 +241,7 @@ def get_closest_sum_idx(fake_state,real_state,batch,initial_type,all_state=False
                 f_idx = ((batch == b) & (initial_type == type)).nonzero(as_tuple=True)[0]
 
                 if all_state:
-                    dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],dim=-1)#.square()p=1,
+                    dist = torch.norm(fake_state[f_idx][:,None]-real_state[f_idx][None],dim=-1).square()
                 else:
                     dist = torch.cdist( real_pos[f_idx],fake_pos[f_idx])
 
