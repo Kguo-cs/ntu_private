@@ -166,7 +166,7 @@ class SMARTAgentDecoder(nn.Module):
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
-        if self.pred_init or ("gt_z_raw"  not in tokenized_agent.keys()):
+        if self.pred_init :#or ("gt_z_raw"  not in tokenized_agent.keys()):
             current_step=1
             max_step = 17
 
