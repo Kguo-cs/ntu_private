@@ -548,7 +548,7 @@ def batch_increasing_schedule(count, S=70+1, gamma=1):
     s = torch.arange(S, device=count.device) # (S,)
     ratio = (s / S).pow(gamma)  # (S,)
 
-    schedule = torch.ceil_(count[:, None] * ratio[None, :])
+    schedule = torch.ceil_(count[:, None] * ratio[None, :]).to(torch.long)
     schedule2 = torch.minimum(schedule, count[:, None])
 
     # schedule = (s/S*count[:,None]).to(torch.long)
