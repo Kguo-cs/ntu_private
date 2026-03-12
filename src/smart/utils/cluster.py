@@ -353,25 +353,25 @@ def batch_increasing_schedule(count, S=50+1, gamma=1):
 
     schedule3 =torch.cat([schedule2,count[:,None].repeat(1,50)],dim=-1)
 
-
-    prev = torch.cat([schedule3[:, :1], schedule3[:, :-1]], dim=1)
-
-    increasing = schedule3 > prev
-    non_increasing = ~increasing
-
-    # cumulative length of non-increasing segments
-    seg_len = torch.cumsum(non_increasing, dim=1)
-
-    seg_len = seg_len * non_increasing
-
-    seg_max = seg_len.amax(dim=1, keepdim=True).clamp_min(1)
-
-    ratio = seg_len / seg_max
-
-    noise_schedule = torch.where(
-        increasing,
-        torch.full_like(schedule3, 0.9, dtype=torch.float),
-        0.9 + 0.1 * ratio
-    )
+    noise_schedule=None
+    # prev = torch.cat([schedule3[:, :1], schedule3[:, :-1]], dim=1)
+    #
+    # increasing = schedule3 > prev
+    # non_increasing = ~increasing
+    #
+    # # cumulative length of non-increasing segments
+    # seg_len = torch.cumsum(non_increasing, dim=1)
+    #
+    # seg_len = seg_len * non_increasing
+    #
+    # seg_max = seg_len.amax(dim=1, keepdim=True).clamp_min(1)
+    #
+    # ratio = seg_len / seg_max
+    #
+    # noise_schedule = torch.where(
+    #     increasing,
+    #     torch.full_like(schedule3, 0.9, dtype=torch.float),
+    #     0.9 + 0.1 * ratio
+    # )
 
     return schedule3,noise_schedule

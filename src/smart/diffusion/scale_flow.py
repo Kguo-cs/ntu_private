@@ -115,7 +115,7 @@ class ScaleFlow(nn.Module):
 
         self.steps=512
 
-        self.use_cluster=True
+        self.use_cluster=False
 
         self.apply(weight_init)
 
@@ -153,14 +153,15 @@ class ScaleFlow(nn.Module):
         e = torch.randn_like(x)  # base distribution N(0, I)
 
         if "step_idx" in tokenized_agent.keys():
-            #timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
-            # t_batch = timesteps[tokenized_agent["step_idx"]]
-            # t_batch=t_batch[:, None,None]
-
-            timesteps=tokenized_agent["noise_schedule"]
-
-            t_batch=timesteps[torch.arange(len(timesteps)), tokenized_agent["step_idx"]]
-
+            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
+            t_batch = timesteps[tokenized_agent["step_idx"]]
+            # timesteps1=tokenized_agent["noise_schedule"]
+            #
+            # t_batch=timesteps1[torch.arange(len(timesteps1)), tokenized_agent["step_idx"]]
+            #
+            # print(torch.all(t_batch1>t_batch))
+            # t_batch=torch.zeros_like(t_batch)
+            #
             t_batch = t_batch[:, None, None]
             # if self.use_cluster:
             #     t_batch[tokenized_agent["clustering"]]=0.9

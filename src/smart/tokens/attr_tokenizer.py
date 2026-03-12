@@ -11,7 +11,6 @@ from src.smart.utils import (
     angle_between_2d_vectors
 )
 
-from src.smart.loss.iq_loss import padding
 
 
 def compute_goal( tokenized_agent):

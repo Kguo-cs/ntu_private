@@ -13,7 +13,7 @@ from src.smart.utils import (
 def matching_loss(
     fake_pos, fake_heading, fake_shape,
     real_pos, real_heading, real_shape,
-    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=0.2
+    w_pos=0.1, w_heading=0.5, w_shape=0.2,w_vel=1
 ):
     # Position: L1 or L2
 
