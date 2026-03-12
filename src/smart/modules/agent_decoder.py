@@ -166,8 +166,9 @@ class SMARTAgentDecoder(nn.Module):
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
-        if self.pred_init:
+        if self.pred_init or ("gt_z_raw"  not in tokenized_agent.keys()):
             current_step=1
+            max_step = 17
 
         head_a = gt_head[:, :current_step]
         mask = gt_valid[:, :current_step]
@@ -223,7 +224,6 @@ class SMARTAgentDecoder(nn.Module):
                 pos_a[batch_mask]=pos_a1
                 head_a[batch_mask]=head_a1
                 sampled_idx[batch_mask]=sampled_idx1
-                max_step = 17
 
             mask=torch.ones_like(mask[:, :current_step])
             token_mask = torch.ones_like(token_mask[:, :current_step])
