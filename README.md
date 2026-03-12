@@ -17,7 +17,7 @@ rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_allocate_inputv_noego/20
 rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t60_noego_l4/2026-03-05_09-44-23/bc/g7mfxfw2/checkpoints/epoch=31-step=389600.ckpt ./
 
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4/2026-03-05_09-44-23/bc/g7mfxfw2/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_diff_shape3/2026-03-11_12-45-30/bc/w61gyv8f/checkpoints/epoch=31-step=389600.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_noego_diff_localhead_cfg3/2026-03-10_05-16-00/bc/220h2hs5/checkpoints/epoch=39-step=76120.ckpt ./
