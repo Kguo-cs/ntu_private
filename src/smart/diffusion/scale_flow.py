@@ -251,11 +251,12 @@ class ScaleFlow(nn.Module):
             #t_next=torch.zeros_like(x)+t_next
             tokenized_agent, scene_enc, eval_mask = labels
             #z_next=(1 - t_next) * torch.randn_like(x)+ t_next * x
-            clustering=tokenized_agent["clustering"]
+            increasing=tokenized_agent["increasing"]
+            non_increasing=~increasing
 
 
-            z[~clustering] = z[~clustering] + (t_next - t_n[~clustering]) * v_pred[~clustering]
-            z[clustering] = (1-t_next)*torch.randn_like(x[clustering])+ t_next * x[clustering]
+            z[non_increasing] = z[non_increasing] + (t_next - t_n[non_increasing]) * v_pred[non_increasing]
+            z[increasing] = (1-t_next)*torch.randn_like(x[increasing])+ t_next * x[increasing]
 
             # z[~clustering]=z[~clustering]+ (0.9+0.1*t_next - t_n[~clustering]) * v_pred[~clustering]
             #
@@ -414,7 +415,10 @@ class ScaleFlow(nn.Module):
 
                     # tokenized_agent_scale["padding_mask"]=padding_mask
                     if self.use_cluster:
-                        tokenized_agent["clustering"] = (schedule_i != counts)[agent_batch][eval_mask]
+                        # print(torch.all((schedule_i != counts)== (schedule_i != schedule_i1)))
+
+                        # tokenized_agent["clustering"] = (schedule_i != counts)[agent_batch][eval_mask]
+                        tokenized_agent["increasing"] = (schedule_i != schedule_i1)[agent_batch][eval_mask]
 
                     #z_scale=z[first_i_veh_mask]
 
