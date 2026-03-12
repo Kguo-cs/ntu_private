@@ -358,7 +358,17 @@ class InitDenoiser(nn.Module):
                 else:
                     gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
             else:
-                gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)
+                vel_heading = torch.atan2(rel_vel[:, 1], rel_vel[:, 0])
+                pred_pos=transform_to_global(
+                    center_token_traj,
+                    None,
+                    - rel_vel*0.5,
+                    vel_heading,
+                )[0]
+                gt_initial_idx = torch.linalg.norm(pred_pos, dim=-1).argmin(-1)
+
+                #gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)
+
 
             gt_initial_pos,gt_initial_heading,gt_initial_idx=gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None]
 
