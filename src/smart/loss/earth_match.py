@@ -272,7 +272,7 @@ def get_matching_loss(
     fake_pos, fake_heading, fake_shape = fake_state[:, :2], fake_state[:, 2:4], fake_state[:, 4:]
     real_pos, real_heading, real_shape = real_state[:, :2], real_state[:, 2:4], real_state[:, 4:]
 
-    fake_idx, real_idx=get_closest_sum_idx(fake_norm_state, real_norm_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
+    fake_idx, real_idx=get_closest_sum_idx(fake_state, real_state, batch, initial_type,all_state=all_state,use_all_type=use_all_type)
 
 
     match_loss, pos_loss, heading_loss, shape_loss, vel_loss = matching_loss(
