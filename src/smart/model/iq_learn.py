@@ -64,9 +64,9 @@ class IQ_SoftQ(LightningModule):
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
-        if self.encoder.agent_encoder.init_decoder.use_dit:
-
-            self.automatic_optimization=False
+        # if self.encoder.agent_encoder.init_decoder.use_dit:
+        #
+        #     self.automatic_optimization=True
 
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
@@ -425,7 +425,7 @@ class IQ_SoftQ(LightningModule):
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
 
-        if self.encoder.agent_encoder.init_decoder.use_dit:
+        if not self.automatic_optimization:
 
             self.optimizer.zero_grad()
 
