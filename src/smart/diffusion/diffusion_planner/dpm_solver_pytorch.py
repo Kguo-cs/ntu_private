@@ -283,7 +283,7 @@ def model_wrapper(
     def noise_pred_fn(x, t_continuous, cond=None):
         t_input = get_model_input_time(t_continuous)
         if cond is None:
-            output = model(x, t_input, **model_kwargs)
+            output = model(x, t_input, **model_kwargs)[:,0]
         else:
             output = model(x, t_input, cond, **model_kwargs)
         if model_type == "noise":

@@ -47,6 +47,8 @@ from torch.func import functional_call, jvp
 from src.smart.utils.cluster import batch_increasing_schedule, allocate_k_per_type
 from .denoiser import InitDenoiser
 from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
+from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
+
 
 def power_schedule(steps, device, alpha=2.0):
     return 1 - (1 - torch.linspace(0, 1, steps, device=device)) ** alpha
@@ -94,26 +96,28 @@ class ScaleFlow(nn.Module):
         all_gt = diff_input
 
         B = tokenized_agent["num_graphs"]
+        agent_batch = tokenized_agent["nonego_batch"]
 
         t = torch.rand(B, device=all_gt.device) * (1 - eps) + eps  # [B,]
         z = torch.randn_like(all_gt, device=all_gt.device)  # [B, T, 4]
 
+        t = t[agent_batch][:,None]
+
+
         mean, std = self.sde.marginal_prob(all_gt, t)
-        std = std.view(-1, *([1] * (len(all_gt.shape) - 1)))
+        # std = std.view(-1, *([1] * (len(all_gt.shape) - 1)))
 
         xT = mean + std * z
 
-        v = self.sde.transform("noise->v", z, t, xT)
-
-        score = self.net(xT, t, tokenized_agent, scene_enc)  # [B, T, 4]
+        score = self.net(xT[:,None], t[:,None], tokenized_agent, scene_enc)[:,0]  # [B, T, 4]
 
         supervision_type='x_start'
 
-        model_type='x_start'
-
-        supervision_type = supervision_type if supervision_type is not None else model_type
-        pred_pattern = f"{model_type}->{supervision_type}"
-        score = self.sde.transform(pred_pattern, score, t, xT)
+        # model_type='x_start'
+        #
+        # supervision_type = supervision_type if supervision_type is not None else model_type
+        # pred_pattern = f"{model_type}->{supervision_type}"
+        # score1 = self.sde.transform(pred_pattern, score, t, xT)
 
         if supervision_type == "score":
             dpm_loss = torch.sum((score * std + z) ** 2, dim=-1)  # to avoid exploding variance
@@ -122,8 +126,64 @@ class ScaleFlow(nn.Module):
         elif supervision_type == "noise":
             dpm_loss = torch.sum((score - z) ** 2, dim=-1)
         elif supervision_type == "v":
+            v = self.sde.transform("noise->v", z, t, xT)
             dpm_loss = torch.sum((score - v) ** 2, dim=-1)
 
-        denom = (1 - t).clamp_min(self.t_eps)
+        denom = 1#(1 - t).clamp_min(self.t_eps)[:,0]
 
-        return dpm_loss,score[:,0],z,denom[:,0]
+        return dpm_loss,score[:,0],z,denom
+
+    def sample(self,
+               tokenized_agent: HeteroData,
+               scene_enc: Mapping[str, torch.Tensor],
+               eval_mask,
+               num_samples: int,
+               start_data=None,
+               reverse_steps=None,
+               sampling="ddpm",
+               stride=20,
+               if_output_diffusion_process=False,
+               ) -> Dict[str, torch.Tensor]:
+
+        agent_batch = tokenized_agent["nonego_batch"]
+        num_agents = len(agent_batch)
+
+        x_T = torch.randn([num_agents,  self.net.output_dim]).to(agent_batch.device)#* 0.1
+
+        noise_schedule = NoiseScheduleVP(
+            schedule='linear'
+        )
+
+        other_model_params = {
+            "scene_enc": scene_enc,
+            "tokenized_agent": tokenized_agent,
+        }
+        dpm_solver_params = {}
+        model_wrapper_params = {}
+
+        model_fn = model_wrapper(
+            self.net,  # use your noise prediction model here
+            noise_schedule,
+            model_type="x_start" ,  # or "x_start" or "v" or "score"
+            model_kwargs=other_model_params,
+            **model_wrapper_params
+        )
+        diffusion_steps=10
+
+        dpm_solver = DPM_Solver(
+            model_fn, noise_schedule, algorithm_type="dpmsolver++", **dpm_solver_params) # w.o. dynamic thresholding
+
+        # Steps in [10, 20] can generate quite good samples.
+        # And steps = 20 can almost converge.
+        sample_dpm = dpm_solver.sample(
+            x_T,
+            steps=diffusion_steps,
+            order=2,
+            skip_type="logSNR",
+            method="multistep",
+            denoise_to_zero=True,
+        )
+
+
+        return sample_dpm,[],[],[]
+

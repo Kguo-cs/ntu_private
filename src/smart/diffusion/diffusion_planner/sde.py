@@ -99,9 +99,9 @@ class VPSDE_linear(SDE):
         """
         Parameters to determine the marginal distribution of the SDE, $p_t(x)$.
         """
-        shape = x.shape
-        reshape = [-1] + [1, ] * (len(shape) - 1)
-        t = t.reshape(reshape)
+        #shape = x.shape
+        # reshape = [-1] + [1, ] * (len(shape) - 1)
+        # t = t.reshape(reshape)
         mean_log_coeff = -0.25 * t ** 2 * \
                          (self._beta_max - self._beta_min) - 0.5 * self._beta_min * t
 

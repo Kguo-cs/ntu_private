@@ -11,11 +11,6 @@ import copy
 from src.smart.loss.rollout_buffer import RunningMeanStdTorch, get_reward, get_nei_returns, get_return, \
     get_near_returns, per_scene_zscore_clip,rollout, compute_advantages,get_train_mask,get_reduce_loss
 from src.smart.loss.gp_penalty import compute_gp
-import torch.distributed as dist
-
-from src.smart.utils import wrap_angle
-
-
 
 
 class IQ_SoftQ(LightningModule):
@@ -69,10 +64,10 @@ class IQ_SoftQ(LightningModule):
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
 
+        if self.encoder.agent_encoder.init_decoder.use_dit:
 
+            self.automatic_optimization=False
 
-        # if self.encoder.agent_encoder.learn_init and (self.encoder.agent_encoder.use_gan or self.encoder.agent_encoder.init_decoder.use_gan):
-        #     self.automatic_optimization=False
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
@@ -429,4 +424,15 @@ class IQ_SoftQ(LightningModule):
         loss = self.iq_update(tokenized_map, tokenized_agent)
 
         self.log("train/loss", loss, on_step=True, batch_size=1)
+
+        if self.encoder.agent_encoder.init_decoder.use_dit:
+
+            self.optimizer.zero_grad()
+
+            loss.backward()
+            nn.utils.clip_grad_norm_(self.encoder.agent_encoder.init_decoder.parameters(), 5)
+            self.optimizer.step()
+
+            self.model_ema.update(self.encoder.agent_encoder.init_decoder)
+
         return loss

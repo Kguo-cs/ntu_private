@@ -399,7 +399,7 @@ class InitDenoiser(nn.Module):
         type,ego_embedding = self.drop_labels(type,ego_embedding,mode) if self.training else (type,ego_embedding)
 
         if self.use_roformer:
-            m_delta=m_delta[:,0]
+            m_delta=m_delta.reshape(m_delta.shape[0],-1)
             if self.use_dit:
                 pos_pl, orient_pl, map_emb,map_mask=scene_enc
 
@@ -414,7 +414,7 @@ class InitDenoiser(nn.Module):
 
                 feat_b=padding(ego_embedding+self.type_a_emb(type), lengths, padding_value=0)
 
-                t=padding(beta[:,0,0], lengths, padding_value=0) [:,0]
+                t=padding(beta.reshape(-1), lengths, padding_value=0) [:,0]
 
                 mask = torch.any(feat_b != 0, dim=-1)
 

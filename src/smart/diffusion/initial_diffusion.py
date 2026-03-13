@@ -25,9 +25,9 @@ class InitDiffusion(nn.Module):
 
         self.latent_diffusion=False
         self.use_gan = False
-        self.use_dit=False
+        self.use_dit=True
         self.sep_map=False
-        self.use_match=True
+        self.use_match=False
 
         self.use_all_pos=token_processor.use_all_pos
 
@@ -149,7 +149,7 @@ class InitDiffusion(nn.Module):
 
                     m_init = (m_init - self.agent_latents_mean.to(non_ego.device)) / self.agent_latents_scale.to(non_ego.device)
 
-                loss_diff_init,x_pred ,z,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,torch.ones_like(non_ego))
+                loss_diff_init,x_pred ,z,denom = self.G.get_loss(diff_input, tokenized_agent, map_feature,None)
 
                 if self.use_gan:
                     loss=self.get_gan_loss(m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego)
@@ -232,8 +232,8 @@ class InitDiffusion(nn.Module):
                 pred_init, tokenized_agent, non_ego
             )
 
-            if self.G.use_all_type:
-                tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
+            # if self.G.use_all_type:
+            #     tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
 
             return gt_initial_pos, gt_initial_heading,gt_initial_idx,gt_initial_vel
         

@@ -18,6 +18,11 @@ import torch
 import math
 from torch.optim.lr_scheduler import LambdaLR
 
+import torch.distributed as dist
+
+from src.smart.utils import wrap_angle
+from timm.utils import ModelEma
+from torch import optim
 
 class SMART_IQ(IQ_SoftQ, SMART):
     def __init__(self, model_config) -> None:
@@ -120,13 +125,26 @@ class SMART_IQ(IQ_SoftQ, SMART):
             # # actor_optimizer = torch.optim.AdamW(self.encoder.parameters(), lr=self.lr)
             # # lcf_optimizer = torch.optim.Adam(self.lcf_parameters.parameters(), lr=self.lr)
             # #list(self.encoder.map_encoder.parameters())+
+            self.model_ema = ModelEma(
+                self.encoder.agent_encoder.init_decoder,
+                decay=0.999,
+                device='cuda',
+            )
 
-            actor_optimizer=torch.optim.Adam(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.interative_decoder.parameters())+
-                                             list(self.encoder.agent_encoder.interative_decoder.parameters()) +  list(self.encoder.agent_encoder.agent_token_embedding.parameters())+
-                                             list( self.encoder.agent_encoder.init_decoder.G.parameters()), lr=self.lr)#,betas=(0.0,0.0)
-            discriminator_optimizer=torch.optim.Adam(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=self.lr)#,weight_decay=10
 
-            return [actor_optimizer, discriminator_optimizer]
+            # optimizer
+            params = [{'params': self.encoder.agent_encoder.init_decoder.parameters(), 'lr': 5e-4}]
+
+            self.optimizer = optim.AdamW(params)
+
+            return self.optimizer
+
+            # actor_optimizer=torch.optim.Adam(list(self.encoder.map_encoder.parameters())+list(self.encoder.agent_encoder.interative_decoder.parameters())+
+            #                                  list(self.encoder.agent_encoder.interative_decoder.parameters()) +  list(self.encoder.agent_encoder.agent_token_embedding.parameters())+
+            #                                  list( self.encoder.agent_encoder.init_decoder.G.parameters()), lr=self.lr)#,betas=(0.0,0.0)
+            # discriminator_optimizer=torch.optim.Adam(self.encoder.agent_encoder.init_decoder.D.parameters(), lr=self.lr)#,weight_decay=10
+            #
+            # return [actor_optimizer, discriminator_optimizer]
             # optimizers_list = configure_optimizers(self.encoder, muon_lr=0.02 * (self.lr / 1e-4), adam_lr=self.lr)
             #
             # optimizer = CombinedOptimizer(optimizers_list)
