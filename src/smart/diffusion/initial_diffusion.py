@@ -25,7 +25,7 @@ class InitDiffusion(nn.Module):
 
         self.latent_diffusion=False
         self.use_gan = False
-        self.use_dit=True
+        self.use_dit=False
         self.sep_map=False
         self.use_match=False
 

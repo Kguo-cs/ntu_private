@@ -47,6 +47,8 @@ from src.smart.layers.relative_transformer import RoFormerBlock, padding
 from torch.func import functional_call, jvp
 from src.smart.utils.cluster import batch_increasing_schedule,allocate_k_per_type
 from .denoiser import InitDenoiser
+from src.smart.diffusion.diffusion_planner.sde import SDE,VPSDE_linear
+from src.smart.diffusion.diffusion_planner.dpm_solver_pytorch import NoiseScheduleVP,model_wrapper,DPM_Solver
 
 
 def power_schedule(steps, device, alpha=2.0):
@@ -112,9 +114,14 @@ class ScaleFlow(nn.Module):
 
         self.P_mean=2
 
-        self.steps=512
+        self.steps=100
 
         self.use_cluster=False
+
+        self.use_vp=True
+
+        if self.use_vp:
+            self.sde = VPSDE_linear()
 
         self.apply(weight_init)
 
@@ -224,7 +231,11 @@ class ScaleFlow(nn.Module):
 
                 x[nan_mask]=0
 
-            z = (1 - t) * e + t * x #large t, low noise
+            if self.use_vp:
+                mean, std = self.sde.marginal_prob(x, t)
+                z = mean + std * e
+            else:
+                z = (1 - t) * e + t * x #large t, low noise
 
             #z=self.net.normalize_z(z)
 
@@ -245,7 +256,7 @@ class ScaleFlow(nn.Module):
 
                 x_pred =e+v_pred
 
-        return F.mse_loss(v_pred , v_target,reduction="none") ,x_pred[:,0],z,denom[:,0]
+        return F.mse_loss(x_pred , x,reduction="none") ,x_pred[:,0],z,denom[:,0]
 
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
@@ -336,10 +347,7 @@ class ScaleFlow(nn.Module):
 
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
-        if self.use_all_type:
-            z = torch.randn(num_agents,num_samples, self.net.output_dim, device=agent_batch.device)
-        else:
-            z = torch.randn(num_agents,num_samples, self.net.output_dim, device=agent_batch.device)
+        z = torch.randn(num_agents, num_samples, self.net.output_dim, device=agent_batch.device)
 
         if self.use_scale:
             agent_type = tokenized_agent["nonego_type_sorted"]
@@ -382,6 +390,40 @@ class ScaleFlow(nn.Module):
 
             z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
 
+        elif self.use_vp:
+            noise_schedule = NoiseScheduleVP(
+                schedule='linear'
+            )
+
+            other_model_params = {
+                "scene_enc": scene_enc,
+                "tokenized_agent": tokenized_agent,
+            }
+            dpm_solver_params = {}
+            model_wrapper_params = {}
+
+            model_fn = model_wrapper(
+                self.net,  # use your noise prediction model here
+                noise_schedule,
+                model_type="x_start",  # or "x_start" or "v" or "score"
+                model_kwargs=other_model_params,
+                **model_wrapper_params
+            )
+            diffusion_steps=self.steps
+
+            dpm_solver = DPM_Solver(
+                model_fn, noise_schedule, algorithm_type="dpmsolver++", **dpm_solver_params) # w.o. dynamic thresholding
+
+            # Steps in [10, 20] can generate quite good samples.
+            # And steps = 20 can almost converge.
+            z = dpm_solver.sample(
+                z[:,0],
+                steps=diffusion_steps,
+                order=2,
+                skip_type="logSNR",
+                method="multistep",
+                denoise_to_zero=True,
+            )[:,None]
         else:
             #dt = 1.0 / steps
             #timesteps = cosine_schedule(steps+1, z.device)

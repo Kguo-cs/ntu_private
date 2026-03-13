@@ -117,7 +117,7 @@ class ScaleFlow(nn.Module):
         #
         # supervision_type = supervision_type if supervision_type is not None else model_type
         # pred_pattern = f"{model_type}->{supervision_type}"
-        # score1 = self.sde.transform(pred_pattern, score, t, xT)
+        # score = self.sde.transform(pred_pattern, score, t, xT)
 
         if supervision_type == "score":
             dpm_loss = torch.sum((score * std + z) ** 2, dim=-1)  # to avoid exploding variance
