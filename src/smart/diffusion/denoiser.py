@@ -58,7 +58,7 @@ class InitDenoiser(nn.Module):
                  dropout: float,
                  diff_type: str,
                  m_dim: int,
-                 mean_flow
+                 mean_flow=False
                  ) -> None:
         super(InitDenoiser, self).__init__()
         self.dataset = dataset
@@ -88,7 +88,7 @@ class InitDenoiser(nn.Module):
 
         self.use_graph=False
         self.ego_rel = True
-        self.use_scale=True
+        self.use_scale=False
         noise_dim = 1
         if mean_flow:
             noise_dim = 2
