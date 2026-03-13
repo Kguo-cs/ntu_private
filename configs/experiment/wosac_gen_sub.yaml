@@ -35,7 +35,7 @@ model:
       learn_init: True
 
 
-ckpt_path: '/home/ke/code/sim/src/waymo_data/last.ckpt'
+ckpt_path: '/home/ke/code/sim/src/logs/dit256_cfg3_dit_noscale_Myvp/2026-03-13_20-04-59/bc/viwan5fh/checkpoints/epoch=3-step=7612.ckpt'
 
 trainer:
   limit_train_batches: 1.0

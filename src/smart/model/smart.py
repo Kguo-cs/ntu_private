@@ -318,6 +318,14 @@ class SMART(LightningModule):
                     pred_sizes=pred_sizes,
                     global_rank=self.global_rank,
                 )
+                # print(data["scenario_id"].mean())
+                # print(data["agent"]["id"].mean())
+                # print(data["agent"]["batch"].mean())
+                # print(pred_traj.mean())
+                # print(pred_z.mean())
+                # print(pred_head.mean())
+                # print(pred_sizes.mean())
+
                 _gpu_dict_sync = self.wosac_submission.compute()
                 if self.global_rank == 0:
                     for k in _gpu_dict_sync.keys():  # single gpu fix
