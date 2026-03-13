@@ -78,7 +78,6 @@ class ScaleFlow(nn.Module):
             dropout=args.dropout,
             diff_type=args.diff_type,
             m_dim=args.m_dim,
-            mean_flow=self.mean_flow
         )
 
         self.sde = VPSDE_linear()

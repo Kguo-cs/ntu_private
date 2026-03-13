@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from .scale_flow import ScaleFlow
 from argparse import ArgumentParser
 
 from src.smart.utils import (
@@ -28,6 +27,7 @@ class InitDiffusion(nn.Module):
         self.use_gan = False
         self.use_dit=False
         self.sep_map=False
+        self.use_match=False
 
         self.use_all_pos=token_processor.use_all_pos
 
@@ -47,14 +47,14 @@ class InitDiffusion(nn.Module):
             self.D=InitDiscriminator(hidden_dim,num_heads,num_freq_bands,token_processor)
 
         if self.use_dit:
-            from src.smart.diffusion.ldm import LDM
-
-            self.G = LDM()
+            from .diffusion import ScaleFlow
         else:
-            parser = ArgumentParser()
-            self.add_model_specific_args(parser)
-            args = parser.parse_args()
-            self.G = ScaleFlow(args,token_processor)
+            from .scale_flow import ScaleFlow
+
+        parser = ArgumentParser()
+        self.add_model_specific_args(parser)
+        args = parser.parse_args()
+        self.G = ScaleFlow(args,token_processor)
 
     def forward(self,  tokenized_agent):
         num_graphs=tokenized_agent["num_graphs"]
@@ -154,19 +154,28 @@ class InitDiffusion(nn.Module):
                 if self.use_gan:
                     loss=self.get_gan_loss(m_init,x_pred,map_feature, normal_scale,normal_mean,tokenized_agent,non_ego)
                 else:
-                    match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
-                                                                                                device=non_ego.device)
 
-                    match_loss, pos_loss, heading_loss, shape_loss, vel_loss,collision_loss = get_matching_loss(tokenized_agent,
-                                                                                                 self.G.net.denormalize(x_pred),
-                                                                                                 m_init,
-                                                                                                 x_pred,
-                                                                                                 self.G.net.normalize(m_init),
-                                                                                                 denom,
-                                                                                                 all_state=False,
-                                                                                                 use_col=False,
-                                                                                                 use_all_type=False
-                                                                                                 )
+                    if self.use_match:
+                        match_loss, pos_loss, heading_loss, shape_loss, vel_loss, collision_loss = get_matching_loss(
+                            tokenized_agent,
+                            self.G.net.denormalize(x_pred),
+                            m_init,
+                            x_pred,
+                            self.G.net.normalize(m_init),
+                            denom,
+                            all_state=False,
+                            use_col=False,
+                            use_all_type=False
+                            )
+
+                    else:
+                        match_loss = pos_loss = heading_loss = shape_loss = vel_loss =collision_loss= torch.tensor(0.0,
+                                                                                                    device=non_ego.device)
+
+                        match_loss= loss_diff_init.mean()
+
+
+
                     loss = (match_loss,loss_diff_init.mean(), collision_loss, pos_loss, heading_loss, shape_loss, vel_loss)
 
                 return loss
