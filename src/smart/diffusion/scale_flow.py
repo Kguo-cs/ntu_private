@@ -291,7 +291,7 @@ class ScaleFlow(nn.Module):
         if self.use_cluster:
             t_n=t_n[:,None,None]
         else:
-            t_n=torch.full((num_agents,1,1), t_n, device=eval_mask.device)
+            t_n=torch.full((num_agents,1,1), t_n, device=z.device)
 
         if self.use_scale:
             # if self.use_cluster:
@@ -337,9 +337,9 @@ class ScaleFlow(nn.Module):
         tokenized_agent["lengths"] = torch.bincount(agent_batch, minlength=num_scenes).tolist()
 
         if self.use_all_type:
-            z = torch.randn(num_agents,num_samples, self.net.output_dim, device=eval_mask.device)
+            z = torch.randn(num_agents,num_samples, self.net.output_dim, device=agent_batch.device)
         else:
-            z = torch.randn(num_agents,num_samples, self.net.output_dim, device=eval_mask.device)
+            z = torch.randn(num_agents,num_samples, self.net.output_dim, device=agent_batch.device)
 
         if self.use_scale:
             agent_type = tokenized_agent["nonego_type_sorted"]
@@ -376,8 +376,8 @@ class ScaleFlow(nn.Module):
         step_list=[]
 
         if self.mean_flow:
-            t = torch.ones(num_agents, device=eval_mask.device)[:,None]
-            r = torch.zeros(num_agents, device=eval_mask.device)[:,None]
+            t = torch.ones(num_agents, device=agent_batch.device)[:,None]
+            r = torch.zeros(num_agents, device=agent_batch.device)[:,None]
             beta = torch.cat([t, r], dim=-1)
 
             z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
@@ -385,7 +385,7 @@ class ScaleFlow(nn.Module):
         else:
             #dt = 1.0 / steps
             #timesteps = cosine_schedule(steps+1, z.device)
-            timesteps=torch.linspace(0,1,steps+1,device=eval_mask.device)
+            timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
 
             #timesteps = power_schedule(steps+1, z.device, alpha=2)
            # ts[0] = 1e-4
