@@ -419,7 +419,7 @@ class ScaleFlow(nn.Module):
             z = dpm_solver.sample(
                 z[:,0],
                 steps=diffusion_steps,
-                order=1,
+                order=3,
                 skip_type="logSNR",
                 method="singlestep",
                 denoise_to_zero=True,
