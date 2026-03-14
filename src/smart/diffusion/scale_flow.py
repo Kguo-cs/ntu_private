@@ -282,8 +282,6 @@ class ScaleFlow(nn.Module):
             #
             # z[clustering]=0.1*torch.randn_like(x[clustering])+ 0.9 * x[clustering]
         elif self.use_vp:
-            t_n=torch.clamp(t_n,min=1e-3,max=1-1e-3)
-
             dt = t_next - t_n  # negative
 
             # β(t)
@@ -295,10 +293,9 @@ class ScaleFlow(nn.Module):
             # σ_t
             sigma_t = self.sde.marginal_prob_std(t_n)
 
-            drift = (
-                    -0.5 * beta_t * z
-                    - beta_t * (alpha_t * x - z) / (sigma_t ** 2 + 1e-8)
-            )
+            score=(alpha_t * x - z) / (sigma_t ** 2 + 1e-8)
+
+            drift = -0.5 * beta_t * z - beta_t * score
 
             noise = torch.randn_like(x)
 
