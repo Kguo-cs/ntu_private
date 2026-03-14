@@ -414,9 +414,9 @@ class ScaleFlow(nn.Module):
             diffusion_steps=self.steps
 
             dpm_solver = DPM_Solver(
-                model_fn, noise_schedule, algorithm_type="dpmsolver++", **dpm_solver_params) # w.o. dynamic thresholding
+                model_fn, noise_schedule, algorithm_type="dpmsolver", **dpm_solver_params) # w.o. dynamic thresholding
 
-            # Steps in [10, 20] can generate quite good samples.
+            # Steps in [10, 20] can generate quite good samples.++
             # And steps = 20 can almost converge.
             z = dpm_solver.sample(
                 z[:,0],
