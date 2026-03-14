@@ -120,7 +120,7 @@ class ScaleFlow(nn.Module):
 
         self.use_vp=True
 
-        self.use_dpm_solver=True
+        self.use_dpm_solver=False
 
         if self.use_vp:
             self.sde = VPSDE_linear()
@@ -264,6 +264,8 @@ class ScaleFlow(nn.Module):
     def _euler_step(self, z, t, t_next, labels):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
 
+
+
         if self.use_cluster:
 
             #t_next=torch.zeros_like(x)+t_next
@@ -279,7 +281,32 @@ class ScaleFlow(nn.Module):
             # z[~clustering]=z[~clustering]+ (0.9+0.1*t_next - t_n[~clustering]) * v_pred[~clustering]
             #
             # z[clustering]=0.1*torch.randn_like(x[clustering])+ 0.9 * x[clustering]
+        elif self.use_vp:
+            dt = t_next - t_n  # negative
+
+            beta_t = self.sde.beta(t_n)
+
+            # alpha sigma
+            integral_beta = (
+                    0.5 * (self.sde.beta_min + self.sde.beta_max) * t_n
+            )  # simplified example
+
+            alpha_t = torch.exp(-0.5 * integral_beta)
+            sigma_t = torch.sqrt(1 - alpha_t ** 2)
+
+            # # model predicts x0
+            # x0_pred = model(x, t_cur)
+
+            drift = (
+                    -0.5 * beta_t * z
+                    - beta_t * (alpha_t * x - z) / (sigma_t ** 2 + 1e-8)
+            )
+
+            noise = torch.randn_like(x)
+
+            z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         else:
+
             z = z + (t_next - t_n) * v_pred
         return z,x
 
@@ -414,9 +441,9 @@ class ScaleFlow(nn.Module):
             diffusion_steps=self.steps
 
             dpm_solver = DPM_Solver(
-                model_fn, noise_schedule, algorithm_type="dpmsolver", **dpm_solver_params) # w.o. dynamic thresholding
+                model_fn, noise_schedule, algorithm_type="dpmsolver++", **dpm_solver_params) # w.o. dynamic thresholding
 
-            # Steps in [10, 20] can generate quite good samples.++
+            # Steps in [10, 20] can generate quite good samples.
             # And steps = 20 can almost converge.
             z = dpm_solver.sample(
                 z[:,0],
