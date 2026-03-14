@@ -284,18 +284,14 @@ class ScaleFlow(nn.Module):
         elif self.use_vp:
             dt = t_next - t_n  # negative
 
-            beta_t = self.sde.beta(t_n)
+            # β(t)
+            beta_t = (self.sde._beta_max - self.sde._beta_min) * t_n + self.sde._beta_min
 
-            # alpha sigma
-            integral_beta = (
-                    0.5 * (self.sde.beta_min + self.sde.beta_max) * t_n
-            )  # simplified example
+            # α_t
+            alpha_t = self.sde.marginal_alpha(t_n)
 
-            alpha_t = torch.exp(-0.5 * integral_beta)
-            sigma_t = torch.sqrt(1 - alpha_t ** 2)
-
-            # # model predicts x0
-            # x0_pred = model(x, t_cur)
+            # σ_t
+            sigma_t = self.sde.marginal_prob_std(t_n)
 
             drift = (
                     -0.5 * beta_t * z
