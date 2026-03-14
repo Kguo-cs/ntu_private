@@ -300,9 +300,9 @@ class ScaleFlow(nn.Module):
                     - beta_t * (alpha_t * x - z) / (sigma_t ** 2 + 1e-8)
             )
 
-           # noise = torch.randn_like(x)
+            noise = torch.randn_like(x)
 
-            z = z + drift * dt #@+ torch.sqrt(beta_t * (-dt)) * noise
+            z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
         else:
 
             z = z + (t_next - t_n) * v_pred
