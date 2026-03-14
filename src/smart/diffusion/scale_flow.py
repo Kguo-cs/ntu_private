@@ -421,7 +421,7 @@ class ScaleFlow(nn.Module):
                 steps=diffusion_steps,
                 order=2,
                 skip_type="logSNR",
-                method="adaptive",
+                method="singlestep",
                 denoise_to_zero=True,
             )[:,None]
         else:
