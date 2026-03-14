@@ -118,9 +118,25 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster=False
 
-        self.use_vp=True
+        self.use_vp=False
 
-        self.use_dpm_solver=True
+        self.use_dpm_solver=False
+
+        self.use_flow_ode=True
+
+        if self.use_flow_ode:
+            from .flow_planner.flow_ode import FlowODE
+            from flow_matching.path.affine import  AffineProbPath
+            from flow_matching.path.scheduler import  CondOTScheduler
+
+            from .flow_planner.time_sampler import TimeSampler
+            path=AffineProbPath(CondOTScheduler())
+
+
+            time_sampler=TimeSampler(device='cuda',eps=1e-3,alpha=1.0,beta=1.5)
+
+
+            self.flow_ode=FlowODE(path,time_sampler,cfg_weight=1.8,sample_steps=self.steps+1,sample_method='midpoint',sample_temperature=1)
 
         if self.use_vp:
             self.sde = VPSDE_linear()
@@ -174,7 +190,8 @@ class ScaleFlow(nn.Module):
             # if self.use_cluster:
             #     t_batch[tokenized_agent["clustering"]]=0.9
             #     t_batch[~tokenized_agent["clustering"]]=0.9+0.1*t_batch[~tokenized_agent["clustering"]]
-
+        elif self.flow_ode:
+            t_batch = self.flow_ode.time_sampler.sample(num_scenes).to(device)[:, None,None]
         else:
             t_batch = self.sample_t(num_scenes, device=device)[:, None,None].to(device)  # t ~ U[0,1]
 
@@ -236,6 +253,11 @@ class ScaleFlow(nn.Module):
             if self.use_vp:
                 mean, std = self.sde.marginal_prob(x, t)
                 z = mean + std * e
+            elif self.use_flow_ode:
+                path_sample = self.flow_ode.path.sample(x_0=e, x_1=x, t=t[:,0,0])
+
+                z=path_sample.x_t
+
             else:
                 z = (1 - t) * e + t * x #large t, low noise
 
@@ -411,6 +433,14 @@ class ScaleFlow(nn.Module):
             beta = torch.cat([t, r], dim=-1)
 
             z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
+
+        elif self.use_flow_ode:
+            other_model_params = {
+                "scene_enc": scene_enc,
+                "tokenized_agent": tokenized_agent,
+            }
+
+            z = self.flow_ode.generate(z, self.net, 'x_start', use_cfg=False, **other_model_params)#cfg_weight=1.8,
 
         elif self.use_dpm_solver:
             noise_schedule = NoiseScheduleVP(
