@@ -120,6 +120,8 @@ class ScaleFlow(nn.Module):
 
         self.use_vp=True
 
+        self.use_dpm_solver=True
+
         if self.use_vp:
             self.sde = VPSDE_linear()
 
@@ -390,7 +392,7 @@ class ScaleFlow(nn.Module):
 
             z = self.net(z, beta, tokenized_agent, scene_enc,eval_mask)
 
-        elif self.use_vp:
+        elif self.use_dpm_solver:
             noise_schedule = NoiseScheduleVP(
                 schedule='linear'
             )
@@ -419,7 +421,7 @@ class ScaleFlow(nn.Module):
             z = dpm_solver.sample(
                 z[:,0],
                 steps=diffusion_steps,
-                order=1,
+                order=3,
                 skip_type="logSNR",
                 method="singlestep_fixed",
                 denoise_to_zero=True,
