@@ -300,9 +300,9 @@ class ScaleFlow(nn.Module):
                     - beta_t * (alpha_t * x - z) / (sigma_t ** 2 + 1e-8)
             )
 
-            noise = torch.randn_like(x)
+           # noise = torch.randn_like(x)
 
-            z = z + drift * dt + torch.sqrt(beta_t * (-dt)) * noise
+            z = z + drift * dt #@+ torch.sqrt(beta_t * (-dt)) * noise
         else:
 
             z = z + (t_next - t_n) * v_pred
@@ -454,7 +454,10 @@ class ScaleFlow(nn.Module):
         else:
             #dt = 1.0 / steps
             #timesteps = cosine_schedule(steps+1, z.device)
-            timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
+            if self.use_vp:
+                timesteps = torch.linspace(self.sde.T, 1e-3, steps + 1, device=agent_batch.device)
+            else:
+                timesteps=torch.linspace(0,1,steps+1,device=agent_batch.device)
 
             #timesteps = power_schedule(steps+1, z.device, alpha=2)
            # ts[0] = 1e-4
