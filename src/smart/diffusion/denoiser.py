@@ -86,10 +86,10 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 5+3
 
 
-        self.use_graph=True
+        self.use_graph=False
         self.ego_rel = True
         self.use_scale=False
-        self.use_dit=False
+        self.use_dit=True
 
         noise_dim = 1
         if mean_flow:
@@ -414,6 +414,9 @@ class InitDenoiser(nn.Module):
                 feat_a = padding(m_delta, lengths, padding_value=0)  # b, n, d
 
                 feat_b=padding(ego_embedding+self.type_a_emb(type), lengths, padding_value=0)
+
+                if len(beta.shape)==0:
+                    beta=torch.zeros_like(m_delta[:,0])+beta
 
                 t=padding(beta.reshape(-1), lengths, padding_value=0) [:,0]
 
