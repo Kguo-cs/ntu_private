@@ -86,7 +86,7 @@ class InitDenoiser(nn.Module):
             m_delta_dim = 5+3
 
 
-        self.use_graph=False
+        self.use_graph=True
         self.ego_rel = True
         self.use_scale=False
         noise_dim = 1

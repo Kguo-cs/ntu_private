@@ -118,7 +118,7 @@ class ScaleFlow(nn.Module):
 
         self.use_cluster=False
 
-        self.use_vp=True
+        self.use_vp=False
 
         self.use_dpm_solver=False
 
@@ -263,8 +263,6 @@ class ScaleFlow(nn.Module):
     @torch.no_grad()
     def _euler_step(self, z, t, t_next, labels):
         v_pred,t_n,x = self._forward_sample(z, t, labels)
-
-
 
         if self.use_cluster:
 
