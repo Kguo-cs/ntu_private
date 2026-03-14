@@ -6,13 +6,13 @@ rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98
 
 rsync -avz /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
-rsync -avz -e "ssh -p 32884" /home/ke/code/sim/src/waymo_data/epoch=39-step=76120.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
+rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/logs/dit256_cfg3_dit_noscale_singlestep2_match/2026-03-13_23-00-12/bc/dnnzj3eo/checkpoints/epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
 rsync -avz /home/ke/code/sim/src/waymo_data/full/training_map2_init005_light lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/waymo_data/full/ 
 
 rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2026-01-16_16-27-20/bc/7zit9u2h/checkpoints/epoch=5-step=22830.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_cfg3_schedule1_70_nohead/2026-03-11_23-04-31/bc/szfrd7hk/checkpoints/epoch=63-step=121792.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_cfg3_dit_noscale_singlestep2_match/2026-03-13_23-00-12/bc/dnnzj3eo/checkpoints/epoch=63-step=121792.ckpt ./
 
 rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t60_noego_l4/2026-03-05_09-44-23/bc/g7mfxfw2/checkpoints/epoch=31-step=389600.ckpt ./
 
