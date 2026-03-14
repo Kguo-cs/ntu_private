@@ -435,7 +435,7 @@ class InitDenoiser(nn.Module):
                 # m_delta[:, 2:4] =m_delta[:, 2:4]/ torch.linalg.norm(m_delta[:, 2:4], dim=1, keepdim=True).clamp_min(1e-8)
 
                 #beta_emb_m = self.noise_embedding(beta,categorical_embs=self.type_a_emb(type))
-                beta_emb_m = self.noise_embedding(beta[:,0]) +self.type_a_emb(type)
+                beta_emb_m = self.noise_embedding(beta.reshape(-1,1)) +self.type_a_emb(type)
 
                 feat_a = feat_a + beta_emb_m
 
