@@ -714,6 +714,18 @@ bc40_start0eval0_inter2
 | minADE                                | **1.3393506** |
 
 
+/home/ke/code/sim/src/waymo_data/AIRL28_203_l4_nonego_0.7885.ckpt
+
+
+
+/home/ke/code/sim/src/waymo_data/AIRL28_203_l4_nonego_start1_0.7841.ckpt
+
+
+
+
+
+
+
 dit256_cfg3_schedule_nohead
 
 dit256_cfg3_schedule1_70_nohead
