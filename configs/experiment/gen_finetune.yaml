@@ -37,7 +37,7 @@ model:
       reward_decay: 2.5
 
 #ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-ckpt_path: './waymo_data/dit256_noscale.ckpt'
+ckpt_path: './waymo_data/AIRL28_203_l4_nonego_start1_0.7841.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
 
