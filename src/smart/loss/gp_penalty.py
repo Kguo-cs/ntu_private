@@ -53,8 +53,7 @@ def compute_gp(key,tokenized_agent,dis_mask,discriminator):
                                                        interpolates_pose[..., :2],
                                                        interpolates_pose[..., 2],
                                                        tokenized_agent,
-                                                       tokenized_agent["detach_map_feature"],
-                                                       abs_time=tokenized_agent["abs_time"])
+                                                       tokenized_agent["map_feature"])
 
         ego_logits, interact_logits = disc_out_interp[0]
         ego_logits = ego_logits[dis_mask]
