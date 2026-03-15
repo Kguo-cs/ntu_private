@@ -516,6 +516,8 @@ class ScaleFlow(nn.Module):
                 else:
                     z,x_cond =  self._euler_step(z, t, t_next, (tokenized_agent, scene_enc,eval_mask))
 
+                    #print(z[0])
+
                 #x_list.append(x_cond)
                 # batch_list.append(tokenized_agent_scale["nonego_batch"])
                 # step_list.append(torch.zeros_like(tokenized_agent_scale["nonego_batch"])+i)

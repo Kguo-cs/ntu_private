@@ -878,6 +878,11 @@ class InitDenoiser(nn.Module):
 
                 gt_initial_idx = torch.linalg.norm(center_token_traj - rel_vel[:, None] * 0.5, dim=-1).argmin(-1)
 
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                plt.scatter(x=center_token_traj[0,:,0].cpu().numpy(),y=center_token_traj[0,:,1].cpu().numpy())
+                plt.savefig('/home/ke/code/sim/src/1.png')
 
             gt_initial_pos,gt_initial_heading,gt_initial_idx=gt_initial_pos[:, None], gt_initial_heading[:, None],gt_initial_idx[:, None]
 
