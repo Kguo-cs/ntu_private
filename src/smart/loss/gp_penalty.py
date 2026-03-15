@@ -1,7 +1,7 @@
 import torch
 
 
-def compute_gp(key,tokenized_agent,dis_mask,discriminator):
+def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
     if key == "expert":
         tokenized_agent["expert_sampled_pos"] = tokenized_agent['sampled_pos'].clone()
         tokenized_agent["expert_sampled_heading"] = tokenized_agent['sampled_heading'].clone()
@@ -37,7 +37,10 @@ def compute_gp(key,tokenized_agent,dis_mask,discriminator):
         interp_pos = alpha[..., None] * expert_pos + (1.0 - alpha[..., None]) * policy_pos  # [B, N, 2]
         interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
 
-        train_valid_mask = valid_mask & tokenized_agent["train_mask"][:, None]
+        if tokenized_agent["train_mask"] is not None:
+            train_valid_mask = valid_mask & tokenized_agent["train_mask"][:, None]
+        else:
+            train_valid_mask = valid_mask
 
         interpolates_pose = torch.cat((interp_pos, interp_head[:, :, None]), dim=-1)
 
@@ -56,7 +59,7 @@ def compute_gp(key,tokenized_agent,dis_mask,discriminator):
                                                        tokenized_agent["map_feature"])
 
         ego_logits, interact_logits = disc_out_interp[0]
-        ego_logits = ego_logits[dis_mask]
+        ego_logits = ego_logits[dis_mask[mask_t.flatten(0, 1)]]  # valid ego logit
         logit = torch.cat([ego_logits, interact_logits], dim=0)
 
         disc_flat = logit.reshape(-1, 1)

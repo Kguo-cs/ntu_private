@@ -57,12 +57,14 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = True
+        self.use_gradient_penalty = False
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
         self.gail_start_step= self.encoder.agent_encoder.interative_decoder.gail_start_step
         self.dis_start_step = self.encoder.agent_encoder.interative_decoder.dis_start_step
+
+        self.pred_init=self.token_processor.pred_init
 
         # if self.encoder.agent_encoder.init_decoder.use_dit:
         #
@@ -71,12 +73,11 @@ class IQ_SoftQ(LightningModule):
 
     def get_QV(self, tokenized_map, tokenized_agent, key='expert'):
 
-        if key=="agent" and ( self.encoder.agent_encoder.interative_decoder.t_num_layers>1):
-            tokenized_agent["train_mask"]=None
+        tokenized_agent["train_mask"] = None
 
         pred = self.encoder(tokenized_map, tokenized_agent)
 
-        if key=="agent" and ( self.encoder.agent_encoder.interative_decoder.t_num_layers>1):
+        if key=="agent":
             tokenized_agent["train_mask"]=tokenized_agent["pred_mask"]
 
         if pred["next_token_logits"] is not None:
@@ -122,20 +123,6 @@ class IQ_SoftQ(LightningModule):
             self.log("train/" + key + "_entropy", entropy.mean().item(), on_step=True, batch_size=1)
         else:
             action_nll=log_prob=0
-
-        if pred["mask_token_logit"] is not None:
-            mask_token_logit=pred["mask_token_logit"]
-            pred_action_mask=pred["pred_action_mask"]
-
-            target_valid=tokenized_agent["token_mask"][:,1:][tokenized_agent["valid_mask"][:,:-1]]
-
-            pred_valid=target_valid & pred_action_mask
-
-            target_action=tokenized_agent["sampled_idx"][:,1:][tokenized_agent["valid_mask"][:,:-1]]
-
-            mask_nll = self.token_cls_loss(mask_token_logit/self.alpha, target_action[pred_valid])
-
-            self.log("train/" + key + "_mask_nll", mask_nll.item(), on_step=True, batch_size=1)
 
         if pred["initial_logit"] is not None:
 
@@ -308,7 +295,7 @@ class IQ_SoftQ(LightningModule):
         self.log("train/"+key+"_disc_val_std", disc_val.std().item(), on_step=True, batch_size=1)
 
         if self.use_gradient_penalty:
-            gp=compute_gp(key, tokenized_agent, dis_mask, self.encoder.discriminator)
+            gp=compute_gp(key, tokenized_agent, dis_mask,mask_t, self.encoder.discriminator)
             self.log("train/" + key + "_gp", gp, on_step=True, batch_size=1)
         else:
             gp=0
@@ -327,7 +314,11 @@ class IQ_SoftQ(LightningModule):
         if not self.gail:
             return expert_nll
 
-        tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
+        if self.pred_init:
+            tokenized_agent["train_mask"] = None
+            tokenized_agent["pred_mask"] =None
+        else:
+            tokenized_agent["train_mask"]=tokenized_agent["pred_mask"] #& tokenized_agent["token_mask"][:,self.start_step:].all(1)
 
         if self.encoder.learn_dis:
             expert_dis_loss,_,_,_,_,expert_dis_mask = self.get_reward(tokenized_agent, "expert")
@@ -341,21 +332,7 @@ class IQ_SoftQ(LightningModule):
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = True
 
-        # for m in self.encoder.agent_encoder.interative_decoder.t_attn_layers.modules():
-        #     if isinstance(m, nn.Dropout):
-        #         m.p = 0.0
-        # self.encoder.agent_encoder.interative_decoder.edge_encoder.hist_drop_prob = 0
-
-
         agent_nll, agent_log_prob = self.get_QV(tokenized_map, tokenized_agent_rollout, key='agent')
-
-
-
-        # for m in self.encoder.agent_encoder.interative_decoder.t_attn_layers.modules():
-        #     if isinstance(m, nn.Dropout):
-        #         m.p = 0.1
-        #
-        # self.encoder.agent_encoder.interative_decoder.edge_encoder.hist_drop_prob = 0.1
 
         self.encoder.agent_encoder.interative_decoder.edge_encoder.rollout_traj = False
 
@@ -366,7 +343,7 @@ class IQ_SoftQ(LightningModule):
             with torch.no_grad():
                 agent_dis_loss, agent_rewards, nei_rewards,agent_present_mask,agent_gp,_= self.get_reward(tokenized_agent_rollout, "agent",expert_dis_mask)
 
-        feat_a = tokenized_agent_rollout["feat_a"][-2]
+        feat_a = tokenized_agent_rollout["feat_a"]#[-2]
 
         value = self.encoder.value_network(feat_a)[..., 0]
 
