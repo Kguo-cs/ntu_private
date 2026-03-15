@@ -92,6 +92,10 @@ class SMARTAgentDecoder(nn.Module):
 
     def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0):
 
+        if self.discriminator:
+            pos_a=pos_a+torch.randn_like(pos_a)*1e-3
+            head_a=head_a+torch.randn_like(head_a)*1e-3
+
         n_agent, n_step = head_a.shape
 
         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
@@ -175,29 +179,29 @@ class SMARTAgentDecoder(nn.Module):
 
         if self.pred_init:
 
-            if "gt_z_raw" not in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-                batch=tokenized_agent["batch"]
-                exist_n=5
-                batch_mask=batch<exist_n
-
-                tokenized_agent_new={}
-
-                for key in {"initial_pos","initial_heading","batch","ego_mask","initial_type","initial_shape","initial_vel","token_traj"}:
-                    tokenized_agent_new[key]=tokenized_agent[key][batch_mask]
-
-                tokenized_agent_new["num_graphs"]=exist_n
-                tokenized_agent_new["ego_traj"]=tokenized_agent["ego_traj"][:exist_n]
-
-                batch_pl_mask=map_feature["batch"]<exist_n
-
-                new_map_features={}
-
-                for key in map_feature.keys():
-                    new_map_features[key]=map_feature[key][batch_pl_mask]
-
-                tokenized_agent_new["map_feature"]=new_map_features
-            else:
-                tokenized_agent_new=tokenized_agent
+            # if "gt_z_raw" not in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
+            #     batch=tokenized_agent["batch"]
+            #     exist_n=5
+            #     batch_mask=batch<exist_n
+            #
+            #     tokenized_agent_new={}
+            #
+            #     for key in {"initial_pos","initial_heading","batch","ego_mask","initial_type","initial_shape","initial_vel","token_traj"}:
+            #         tokenized_agent_new[key]=tokenized_agent[key][batch_mask]
+            #
+            #     tokenized_agent_new["num_graphs"]=exist_n
+            #     tokenized_agent_new["ego_traj"]=tokenized_agent["ego_traj"][:exist_n]
+            #
+            #     batch_pl_mask=map_feature["batch"]<exist_n
+            #
+            #     new_map_features={}
+            #
+            #     for key in map_feature.keys():
+            #         new_map_features[key]=map_feature[key][batch_pl_mask]
+            #
+            #     tokenized_agent_new["map_feature"]=new_map_features
+            # else:
+            tokenized_agent_new=tokenized_agent
 
             pos_a1, head_a1, sampled_idx1, initial_speed = self.init_decoder(tokenized_agent_new)
 
@@ -218,14 +222,17 @@ class SMARTAgentDecoder(nn.Module):
                 sampled_idx=sampled_idx1
                 max_step = 18
             else:
-                head_a = head_a[:, 1:]
-                mask = mask[:, 1:]
-                pos_a = pos_a[:, 1:]
-                sampled_idx = sampled_idx[:, 1:]
+                # head_a = head_a[:, 1:]
+                # pos_a = pos_a[:, 1:]
+                # sampled_idx = sampled_idx[:, 1:]
 
-                pos_a[batch_mask]=pos_a1
-                head_a[batch_mask]=head_a1
-                sampled_idx[batch_mask]=sampled_idx1
+                # pos_a[batch_mask]=pos_a1
+                # head_a[batch_mask]=head_a1
+                # sampled_idx[batch_mask]=sampled_idx1
+                pos_a=pos_a1
+                head_a=head_a1
+                sampled_idx=sampled_idx1
+
                 current_step = 1
                 max_step = 17
 
