@@ -57,7 +57,7 @@ class IQ_SoftQ(LightningModule):
             self.global_return_meanstd = RunningMeanStdTorch(shape=(1))
 
         self.use_lcf = self.encoder.use_lcf
-        self.use_gradient_penalty = False
+        self.use_gradient_penalty = True
         self.token_cls_loss = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
