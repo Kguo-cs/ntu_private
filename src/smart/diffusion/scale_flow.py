@@ -122,7 +122,7 @@ class ScaleFlow(nn.Module):
 
         self.use_dpm_solver=False
 
-        self.use_flow_ode=False
+        self.use_flow_ode=True
 
         if self.use_flow_ode:
             from .flow_planner.flow_ode import FlowODE
