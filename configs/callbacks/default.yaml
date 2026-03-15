@@ -22,7 +22,7 @@ model_checkpoint:
   save_weights_only: false
   every_n_train_steps: null
   train_time_interval: null
-  every_n_epochs: 4
+  every_n_epochs: 2
   save_on_train_epoch_end: false
 
 

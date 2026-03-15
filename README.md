@@ -4,7 +4,7 @@ nohup rsync -avz   ke@10.87.216.98:~/code/sim/src/waymo_data/map2_light  ./
 
 rsync -avz ~/code/sim/src/waymo_data/full/training_map2_03_light ke@10.87.216.98:~/code/sim/src/waymo_data/testing_map2light 
 
-rsync -avz /home/ke/code/sim/src/waymo_data/AIRL32_interdis_mean_203_disnodiff_nonego_epoch=9-step=152190_0.79036.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
+rsync -avz /home/ke/code/sim/src/waymo_data/AIRL28_203_l4_nonego_start1_0.7841.ckpt ke@10.87.114.128:~/keguo/sim/src/waymo_data/
 
 rsync -avz -e "ssh -p 32884" ~/keguo/sim/src/logs/dit256_cfg3_dit_noscale_singlestep2_match/2026-03-13_23-00-12/bc/dnnzj3eo/checkpoints/epoch=63-step=121792.ckpt guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/waymo_data/
 
@@ -20,7 +20,7 @@ rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t60_noego_l4/2026-03-05_09-
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_shape3/2026-03-12_10-03-35/bc/tui52q0o/checkpoints/epoch=31-step=389600.ckpt ./
 
 
-rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_noego_diff_localhead_cfg3/2026-03-10_05-16-00/bc/220h2hs5/checkpoints/epoch=39-step=76120.ckpt ./
+rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/AIRL28_203_l4_nonego_start1/2026-03-12_02-09-46/sim/nmapsp67/checkpoints/last.ckpt ./
 
 rsync -avz lyuchen@aspire2pntu.nscc.sg:~/scratch/keguo_projects/sim/src/logs/gen128_gpgenr12_graphdis_shape05/2026-01-08_19-10-39/bc/7jo5ft1x/checkpoints/epoch=15-step=60880.ckpt ./
 

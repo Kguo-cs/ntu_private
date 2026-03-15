@@ -40,8 +40,8 @@ model:
       reward_weight: 0
       reward_decay: 2.5
 
-#ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
-ckpt_path: './waymo_data/bc40_t60_noego_l4_epoch=31-step=389600.ckpt'
+ckpt_path : './waymo_data/last.ckpt'
+#ckpt_path: './waymo_data/bc40_t60_noego_l4_epoch=31-step=389600.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
 logger:
@@ -79,5 +79,5 @@ data:
   num_workers: 8
 
 #action: validate
-action: finetune
+#action: finetune
 # nohup python run.py > 1.txt 2>&1 &
