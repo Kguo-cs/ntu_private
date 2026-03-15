@@ -177,7 +177,7 @@ class ScaleFlow(nn.Module):
         e = torch.randn_like(x)  # base distribution N(0, I)
 
         if "step_idx" in tokenized_agent.keys():
-            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=eval_mask.device)
+            timesteps=torch.linspace(0,1,tokenized_agent["step_number"]+1,device=device)
             t_batch = timesteps[tokenized_agent["step_idx"]]
             # timesteps1=tokenized_agent["noise_schedule"]
             #

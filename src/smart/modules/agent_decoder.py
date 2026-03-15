@@ -221,6 +221,8 @@ class SMARTAgentDecoder(nn.Module):
                 head_a=head_a1
                 sampled_idx=sampled_idx1
                 max_step = 18
+                current_step = 1
+
             else:
                 # head_a = head_a[:, 1:]
                 # pos_a = pos_a[:, 1:]
