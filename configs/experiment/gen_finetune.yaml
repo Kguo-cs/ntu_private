@@ -41,7 +41,7 @@ ckpt_path: './waymo_data/dit256_noscale.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
 
-task_name: AIRL40_1e4 #_1_nodis0_l4_nonego #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL40_1e4_fine5 #_1_nodis0_l4_nonego #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 
 logger:
@@ -71,7 +71,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 12 #6
+  train_batch_size: 40 #6
   val_batch_size: 256
   test_batch_size: 10
   num_workers: 8

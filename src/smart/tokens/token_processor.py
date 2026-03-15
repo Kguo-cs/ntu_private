@@ -381,28 +381,7 @@ class TokenProcessor(torch.nn.Module):
             "token_contour":[]
            # 'token_valid':[]
         }
-        entry_token_invalid_mask = []
-        entry_idx_list = []
-        entry_pos_list=[]
-
-        entry_head_idx_list = []
-        entry_pos_offset_list = []
-        entry_type_list=[]
-        entry_shape_list=[]
-
-        # if self.learn_init:
-        #     n_step=11+10+5
-
         n_step = 11
-
-        if self.pred_entry and not self.autoregressive_entry:
-            out_dict["entry_idx"] = []
-
-            if self.match_all:
-                entry_pos_token = self.entry_pos_token[None].repeat(len(pos), 1, 1)  # .to(torch.float16)
-
-                entry_token_xy = entry_pos_token[:, :, :2]
-                entry_token_z = entry_pos_token[:, :, 2]
 
         for i in range(shift, n_step, shift):  # [5, 10, 15, ..., 90]
             _valid_mask = valid[:, i - shift] & valid[:, i]  # [n_agent]
