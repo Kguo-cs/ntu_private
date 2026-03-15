@@ -94,10 +94,11 @@ class AgentTokenEncoder(nn.Module):
 
     def get_embedding(self,agent_token_index,agent_type,token_mask):
 
-        n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
-        _device = agent_token_index.device
 
         if  not self.discriminator:
+            n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
+            _device = agent_token_index.device
+
             agent_token_emb = torch.zeros(
                 (n_agent, n_step, self.hidden_dim), device=_device
             )#previous invalid
@@ -123,6 +124,9 @@ class AgentTokenEncoder(nn.Module):
 
         else:
             if self.use_state_action:
+                n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
+                _device = agent_token_index.device
+
                 agent_token_emb = torch.zeros(
                     (n_agent, n_step-1, self.hidden_dim), device=_device, dtype=agent_token_index.dtype
                 )
