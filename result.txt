@@ -699,6 +699,19 @@ bc40_start0eval0_inter2
 /home/ke/code/sim/src/waymo_data/bc40_t60_noego_l4_nodiff_shape3_epoch=31-step=389600.ckpt
 
 
+| Metric                                | Value         |
+| ------------------------------------- | ------------- |
+| Realism meta-metric                   | **0.784819**  |
+| Linear Speed Likelihood               | 0.38617462    |
+| Linear Acceleration Likelihood        | 0.41055447    |
+| Angular Speed Likelihood              | 0.5196867     |
+| Angular Acceleration Likelihood       | 0.6624341     |
+| Distance To Nearest Object Likelihood | 0.39170793    |
+| Collision Likelihood                  | 0.97190344    |
+| Time To Collision Likelihood          | 0.83190036    |
+| Distance To Road Edge Likelihood      | 0.6810685     |
+| Offroad Likelihood                    | 0.9495301     |
+| minADE                                | **1.3393506** |
 
 
 dit256_cfg3_schedule_nohead
