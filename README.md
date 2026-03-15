@@ -14,10 +14,10 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/epoch=63-step=121792.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t60_noego_l4/2026-03-05_09-44-23/bc/g7mfxfw2/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_pt20/2026-03-13_23-05-35/bc/3vmil7bc/checkpoints/epoch=31-step=389600.ckpt ./
 
 
-rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_shape3/2026-03-12_10-03-35/bc/tui52q0o/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_pt20/2026-03-13_23-05-35/bc/3vmil7bc/checkpoints/epoch=31-step=389600.ckpt ./
 
 
 rsync -avz -e "ssh -p 32884" guoke@sprl-server9.dynip.ntu.edu.sg:~/sim/src/logs/dit256_noscale/2026-03-14_06-02-39/bc/wdv94nwp/checkpoints/last.ckpt ./
