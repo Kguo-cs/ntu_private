@@ -122,7 +122,7 @@ class ScaleFlow(nn.Module):
 
         self.use_dpm_solver=False
 
-        self.use_flow_ode=True
+        self.use_flow_ode=False
 
         if self.use_flow_ode:
             from .flow_planner.flow_ode import FlowODE
@@ -190,7 +190,7 @@ class ScaleFlow(nn.Module):
             # if self.use_cluster:
             #     t_batch[tokenized_agent["clustering"]]=0.9
             #     t_batch[~tokenized_agent["clustering"]]=0.9+0.1*t_batch[~tokenized_agent["clustering"]]
-        elif self.flow_ode:
+        elif self.use_flow_ode:
             t_batch = self.flow_ode.time_sampler.sample(num_scenes).to(device)[:, None,None]
         else:
             t_batch = self.sample_t(num_scenes, device=device)[:, None,None].to(device)  # t ~ U[0,1]
