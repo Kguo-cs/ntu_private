@@ -68,8 +68,8 @@ trainer:
   limit_val_batches: 1
   check_val_every_n_epoch: 1
  # val_check_interval: 0.5
-  #val_check_interval: 0.000002
-  max_epochs: 10
+  val_check_interval: 0.000002
+  max_epochs: 8
   gradient_clip_val: 0.0
 
 data:
@@ -79,5 +79,5 @@ data:
   num_workers: 8
 
 #action: validate
-#action: finetune
+action: finetune
 # nohup python run.py > 1.txt 2>&1 &
