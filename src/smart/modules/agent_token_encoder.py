@@ -40,12 +40,6 @@ class AgentTokenEncoder(nn.Module):
             input_dim_x_a=2
             
             self.differentiable_edge=False
-            
-            # if self.differentiable_edge:
-            #     input_dim_x_a+=1
-
-
-           # self.ego_embed =nn.Embedding(2, hidden_dim)
 
         self.use_goal = self.token_processor.use_goal & ((not discriminator) | self.token_processor.use_bird)
         self.use_bird=token_processor.use_bird
@@ -93,8 +87,6 @@ class AgentTokenEncoder(nn.Module):
 
 
     def get_embedding(self,agent_token_index,agent_type,token_mask):
-
-
         if  not self.discriminator:
             n_agent, n_step = agent_token_index.shape[0], agent_token_index.shape[1]
             _device = agent_token_index.device
@@ -102,7 +94,6 @@ class AgentTokenEncoder(nn.Module):
             agent_token_emb = torch.zeros(
                 (n_agent, n_step, self.hidden_dim), device=_device
             )#previous invalid
-            # agent_token_emb=self.invalid_token_emb.weight[None].repeat(n_agent,n_step,1)
 
             if self.use_type:
                 veh_mask =agent_type == 0
@@ -205,7 +196,7 @@ class AgentTokenEncoder(nn.Module):
             feature_a = torch.cat([feature_a, feature_goal], dim=-1)
 
         if agent_shape is not None:
-            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape[...,:self.shape_dim]) #+ self.ego_embed(ego_mask.long())
+            categorical_embs=self.type_a_emb(agent_type)+self.shape_emb(agent_shape[...,:self.shape_dim])
 
             categorical_embs=categorical_embs[None].repeat(n_step,1,1)
         else:

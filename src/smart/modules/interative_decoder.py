@@ -97,7 +97,6 @@ class InterativeDecoder(nn.Module):
                         dropout=hist_drop_prob,
                         bipartite=False,
                         has_pos_emb=True,
-                       # gated_attention=discriminator,
                     )
                     for _ in range(self.t_num_layers)
                 ]
@@ -116,7 +115,6 @@ class InterativeDecoder(nn.Module):
                         dropout=dropout,
                         bipartite=True,
                         has_pos_emb=True,
-                      #  gated_attention=discriminator,
                     )
                     for _ in range(num_layers)
                 ]
@@ -137,7 +135,6 @@ class InterativeDecoder(nn.Module):
                         dropout=dropout,
                         bipartite=False,
                         has_pos_emb=True,
-                    #    gated_attention=discriminator,
                     )
                     for _ in range(num_layers)
                 ]
@@ -145,7 +142,6 @@ class InterativeDecoder(nn.Module):
 
         self.n_token_agent=n_token_agent
 
-        self.mask_pred=False
         self.gail_start_step=2
         self.dis_start_step=2
 
@@ -193,6 +189,7 @@ class InterativeDecoder(nn.Module):
         mask_ta_flatten=mask_ta.flatten(0,1)
         n_pred_agent = inference_mask.shape[0]
         n_step = mask_a.shape[1]
+        current_len = inference_mask.sum()
 
         for layer_i in range(self.num_layers):
             if (self.use_decompose and self.discriminator):
@@ -239,17 +236,9 @@ class InterativeDecoder(nn.Module):
 
             feat_a = self.t_attn_layers[layer_i](feat_a, r_t, edge_index_t)
 
-            if self.discriminator:
-                if token_embeding is not None:
-                    if self.use_airl:
-                        feat_sa = feat_a[:-n_pred_agent] + token_embeding
-                    else:
-                        feat_a = feat_a + token_embeding
-            else:
-                current_len = inference_mask.sum()
-                feat_a = feat_a[-current_len:]
+            feat_a = feat_a[-current_len:]
 
-        if   self.edge_encoder.rollout_traj:
+        if self.edge_encoder.rollout_traj:
             if pred_mask is not None:
                 pred_repeat_mask = pred_mask[:, None].repeat(1, n_step).transpose(0, 1)
             else:
