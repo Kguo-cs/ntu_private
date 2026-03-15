@@ -14,7 +14,7 @@ rsync -avz ke@10.87.216.98:~/code/sim/src/logs/gen256_val256_std_w2_drop0_kl02/2
 
 rsync -avz ke@10.87.114.128:~/keguo/sim/src/waymo_data/epoch=63-step=121792.ckpt ./
 
-rsync -avz ke@10.87.114.128:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_pt20/2026-03-13_23-05-35/bc/3vmil7bc/checkpoints/epoch=31-step=389600.ckpt ./
+rsync -avz ke@10.87.114.128:~/keguo/sim/src/logs/dit256_noscale_start1/2026-03-15_13-57-23/bc/86x9ylmo/checkpoints/epoch=51-step=98956.ckpt ./
 
 
 rsync -avz zs@10.87.225.106:~/code/sim/src/logs/bc40_t60_noego_l4_nodiff_pt20/2026-03-13_23-05-35/bc/3vmil7bc/checkpoints/epoch=31-step=389600.ckpt ./
