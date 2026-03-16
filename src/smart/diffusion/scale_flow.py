@@ -421,7 +421,7 @@ class ScaleFlow(nn.Module):
             steps=schedule.shape[1]-1#max(veh_rank)+1#self.steps#512#
 
         else:
-            steps=10
+            steps=20
 
         x_list=[]
         batch_list=[]
