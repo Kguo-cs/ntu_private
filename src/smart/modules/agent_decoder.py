@@ -90,11 +90,7 @@ class SMARTAgentDecoder(nn.Module):
         if self.pred_init:
             self.init_decoder = InitDiffusion(hidden_dim, num_heads, num_freq_bands, token_processor)
 
-    def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature, n_current=0):
-
-        # if self.discriminator:
-        #     pos_a=pos_a+torch.randn_like(pos_a)*1e-3
-        #     head_a=head_a+torch.randn_like(head_a)*1e-3
+    def predict_agent(self, sampled_idx,token_mask, mask_a ,pos_a,head_a,tokenized_agent, map_feature,shape, n_current=0):
 
         n_agent, n_step = head_a.shape
 
@@ -106,7 +102,7 @@ class SMARTAgentDecoder(nn.Module):
             head_vector_a=head_vector_a,  # [n_agent, n_step, 2]
             mask_a=mask_a,
             agent_type=tokenized_agent["type"],  # [n_agent]
-            agent_shape=tokenized_agent["shape"],  # [n_agent, 3]
+            agent_shape=shape,  # [n_agent, 3]
             token_mask=token_mask,
             batch_idx=tokenized_agent['batch'],
             goal_pos=tokenized_agent["goal_pos"],
@@ -136,7 +132,7 @@ class SMARTAgentDecoder(nn.Module):
             tokenized_agent: Dict[str, torch.Tensor],
             map_feature: Dict[str, torch.Tensor],
     ) :
-        entry_logit = next_token_logits = mask_token_logit=pred_action_mask =initial_logit=None
+        next_token_logits = initial_logit=None
 
         if self.learn_init:
             initial_logit = self.init_decoder(tokenized_agent)
@@ -147,19 +143,16 @@ class SMARTAgentDecoder(nn.Module):
                                                                                     tokenized_agent["sampled_pos"][:,:-1],
                                                                                     tokenized_agent["sampled_heading"][:,:-1] ,
                                                                                     tokenized_agent,
-                                                                                    map_feature
-                                                                                                         )
+                                                                                    map_feature,
+                                                                                    tokenized_agent["shape"]
+                                                                                    )
 
             tokenized_agent["next_token_logits"] = next_token_logits
-            tokenized_agent["entry_logit"] = entry_logit
             tokenized_agent["initial_logit"] = initial_logit
             tokenized_agent["feat_a"] = feat_a
 
         return {
-            "pred_action_mask":pred_action_mask,
-            "mask_token_logit":mask_token_logit,
             "initial_logit":initial_logit,
-            "entry_logit":entry_logit,
             "next_token_logits": next_token_logits
          }
 
@@ -169,6 +162,7 @@ class SMARTAgentDecoder(nn.Module):
         gt_valid=tokenized_agent["valid_mask"].clone()
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
+        shape=tokenized_agent["shape"]
 
         if "gt_z_raw" not in tokenized_agent.keys():
             max_step = 17
@@ -181,7 +175,7 @@ class SMARTAgentDecoder(nn.Module):
         token_mask=tokenized_agent["token_mask"][:, :current_step].clone()
 
         if self.pred_init:
-            pos_a, head_a, sampled_idx, initial_speed = self.init_decoder(tokenized_agent)
+            pos_a, head_a, sampled_idx,shape,initial_speed = self.init_decoder(tokenized_agent)
 
             if self.token_processor.use_all_pos:
                 out_dict = {
@@ -201,19 +195,6 @@ class SMARTAgentDecoder(nn.Module):
                 max_step = 18
                 current_step = 1
 
-            # else:
-            #     # head_a = head_a[:, 1:]
-            #     # pos_a = pos_a[:, 1:]
-            #     # sampled_idx = sampled_idx[:, 1:]
-            #
-            #     # pos_a[batch_mask]=pos_a1
-            #     # head_a[batch_mask]=head_a1
-            #     # sampled_idx[batch_mask]=sampled_idx1
-            #     pos_a=pos_a1
-            #     head_a=head_a1
-            #     sampled_idx=sampled_idx1
-
-
             mask=torch.ones_like(mask[:, :current_step])
             token_mask = torch.ones_like(token_mask[:, :current_step])
 
@@ -225,7 +206,7 @@ class SMARTAgentDecoder(nn.Module):
 
         for t in range(current_step, max_step + current_step):
             if t == current_step:
-                if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None:
+                if "next_token_logits" in tokenized_agent.keys() and tokenized_agent["next_token_logits"] is not None and not self.pred_init:
 
                     next_token_logits=tokenized_agent["next_token_logits"][a_num*(current_step-1):a_num*current_step]
 
@@ -237,17 +218,13 @@ class SMARTAgentDecoder(nn.Module):
                     self.interative_decoder.feat_a_cache =[feat[:current_step] for feat in self.interative_decoder.feat_a_cache ]
                 else:
                     next_token_logits,a2a_feature,_,_,feat_a = self.predict_agent(sampled_idx,token_mask, mask, pos_a,
-                                                                head_a,tokenized_agent, map_feature,0)
+                                                                head_a,tokenized_agent, map_feature,shape,0)
             else:
                 next_token_logits, a2a_feature, _, _, feat_a = self.predict_agent(
                     sampled_idx[:, -1:], token_mask[:, -1:], mask[:, -1:],
-                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, t - 1)
+                    pos_a[:, -2:], head_a[:, -1:], tokenized_agent, map_feature, shape,t - 1)
 
-            next_sampled=Categorical(logits=next_token_logits / self.alpha).sample()
-
-            next_token_idx = torch.zeros_like(sampled_idx[:, -1])
-            if len(next_token_logits):
-                next_token_idx[next_mask] = next_sampled[-next_mask.sum():]
+            next_token_idx=Categorical(logits=next_token_logits / self.alpha).sample()
 
             sampled_idx = torch.cat([sampled_idx, next_token_idx[:, None]], dim=1)
 
@@ -272,7 +249,6 @@ class SMARTAgentDecoder(nn.Module):
 
             pos_a_next = token_traj_global[:, -1].mean(dim=1)
             diff_xy_next = token_traj_global[:, -1, 0] - token_traj_global[:, -1, 3]
-
             head_a_next = torch.arctan2(diff_xy_next[:, 1], diff_xy_next[:, 0])
 
             next_token_mask = mask[:, -1] & next_mask
@@ -281,15 +257,12 @@ class SMARTAgentDecoder(nn.Module):
 
             token_mask = torch.cat([token_mask, next_token_mask[:, None]], dim=1)
 
-            pos_a_next=pos_a_next.masked_fill(~next_mask.unsqueeze(1), 0)
-            head_a_next=head_a_next.masked_fill(~next_mask, 0)
-
             pos_a = torch.cat([pos_a, pos_a_next.unsqueeze(1)], dim=1)
             head_a = torch.cat([head_a, head_a_next.unsqueeze(1)], dim=1)
 
         out_dict = {
             "type": tokenized_agent["type"],
-            "shape": tokenized_agent["shape"],
+            "shape": shape,
             "batch": tokenized_agent["batch"],
             "sampled_pos": pos_a,  # [n_agent, 18, 2]
             "sampled_heading": head_a,  # [n_agent, 18]
@@ -298,11 +271,9 @@ class SMARTAgentDecoder(nn.Module):
             "sampled_idx": sampled_idx,  # [n_agent, 18]
         }
 
-        if len(pred_traj_10hz):
-            out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
-
         if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
             out_dict["pred_head_10hz"] =torch.cat(pred_head_10hz, dim=1)
+            out_dict["pred_traj_10hz"] = torch.cat(pred_traj_10hz, dim=1)
 
             if self.pred_init:
                 out_dict["pred_traj_10hz"] = torch.cat([pos_a[:,:1],out_dict["pred_traj_10hz"]], dim=1)

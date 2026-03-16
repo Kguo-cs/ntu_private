@@ -242,7 +242,9 @@ class IQ_SoftQ(LightningModule):
                                                             tokenized_agent["sampled_pos"] ,
                                                             tokenized_agent["sampled_heading"],
                                                             tokenized_agent,
-                                                            tokenized_agent["map_feature"])
+                                                            tokenized_agent["map_feature"],
+                                                            tokenized_agent["shape"]
+                                                            )
 
         ego_logits, interact_logits = disc_out[0]
 

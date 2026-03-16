@@ -235,7 +235,7 @@ class InitDiffusion(nn.Module):
             # if self.G.use_all_type:
             #     tokenized_agent['nonego_type_sorted']=torch.argmax(pred_init[:,-3:], dim=-1)
 
-            return gt_initial_pos, gt_initial_heading,gt_initial_idx,gt_initial_vel
+            return gt_initial_pos, gt_initial_heading,gt_initial_idx,shape,gt_initial_vel
         
     @staticmethod
     def add_model_specific_args(parent_parser):

@@ -791,8 +791,6 @@ class InitDenoiser(nn.Module):
 
         shape[non_ego, :2] = pred_shape[:, :2]
 
-        tokenized_agent["shape"] = shape
-
         batch_ego_pos=tokenized_agent["batch_ego_pos"]
         batch_ego_heading=tokenized_agent["batch_ego_heading"]
 
