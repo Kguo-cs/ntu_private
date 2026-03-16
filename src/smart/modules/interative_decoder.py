@@ -64,9 +64,23 @@ class InterativeDecoder(nn.Module):
         self.reward_weight=reward_weight
         self.reward_decay=reward_decay
 
+        self.pl2a_radius = pl2a_radius
+        self.a2a_radius = a2a_radius
+        self.pt2a_neighbor = pt2a_neighbor
+        self.a2a_neighbor = a2a_neighbor
+        self.token_processor=token_processor
+
         self.head_dim = hidden_dim // num_heads
 
         self.agent_hist = self.time_span // self.shift
+        self.n_token_agent=n_token_agent
+        self.discriminator = discriminator
+        self.use_decompose=True
+        self.use_full_feature=False
+        self.use_airl=False
+
+        self.gail_start_step=1
+        self.dis_start_step=1
 
         self.edge_encoder = EdgeEncoder(hidden_dim,
                                         num_freq_bands,
@@ -84,8 +98,6 @@ class InterativeDecoder(nn.Module):
             self.t_num_layers = 1
         else:
             self.t_num_layers = num_layers
-
-        self.agent_hist = self.time_span // self.shift
 
         if self.edge_encoder.use_t2t:
             self.t_attn_layers = nn.ModuleList(
@@ -120,11 +132,6 @@ class InterativeDecoder(nn.Module):
                 ]
             )
 
-        self.discriminator = discriminator
-        self.use_decompose=True
-        self.use_full_feature=False
-        self.use_airl=False
-
         if not (discriminator and self.use_decompose and not self.use_full_feature):
             self.a2a_attn_layers = nn.ModuleList(
                 [
@@ -139,17 +146,6 @@ class InterativeDecoder(nn.Module):
                     for _ in range(num_layers)
                 ]
             )
-
-        self.n_token_agent=n_token_agent
-
-        self.gail_start_step=1
-        self.dis_start_step=1
-
-        self.pl2a_radius = pl2a_radius
-        self.a2a_radius = a2a_radius
-        self.pt2a_neighbor = pt2a_neighbor
-        self.a2a_neighbor = a2a_neighbor
-        self.token_processor=token_processor
 
         if self.discriminator:
             if self.use_decompose:
