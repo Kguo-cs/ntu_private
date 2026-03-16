@@ -6,7 +6,7 @@ defaults:
 
 model:
   model_config:
-    lr: 5e-5
+    lr: 1e-4
     lr_min_ratio: 0.05
     token_processor:
       map_token_sampling: # open-loop
@@ -40,7 +40,7 @@ model:
 ckpt_path: './waymo_data/dit256_noscale.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
-task_name: AIRL20_5e5_ALL_sample20 #_grad
+task_name: AIRL20_1e4_ALL_sample20_dismask #_grad
 
 logger:
   wandb:

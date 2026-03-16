@@ -445,26 +445,3 @@ class InterativeDecoder(nn.Module):
             rewards=(rewards[0]-rewards_counter[0],rewards[1],rewards[2],rewards[3])
 
         return next_token_logits,feat_a_value,rewards,weight,(edge_index_a2a, r_a2a,relative_pos)
-
-
-    def pred_mask_logit(self, action, pred_action_mask, a2a_feature, target_valid, feat_a):
-
-        action[pred_action_mask] = self.n_token_agent
-
-        edge_index_a2a, r_a2a, relative_pos = a2a_feature
-
-        action_feature = self.action_embed(action)
-
-        feat_a = feat_a + action_feature
-
-        pred_valid =  pred_action_mask
-
-        end_mask = pred_valid[edge_index_a2a[1]]
-        edge_index_a2a = edge_index_a2a[:, end_mask]
-        r_a2a = r_a2a[end_mask]
-
-        feat_a_all = self.a2a_inter(feat_a, r_a2a, edge_index_a2a)
-
-        mask_token_logit = self.action_predict_head(feat_a_all[pred_valid])
-
-        return mask_token_logit

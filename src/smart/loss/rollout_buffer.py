@@ -569,7 +569,7 @@ def get_train_mask(tokenized_agent,start_step):
     return train_mask.transpose(0, 1)
 
 
-def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95,infinite_horizon=False):#0.95
+def compute_advantages(rewards, values,gamma=0.99,lam=0.95,infinite_horizon=False):#0.95
 
     values=values.reshape(rewards.shape[0],rewards.shape[1])
 
@@ -599,7 +599,7 @@ def compute_advantages(rewards, values,mask,gamma=0.99,lam=0.95,infinite_horizon
 
     returns = advantages + v_detach
 
-    value_loss = (returns - values)[mask].square().clamp(min=0, max=100).mean()
+    value_loss = (returns - values).square().clamp(min=0, max=100).mean()
 
     return advantages,value_loss
 

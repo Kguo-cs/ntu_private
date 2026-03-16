@@ -189,9 +189,6 @@ class SMARTAgentDecoder(nn.Module):
                 return out_dict
 
             if "gt_z_raw" in tokenized_agent.keys():  # 10hz predictions for wosac evaluation and submission
-                # pos_a=pos_a1
-                # head_a=head_a1
-                # sampled_idx=sampled_idx1
                 max_step = 18
                 current_step = 1
 
