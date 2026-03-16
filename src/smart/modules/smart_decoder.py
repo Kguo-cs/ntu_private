@@ -188,10 +188,7 @@ class SMARTDecoder(nn.Module):
 
             self.agent_encoder.interative_decoder.gail=self.gail
 
-    def forward(
-        self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor],post_sampling=False,
-            use_critic=False
-    ) -> Dict[str, Tensor]:
+    def forward( self, tokenized_map: Dict[str, Tensor], tokenized_agent: Dict[str, Tensor]  ) -> Dict[str, Tensor]:
         if "map_feature" in tokenized_agent:
             map_feature = tokenized_agent["map_feature"]
         else:
