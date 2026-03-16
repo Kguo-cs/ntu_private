@@ -79,20 +79,20 @@ class TokenProcessor(torch.nn.Module):
         if not self.training:
             tokenized_map = self.tokenize_map(data)
 
-            if self.pred_init:
-                batch = data["agent"]["batch"]
-
-                type = data["agent"]["type"]
-
-                ego_mask = torch.ones_like(batch)
-                ego_mask[:-1] = batch[:-1] != batch[1:]
-
-                sort_rank = batch.to(torch.float64)  * 30+ego_mask.to(torch.float64)*3 + type.to(torch.float64)
-
-                sort_idx = sort_rank.argsort()
-
-                for key in ['valid_mask', 'role', 'id', 'type', 'position', 'heading', 'velocity', 'shape']:
-                    data["agent"][key] = data["agent"][key][sort_idx]
+            # if self.pred_init:
+            #     batch = data["agent"]["batch"]
+            #
+            #     type = data["agent"]["type"]
+            #
+            #     ego_mask = torch.ones_like(batch)
+            #     ego_mask[:-1] = batch[:-1] != batch[1:]
+            #
+            #     sort_rank = batch.to(torch.float64)  * 30+ego_mask.to(torch.float64)*3 + type.to(torch.float64)
+            #
+            #     sort_idx = sort_rank.argsort()
+            #
+            #     for key in ['valid_mask', 'role', 'id', 'type', 'position', 'heading', 'velocity', 'shape']:
+            #         data["agent"][key] = data["agent"][key][sort_idx]
 
             tokenized_agent = self.tokenize_agent(data)
 

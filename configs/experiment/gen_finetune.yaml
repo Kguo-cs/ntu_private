@@ -31,7 +31,7 @@ model:
       dis_a2a_radius: 60
       dis_a2a_neighbor: 20
 
-      dis_weight: 5
+      dis_weight: 20
       dist_decay: 3
       reward_weight: 0
       reward_decay: 2.5
