@@ -170,6 +170,9 @@ class SMARTAgentDecoder(nn.Module):
         gt_sampled_idx=tokenized_agent["sampled_idx"].clone()
         token_traj_all = tokenized_agent["token_traj_all"]
 
+        if "gt_z_raw" not in tokenized_agent.keys():
+            max_step = 17
+            current_step=1
 
         head_a = gt_head[:, :current_step]
         mask = gt_valid[:, :current_step]

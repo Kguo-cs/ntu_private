@@ -142,8 +142,8 @@ class InterativeDecoder(nn.Module):
 
         self.n_token_agent=n_token_agent
 
-        self.gail_start_step=2
-        self.dis_start_step=2
+        self.gail_start_step=1
+        self.dis_start_step=1
 
         self.pl2a_radius = pl2a_radius
         self.a2a_radius = a2a_radius
