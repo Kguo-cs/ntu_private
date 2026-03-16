@@ -677,8 +677,10 @@ class TokenProcessor(torch.nn.Module):
                         tokenized_agent["token_mask"]=torch.cat([agent["valid_mask"][:,:1], agent["valid_mask"][:,:-1]], dim=-1)
 
                     if self.pred_init:
-                        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,1]
-                        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:,1]
+                        start_idx=0
+
+                        tokenized_agent["initial_pos"] = tokenized_agent["sampled_pos"][:,start_idx]
+                        tokenized_agent["initial_heading"] = tokenized_agent["sampled_heading"][:,start_idx]
                         tokenized_agent["initial_type"]=tokenized_agent["type"]
                         tokenized_agent["initial_shape"]=tokenized_agent["shape"]
 
@@ -686,9 +688,9 @@ class TokenProcessor(torch.nn.Module):
                         ego_mask = torch.ones_like(batch).to(bool)
                         ego_mask[:-1] = batch[:-1] != batch[1:]
 
-                        ego_idx=tokenized_agent["sampled_idx"][ego_mask][:,2:4]
-                        ego_head=tokenized_agent["sampled_heading"][ego_mask][:,1:3]
-                        ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,1:3]
+                        ego_idx=tokenized_agent["sampled_idx"][ego_mask][:,start_idx+1:start_idx+3]
+                        ego_head=tokenized_agent["sampled_heading"][ego_mask][:,start_idx:start_idx+2]
+                        ego_pos=tokenized_agent["sampled_pos"][ego_mask][:,start_idx:start_idx+2]
 
                         ego_token_traj_all=tokenized_agent["token_traj_all"][ego_mask].mean(-2)
 

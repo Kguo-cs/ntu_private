@@ -258,7 +258,7 @@ class InitDiffusion(nn.Module):
         parser.add_argument('--submission_dir', type=str, default='./')
         parser.add_argument('--submission_file_name', type=str, default='submission')
         parser.add_argument('--qcnet_map_ckpt_path', type=str, required=False)
-        parser.add_argument('--num_denoiser_layers', type=int, default=6)
+        parser.add_argument('--num_denoiser_layers', type=int, default=3)
         parser.add_argument('--num_diffusion_steps', type=int, default=100)
         parser.add_argument('--beta_1', type=float, default=1e-4)
         parser.add_argument('--beta_T', type=float, default=0.05)
