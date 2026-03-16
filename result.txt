@@ -716,10 +716,12 @@ bc40_start0eval0_inter2
 
 /home/ke/code/sim/src/waymo_data/AIRL28_203_l4_nonego_0.7885.ckpt
 
-
+0.7879
 
 /home/ke/code/sim/src/waymo_data/AIRL28_203_l4_nonego_start1_0.7841.ckpt
 
+
+0.7876
 
 /home/ke/code/sim/src/waymo_data/bc40_t60_noego_l4_nodiff_pt20_epoch=31-step=389600.ckpt
 

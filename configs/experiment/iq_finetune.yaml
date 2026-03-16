@@ -40,8 +40,8 @@ model:
       reward_weight: 0
       reward_decay: 2.5
 
-#ckpt_path : './waymo_data/last.ckpt'
-ckpt_path: './waymo_data/bc40_t60_noego_l4_epoch=31-step=389600.ckpt'
+#ckpt_path : './ckpts/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
+ckpt_path: './waymo_data/bc40_inter1_hist0_t3_noego_alldiff_epoch=31-step=389600.ckpt'
 #ckpt_path: '/home/ke/code/sim/src/waymo_data/bc40_inter1_hist0_t3_epoch=31-step=389600.ckpt'
 
 logger:
@@ -61,7 +61,7 @@ logger:
     job_type: ""
     resume: allow
 
-task_name: AIRL20_203_l4_nonego_all #_start1 #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
+task_name: AIRL24_203_l4_nonego_all #_start1 #_t3_no_R #__nodiffmean #_R #_pre0 #_mean_weight1 #_noshare2_hist01 # #_start2 #_Noexit_mean_sepedge #_hist01oldinteredgetokenoldiqlearn_nodetach_START_dis_LOGIT #_newreward
 
 trainer:
   limit_train_batches: 1.0
@@ -73,7 +73,7 @@ trainer:
   gradient_clip_val: 0.0
 
 data:
-  train_batch_size: 20 #6
+  train_batch_size: 24 #6
   val_batch_size: 64
   test_batch_size: 10
   num_workers: 8
