@@ -15,7 +15,7 @@ def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
         expert_shape=tokenized_agent["expert_shape"]
         policy_pos = tokenized_agent["sampled_pos"]  # [B, N, 2]
         policy_head = tokenized_agent["sampled_heading"]  # [B, N, 1]
-        policy_shape = tokenized_agent["sampled_shape"]
+        policy_shape = tokenized_agent["shape"]
 
         dis_loss = 'r2'
 
@@ -39,7 +39,7 @@ def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
 
         interp_pos = alpha[..., None] * expert_pos + (1.0 - alpha[..., None]) * policy_pos  # [B, N, 2]
         interp_head = alpha * expert_head + (1.0 - alpha) * policy_head  # [B, N, 1]
-        interp_shape = alpha * expert_shape + (1.0 - alpha) * policy_shape  # [B, N, 1]
+        interp_shape = alpha[:,0, None] * expert_shape[..., :2] + (1.0 - alpha[:,0, None]) * policy_shape[..., :2]  # [B, N, 1]
 
         if tokenized_agent["train_mask"] is not None:
             train_valid_mask = valid_mask & tokenized_agent["train_mask"][:, None]
@@ -52,6 +52,8 @@ def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
 
         interpolates.requires_grad_(True)  # IMPORTANT
 
+        interp_shape.requires_grad_(True)
+
         interpolates_pose[train_valid_mask] = interpolates
 
         disc_out_interp = discriminator.predict_agent(None,
@@ -61,7 +63,7 @@ def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
                                                        interpolates_pose[..., 2],
                                                        tokenized_agent,
                                                        tokenized_agent["map_feature"],
-                                                      interp_shape
+                                                       interp_shape
                                                       )
 
         ego_logits, interact_logits = disc_out_interp[0]
@@ -71,17 +73,19 @@ def compute_gp(key,tokenized_agent,dis_mask,mask_t,discriminator):
         disc_flat = logit.reshape(-1, 1)
         grad_outputs = torch.ones_like(disc_flat)
 
+        #interpolates=torch.cat([interp_shape.flatten(),interpolates.flatten()])
+
         # Compute gradients wrt interpolated inputs
-        grad_all = torch.autograd.grad(
-            outputs=disc_flat,  # whatever you use
-            inputs=interpolates,
+        grad_interpolates, grad_shape = torch.autograd.grad(
+            outputs=disc_flat,
+            inputs=(interpolates, interp_shape),  # multiple inputs
             grad_outputs=grad_outputs,
             create_graph=True,
             retain_graph=True,
             only_inputs=True,
-        )[0]
+        )
 
-        grad_norm = grad_all.norm(2, dim=1)  # [B]
+        grad_norm = torch.cat([grad_interpolates.norm(2, dim=1),grad_shape.norm(2, dim=1)])  # [B]
         gp_lambda = 1
 
         if dis_loss == 'r1' or dis_loss == 'r2':
